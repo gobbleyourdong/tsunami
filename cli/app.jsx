@@ -421,10 +421,11 @@ function App({ serverUrl, singleTask }) {
 // ── Messages ──
 function MessageView({ msg, cols }) {
   if (msg.type === 'user') {
+    const pad = Math.max(0, cols - msg.text.length - 3);
     return (
       <Box flexDirection="column" marginTop={1} marginBottom={1}>
-        <Box paddingLeft={1}>
-          <Text backgroundColor="#2a2a3a" color="white"> {msg.text} </Text>
+        <Box>
+          <Text backgroundColor="#2a2a3a" color="white"> {msg.text}{' '.repeat(pad)}</Text>
         </Box>
         {msg.files && msg.files.length > 0 && (
           <Box marginLeft={2}>
