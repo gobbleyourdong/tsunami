@@ -36,9 +36,10 @@ class MessageInfo(BaseTool):
             "required": ["text"],
         }
 
-    async def execute(self, text: str, **kw) -> ToolResult:
+    async def execute(self, text: str = "", **kw) -> ToolResult:
         global _last_displayed
-        print(f"\n  {text}")
+        if text:
+            print(f"\n  {text}")
         _last_displayed = text
         return ToolResult("Message delivered.")
 
@@ -86,7 +87,7 @@ class MessageResult(BaseTool):
             "required": ["text"],
         }
 
-    async def execute(self, text: str, attachments: list[str] | None = None, **kw) -> ToolResult:
+    async def execute(self, text: str = "", attachments: list[str] | None = None, **kw) -> ToolResult:
         global _last_displayed
         # Don't re-display if message_info already showed this exact text
         if text != _last_displayed:

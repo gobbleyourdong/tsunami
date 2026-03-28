@@ -11,6 +11,32 @@ from pathlib import Path
 from .base import BaseTool, ToolResult
 
 
+def _resolve_path(path: str, workspace_dir: str) -> Path:
+    """Resolve a file path.
+
+    If the path is relative (doesn't start with / or ~), resolve it
+    relative to the workspace directory. This ensures the agent writes
+    files into the workspace, not the process CWD.
+
+    Also strips redundant workspace prefix to avoid double-nesting
+    (e.g., model writes "workspace/deliverables/x" which would become
+    "workspace/workspace/deliverables/x" without this fix).
+    """
+    p = Path(path)
+    if not p.is_absolute() and not path.startswith("~"):
+        # Strip workspace dir name prefix if model included it
+        ws_name = Path(workspace_dir).name  # e.g. "workspace"
+        parts = p.parts
+        if parts and parts[0] == ws_name:
+            p = Path(*parts[1:]) if len(parts) > 1 else Path(".")
+        # Also handle "./workspace/..." or "workspace/..."
+        clean = str(p)
+        if clean.startswith(f"./{ws_name}/"):
+            p = Path(clean[len(f"./{ws_name}/"):])
+        p = Path(workspace_dir) / p
+    return p.expanduser().resolve()
+
+
 class FileRead(BaseTool):
     name = "file_read"
     description = "Read text content from a file. The eye: take in what exists."
@@ -28,7 +54,7 @@ class FileRead(BaseTool):
 
     async def execute(self, path: str, offset: int = 0, limit: int = 500, **kw) -> ToolResult:
         try:
-            p = Path(path).expanduser().resolve()
+            p = _resolve_path(path, self.config.workspace_dir)
             if not p.exists():
                 return ToolResult(f"File not found: {path}", is_error=True)
             if not p.is_file():
@@ -61,7 +87,7 @@ class FileWrite(BaseTool):
 
     async def execute(self, path: str, content: str, **kw) -> ToolResult:
         try:
-            p = Path(path).expanduser().resolve()
+            p = _resolve_path(path, self.config.workspace_dir)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content)
             lines = content.count("\n") + 1
@@ -87,7 +113,7 @@ class FileEdit(BaseTool):
 
     async def execute(self, path: str, old_text: str, new_text: str, **kw) -> ToolResult:
         try:
-            p = Path(path).expanduser().resolve()
+            p = _resolve_path(path, self.config.workspace_dir)
             if not p.exists():
                 return ToolResult(f"File not found: {path}", is_error=True)
 
@@ -124,7 +150,7 @@ class FileAppend(BaseTool):
 
     async def execute(self, path: str, content: str, **kw) -> ToolResult:
         try:
-            p = Path(path).expanduser().resolve()
+            p = _resolve_path(path, self.config.workspace_dir)
             p.parent.mkdir(parents=True, exist_ok=True)
             with open(p, "a") as f:
                 f.write(content)
