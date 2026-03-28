@@ -2,7 +2,7 @@
 # Configuration for the Resonant Ark
 
 # --- Primary Model (the reasoning core) ---
-model_backend: api
+model_backend: completion
 model_name: "qwen3-8b"
 model_endpoint: "http://localhost:8090"
 temperature: 0.7

@@ -136,13 +136,13 @@ class AgentState:
         for m in self.conversation:
             if m.role == "system":
                 if not first_system_done:
-                    # First system message stays as system
                     msgs.append({"role": "system", "content": m.content})
                     first_system_done = True
                 else:
-                    # Later system messages (watcher notes, errors) become user messages
-                    # to avoid Qwen3.5 "system must be first" template error
-                    msgs.append({"role": "user", "content": f"[System note: {m.content}]"})
+                    # Drop mid-conversation system notes entirely — they cause
+                    # Qwen3.5 Jinja "system must be first" template errors.
+                    # The info is not critical enough to risk crashing the call.
+                    pass
                 continue
             if m.role == "tool_result":
                 msgs.append({"role": "user", "content": m.content})
@@ -165,4 +165,13 @@ class AgentState:
                 msgs.append({"role": "assistant", "content": tc_text})
             else:
                 msgs.append({"role": m.role, "content": m.content})
-        return msgs
+
+        # Enforce strict user/assistant alternation — merge consecutive same-role
+        merged = []
+        for msg in msgs:
+            if merged and msg["role"] == merged[-1]["role"] and msg["role"] != "system":
+                merged[-1]["content"] += "\n" + msg["content"]
+            else:
+                merged.append(msg)
+
+        return merged

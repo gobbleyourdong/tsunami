@@ -203,6 +203,92 @@ class OpenAICompatModel(LLMModel):
         return LLMResponse(content=content, tool_call=tool_call, raw=data)
 
 
+class CompletionModel(LLMModel):
+    """Raw completion endpoint — no chat template, no Jinja, no template errors.
+
+    Formats the prompt manually and uses /completion instead of /v1/chat/completions.
+    Works with any llama-server regardless of chat template issues.
+    """
+
+    def __init__(self, model: str, endpoint: str, api_key: str | None = None,
+                 temperature: float = 0.7, max_tokens: int = 2048,
+                 top_p: float = 0.8, top_k: int = 20, presence_penalty: float = 1.5,
+                 **kwargs):
+        self.model = model
+        self.endpoint = endpoint.rstrip("/")
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.top_p = top_p
+        self.presence_penalty = presence_penalty
+
+    def _format_prompt(self, messages: list[dict], tools: list[dict] | None = None) -> str:
+        """Format messages into a raw text prompt."""
+        parts = []
+        for m in messages:
+            role = m["role"].upper()
+            content = m.get("content", "")
+            if role == "SYSTEM":
+                parts.append(f"<|system|>\n{content}\n")
+            elif role == "USER":
+                parts.append(f"<|user|>\n{content}\n")
+            elif role == "ASSISTANT":
+                parts.append(f"<|assistant|>\n{content}\n")
+
+        if tools:
+            tool_desc = "\n".join(
+                f"- {t['function']['name']}: {t['function']['description']}"
+                for t in tools if t.get("type") == "function"
+            )
+            # Insert tool list into the prompt
+            parts.insert(1, f"<|tools|>\nAvailable tools (respond with JSON {{\"name\": \"tool_name\", \"arguments\": {{...}}}}):\n{tool_desc}\n")
+
+        parts.append("<|assistant|>\n")
+        return "".join(parts)
+
+    async def _call(self, messages, tools=None) -> LLMResponse:
+        prompt = self._format_prompt(messages, tools)
+
+        payload = {
+            "prompt": prompt,
+            "temperature": self.temperature,
+            "n_predict": self.max_tokens,
+            "top_p": self.top_p,
+            "presence_penalty": self.presence_penalty,
+            "stop": ["<|user|>", "<|system|>", "<|end|>"],
+        }
+
+        async with httpx.AsyncClient(timeout=900) as client:
+            resp = await client.post(
+                f"{self.endpoint}/completion",
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        content = data.get("content", "")
+        tool_call = None
+
+        # Try to parse tool call from response
+        try:
+            # Look for JSON tool call in response
+            import re
+            tc_match = re.search(r'\{[^{}]*"name"\s*:\s*"(\w+)"[^{}]*"arguments"\s*:\s*(\{[^{}]*\})[^{}]*\}', content, re.DOTALL)
+            if not tc_match:
+                # Try simpler pattern
+                tc_match = re.search(r'"name"\s*:\s*"(\w+)".*?"arguments"\s*:\s*(\{.*?\})', content, re.DOTALL)
+
+            if tc_match:
+                name = tc_match.group(1)
+                args = json.loads(tc_match.group(2))
+                tool_call = ToolCall(name=name, arguments=args)
+                # Remove tool call from content
+                content = content[:tc_match.start()].strip()
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        return LLMResponse(content=content, tool_call=tool_call, raw=data)
+
+
 def create_model(backend: str, model_name: str, endpoint: str,
                  api_key: str | None = None, **kwargs) -> LLMModel:
     """Factory function to create the appropriate model backend."""
@@ -210,6 +296,10 @@ def create_model(backend: str, model_name: str, endpoint: str,
         return OllamaModel(model=model_name, endpoint=endpoint, **kwargs)
     elif backend in ("vllm", "api", "openai"):
         return OpenAICompatModel(
+            model=model_name, endpoint=endpoint, api_key=api_key, **kwargs
+        )
+    elif backend == "completion":
+        return CompletionModel(
             model=model_name, endpoint=endpoint, api_key=api_key, **kwargs
         )
     else:
