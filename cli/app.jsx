@@ -204,6 +204,36 @@ function App({ serverUrl, singleTask }) {
       return true;
     }
 
+    if (cmd === '/attach') {
+      // If path provided, use it directly
+      if (parts[1]) {
+        const filePath = parts.slice(1).join(' ');
+        if (fs.existsSync(filePath)) {
+          setAttachedFiles(prev => [...prev, filePath]);
+          setMessages(prev => [...prev, { type: 'result', text: `Attached: ${path.basename(filePath)}` }]);
+        } else {
+          setMessages(prev => [...prev, { type: 'error', text: `File not found: ${filePath}` }]);
+        }
+        return true;
+      }
+
+      // No path — open system file picker
+      try {
+        const selected = execSync(
+          'zenity --file-selection --title="Attach file" 2>/dev/null || kdialog --getopenfilename ~ 2>/dev/null',
+          { encoding: 'utf-8', timeout: 30000 }
+        ).trim();
+        if (selected && fs.existsSync(selected)) {
+          setAttachedFiles(prev => [...prev, selected]);
+          setMessages(prev => [...prev, { type: 'result', text: `Attached: ${path.basename(selected)}` }]);
+        }
+      } catch(e) {
+        // User cancelled or no GUI available
+        setMessages(prev => [...prev, { type: 'result', text: 'Cancelled (or use /attach <path>)' }]);
+      }
+      return true;
+    }
+
     // Unknown slash command
     setMessages(prev => [...prev, { type: 'user', text }, { type: 'error', text: `Unknown command: ${cmd}. Type /help` }]);
     return true;
