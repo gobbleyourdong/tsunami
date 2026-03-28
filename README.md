@@ -72,14 +72,45 @@ The agent loop runs one tool per iteration — sequential reasoning. It analyzes
 ## Features
 
 - **35 tools** — file ops, shell, browser (Playwright), web search, planning, parallel batch, image generation, tunnel exposure, scheduling
-- **Ink CLI** — React-based terminal UI with spinner, action labels, file attachments
+- **Ink CLI** — React-based terminal UI with spinner, action labels, slash commands
 - **Web UI** — browser-based interface with real-time WebSocket streaming
-- **Vision** — attach images with `/attach path/to/image.png` (requires VL model + mmproj)
-- **Session persistence** — conversations saved as JSONL, resumable
+- **File attachments** — `/attach` opens system file picker, or `/attach <path>` directly
+- **Vision** — attach images for the agent to see (requires VL model + mmproj)
+- **Projects** — `/project` to list, switch, create projects with persistent `tsunami.md` context
+- **Image generation** — diffusion server, DALL-E, or any custom endpoint
+- **Session persistence** — conversations saved as JSONL
 - **Context compression** — automatic summarization when context grows too long
 - **The Watcher** — optional secondary model that reviews decisions
 - **Skills system** — extensible capability modules in `skills/`
 - **Auto model server** — detects GGUF in `models/`, starts llama-server automatically
+
+## Slash Commands
+
+Commands are instant — handled client-side, no agent involved.
+
+| Command | What it does |
+|---------|-------------|
+| `/project` | List all projects |
+| `/project <name>` | Switch to project (loads `tsunami.md` context) |
+| `/project new <name>` | Create new project with `tsunami.md` |
+| `/serve [port]` | Host active project on localhost |
+| `/attach` | Open file picker to attach a file |
+| `/attach <path>` | Attach a file by path |
+| `/help` | Show all commands |
+| `exit` | Quit |
+
+Everything else goes to the agent.
+
+### Projects
+
+Each project lives in `workspace/deliverables/<name>/` and has a `tsunami.md` file — persistent context that tells the agent what the project is, what's been done, and what's next. Like `CLAUDE.md` but per-project.
+
+```bash
+/project new my_website      # creates workspace/deliverables/my_website/tsunami.md
+/project my_website          # loads context, all tasks now know the project
+build me a landing page      # agent sees tsunami.md, knows the project
+/serve                       # host it on localhost:8080
+```
 
 ## Models Directory
 
