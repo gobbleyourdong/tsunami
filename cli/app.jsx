@@ -146,13 +146,17 @@ function App({ serverUrl, singleTask }) {
     }
 
     if (cmd === '/project') {
-      if (parts.length === 1) {
-        // List projects — shell out
+      const delDir = path.resolve(ARK_DIR, 'workspace/deliverables');
+
+      // List projects: /project or /project list
+      if (parts.length === 1 || parts[1] === 'list') {
         try {
-          const out = execSync('ls -1 workspace/deliverables/ 2>/dev/null', { cwd: ARK_DIR, encoding: 'utf-8' });
-          const dirs = out.trim().split('\n').filter(d => d && !d.startsWith('.'));
-          const list = dirs.length ? dirs.map(d => {
-            const hasTmd = fs.existsSync(path.resolve(ARK_DIR, 'workspace/deliverables', d, 'tsunami.md'));
+          const entries = fs.readdirSync(delDir).filter(d => {
+            try { return fs.statSync(path.join(delDir, d)).isDirectory() && !d.startsWith('.'); }
+            catch { return false; }
+          });
+          const list = entries.length ? entries.map(d => {
+            const hasTmd = fs.existsSync(path.join(delDir, d, 'tsunami.md'));
             const active = d === activeProject ? ' ← active' : '';
             return `  ${hasTmd ? '●' : '○'} ${d}${active}`;
           }).join('\n') : '  No projects yet. Use /project new <name>';
@@ -165,7 +169,7 @@ function App({ serverUrl, singleTask }) {
 
       if (parts[1] === 'new' && parts[2]) {
         const name = parts[2];
-        const projDir = path.resolve(ARK_DIR, 'workspace/deliverables', name);
+        const projDir = path.join(delDir, name);
         fs.mkdirSync(projDir, { recursive: true });
         fs.writeFileSync(path.join(projDir, 'tsunami.md'), `# ${name}\n\nNew project.\n`);
         setActiveProject(name);
@@ -175,8 +179,8 @@ function App({ serverUrl, singleTask }) {
 
       // Switch project
       const name = parts[1];
-      const projDir = path.resolve(ARK_DIR, 'workspace/deliverables', name);
-      if (!fs.existsSync(projDir)) {
+      const projDir = path.join(delDir, name);
+      if (!fs.existsSync(projDir) || !fs.statSync(projDir).isDirectory()) {
         setMessages(prev => [...prev, { type: 'user', text }, { type: 'error', text: `Project '${name}' not found` }]);
         return true;
       }
