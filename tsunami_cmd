@@ -221,8 +221,11 @@ def main():
     async def repl():
         from tsunami.agent import Agent
 
+        active_project = None
+
         while True:
             try:
+                prefix = f"  {DIM}[{active_project}]{RST} " if active_project else "  "
                 text = await asyncio.get_event_loop().run_in_executor(
                     None, lambda: session.prompt()
                 )
@@ -235,8 +238,72 @@ def main():
             if text.lower() in ("quit", "exit", "q", "/quit"):
                 break
 
+            # ── /project command ──
+            if text.startswith("/project"):
+                parts = text.split(None, 2)
+                if len(parts) == 1:
+                    # List projects
+                    projects = Agent.list_projects(config.workspace_dir)
+                    if not projects:
+                        print(f"  {DIM}no projects yet{RST}")
+                    else:
+                        print(f"  {DIM}Projects:{RST}")
+                        for p in projects:
+                            marker = "●" if p["has_tsunami_md"] else "○"
+                            active = " ← active" if p["name"] == active_project else ""
+                            print(f"  {marker} {p['name']} ({p['files']} files){active}")
+                    print()
+                    continue
+
+                cmd = parts[1]
+                if cmd == "new" and len(parts) == 3:
+                    # Create new project
+                    name = parts[2]
+                    proj_dir = os.path.join(config.workspace_dir, "deliverables", name)
+                    os.makedirs(proj_dir, exist_ok=True)
+                    # Create tsunami.md
+                    tmd_path = os.path.join(proj_dir, "tsunami.md")
+                    with open(tmd_path, "w") as f:
+                        f.write(f"# {name}\n\nNew project. Describe what this project is about.\n")
+                    active_project = name
+                    print(f"  {GREEN}Created project: {name}{RST}")
+                    print(f"  {DIM}Edit {tmd_path} to add project context{RST}")
+                    print()
+                    continue
+
+                # Set active project
+                name = cmd
+                agent = Agent(config)
+                summary = agent.set_project(name)
+                if "not found" in summary:
+                    print(f"  {RED}{summary}{RST}")
+                else:
+                    active_project = name
+                    print(f"  {summary}")
+                print()
+                continue
+
+            # ── /serve command ──
+            if text.startswith("/serve"):
+                parts = text.split()
+                port = parts[1] if len(parts) > 1 else "8080"
+                if active_project:
+                    serve_dir = os.path.join(config.workspace_dir, "deliverables", active_project)
+                else:
+                    serve_dir = os.path.join(config.workspace_dir, "deliverables")
+                import subprocess
+                subprocess.Popen(
+                    ["python3", "-m", "http.server", port, "--directory", serve_dir],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                print(f"  {GREEN}Serving {serve_dir} on http://localhost:{port}{RST}")
+                print()
+                continue
+
+            # ── Normal task ──
             print()
             agent = Agent(config)
+            if active_project:
+                agent.set_project(active_project)
             patch_agent(agent)
             try:
                 await agent.run(text)

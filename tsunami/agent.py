@@ -79,6 +79,62 @@ class Agent:
         # Stall detection
         self._empty_steps = 0
 
+        # Active project context
+        self.active_project: str | None = None
+        self.project_context: str = ""
+
+    def set_project(self, project_name: str) -> str:
+        """Set the active project and load its tsunami.md context."""
+        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+        if not project_dir.exists():
+            return f"Project '{project_name}' not found"
+
+        self.active_project = project_name
+        self.project_context = ""
+
+        # Read tsunami.md if it exists
+        tmd = project_dir / "tsunami.md"
+        if tmd.exists():
+            self.project_context = tmd.read_text()
+
+        # List project files
+        files = []
+        for f in sorted(project_dir.rglob("*")):
+            if f.is_file() and f.name != "tsunami.md":
+                size = f.stat().st_size
+                files.append(f"  {f.relative_to(project_dir)} ({size} bytes)")
+
+        summary = f"Active project: {project_name}\n"
+        summary += f"Path: {project_dir}\n"
+        if self.project_context:
+            summary += f"\n--- tsunami.md ---\n{self.project_context}\n"
+        if files:
+            summary += f"\nFiles:\n" + "\n".join(files)
+        else:
+            summary += "\nNo files yet."
+
+        return summary
+
+    @staticmethod
+    def list_projects(workspace_dir: str) -> list[dict]:
+        """List all projects in workspace/deliverables/."""
+        deliverables = Path(workspace_dir) / "deliverables"
+        if not deliverables.exists():
+            return []
+
+        projects = []
+        for d in sorted(deliverables.iterdir()):
+            if d.is_dir() and not d.name.startswith("."):
+                files = [f for f in d.rglob("*") if f.is_file()]
+                has_tmd = (d / "tsunami.md").exists()
+                projects.append({
+                    "name": d.name,
+                    "files": len(files),
+                    "has_tsunami_md": has_tmd,
+                    "path": str(d),
+                })
+        return projects
+
     async def run(self, user_message: str) -> str:
         """Run the agent loop on a user message until completion.
 
@@ -92,6 +148,10 @@ class Agent:
         system_prompt = build_system_prompt(
             self.state, self.config.workspace_dir, self.config.skills_dir
         )
+
+        # Inject project context if active
+        if self.active_project and self.project_context:
+            system_prompt += f"\n\n---\n\n# Active Project: {self.active_project}\n{self.project_context}"
         self.state.add_system(system_prompt)
         self.state.add_user(user_message)
 
