@@ -147,35 +147,9 @@ class AgentState:
             if m.role == "tool_result":
                 msgs.append({"role": "user", "content": m.content})
             elif m.role == "assistant" and m.tool_call:
-                # Summarize the tool call cleanly — don't expose raw JSON
-                func = m.tool_call.get("function", m.tool_call)
-                name = func.get("name", "")
-                args = func.get("arguments", {})
-                # Summarize what was done — plain English, no JSON, no brackets
-                # This prevents the model from mimicking the history format
-                if name == "message_info":
-                    tc_text = f"I told the user: {args.get('text', '')[:200]}"
-                elif name == "message_result":
-                    tc_text = f"I delivered the result: {args.get('text', '')[:200]}"
-                elif name == "message_ask":
-                    tc_text = f"I asked the user: {args.get('text', '')[:200]}"
-                elif name == "file_read":
-                    tc_text = f"I read the file {args.get('path', '')}"
-                elif name == "file_write":
-                    tc_text = f"I wrote to {args.get('path', '')}"
-                elif name == "file_edit":
-                    tc_text = f"I edited {args.get('path', '')}"
-                elif name == "shell_exec":
-                    tc_text = f"I ran: {args.get('command', '')[:100]}"
-                elif name == "search_web":
-                    tc_text = f"I searched for: {args.get('query', '')}"
-                elif name == "match_glob":
-                    tc_text = f"I searched for files matching: {args.get('pattern', '')}"
-                elif name == "match_grep":
-                    tc_text = f"I grepped for: {args.get('pattern', '')}"
-                else:
-                    tc_text = f"I used {name}"
-                msgs.append({"role": "assistant", "content": tc_text})
+                # Minimal assistant response — just "ok" to acknowledge
+                # Any descriptive text here gets mimicked by the model on next turn
+                msgs.append({"role": "assistant", "content": "ok"})
             else:
                 msgs.append({"role": m.role, "content": m.content})
 
