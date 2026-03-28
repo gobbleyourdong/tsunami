@@ -213,9 +213,13 @@ class Agent:
         if tool_call is None:
             # Model responded with text only — wrap in message_info
             # (enforcing the "always use tools" rule)
-            if response.content:
-                self.state.add_assistant(response.content)
-                tool_call = ToolCall(name="message_info", arguments={"text": response.content})
+            # Clean the content — strip any leaked thinking/JSON before storing
+            import re
+            clean = re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL).strip()
+            clean = re.sub(r'\{[^{}]*"name"\s*:.*', '', clean, flags=re.DOTALL).strip()
+            if clean:
+                self.state.add_assistant(clean)
+                tool_call = ToolCall(name="message_info", arguments={"text": clean})
             else:
                 self._empty_steps += 1
                 if self._empty_steps >= 3:

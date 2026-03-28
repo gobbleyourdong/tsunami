@@ -268,23 +268,55 @@ class CompletionModel(LLMModel):
         content = data.get("content", "")
         tool_call = None
 
-        # Try to parse tool call from response
-        try:
-            # Look for JSON tool call in response
-            import re
-            tc_match = re.search(r'\{[^{}]*"name"\s*:\s*"(\w+)"[^{}]*"arguments"\s*:\s*(\{[^{}]*\})[^{}]*\}', content, re.DOTALL)
-            if not tc_match:
-                # Try simpler pattern
-                tc_match = re.search(r'"name"\s*:\s*"(\w+)".*?"arguments"\s*:\s*(\{.*?\})', content, re.DOTALL)
+        import re
 
-            if tc_match:
-                name = tc_match.group(1)
-                args = json.loads(tc_match.group(2))
-                tool_call = ToolCall(name=name, arguments=args)
-                # Remove tool call from content
-                content = content[:tc_match.start()].strip()
-        except (json.JSONDecodeError, AttributeError):
+        # Strip <think>...</think> blocks (Qwen3.5 reasoning)
+        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+
+        # Try to parse tool call from response — find JSON with "name" and "arguments"
+        try:
+            # Find any JSON object that has "name" and "arguments"
+            # Use greedy matching for arguments since they can contain nested braces
+            for match in re.finditer(r'\{[^{}]*"name"\s*:\s*"[^"]+?"[^{}]*"arguments"\s*:\s*\{', content):
+                start = match.start()
+                # Find the matching closing brace for arguments
+                depth = 0
+                i = content.index('"arguments"', start)
+                i = content.index('{', i)
+                for j in range(i, len(content)):
+                    if content[j] == '{': depth += 1
+                    elif content[j] == '}': depth -= 1
+                    if depth == 0:
+                        # Find the outer closing brace
+                        end = content.index('}', j + 1) + 1 if j + 1 < len(content) and '}' in content[j+1:] else j + 1
+                        try:
+                            tc_json = json.loads(content[start:end])
+                            tool_call = ToolCall(
+                                name=tc_json["name"],
+                                arguments=tc_json["arguments"] if isinstance(tc_json["arguments"], dict) else json.loads(tc_json["arguments"]),
+                            )
+                            content = content[:start].strip()
+                            break
+                        except (json.JSONDecodeError, KeyError):
+                            # Try with just the inner part
+                            try:
+                                args_str = content[i:j+1]
+                                name_match = re.search(r'"name"\s*:\s*"(\w+)"', content[start:])
+                                if name_match:
+                                    tool_call = ToolCall(
+                                        name=name_match.group(1),
+                                        arguments=json.loads(args_str),
+                                    )
+                                    content = content[:start].strip()
+                                    break
+                            except (json.JSONDecodeError, KeyError):
+                                pass
+                        break
+        except (ValueError, IndexError):
             pass
+
+        # Clean up any remaining thinking/reasoning text
+        content = re.sub(r'^\s*I need to.*?(?=\n\n|\Z)', '', content, flags=re.DOTALL).strip()
 
         return LLMResponse(content=content, tool_call=tool_call, raw=data)
 
