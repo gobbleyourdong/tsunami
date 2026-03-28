@@ -7,6 +7,10 @@ import WebSocket from 'ws';
 import fs from 'fs';
 import path from 'path';
 import { execSync, spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ARK_DIR = path.resolve(__dirname, '..');
 
 // ── Banner: white froth → deep blue water ──
 const BANNER_LINES = [
@@ -145,10 +149,10 @@ function App({ serverUrl, singleTask }) {
       if (parts.length === 1) {
         // List projects — shell out
         try {
-          const out = execSync('ls -1 workspace/deliverables/ 2>/dev/null', { cwd: path.resolve(__dirname, '..'), encoding: 'utf-8' });
+          const out = execSync('ls -1 workspace/deliverables/ 2>/dev/null', { cwd: ARK_DIR, encoding: 'utf-8' });
           const dirs = out.trim().split('\n').filter(d => d && !d.startsWith('.'));
           const list = dirs.length ? dirs.map(d => {
-            const hasTmd = fs.existsSync(path.resolve(__dirname, '..', 'workspace/deliverables', d, 'tsunami.md'));
+            const hasTmd = fs.existsSync(path.resolve(ARK_DIR, 'workspace/deliverables', d, 'tsunami.md'));
             const active = d === activeProject ? ' ← active' : '';
             return `  ${hasTmd ? '●' : '○'} ${d}${active}`;
           }).join('\n') : '  No projects yet. Use /project new <name>';
@@ -161,7 +165,7 @@ function App({ serverUrl, singleTask }) {
 
       if (parts[1] === 'new' && parts[2]) {
         const name = parts[2];
-        const projDir = path.resolve(__dirname, '..', 'workspace/deliverables', name);
+        const projDir = path.resolve(ARK_DIR, 'workspace/deliverables', name);
         fs.mkdirSync(projDir, { recursive: true });
         fs.writeFileSync(path.join(projDir, 'tsunami.md'), `# ${name}\n\nNew project.\n`);
         setActiveProject(name);
@@ -171,7 +175,7 @@ function App({ serverUrl, singleTask }) {
 
       // Switch project
       const name = parts[1];
-      const projDir = path.resolve(__dirname, '..', 'workspace/deliverables', name);
+      const projDir = path.resolve(ARK_DIR, 'workspace/deliverables', name);
       if (!fs.existsSync(projDir)) {
         setMessages(prev => [...prev, { type: 'user', text }, { type: 'error', text: `Project '${name}' not found` }]);
         return true;
@@ -187,8 +191,8 @@ function App({ serverUrl, singleTask }) {
     if (cmd === '/serve') {
       const port = parts[1] || '8080';
       const serveDir = activeProject
-        ? path.resolve(__dirname, '..', 'workspace/deliverables', activeProject)
-        : path.resolve(__dirname, '..', 'workspace/deliverables');
+        ? path.resolve(ARK_DIR, 'workspace/deliverables', activeProject)
+        : path.resolve(ARK_DIR, 'workspace/deliverables');
       spawn('python3', ['-m', 'http.server', port, '--directory', serveDir], {
         detached: true, stdio: 'ignore'
       }).unref();
