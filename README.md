@@ -85,12 +85,44 @@ The agent loop runs one tool per iteration — sequential reasoning. It analyzes
 
 ```
 models/
-  Qwen3-8B-Q6_K.gguf                              ← text model
-  Qwen3-VL-8B-Abliterated-Caption-it.Q6_K.gguf    ← vision model (optional)
-  Qwen3-VL-8B-Abliterated-Caption-it.mmproj-f16.gguf  ← vision projector (required for VL)
+  Qwen3-8B-Q6_K.gguf                              ← text model (fast, 22 tok/s)
+  Qwen3.5-122B-A10B-MXFP4_MOE-*.gguf             ← 122B MoE (quality, 15 tok/s)
+  Qwen3-VL-8B + mmproj                             ← vision model (optional)
 ```
 
-Tsunami prefers the VL model if both are present. Falls back to text-only if no VL/mmproj found.
+Tsunami auto-detects models in priority order: 122B MoE > VL-8B > text-8B. Or point `--endpoint` at any OpenAI-compatible server.
+
+## Image Generation (Optional)
+
+Tsunami can generate images via the `generate_image` tool. It tries backends in order:
+
+**1. Diffusion server** (recommended) — Qwen-Image-2512 via Docker:
+
+```bash
+docker run --gpus all -d --ipc=host \
+  -v $(pwd):/ark -p 8091:8091 \
+  --name tsunami-diffusion \
+  nvcr.io/nvidia/pytorch:25.11-py3 \
+  bash -c "pip install -q diffusers transformers accelerate && \
+  python3 /ark/serve_diffusion.py"
+```
+
+**2. OpenAI DALL-E** — set `OPENAI_API_KEY` env var, uses DALL-E 3.
+
+**3. Any custom endpoint** — the tool hits `localhost:8091/generate` with a JSON body:
+
+```json
+POST /generate
+{
+  "prompt": "a blue ocean wave",
+  "width": 1024,
+  "height": 1024,
+  "steps": 30,
+  "save_path": "/ark/workspace/deliverables/wave.png"
+}
+```
+
+Returns PNG bytes. Swap in any image gen backend that speaks this protocol.
 
 ## File Structure
 
