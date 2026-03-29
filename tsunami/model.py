@@ -257,7 +257,7 @@ class CompletionModel(LLMModel):
             "n_predict": self.max_tokens,
             "top_p": self.top_p,
             "presence_penalty": self.presence_penalty,
-            "stop": ["<|user|>", "<|system|>", "<|end|>"],
+            "stop": ["<|im_start|>", "<|im_end|>", "<|endoftext|>"],
         }
 
         async with httpx.AsyncClient(timeout=900) as client:
