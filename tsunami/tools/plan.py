@@ -48,16 +48,25 @@ class PlanUpdate(BaseTool):
             "required": ["goal", "phases"],
         }
 
-    async def execute(self, goal: str, phases: list[dict], **kw) -> ToolResult:
+    async def execute(self, goal: str, phases: list = None, **kw) -> ToolResult:
         if _agent_state is None:
             return ToolResult("No agent state available", is_error=True)
+        if not phases:
+            return ToolResult("phases is required", is_error=True)
 
         plan_phases = []
         for i, p in enumerate(phases, 1):
+            # Accept both {"title": "..."} objects and plain strings
+            if isinstance(p, str):
+                title = p
+                capabilities = []
+            else:
+                title = p.get("title", str(p))
+                capabilities = p.get("capabilities", [])
             plan_phases.append(Phase(
                 id=i,
-                title=p["title"],
-                capabilities=p.get("capabilities", []),
+                title=title,
+                capabilities=capabilities,
                 status="active" if i == 1 else "pending",
             ))
 
