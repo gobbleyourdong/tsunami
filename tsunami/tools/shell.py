@@ -45,6 +45,11 @@ class ShellExec(BaseTool):
         }
 
     async def execute(self, command: str, timeout: int = 3600, workdir: str = "", **kw) -> ToolResult:
+        # Block destructive commands
+        import re
+        if re.search(r'rm\s+(-\w*)?r\w*\s+.*deliverables|rm\s+(-\w*)?r\w*\s+.*workspace', command):
+            return ToolResult("BLOCKED: rm -rf on deliverables/workspace is forbidden. Other projects live there.", is_error=True)
+
         try:
             # Resolve workdir — default to the ark directory
             import os
