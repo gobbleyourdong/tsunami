@@ -99,4 +99,9 @@ def build_registry(config: TsunamiConfig, profile: str = "full") -> ToolRegistry
         registry.register(ScheduleTool(config))
         registry.register(GenerateImage(config))
 
+        # Web development tools
+        from .webdev import WebdevScaffold, WebdevServe, WebdevScreenshot, WebdevGenerateAssets
+        for tool_cls in [WebdevScaffold, WebdevServe, WebdevScreenshot, WebdevGenerateAssets]:
+            registry.register(tool_cls(config))
+
     return registry
