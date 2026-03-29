@@ -83,21 +83,21 @@ async def health():
     except Exception:
         model_ok = False
 
-    registry = build_registry(cfg, profile=cfg.tool_profile)
+    registry = build_registry(cfg)
     return {
         "status": "ok",
         "model_endpoint": cfg.model_endpoint,
         "model_ok": model_ok,
         "model_name": cfg.model_name,
         "tool_count": len(registry.names()),
-        "tool_profile": cfg.tool_profile,
+        "tool_loading": "on-demand via load_toolbox",
     }
 
 
 @app.get("/api/tools")
 async def list_tools():
     cfg = get_config()
-    registry = build_registry(cfg, profile=cfg.tool_profile)
+    registry = build_registry(cfg)
     return {"tools": registry.names(), "count": len(registry.names())}
 
 

@@ -42,7 +42,7 @@ class TsunamiConfig:
     search_api_key: str | None = None
 
     # --- Tools ---
-    tool_profile: str = "core"  # "core" (16 tools, fast) or "full" (35 tools)
+    # Tools load on demand via load_toolbox — no profile needed
 
     # --- Browser ---
     browser_headless: bool = True

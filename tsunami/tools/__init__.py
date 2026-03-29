@@ -40,12 +40,13 @@ class ToolRegistry:
         ]
 
 
-def build_registry(config: TsunamiConfig, profile: str = "full") -> ToolRegistry:
-    """Build a tool registry from config.
+def build_registry(config: TsunamiConfig) -> ToolRegistry:
+    """Build the tool registry — bootstrap tools only.
 
-    Profiles control which tools are loaded to save context tokens:
-      - "core": 16 tools (~1800 tokens) — file, shell, match, message, plan, search
-      - "full": 35 tools (~3681 tokens) — everything including browser, generate, etc.
+    The agent starts with just enough to operate: messages, files, shell,
+    search, planning, and load_toolbox. Everything else lives on disk in
+    toolboxes/ — the agent reads those files to discover capabilities and
+    calls load_toolbox to activate what it needs.
     """
     from .filesystem import FileRead, FileWrite, FileEdit, FileAppend
     from .match import MatchGlob, MatchGrep
@@ -53,55 +54,21 @@ def build_registry(config: TsunamiConfig, profile: str = "full") -> ToolRegistry
     from .message import MessageInfo, MessageAsk, MessageResult
     from .plan import PlanUpdate, PlanAdvance
     from .search import SearchWeb
+    from .toolbox import LoadToolbox, set_registry
 
     registry = ToolRegistry()
 
-    # === Core tools (always loaded) ===
-    for tool_cls in [FileRead, FileWrite, FileEdit, FileAppend]:
-        registry.register(tool_cls(config))
+    # Bootstrap — the minimum to operate
+    for cls in [FileRead, FileWrite, FileEdit, FileAppend,
+                MatchGlob, MatchGrep,
+                ShellExec, ShellView, ShellSend, ShellWait, ShellKill,
+                MessageInfo, MessageAsk, MessageResult,
+                PlanUpdate, PlanAdvance,
+                SearchWeb]:
+        registry.register(cls(config))
 
-    for tool_cls in [MatchGlob, MatchGrep]:
-        registry.register(tool_cls(config))
-
-    for tool_cls in [ShellExec, ShellView, ShellSend, ShellWait, ShellKill]:
-        registry.register(tool_cls(config))
-
-    for tool_cls in [MessageInfo, MessageAsk, MessageResult]:
-        registry.register(tool_cls(config))
-
-    for tool_cls in [PlanUpdate, PlanAdvance]:
-        registry.register(tool_cls(config))
-
-    registry.register(SearchWeb(config))
-
-    # === Extended tools (full profile only) ===
-    if profile == "full":
-        from .browser import (
-            BrowserNavigate, BrowserView, BrowserClick, BrowserInput,
-            BrowserScroll, BrowserFindKeyword, BrowserConsoleExec,
-            BrowserFillForm, BrowserPressKey, BrowserSelectOption,
-            BrowserSaveImage, BrowserUploadFile, BrowserClose,
-        )
-        from .map_tool import MapTool
-        from .creation import FileView, ExposeTool, ScheduleTool
-        from .generate import GenerateImage
-
-        registry.register(FileView(config))
-
-        for tool_cls in [BrowserNavigate, BrowserView, BrowserClick, BrowserInput,
-                         BrowserScroll, BrowserFindKeyword, BrowserConsoleExec,
-                         BrowserFillForm, BrowserPressKey, BrowserSelectOption,
-                         BrowserSaveImage, BrowserUploadFile, BrowserClose]:
-            registry.register(tool_cls(config))
-
-        registry.register(MapTool(config))
-        registry.register(ExposeTool(config))
-        registry.register(ScheduleTool(config))
-        registry.register(GenerateImage(config))
-
-        # Web development tools
-        from .webdev import WebdevScaffold, WebdevServe, WebdevScreenshot, WebdevGenerateAssets
-        for tool_cls in [WebdevScaffold, WebdevServe, WebdevScreenshot, WebdevGenerateAssets]:
-            registry.register(tool_cls(config))
+    # The one meta-tool — loads everything else from disk
+    registry.register(LoadToolbox(config))
+    set_registry(registry)
 
     return registry

@@ -56,7 +56,7 @@ class Agent:
         )
 
         # The tools — the limbs
-        self.registry: ToolRegistry = build_registry(config, profile=config.tool_profile)
+        self.registry: ToolRegistry = build_registry(config)
 
         # The state — working memory
         self.state = AgentState(workspace_dir=config.workspace_dir)
