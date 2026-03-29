@@ -27,12 +27,13 @@ mkdir -p models
 
 **Recommended models:**
 
-| Model | Size | Speed | Vision | Notes |
-|-------|------|-------|--------|-------|
-| [Qwen3-8B-Q6_K](https://huggingface.co/Qwen/Qwen3-8B-GGUF) | 6.3GB | ~22 tok/s | No | Best tool-following, fastest |
-| [Qwen3-VL-8B + mmproj](https://huggingface.co/Qwen/Qwen3-VL-8B-GGUF) | 7.4GB | ~18 tok/s | Yes | Can see images via `/attach` |
+| Model | Size | Speed | Quality | Notes |
+|-------|------|-------|---------|-------|
+| [Qwen3.5-122B-A10B MoE (MXFP4)](https://huggingface.co/unsloth/Qwen3.5-122B-A10B-MXFP4_MOE) | 70GB | ~7 tok/s | Best | 122B params, 10B active. Needs 80GB+ RAM/VRAM |
+| [Qwen3-8B-Q6_K](https://huggingface.co/Qwen/Qwen3-8B-GGUF) | 6.3GB | ~22 tok/s | Good | Best tool-following at small size |
+| [Qwen3-VL-8B + mmproj](https://huggingface.co/Qwen/Qwen3-VL-8B-GGUF) | 7.4GB | ~18 tok/s | Good | Vision model — can see attached images |
 
-Place `.gguf` files in `models/`. Tsunami auto-detects and starts the model server.
+Place `.gguf` files in `models/`. Tsunami auto-detects in priority order: 122B MoE > VL-8B > text-8B.
 
 ### 3. Install llama.cpp server
 
@@ -196,15 +197,17 @@ config.yaml           Configuration
 Edit `config.yaml`:
 
 ```yaml
-model_backend: api
-model_name: "qwen3-8b"
+model_backend: completion     # "completion" (raw, best), "api" (OpenAI-compat), "ollama"
+model_name: "Qwen3.5-122B-A10B"
 model_endpoint: "http://localhost:8090"
 temperature: 0.7
 top_p: 0.8
 presence_penalty: 1.5
 max_tokens: 2048
-tool_profile: core    # "core" (17 tools, fast) or "full" (35 tools)
+tool_profile: full    # "core" (17 tools, fast) or "full" (35 tools)
 ```
+
+The `completion` backend uses the raw `/completion` endpoint instead of `/v1/chat/completions`, bypassing chat template issues entirely. Recommended for Qwen3.5 models.
 
 Or set environment variables: `TSUNAMI_MODEL_NAME`, `TSUNAMI_MODEL_ENDPOINT`, etc.
 
