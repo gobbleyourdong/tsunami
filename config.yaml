@@ -6,7 +6,7 @@ model_backend: completion
 model_name: "Qwen3.5-122B-A10B"
 model_endpoint: "http://localhost:8090"
 temperature: 0.7
-max_tokens: 2048
+max_tokens: 8192
 
 # --- Fast Model (simple tasks, research, Q&A — 2B, ~100 tok/s) ---
 fast_model_name: "Qwen3.5-2B"
