@@ -222,26 +222,30 @@ class CompletionModel(LLMModel):
         self.presence_penalty = presence_penalty
 
     def _format_prompt(self, messages: list[dict], tools: list[dict] | None = None) -> str:
-        """Format messages into a raw text prompt."""
+        """Format messages into Qwen3.5 chat template."""
         parts = []
         for m in messages:
-            role = m["role"].upper()
+            role = m["role"].lower()
             content = m.get("content", "")
-            if role == "SYSTEM":
-                parts.append(f"<|system|>\n{content}\n")
-            elif role == "USER":
-                parts.append(f"<|user|>\n{content}\n")
-            elif role == "ASSISTANT":
-                parts.append(f"<|assistant|>\n{content}\n")
+            parts.append(f"<|im_start|>{role}\n{content}<|im_end|>\n")
 
         if tools:
-            tool_desc = "\n".join(
-                f"- {t['function']['name']}: {t['function']['description']}"
-                for t in tools if t.get("type") == "function"
-            )
-            parts.insert(1, f"<|user|>\nYou MUST respond with exactly one JSON tool call on its own line. No other text before or after. Format:\n{{\"name\": \"tool_name\", \"arguments\": {{...}}}}\n\nAvailable tools:\n{tool_desc}\n")
+            tool_lines = []
+            for t in tools:
+                if t.get("type") != "function":
+                    continue
+                f = t["function"]
+                params = f.get("parameters", {}).get("properties", {})
+                required = f.get("parameters", {}).get("required", [])
+                param_desc = ", ".join(
+                    f'{k} ({"required" if k in required else "optional"}): {v.get("description", v.get("type", ""))}'
+                    for k, v in params.items()
+                )
+                tool_lines.append(f'- {f["name"]}({param_desc}): {f["description"]}')
+            tool_block = "\n".join(tool_lines)
+            parts.insert(1, f'<|im_start|>user\nRespond with exactly one JSON tool call. Format:\n{{"name": "tool_name", "arguments": {{"param": "value"}}}}\n\nTools:\n{tool_block}<|im_end|>\n')
 
-        parts.append("<|assistant|>\n")
+        parts.append("<|im_start|>assistant\n")
         return "".join(parts)
 
     async def _call(self, messages, tools=None) -> LLMResponse:

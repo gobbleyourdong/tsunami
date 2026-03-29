@@ -281,6 +281,16 @@ class Agent:
             self.state.add_tool_result(tool_call.name, tool_call.arguments, error_msg, is_error=True)
             return error_msg
 
+        # Ensure arguments is a dict (model sometimes sends a JSON string)
+        args = tool_call.arguments
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+                tool_call = ToolCall(name=tool_call.name, arguments=args)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        log.info(f"  Args type={type(tool_call.arguments).__name__}, value={str(tool_call.arguments)[:200]}")
+
         try:
             result = await tool.execute(**tool_call.arguments)
         except TypeError as e:
