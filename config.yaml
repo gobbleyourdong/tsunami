@@ -1,17 +1,21 @@
 # TSUNAMI — Agentic Reborn
 # Configuration for the Resonant Ark
 
-# --- Primary Model (the reasoning core) ---
+# --- Primary Model (heavy reasoning, coding, tool use) ---
 model_backend: completion
-model_name: "qwen3-8b"
+model_name: "Qwen3.5-122B-A10B"
 model_endpoint: "http://localhost:8090"
 temperature: 0.7
 max_tokens: 2048
 
-# --- Watcher (self-evaluation, optional lighter model) ---
+# --- Fast Model (simple tasks, research, Q&A — 2B, ~100 tok/s) ---
+fast_model_name: "Qwen3.5-2B"
+fast_model_endpoint: "http://localhost:8092"
+
+# --- Watcher (self-evaluation via fast model) ---
 watcher_enabled: false
-watcher_model: "qwen3-8b"
-watcher_endpoint: "http://localhost:8090"
+watcher_model: "Qwen3.5-2B"
+watcher_endpoint: "http://localhost:8092"
 
 # --- Paths ---
 workspace_dir: "./workspace"
@@ -25,10 +29,6 @@ watcher_interval: 5
 
 # --- Search ---
 search_backend: duckduckgo
-
-# --- Tools ---
-# "core" = 16 tools (~1800 tokens, faster), "full" = 35 tools (everything)
-tool_profile: full
 
 # --- Browser ---
 browser_headless: true
