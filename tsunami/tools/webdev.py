@@ -542,14 +542,22 @@ class WebdevGenerateAssets(BaseTool):
                 for endpoint in ["http://localhost:8091/generate"]:
                     try:
                         async with httpx.AsyncClient(timeout=None) as client:
+                            # Convert host path to Docker container path
+                            ark_dir = str(Path(__file__).parent.parent.parent)
+                            container_save = save_path.replace(ark_dir, "/ark")
                             resp = await client.post(endpoint, json={
                                 "prompt": prompt,
                                 "width": width,
                                 "height": height,
                                 "steps": 20,
-                                "save_path": save_path,
+                                "save_path": container_save,
                             })
                             if resp.status_code == 200:
+                                # Also write response bytes to host path
+                                # (in case Docker save_path mapping fails)
+                                if resp.headers.get("content-type", "").startswith("image"):
+                                    Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+                                    Path(save_path).write_bytes(resp.content)
                                 generated = True
                                 results.append(f"  {filename}: generated ({width}x{height})")
                                 break

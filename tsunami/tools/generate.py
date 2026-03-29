@@ -69,19 +69,22 @@ class GenerateImage(BaseTool):
                 except Exception:
                     return ToolResult("Diffusion server not running on :8091", is_error=True)
 
-                # Generate
+                # Generate — convert host path to Docker container path
+                ark_dir = str(Path(__file__).parent.parent.parent)
+                container_path = str(path).replace(ark_dir, "/ark")
                 resp = await client.post("http://localhost:8091/generate", json={
                     "prompt": prompt,
                     "width": w,
                     "height": h,
-                    "save_path": str(path),
+                    "save_path": container_path,
                     "steps": 30,
                     "cfg": 4.0,
                 })
 
                 if resp.status_code == 200:
-                    # Server saved the file and returned PNG bytes
-                    if not path.exists():
+                    # Always write response bytes to host path
+                    if resp.headers.get("content-type", "").startswith("image"):
+                        path.parent.mkdir(parents=True, exist_ok=True)
                         path.write_bytes(resp.content)
                     gen_time = resp.headers.get("X-Generation-Time", "?")
                     return ToolResult(f"Image generated and saved to {path} ({gen_time}s)")
