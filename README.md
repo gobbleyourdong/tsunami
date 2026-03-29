@@ -117,27 +117,37 @@ build me a landing page      # agent sees tsunami.md, knows the project
 
 ```
 models/
-  Qwen3-8B-Q6_K.gguf                              ← text model (fast, 22 tok/s)
-  Qwen3.5-122B-A10B-MXFP4_MOE-*.gguf             ← 122B MoE (quality, 15 tok/s)
+  Qwen3.5-122B-A10B-MXFP4_MOE-*.gguf             ← 122B MoE (quality, ~7 tok/s)
+  Qwen3-8B-Q6_K.gguf                              ← text model (fast, ~22 tok/s)
   Qwen3-VL-8B + mmproj                             ← vision model (optional)
+  qwen-image-2512-Q4_K_M.gguf                     ← image gen (13GB, Q4_K_M)
+  Qwen-Image-2512/                                 ← text encoder + VAE (auto-cached)
 ```
 
-Tsunami auto-detects models in priority order: 122B MoE > VL-8B > text-8B. Or point `--endpoint` at any OpenAI-compatible server.
+Tsunami auto-detects LLM models in priority order: 122B MoE > VL-8B > text-8B. Or point `--endpoint` at any OpenAI-compatible server.
 
 ## Image Generation (Optional)
 
 Tsunami can generate images via the `generate_image` tool. It tries backends in order:
 
-**1. Diffusion server** (recommended) — Qwen-Image-2512 via Docker:
+**1. Diffusion server** (recommended) — [Qwen-Image-2512](https://huggingface.co/Qwen/Qwen-Image-2512) via GGUF + diffusers in Docker:
 
 ```bash
+# Download the GGUF (13GB, Q4_K_M quantized)
+# Place in models/qwen-image-2512-Q4_K_M.gguf
+
+# First run: downloads text encoder + VAE from HF (~16GB, cached in models/Qwen-Image-2512/)
+# Subsequent runs: fully local, zero network access
+
 docker run --gpus all -d --ipc=host \
   -v $(pwd):/ark -p 8091:8091 \
   --name tsunami-diffusion \
   nvcr.io/nvidia/pytorch:25.11-py3 \
-  bash -c "pip install -q diffusers transformers accelerate && \
+  bash -c "pip install -q 'diffusers>=0.36.0' 'gguf>=0.10.0' transformers accelerate sentencepiece protobuf && \
   python3 /ark/serve_diffusion.py"
 ```
+
+The server loads the transformer from the local GGUF (quantized weights, dequantized per-layer during inference) and the text encoder + VAE from `models/Qwen-Image-2512/`. Uses `enable_model_cpu_offload()` to coexist with the LLM in shared memory.
 
 **2. OpenAI DALL-E** — set `OPENAI_API_KEY` env var, uses DALL-E 3.
 
@@ -147,14 +157,13 @@ docker run --gpus all -d --ipc=host \
 POST /generate
 {
   "prompt": "a blue ocean wave",
-  "width": 1024,
-  "height": 1024,
+  "aspect_ratio": "16:9",
   "steps": 30,
   "save_path": "/ark/workspace/deliverables/wave.png"
 }
 ```
 
-Returns PNG bytes. Swap in any image gen backend that speaks this protocol.
+Supported aspect ratios: `1:1` (1328x1328), `16:9` (1664x928), `9:16` (928x1664), `4:3`, `3:4`, `3:2`, `2:3`. Returns PNG bytes.
 
 ## File Structure
 

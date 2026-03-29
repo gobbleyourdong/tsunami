@@ -12,7 +12,7 @@ cli/dist/
 cli/package-lock.json
 
 # Models (too large for git — users download their own)
-models/*.gguf
+models/
 
 # Workspace (runtime artifacts)
 workspace/.history/

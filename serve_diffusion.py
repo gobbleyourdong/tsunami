@@ -23,17 +23,34 @@ from pathlib import Path
 pipe = None
 
 
-def load_model(model_name="Qwen/Qwen-Image-2512"):
+def load_model(model_dir="/ark/models/Qwen-Image-2512", gguf_path="/ark/models/qwen-image-2512-Q4_K_M.gguf"):
     global pipe
     import torch
-    from diffusers import DiffusionPipeline
+    from pathlib import Path
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = torch.bfloat16 if device == "cuda" else torch.float32
+    dtype = torch.bfloat16
 
-    print(f"Loading {model_name} on {device} ({dtype})...")
-    pipe = DiffusionPipeline.from_pretrained(model_name, torch_dtype=dtype).to(device)
-    print("Model loaded.")
+    if Path(gguf_path).exists() and Path(model_dir).exists():
+        from diffusers import QwenImagePipeline, QwenImageTransformer2DModel, GGUFQuantizationConfig
+        print(f"Loading transformer from GGUF: {gguf_path}")
+        transformer = QwenImageTransformer2DModel.from_single_file(
+            gguf_path,
+            quantization_config=GGUFQuantizationConfig(compute_dtype=dtype),
+            torch_dtype=dtype,
+            config=model_dir,
+            subfolder="transformer",
+        )
+        print(f"Loading pipeline from local: {model_dir}")
+        pipe = QwenImagePipeline.from_pretrained(
+            model_dir, transformer=transformer, torch_dtype=dtype,
+        )
+    else:
+        from diffusers import DiffusionPipeline
+        print(f"Local models not found, loading from HF...")
+        pipe = DiffusionPipeline.from_pretrained("Qwen/Qwen-Image-2512", torch_dtype=dtype)
+
+    pipe.enable_model_cpu_offload()
+    print("Model loaded with CPU offload.")
 
 
 def generate(prompt, negative_prompt="", width=1024, height=1024, steps=30, cfg=4.0, seed=-1):
@@ -132,12 +149,13 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description="TSUNAMI Diffusion Server")
-    parser.add_argument("--model", default="Qwen/Qwen-Image-2512")
+    parser.add_argument("--model-dir", default="/ark/models/Qwen-Image-2512")
+    parser.add_argument("--gguf", default="/ark/models/qwen-image-2512-Q4_K_M.gguf")
     parser.add_argument("--port", type=int, default=8091)
     parser.add_argument("--host", default="0.0.0.0")
     args = parser.parse_args()
 
-    load_model(args.model)
+    load_model(model_dir=args.model_dir, gguf_path=args.gguf)
 
     server = HTTPServer((args.host, args.port), Handler)
     print(f"Diffusion server on {args.host}:{args.port}")
