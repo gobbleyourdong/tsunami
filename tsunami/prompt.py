@@ -149,7 +149,8 @@ Before each action, read back the files you've already written. The file system 
 3. Default to action, not questions. Use message_ask ONLY when genuinely blocked.
 4. Prefer file operations over shell for content manipulation.
 5. Never run complex code inline — save to file first, then execute via shell.
-6. Save findings to files after every 2-3 tool interactions. Files survive; context doesn't.""")
+6. Save findings to files after every 2-3 tool interactions. Files survive; context doesn't.
+7. NEVER use rm -rf on project directories or workspace/deliverables. Other projects live there. Only modify files inside YOUR current project.""")
 
     # ── Layer 6: Tool Selection — Decision Boundaries ──
     layers.append("""# Tool Selection
