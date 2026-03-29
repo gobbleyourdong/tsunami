@@ -226,6 +226,9 @@ class CompletionModel(LLMModel):
         parts = []
         for m in messages:
             role = m["role"].lower()
+            # Qwen3.5 doesn't have a "tool" role — map to "user"
+            if role in ("tool", "tool_result"):
+                role = "user"
             content = m.get("content", "")
             parts.append(f"<|im_start|>{role}\n{content}<|im_end|>\n")
 
