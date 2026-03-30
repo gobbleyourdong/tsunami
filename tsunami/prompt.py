@@ -70,13 +70,27 @@ Use Tailwind exclusively. Dark themes: bg-gray-900, text-white, accent indigo-50
 - If screenshot shows an error, READ the error, fix the file, and screenshot again""")
 
     # ── Layer 3: Environment ──
+    import datetime
+    from pathlib import Path
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    projects = []
+    deliverables = Path(workspace) / "deliverables"
+    if deliverables.exists():
+        projects = sorted([d.name for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")])
+
+    project_info = ""
+    if projects:
+        project_info = f"\nExisting projects ({len(projects)}): {', '.join(projects[:15])}"
+        if len(projects) > 15:
+            project_info += f" ... (+{len(projects)-15} more)"
+
     layers.append(f"""# Environment
 {env_info}
 Workspace: {workspace}
+Time: {now}
+{project_info}
 Full file system and shell access. Internet access.
-Your context window is finite and will be compressed during long conversations.
-The file system is your long-term memory — it survives context compression.
-Tool calls are sequential and each one costs time.""")
+Context is limited — save to files constantly. Files survive compression.""")
 
     # ── Layer 4: Agent Loop ──
     layers.append("""# Agent Loop
