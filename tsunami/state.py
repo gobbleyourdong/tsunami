@@ -163,4 +163,15 @@ class AgentState:
             else:
                 merged.append(msg)
 
+        # Manus technique: append current plan at END of context
+        # Recency bias means the model pays more attention to recent tokens.
+        # Putting the plan at the tail (not in system prompt) keeps it salient.
+        if self.plan:
+            plan_reminder = f"[CURRENT PLAN]\n{self.plan.summary()}\n\nYou MUST call exactly one tool. Save findings to files constantly."
+            # Append as user message so it's at the tail of context
+            if merged and merged[-1]["role"] == "user":
+                merged[-1]["content"] += "\n\n" + plan_reminder
+            else:
+                merged.append({"role": "user", "content": plan_reminder})
+
         return merged

@@ -64,11 +64,19 @@ async def compress_context(state: AgentState, model: LLMModel,
 
     # Build a summary request
     summary_lines = []
+    error_lines = []
     for m in to_compress:
         prefix = m.role.upper()
+        # Preserve error messages verbatim (Manus: leave wrong turns visible)
+        if "ERROR" in m.content or "error" in m.content[:100]:
+            error_lines.append(f"[{prefix}] {m.content[:300]}")
         # Truncate very long messages for the summary input
         content = m.content[:500]
         summary_lines.append(f"[{prefix}] {content}")
+
+    # Append errors at the end so they survive compression
+    if error_lines:
+        summary_lines.append("\n[ERRORS TO REMEMBER]\n" + "\n".join(error_lines))
 
     summary_text = "\n".join(summary_lines)
 
