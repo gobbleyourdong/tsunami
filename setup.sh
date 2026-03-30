@@ -1,7 +1,8 @@
 #!/bin/bash
 # TSUNAMI — One-Click Installer
 # curl -sSL https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.sh | bash
-set -e
+# Don't exit on error — we handle failures gracefully
+set +e
 
 echo "
   ╔════════════════════════════════════╗
@@ -167,16 +168,16 @@ fi
 mkdir -p "$MODELS_DIR"
 
 download() {
-  local repo="$1" file="$2" dest="$MODELS_DIR/$file"
-  [ -f "$dest" ] && echo "  ✓ $file" && return
+  local repo="$1" file="$2"
+  local dest
+  dest="$(cd "$DIR" && mkdir -p models && cd models && pwd)/$file"
+  [ -f "$dest" ] && echo "  ✓ $file ($(du -h "$dest" | cut -f1))" && return
   echo "  → Downloading $file..."
-  if command -v huggingface-cli &>/dev/null; then
-    huggingface-cli download "$repo" "$file" --local-dir "$MODELS_DIR" --quiet
-  elif command -v wget &>/dev/null; then
-    wget -q --show-progress -O "$dest" "https://huggingface.co/$repo/resolve/main/$file"
-  else
-    curl -L --progress-bar -o "$dest" "https://huggingface.co/$repo/resolve/main/$file"
-  fi
+  local url="https://huggingface.co/$repo/resolve/main/$file"
+  curl -fSL -o "$dest" "$url" 2>&1 | tail -1
+  [ -f "$dest" ] && [ "$(stat -c%s "$dest" 2>/dev/null || stat -f%z "$dest" 2>/dev/null)" -gt 1000 ] \
+    && echo "  ✓ $file ($(du -h "$dest" | cut -f1))" \
+    || echo "  ✗ Download failed: $file"
 }
 
 echo ""
