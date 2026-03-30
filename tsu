@@ -47,6 +47,7 @@ if ! check_model; then
     "$LLAMA" --model "$TEXT_MODEL" \
       --host 0.0.0.0 --port 8090 \
       --ctx-size 16384 --n-gpu-layers 99 -fa on \
+      --jinja --chat-template-kwargs '{"enable_thinking":false}' \
       > /tmp/llama-server.log 2>&1 &
     MODEL_PID=$!
   fi

@@ -156,25 +156,20 @@ download() {
 }
 
 echo ""
-echo "  Downloading models..."
+echo "  Downloading default model (1.2GB)..."
 
-# Always get the 2B (fast model, tiny)
+# Default: 2B — runs on anything, instant download
 download "unsloth/Qwen3.5-2B-GGUF" "Qwen3.5-2B-Q4_K_M.gguf"
 
-# Primary model based on capacity
-case "$MODEL_SIZE" in
-  27B-Q8)
-    download "unsloth/Qwen3.5-27B-GGUF" "Qwen3.5-27B-Q8_0.gguf"
-    download "unsloth/Qwen3.5-27B-GGUF" "mmproj-BF16.gguf"
-    ;;
-  27B-Q4)
-    download "unsloth/Qwen3.5-27B-GGUF" "Qwen3.5-27B-Q4_K_M.gguf"
-    download "unsloth/Qwen3.5-27B-GGUF" "mmproj-BF16.gguf"
-    ;;
-  2B)
-    echo "  → Low RAM: using 2B as primary model"
-    ;;
-esac
+echo ""
+echo "  The 2B model is installed. For better quality, add a larger model:"
+echo ""
+echo "    # 27B dense with vision (recommended for 32GB+ RAM):"
+echo "    cd $DIR"
+echo "    huggingface-cli download unsloth/Qwen3.5-27B-GGUF Qwen3.5-27B-Q8_0.gguf --local-dir models"
+echo "    huggingface-cli download unsloth/Qwen3.5-27B-GGUF mmproj-BF16.gguf --local-dir models"
+echo ""
+echo "    Tsunami auto-detects models on startup — just drop the GGUF in models/."
 
 # --- Create global command ---
 echo ""
