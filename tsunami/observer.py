@@ -131,6 +131,85 @@ class Observer:
         path.write_text(json.dumps(instinct, indent=2))
         log.info(f"Saved instinct: {iid} (confidence={instinct.get('confidence', 0)})")
 
+    async def analyze_observations(self, fast_endpoint: str = "http://localhost:8092"):
+        """Use the 2B model to extract instincts from recent observations."""
+        recent = self.get_recent_observations(50)
+        if len(recent) < 5:
+            return  # Not enough data
+
+        # Group by error patterns
+        errors = [o for o in recent if o.get("error")]
+        successes = [o for o in recent if not o.get("error")]
+
+        # Build analysis prompt
+        obs_text = ""
+        for o in recent[-30:]:
+            status = "FAILED" if o.get("error") else "OK"
+            obs_text += f"[{status}] {o['tool']}: {o.get('input', '')[:200]}\n"
+            if o.get("error"):
+                obs_text += f"  Error: {o.get('output', '')[:200]}\n"
+
+        prompt = f"""Analyze these tool call observations and extract 1-3 learned patterns.
+
+Observations:
+{obs_text}
+
+For each pattern, output EXACTLY this JSON format (one per line):
+{{"id": "short-kebab-id", "trigger": "when X happens", "action": "do Y instead of Z", "confidence": 0.5, "domain": "workflow"}}
+
+Rules:
+- Only extract patterns with clear evidence (error→fix, or repeated behavior)
+- confidence: 0.3 (seen once), 0.5 (seen 2-3x), 0.7 (seen 5+x), 0.9 (always)
+- domain: one of code-style, testing, workflow, debugging, file-patterns, security
+- If no clear patterns, output nothing"""
+
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    f"{fast_endpoint}/v1/chat/completions",
+                    json={
+                        "model": "qwen",
+                        "messages": [
+                            {"role": "system", "content": "You extract patterns from tool call logs. Output JSON only."},
+                            {"role": "user", "content": prompt},
+                        ],
+                        "max_tokens": 500,
+                        "temperature": 0.3,
+                    },
+                    headers={"Authorization": "Bearer not-needed"},
+                )
+                if resp.status_code != 200:
+                    return
+
+                content = resp.json()["choices"][0]["message"]["content"]
+
+                # Parse instinct JSON lines
+                import re
+                for line in content.split("\n"):
+                    line = line.strip()
+                    if not line.startswith("{"):
+                        continue
+                    try:
+                        instinct = json.loads(line)
+                        if "id" in instinct and "trigger" in instinct:
+                            # Merge with existing (update confidence if higher)
+                            existing = self.instincts_dir / f"{instinct['id']}.json"
+                            if existing.exists():
+                                old = json.loads(existing.read_text())
+                                instinct["confidence"] = max(
+                                    instinct.get("confidence", 0.5),
+                                    old.get("confidence", 0) + 0.05
+                                )
+                            self.save_instinct(instinct)
+                    except json.JSONDecodeError:
+                        continue
+
+                log.info(f"Instinct analysis complete on {len(recent)} observations")
+
+        except Exception as e:
+            log.debug(f"Instinct analysis skipped: {e}")
+
     def format_instincts_for_prompt(self, max_tokens: int = 500) -> str:
         """Format top instincts for injection into system prompt."""
         instincts = self.load_instincts()
