@@ -113,15 +113,31 @@ async def compress_context(state: AgentState, model: LLMModel,
             f"{len(tool_calls)} tool calls, {len(errors)} errors]"
         )
 
-    # Replace compressed messages with the summary
+    # Find the last successful tool call to preserve as a pattern example
+    exemplar = None
+    for m in reversed(to_compress):
+        if m.tool_call and m.role == "assistant":
+            import json
+            tc = m.tool_call.get("function", m.tool_call)
+            tc_json = json.dumps({"name": tc.get("name", ""), "arguments": tc.get("arguments", {})})
+            if len(tc_json) < 300:  # Only keep small examples
+                exemplar = Message(role="assistant", content=tc_json, tool_call=m.tool_call)
+                break
+
+    # Replace compressed messages with summary + exemplar
     compressed_msg = Message(
         role="system",
         content=f"[CONTEXT COMPRESSED]\n{summary}",
     )
 
+    replacement = [compressed_msg]
+    if exemplar:
+        replacement.append(exemplar)
+        replacement.append(Message(role="tool_result", content="[previous result — see summary above]"))
+
     state.conversation = (
         state.conversation[:compress_start]
-        + [compressed_msg]
+        + replacement
         + state.conversation[compress_end:]
     )
 
