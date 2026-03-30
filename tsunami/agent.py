@@ -22,6 +22,7 @@ from pathlib import Path
 from .compression import compress_context, needs_compression
 from .config import TsunamiConfig
 from .model import LLMModel, ToolCall, create_model
+from .observer import Observer
 from .prompt import build_system_prompt
 from .session import save_session
 from .state import AgentState
@@ -75,6 +76,9 @@ class Agent:
         # Session persistence
         self.session_dir = Path(config.workspace_dir) / ".history"
         self.session_id = f"session_{int(time.time())}"
+
+        # Continuous learning
+        self.observer = Observer(config.workspace_dir)
 
         # Stall detection
         self._empty_steps = 0
@@ -152,6 +156,12 @@ class Agent:
         # Inject project context if active
         if self.active_project and self.project_context:
             system_prompt += f"\n\n---\n\n# Active Project: {self.active_project}\n{self.project_context}"
+
+        # Inject learned instincts from previous sessions
+        instincts = self.observer.format_instincts_for_prompt()
+        if instincts:
+            system_prompt += f"\n\n---\n\n{instincts}"
+
         self.state.add_system(system_prompt)
         self.state.add_user(user_message)
 
@@ -320,9 +330,13 @@ class Agent:
             self.state.record_error(tool_call.name, tool_call.arguments, error_msg)
             return error_msg
 
-        # 7. Observe — record the result
+        # 7. Observe — record to state + observation log
         self.state.add_tool_result(
             tool_call.name, tool_call.arguments, result.content, is_error=result.is_error
+        )
+        self.observer.observe_tool_call(
+            tool_call.name, tool_call.arguments, result.content,
+            result.is_error, self.session_id,
         )
 
         # 8. Error tracking

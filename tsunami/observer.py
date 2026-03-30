@@ -1,0 +1,149 @@
+"""Continuous learning — observe tool calls, extract patterns, evolve.
+
+Inspired by ECC's instinct system. Every tool call gets logged to JSONL.
+The 2B model periodically analyzes observations and extracts "instincts" —
+atomic learned behaviors with confidence scores.
+
+Instincts get injected into future sessions so the agent improves over time.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import os
+import re
+import time
+from datetime import datetime
+from pathlib import Path
+
+log = logging.getLogger("tsunami.observer")
+
+# Secret scrubbing regex (from ECC)
+SECRET_PATTERN = re.compile(
+    r'(?i)(api[_-]?key|token|secret|password|authorization|credentials?|auth)'
+    r'(["\'\s:=]+)([A-Za-z]+\s+)?([A-Za-z0-9_\-/.+=]{8,})'
+)
+
+MAX_FIELD_LEN = 5000
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+
+def _scrub_secrets(text: str) -> str:
+    """Redact common secret patterns."""
+    return SECRET_PATTERN.sub(r'\1\2\3[REDACTED]', text)
+
+
+def _truncate(text: str, max_len: int = MAX_FIELD_LEN) -> str:
+    if len(text) <= max_len:
+        return text
+    return text[:max_len] + f"... [truncated {len(text) - max_len} chars]"
+
+
+def get_project_id(workspace_dir: str) -> str:
+    """Derive project ID from git remote (portable across machines)."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=5,
+            cwd=workspace_dir,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return hashlib.sha256(result.stdout.strip().encode()).hexdigest()[:12]
+    except Exception:
+        pass
+    # Fallback: hash the workspace path
+    return hashlib.sha256(workspace_dir.encode()).hexdigest()[:12]
+
+
+class Observer:
+    """Observes tool calls and writes to JSONL."""
+
+    def __init__(self, workspace_dir: str):
+        self.workspace_dir = workspace_dir
+        self.project_id = get_project_id(workspace_dir)
+        self.obs_dir = Path(workspace_dir) / ".observations"
+        self.obs_dir.mkdir(parents=True, exist_ok=True)
+        self.obs_file = self.obs_dir / "observations.jsonl"
+        self.instincts_dir = self.obs_dir / "instincts"
+        self.instincts_dir.mkdir(parents=True, exist_ok=True)
+        self._call_count = 0
+
+    def observe_tool_call(self, tool_name: str, arguments: dict,
+                          result: str, is_error: bool, session_id: str = ""):
+        """Record a tool call observation."""
+        self._call_count += 1
+
+        obs = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "tool": tool_name,
+            "input": _scrub_secrets(_truncate(json.dumps(arguments))),
+            "output": _scrub_secrets(_truncate(result)),
+            "error": is_error,
+            "session": session_id,
+            "project_id": self.project_id,
+        }
+
+        # Append to JSONL
+        try:
+            with open(self.obs_file, "a") as f:
+                f.write(json.dumps(obs) + "\n")
+        except Exception as e:
+            log.warning(f"Failed to write observation: {e}")
+
+        # Rotate if too large
+        if self.obs_file.exists() and self.obs_file.stat().st_size > MAX_FILE_SIZE:
+            archive_dir = self.obs_dir / "archive"
+            archive_dir.mkdir(exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+            self.obs_file.rename(archive_dir / f"observations-{ts}.jsonl")
+
+    @property
+    def call_count(self) -> int:
+        return self._call_count
+
+    def get_recent_observations(self, n: int = 100) -> list[dict]:
+        """Get last N observations."""
+        if not self.obs_file.exists():
+            return []
+        try:
+            lines = self.obs_file.read_text().strip().split("\n")
+            return [json.loads(l) for l in lines[-n:] if l.strip()]
+        except Exception:
+            return []
+
+    def load_instincts(self) -> list[dict]:
+        """Load all instinct files."""
+        instincts = []
+        for f in self.instincts_dir.glob("*.json"):
+            try:
+                instincts.append(json.loads(f.read_text()))
+            except Exception:
+                continue
+        return sorted(instincts, key=lambda x: x.get("confidence", 0), reverse=True)
+
+    def save_instinct(self, instinct: dict):
+        """Save an instinct to disk."""
+        iid = instinct.get("id", f"instinct-{int(time.time())}")
+        path = self.instincts_dir / f"{iid}.json"
+        path.write_text(json.dumps(instinct, indent=2))
+        log.info(f"Saved instinct: {iid} (confidence={instinct.get('confidence', 0)})")
+
+    def format_instincts_for_prompt(self, max_tokens: int = 500) -> str:
+        """Format top instincts for injection into system prompt."""
+        instincts = self.load_instincts()
+        if not instincts:
+            return ""
+
+        lines = ["# Learned Patterns (from previous sessions)"]
+        chars = 0
+        for inst in instincts[:10]:  # Top 10 by confidence
+            line = f"- {inst.get('trigger', '')}: {inst.get('action', '')} (confidence: {inst.get('confidence', 0):.1f})"
+            if chars + len(line) > max_tokens * 4:
+                break
+            lines.append(line)
+            chars += len(line)
+
+        return "\n".join(lines) if len(lines) > 1 else ""
