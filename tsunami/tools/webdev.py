@@ -348,6 +348,20 @@ class WebdevServe(BaseTool):
 
             # Check if package.json exists (React project)
             if (project_dir / "package.json").exists():
+                # Pre-flight: type-check for import errors
+                tsc_result = subprocess.run(
+                    ["npx", "tsc", "--noEmit", "--pretty"],
+                    cwd=str(project_dir),
+                    capture_output=True, text=True, timeout=30,
+                )
+                build_warnings = ""
+                if tsc_result.returncode != 0:
+                    # Extract just the error lines (not the full output)
+                    errors = [l for l in tsc_result.stdout.split("\n")
+                              if "error TS" in l or "Cannot find" in l or "not found" in l][:5]
+                    if errors:
+                        build_warnings = "\n⚠️ BUILD WARNINGS:\n" + "\n".join(errors) + "\nFix these before screenshotting.\n"
+
                 # Kill any existing dev server on this port
                 subprocess.run(["fuser", "-k", f"{port}/tcp"],
                               capture_output=True, timeout=5)
@@ -364,6 +378,7 @@ class WebdevServe(BaseTool):
                 return ToolResult(
                     f"Dev server running at http://localhost:{port}\n"
                     f"PID: {proc.pid}\n"
+                    + build_warnings +
                     f"Use webdev_screenshot to see the page."
                 )
             else:
