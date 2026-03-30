@@ -187,14 +187,28 @@ echo "  Downloading default model (1.2GB)..."
 download "unsloth/Qwen3.5-2B-GGUF" "Qwen3.5-2B-Q4_K_M.gguf"
 
 echo ""
-echo "  The 2B model is installed. For better quality, add a larger model:"
+echo "  The 2B model is installed. Upgrade options:"
 echo ""
 echo "    # 27B dense with vision (recommended for 32GB+ RAM):"
 echo "    cd $DIR"
 echo "    huggingface-cli download unsloth/Qwen3.5-27B-GGUF Qwen3.5-27B-Q8_0.gguf --local-dir models"
 echo "    huggingface-cli download unsloth/Qwen3.5-27B-GGUF mmproj-BF16.gguf --local-dir models"
 echo ""
-echo "    Tsunami auto-detects models on startup — just drop the GGUF in models/."
+echo "    # Image generation (requires Docker + 48GB+ RAM):"
+echo "    huggingface-cli download unsloth/Qwen-Image-2512-GGUF qwen-image-2512-Q4_K_M.gguf --local-dir models"
+echo "    # Then start diffusion server:"
+echo "    docker run --gpus all -d -v \$(pwd):/ark -p 8091:8091 --name tsunami-diffusion \\"
+echo "      nvcr.io/nvidia/pytorch:25.11-py3 bash -c \\"
+echo "      \"pip install -q 'diffusers>=0.36.0' gguf transformers accelerate && python3 /ark/serve_diffusion.py\""
+echo ""
+echo "    Tsunami auto-detects models on startup — just drop GGUFs in models/."
+
+# Auto-download image model if Docker available and enough RAM
+if command -v docker &>/dev/null && [ "$RAM" -ge 48 ] 2>/dev/null; then
+  echo ""
+  echo "  Docker detected with ${RAM}GB RAM — downloading image model..."
+  download "unsloth/Qwen-Image-2512-GGUF" "qwen-image-2512-Q4_K_M.gguf"
+fi
 
 # --- Create global command ---
 echo ""
