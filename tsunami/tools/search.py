@@ -43,7 +43,7 @@ class SearchWeb(BaseTool):
     async def execute(self, query: str, search_type: str = "info",
                       num_results: int = 5, **kw) -> ToolResult:
         # Try backends in order of preference
-        for backend in [self._search_ddg, self._search_httpx_fallback]:
+        for backend in [self._search_ddg, self._search_brave, self._search_httpx_fallback]:
             result = await backend(query, search_type, num_results)
             if not result.is_error:
                 return result
@@ -81,6 +81,44 @@ class SearchWeb(BaseTool):
         except Exception as e:
             log.warning(f"DDG search failed: {e}")
             return ToolResult(f"DDG search error: {e}", is_error=True)
+
+    async def _search_brave(self, query: str, search_type: str, num: int) -> ToolResult:
+        """Search using Brave Search API (free tier, 2000 queries/month)."""
+        import os
+        api_key = os.environ.get("BRAVE_API_KEY", self.config.search_api_key or "")
+        if not api_key:
+            return ToolResult("No Brave API key", is_error=True)
+
+        try:
+            import httpx
+            headers = {"Accept": "application/json", "X-Subscription-Token": api_key}
+            params = {"q": query, "count": min(num, 20)}
+            if search_type == "news":
+                url = "https://api.search.brave.com/res/v1/news/search"
+            else:
+                url = "https://api.search.brave.com/res/v1/web/search"
+
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(url, params=params, headers=headers)
+                if resp.status_code != 200:
+                    return ToolResult(f"Brave API error: {resp.status_code}", is_error=True)
+
+                data = resp.json()
+                results = []
+                for item in (data.get("web", {}).get("results", []) or data.get("results", []))[:num]:
+                    results.append({
+                        "title": item.get("title", ""),
+                        "href": item.get("url", ""),
+                        "body": item.get("description", ""),
+                    })
+
+                if not results:
+                    return ToolResult(f"No Brave results for '{query}'", is_error=True)
+                return self._format_results(query, search_type, results)
+
+        except Exception as e:
+            log.warning(f"Brave search failed: {e}")
+            return ToolResult(f"Brave search error: {e}", is_error=True)
 
     async def _search_httpx_fallback(self, query: str, search_type: str, num: int) -> ToolResult:
         """Fallback: use DuckDuckGo HTML search via httpx."""
