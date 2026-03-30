@@ -3,6 +3,19 @@
 DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 cd "$DIR"
 
+# Handle commands
+case "${1:-}" in
+  update)
+    echo "  Updating Tsunami..."
+    git pull --ff-only && echo "  ✓ Updated to $(git rev-parse --short HEAD)" || echo "  ✗ Update failed"
+    exit 0
+    ;;
+  version)
+    echo "Tsunami $(git rev-parse --short HEAD) ($(git log -1 --format=%ci | cut -d' ' -f1))"
+    exit 0
+    ;;
+esac
+
 # Check model server
 check_model() { curl -sf http://localhost:8090/health > /dev/null 2>&1; }
 
