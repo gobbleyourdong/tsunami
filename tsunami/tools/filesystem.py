@@ -11,6 +11,28 @@ from pathlib import Path
 from .base import BaseTool, ToolResult
 
 
+def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
+    """Check if a write path is safe. Returns error message or None if OK."""
+    resolved = str(p.resolve())
+    ark_dir = str(Path(workspace_dir).parent.resolve())
+
+    # Must be inside the ark project directory
+    if not resolved.startswith(ark_dir):
+        return f"BLOCKED: Cannot write outside project directory. Path: {resolved}"
+
+    # Block writes to tsunami source code (the agent itself)
+    tsunami_dir = str(Path(ark_dir) / "tsunami")
+    if resolved.startswith(tsunami_dir):
+        return f"BLOCKED: Cannot write to tsunami source code. Use workspace/deliverables/ for output."
+
+    # Block writes to models directory
+    models_dir = str(Path(ark_dir) / "models")
+    if resolved.startswith(models_dir):
+        return f"BLOCKED: Cannot write to models directory."
+
+    return None
+
+
 def _resolve_path(path: str, workspace_dir: str) -> Path:
     """Resolve a file path.
 
@@ -115,6 +137,9 @@ class FileWrite(BaseTool):
     async def execute(self, path: str, content: str, **kw) -> ToolResult:
         try:
             p = _resolve_path(path, self.config.workspace_dir)
+            err = _is_safe_write(p, self.config.workspace_dir)
+            if err:
+                return ToolResult(err, is_error=True)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content)
             lines = content.count("\n") + 1
@@ -141,6 +166,9 @@ class FileEdit(BaseTool):
     async def execute(self, path: str, old_text: str, new_text: str, **kw) -> ToolResult:
         try:
             p = _resolve_path(path, self.config.workspace_dir)
+            err = _is_safe_write(p, self.config.workspace_dir)
+            if err:
+                return ToolResult(err, is_error=True)
             if not p.exists():
                 return ToolResult(f"File not found: {path}", is_error=True)
 
@@ -175,9 +203,12 @@ class FileAppend(BaseTool):
             "required": ["path", "content"],
         }
 
-    async def execute(self, path: str, content: str, **kw) -> ToolResult:
+    async def execute(self, path: str = "", content: str = "", **kw) -> ToolResult:
         try:
             p = _resolve_path(path, self.config.workspace_dir)
+            err = _is_safe_write(p, self.config.workspace_dir)
+            if err:
+                return ToolResult(err, is_error=True)
             p.parent.mkdir(parents=True, exist_ok=True)
             with open(p, "a") as f:
                 f.write(content)
