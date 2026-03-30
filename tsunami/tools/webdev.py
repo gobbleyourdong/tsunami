@@ -152,17 +152,7 @@ export default function App() {
             if default_css.exists():
                 default_css.write_text("")
 
-            # Step 5: Copy animation assets
-            templates_dir = Path("skills/web-builder/templates")
-            if templates_dir.exists():
-                assets_dir = project_dir / "public"
-                assets_dir.mkdir(exist_ok=True)
-                for f in ["animations.js"]:
-                    src = templates_dir / f
-                    if src.exists():
-                        shutil.copy2(src, assets_dir / f)
-
-            # Step 6: Create tsunami.md
+            # Step 5: Create tsunami.md
             tmd = project_dir / "tsunami.md"
             tmd.write_text(
                 f"# {project_name}\n\n"
