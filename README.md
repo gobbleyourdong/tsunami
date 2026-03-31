@@ -78,15 +78,14 @@ Intelligence isn't the model. It's the orchestration.
 
 Tsunami detects your memory and auto-configures. You never think about this.
 
-| Memory | Mode | Wave | Eddy slots | What you get |
-|--------|------|-------|-----------|-------------|
-| 4GB | Lite | 2B | 1 | Basic agent, runs on anything |
-| 8GB | Full | 9B | 1 | Wave + 1 eddy with vision |
-| 12GB | Full | 9B | 4 | Good for most tasks |
-| 16GB | Full | 9B | 8 | Fast parallel work |
-| 24GB | Full | 9B | 16 | Heavy tide operations |
-| 32GB+ | Full | 27B | 4+ | Best reasoning + tide |
-| 64GB+ | Full | 27B | 32 | Maximum configuration |
+| Memory | Mode | What you get |
+|--------|------|-------------|
+| 4GB | **Lite** | 2B only, 1 eddy, no image gen |
+| 12GB+ | **Full** | 9B wave + eddies + SD-Turbo — everything |
+| 32GB+ | **Full** | 27B wave + eddies + SD-Turbo — best reasoning |
+| 64GB+ | **Full** | 27B wave + 32 eddies + SD-Turbo — maximum |
+
+Full is the default. Eddies auto-scale to fill available memory.
 
 For 32GB+ systems, swap in the 27B wave:
 

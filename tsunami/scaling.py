@@ -18,11 +18,12 @@ import subprocess
 log = logging.getLogger("tsunami.scaling")
 
 # Memory requirements (approximate, in GB)
-QUEEN_9B_MEM = 5.5   # 9B Q4_K_M + mmproj (tight)
-QUEEN_27B_MEM = 28.0  # 27B Q8_0 + mmproj
-EDDY_2B_MEM = 1.5      # 2B Q4_K_M + mmproj
-OS_RESERVE = 1.0       # leave for OS
-PER_BEE_SLOT = 0.3     # additional memory per parallel eddy slot (KV cache)
+QUEEN_9B_MEM = 5.5    # 9B Q4_K_M + mmproj (tight)
+QUEEN_27B_MEM = 27.0  # 27B Q8_0 + mmproj
+EDDY_2B_MEM = 1.5     # 2B Q4_K_M + mmproj
+SD_TURBO_MEM = 2.0    # SD-Turbo fp16 (image gen)
+OS_RESERVE = 1.0      # leave for OS
+PER_BEE_SLOT = 0.3    # additional memory per parallel eddy slot (KV cache)
 
 MAX_BEES = 32
 MIN_BEES = 1
@@ -123,21 +124,24 @@ def calculate_bee_slots(
         "2b": EDDY_2B_MEM,
     }.get(queen_model, QUEEN_9B_MEM)
 
-    # Calculate available memory for eddies
-    available = total_mem_gb - queen_mem - OS_RESERVE - EDDY_2B_MEM  # base eddy model
+    # Full mode: 9B wave + 2B eddies + SD-Turbo image gen
+    # Lite mode: 2B only, no image gen
+    full_base = queen_mem + EDDY_2B_MEM + SD_TURBO_MEM + OS_RESERVE
+    available = total_mem_gb - full_base
 
     if available < 0:
-        # Not enough for wave + eddies — lite mode
+        # Not enough for full stack — lite mode (2B only, no image gen)
         return {
             "mode": "lite",
             "queen_model": "2b",
             "bee_slots": MIN_BEES,
             "queen_mem": EDDY_2B_MEM,
             "bee_mem": EDDY_2B_MEM,
+            "image_gen": False,
             "total_mem": total_mem_gb,
         }
 
-    # Each additional eddy slot needs KV cache memory
+    # Fill remaining memory with eddy slots
     bee_slots = int(available / PER_BEE_SLOT)
     bee_slots = max(MIN_BEES, min(bee_slots, MAX_BEES))
 
@@ -147,6 +151,7 @@ def calculate_bee_slots(
         "bee_slots": bee_slots,
         "queen_mem": queen_mem,
         "bee_mem": EDDY_2B_MEM + bee_slots * PER_BEE_SLOT,
+        "image_gen": True,
         "total_mem": total_mem_gb,
     }
 
@@ -155,27 +160,26 @@ def format_scaling_info(config: dict) -> str:
     """Human-readable scaling summary."""
     if config["mode"] == "lite":
         return (
-            f"Lite mode: 2B model only, {config['bee_slots']} eddy slot "
+            f"Lite mode: 2B only, {config['bee_slots']} eddy, no image gen "
             f"({config['total_mem']:.0f}GB detected)"
         )
+    img = "+ SD-Turbo" if config.get("image_gen") else ""
     return (
         f"Full mode: {config['queen_model'].upper()} wave + "
-        f"{config['bee_slots']} eddy slots "
-        f"({config['total_mem']:.0f}GB detected, "
-        f"{config['queen_mem']:.1f}GB wave + {config['bee_mem']:.1f}GB eddies)"
+        f"{config['bee_slots']} eddies + SD-Turbo "
+        f"({config['total_mem']:.0f}GB detected)"
     )
 
 
 # Quick reference for README/docs
 SCALING_TABLE = """
-| Memory | Mode | Wave | Eddies | Total models |
-|--------|------|-------|------|-------------|
-| 4GB    | Lite | 2B    | 1    | 2B only     |
-| 8GB    | Full | 9B    | 1    | 9B + 2B     |
-| 12GB   | Full | 9B    | 4    | 9B + 2B     |
-| 16GB   | Full | 9B    | 8    | 9B + 2B     |
-| 24GB   | Full | 9B    | 16   | 9B + 2B     |
-| 32GB   | Full | 27B   | 4    | 27B + 2B    |
-| 64GB   | Full | 27B   | 32   | 27B + 2B    |
-| 128GB  | Full | 27B   | 32   | 27B + 2B    |
+| Memory | Mode | Wave | Eddies | Image Gen | Stack |
+|--------|------|------|--------|-----------|-------|
+| 4GB    | Lite | 2B   | 1      | no        | 2B only |
+| 8GB    | Full | 9B   | 1      | SD-Turbo  | everything |
+| 12GB   | Full | 9B   | 4      | SD-Turbo  | everything |
+| 16GB   | Full | 9B   | 8      | SD-Turbo  | everything |
+| 24GB   | Full | 9B   | 16     | SD-Turbo  | everything |
+| 32GB+  | Full | 27B  | 4+     | SD-Turbo  | everything |
+| 64GB+  | Full | 27B  | 32     | SD-Turbo  | maximum |
 """
