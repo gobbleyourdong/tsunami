@@ -37,6 +37,45 @@ class BaseTool(ABC):
         """Return JSON Schema for this tool's parameters."""
         ...
 
+    def validate_input(self, **kwargs) -> str | None:
+        """Validate input parameters before execution.
+
+        Returns error message string if invalid, None if OK.
+        Ported from Claude Code's per-tool validateInput() pattern.
+        Checks required fields and basic type constraints from schema.
+        """
+        schema = self.parameters_schema()
+        required = schema.get("required", [])
+        properties = schema.get("properties", {})
+
+        # Check required fields are present and non-empty
+        for field in required:
+            if field not in kwargs or kwargs[field] is None:
+                return f"Missing required parameter: '{field}'"
+            val = kwargs[field]
+            prop = properties.get(field, {})
+            expected_type = prop.get("type")
+            # String fields must be non-empty
+            if expected_type == "string" and isinstance(val, str) and not val.strip():
+                return f"Parameter '{field}' cannot be empty"
+
+        # Type checking for provided fields
+        type_map = {"string": str, "integer": int, "number": (int, float), "boolean": bool}
+        for field, val in kwargs.items():
+            if field not in properties:
+                continue  # allow extra kwargs (absorbed by **kw)
+            prop = properties[field]
+            expected_type = prop.get("type")
+            if expected_type and expected_type in type_map:
+                py_type = type_map[expected_type]
+                if not isinstance(val, py_type):
+                    # Allow int where number expected
+                    if expected_type == "number" and isinstance(val, (int, float)):
+                        continue
+                    return f"Parameter '{field}' expected {expected_type}, got {type(val).__name__}"
+
+        return None
+
     @abstractmethod
     async def execute(self, **kwargs) -> ToolResult:
         """Execute the tool and return a result."""

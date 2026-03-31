@@ -18,9 +18,32 @@ import httpx
 
 log = logging.getLogger("tsunami.model")
 
-# Retry configuration
-MAX_RETRIES = 3
-RETRY_BACKOFF = [2, 5, 10]  # seconds between retries
+# Retry configuration (ported from Claude Code's withRetry.ts)
+MAX_RETRIES = 5
+BASE_DELAY_MS = 500
+MAX_DELAY_MS = 32_000  # 32 seconds cap
+
+
+def get_retry_delay(attempt: int, retry_after: str | None = None, max_delay_ms: int = MAX_DELAY_MS) -> float:
+    """Exponential backoff with jitter (Claude Code pattern).
+
+    Returns delay in seconds.
+    - Respects Retry-After header when present
+    - Exponential: 0.5s, 1s, 2s, 4s, 8s... capped at max_delay_ms
+    - Jitter: adds 0-25% random noise to prevent thundering herd
+    """
+    import random
+
+    # Retry-After header takes priority
+    if retry_after:
+        try:
+            return int(retry_after)  # already in seconds
+        except (ValueError, TypeError):
+            pass
+
+    base_delay = min(BASE_DELAY_MS * (2 ** attempt), max_delay_ms)
+    jitter = random.random() * 0.25 * base_delay
+    return (base_delay + jitter) / 1000  # convert ms → seconds
 
 
 @dataclass
@@ -52,28 +75,39 @@ class LLMModel(ABC):
         messages: list[dict[str, str]],
         tools: list[dict] | None = None,
     ) -> LLMResponse:
-        """Generate with retry logic. Retries on connection/timeout errors."""
+        """Generate with retry logic and exponential backoff.
+
+        Ported from Claude Code's withRetry.ts:
+        - Exponential backoff with jitter (no thundering herd)
+        - Respects Retry-After headers on 429
+        - Retries on connection, timeout, 429, 5xx errors
+        - Non-retryable errors (400, 401, 403) raise immediately
+        """
         last_error = None
         for attempt in range(MAX_RETRIES):
             try:
                 return await self._call(messages, tools)
             except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
                 last_error = e
-                wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
-                log.warning(f"Model call failed (attempt {attempt+1}/{MAX_RETRIES}): {e}. Retrying in {wait}s...")
+                wait = get_retry_delay(attempt)
+                log.warning(f"Model call failed (attempt {attempt+1}/{MAX_RETRIES}): {e}. Retrying in {wait:.1f}s...")
                 await asyncio.sleep(wait)
             except httpx.HTTPStatusError as e:
-                if e.response.status_code in (429, 502, 503, 504):
+                status = e.response.status_code
+                if status in (429, 502, 503, 504):
                     last_error = e
-                    wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
-                    log.warning(f"Server error {e.response.status_code} (attempt {attempt+1}). Retrying in {wait}s...")
+                    # Extract Retry-After header for 429s
+                    retry_after = e.response.headers.get("retry-after") if status == 429 else None
+                    wait = get_retry_delay(attempt, retry_after=retry_after)
+                    log.warning(f"Server error {status} (attempt {attempt+1}/{MAX_RETRIES}). Retrying in {wait:.1f}s...")
                     await asyncio.sleep(wait)
                 else:
-                    raise  # non-retryable HTTP error
+                    raise  # non-retryable HTTP error (400, 401, 403, etc.)
             except json.JSONDecodeError as e:
                 last_error = e
+                wait = get_retry_delay(attempt)
                 log.warning(f"Invalid JSON from model (attempt {attempt+1}): {e}")
-                await asyncio.sleep(2)
+                await asyncio.sleep(wait)
 
         raise ConnectionError(f"Model unreachable after {MAX_RETRIES} attempts: {last_error}")
 

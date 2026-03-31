@@ -83,6 +83,11 @@ class Agent:
         # Stall detection
         self._empty_steps = 0
 
+        # Auto-compact circuit breaker (from Claude Code's autoCompact.ts)
+        # Stops retrying compression after N consecutive failures
+        self._compact_consecutive_failures = 0
+        self._max_compact_failures = 3
+
         # Loop detection for auto-swarm
         self._recent_tools: list[tuple[str, dict]] = []  # (tool_name, args) ring buffer
 
@@ -180,26 +185,40 @@ class Agent:
             self.state.iteration += 1
             iter_start = time.time()
 
-            # Strategic compaction — at phase boundaries, not arbitrary intervals
-            # ECC pattern: compact after milestones, not mid-task
+            # Strategic compaction with circuit breaker (from Claude Code's autoCompact.ts)
+            # Circuit breaker: stop wasting API calls after N consecutive failures
             should_compact = False
-            if needs_compression(self.state, max_tokens=18000):
+            if self._compact_consecutive_failures >= self._max_compact_failures:
+                pass  # Circuit breaker tripped — skip compaction
+            elif needs_compression(self.state, max_tokens=18000):
                 should_compact = True
             elif self.observer.call_count >= 50 and self.observer.call_count % 25 == 0:
-                # ECC: suggest at 50 calls, then every 25
                 if needs_compression(self.state, max_tokens=14000):
                     should_compact = True
 
             if should_compact:
-                # Two-tier compaction (ported from Claude Code):
-                # Tier 1: Fast prune (no LLM call, drop verbose tool results)
-                freed = fast_prune(self.state, keep_recent=6)
-                # Tier 2: LLM summary only if fast prune wasn't enough
-                if needs_compression(self.state, max_tokens=18000):
-                    log.info(f"Fast prune freed {freed} tokens but still over limit — full compress")
-                    await compress_context(self.state, self.model, max_tokens=18000, keep_recent=6)
-                else:
-                    log.info(f"Fast prune sufficient — freed {freed} tokens")
+                try:
+                    # Two-tier compaction (ported from Claude Code):
+                    # Tier 1: Fast prune (no LLM call, drop verbose tool results)
+                    freed = fast_prune(self.state, keep_recent=6)
+                    # Tier 2: LLM summary only if fast prune wasn't enough
+                    if needs_compression(self.state, max_tokens=18000):
+                        log.info(f"Fast prune freed {freed} tokens but still over limit — full compress")
+                        await compress_context(self.state, self.model, max_tokens=18000, keep_recent=6)
+                    else:
+                        log.info(f"Fast prune sufficient — freed {freed} tokens")
+                    # Reset on success
+                    self._compact_consecutive_failures = 0
+                except Exception as e:
+                    self._compact_consecutive_failures += 1
+                    if self._compact_consecutive_failures >= self._max_compact_failures:
+                        log.warning(
+                            f"Auto-compact circuit breaker tripped after "
+                            f"{self._compact_consecutive_failures} consecutive failures — "
+                            f"skipping future attempts this session"
+                        )
+                    else:
+                        log.warning(f"Compaction failed ({self._compact_consecutive_failures}/{self._max_compact_failures}): {e}")
 
             # Background learning — analyze observations every 20 tool calls
             if self.observer.call_count > 0 and self.observer.call_count % 20 == 0:
@@ -384,6 +403,14 @@ class Agent:
             except (json.JSONDecodeError, TypeError):
                 pass
         log.info(f"  Args type={type(tool_call.arguments).__name__}, value={str(tool_call.arguments)[:200]}")
+
+        # Input validation (from Claude Code's validateInput pattern)
+        validation_error = tool.validate_input(**tool_call.arguments)
+        if validation_error:
+            error_msg = f"Validation error for {tool_call.name}: {validation_error}"
+            log.warning(error_msg)
+            self.state.add_tool_result(tool_call.name, tool_call.arguments, error_msg, is_error=True)
+            return error_msg
 
         try:
             result = await tool.execute(**tool_call.arguments)
