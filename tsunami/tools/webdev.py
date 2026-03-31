@@ -522,6 +522,10 @@ class WebdevScreenshot(BaseTool):
         except ImportError:
             return ToolResult(
                 "Playwright not installed. Run: pip install playwright && python -m playwright install chromium",
+                is_error=True,
+            )
+        except Exception as e:
+            return ToolResult(f"Screenshot error: {e}", is_error=True)
 
     async def _analyze_screenshot(self, image_path: str) -> str:
         """Send screenshot to vision model for analysis. Returns text only — image stays on disk."""
@@ -558,10 +562,6 @@ class WebdevScreenshot(BaseTool):
         except Exception:
             pass
         return ""
-                is_error=True,
-            )
-        except Exception as e:
-            return ToolResult(f"Screenshot error: {e}", is_error=True)
 
 
 class WebdevGenerateAssets(BaseTool):
