@@ -22,6 +22,10 @@ log = logging.getLogger("tsunami.compression")
 # Rough token estimate: 1 token ≈ 4 chars for English text
 CHARS_PER_TOKEN = 4
 
+# Autocompact thresholds (from Claude Code's autoCompact.ts)
+AUTOCOMPACT_BUFFER_TOKENS = 13_000  # trigger at context_window - this buffer
+WARNING_THRESHOLD_BUFFER = 20_000   # warn when this close to limit
+
 
 def estimate_tokens(state: AgentState) -> int:
     """Estimate total tokens in the conversation."""
@@ -29,6 +33,36 @@ def estimate_tokens(state: AgentState) -> int:
     if state.plan:
         total_chars += len(state.plan.summary())
     return total_chars // CHARS_PER_TOKEN
+
+
+def get_autocompact_threshold(context_window: int) -> int:
+    """Calculate when autocompact should trigger.
+
+    From Claude Code: trigger at context_window - AUTOCOMPACT_BUFFER_TOKENS.
+    This leaves enough room for the model to generate a response + summary.
+    """
+    return context_window - AUTOCOMPACT_BUFFER_TOKENS
+
+
+def calculate_token_warning(token_count: int, context_window: int) -> dict:
+    """Calculate token usage warning state.
+
+    From Claude Code's calculateTokenWarningState. Returns a dict with:
+    - percent_left: how much context remains (0-100)
+    - needs_compact: should autocompact trigger?
+    - needs_warning: should we warn the user?
+    """
+    threshold = get_autocompact_threshold(context_window)
+    percent_left = max(0, round(((threshold - token_count) / max(threshold, 1)) * 100))
+
+    return {
+        "percent_left": percent_left,
+        "needs_compact": token_count >= threshold,
+        "needs_warning": token_count >= (context_window - WARNING_THRESHOLD_BUFFER),
+        "token_count": token_count,
+        "threshold": threshold,
+        "context_window": context_window,
+    }
 
 
 def needs_compression(state: AgentState, max_tokens: int = 32000) -> bool:

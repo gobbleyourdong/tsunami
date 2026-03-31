@@ -21,11 +21,13 @@ from pathlib import Path
 
 from .compression import compress_context, needs_compression, fast_prune
 from .config import TsunamiConfig
+from .cost_tracker import CostTracker
 from .model import LLMModel, ToolCall, create_model
 from .observer import Observer
 from .prompt import build_system_prompt
 from .session import save_session, save_session_summary, load_last_session_summary
 from .state import AgentState
+from .tool_dedup import ToolDedup
 from .tool_result_storage import maybe_persist, TOOL_RESULT_CLEARED_MESSAGE
 from .tools import ToolRegistry, build_registry
 from .tools.plan import set_agent_state
@@ -80,6 +82,12 @@ class Agent:
 
         # Continuous learning
         self.observer = Observer(config.workspace_dir)
+
+        # Cost tracking (from Claude Code's cost-tracker.ts)
+        self.cost_tracker = CostTracker(session_id=self.session_id)
+
+        # Tool call deduplication (from Claude Code's message dedup patterns)
+        self.tool_dedup = ToolDedup()
 
         # Stall detection
         self._empty_steps = 0
@@ -263,6 +271,8 @@ class Agent:
                 log.info(f"Task complete after {self.state.iteration} iterations")
                 save_session(self.state, self.session_dir, self.session_id)
                 save_session_summary(self.state, self.session_dir, self.session_id)
+                self.cost_tracker.save(self.config.workspace_dir)
+                log.info(self.cost_tracker.format_summary())
                 # Background memory extraction (non-blocking)
                 try:
                     await self.observer.extract_session_memories()
@@ -273,6 +283,7 @@ class Agent:
         # Save on max iterations (incomplete task — summary helps resume)
         save_session(self.state, self.session_dir, self.session_id)
         save_session_summary(self.state, self.session_dir, self.session_id)
+        self.cost_tracker.save(self.config.workspace_dir)
         return f"Reached max iterations ({self.config.max_iterations}). Session saved: {self.session_id}"
 
     async def _step(self, _watcher_depth: int = 0) -> str:
@@ -287,15 +298,18 @@ class Agent:
             tools=self.registry.schemas(),
         )
 
-        # 2b. Track LLM usage
+        # 2b. Track LLM usage + cost
         if response.raw and "usage" in response.raw:
             usage = response.raw["usage"]
             latency = response.raw.get("timings", {}).get("total", 0)
+            model_name = response.raw.get("model", "")
+            prompt_tokens = usage.get("prompt_tokens", 0)
+            completion_tokens = usage.get("completion_tokens", 0)
             self.observer.observe_llm_usage(
-                usage.get("prompt_tokens", 0),
-                usage.get("completion_tokens", 0),
-                response.raw.get("model", ""),
-                latency,
+                prompt_tokens, completion_tokens, model_name, latency,
+            )
+            self.cost_tracker.record(
+                model_name, prompt_tokens, completion_tokens, latency,
             )
 
         # 3. Extract the tool call
@@ -413,6 +427,14 @@ class Agent:
             self.state.add_tool_result(tool_call.name, tool_call.arguments, error_msg, is_error=True)
             return error_msg
 
+        # Tool dedup check — skip re-execution of identical read-only calls
+        cached = self.tool_dedup.lookup(tool_call.name, tool_call.arguments)
+        if cached is not None:
+            content, is_error = cached
+            log.info(f"  Dedup hit for {tool_call.name} — returning cached result")
+            self.state.add_tool_result(tool_call.name, tool_call.arguments, content, is_error=is_error)
+            return content
+
         try:
             result = await tool.execute(**tool_call.arguments)
         except TypeError as e:
@@ -438,6 +460,12 @@ class Agent:
                 tool_call.name, result.content,
                 self.config.workspace_dir, self.session_id,
             )
+
+        # Cache the result for dedup (read-only tools only)
+        self.tool_dedup.store(tool_call.name, tool_call.arguments, display_content, result.is_error)
+        # Invalidate cache after any write operation
+        if tool_call.name in ("file_write", "file_edit", "file_append", "shell_exec"):
+            self.tool_dedup.invalidate_on_write()
 
         # Record to state + observation log
         self.state.add_tool_result(
