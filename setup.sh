@@ -128,10 +128,11 @@ cd "$DIR"
 
 # --- Python deps ---
 echo "  → Installing Python dependencies..."
-pip3 install -q httpx pyyaml 'duckduckgo-search>=7' 2>/dev/null || \
-pip3 install --break-system-packages -q httpx pyyaml 'duckduckgo-search>=7' 2>/dev/null || \
-pip3 install --user -q httpx pyyaml 'duckduckgo-search>=7' 2>/dev/null || \
-echo "  ⚠ pip install failed — try: pip3 install --break-system-packages httpx pyyaml"
+DEPS="httpx pyyaml duckduckgo-search>=7 diffusers torch accelerate"
+pip3 install -q $DEPS 2>/dev/null || \
+pip3 install --break-system-packages -q $DEPS 2>/dev/null || \
+pip3 install --user -q $DEPS 2>/dev/null || \
+echo "  ⚠ pip install failed — try: pip3 install --break-system-packages $DEPS"
 
 # --- Node deps (optional) ---
 if command -v node &>/dev/null && [ -d "$DIR/cli" ]; then
