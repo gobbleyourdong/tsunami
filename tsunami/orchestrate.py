@@ -89,8 +89,34 @@ class Orchestrator:
         self.workers: list[Worker] = []
 
     def plan_subtasks(self, task: str, num_workers: int) -> list[dict]:
-        """Use the main model to decompose a task into subtasks."""
-        # For now, return a simple split. In future, use LLM to plan.
+        """Use the fast model to decompose a task into parallel subtasks."""
+        import httpx, json, re
+
+        try:
+            resp = httpx.post(
+                "http://localhost:8092/v1/chat/completions",
+                json={
+                    "model": "qwen",
+                    "messages": [
+                        {"role": "system", "content": f"Decompose this task into exactly {num_workers} independent parallel subtasks. Output a JSON array of task description strings. Nothing else."},
+                        {"role": "user", "content": task},
+                    ],
+                    "max_tokens": 500,
+                },
+                headers={"Authorization": "Bearer not-needed"},
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                content = resp.json()["choices"][0]["message"]["content"]
+                match = re.search(r'\[.*\]', content, re.DOTALL)
+                if match:
+                    tasks = json.loads(match.group())
+                    if len(tasks) >= num_workers:
+                        return [{"id": f"w{i}", "task": t} for i, t in enumerate(tasks[:num_workers])]
+        except Exception as e:
+            log.warning(f"Task decomposition failed: {e}")
+
+        # Fallback: all workers get the same task
         return [{"id": f"w{i}", "task": task} for i in range(num_workers)]
 
     def spawn_workers(self, subtasks: list[dict]):
