@@ -19,7 +19,7 @@ import logging
 import time
 from pathlib import Path
 
-from .compression import compress_context, needs_compression
+from .compression import compress_context, needs_compression, fast_prune
 from .config import TsunamiConfig
 from .model import LLMModel, ToolCall, create_model
 from .observer import Observer
@@ -191,8 +191,15 @@ class Agent:
                     should_compact = True
 
             if should_compact:
-                log.info(f"Compacting at iteration {self.state.iteration} ({self.observer.call_count} tool calls)")
-                await compress_context(self.state, self.model, max_tokens=18000, keep_recent=6)
+                # Two-tier compaction (ported from Claude Code):
+                # Tier 1: Fast prune (no LLM call, drop verbose tool results)
+                freed = fast_prune(self.state, keep_recent=6)
+                # Tier 2: LLM summary only if fast prune wasn't enough
+                if needs_compression(self.state, max_tokens=18000):
+                    log.info(f"Fast prune freed {freed} tokens but still over limit — full compress")
+                    await compress_context(self.state, self.model, max_tokens=18000, keep_recent=6)
+                else:
+                    log.info(f"Fast prune sufficient — freed {freed} tokens")
 
             # Background learning — analyze observations every 20 tool calls
             if self.observer.call_count > 0 and self.observer.call_count % 20 == 0:

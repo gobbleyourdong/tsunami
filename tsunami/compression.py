@@ -35,6 +35,42 @@ def needs_compression(state: AgentState, max_tokens: int = 32000) -> bool:
     return estimate_tokens(state) > max_tokens
 
 
+def fast_prune(state: AgentState, keep_recent: int = 8) -> int:
+    """Tier 1: Fast prune — drop old tool results without LLM call.
+
+    Ported from Claude Code's sessionMemoryCompact pattern.
+    Drops verbose tool results (file_read output, shell output, match_glob lists)
+    while keeping tool calls and errors. Much faster than LLM summarization.
+
+    Returns number of tokens freed.
+    """
+    if len(state.conversation) <= keep_recent + 2:
+        return 0
+
+    before = estimate_tokens(state)
+    prunable_end = len(state.conversation) - keep_recent
+
+    for i in range(2, prunable_end):  # Skip system + user message
+        m = state.conversation[i]
+        if m.role == "tool_result" and not m.tool_call:
+            content = m.content
+            # Keep errors and short results, prune verbose ones
+            if "ERROR" not in content and len(content) > 500:
+                # Replace with a one-line summary
+                first_line = content.split("\n")[0][:100]
+                state.conversation[i] = Message(
+                    role=m.role,
+                    content=f"[pruned] {first_line}",
+                    tool_call=m.tool_call,
+                    timestamp=m.timestamp,
+                )
+
+    freed = before - estimate_tokens(state)
+    if freed > 0:
+        log.info(f"Fast prune freed ~{freed} tokens")
+    return freed
+
+
 async def compress_context(state: AgentState, model: LLMModel,
                            max_tokens: int = 32000, keep_recent: int = 10):
     """Compress older messages into a summary while preserving recent context.
