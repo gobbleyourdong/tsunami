@@ -83,7 +83,7 @@ def _resolve_path(path: str, workspace_dir: str) -> Path:
     return p.expanduser().resolve()
 
 
-# Pre-read file size gate (from Claude Code's FileReadTool)
+# Pre-read file size gate (.
 # Files larger than this are rejected before reading — use offset/limit.
 MAX_FILE_SIZE_BYTES = 256 * 1024  # 256 KB
 
@@ -116,7 +116,7 @@ class FileRead(BaseTool):
             if not p.is_file():
                 return ToolResult(f"Not a file: {path}", is_error=True)
 
-            # Pre-read size gate (from Claude Code's FileReadTool)
+            # Pre-read size gate (.
             # Only enforce when no explicit limit was provided (user wants whole file)
             file_size = p.stat().st_size
             if file_size > MAX_FILE_SIZE_BYTES and limit >= 500 and offset == 0:

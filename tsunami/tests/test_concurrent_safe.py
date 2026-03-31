@@ -1,4 +1,4 @@
-"""Tests for tool concurrency safety flags (from Claude Code's StreamingToolExecutor)."""
+"""Tests for tool concurrency safety flags (.."""
 
 import pytest
 

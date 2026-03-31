@@ -1,4 +1,4 @@
-"""Tests for fast_prune with TOOL_RESULT_CLEARED_MESSAGE (Claude Code pattern)."""
+"""Tests for fast_prune with TOOL_RESULT_CLEARED_MESSAGE ."""
 
 import pytest
 

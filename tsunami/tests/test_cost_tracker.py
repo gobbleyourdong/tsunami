@@ -1,4 +1,4 @@
-"""Tests for cost tracking (ported from Claude Code's cost-tracker.ts)."""
+"""Tests for cost tracking."""
 
 import json
 import os

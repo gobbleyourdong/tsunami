@@ -1,4 +1,4 @@
-"""Tests for structured diff parsing (ported from Claude Code's gitDiff.ts)."""
+"""Tests for structured diff parsing."""
 
 import pytest
 

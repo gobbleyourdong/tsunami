@@ -1,6 +1,5 @@
 """Time-based microcompact — clear cold tool results after cache expiry.
 
-Ported from Claude Code's microCompact.ts / timeBasedMCConfig.ts.
 When the gap since the last assistant message exceeds a threshold,
 old tool results are content-cleared (replaced with a short marker).
 
@@ -24,7 +23,7 @@ from .tool_result_storage import TOOL_RESULT_CLEARED_MESSAGE
 log = logging.getLogger("tsunami.microcompact")
 
 # Default gap threshold in seconds before tool results are considered "cold"
-# Claude Code uses 60 minutes (matching server prompt cache TTL).
+# Tsunami uses 60 minutes (matching server prompt cache TTL).
 # We use 10 minutes for local models (no server cache to worry about).
 DEFAULT_GAP_THRESHOLD_SECONDS = 600  # 10 minutes
 DEFAULT_KEEP_RECENT = 5  # always keep last N tool results

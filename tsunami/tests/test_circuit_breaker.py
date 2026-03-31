@@ -1,4 +1,4 @@
-"""Tests for auto-compact circuit breaker (ported from Claude Code's autoCompact.ts)."""
+"""Tests for auto-compact circuit breaker."""
 
 import pytest
 

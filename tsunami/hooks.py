@@ -1,6 +1,5 @@
 """Hook system — user-defined pre/post callbacks on agent events.
 
-Ported from Claude Code's hooks system (execCommandHook, execPromptHook, etc.).
 Hooks are registered in config and fire on events like PreToolUse, PostToolUse,
 SessionStart, etc. They can modify tool input, block execution, or inject context.
 
@@ -178,7 +177,7 @@ async def execute_hooks(registry: HookRegistry, event: str | HookEvent,
 async def _exec_command_hook(hook: HookConfig, event_data: dict) -> HookResult:
     """Execute a shell command hook.
 
-    From Claude Code: pass event data as JSON on stdin.
+    pass event data as JSON on stdin.
     Exit code 0 = success, 2 = blocking error, other = non-blocking.
     """
     try:

@@ -22,7 +22,7 @@ log = logging.getLogger("tsunami.compression")
 # Rough token estimate: 1 token ≈ 4 chars for English text
 CHARS_PER_TOKEN = 4
 
-# Autocompact thresholds (from Claude Code's autoCompact.ts)
+# Autocompact thresholds
 AUTOCOMPACT_BUFFER_TOKENS = 13_000  # trigger at context_window - this buffer
 WARNING_THRESHOLD_BUFFER = 20_000   # warn when this close to limit
 
@@ -38,7 +38,7 @@ def estimate_tokens(state: AgentState) -> int:
 def get_autocompact_threshold(context_window: int) -> int:
     """Calculate when autocompact should trigger.
 
-    From Claude Code: trigger at context_window - AUTOCOMPACT_BUFFER_TOKENS.
+    trigger at context_window - AUTOCOMPACT_BUFFER_TOKENS.
     This leaves enough room for the model to generate a response + summary.
     """
     return context_window - AUTOCOMPACT_BUFFER_TOKENS
@@ -47,7 +47,7 @@ def get_autocompact_threshold(context_window: int) -> int:
 def calculate_token_warning(token_count: int, context_window: int) -> dict:
     """Calculate token usage warning state.
 
-    From Claude Code's calculateTokenWarningState. Returns a dict with:
+     Returns a dict with:
     - percent_left: how much context remains (0-100)
     - needs_compact: should autocompact trigger?
     - needs_warning: should we warn the user?
@@ -73,7 +73,7 @@ def needs_compression(state: AgentState, max_tokens: int = 32000) -> bool:
 def fast_prune(state: AgentState, keep_recent: int = 8) -> int:
     """Tier 1: Fast prune — drop old tool results without LLM call.
 
-    Ported from Claude Code's sessionMemoryCompact pattern.
+    
     Drops verbose tool results (file_read output, shell output, match_glob lists)
     while keeping tool calls and errors. Much faster than LLM summarization.
 

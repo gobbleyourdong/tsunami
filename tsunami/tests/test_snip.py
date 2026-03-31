@@ -1,4 +1,4 @@
-"""Tests for message snipping (ported from Claude Code's snip pattern)."""
+"""Tests for message snipping ("""
 
 import pytest
 

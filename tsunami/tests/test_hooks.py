@@ -1,4 +1,4 @@
-"""Tests for hook system (ported from Claude Code's hooks)."""
+"""Tests for hook system ("""
 
 import asyncio
 import json

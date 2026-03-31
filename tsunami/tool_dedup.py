@@ -1,6 +1,6 @@
 """Tool call deduplication — skip identical repeated calls.
 
-Ported from Claude Code's message deduplication patterns.
+
 When the model calls the same tool with the same arguments within
 a short window, return the cached result instead of re-executing.
 

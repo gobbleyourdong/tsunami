@@ -1,9 +1,8 @@
 """Cron scheduler — persistent and session-scoped task scheduling.
 
-Ported from Claude Code's cronScheduler.ts and cronTasks.ts.
 Supports recurring and one-shot tasks with file-backed persistence.
 
-Key patterns from Claude Code:
+Key patterns :
 - Dual storage: file-backed (durable) + in-memory (session-scoped)
 - Missed task detection on startup
 - Jitter to prevent thundering herd on wall-clock boundaries
@@ -23,7 +22,7 @@ from typing import Callable
 
 log = logging.getLogger("tsunami.cron")
 
-# Auto-expiry for recurring tasks (from Claude Code: 7 days)
+# Auto-expiry for recurring tasks (: 7 days)
 RECURRING_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000  # 7 days in ms
 
 
@@ -48,7 +47,7 @@ class CronTask:
 
 
 def generate_task_id() -> str:
-    """Generate an 8-char random task ID (Claude Code pattern)."""
+    """Generate an 8-char random task ID ."""
     return hashlib.sha256(f"{time.time()}{random.random()}".encode()).hexdigest()[:8]
 
 
@@ -117,7 +116,7 @@ def add_jitter(base_time_ms: float, interval_ms: float,
                max_frac: float = 0.1, max_cap_ms: float = 15 * 60 * 1000) -> float:
     """Add deterministic jitter to a fire time.
 
-    From Claude Code: jitter = random fraction of interval, capped.
+    jitter = random fraction of interval, capped.
     Prevents thundering herd when many tasks fire at the same wall-clock time.
     """
     jitter_ms = min(interval_ms * max_frac, max_cap_ms)
@@ -186,7 +185,7 @@ class CronStore:
     def find_missed(self) -> list[CronTask]:
         """Find one-shot tasks that should have fired but didn't.
 
-        From Claude Code: detected on startup to handle process restart.
+        detected on startup to handle process restart.
         """
         missed = []
         now_ms = time.time() * 1000

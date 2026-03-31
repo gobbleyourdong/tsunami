@@ -1,11 +1,10 @@
 """Per-tool timeout with SIGTERM → SIGKILL escalation.
 
-Ported from Claude Code's ripgrep.ts timeout pattern.
 Wraps async tool execution with a configurable timeout.
 On timeout: sends SIGTERM, waits 5s, then SIGKILL.
 
 Also supports auto-backgrounding for long commands
-(from Claude Code's BashTool ASSISTANT_BLOCKING_BUDGET_MS).
+(..
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ DEFAULT_TIMEOUTS = {
     "file_read": 30,        # 30 seconds
     "file_write": 30,
     "file_edit": 30,
-    "match_glob": 20,       # ripgrep timeout from Claude Code
+    "match_glob": 20,       # ripgrep timeout 
     "match_grep": 20,
     "search_web": 60,
     "python_exec": 120,
@@ -33,7 +32,7 @@ DEFAULT_TIMEOUTS = {
     "default": 120,
 }
 
-# Auto-background threshold (from Claude Code's ASSISTANT_BLOCKING_BUDGET_MS)
+# Auto-background threshold (.
 AUTO_BACKGROUND_THRESHOLD_S = 15
 
 # SIGKILL escalation delay
@@ -76,7 +75,7 @@ async def kill_process_gracefully(proc: asyncio.subprocess.Process,
                                    timeout: float = SIGKILL_DELAY_S):
     """Kill a subprocess with SIGTERM → wait → SIGKILL escalation.
 
-    From Claude Code's ripgrep.ts timeout handling:
+    ts timeout handling:
     1. Send SIGTERM
     2. Wait up to timeout seconds
     3. If still alive, SIGKILL
@@ -106,7 +105,7 @@ async def kill_process_gracefully(proc: asyncio.subprocess.Process,
 class ExecutionTimer:
     """Track tool execution time for auto-background decisions.
 
-    From Claude Code: if a command runs longer than AUTO_BACKGROUND_THRESHOLD_S,
+    if a command runs longer than AUTO_BACKGROUND_THRESHOLD_S,
     suggest backgrounding it.
     """
 

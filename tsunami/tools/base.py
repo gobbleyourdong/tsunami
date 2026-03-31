@@ -28,7 +28,7 @@ class BaseTool(ABC):
 
     name: str = ""
     description: str = ""
-    # Concurrency safety flag (from Claude Code's StreamingToolExecutor)
+    # Concurrency safety flag (.
     # True = safe to run in parallel with other concurrent-safe tools
     # False = must run exclusively (has side effects: writes, shell, etc.)
     concurrent_safe: bool = False
@@ -45,7 +45,7 @@ class BaseTool(ABC):
         """Validate input parameters before execution.
 
         Returns error message string if invalid, None if OK.
-        Ported from Claude Code's per-tool validateInput() pattern.
+        
         Checks required fields and basic type constraints from schema.
         """
         schema = self.parameters_schema()

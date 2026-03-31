@@ -1,4 +1,4 @@
-"""Tests for tool input validation (ported from Claude Code's validateInput pattern)."""
+"""Tests for tool input validation ("""
 
 import pytest
 from tsunami.tools.base import BaseTool, ToolResult

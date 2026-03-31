@@ -1,6 +1,5 @@
 """Structured diff parsing and display.
 
-Ported from Claude Code's gitDiff.ts patterns.
 Parses unified diff output into structured hunks for better
 display and analysis. Works with both git diff and inline edits.
 """
@@ -13,7 +12,7 @@ from dataclasses import dataclass, field
 
 log = logging.getLogger("tsunami.diff_display")
 
-# Max lines per file to include in display (from Claude Code)
+# Max lines per file to include in display 
 MAX_LINES_PER_FILE = 400
 
 

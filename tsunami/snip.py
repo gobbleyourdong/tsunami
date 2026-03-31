@@ -1,6 +1,6 @@
 """Message snipping — targeted removal of old messages to free tokens.
 
-Ported from Claude Code's snipCompactIfNeeded pattern.
+
 Unlike full compression (which summarizes everything), snipping selectively
 removes the oldest, least-valuable messages while preserving structure.
 

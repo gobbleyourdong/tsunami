@@ -1,6 +1,5 @@
 """Cost tracking — per-model USD costs from token counts.
 
-Ported from Claude Code's cost-tracker.ts and modelCost.ts.
 Tracks input/output tokens per model, calculates USD cost,
 formats summaries, and persists session costs to disk.
 
@@ -19,7 +18,7 @@ from pathlib import Path
 log = logging.getLogger("tsunami.cost_tracker")
 
 # --- Pricing tiers ($ per million tokens) ---
-# From Claude Code's modelCost.ts
+# ts
 PRICING = {
     # Anthropic models
     "haiku-4-5":  {"input": 1.0, "output": 5.0},
@@ -120,7 +119,7 @@ class CostTracker:
         return f"{minutes}m {secs}s"
 
     def format_summary(self) -> str:
-        """Format a complete cost summary (Claude Code's formatTotalCost pattern)."""
+        """Format a complete cost summary (production pattern)."""
         lines = [
             f"Total cost:     {self.format_cost(self.total_cost_usd)}",
             f"Total tokens:   {self.total_tokens:,} ({self.total_input_tokens:,} in, {self.total_output_tokens:,} out)",

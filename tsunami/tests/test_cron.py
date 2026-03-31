@@ -1,4 +1,4 @@
-"""Tests for cron scheduler (ported from Claude Code's cronScheduler.ts)."""
+"""Tests for cron scheduler."""
 
 import json
 import os

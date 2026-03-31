@@ -1,4 +1,4 @@
-"""Tests for git operation detection (ported from Claude Code's gitOperationTracking.ts)."""
+"""Tests for git operation detection."""
 
 import pytest
 

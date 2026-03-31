@@ -86,13 +86,13 @@ class Agent:
         # Continuous learning
         self.observer = Observer(config.workspace_dir)
 
-        # Cost tracking (from Claude Code's cost-tracker.ts)
+        # Cost tracking
         self.cost_tracker = CostTracker(session_id=self.session_id)
 
-        # Tool call deduplication (from Claude Code's message dedup patterns)
+        # Tool call deduplication (.
         self.tool_dedup = ToolDedup()
 
-        # Git operation tracking (from Claude Code's gitOperationTracking.ts)
+        # Git operation tracking
         self.git_tracker = GitTracker()
 
         # Abort signal for graceful interruption
@@ -101,7 +101,7 @@ class Agent:
         # Stall detection
         self._empty_steps = 0
 
-        # Auto-compact circuit breaker (from Claude Code's autoCompact.ts)
+        # Auto-compact circuit breaker
         # Stops retrying compression after N consecutive failures
         self._compact_consecutive_failures = 0
         self._max_compact_failures = 3
@@ -210,11 +210,11 @@ class Agent:
                 self.cost_tracker.save(self.config.workspace_dir)
                 return f"Aborted: {self.abort_signal.reason}"
 
-            # Time-based microcompact (from Claude Code's microCompact.ts)
+            # Time-based microcompact
             # Clears cold tool results when prompt cache has likely expired
             microcompact_if_needed(self.state)
 
-            # Strategic compaction with circuit breaker (from Claude Code's autoCompact.ts)
+            # Strategic compaction with circuit breaker
             # Circuit breaker: stop wasting API calls after N consecutive failures
             should_compact = False
             if self._compact_consecutive_failures >= self._max_compact_failures:
@@ -227,7 +227,7 @@ class Agent:
 
             if should_compact:
                 try:
-                    # Two-tier compaction (ported from Claude Code):
+                    # Two-tier compaction (ported ):
                     # Tier 1: Fast prune (no LLM call, drop verbose tool results)
                     freed = fast_prune(self.state, keep_recent=6)
                     # Tier 2: LLM summary only if fast prune wasn't enough
@@ -439,7 +439,7 @@ class Agent:
                 pass
         log.info(f"  Args type={type(tool_call.arguments).__name__}, value={str(tool_call.arguments)[:200]}")
 
-        # Input validation (from Claude Code's validateInput pattern)
+        # Input validation (.
         validation_error = tool.validate_input(**tool_call.arguments)
         if validation_error:
             error_msg = f"Validation error for {tool_call.name}: {validation_error}"
@@ -471,7 +471,7 @@ class Agent:
             self.state.record_error(tool_call.name, tool_call.arguments, error_msg)
             return error_msg
 
-        # 7. Persist large results to disk (Claude Code's toolResultStorage pattern)
+        # 7. Persist large results to disk (production pattern)
         # Large outputs go to disk with a 2KB preview in context.
         # file_read is excluded (circular read prevention).
         display_content = result.content
@@ -487,7 +487,7 @@ class Agent:
         if tool_call.name in ("file_write", "file_edit", "file_append", "shell_exec"):
             self.tool_dedup.invalidate_on_write()
 
-        # Git operation detection (from Claude Code's gitOperationTracking.ts)
+        # Git operation detection
         if tool_call.name == "shell_exec":
             self.git_tracker.track(
                 tool_call.arguments.get("command", ""), result.content

@@ -1,6 +1,5 @@
 """LRU file read cache with mtime invalidation.
 
-Ported from Claude Code's fileReadCache.ts and fileStateCache.ts.
 Caches file contents keyed by path, invalidated when the file's
 mtime changes. Prevents redundant disk reads when the agent reads
 the same file multiple times in a session.
@@ -35,7 +34,7 @@ class CachedFile:
 class FileCache:
     """LRU file cache with mtime invalidation and size bounds.
 
-    From Claude Code's fileStateCache.ts:
+    ts:
     - Max entries limit (default 100)
     - Size-based eviction (default 25MB)
     - Validates by mtime (stale entries auto-evicted)

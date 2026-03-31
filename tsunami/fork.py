@@ -1,6 +1,5 @@
 """Conversation forking — save/restore conversation snapshots.
 
-Ported from Claude Code's branch/branch.ts.
 Creates a copy of the current conversation that can be resumed later,
 allowing the agent to explore different approaches without losing progress.
 
@@ -22,7 +21,7 @@ log = logging.getLogger("tsunami.fork")
 def derive_title(state: AgentState, max_len: int = 100) -> str:
     """Derive a fork title from the first user message.
 
-    From Claude Code's deriveFirstPrompt: extract text, collapse whitespace,
+    From deriveFirstPrompt: extract text, collapse whitespace,
     truncate to max_len.
     """
     for m in state.conversation:
@@ -140,7 +139,7 @@ def list_forks(workspace_dir: str) -> list[dict]:
 
 
 def _unique_fork_name(forks_dir: Path, base_name: str) -> str:
-    """Ensure fork name is unique (Claude Code's getUniqueForkName pattern)."""
+    """Ensure fork name is unique (production pattern)."""
     candidate = f"{base_name} (Branch)"
 
     # Check if any existing fork has this title

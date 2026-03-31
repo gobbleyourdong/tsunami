@@ -1,4 +1,4 @@
-"""Tests for todo/task tracking (ported from Claude Code's TodoWriteTool)."""
+"""Tests for todo/task tracking ("""
 
 import json
 import os
@@ -105,7 +105,7 @@ class TestTodoListFilters:
 
 
 class TestTodoListSetAll:
-    """Claude Code's TodoWriteTool pattern — replace all todos."""
+    """TodoWriteTool pattern — replace all todos."""
 
     def test_set_all(self):
         tl = TodoList()

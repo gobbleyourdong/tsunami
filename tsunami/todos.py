@@ -1,6 +1,5 @@
 """Todo/task tracking — the model manages its own progress checklist.
 
-Ported from Claude Code's TodoWriteTool.ts.
 The agent creates a todo list at the start of complex tasks,
 updates items as it progresses, and auto-clears on completion.
 
@@ -63,7 +62,7 @@ class TodoList:
         return None
 
     def set_all(self, todos: list[dict]):
-        """Replace all todos (Claude Code's TodoWriteTool pattern).
+        """Replace all todos (production pattern).
 
         Accepts a list of {title, status} dicts.
         """
@@ -125,7 +124,7 @@ class TodoList:
     def format_for_context(self) -> str:
         """Compact format for injecting into conversation context.
 
-        Uses the Claude Code pattern of putting task state at the end
+        Uses the Tsunami pattern of putting task state at the end
         of context (recency bias keeps it salient).
         """
         if not self.items:
@@ -133,7 +132,7 @@ class TodoList:
         return f"[TASK PROGRESS]\n{self.format_summary()}"
 
     def should_nudge_verification(self) -> bool:
-        """Claude Code nudges verification after 3+ completed tasks."""
+        """Tsunami nudges verification after 3+ completed tasks."""
         return len(self.completed) >= 3 and not self.all_done
 
     def save(self, workspace_dir: str):

@@ -1,6 +1,5 @@
 """Tool result persistence — large results go to disk, previews stay in context.
 
-Ported from Claude Code's toolResultStorage.ts. When a tool returns a result
 larger than PERSISTENCE_THRESHOLD, the full output is saved to a file and only
 a 2KB preview + filepath reference remains in the conversation context.
 

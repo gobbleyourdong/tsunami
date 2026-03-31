@@ -1,4 +1,4 @@
-"""Tests for bash command security validation (ported from Claude Code's bashSecurity.ts)."""
+"""Tests for bash command security validation."""
 
 import pytest
 

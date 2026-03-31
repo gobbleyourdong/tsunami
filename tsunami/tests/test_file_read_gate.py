@@ -1,4 +1,4 @@
-"""Tests for file read size gate (ported from Claude Code's FileReadTool)."""
+"""Tests for file read size gate ("""
 
 import os
 import tempfile

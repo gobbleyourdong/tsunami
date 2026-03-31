@@ -1,6 +1,5 @@
 """Git operation detection — passively instrument git ops in shell output.
 
-Ported from Claude Code's gitOperationTracking.ts.
 Instead of building dedicated git tools, we detect git operations
 from shell_exec output using regex patterns. This is lighter and
 works with any git workflow the model invents.

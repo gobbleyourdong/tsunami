@@ -1,6 +1,5 @@
 """Notification system — alert on long operations and completions.
 
-Ported from Claude Code's notifier.ts.
 Sends notifications when the agent completes a task, hits an error,
 or finishes a long-running operation. Supports terminal bell,
 desktop notifications (notify-send on Linux), and hook extensibility.
@@ -25,7 +24,7 @@ LONG_OPERATION = "long_operation"
 def detect_terminal() -> str:
     """Detect terminal type from environment.
 
-    From Claude Code's terminal detection logic.
+    
     """
     term_program = os.environ.get("TERM_PROGRAM", "").lower()
     if "iterm" in term_program:

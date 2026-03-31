@@ -1,4 +1,4 @@
-"""Tests for smart autocompact threshold (ported from Claude Code's autoCompact.ts)."""
+"""Tests for smart autocompact threshold."""
 
 import pytest
 

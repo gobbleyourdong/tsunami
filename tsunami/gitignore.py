@@ -1,6 +1,6 @@
 """Gitignore-aware file filtering for search operations.
 
-Ported from Claude Code's GrepTool gitignore handling.
+
 Parses .gitignore files and filters glob/grep results to exclude
 ignored files. Also excludes VCS directories (.git, .svn, etc.).
 
@@ -16,7 +16,7 @@ from pathlib import Path
 
 log = logging.getLogger("tsunami.gitignore")
 
-# VCS directories to always exclude (from Claude Code)
+# VCS directories to always exclude 
 VCS_DIRECTORIES = frozenset({
     ".git", ".svn", ".hg", ".bzr", ".jj", ".sl",
 })
@@ -136,7 +136,7 @@ def filter_paths(paths: list[str], base_dir: str | Path = ".") -> list[str]:
 def ripgrep_ignore_args(directory: str | Path) -> list[str]:
     """Generate ripgrep --glob arguments for gitignore patterns.
 
-    From Claude Code's GrepTool: converts patterns to ripgrep negation syntax.
+    
     Handles the ripgrep quirk where non-absolute paths need ** prefix.
     """
     patterns = find_gitignore_patterns(directory)

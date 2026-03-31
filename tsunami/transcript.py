@@ -1,6 +1,5 @@
 """Session transcript storage — JSONL-based persistence with lazy loading.
 
-Ported from Claude Code's sessionStorage.ts (5105 lines).
 Stores conversation history as JSONL (one JSON object per line).
 Supports batched writes, metadata entries, and resume from any point.
 
@@ -65,7 +64,7 @@ def read_transcript(path: str | Path, after_boundary: bool = True) -> list[dict]
     """Read entries from a transcript JSONL file.
 
     If after_boundary=True, only returns entries after the last compact boundary.
-    This is the lazy loading pattern from Claude Code for large transcripts.
+    This is the lazy loading pattern  for large transcripts.
     """
     p = Path(path)
     if not p.exists():
@@ -102,7 +101,7 @@ def read_transcript(path: str | Path, after_boundary: bool = True) -> list[dict]
 def find_leaf_messages(entries: list[dict]) -> list[dict]:
     """Find conversation leaf messages for resume.
 
-    From Claude Code: only user and assistant messages are leaves.
+    only user and assistant messages are leaves.
     Follow parent_uuid chains to find the latest branch tip.
     """
     # Build parent→children map

@@ -1,4 +1,4 @@
-"""Tests for file-type-aware token estimation (ported from Claude Code's tokenEstimation.ts)."""
+"""Tests for file-type-aware token estimation."""
 
 import json
 import os

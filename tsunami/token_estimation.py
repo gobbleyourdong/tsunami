@@ -1,6 +1,5 @@
 """File-type-aware token estimation.
 
-Ported from Claude Code's tokenEstimation.ts.
 Different content types have different bytes-per-token ratios:
 - JSON: ~2 bytes/token (single-char tokens like {, }, :, ,)
 - Code: ~4 bytes/token (typical for most languages)
@@ -15,7 +14,7 @@ from __future__ import annotations
 import json
 import os
 
-# Bytes-per-token ratios by file extension (from Claude Code)
+# Bytes-per-token ratios by file extension 
 BYTES_PER_TOKEN = {
     # JSON is much denser — lots of single-char tokens
     ".json": 2,
@@ -66,7 +65,7 @@ def estimate_tokens_for_message(role: str, content: str,
                                  tool_call: dict | None = None) -> int:
     """Estimate tokens for a single conversation message.
 
-    From Claude Code's roughTokenCountEstimationForBlock.
+    
     """
     tokens = 0
 

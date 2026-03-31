@@ -1,4 +1,4 @@
-"""Tests for tool result persistence (ported from Claude Code's toolResultStorage.ts)."""
+"""Tests for tool result persistence."""
 
 import os
 import tempfile

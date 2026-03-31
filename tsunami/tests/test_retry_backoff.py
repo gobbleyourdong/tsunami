@@ -1,4 +1,4 @@
-"""Tests for exponential backoff with jitter (ported from Claude Code's withRetry.ts)."""
+"""Tests for exponential backoff with jitter."""
 
 import pytest
 from tsunami.model import get_retry_delay, BASE_DELAY_MS, MAX_DELAY_MS

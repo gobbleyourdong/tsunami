@@ -1,4 +1,4 @@
-"""Tests for time-based microcompact (ported from Claude Code's microCompact.ts)."""
+"""Tests for time-based microcompact."""
 
 import time
 import pytest

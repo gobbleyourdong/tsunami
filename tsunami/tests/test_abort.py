@@ -1,4 +1,4 @@
-"""Tests for abort/interrupt handling (ported from Claude Code's abort patterns)."""
+"""Tests for abort/interrupt handling ("""
 
 import asyncio
 import pytest

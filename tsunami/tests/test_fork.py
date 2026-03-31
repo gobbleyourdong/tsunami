@@ -1,4 +1,4 @@
-"""Tests for conversation forking (ported from Claude Code's branch.ts)."""
+"""Tests for conversation forking."""
 
 import json
 import os

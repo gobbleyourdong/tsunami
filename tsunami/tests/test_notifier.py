@@ -1,4 +1,4 @@
-"""Tests for notification system (ported from Claude Code's notifier.ts)."""
+"""Tests for notification system."""
 
 import pytest
 

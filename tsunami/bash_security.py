@@ -1,6 +1,5 @@
 """Bash command security validation — 24 injection/safety checks.
 
-Ported from Claude Code's bashSecurity.ts (2592 lines).
 Validates shell commands BEFORE execution to catch:
 - Shell injection via metacharacters, IFS, brace expansion
 - Obfuscated flags and backslash-escaped operators
@@ -21,7 +20,7 @@ import logging
 
 log = logging.getLogger("tsunami.bash_security")
 
-# --- Check IDs (from Claude Code's bashSecurity.ts) ---
+# --- Check IDs ---
 INCOMPLETE_COMMANDS = 1
 OBFUSCATED_FLAGS = 4
 SHELL_METACHARACTERS = 5
@@ -40,7 +39,7 @@ ZSH_DANGEROUS = 20
 BACKSLASH_ESCAPED_OPERATORS = 21
 COMMENT_QUOTE_DESYNC = 22
 
-# Zsh dangerous builtins (from Claude Code)
+# Zsh dangerous builtins 
 ZSH_DANGEROUS_COMMANDS = frozenset({
     "zmodload", "emulate",
     "sysopen", "sysread", "syswrite", "sysseek",

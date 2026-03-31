@@ -1,6 +1,5 @@
 """Abort/interrupt handling — graceful cleanup on cancellation.
 
-Ported from Claude Code's combinedAbortSignal.ts and query.ts abort patterns.
 Provides a way to interrupt the agent loop mid-execution, ensuring:
 - Running tool gets a chance to clean up
 - Partial results are saved to state
@@ -23,7 +22,7 @@ class AbortSignal:
     """Flag-based abort signal (Python equivalent of JS AbortController).
 
     Can be triggered from any thread/coroutine. Once aborted, stays aborted.
-    Supports multiple triggers (combined signal pattern from Claude Code).
+    Supports multiple triggers (combined signal pattern ).
     """
 
     def __init__(self):
@@ -85,7 +84,7 @@ class AbortError(Exception):
 def create_combined_signal(*signals: AbortSignal) -> AbortSignal:
     """Create a signal that fires when ANY of the input signals fire.
 
-    From Claude Code's combinedAbortSignal.ts — useful when you need
+    ts — useful when you need
     both a user interrupt AND a timeout to cancel the same operation.
     """
     combined = AbortSignal()

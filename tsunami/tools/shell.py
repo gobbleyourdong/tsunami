@@ -92,7 +92,7 @@ class ShellExec(BaseTool):
         if warning and warning.startswith("BLOCKED"):
             return ToolResult(warning, is_error=True)
 
-        # Bash security validation (24 checks from Claude Code's bashSecurity.ts)
+        # Bash security validation (24 checks)
         from ..bash_security import is_command_safe
         is_safe, sec_warnings = is_command_safe(command)
         if not is_safe:

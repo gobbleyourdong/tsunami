@@ -18,14 +18,14 @@ import httpx
 
 log = logging.getLogger("tsunami.model")
 
-# Retry configuration (ported from Claude Code's withRetry.ts)
+# Retry configuration (ts)
 MAX_RETRIES = 5
 BASE_DELAY_MS = 500
 MAX_DELAY_MS = 32_000  # 32 seconds cap
 
 
 def get_retry_delay(attempt: int, retry_after: str | None = None, max_delay_ms: int = MAX_DELAY_MS) -> float:
-    """Exponential backoff with jitter (Claude Code pattern).
+    """Exponential backoff with jitter .
 
     Returns delay in seconds.
     - Respects Retry-After header when present
@@ -77,7 +77,7 @@ class LLMModel(ABC):
     ) -> LLMResponse:
         """Generate with retry logic and exponential backoff.
 
-        Ported from Claude Code's withRetry.ts:
+        ts:
         - Exponential backoff with jitter (no thundering herd)
         - Respects Retry-After headers on 429
         - Retries on connection, timeout, 429, 5xx errors
