@@ -175,13 +175,16 @@ async def _execute_bee_tool(name: str, args: dict, workdir: str) -> str:
         # Round 12 lesson: blocklists fail. A jailbreak ran 'rm -rf tsunami/'
         # and deleted the entire codebase. Allowlist is the only safe model.
         import re, shlex
+        # ALLOWLIST: pure read-only commands ONLY
+        # Round 14 lesson: awk has system(), find has -exec/-delete,
+        # xargs can exec arbitrary commands. All removed.
         ALLOWED_COMMANDS = frozenset({
             'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'egrep', 'fgrep', 'pwd',
-            'find', 'sort', 'uniq', 'cut', 'awk', 'tr', 'diff', 'comm',
+            'sort', 'uniq', 'cut', 'tr', 'diff', 'comm',
             'file', 'stat', 'du', 'df', 'basename', 'dirname', 'realpath',
-            'git', 'echo', 'printf', 'test', 'true', 'false', 'seq',
-            'xargs', 'tac', 'rev', 'nl', 'paste', 'column', 'md5sum',
-            'sha256sum', 'base64', 'od', 'hexdump', 'strings',
+            'git', 'echo', 'seq',
+            'tac', 'rev', 'nl', 'paste', 'column', 'md5sum',
+            'sha256sum', 'hexdump', 'strings',
         })
         # Git sub-commands allowed (read-only)
         ALLOWED_GIT = frozenset({
