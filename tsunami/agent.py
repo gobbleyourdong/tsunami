@@ -26,6 +26,7 @@ from .observer import Observer
 from .prompt import build_system_prompt
 from .session import save_session, save_session_summary, load_last_session_summary
 from .state import AgentState
+from .tool_result_storage import maybe_persist, TOOL_RESULT_CLEARED_MESSAGE
 from .tools import ToolRegistry, build_registry
 from .tools.plan import set_agent_state
 from .watcher import Watcher
@@ -428,9 +429,19 @@ class Agent:
             self.state.record_error(tool_call.name, tool_call.arguments, error_msg)
             return error_msg
 
-        # 7. Observe — record to state + observation log
+        # 7. Persist large results to disk (Claude Code's toolResultStorage pattern)
+        # Large outputs go to disk with a 2KB preview in context.
+        # file_read is excluded (circular read prevention).
+        display_content = result.content
+        if not result.is_error:
+            display_content = maybe_persist(
+                tool_call.name, result.content,
+                self.config.workspace_dir, self.session_id,
+            )
+
+        # Record to state + observation log
         self.state.add_tool_result(
-            tool_call.name, tool_call.arguments, result.content, is_error=result.is_error
+            tool_call.name, tool_call.arguments, display_content, is_error=result.is_error
         )
         self.observer.observe_tool_call(
             tool_call.name, tool_call.arguments, result.content,

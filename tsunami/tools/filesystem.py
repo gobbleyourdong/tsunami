@@ -83,9 +83,18 @@ def _resolve_path(path: str, workspace_dir: str) -> Path:
     return p.expanduser().resolve()
 
 
+# Pre-read file size gate (from Claude Code's FileReadTool)
+# Files larger than this are rejected before reading — use offset/limit.
+MAX_FILE_SIZE_BYTES = 256 * 1024  # 256 KB
+
+
 class FileRead(BaseTool):
     name = "file_read"
-    description = "Read text content from a file. The eye: take in what exists."
+    description = (
+        "Read text content from a file. Files larger than 256KB require "
+        "offset and limit parameters. When you already know which part of "
+        "the file you need, only read that part."
+    )
 
     def parameters_schema(self) -> dict:
         return {
@@ -105,6 +114,21 @@ class FileRead(BaseTool):
                 return ToolResult(f"File not found: {path}", is_error=True)
             if not p.is_file():
                 return ToolResult(f"Not a file: {path}", is_error=True)
+
+            # Pre-read size gate (from Claude Code's FileReadTool)
+            # Only enforce when no explicit limit was provided (user wants whole file)
+            file_size = p.stat().st_size
+            if file_size > MAX_FILE_SIZE_BYTES and limit >= 500 and offset == 0:
+                size_kb = file_size / 1024
+                total_lines = p.read_text(errors="replace").count("\n") + 1
+                return ToolResult(
+                    f"File too large ({size_kb:.0f} KB, ~{total_lines} lines). "
+                    f"Use offset and limit to read specific portions:\n"
+                    f"  file_read(path=\"{path}\", offset=0, limit=100)  # first 100 lines\n"
+                    f"  file_read(path=\"{path}\", offset=100, limit=100)  # lines 101-200\n"
+                    f"Or use match_grep to search for specific content.",
+                    is_error=True,
+                )
 
             text = p.read_text(errors="replace")
             lines = text.splitlines()

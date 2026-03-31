@@ -15,6 +15,7 @@ import logging
 
 from .model import LLMModel
 from .state import AgentState, Message
+from .tool_result_storage import TOOL_RESULT_CLEARED_MESSAGE
 
 log = logging.getLogger("tsunami.compression")
 
@@ -56,11 +57,16 @@ def fast_prune(state: AgentState, keep_recent: int = 8) -> int:
             content = m.content
             # Keep errors and short results, prune verbose ones
             if "ERROR" not in content and len(content) > 500:
-                # Replace with a one-line summary
-                first_line = content.split("\n")[0][:100]
+                # Preserve filepath references from persisted results
+                filepath_line = ""
+                if "Full output saved to:" in content:
+                    for line in content.split("\n"):
+                        if "saved to:" in line:
+                            filepath_line = f" | {line.strip()}"
+                            break
                 state.conversation[i] = Message(
                     role=m.role,
-                    content=f"[pruned] {first_line}",
+                    content=f"{TOOL_RESULT_CLEARED_MESSAGE}{filepath_line}",
                     tool_call=m.tool_call,
                     timestamp=m.timestamp,
                 )
