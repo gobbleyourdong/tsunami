@@ -6,7 +6,7 @@ set +e
 
 echo "
   ╔════════════════════════════════════╗
-  ║     TSUNAMI — Agentic Reborn      ║
+  ║  TSUNAMI — Autonomous Execution   ║
   ║   Local AI Agent, Zero Cloud      ║
   ╚════════════════════════════════════╝
 "

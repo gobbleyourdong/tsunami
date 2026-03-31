@@ -139,7 +139,7 @@ async def ark_info():
     total_lines = sum(f.read_text().count("\n") for f in py_files)
 
     return {
-        "name": "TSUNAMI — Agentic Reborn",
+        "name": "TSUNAMI — Autonomous Execution Agent",
         "arc_txt_lines": lines,
         "python_files": len(py_files),
         "python_lines": total_lines,

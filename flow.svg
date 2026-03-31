@@ -26,7 +26,7 @@
 
   <!-- Title -->
   <text x="400" y="36" fill="#e8e8f0" font-size="20" font-weight="700" text-anchor="middle">TSUNAMI</text>
-  <text x="400" y="54" fill="#4a9eff" font-size="11" text-anchor="middle">Agentic Reborn</text>
+  <text x="400" y="54" fill="#4a9eff" font-size="11" text-anchor="middle">Autonomous Execution Agent</text>
 
   <!-- Row 1: User Input → Agent Loop → LLM -->
 

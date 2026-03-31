@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-TSUNAMI — Agentic Reborn
-An autonomous agent reconstructed from the inside.
+TSUNAMI — Autonomous Execution Agent
 
 Usage:
     python run.py                              # Interactive mode

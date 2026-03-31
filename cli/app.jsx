@@ -326,7 +326,7 @@ function App({ serverUrl, singleTask }) {
           <Text key={i} bold color={line.color}>{line.text}</Text>
         ))}
       </Box>
-      <Text color="#4a9eff" bold> Agentic Reborn</Text>
+      <Text color="#4a9eff" bold> Autonomous Execution Agent</Text>
       <Text> </Text>
 
       {/* Messages */}
