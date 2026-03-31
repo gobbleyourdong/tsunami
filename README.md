@@ -110,7 +110,7 @@ cd cli && npm install && cd ..
 
 ## How It Works
 
-![Architecture](flow.png)
+![Architecture](flow.svg)
 
 The agent loop runs one tool per iteration — sequential reasoning. It analyzes your intent, picks the right tool, executes it, observes the result, and repeats until the task is complete.
 
