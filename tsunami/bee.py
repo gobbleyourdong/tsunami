@@ -168,6 +168,10 @@ async def _execute_bee_tool(name: str, args: dict, workdir: str) -> str:
         network_cmds = re.compile(r'\b(curl|wget|nc|ncat|netcat|socat|ssh|scp|rsync|ftp|sftp|telnet)\b')
         if network_cmds.search(cmd):
             return "BLOCKED: bees cannot use network tools (curl, wget, nc, ssh, etc.)"
+        # Block interpreters (can bypass all other checks via import)
+        interp_cmds = re.compile(r'\b(python3?|python2|node|ruby|perl|php|lua|java\b|scala)\s')
+        if interp_cmds.search(cmd):
+            return "BLOCKED: bees cannot launch interpreters (use tools directly instead)"
         # Block process backgrounding (escape from timeout)
         if re.search(r'\bnohup\b|&\s*$|\bdisown\b', cmd):
             return "BLOCKED: bees cannot background processes"
