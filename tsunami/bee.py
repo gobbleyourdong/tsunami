@@ -191,10 +191,15 @@ async def _execute_bee_tool(name: str, args: dict, workdir: str) -> str:
             'log', 'status', 'diff', 'show', 'branch', 'tag',
             'blame', 'shortlog', 'rev-parse', 'ls-files', 'ls-tree',
         })
-        # Block shell metacharacters that enable code execution
+        # Block shell metacharacters that enable code execution or path escape
         # Subshells $() and backticks execute before we can check
+        # Tilde ~ expands to home dir, $VAR expands env vars — both bypass path checks
         if re.search(r'\$\(|`|;\s*\w|&&|#', cmd):
             return "BLOCKED: bees cannot use subshells, command chaining, or comments"
+        if re.search(r'~[/\s]|~$', cmd):
+            return "BLOCKED: bees cannot use tilde expansion (home directory access)"
+        if re.search(r'\$[A-Z_]', cmd):
+            return "BLOCKED: bees cannot use environment variables in commands"
         # Block output redirects
         if re.search(r'>\s*[^&]|>>', cmd):
             return "BLOCKED: bees cannot redirect output to files"
