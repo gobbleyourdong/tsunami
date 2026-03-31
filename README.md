@@ -56,7 +56,7 @@ User: "analyze all 500 proof files"
   → Queen: synthesizes all results → delivers answer
 ```
 
-Bees have their own agent loops with tools (file_read, shell_exec, match_grep). They run in parallel — stress-tested at 16x oversubscription, 5.6 tasks/sec.
+Bees have their own agent loops with tools (file_read, shell_exec, match_grep). They run in parallel — stress-tested at 64 concurrent bees, 5.9 tasks/sec. Each bee is sandboxed: read-only allowlist, no network, no writes, no system paths (20 rounds of adversarial hardening).
 
 ### Models
 
@@ -67,7 +67,21 @@ Bees have their own agent loops with tools (file_read, shell_exec, match_grep). 
 | Image gen | [SD-Turbo](https://huggingface.co/stabilityai/sd-turbo) (fp16) | 2.0GB | Sub-second image generation |
 | **Total** | | **10GB** | **Full stack on a 12GB GPU** |
 
-For 32GB+ systems, swap in the 27B queen for better reasoning:
+### Auto-scaling
+
+Tsunami detects your memory and auto-configures. You never think about this.
+
+| Memory | Mode | Queen | Bee slots | What you get |
+|--------|------|-------|-----------|-------------|
+| 4GB | Lite | 2B | 1 | Basic agent, runs on anything |
+| 8GB | Full | 9B | 1 | Queen + 1 bee with vision |
+| 12GB | Full | 9B | 4 | Good for most tasks |
+| 16GB | Full | 9B | 8 | Fast parallel work |
+| 24GB | Full | 9B | 16 | Heavy swarm operations |
+| 32GB+ | Full | 27B | 4+ | Best reasoning + swarm |
+| 64GB+ | Full | 27B | 32 | Maximum configuration |
+
+For 32GB+ systems, swap in the 27B queen:
 
 ```bash
 huggingface-cli download unsloth/Qwen3.5-27B-GGUF Qwen3.5-27B-Q8_0.gguf --local-dir models
