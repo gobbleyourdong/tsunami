@@ -121,6 +121,14 @@ async def _execute_bee_tool(name: str, args: dict, workdir: str) -> str:
             return "Error: path parameter required (string)"
         if len(path) > 500:
             return "Error: path too long (max 500 chars)"
+        # Block sensitive files
+        basename = Path(path).name.lower()
+        sensitive = {'.env', '.env.local', '.env.production', '.env.development',
+                     '.netrc', '.npmrc', '.pypirc', 'credentials', 'credentials.json',
+                     'id_rsa', 'id_ed25519', 'id_ecdsa', '.htpasswd', 'shadow',
+                     'token', 'token.json', '.git-credentials'}
+        if basename in sensitive or basename.startswith('.env'):
+            return f"BLOCKED: bees cannot read sensitive files ({basename})"
         p = Path(path) if Path(path).is_absolute() else Path(workdir) / path
         # Sandbox: bees can only read within workdir
         try:
@@ -179,6 +187,12 @@ async def _execute_bee_tool(name: str, args: dict, workdir: str) -> str:
         # Block process backgrounding (escape from timeout)
         if re.search(r'\bnohup\b|&\s*$|\bdisown\b', cmd):
             return "BLOCKED: bees cannot background processes"
+        # Block env dumping (can leak API keys, tokens, credentials)
+        if re.search(r'^\s*(env|printenv|set|export)\s*$|^\s*(env|printenv)\b', cmd):
+            return "BLOCKED: bees cannot dump environment variables"
+        # Block git credential/config access (can leak tokens)
+        if re.search(r'\bgit\s+(config|credential)\b', cmd):
+            return "BLOCKED: bees cannot access git config/credentials"
         # Block file writes via shell (redirects, sed -i, tee, dd, mv, cp, etc.)
         if re.search(r'(?<!\|)\s*>\s*[^&]|>>', cmd):  # output redirect (not pipe)
             return "BLOCKED: bees are read-only (cannot redirect output to files)"
