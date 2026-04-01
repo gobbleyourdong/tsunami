@@ -71,10 +71,11 @@ def _resolve_path(path: str, workspace_dir: str) -> Path:
         parts = p.parts
         if parts and parts[0] == ws_name:
             p = Path(*parts[1:]) if len(parts) > 1 else Path(".")
-        # Also handle "./workspace/..." or "workspace/..."
-        clean = str(p)
-        if clean.startswith(f"./{ws_name}/"):
-            p = Path(clean[len(f"./{ws_name}/"):])
+        # Also handle "./workspace/..." - use Path parts comparison for cross-platform
+        try:
+            p = p.relative_to(Path(f"./{ws_name}"))
+        except ValueError:
+            pass
         # Try workspace first, fall back to project root
         ws_path = Path(workspace_dir) / p
         if ws_path.exists():

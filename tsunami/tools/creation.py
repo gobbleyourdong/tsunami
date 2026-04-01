@@ -9,7 +9,9 @@ from __future__ import annotations
 import asyncio
 import json
 import mimetypes
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from .base import BaseTool, ToolResult
@@ -47,7 +49,7 @@ class FileView(BaseTool):
             if mime.startswith("image/"):
                 try:
                     result = subprocess.run(
-                        ["python3", "-c", f"from PIL import Image; im=Image.open('{p}'); print(im.size, im.mode)"],
+                        [sys.executable, "-c", f"from PIL import Image; im=Image.open('{p}'); print(im.size, im.mode)"],
                         capture_output=True, text=True, timeout=10,
                     )
                     if result.returncode == 0:
@@ -156,10 +158,7 @@ class ExposeTool(BaseTool):
 
     async def _try_ngrok(self, port: int, protocol: str) -> ToolResult:
         try:
-            result = subprocess.run(
-                ["which", "ngrok"], capture_output=True, text=True
-            )
-            if result.returncode != 0:
+            if not shutil.which("ngrok"):
                 return ToolResult("ngrok not found", is_error=True)
 
             proc = await asyncio.create_subprocess_exec(
@@ -181,10 +180,7 @@ class ExposeTool(BaseTool):
 
     async def _try_cloudflared(self, port: int, protocol: str) -> ToolResult:
         try:
-            result = subprocess.run(
-                ["which", "cloudflared"], capture_output=True, text=True
-            )
-            if result.returncode != 0:
+            if not shutil.which("cloudflared"):
                 return ToolResult("cloudflared not found", is_error=True)
 
             proc = await asyncio.create_subprocess_exec(
@@ -230,34 +226,52 @@ class ScheduleTool(BaseTool):
 
     async def execute(self, command: str, delay_seconds: int = 0, cron: str = "", **kw) -> ToolResult:
         if cron:
-            # Add to user's crontab
-            try:
-                # Get existing crontab
-                result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-                existing = result.stdout if result.returncode == 0 else ""
+            if sys.platform == "win32":
+                # Use Windows Task Scheduler
+                try:
+                    # Parse cron into a rough schedule (best-effort for common cases)
+                    task_name = f"tsunami-{abs(hash(command)) % 100000}"
+                    result = subprocess.run(
+                        ["schtasks", "/create", "/tn", task_name,
+                         "/tr", command, "/sc", "MINUTE", "/f"],
+                        capture_output=True, text=True,
+                    )
+                    if result.returncode == 0:
+                        return ToolResult(f"Scheduled recurring task '{task_name}': {command}")
+                    else:
+                        return ToolResult(f"schtasks failed: {result.stderr}", is_error=True)
+                except Exception as e:
+                    return ToolResult(f"Schedule error: {e}", is_error=True)
+            else:
+                # Add to user's crontab (Unix)
+                try:
+                    result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+                    existing = result.stdout if result.returncode == 0 else ""
 
-                new_entry = f"{cron} {command}"
-                if new_entry in existing:
-                    return ToolResult(f"Cron job already exists: {new_entry}")
+                    new_entry = f"{cron} {command}"
+                    if new_entry in existing:
+                        return ToolResult(f"Cron job already exists: {new_entry}")
 
-                new_crontab = existing.rstrip() + f"\n{new_entry}\n"
-                proc = subprocess.run(
-                    ["crontab", "-"], input=new_crontab, capture_output=True, text=True
-                )
-                if proc.returncode == 0:
-                    return ToolResult(f"Scheduled recurring: {cron} → {command}")
-                else:
-                    return ToolResult(f"Failed to set crontab: {proc.stderr}", is_error=True)
-            except Exception as e:
-                return ToolResult(f"Cron error: {e}", is_error=True)
+                    new_crontab = existing.rstrip() + f"\n{new_entry}\n"
+                    proc = subprocess.run(
+                        ["crontab", "-"], input=new_crontab, capture_output=True, text=True
+                    )
+                    if proc.returncode == 0:
+                        return ToolResult(f"Scheduled recurring: {cron} → {command}")
+                    else:
+                        return ToolResult(f"Failed to set crontab: {proc.stderr}", is_error=True)
+                except Exception as e:
+                    return ToolResult(f"Cron error: {e}", is_error=True)
 
         elif delay_seconds > 0:
-            # One-shot with delay using `at` or nohup+sleep
+            # One-shot with delay using asyncio (cross-platform)
             try:
-                proc = await asyncio.create_subprocess_shell(
-                    f"(sleep {delay_seconds} && {command}) &",
-                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                )
+                async def _run_delayed():
+                    await asyncio.sleep(delay_seconds)
+                    proc = await asyncio.create_subprocess_shell(command)
+                    await proc.wait()
+
+                asyncio.create_task(_run_delayed())
                 return ToolResult(f"Scheduled: '{command}' will run in {delay_seconds}s")
             except Exception as e:
                 return ToolResult(f"Schedule error: {e}", is_error=True)

@@ -6,6 +6,7 @@ The compass and the metal detector.
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -74,10 +75,32 @@ class MatchGrep(BaseTool):
                       limit: int = 30, **kw) -> ToolResult:
         try:
             root = Path(directory).expanduser().resolve()
-            cmd = ["grep", "-rn", "--include", file_pattern or "*", "-E", pattern, str(root)]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
-            lines = result.stdout.strip().splitlines()
+            if shutil.which("grep"):
+                cmd = ["grep", "-rn", "--include", file_pattern or "*", "-E", pattern, str(root)]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                lines = result.stdout.strip().splitlines()
+            else:
+                # Pure-Python fallback (works on Windows without grep)
+                try:
+                    rx = re.compile(pattern)
+                except re.error as exc:
+                    return ToolResult(f"Invalid regex: {exc}", is_error=True)
+                glob_pat = f"**/{file_pattern}" if file_pattern else "**/*"
+                lines = []
+                for fpath in root.glob(glob_pat):
+                    if not fpath.is_file():
+                        continue
+                    try:
+                        for lineno, text in enumerate(fpath.read_text(errors="replace").splitlines(), 1):
+                            if rx.search(text):
+                                rel = fpath.relative_to(root)
+                                lines.append(f"{rel}:{lineno}:{text}")
+                                if len(lines) >= limit * 2:
+                                    break
+                    except Exception:
+                        continue
+
             if not lines:
                 return ToolResult(f"No matches for '{pattern}' in {root}")
 

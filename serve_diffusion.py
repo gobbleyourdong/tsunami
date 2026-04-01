@@ -23,10 +23,16 @@ from pathlib import Path
 pipe = None
 
 
-def load_model(model_dir="/ark/models/Qwen-Image-2512", gguf_path="/ark/models/qwen-image-2512-Q4_K_M.gguf"):
+def load_model(model_dir=None, gguf_path=None):
     global pipe
     import torch
     from pathlib import Path
+
+    _default_models = Path(__file__).parent / "models"
+    if model_dir is None:
+        model_dir = str(_default_models / "Qwen-Image-2512")
+    if gguf_path is None:
+        gguf_path = str(_default_models / "qwen-image-2512-Q4_K_M.gguf")
 
     dtype = torch.bfloat16
 

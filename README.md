@@ -8,6 +8,16 @@ source ~/.bashrc
 tsunami
 ```
 
+**Windows:**
+
+```powershell
+irm https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
+# restart PowerShell, then:
+tsunami
+```
+
+> **Windows prerequisites:** [Git](https://git-scm.com/download/win), [Python 3.10+](https://python.org/downloads/), [cmake](https://cmake.org/download/), and [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (for llama.cpp). The installer checks for these and guides you if anything's missing.
+
 that's it. one command. it downloads everything, detects your gpu, starts the models, and you're in.
 
 **[see it work →](https://gobbleyourdong.github.io/tsunami/)**

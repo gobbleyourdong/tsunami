@@ -51,9 +51,14 @@ def start_model_server(config):
         return None
 
     import shutil
-    for p in [shutil.which("llama-server") or "",
-              os.path.expanduser("~/llama.cpp/build/bin/llama-server"),
-              "/usr/local/bin/llama-server"]:
+    exe = "llama-server.exe" if sys.platform == "win32" else "llama-server"
+    candidates = [
+        shutil.which(exe) or "",
+        os.path.expanduser(f"~/llama.cpp/build/bin/Release/{exe}"),
+        os.path.expanduser(f"~/llama.cpp/build/bin/{exe}"),
+        f"/usr/local/bin/{exe}",
+    ]
+    for p in candidates:
         if os.path.exists(p):
             llama_bin = p
             break

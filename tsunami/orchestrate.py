@@ -15,6 +15,7 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -28,7 +29,7 @@ def _run(cmd: str, **kwargs) -> subprocess.CompletedProcess:
 def create_worktree(base_dir: str, worker_id: str) -> str:
     """Create an isolated git worktree for a worker."""
     branch = f"tsunami-worker-{worker_id}-{int(time.time())}"
-    worktree_dir = f"/tmp/tsunami-worktree-{worker_id}"
+    worktree_dir = os.path.join(tempfile.gettempdir(), f"tsunami-worktree-{worker_id}")
 
     # Clean up if exists
     if os.path.exists(worktree_dir):

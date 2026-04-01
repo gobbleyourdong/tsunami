@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -94,7 +95,7 @@ async def pull_levers(
 
     # Start HTTP server
     server_proc = await asyncio.create_subprocess_exec(
-        "python3", "-m", "http.server", str(port),
+        sys.executable, "-m", "http.server", str(port),
         cwd=serve_dir,
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,

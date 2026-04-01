@@ -51,10 +51,7 @@ def send_bell():
 
 
 def send_desktop_notification(title: str, message: str) -> bool:
-    """Send a desktop notification via notify-send (Linux) or osascript (macOS).
-
-    Returns True if sent successfully.
-    """
+    """Send a desktop notification. Returns True if sent successfully."""
     try:
         if sys.platform == "darwin":
             subprocess.run(
@@ -62,8 +59,18 @@ def send_desktop_notification(title: str, message: str) -> bool:
                 capture_output=True, timeout=5,
             )
             return True
-        elif sys.platform == "linux":
-            # Try notify-send (most Linux desktops)
+        elif sys.platform == "win32":
+            # Use PowerShell toast notification (Windows 10+)
+            ps_script = (
+                f'[System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null; '
+                f'[System.Windows.Forms.MessageBox]::Show("{message}", "{title}") | Out-Null'
+            )
+            subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+                capture_output=True, timeout=10,
+            )
+            return True
+        elif sys.platform.startswith("linux"):
             result = subprocess.run(
                 ["notify-send", title, message],
                 capture_output=True, timeout=5,
@@ -94,7 +101,7 @@ def notify(
 
     # Desktop notification (if display available)
     terminal = detect_terminal()
-    if desktop and terminal in ("iterm", "kitty", "ghostty", "linux_desktop"):
+    if desktop and (sys.platform == "win32" or terminal in ("iterm", "kitty", "ghostty", "linux_desktop")):
         if send_desktop_notification(title, message):
             channels_used.append("desktop")
 

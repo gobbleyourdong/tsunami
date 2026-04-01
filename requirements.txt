@@ -4,6 +4,7 @@
 httpx>=0.24.0          # HTTP client for model backends
 pyyaml>=6.0            # Config file loading
 rich>=13.0             # CLI output formatting
+psutil>=5.9.0          # Cross-platform memory/process queries (scaling, port management)
 
 # Optional — browser automation
 # playwright>=1.40.0   # pip install playwright && playwright install chromium
