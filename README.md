@@ -46,7 +46,7 @@ you → wave (9B) → understands intent, picks tools, coordinates
 **eddies** — fast parallel workers. read, search, execute, judge. (2B)
 **swell** — dispatches eddies. when agents spawn, the swell rises.
 **break** — where results converge.
-**undertow** — dumb QA that pulls levers. tests what the wave built.
+**undertow** — QA gate. tests what the wave built by pulling levers.
 
 one wave coordinating 32 eddies is more capable than a single large model working alone. intelligence is the orchestration, not the weights.
 
@@ -68,7 +68,7 @@ tsunami doesn't just build things and hope for the best. it measures whether it'
 - reads every UI element and checks if it has content
 - reports pass/fail per lever. no diagnosis. just facts.
 
-the wave reads the QA report and figures out what's broken. the undertow is dumb. the wave is smart. simple behaviors, emergent intelligence.
+the wave reads the QA report and figures out what's broken. the undertow keeps it simple — pull levers, report facts. the wave does the thinking. simple behaviors, emergent intelligence.
 
 ---
 
@@ -109,7 +109,7 @@ runs on any nvidia gpu with 12GB+ vram. macs with 16GB+ unified memory. no cloud
 
 **the swell** — dispatches eddies in parallel. the wave says "analyze these files" and the swell breaks it into tasks, sends each to an eddy, collects results. when agents spawn, the swell rises.
 
-**the undertow** — dumb QA lever-puller. auto-generates test levers from the HTML (every ID, every key binding, every button). pulls them all. reports what it sees. the wave reads the report and fixes what's broken.
+**the undertow** — QA lever-puller. auto-generates test levers from the HTML (every ID, every key binding, every button). pulls them all. reports what it sees. the wave reads the report and fixes what's broken.
 
 **current / circulation / pressure** — the tension system. measures whether the agent is lying (current), routes decisions based on tension (circulation), and tracks tension trajectory over time (pressure). the lie detector, the router, and the monitor.
 
