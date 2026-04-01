@@ -68,6 +68,7 @@ Arguments: {proposed_args}
 2. Is the tool choice appropriate? (Would a different tool be better?)
 3. Are we stuck in a loop? (Same or similar actions repeated?)
 4. Is there a risk of error or harmful action?
+5. TRIANGULATION: If message_result is being called with factual claims, were those claims verified via search? If no search_web or browser_navigate appeared in recent history, REVISE with "verify claims before delivering".
 
 Respond with EXACTLY one of:
 APPROVE — if the action is reasonable

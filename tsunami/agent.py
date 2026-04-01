@@ -528,8 +528,30 @@ class Agent:
                     "approach or use message_ask to request guidance from the user."
                 )
 
-        # 9. Check termination
+        # 9. Triangulation gate — check if research claims are verified
         if tool_call.name == "message_result":
+            # Check if the result contains factual claims but no search was done
+            result_text = result.content.lower()
+            has_factual = any(w in result_text for w in [
+                "according to", "research shows", "studies", "proved",
+                "theorem", "published", "discovered", "data shows",
+            ])
+            did_search = any(
+                "search_web" in m.content or "browser_navigate" in m.content
+                for m in self.state.conversation
+                if m.role == "tool_result"
+            )
+            if has_factual and not did_search and self.state.iteration < self.config.max_iterations - 1:
+                log.info("Triangulation gate: factual claims without search verification")
+                self.state.add_system_note(
+                    "TRIANGULATION WARNING: Your result contains factual claims but you "
+                    "never searched external sources to verify them. Your parametric memory "
+                    "is unreliable for specifics. Either verify via search_web or mark claims "
+                    "as unverified. Do NOT deliver unverified facts."
+                )
+                # Don't terminate — let the agent verify first
+                return result.content
+
             self.state.task_complete = True
             return result.content
 
