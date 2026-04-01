@@ -1,27 +1,17 @@
 # Building — Plan, Research, Build, Test
 
-## 1. Plan into files
+## 1. Plan quickly, then build
 
-Before writing code, decompose the build into plan files:
+Use plan_update to outline the component files you'll write. One iteration.
+Don't write plan files to disk — just plan in your head and start coding.
 
-```
-workspace/deliverables/your-project/plan/
-├── environment.md   # scene setup, layout, camera, materials
-├── physics.md       # gravity, collision, movement rules
-├── controls.md      # what each key/click does
-├── scoring.md       # points, lives, win/lose conditions
-├── visuals.md       # effects, animations, theme
-```
-
-Each file describes ONE dimension. Write what it should do, not how to code it.
-These files are the spec AND the test criteria. The undertow reads them.
-
-Skip files that don't apply (a calculator doesn't need physics.md).
-
-## 2. Research on GitHub
+## 2. Research on GitHub (MAX 3 searches)
 
 Search for real implementations: `search_web(query, search_type="code")`
 Read the actual source. Study the patterns. Don't guess at APIs.
+
+LIMIT: 3 searches max, then BUILD. Don't get stuck researching forever.
+Research is prep, not the deliverable.
 
 ## 3. Decompose into small files
 
