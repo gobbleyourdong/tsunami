@@ -518,7 +518,31 @@ class Agent:
             result.is_error, self.session_id,
         )
 
-        # 8a. Save-findings nudge (Ark: save to files every 2-3 tool calls)
+        # 8a. Auto-undertow — run QA immediately after writing HTML/JS/CSS
+        if tool_call.name in ("file_write", "file_edit") and not result.is_error:
+            written_path = tool_call.arguments.get("path", "")
+            if written_path.endswith((".html", ".htm")):
+                try:
+                    from .undertow import run_drag
+                    user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                    qa = await run_drag(written_path, user_request=user_req)
+                    failed = qa.get("levers_failed", 0)
+                    total = qa.get("levers_total", 0)
+                    tension = qa.get("code_tension", 0)
+                    self._pressure.record(tension, "undertow")
+
+                    if not qa["passed"] and qa["errors"]:
+                        error_list = "\n".join(f"  - {e}" for e in qa["errors"][:5])
+                        self.state.add_system_note(
+                            f"UNDERTOW ({failed}/{total} failed):\n{error_list}"
+                        )
+                        log.info(f"Auto-undertow: {failed}/{total} failed, tension={tension:.2f}")
+                    else:
+                        log.info(f"Auto-undertow: PASS ({total} levers, tension={tension:.2f})")
+                except Exception as e:
+                    log.debug(f"Auto-undertow skipped: {e}")
+
+        # 8b. Save-findings nudge (Ark: save to files every 2-3 tool calls)
         if self.state.iteration > 0 and self.state.iteration % 5 == 0:
             # Check if agent has written any files recently
             recent_writes = sum(
