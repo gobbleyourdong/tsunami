@@ -203,10 +203,37 @@ if (-not (Test-Dep "cmake" "winget install Kitware.CMake  OR  https://cmake.org/
 }
 
 # C++ build tools check
-$hasBuildTools = $false
+$hasBuildTools       = $false
+$msvcVersion         = $null   # e.g. "19.50"
+$cudaAllowUnsupported = $false  # set true when MSVC > VS 2022 (19.4x)
+
 if (Get-Command "cl.exe" -ErrorAction SilentlyContinue) {
     $hasBuildTools = $true
-    Write-Ok "MSVC cl.exe (C++ build tools)"
+    # Parse "Microsoft (R) C/C++ Optimizing Compiler Version 19.50.xxxxx ..."
+    try {
+        $clVer = (& cl.exe /? 2>&1 | Select-Object -First 3 |
+                  Select-String 'Version\s+(\d+\.\d+)' |
+                  ForEach-Object { $_.Matches[0].Groups[1].Value } |
+                  Select-Object -First 1)
+        if ($clVer) {
+            $msvcVersion = $clVer
+            $parts = $clVer -split '\.'
+            $major = [int]$parts[0]
+            $minor = [int]$parts[1]
+            # CUDA officially supports up to MSVC 19.4x (VS 2022).
+            # 19.50+ is VS 2026 / Insiders — needs -allow-unsupported-compiler.
+            if ($major -gt 19 -or ($major -eq 19 -and $minor -ge 50)) {
+                $cudaAllowUnsupported = $true
+                Write-Ok "MSVC cl.exe v$clVer (VS 2026+, will use -allow-unsupported-compiler for CUDA)"
+            } else {
+                Write-Ok "MSVC cl.exe v$clVer (C++ build tools)"
+            }
+        } else {
+            Write-Ok "MSVC cl.exe (C++ build tools)"
+        }
+    } catch {
+        Write-Ok "MSVC cl.exe (C++ build tools)"
+    }
 } elseif (Get-Command "msbuild" -ErrorAction SilentlyContinue) {
     $hasBuildTools = $true
     Write-Ok "MSBuild (C++ build tools)"
@@ -347,6 +374,11 @@ if ($existingBin) {
             if ($CUDA_ARCH) {
                 $cmakeArgs += "-DCMAKE_CUDA_ARCHITECTURES=$CUDA_ARCH"
             }
+            # VS 2026+ (MSVC 19.50+) is not yet officially supported by nvcc.
+            # Pass -allow-unsupported-compiler so the build proceeds anyway.
+            if ($cudaAllowUnsupported) {
+                $cmakeArgs += "-DCMAKE_CUDA_FLAGS=-allow-unsupported-compiler"
+            }
         }
         "rocm" { $cmakeArgs += "-DGGML_HIP=ON"   }   # unlikely on Windows but included for completeness
     }
@@ -355,9 +387,15 @@ if ($existingBin) {
     Write-Host "  cmake configure..."
     & cmake @cmakeArgs
     if ($LASTEXITCODE -ne 0) {
-        Write-Fail "cmake configure failed — ensure Visual Studio Build Tools are installed"
-        Write-Warn "  winget install Microsoft.VisualStudio.2022.BuildTools"
-        Write-Warn "  Then re-run this script from a Developer Command Prompt"
+        Write-Fail "cmake configure failed — check output above"
+        if ($cudaAllowUnsupported) {
+            Write-Warn "  Using VS 2026+ with CUDA — if still failing, try upgrading CUDA toolkit"
+            Write-Warn "  or build without CUDA: remove llama.cpp\build and re-run without GPU"
+        } else {
+            Write-Warn "  Ensure Visual Studio Build Tools are installed:"
+            Write-Warn "  winget install Microsoft.VisualStudio.2022.BuildTools"
+            Write-Warn "  Then re-run this script from a Developer Command Prompt"
+        }
     } else {
         $cores = (Get-WmiObject -Class Win32_Processor -ErrorAction SilentlyContinue |
                   Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
@@ -371,7 +409,9 @@ if ($existingBin) {
             Write-Ok "llama.cpp built successfully"
         } else {
             Write-Fail "llama.cpp build FAILED — check cmake output above"
-            Write-Warn "  You may need: winget install Microsoft.VisualStudio.2022.BuildTools"
+            if (-not $cudaAllowUnsupported) {
+                Write-Warn "  You may need: winget install Microsoft.VisualStudio.2022.BuildTools"
+            }
             Write-Warn "  Ensure you run this script from a Developer Command Prompt for VS"
             # Non-fatal — continue so models are still downloaded
         }
