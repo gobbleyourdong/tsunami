@@ -23,7 +23,36 @@ Skip files that don't apply (a calculator doesn't need physics.md).
 Search for real implementations: `search_web(query, search_type="code")`
 Read the actual source. Study the patterns. Don't guess at APIs.
 
-## 3. Build from researched patterns
+## 3. Decompose into small files
+
+NEVER write one massive file. Break into components:
+- Each file does ONE thing (<100 lines)
+- Each file fits in your head — you can reason about it fully
+- index.html is a thin shell that imports everything else
+
+Example for a game:
+```
+style.css      — all styling
+audio.js       — sound effects
+game.js        — state, scoring, logic
+renderer.js    — drawing, animations
+input.js       — keyboard/mouse handling
+index.html     — imports and glues together
+```
+
+Example for a web app:
+```
+style.css      — all styling
+api.js         — data fetching
+state.js       — app state management
+components.js  — UI components
+app.js         — main logic
+index.html     — shell
+```
+
+Why: a 900-line monolith pollutes context. You forget what you declared 400 lines ago. Small files = clean context = fewer bugs.
+
+## 4. Build from researched patterns
 
 Use what you found. Don't improvise.
 
