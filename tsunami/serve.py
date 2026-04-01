@@ -1,0 +1,91 @@
+"""Serve — the good dev port.
+
+One port. Every project. Kill what's there, serve what's new.
+React/TS projects get Vite. Static files get http.server.
+The user never thinks about this.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import signal
+import subprocess
+from pathlib import Path
+
+log = logging.getLogger("tsunami.serve")
+
+DEV_PORT = int(os.environ.get("TSUNAMI_DEV_PORT", "9876"))
+
+
+def _kill_port(port: int):
+    """Kill whatever is listening on this port."""
+    try:
+        result = subprocess.run(
+            ["lsof", "-t", f"-i:{port}"],
+            capture_output=True, text=True, timeout=5,
+        )
+        pids = result.stdout.strip().split()
+        for pid in pids:
+            try:
+                os.kill(int(pid), signal.SIGTERM)
+            except (ProcessLookupError, ValueError):
+                pass
+    except Exception:
+        pass
+
+
+def _is_vite_project(project_dir: str) -> bool:
+    """Does this project have a package.json with vite?"""
+    pkg = Path(project_dir) / "package.json"
+    if not pkg.exists():
+        return False
+    try:
+        import json
+        data = json.loads(pkg.read_text())
+        deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+        return "vite" in deps
+    except Exception:
+        return False
+
+
+def _is_html_project(project_dir: str) -> bool:
+    """Does this project have an index.html at root?"""
+    return (Path(project_dir) / "index.html").exists()
+
+
+def serve_project(project_dir: str, port: int = DEV_PORT) -> str:
+    """Serve a project on the dev port. Kills whatever was there before.
+
+    Returns the URL.
+    """
+    _kill_port(port)
+
+    import time
+    time.sleep(0.5)
+
+    if _is_vite_project(project_dir):
+        # Vite dev server — handles TSX transpilation, HMR, everything
+        subprocess.Popen(
+            ["npx", "vite", "--port", str(port), "--host"],
+            cwd=project_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        log.info(f"Vite dev server on :{port} for {project_dir}")
+        return f"http://localhost:{port}"
+
+    elif _is_html_project(project_dir):
+        # Static server for vanilla HTML
+        subprocess.Popen(
+            ["python3", "-m", "http.server", str(port)],
+            cwd=project_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        log.info(f"Static server on :{port} for {project_dir}")
+        return f"http://localhost:{port}"
+
+    else:
+        return f"No serveable content in {project_dir}"

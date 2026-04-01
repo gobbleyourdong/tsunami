@@ -518,7 +518,24 @@ class Agent:
             result.is_error, self.session_id,
         )
 
-        # 8a. Auto-undertow — run QA immediately after writing HTML/JS/CSS
+        # 8a. Auto-serve — serve project on dev port after writing to deliverables
+        if tool_call.name in ("file_write", "file_edit") and not result.is_error:
+            written_path = tool_call.arguments.get("path", "")
+            if "deliverables/" in written_path and written_path.endswith((".html", ".htm", ".tsx", ".ts")):
+                try:
+                    from .serve import serve_project
+                    # Find project root (first dir under deliverables/)
+                    parts = written_path.split("deliverables/")
+                    if len(parts) > 1:
+                        project_name = parts[1].split("/")[0]
+                        project_dir = str(Path(self.config.workspace_dir) / "deliverables" / project_name)
+                        url = serve_project(project_dir)
+                        if url.startswith("http"):
+                            log.info(f"Auto-serve: {url}")
+                except Exception as e:
+                    log.debug(f"Auto-serve skipped: {e}")
+
+        # 8b. Auto-undertow — run QA immediately after writing HTML
         if tool_call.name in ("file_write", "file_edit") and not result.is_error:
             written_path = tool_call.arguments.get("path", "")
             if written_path.endswith((".html", ".htm")):
