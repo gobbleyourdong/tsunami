@@ -31,16 +31,22 @@ no cloud. no api keys. no docker. everything runs locally on your hardware.
 ```
 you → wave (9B) → understands intent, picks tools, coordinates
                      ↓
-               dispatches the swell
+               swell dispatches parallel workers
                      ↓
-         eddy 1  eddy 2  eddy 3  eddy 4  (2B workers, parallel)
+         eddy 1  eddy 2  eddy 3  eddy 4  (2B workers)
                      ↓
                break collects results
+                     ↓
+               undertow tests the output
                      ↓
          wave synthesizes → delivers answer
 ```
 
-the **wave** is the brain (9B model). the **eddies** are fast workers (2B model). the **swell** dispatches them in parallel. the **break** collects results.
+**wave** — the brain. reasons, plans, builds. (9B)
+**eddies** — fast parallel workers. read, search, execute. (2B)
+**swell** — dispatches eddies. when agents spawn, the swell rises.
+**break** — where results converge.
+**undertow** — pulls back what's not ready. QA gate.
 
 one wave coordinating 32 eddies is more capable than a single large model working alone. intelligence is the orchestration, not the weights.
 
