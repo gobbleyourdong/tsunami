@@ -32,6 +32,12 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
         if (SCAFFOLDS_DIR / "threejs-game").exists():
             return "threejs-game"
 
+    # Dashboard/analytics keywords → dashboard scaffold
+    dash_keywords = {"chart", "dashboard", "analytics", "stats", "metrics", "recharts", "d3"}
+    if deps_lower & dash_keywords or any(k in name_lower for k in ["dash", "analytics", "tracker", "monitor"]):
+        if (SCAFFOLDS_DIR / "dashboard").exists():
+            return "dashboard"
+
     # Default → react-app
     if (SCAFFOLDS_DIR / "react-app").exists():
         return "react-app"
