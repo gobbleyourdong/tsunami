@@ -70,8 +70,9 @@ $LLAMA_DIR  = Join-Path $DIR "llama.cpp"
 # ---------------------------------------------------------------------------
 # GPU detection
 # ---------------------------------------------------------------------------
-$GPU  = "cpu"
-$VRAM = 0
+$GPU       = "cpu"
+$VRAM      = 0
+$CUDA_ARCH = ""
 
 if (Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) {
     $GPU = "cuda"
@@ -87,6 +88,17 @@ if (Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) {
     } catch {
         Write-Ok "NVIDIA GPU detected (could not read VRAM)"
     }
+
+    # Detect CUDA compute capability so cmake doesn't have to query the GPU at configure time
+    # (cmake's "native" detection fails in some environments even when nvidia-smi works fine)
+    try {
+        $capRaw = (& nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>$null |
+                   Select-Object -First 1).Trim()
+        if ($capRaw -and $capRaw -match '^\d+\.\d+$') {
+            # Convert "8.6" → "86" (cmake arch format)
+            $CUDA_ARCH = $capRaw -replace '\.', ''
+        }
+    } catch { }
 } else {
     Write-Warn "No GPU detected — will run on CPU (very slow)"
     Write-Warn "  Install NVIDIA drivers and CUDA for GPU acceleration"
@@ -330,7 +342,12 @@ if ($existingBin) {
         "-DBUILD_SHARED_LIBS=OFF"
     )
     switch ($GPU) {
-        "cuda" { $cmakeArgs += "-DGGML_CUDA=ON"  }
+        "cuda" {
+            $cmakeArgs += "-DGGML_CUDA=ON"
+            if ($CUDA_ARCH) {
+                $cmakeArgs += "-DCMAKE_CUDA_ARCHITECTURES=$CUDA_ARCH"
+            }
+        }
         "rocm" { $cmakeArgs += "-DGGML_HIP=ON"   }   # unlikely on Windows but included for completeness
     }
 
