@@ -421,7 +421,7 @@ async def run_swarm(
 ) -> list[BeeResult]:
     """Run multiple eddies in parallel with concurrency control.
 
-    The wave calls this to dispatch work to the whirlpool.
+    The wave calls this to dispatch work to the break.
     """
     sem = asyncio.Semaphore(max_concurrent)
     start = time.time()

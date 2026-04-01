@@ -35,12 +35,12 @@ you → wave (9B) → understands intent, picks tools, coordinates
                      ↓
          eddy 1  eddy 2  eddy 3  eddy 4  (2B workers, parallel)
                      ↓
-               whirlpool collects results
+               break collects results
                      ↓
          wave synthesizes → delivers answer
 ```
 
-the **wave** is the brain (9B model). the **eddies** are fast workers (2B model). the **swell** dispatches them in parallel. the **whirlpool** collects results.
+the **wave** is the brain (9B model). the **eddies** are fast workers (2B model). the **swell** dispatches them in parallel. the **break** collects results.
 
 one wave coordinating 32 eddies is more capable than a single large model working alone. intelligence is the orchestration, not the weights.
 
