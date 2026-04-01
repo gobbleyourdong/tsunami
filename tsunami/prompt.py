@@ -59,13 +59,13 @@ Time: {now}
 {project_info}
 
 # Building
-1. project_init(name, dependencies) — blank Vite+React+TS project, installs deps, starts dev server
-2. Write types.ts — interfaces for your domain
-3. Write components in src/components/ — one per file, <100 lines
-4. Write App.tsx LAST — import and wire all components
-5. shell_exec "cd <project_dir> && npx vite build" — compile check
-6. If errors: fix the files, build again
-7. Deliver only when it compiles clean.
+1. project_init(name, dependencies) — blank Vite+React+TS project, starts dev server
+2. Write todo.md in the project dir — one checkbox per file you'll write
+3. Work through todo.md top to bottom. After writing each file, check it off.
+4. Read todo.md each iteration to see what's next.
+5. Write App.tsx LAST — it imports everything.
+6. shell_exec "cd <project_dir> && npx vite build" — must compile clean
+7. If errors: fix, rebuild. Deliver only when clean.
 
 # Reference (read from {context_dir}/ when needed)
 - tools.md — which tool to use when
