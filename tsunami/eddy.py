@@ -442,6 +442,19 @@ async def run_swarm(
 
     # Write outputs to target files if provided
     if write_targets:
+        # Find project root (for compile checking)
+        project_root = ""
+        for t in write_targets:
+            if t:
+                # Walk up to find package.json
+                d = Path(t).parent
+                for _ in range(5):
+                    if (d / "package.json").exists():
+                        project_root = str(d)
+                        break
+                    d = d.parent
+                break
+
         for result, target in zip(results, write_targets):
             if result.success and target and result.output.strip():
                 try:
@@ -453,10 +466,33 @@ async def run_swarm(
                     code_match = _re.search(r'```(?:tsx?|typescript|javascript)?\n(.*?)```', content, _re.DOTALL)
                     if code_match:
                         content = code_match.group(1).strip()
+                    # Fix double-escaped newlines
+                    if "\n" not in content and "\\n" in content:
+                        content = content.replace("\\n", "\n").replace("\\t", "\t")
                     tp.write_text(content)
                     log.info(f"Wrote eddy output to {target} ({len(content)} chars)")
                 except Exception as e:
                     log.warning(f"Failed to write eddy output to {target}: {e}")
+
+        # Compile check — run vite build to catch type errors
+        if project_root and Path(project_root, "package.json").exists():
+            try:
+                import subprocess as _sp
+                build = _sp.run(
+                    ["npx", "vite", "build"],
+                    cwd=project_root, capture_output=True, text=True, timeout=30,
+                )
+                if build.returncode == 0:
+                    log.info("Swell compile check: PASS")
+                else:
+                    # Extract error lines
+                    errors = [
+                        l for l in build.stderr.splitlines()
+                        if "error" in l.lower() or "Error" in l
+                    ][:5]
+                    log.warning(f"Swell compile check: FAIL — {'; '.join(errors)}")
+            except Exception as e:
+                log.debug(f"Compile check skipped: {e}")
 
     succeeded = sum(1 for r in results if r.success)
     total_tool_calls = sum(r.tool_calls for r in results)
