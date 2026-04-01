@@ -576,7 +576,22 @@ class Agent:
                     )
                     return result.content
 
-            # Tension OK or already verified — deliver
+            # Adversarial review — cross-examine reasoning before delivery
+            if len(result.content) > 200 and self.state.iteration < self.config.max_iterations - 2:
+                try:
+                    from .adversarial import review_before_delivery
+                    should_deliver, review_text = await review_before_delivery(
+                        result.content,
+                        self.state.conversation[1].content if len(self.state.conversation) > 1 else "",
+                    )
+                    if not should_deliver and review_text:
+                        log.info("Adversarial review: FAIL — sending objections back to wave")
+                        self.state.add_system_note(review_text)
+                        return result.content  # don't terminate — let wave address objections
+                except Exception as e:
+                    log.debug(f"Adversarial review skipped: {e}")
+
+            # All gates passed — deliver
             if tension < DRIFTING:
                 self._pressure.reset()
             self.state.task_complete = True
