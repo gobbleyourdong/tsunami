@@ -72,4 +72,5 @@ project_init should analyze the request and provide matching features:
 - Session 1: Gap: apps work but are unstyled (white background, default HTML buttons)
 - Session 1: Base dark theme added to all scaffolds — buttons/inputs/tables styled automatically
 - Session 1: Calculator with theme: dark bg, styled buttons. 15 iters (was 27). Unicode escape bug on ÷/×.
-- Session 1: Remaining gaps: grid layout (9B writes row of buttons not grid), unicode double-escaping
+- Session 1: Unicode fix: \\u00f7 → ÷ in file_write. Calculator now shows proper symbols.
+- Session 1: Remaining gap: grid layout (9B writes flex row not CSS grid)
