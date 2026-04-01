@@ -38,6 +38,12 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
         if (SCAFFOLDS_DIR / "dashboard").exists():
             return "dashboard"
 
+    # File/form/upload keywords → form-app scaffold (xlsx, csv, editable table)
+    form_keywords = {"xlsx", "csv", "upload", "file", "form", "spreadsheet", "excel", "papaparse"}
+    if deps_lower & form_keywords or any(k in name_lower for k in ["excel", "upload", "form", "csv", "diff", "sheet"]):
+        if (SCAFFOLDS_DIR / "form-app").exists():
+            return "form-app"
+
     # Default → react-app
     if (SCAFFOLDS_DIR / "react-app").exists():
         return "react-app"
