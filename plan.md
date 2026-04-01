@@ -61,3 +61,7 @@ project_init should analyze the request and provide matching features:
 - Session 1: project_init now picks from scaffolds/ library (threejs-game, react-app). The Manus pattern.
 - Session 1: Auto-compile wired into agent loop — errors injected as system notes
 - Session 1: todo.md injection wired — auto-reads checklist each iteration if unchecked items exist
+- Session 1: EXCEL DIFF PASSES: 22 iters, 6 components (FileUpload, Table, DiffPanel, SubmitPanel), compiles clean
+- Session 1: ALL 4 TEST APPS PASS: calculator (27), quiz (34), excel-diff (22) — all from one-prompt runners
+- Session 1: Dashboard scaffold built (Layout, Sidebar, Card, StatCard, DataTable + recharts)
+- Session 1: project_init picks scaffold by keyword: game→threejs, dashboard→dashboard, default→react-app
