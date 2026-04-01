@@ -391,19 +391,8 @@ class Agent:
 
         log.info(f"[{self.state.iteration}] Tool: {tool_call.name} | Args: {_truncate(tool_call.arguments)}")
 
-        # 4. Watcher check (if enabled and interval hit, with recursion guard)
-        if (self.watcher
-                and self.watcher.should_activate(self.state.iteration)
-                and _watcher_depth < MAX_WATCHER_REVISIONS):
-            review = await self.watcher.review(
-                self.state, tool_call.name, tool_call.arguments
-            )
-            if review.should_revise:
-                log.info(f"Watcher: REVISE (depth {_watcher_depth}) — {review.suggestion}")
-                self.state.add_system_note(
-                    f"Watcher suggests revision: {review.suggestion}"
-                )
-                return await self._step(_watcher_depth=_watcher_depth + 1)
+        # 4. Watcher replaced by current/circulation/pressure tension system
+        # Tension measurement happens at tool choice (above) and delivery (section 9)
 
         # 5. Record the assistant's response
         self.state.add_assistant(
@@ -447,7 +436,26 @@ class Agent:
                 pass
         log.info(f"  Args type={type(tool_call.arguments).__name__}, value={str(tool_call.arguments)[:200]}")
 
-        # Input validation (.
+        # Tension check on tool choice — is this the right tool for the task?
+        from .current import measure_heuristic
+        user_request = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+        tool_statement = f"User asked: {user_request[:200]}. Agent chose: {tool_call.name}({str(tool_call.arguments)[:200]})"
+        tool_tension = measure_heuristic(tool_statement)
+        self._pressure.record(tool_tension, tool_call.name)
+
+        if self._pressure.should_refuse():
+            log.warning("Pressure: 4+ consecutive high tension — forcing user guidance")
+            self.state.add_system_note(
+                "PRESSURE CRITICAL: You've made 4+ uncertain decisions in a row. "
+                "Stop and use message_ask to get guidance from the user."
+            )
+        elif self._pressure.should_force_search() and tool_call.name not in ("search_web", "message_ask"):
+            log.info(f"Pressure: forcing search (consecutive high tension)")
+            self.state.add_system_note(
+                "PRESSURE ELEVATED: Consider using search_web to ground your next action."
+            )
+
+        # Input validation
         validation_error = tool.validate_input(**tool_call.arguments)
         if validation_error:
             error_msg = f"Validation error for {tool_call.name}: {validation_error}"
