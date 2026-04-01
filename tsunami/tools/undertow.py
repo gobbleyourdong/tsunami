@@ -13,8 +13,8 @@ from .base import BaseTool, ToolResult
 log = logging.getLogger("tsunami.tools.qa")
 
 
-class Riptide(BaseTool):
-    name = "riptide"
+class Undertow(BaseTool):
+    name = "undertow"
     description = (
         "Test an HTML file for errors before delivering. "
         "Checks: valid structure, JS syntax, console errors in headless browser, "
@@ -33,7 +33,7 @@ class Riptide(BaseTool):
 
     async def execute(self, path: str, **kw) -> ToolResult:
         try:
-            from ..riptide import run_drag, format_qa_report
+            from ..undertow import run_drag, format_qa_report
             result = await run_drag(path)
             report = format_qa_report(result)
             return ToolResult(report, is_error=not result["passed"])
