@@ -506,6 +506,19 @@ class Agent:
             result.is_error, self.session_id,
         )
 
+        # 8a. Save-findings nudge (Ark: save to files every 2-3 tool calls)
+        if self.state.iteration > 0 and self.state.iteration % 5 == 0:
+            # Check if agent has written any files recently
+            recent_writes = sum(
+                1 for m in self.state.conversation[-10:]
+                if m.role == "tool_result" and any(w in m.content for w in ["Wrote", "Edited", "Appended"])
+            )
+            if recent_writes == 0:
+                self.state.add_system_note(
+                    "You haven't saved anything to files in 5 iterations. "
+                    "Save your findings/progress to a file NOW before context is lost."
+                )
+
         # 8. Error tracking
         if result.is_error:
             self.state.record_error(tool_call.name, tool_call.arguments, result.content)
