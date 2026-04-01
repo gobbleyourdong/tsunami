@@ -554,7 +554,7 @@ class Agent:
             # Always evaluate tension — but only BLOCK if this is a factual claim,
             # not a build delivery, and we haven't already blocked twice
             can_block = (
-                self._delivery_attempts <= 2
+                self._delivery_attempts <= 5
                 and self.state.iteration < self.config.max_iterations - 1
             )
 
@@ -620,7 +620,7 @@ class Agent:
                         last_html = paths[0]
                         break
 
-            if last_html and self._delivery_attempts <= 2 and self.state.iteration < self.config.max_iterations - 2:
+            if last_html and self._delivery_attempts <= 5 and self.state.iteration < self.config.max_iterations - 2:
                 try:
                     from .undertow import run_drag
                     user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""

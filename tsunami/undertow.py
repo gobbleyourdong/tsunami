@@ -182,6 +182,12 @@ async def _pull_one(page, lever: Lever, console_msgs: list) -> LeverResult:
                 )
             return LeverResult(lever=lever, passed=True, saw="no console errors")
 
+        elif lever.action == "motion":
+            return await _lever_motion(page, lever)
+
+        elif lever.action == "sequence":
+            return await _lever_sequence(page, lever, console_msgs)
+
         elif lever.action == "wait":
             await asyncio.sleep(lever.ms / 1000)
             return LeverResult(lever=lever, passed=True, saw=f"waited {lever.ms}ms")
@@ -285,6 +291,86 @@ async def _lever_click(page, lever: Lever) -> LeverResult:
         return LeverResult(lever=lever, passed=changed, saw=saw)
     except Exception as e:
         return LeverResult(lever=lever, passed=False, saw=f"click failed: {e}")
+
+
+async def _lever_motion(page, lever: Lever) -> LeverResult:
+    """Check if the scene is alive — take screenshots over time, compare.
+
+    If nothing moves in 3 seconds, physics aren't running.
+    This is the tension between "should be animated" and "is static."
+    """
+    frames = []
+    for i in range(4):
+        frames.append(await page.screenshot())
+        if i < 3:
+            await asyncio.sleep(1)
+
+    # Compare consecutive frames
+    changes = 0
+    for i in range(len(frames) - 1):
+        if _screenshots_differ(frames[i], frames[i + 1], threshold=0.005):
+            changes += 1
+
+    total_comparisons = len(frames) - 1
+    saw = f"{changes}/{total_comparisons} frames showed motion over {total_comparisons}s"
+
+    if changes == 0:
+        return LeverResult(
+            lever=lever, passed=False,
+            saw=f"STATIC: {saw} — nothing is moving, physics may not be running"
+        )
+    elif changes < total_comparisons:
+        return LeverResult(
+            lever=lever, passed=True,
+            saw=f"PARTIAL: {saw} — some animation detected"
+        )
+    else:
+        return LeverResult(
+            lever=lever, passed=True,
+            saw=f"ALIVE: {saw} — scene is animated"
+        )
+
+
+async def _lever_sequence(page, lever: Lever, console_msgs: list) -> LeverResult:
+    """Execute a sequence of actions and check the outcome.
+
+    lever.expect contains a pipe-separated sequence like:
+    "press Space|wait 2000|motion"
+
+    Each step runs in order. Fails if any step fails.
+    """
+    steps = lever.expect.split("|") if lever.expect else []
+    if not steps:
+        return LeverResult(lever=lever, passed=False, saw="sequence has no steps")
+
+    results = []
+    for step in steps:
+        step = step.strip()
+        if step.startswith("press "):
+            key = step.split(" ", 1)[1]
+            sub = await _pull_one(page, Lever(action="press", key=key), console_msgs)
+        elif step.startswith("wait "):
+            ms = int(step.split(" ", 1)[1])
+            await asyncio.sleep(ms / 1000)
+            sub = LeverResult(lever=Lever(action="wait"), passed=True, saw=f"waited {ms}ms")
+        elif step == "motion":
+            sub = await _lever_motion(page, Lever(action="motion"))
+        elif step.startswith("screenshot"):
+            sub = await _lever_screenshot(page, Lever(action="screenshot"))
+        else:
+            sub = LeverResult(lever=Lever(action=step), passed=False, saw=f"unknown step: {step}")
+        results.append(sub)
+
+    failed = [r for r in results if not r.passed]
+    all_saw = " → ".join(r.saw[:60] for r in results)
+
+    if failed:
+        return LeverResult(
+            lever=lever, passed=False,
+            saw=f"sequence failed at: {failed[0].saw}",
+            detail=all_saw
+        )
+    return LeverResult(lever=lever, passed=True, saw=all_saw)
 
 
 async def _lever_read_text(page, lever: Lever) -> LeverResult:
@@ -519,7 +605,29 @@ def generate_levers(user_request: str, html_content: str = "") -> list[Lever]:
         for i in range(min(button_count, 3)):
             levers.append(Lever(action="click", selector=f"button:nth-of-type({i+1})"))
 
-    # End with another screenshot after interactions
+    # Detect if this is a game/animation — add motion check
+    has_animation = bool(re.search(
+        r'requestAnimationFrame|setInterval|animate|gameLoop|update\(|\.render\(',
+        html_content
+    ))
+    has_physics = bool(re.search(
+        r'velocity|gravity|collision|physics|cannon|ammo|rapier|matter',
+        html_content, re.I
+    ))
+
+    if has_animation or has_physics:
+        # Check if the scene is alive (things moving on their own)
+        levers.append(Lever(action="motion"))
+
+    # For games with a launch/start mechanic, test the play sequence
+    if has_physics and 'Space' in seen_keys:
+        # Launch sequence: press space (launch), wait for physics, check motion
+        levers.append(Lever(
+            action="sequence",
+            expect="press Space|wait 2000|motion"
+        ))
+
+    # End with screenshot after all interactions
     if len(levers) > 3:
         levers.append(Lever(action="screenshot", expect="page state changed after interactions"))
 

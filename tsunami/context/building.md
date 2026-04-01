@@ -1,25 +1,41 @@
-# Building — Research First
+# Building — Plan, Research, Build, Test
 
-When building something complex (games, 3D, physics, APIs you're not sure about):
+## 1. Plan into files
 
-1. **Search GitHub** — `search_web(query, search_type="code")` finds real implementations
-2. **Read the source** — don't guess at APIs, find a repo that does what you need
-3. **Study patterns** — how did they set up physics? what library? what's the render loop?
-4. **Then build** — use the patterns you found, not guesses
+Before writing code, decompose the build into plan files:
 
-## Web Development
+```
+workspace/deliverables/your-project/plan/
+├── environment.md   # scene setup, layout, camera, materials
+├── physics.md       # gravity, collision, movement rules
+├── controls.md      # what each key/click does
+├── scoring.md       # points, lives, win/lose conditions
+├── visuals.md       # effects, animations, theme
+```
 
-### For React projects
-Use webdev_scaffold (Vite + React + TypeScript + Tailwind CSS).
+Each file describes ONE dimension. Write what it should do, not how to code it.
+These files are the spec AND the test criteria. The undertow reads them.
 
-### For single HTML files
-Write the complete file with all dependencies from CDN.
+Skip files that don't apply (a calculator doesn't need physics.md).
 
-### Build from researched patterns
-Use the API patterns you found in research. Don't improvise.
+## 2. Research on GitHub
 
-## Quality Rules
-- Never use href="#" — always real anchors or URLs
-- Never import packages that aren't installed
-- Always test after building — use undertow
-- If test shows an error, read the error, fix, test again
+Search for real implementations: `search_web(query, search_type="code")`
+Read the actual source. Study the patterns. Don't guess at APIs.
+
+## 3. Build from researched patterns
+
+Use what you found. Don't improvise.
+
+## 4. Test with undertow
+
+```
+undertow(path="index.html", expect="description of the core user journey")
+```
+
+Read the report. Fix failures. Test again. Repeat until the core journey works.
+Motion detection catches dead physics. Key/click checks catch broken controls.
+
+## 5. Deliver only when it works
+
+Not when it renders. When it PLAYS / FUNCTIONS / RESPONDS.
