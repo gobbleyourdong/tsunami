@@ -49,16 +49,8 @@ class WebdevScaffold(BaseTool):
 
             project_dir.mkdir(parents=True, exist_ok=True)
 
-            # Step 1: Create Vite + React + TypeScript project
-            result = subprocess.run(
-                ["npm", "create", "vite@latest", ".", "--", "--template", "react-ts"],
-                cwd=str(project_dir),
-                capture_output=True, text=True, timeout=60,
-                env={**__import__("os").environ, "npm_config_yes": "true"},
-            )
-            if result.returncode != 0:
-                # Fallback: manual scaffold
-                return await self._manual_scaffold(project_dir, project_name, template)
+            # Always use manual scaffold — npm create is flaky
+            return await self._manual_scaffold(project_dir, project_name, template)
 
             # Step 2: Install dependencies + Tailwind
             subprocess.run(
