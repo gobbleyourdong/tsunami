@@ -210,7 +210,7 @@ class OpenAICompatModel(LLMModel):
         }
         if tools:
             payload["tools"] = self._convert_tools(tools)
-            payload["tool_choice"] = "required"  # Ark: MUST respond with function calling
+            payload["tool_choice"] = "auto"  # "required" causes 500s on 9B with large schemas
 
         async with httpx.AsyncClient(timeout=900) as client:
             for attempt in range(3):
