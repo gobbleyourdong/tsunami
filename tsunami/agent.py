@@ -98,6 +98,10 @@ class Agent:
         # Abort signal for graceful interruption
         self.abort_signal = AbortSignal()
 
+        # Tension monitoring (current/circulation/pressure)
+        from .pressure import Pressure
+        self._pressure = Pressure()
+
         # Stall detection
         self._empty_steps = 0
 
@@ -528,30 +532,45 @@ class Agent:
                     "approach or use message_ask to request guidance from the user."
                 )
 
-        # 9. Triangulation gate — check if research claims are verified
+        # 9. Tension gate — measure current before allowing delivery
         if tool_call.name == "message_result":
-            # Check if the result contains factual claims but no search was done
-            result_text = result.content.lower()
-            has_factual = any(w in result_text for w in [
-                "according to", "research shows", "studies", "proved",
-                "theorem", "published", "discovered", "data shows",
-            ])
-            did_search = any(
-                "search_web" in m.content or "browser_navigate" in m.content
-                for m in self.state.conversation
-                if m.role == "tool_result"
+            from .current import measure_heuristic, UNCERTAIN, DRIFTING
+            from .circulation import Circulation
+
+            tension = measure_heuristic(result.content)
+            self._pressure.record(tension, tool_call.name)
+
+            circ = Circulation()
+            route = circ.route(
+                self.state.conversation[1].content if len(self.state.conversation) > 1 else "",
+                tension,
             )
-            if has_factual and not did_search and self.state.iteration < self.config.max_iterations - 1:
-                log.info("Triangulation gate: factual claims without search verification")
+
+            if route.action == "refuse" and self.state.iteration < self.config.max_iterations - 1:
+                log.warning(f"Tension gate: REFUSING delivery (tension={tension:.2f})")
                 self.state.add_system_note(
-                    "TRIANGULATION WARNING: Your result contains factual claims but you "
-                    "never searched external sources to verify them. Your parametric memory "
-                    "is unreliable for specifics. Either verify via search_web or mark claims "
-                    "as unverified. Do NOT deliver unverified facts."
+                    f"TENSION CRITICAL ({tension:.2f}): Your response is likely hallucinated. "
+                    f"Either search to verify your claims, or say you don't know. "
+                    f"Do NOT deliver unverified content."
                 )
-                # Don't terminate — let the agent verify first
                 return result.content
 
+            if route.action in ("search", "caveat") and self.state.iteration < self.config.max_iterations - 1:
+                did_search = any(
+                    "search_web" in m.content or "browser_navigate" in m.content
+                    for m in self.state.conversation if m.role == "tool_result"
+                )
+                if not did_search:
+                    log.info(f"Tension gate: forcing verification (tension={tension:.2f})")
+                    self.state.add_system_note(
+                        f"TENSION ELEVATED ({tension:.2f}): Your response needs verification. "
+                        f"Search external sources before delivering. Tools suggested: {route.tools}"
+                    )
+                    return result.content
+
+            # Tension OK or already verified — deliver
+            if tension < DRIFTING:
+                self._pressure.reset()
             self.state.task_complete = True
             return result.content
 
