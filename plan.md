@@ -57,3 +57,7 @@ project_init should analyze the request and provide matching features:
 - Session 1: Calculator did NOT write todo.md (9B skipped it). Works for simple apps, will need it for complex.
 - Session 1: Excel diff: 60 iters, 6 components written, failed on missing npm install (no project_init used)
 - Session 1: Manus insight: the scaffold IS the product. Opus writes scaffolds, 9B fills them in.
+- Session 1: Quiz PASSES: 34 iters, 11 typed components (Question, ProgressBar, ScoreCounter, Results, StartScreen, Button + CSS), compiles clean, dist/ built
+- Session 1: project_init now picks from scaffolds/ library (threejs-game, react-app). The Manus pattern.
+- Session 1: Auto-compile wired into agent loop — errors injected as system notes
+- Session 1: todo.md injection wired — auto-reads checklist each iteration if unchecked items exist
