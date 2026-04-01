@@ -44,6 +44,12 @@ class SearchWeb(BaseTool):
 
     async def execute(self, query: str, search_type: str = "info",
                       num_results: int = 5, **kw) -> ToolResult:
+        # arXiv/research goes to arXiv API first
+        if search_type == "research":
+            result = await self._search_arxiv(query, num_results)
+            if not result.is_error:
+                return result
+
         # Try backends in order of preference
         for backend in [self._search_ddg, self._search_brave, self._search_httpx_fallback]:
             result = await backend(query, search_type, num_results)
@@ -59,12 +65,15 @@ class SearchWeb(BaseTool):
     async def _search_ddg(self, query: str, search_type: str, num: int) -> ToolResult:
         """Search using DuckDuckGo via the duckduckgo-search package."""
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
         except ImportError:
-            return ToolResult(
-                "duckduckgo-search not installed. Run: pip install duckduckgo-search",
-                is_error=True,
-            )
+            try:
+                from duckduckgo_search import DDGS
+            except ImportError:
+                return ToolResult(
+                    "ddgs not installed. Run: pip install ddgs",
+                    is_error=True,
+                )
 
         try:
             ddgs = DDGS()
@@ -171,6 +180,48 @@ class SearchWeb(BaseTool):
         except Exception as e:
             log.warning(f"HTTP fallback search failed: {e}")
             return ToolResult(f"HTTP search error: {e}", is_error=True)
+
+    async def _search_arxiv(self, query: str, num: int) -> ToolResult:
+        """Search arXiv API directly — best for academic/research queries."""
+        try:
+            import httpx
+            import re
+
+            params = {
+                "search_query": f"all:{query}",
+                "start": 0,
+                "max_results": min(num, 10),
+                "sortBy": "relevance",
+            }
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                resp = await client.get("https://export.arxiv.org/api/query", params=params)
+                resp.raise_for_status()
+                xml = resp.text
+
+            # Parse XML entries
+            results = []
+            for entry in re.findall(r'<entry>(.*?)</entry>', xml, re.DOTALL):
+                title = re.search(r'<title>(.*?)</title>', entry, re.DOTALL)
+                summary = re.search(r'<summary>(.*?)</summary>', entry, re.DOTALL)
+                link = re.search(r'<id>(.*?)</id>', entry)
+                authors = re.findall(r'<name>(.*?)</name>', entry)
+
+                if title:
+                    results.append({
+                        "title": title.group(1).strip().replace("\n", " "),
+                        "href": link.group(1).strip() if link else "",
+                        "body": (summary.group(1).strip().replace("\n", " ")[:300] if summary else "")
+                            + (f" — {', '.join(authors[:3])}" if authors else ""),
+                    })
+
+            if not results:
+                return ToolResult(f"No arXiv results for '{query}'", is_error=True)
+
+            return self._format_results(query, "research (arXiv)", results)
+
+        except Exception as e:
+            log.warning(f"arXiv search failed: {e}")
+            return ToolResult(f"arXiv search error: {e}", is_error=True)
 
     def _format_results(self, query: str, search_type: str, results: list[dict]) -> ToolResult:
         """Format search results consistently."""
