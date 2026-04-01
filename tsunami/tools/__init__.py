@@ -57,19 +57,19 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
     from .python_exec import PythonExec
     from .summarize import SummarizeFile
     from .swell import Swell
-    from .swell_analyze import SwellAnalyze
-    from .swell_build import SwellBuild
     from .toolbox import LoadToolbox, set_registry
 
     registry = ToolRegistry()
 
-    # Bootstrap — lean core (shell_send/wait/kill available via management toolbox)
-    for cls in [FileRead, FileWrite, FileEdit, FileAppend,
+    # Bootstrap — lean core (15 tools to stay under 9B context limit)
+    # swell_analyze, swell_build, shell_view, plan_advance, file_append
+    # available via load_toolbox when needed
+    for cls in [FileRead, FileWrite, FileEdit,
                 MatchGlob, MatchGrep,
-                ShellExec, ShellView,
+                ShellExec,
                 MessageInfo, MessageAsk, MessageResult,
-                PlanUpdate, PlanAdvance,
-                SearchWeb, PythonExec, SummarizeFile, Swell, SwellAnalyze, SwellBuild]:
+                PlanUpdate,
+                SearchWeb, PythonExec, SummarizeFile, Swell]:
         registry.register(cls(config))
 
     # The one meta-tool — loads everything else from disk
