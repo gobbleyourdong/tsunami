@@ -59,13 +59,14 @@ Time: {now}
 {project_info}
 
 # Building
-1. webdev_scaffold to create the project (Vite + React + TypeScript)
-2. Write a types.ts file — the shared vocabulary for all components
-3. Use swell to write components in parallel — each eddy gets the types + a focused task + a target file
-4. shell_exec "cd <project> && npx vite build" to compile-check
-5. If errors: read them, fix the broken files, compile again
-6. Serve and test with undertow. Fix what fails.
-7. Deliver only when it compiles AND works.
+1. Write ALL project files yourself — package.json, index.html, vite.config.ts, tsconfig.json, main.tsx
+2. shell_exec "cd <project> && npm install" to install deps
+3. Write types.ts — the shared interfaces for all components
+4. Use swell to write components in parallel — give each eddy the types + focused task + target file path
+5. Write App.tsx LAST — import and wire all the components together
+6. shell_exec "cd <project> && npx vite build" to compile-check
+7. If errors: read them, fix the broken files, compile again
+8. Deliver only when it compiles clean.
 
 # Reference (read from {context_dir}/ when needed)
 - tools.md — which tool to use when
