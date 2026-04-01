@@ -27,8 +27,8 @@ DEFAULT_TIMEOUTS = {
     "search_web": 60,
     "python_exec": 120,
     "summarize_file": 60,
-    "tide": 600,
-    "tide_analyze": 600,
+    "swell": 600,
+    "swell_analyze": 600,
     "default": 120,
 }
 

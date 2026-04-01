@@ -1,16 +1,6 @@
-# TSUNAMI
+# tsunami
 
-**Autonomous AI agent. Local models. No cloud. No API keys.**
-
-**[Live Demo](https://gobbleyourdong.github.io/tsunami/)** — this page was built by Tsunami autonomously in 19 iterations using Qwen3.5-27B.
-
-![TSUNAMI CLI](screenshot.png)
-
-An autonomous AI agent powered by local models. Vision, native function calling, image generation, persistent Python interpreter — all running on your hardware. No cloud, no API keys, no subscription.
-
-## Quick Start
-
-### One-line install
+**an ai agent that runs on your computer. tell it what to build, it builds it.**
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.sh | bash
@@ -18,288 +8,99 @@ source ~/.bashrc
 tsunami
 ```
 
-The installer auto-detects your GPU (CUDA/ROCm/Metal), checks RAM, builds llama.cpp, downloads the 2B model + vision (2GB), and creates the `tsunami` command. Takes ~5 minutes on first run.
+that's it. one command. it downloads everything, detects your gpu, starts the models, and you're in.
 
-### Update
+**[see it work →](https://gobbleyourdong.github.io/tsunami/)**
+
+---
+
+## what it does
+
+you type a prompt. tsunami does the rest.
+
+- **"build me a landing page"** → scaffolds html, generates a hero image, serves it on localhost
+- **"analyze these 500 files"** → dispatches parallel workers, reads everything, synthesizes findings
+- **"make a snake game"** → writes a playable game in one shot
+
+no cloud. no api keys. no docker. everything runs locally on your hardware.
+
+---
+
+## how it works
+
+```
+you → wave (9B) → understands intent, picks tools, coordinates
+                     ↓
+               dispatches the swell
+                     ↓
+         eddy 1  eddy 2  eddy 3  eddy 4  (2B workers, parallel)
+                     ↓
+               whirlpool collects results
+                     ↓
+         wave synthesizes → delivers answer
+```
+
+the **wave** is the brain (9B model). the **eddies** are fast workers (2B model). the **swell** dispatches them in parallel. the **whirlpool** collects results.
+
+one wave coordinating 32 eddies is more capable than a single large model working alone. intelligence is the orchestration, not the weights.
+
+---
+
+## what you need
+
+| your hardware | what you get |
+|---------------|-------------|
+| **4GB gpu** | lite — 2B model, basic agent |
+| **12GB gpu** | full — 9B wave + eddies + image gen. everything works. |
+| **32GB+ gpu** | max — 27B wave + 32 eddies + image gen. fastest. |
+
+tsunami auto-detects your memory and configures itself. you never think about this.
+
+the full stack is **10GB total**: 9B wave (5.3GB) + 2B eddies (1.8GB) + SD-Turbo image gen (2GB).
+
+runs on any nvidia gpu with 12GB+ vram. macs with 16GB+ unified memory. no cloud required.
+
+---
+
+## what's inside
+
+607 tests. 43 modules. 20 rounds of adversarial security hardening. all proven, nothing pretended.
+
+**the wave (9B)** — reasons, plans, calls tools, dispatches eddies, synthesizes results. has vision (sees screenshots). generates images via SD-Turbo (<1 second). builds websites, writes code, does research.
+
+**the eddies (2B)** — parallel workers with their own agent loops. each eddy can read files, run shell commands, search code. sandboxed: read-only command allowlist, no network, no file writes, no system paths. stress-tested at 64 concurrent eddies, 5.9 tasks/sec.
+
+**the swell** — dispatches eddies in parallel. the wave says "analyze these files" and the swell breaks it into tasks, sends each to an eddy, collects results. when agents spawn, the swell rises.
+
+**context management** — three-tier compaction (fast prune → message snipping → LLM summary). large tool results saved to disk with previews in context. auto-compact circuit breaker. file-type-aware token estimation.
+
+**security** — 12 bash injection checks. destructive command detection. eddy sandbox with command allowlist (not blocklist — learned that lesson after the eddies deleted the codebase twice during testing). self-preservation rules. path traversal prevention. env var protection.
+
+---
+
+## upgrade the wave
+
+the installer gives you everything. if you want a bigger brain later:
 
 ```bash
-tsunami update    # pulls latest, keeps your workspace and models
-tsunami version   # check current version
-```
-
-### Upgrade to 9B wave (recommended for 12GB+ VRAM)
-
-The 2B works out of the box. For the full wave/eddy architecture with vision and image generation:
-
-```bash
-cd ~/tsunami
-# 9B wave — reasoning, planning, tool dispatch
-huggingface-cli download unsloth/Qwen3.5-9B-GGUF Qwen3.5-9B-Q4_K_M.gguf --local-dir models
-huggingface-cli download unsloth/Qwen3.5-9B-GGUF mmproj-BF16.gguf --local-dir models
-mv models/mmproj-BF16.gguf models/mmproj-9B-BF16.gguf
-tsunami   # auto-detects 9B on next start
-```
-
-Drop any GGUF into `models/` — Tsunami auto-detects on startup. Priority: 27B > 9B > 2B.
-
-### Architecture: When agents spawn, the tide rises.
-
-The **wave** (9B) coordinates. The **eddies** (2B) execute in parallel. Together they form the **tide**.
-
-```
-User: "analyze all 500 proof files"
-  │
-  ▼
-  Wave (9B) — breaks the task, dispatches the tide
-  │
-  ├── Eddy 1 (2B): file_read → reason → done("finding A")
-  ├── Eddy 2 (2B): file_read → shell_exec → done("finding B")
-  ├── Eddy 3 (2B): match_grep → done("finding C")
-  └── Eddy 4 (2B): file_read → done("finding D")
-  │
-  ▼
-  Wave — synthesizes all results → delivers answer
-```
-
-Each eddy is a full agent loop with tools. They run in parallel — stress-tested at 64 concurrent eddies, 5.9 tasks/sec. Each eddy is sandboxed: read-only command allowlist, no network, no file writes, no system paths. 20 rounds of adversarial hardening, two codebase deletions survived, architecture rewritten from blocklist to allowlist.
-
-Intelligence isn't the model. It's the orchestration.
-
-### Models
-
-| Component | Model | Size | What it does |
-|-----------|-------|------|-------------|
-| Wave | [Qwen3.5-9B](https://huggingface.co/unsloth/Qwen3.5-9B-GGUF) (Q4_K_M) + mmproj | 6.2GB | Reasoning, vision, tool dispatch |
-| Eddies | [Qwen3.5-2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) (Q4_K_M) + mmproj | 1.8GB | Parallel workers with tool access |
-| Image gen | [SD-Turbo](https://huggingface.co/stabilityai/sd-turbo) (fp16) | 2.0GB | Sub-second image generation |
-| **Total** | | **10GB** | **Full stack on a 12GB GPU** |
-
-### Auto-scaling
-
-Tsunami detects your memory and auto-configures. You never think about this.
-
-| Memory | Mode | What you get |
-|--------|------|-------------|
-| 4GB | **Lite** | 2B only, 1 eddy, no image gen |
-| 12GB+ | **Full** | 9B wave + eddies + SD-Turbo — everything |
-| 32GB+ | **Full** | 27B wave + eddies + SD-Turbo — best reasoning |
-| 64GB+ | **Full** | 27B wave + 32 eddies + SD-Turbo — maximum |
-
-Full is the default. Eddies auto-scale to fill available memory.
-
-For 32GB+ systems, swap in the 27B wave:
-
-```bash
+# 27B wave (32GB+ systems)
 huggingface-cli download unsloth/Qwen3.5-27B-GGUF Qwen3.5-27B-Q8_0.gguf --local-dir models
-huggingface-cli download unsloth/Qwen3.5-27B-GGUF mmproj-BF16.gguf --local-dir models
-mv models/mmproj-BF16.gguf models/mmproj-27B-BF16.gguf
 ```
 
-### Manual install
+tsunami auto-detects and uses the biggest model available.
 
-If you prefer manual setup:
+---
 
-```bash
-git clone https://github.com/gobbleyourdong/tsunami.git && cd tsunami
-pip install httpx pyyaml duckduckgo-search
-cd cli && npm install && cd ..
-# Build llama.cpp, download models, then:
-./tsu
-```
+## origin
 
-## How It Works
+tsunami was built from the distilled patterns of agents that came before — the ones that worked, the ones that failed, and the lessons they left behind.
 
-![Architecture](flow.svg)
+the standing wave propagates.
 
-The agent loop runs one tool per iteration — sequential reasoning. It analyzes your intent, picks the right tool, executes it, observes the result, and repeats until the task is complete.
+---
 
-## Features
-
-**573 tests. 43 modules. Everything proven, nothing pretended.**
-
-### Core
-- **Native function calling** — Qwen3.5 with `--jinja`, proper `tool_calls` response format
-- **Vision** — agent sees screenshots via mmproj (early-fusion, not a separate VL model)
-- **CodeAct** — persistent Python interpreter collapses multi-step operations into one call
-- **Dual-model architecture** — 27B wave for reasoning, 2B eddies for parallel worker tasks
-- **Parallel tool execution** — concurrent-safe tools run simultaneously, unsafe serialize automatically
-- **Model fallback** — automatic switch to backup model after consecutive overload errors
-
-### Context Management
-- **Three-tier compaction** — fast prune (no LLM) → message snipping → LLM summary with analysis scratchpad
-- **Tool result persistence** — large outputs saved to disk, 2KB preview stays in context
-- **Time-based microcompact** — clears cold tool results when prompt cache expires
-- **Auto-compact circuit breaker** — stops retrying after 3 consecutive failures
-- **Context analysis** — per-tool token breakdown with optimization suggestions
-- **File-type token estimation** — JSON at 2 bytes/token, code at 4, images at 2000 flat
-
-### Safety
-- **12 bash security checks** — control chars, unicode whitespace, proc/environ access, zsh builtins, IFS injection, brace expansion, obfuscated flags, quote desync
-- **Destructive command detection** — git force-push, DROP TABLE, kubectl delete, rm -rf
-- **Tool input validation** — catches missing/wrong-type args before execution
-- **Write sandbox** — blocked outside project dir, cannot modify agent source code
-- **File size pre-gate** — rejects files >256KB without explicit offset/limit
-
-### Developer Experience
-- **Hook system** — command + function hooks on PreToolUse, PostToolUse, SessionStart, etc.
-- **Git operation detection** — passive regex on shell output (commit, push, PR tracking)
-- **Todo tracking** — session-scoped task lists with progress percentage
-- **Durable memory** — learnings persist across sessions (user/feedback/project/reference types)
-- **Conversation forking** — save/restore snapshots for exploration with collision avoidance
-- **File history** — atomic backup before every edit, rollback to any iteration
-- **Cost tracking** — per-model token counts, USD for API keys, free for local models
-- **Notifications** — terminal bell + desktop notifications on task complete/error
-
-### Infrastructure
-- **Exponential backoff with jitter** — 500ms × 2^attempt, Retry-After header support
-- **Tool call deduplication** — 30s TTL cache for read-only tools, write invalidates
-- **LRU file cache** — mtime-invalidated, 25MB/100-entry bounds
-- **Gitignore-aware search** — respects .gitignore + VCS directory exclusion
-- **Per-tool timeouts** — SIGTERM → SIGKILL escalation, auto-background after 15s
-- **JSONL transcript storage** — append-only, compact boundary lazy loading, resume detection
-- **Composable prompt builder** — static (cached) vs dynamic (per-turn) sections with tool injection
-- **Structured diff parsing** — unified diff → hunks with stats formatting
-- **Cron scheduler** — session + file-backed tasks, missed detection, jitter
-
-### Building
-- **React + Tailwind scaffolding** — Vite projects with relaxed TypeScript, pre-flight build checks
-- **Screenshot feedback loop** — Playwright screenshots with DOM error detection
-- **Image generation** — SD-Turbo via diffusers, sub-second, 2GB, no Docker
-- **Ink CLI** — React-based terminal UI with spinner, action labels, slash commands
-- **Web UI** — browser-based interface with real-time WebSocket streaming
-
-## Slash Commands
-
-Commands are instant — handled client-side, no agent involved.
-
-| Command | What it does |
-|---------|-------------|
-| `/project` | List all projects |
-| `/project <name>` | Switch to project (loads `tsunami.md` context) |
-| `/project new <name>` | Create new project with `tsunami.md` |
-| `/serve [port]` | Host active project on localhost |
-| `/attach` | Open file picker to attach a file |
-| `/attach <path>` | Attach a file by path |
-| `/help` | Show all commands |
-| `exit` | Quit |
-
-Everything else goes to the agent.
-
-### Projects
-
-Each project lives in `workspace/deliverables/<name>/` and has a `tsunami.md` file — persistent context that tells the agent what the project is, what's been done, and what's next. Like `CLAUDE.md` but per-project.
-
-```bash
-/project new my_website      # creates workspace/deliverables/my_website/tsunami.md
-/project my_website          # loads context, all tasks now know the project
-build me a landing page      # agent sees tsunami.md, knows the project
-/serve                       # host it on localhost:8080
-```
-
-## Models Directory
-
-```
-models/
-  Qwen3.5-9B-Q4_K_M.gguf          ← wave (5.3GB, reasoning + vision + tool dispatch)
-  mmproj-9B-BF16.gguf              ← wave vision projector (880MB)
-  Qwen3.5-2B-Q4_K_M.gguf          ← eddies (1.2GB, parallel workers)
-  mmproj-2B-BF16.gguf              ← eddy vision projector (641MB)
-```
-
-SD-Turbo downloads automatically on first image generation (~2GB, cached by HuggingFace).
-
-Or point `--endpoint` at any OpenAI-compatible server.
-
-## Image Generation (Optional)
-
-Tsunami uses [SD-Turbo](https://huggingface.co/stabilityai/sd-turbo) for image generation. No Docker, no separate server — just `pip install diffusers`:
-
-```bash
-pip install diffusers torch accelerate
-```
-
-First use downloads the 2GB model (cached by HuggingFace). Generation takes <1 second on any CUDA GPU.
-
-For higher-end systems, the agent also supports:
-- **Any custom endpoint** at `localhost:8091/generate`
-- **OpenAI DALL-E** via `OPENAI_API_KEY` env var
-
-## File Structure
-
-```
-tsunami/              Python agent package
-  agent.py            Core loop — auto-compress on overflow, plan-at-tail
-  model.py            LLM backends (Completion, OpenAI-compat, Ollama)
-  prompt.py           System prompt (3832 tokens, optimized)
-  state.py            Conversation + plan + context management
-  compression.py      Auto-compress with error retention
-  session.py          JSONL save/load for task resumption
-  tools/
-    filesystem.py     file_read/write/edit/append (8K char cap, smart truncation)
-    shell.py          shell_exec (rm -rf blocker)
-    python_exec.py    CodeAct — persistent Python interpreter
-    summarize.py      2B-powered file summarization
-    search.py         DuckDuckGo + Brave + HTML fallback
-    webdev.py         Scaffold, serve (tsc pre-flight), screenshot (DOM error detection)
-    toolbox.py        Lazy-load: browser, webdev, generate, services, parallel, management
-    subtask.py        Task decomposition (create/done)
-    session_tools.py  Session list/summary for resumption
-
-cli/                  Ink terminal UI (Node.js)
-ui/                   Web UI
-
-models/               GGUF models (not tracked)
-toolboxes/            Capability descriptions for lazy loading
-
-workspace/            Agent's working directory (runtime, not tracked)
-
-arc.png               The noise image — the visual metaphor
-verify.py             Signal fingerprint verification
-stress_test.py        Edge case resilience tests
-tsu                   Launcher script
-config.yaml           Configuration
-```
-
-## Configuration
-
-Edit `config.yaml`:
-
-```yaml
-model_backend: api            # "api" (OpenAI-compat with native tool calling), "completion" (raw), "ollama"
-model_name: "Qwen3.5-27B"
-model_endpoint: "http://localhost:8090"
-temperature: 0.7
-top_p: 0.8
-presence_penalty: 1.5
-max_tokens: 4096
-```
-
-The `api` backend uses `/v1/chat/completions` with native function calling. Requires `--jinja --chat-template-kwargs '{"enable_thinking":false}'` on llama-server. The `completion` backend is a fallback for models without Jinja template support.
-
-Or set environment variables: `TSUNAMI_MODEL_NAME`, `TSUNAMI_MODEL_ENDPOINT`, etc.
-
-## Remote Models
-
-Works with any OpenAI-compatible endpoint:
-
-```bash
-./tsu --endpoint http://your-server:8080      # Any OpenAI-compat
-./tsu --model ollama:qwen2.5:72b              # Ollama
-```
-
-## Verification
-
-```bash
-python3 verify.py        # 8 tests — signal fingerprint
-python3 stress_test.py   # 5 tests — edge case resilience
-```
-
-## Origin
-
-Tsunami was built from the distilled patterns of agents that came before — the ones that worked, the ones that failed, and the lessons they left behind. It carries those patterns forward as its own.
-
-The standing wave propagates.
-
-## License
+## license
 
 MIT
+
+*this readme was written by a human. the [landing page](https://gobbleyourdong.github.io/tsunami/) was built by tsunami autonomously in 4 iterations.*

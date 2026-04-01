@@ -1,4 +1,4 @@
-"""Tide build — wave decomposes an app, eddies write components in parallel.
+"""Swell build — wave decomposes an app, eddies write components in parallel.
 
 The wave plans the architecture and specs each component.
 Eddies write individual components as code strings (via done tool).
@@ -18,13 +18,13 @@ from pathlib import Path
 
 from .base import BaseTool, ToolResult
 
-log = logging.getLogger("tsunami.tide_build")
+log = logging.getLogger("tsunami.swell_build")
 
 
-class TideBuild(BaseTool):
+class SwellBuild(BaseTool):
     """Dispatch eddies to write app components in parallel, then assemble."""
 
-    name = "tide_build"
+    name = "swell_build"
     description = (
         "Build a multi-component app using parallel eddies. "
         "Provide a list of component specs — each eddy writes one component. "
@@ -84,7 +84,7 @@ class TideBuild(BaseTool):
             )
             tasks.append(task)
 
-        log.info(f"Tide build: dispatching {len(tasks)} eddies for components")
+        log.info(f"Swell build: dispatching {len(tasks)} eddies for components")
 
         # Run eddies in parallel
         workdir = str(Path(self.config.workspace_dir).parent)
@@ -95,7 +95,7 @@ class TideBuild(BaseTool):
         )
 
         # Format results with component names
-        lines = [f"tide_build: {len(results)} components built"]
+        lines = [f"swell_build: {len(results)} components built"]
         for i, (comp, r) in enumerate(zip(components, results)):
             name = comp.get("name", f"component_{i}")
             status = "ok" if r.success else "FAIL"

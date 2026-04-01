@@ -106,7 +106,7 @@ class Agent:
         self._compact_consecutive_failures = 0
         self._max_compact_failures = 3
 
-        # Loop detection for auto-tide
+        # Loop detection for auto-swell
         self._recent_tools: list[tuple[str, dict]] = []  # (tool_name, args) ring buffer
 
         # Active project context
@@ -415,13 +415,13 @@ class Agent:
             self._recent_tools = self._recent_tools[-10:]
 
         # Check for repetition loop (same tool called 3+ times consecutively)
-        # Auto-tide: when the wave is doing the same thing 3+ times, hint to use tide
+        # Auto-swell: when the wave is doing the same thing 3+ times, hint to use swell
         if len(self._recent_tools) >= 3:
             last_3_names = [t[0] for t in self._recent_tools[-3:]]
             if len(set(last_3_names)) == 1 and last_3_names[0] in ("file_read", "summarize_file", "match_grep"):
-                log.info(f"Auto-tide hint: {last_3_names[0]} called 3x in a row")
+                log.info(f"Auto-swell hint: {last_3_names[0]} called 3x in a row")
                 self.state.add_system_note(
-                    f"You're calling {last_3_names[0]} repeatedly. Use the tide tool to "
+                    f"You're calling {last_3_names[0]} repeatedly. Use the swell tool to "
                     f"dispatch multiple eddy workers in parallel — it's faster and uses less context. "
                     f"Give each eddy a specific subtask string."
                 )

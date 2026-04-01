@@ -436,7 +436,7 @@ async def run_swarm(
     succeeded = sum(1 for r in results if r.success)
     total_tool_calls = sum(r.tool_calls for r in results)
     log.info(
-        f"Tide complete: {succeeded}/{len(results)} succeeded, "
+        f"Swell complete: {succeeded}/{len(results)} succeeded, "
         f"{total_tool_calls} tool calls, {elapsed:.0f}ms"
     )
 
@@ -459,8 +459,8 @@ def _sanitize_bee_output(text: str) -> str:
 
 
 def format_swarm_results(results: list[BeeResult]) -> str:
-    """Format tide results for the wave to consume."""
-    lines = [f"tide: {len(results)} eddies dispatched"]
+    """Format swell results for the wave to consume."""
+    lines = [f"swell: {len(results)} eddies dispatched"]
     for i, r in enumerate(results):
         status = "ok" if r.success else "FAIL"
         lines.append(f"\n[eddy {i}] {status} ({r.turns} turns, {r.tool_calls} tools, {r.elapsed_ms:.0f}ms)")

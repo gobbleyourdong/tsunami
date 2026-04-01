@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stress test the eddy tide — hammer the 2B until it breaks.
+"""Stress test the eddy swell — hammer the 2B until it breaks.
 
 Runs against live 2B server on :8092. Tests:
 1. Single eddy with tool use
@@ -11,7 +11,7 @@ Runs against live 2B server on :8092. Tests:
 7. Rapid fire — 20 quick tasks back-to-back
 8. Mixed workloads — reads + shell + grep simultaneously
 
-Usage: python3 -m tsunami.tests.stress_tide
+Usage: python3 -m tsunami.tests.stress_swell
 """
 
 import asyncio
@@ -166,7 +166,7 @@ async def test_mixed_workload():
 
 
 async def main():
-    print("\n  TSUNAMI TIDE STRESS TEST")
+    print("\n  TSUNAMI SWELL STRESS TEST")
     print(f"  Target: {EDDY_ENDPOINT} (2B, 4 slots)")
     print(f"  Workdir: {PROJECT_ROOT}")
 

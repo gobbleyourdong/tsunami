@@ -46,7 +46,7 @@ class MatchGlob(BaseTool):
                 header += f" (showing first {limit})"
 
             if total > 20:
-                header += f"\n⚡ {total} files found. Use python_exec to batch-read them or tide to process in parallel."
+                header += f"\n⚡ {total} files found. Use python_exec to batch-read them or swell to process in parallel."
 
             return ToolResult(header + "\n" + "\n".join(results))
         except Exception as e:

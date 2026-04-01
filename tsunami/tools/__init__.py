@@ -56,9 +56,9 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
     from .search import SearchWeb
     from .python_exec import PythonExec
     from .summarize import SummarizeFile
-    from .tide import Tide
-    from .tide_analyze import TideAnalyze
-    from .tide_build import TideBuild
+    from .swell import Swell
+    from .swell_analyze import SwellAnalyze
+    from .swell_build import SwellBuild
     from .toolbox import LoadToolbox, set_registry
 
     registry = ToolRegistry()
@@ -69,7 +69,7 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
                 ShellExec, ShellView,
                 MessageInfo, MessageAsk, MessageResult,
                 PlanUpdate, PlanAdvance,
-                SearchWeb, PythonExec, SummarizeFile, Tide, TideAnalyze, TideBuild]:
+                SearchWeb, PythonExec, SummarizeFile, Swell, SwellAnalyze, SwellBuild]:
         registry.register(cls(config))
 
     # The one meta-tool — loads everything else from disk
