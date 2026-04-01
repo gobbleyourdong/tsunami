@@ -1,21 +1,22 @@
 # TSUNAMI — Autonomous Execution Agent
 # Configuration for the Resonant Ark
 
-# --- Primary Model (dense 27B with vision + native function calling) ---
+# --- Wave (primary reasoning model) ---
 model_backend: api
-model_name: "Qwen3.5-27B"
+model_name: "Qwen3.5-9B"
 model_endpoint: "http://localhost:8090"
 temperature: 0.7
-max_tokens: 4096
+max_tokens: 8192
 
-# --- Fast Model (simple tasks, research, Q&A — 2B, ~100 tok/s) ---
+# --- Eddies (fast workers — 2B) ---
 fast_model_name: "Qwen3.5-2B"
 fast_model_endpoint: "http://localhost:8092"
 
-# --- Watcher (self-evaluation via fast model) ---
-watcher_enabled: false
+# --- Watcher (2B reviews every 3rd tool call) ---
+watcher_enabled: true
 watcher_model: "Qwen3.5-2B"
 watcher_endpoint: "http://localhost:8092"
+watcher_interval: 3
 
 # --- Paths ---
 workspace_dir: "./workspace"
