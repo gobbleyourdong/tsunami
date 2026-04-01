@@ -1,4 +1,4 @@
-"""Riptide — eddies that test built apps by actually using them.
+"""Undertow — eddies that test built apps by actually using them.
 
 The wave builds. The QA swell breaks.
 
@@ -21,7 +21,7 @@ import logging
 import os
 from pathlib import Path
 
-log = logging.getLogger("tsunami.riptide")
+log = logging.getLogger("tsunami.undertow")
 
 BEE_ENDPOINT = os.environ.get("TSUNAMI_BEE_ENDPOINT", "http://localhost:8092")
 
