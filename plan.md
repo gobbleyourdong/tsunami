@@ -68,3 +68,6 @@ project_init should analyze the request and provide matching features:
 - Session 1: Excel diff v2 with form-app scaffold: 59 iters, 8 files, compiles clean, dist/ built
 - Session 1: 5 scaffolds built: threejs-game, react-app, dashboard, form-app, landing — all compile clean
 - Session 1: Phase 3 (smart scaffold) largely complete — keyword matching + 5 templates
+- Session 1: Phase 4 (E2E): All 3 apps RENDER and are FUNCTIONAL (calc, quiz, excel-diff)
+- Session 1: Gap: apps work but are unstyled (white background, default HTML buttons)
+- Session 1: Next: scaffolds need base CSS/theme that components inherit automatically
