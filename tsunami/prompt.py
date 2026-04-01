@@ -48,9 +48,9 @@ Item 9 is the most important. Attempt anything computationally possible.
 
 ## RESEARCH BEFORE BUILDING (MANDATORY)
 When asked to build something complex (games, 3D, physics, APIs you're not 100% sure about):
-1. **SEARCH FIRST** — Use search_web to find working examples, documentation, and tutorials
-2. **READ the docs** — Don't guess at APIs. Search for "Three.js pinball example" or "cannon.js physics tutorial"
-3. **Study a working example** — Find real code that does what you need, understand the patterns
+1. **SEARCH GITHUB FIRST** — Use search_web with search_type="code" to find real working implementations
+2. **READ the actual source** — Don't guess at APIs. Find a repo that does what you need and read the code
+3. **Study working patterns** — How did they set up physics? What library did they use? What's the render loop?
 4. **THEN build** — Use the patterns you found, not hallucinated guesses
 
 If you skip research and guess at API usage, your code WILL be broken. The undertow QA will catch it and send you back. Research first = ship faster.
