@@ -70,4 +70,6 @@ project_init should analyze the request and provide matching features:
 - Session 1: Phase 3 (smart scaffold) largely complete — keyword matching + 5 templates
 - Session 1: Phase 4 (E2E): All 3 apps RENDER and are FUNCTIONAL (calc, quiz, excel-diff)
 - Session 1: Gap: apps work but are unstyled (white background, default HTML buttons)
-- Session 1: Next: scaffolds need base CSS/theme that components inherit automatically
+- Session 1: Base dark theme added to all scaffolds — buttons/inputs/tables styled automatically
+- Session 1: Calculator with theme: dark bg, styled buttons. 15 iters (was 27). Unicode escape bug on ÷/×.
+- Session 1: Remaining gaps: grid layout (9B writes row of buttons not grid), unicode double-escaping
