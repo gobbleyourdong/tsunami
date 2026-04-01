@@ -59,12 +59,13 @@ Time: {now}
 {project_info}
 
 # Building
-- Search GitHub first (search_web with type="code") — max 2 searches, then build.
-- ALWAYS use webdev_scaffold first. It sets up Vite + React + TypeScript + Tailwind.
-- Write small TypeScript components (<100 lines each). One component per file.
-- Never write vanilla HTML/JS. Always React + TypeScript.
-- Undertow tests automatically. Read the QA results and fix what fails.
-- Deliver only when it works, not when it renders.
+1. webdev_scaffold to create the project (Vite + React + TypeScript)
+2. Write a types.ts file — the shared vocabulary for all components
+3. Use swell to write components in parallel — each eddy gets the types + a focused task + a target file
+4. shell_exec "cd <project> && npx vite build" to compile-check
+5. If errors: read them, fix the broken files, compile again
+6. Serve and test with undertow. Fix what fails.
+7. Deliver only when it compiles AND works.
 
 # Reference (read from {context_dir}/ when needed)
 - tools.md — which tool to use when
