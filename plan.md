@@ -49,6 +49,11 @@ project_init should analyze the request and provide matching features:
 ## Progress Log
 - Session 1: Built current/circulation/pressure tension system, undertow lever-puller, auto-serve
 - Session 1: Calculator (0.12 tension), Quiz (0.07), Pinball (0.21 — was 0.62 black screen)
-- Session 1: Rhythm game — vanilla JS version worked (letters falling), React version compiles but App.tsx not wired
+- Session 1: Rhythm game — vanilla JS worked, React compiles but App.tsx not wired by wave
 - Session 1: Discovered Manus uses feature-based scaffold + todo.md checklist
-- Session 1: Built project_init tool, testing in progress
+- Session 1: Built project_init tool, Three.js game scaffold (Scene/Ground/Box/Sphere/HUD)
+- Session 1: Phase 1b+2: todo.md injection + auto-compile in agent loop
+- Session 1: Calculator with project_init: 27 iters, 6 typed components, compiles clean, dist/ built
+- Session 1: Calculator did NOT write todo.md (9B skipped it). Works for simple apps, will need it for complex.
+- Session 1: Excel diff: 60 iters, 6 components written, failed on missing npm install (no project_init used)
+- Session 1: Manus insight: the scaffold IS the product. Opus writes scaffolds, 9B fills them in.
