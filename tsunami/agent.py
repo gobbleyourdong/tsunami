@@ -117,6 +117,37 @@ class Agent:
         self.active_project: str | None = None
         self.project_context: str = ""
 
+    def _inject_todo(self):
+        """Inject todo.md into context if it exists in any active deliverable.
+
+        The checklist is the attention mechanism. The wave reads it every
+        iteration to know what's done and what's next. Without this,
+        the 9B forgets steps because the plan is in context, not on disk.
+        """
+        # Find todo.md in the most recently written deliverable
+        deliverables = Path(self.config.workspace_dir) / "deliverables"
+        if not deliverables.exists():
+            return
+
+        # Check recent tool results for which project we're working on
+        for msg in reversed(self.state.conversation[-10:]):
+            if msg.role == "tool_result" and "deliverables/" in msg.content:
+                import re
+                match = re.search(r'deliverables/([^/\s]+)', msg.content)
+                if match:
+                    todo_path = deliverables / match.group(1) / "todo.md"
+                    if todo_path.exists():
+                        try:
+                            content = todo_path.read_text()
+                            # Only inject if it has unchecked items
+                            if "[ ]" in content:
+                                self.state.add_system_note(
+                                    f"CHECKLIST (todo.md):\n{content}"
+                                )
+                        except Exception:
+                            pass
+                    return
+
     def set_project(self, project_name: str) -> str:
         """Set the active project and load its tsunami.md context."""
         project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
@@ -259,6 +290,10 @@ class Agent:
                     await self.observer.analyze_observations()
                 except Exception:
                     pass  # Non-critical
+
+            # Auto-inject todo.md if it exists in the active project
+            # This is the attention mechanism — the wave reads its checklist every iteration
+            self._inject_todo()
 
             try:
                 result = await self._step()
@@ -546,7 +581,36 @@ class Agent:
                 except Exception as e:
                     log.debug(f"Auto-serve skipped: {e}")
 
-        # 8b. Auto-undertow — run QA immediately after writing HTML
+        # 8b. Auto compile check — run vite build after writing .tsx/.ts
+        if tool_call.name in ("file_write", "file_edit") and not result.is_error:
+            written_path = tool_call.arguments.get("path", "")
+            if "deliverables/" in written_path and written_path.endswith((".tsx", ".ts")):
+                try:
+                    import re as _re
+                    parts = written_path.split("deliverables/")
+                    if len(parts) > 1:
+                        project_name = parts[1].split("/")[0]
+                        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+                        if (project_dir / "package.json").exists() and (project_dir / "node_modules").exists():
+                            import subprocess
+                            build = subprocess.run(
+                                ["npx", "vite", "build"],
+                                cwd=str(project_dir),
+                                capture_output=True, text=True, timeout=30,
+                            )
+                            if build.returncode != 0:
+                                errors = [l.strip() for l in build.stderr.splitlines() if "Error" in l][:3]
+                                if errors:
+                                    self.state.add_system_note(
+                                        f"COMPILE ERROR:\n" + "\n".join(f"  {e}" for e in errors)
+                                    )
+                                    log.info(f"Auto-compile: FAIL ({len(errors)} errors)")
+                            else:
+                                log.info("Auto-compile: PASS")
+                except Exception as e:
+                    log.debug(f"Auto-compile skipped: {e}")
+
+        # 8c. Auto-undertow — run QA immediately after writing HTML
         if tool_call.name in ("file_write", "file_edit") and not result.is_error:
             written_path = tool_call.arguments.get("path", "")
             if written_path.endswith((".html", ".htm")):
