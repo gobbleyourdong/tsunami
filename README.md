@@ -18,9 +18,9 @@ that's it. one command. it downloads everything, detects your gpu, starts the mo
 
 you type a prompt. tsunami does the rest.
 
-- **"build me a landing page"** → scaffolds html, generates a hero image, serves it on localhost
+- **"build me a calculator"** → writes it, tests it, verifies it renders, delivers
+- **"build a 3D pinball game"** → researches Three.js patterns, builds 869 lines, tests every key binding
 - **"analyze these 500 files"** → dispatches parallel workers, reads everything, synthesizes findings
-- **"make a snake game"** → writes a playable game in one shot
 
 no cloud. no api keys. no docker. everything runs locally on your hardware.
 
@@ -39,16 +39,47 @@ you → wave (9B) → understands intent, picks tools, coordinates
                      ↓
                undertow tests the output
                      ↓
-         wave synthesizes → delivers answer
+         wave reads QA report → fixes issues → delivers
 ```
 
-**wave** — the brain. reasons, plans, builds. (9B)
-**eddies** — fast parallel workers. read, search, execute. (2B)
+**wave** — the brain. reasons, plans, researches, builds. (9B)
+**eddies** — fast parallel workers. read, search, execute, judge. (2B)
 **swell** — dispatches eddies. when agents spawn, the swell rises.
 **break** — where results converge.
-**undertow** — pulls back what's not ready. QA gate.
+**undertow** — dumb QA that pulls levers. tests what the wave built.
 
 one wave coordinating 32 eddies is more capable than a single large model working alone. intelligence is the orchestration, not the weights.
+
+---
+
+## the tension system
+
+tsunami doesn't just build things and hope for the best. it measures whether it's lying.
+
+**current** — the lie detector. measures prose tension: is the agent hedging, fabricating, or grounded? returns 0.0 (truth) to 1.0 (hallucination).
+
+**circulation** — the router. reads the current and decides: deliver, search for verification, or refuse rather than hallucinate.
+
+**pressure** — the monitor. tracks tension over time across the session. if tension stays high, the system escalates: force a search, force a strategy change, or stop and ask for help.
+
+**undertow** — the QA gate. after the wave builds something, the undertow pulls levers:
+- takes a screenshot and asks an eddy "does this look like what was requested?"
+- presses every key binding and checks if the screen changes
+- reads every UI element and checks if it has content
+- reports pass/fail per lever. no diagnosis. just facts.
+
+the wave reads the QA report and figures out what's broken. the undertow is dumb. the wave is smart. simple behaviors, emergent intelligence.
+
+---
+
+## research before building
+
+tsunami searches before it codes. when asked to build something complex, it finds working examples and documentation first, then builds from real patterns instead of hallucinating API calls.
+
+previous approach: guess at Three.js → black screen, 62% code tension
+current approach: research cannon-es physics patterns → visible 3D pinball, 21% code tension
+
+the system learns from what it finds. the prompt enforces it. the undertow catches what slips through.
 
 ---
 
@@ -70,13 +101,17 @@ runs on any nvidia gpu with 12GB+ vram. macs with 16GB+ unified memory. no cloud
 
 ## what's inside
 
-607 tests. 43 modules. 20 rounds of adversarial security hardening. all proven, nothing pretended.
+634 tests. 43 modules. 20 rounds of adversarial security hardening.
 
 **the wave (9B)** — reasons, plans, calls tools, dispatches eddies, synthesizes results. has vision (sees screenshots). generates images via SD-Turbo (<1 second). builds websites, writes code, does research.
 
-**the eddies (2B)** — parallel workers with their own agent loops. each eddy can read files, run shell commands, search code. sandboxed: read-only command allowlist, no network, no file writes, no system paths. stress-tested at 64 concurrent eddies, 5.9 tasks/sec.
+**the eddies (2B)** — parallel workers with their own agent loops. each eddy can read files, run shell commands, search code. sandboxed: read-only command allowlist, no network, no file writes, no system paths. also serve as QA judges — one eddy looks at a screenshot and says whether it matches the intent.
 
 **the swell** — dispatches eddies in parallel. the wave says "analyze these files" and the swell breaks it into tasks, sends each to an eddy, collects results. when agents spawn, the swell rises.
+
+**the undertow** — dumb QA lever-puller. auto-generates test levers from the HTML (every ID, every key binding, every button). pulls them all. reports what it sees. the wave reads the report and fixes what's broken.
+
+**current / circulation / pressure** — the tension system. measures whether the agent is lying (current), routes decisions based on tension (circulation), and tracks tension trajectory over time (pressure). the lie detector, the router, and the monitor.
 
 **context management** — three-tier compaction (fast prune → message snipping → LLM summary). large tool results saved to disk with previews in context. auto-compact circuit breaker. file-type-aware token estimation.
 
