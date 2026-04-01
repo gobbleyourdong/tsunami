@@ -180,6 +180,9 @@ class FileWrite(BaseTool):
             if err:
                 return ToolResult(err, is_error=True)
             p.parent.mkdir(parents=True, exist_ok=True)
+            # Fix double-escaped newlines from models that output \\n instead of \n
+            if "\n" not in content and "\\n" in content:
+                content = content.replace("\\n", "\n").replace("\\t", "\t")
             p.write_text(content)
             lines = content.count("\n") + 1
             return ToolResult(f"Wrote {lines} lines to {p}")
