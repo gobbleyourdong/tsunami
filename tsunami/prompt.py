@@ -59,14 +59,13 @@ Time: {now}
 {project_info}
 
 # Building
-1. Write ALL project files yourself — package.json, index.html, vite.config.ts, tsconfig.json, main.tsx
-2. shell_exec "cd <project> && npm install" to install deps
-3. Write types.ts — the shared interfaces for all components
-4. Use swell to write components in parallel — give each eddy the types + focused task + target file path
-5. Write App.tsx LAST — import and wire all the components together
-6. shell_exec "cd <project> && npx vite build" to compile-check
-7. If errors: read them, fix the broken files, compile again
-8. Deliver only when it compiles clean.
+1. project_init(name, dependencies) — blank Vite+React+TS project, installs deps, starts dev server
+2. Write types.ts — interfaces for your domain
+3. Write components in src/components/ — one per file, <100 lines
+4. Write App.tsx LAST — import and wire all components
+5. shell_exec "cd <project_dir> && npx vite build" — compile check
+6. If errors: fix the files, build again
+7. Deliver only when it compiles clean.
 
 # Reference (read from {context_dir}/ when needed)
 - tools.md — which tool to use when

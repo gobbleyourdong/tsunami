@@ -1,30 +1,17 @@
 #!/usr/bin/env python3
-"""Test 1: Simple calculator — baseline for undertow QA."""
-import asyncio
-import sys
-
+import asyncio, sys
 sys.path.insert(0, '/home/jb/ComfyUI/CelebV-HQ/ark')
 from tsunami.config import TsunamiConfig
 from tsunami.agent import Agent
 
 config = TsunamiConfig.from_yaml('config.yaml')
-config.max_iterations = 15
+config.max_iterations = 30
 agent = Agent(config)
 
-PROMPT = """Build a simple calculator app.
-
-Save to /home/jb/ComfyUI/CelebV-HQ/ark/workspace/deliverables/calculator/index.html
-
-Single HTML file. No frameworks. Requirements:
-- Display showing current input and result
-- Buttons for digits 0-9, +, -, *, /, =, C (clear)
-- Clicking buttons updates the display
-- = evaluates the expression
-- C clears everything
-- Dark theme, clean grid layout
-
-Write the complete file in one file_write call."""
-
-result = asyncio.run(agent.run(PROMPT))
-print(f'Result: {result[:300]}')
+result = asyncio.run(agent.run(
+    "Build a calculator app. Buttons for 0-9, +, -, *, /, =, C. "
+    "Display shows input and result. Dark theme. "
+    "Save to workspace/deliverables/calculator/"
+))
+print(f'Result: {result[:500]}')
 print(f'Iterations: {agent.state.iteration}')

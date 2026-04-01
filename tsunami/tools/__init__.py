@@ -58,7 +58,7 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
     from .summarize import SummarizeFile
     from .swell import Swell
     from .undertow import Undertow
-    from .webdev import WebdevScaffold
+    from .project_init import ProjectInit
     from .toolbox import LoadToolbox, set_registry
 
     registry = ToolRegistry()
@@ -71,7 +71,7 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
                 MessageInfo, MessageAsk, MessageResult,
                 PlanUpdate,
                 SearchWeb, PythonExec, SummarizeFile, Swell, Undertow,
-                WebdevScaffold]:
+                ProjectInit]:
         registry.register(cls(config))
 
     # The one meta-tool — loads everything else from disk
