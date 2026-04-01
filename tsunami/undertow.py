@@ -1,125 +1,98 @@
-"""Undertow — eddies that test built apps by actually using them.
+"""Undertow — dumb QA that pulls levers.
 
-The wave builds. The QA swell breaks.
+The wave is the engineer. The undertow is the tester.
+The wave says WHAT to test. The undertow just does it and reports.
 
-Dispatches 2B eddies that each test a different aspect of the app:
-- Does it load?
-- Are there console errors?
-- Do controls respond?
-- Does the UI update?
+The undertow doesn't know what Three.js is. It doesn't diagnose.
+It pulls levers and says what happened. The wave reads the report
+and figures out what's broken.
 
-Each eddy runs a headless browser test and reports bugs.
-The wave reads the bug reports and fixes.
-Then the QA swell runs again until clean.
+Lever types:
+  screenshot  — take a screenshot, describe what's on screen
+  press       — press a key, report if anything changed
+  click       — click a selector, report if anything changed
+  read_text   — read text content of a selector
+  console     — report any console errors/output
+  wait        — wait N ms then continue
+
+The wave provides levers. The undertow pulls them all at once.
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
+
+import httpx
 
 log = logging.getLogger("tsunami.undertow")
 
 BEE_ENDPOINT = os.environ.get("TSUNAMI_BEE_ENDPOINT", "http://localhost:8092")
 
 
-async def run_drag(html_path: str, port: int = 9876) -> dict:
-    """Run QA checks on an HTML file by serving it and testing.
+# ──────────────────── data types ────────────────────
 
-    Returns dict with {passed: bool, errors: list[str], warnings: list[str]}
+
+@dataclass
+class Lever:
+    """A single test action for the undertow to pull."""
+    action: str          # screenshot, press, click, read_text, console, wait
+    expect: str = ""     # what the wave expects to see (eddy compares)
+    key: str = ""        # for press
+    selector: str = ""   # for click, read_text
+    ms: int = 0          # for wait
+
+
+@dataclass
+class LeverResult:
+    """What happened when we pulled the lever."""
+    lever: Lever
+    passed: bool
+    saw: str             # what the undertow actually observed
+    detail: str = ""     # extra context
+
+
+@dataclass
+class QAReport:
+    """Full report from pulling all levers."""
+    passed: bool
+    results: list[LeverResult] = field(default_factory=list)
+    console_errors: list[str] = field(default_factory=list)
+    screenshot_path: str = ""
+
+
+# ──────────────────── the undertow ────────────────────
+
+
+async def pull_levers(
+    html_path: str,
+    levers: list[Lever],
+    port: int = 9876,
+) -> QAReport:
+    """Serve an HTML file and pull every lever the wave gave us.
+
+    Returns a QAReport with pass/fail per lever.
     """
-    errors = []
-    warnings = []
     abs_path = str(Path(html_path).resolve())
     serve_dir = str(Path(abs_path).parent)
+    filename = Path(abs_path).name
 
-    # 1. Basic file checks
     if not os.path.exists(abs_path):
-        return {"passed": False, "errors": ["File does not exist"], "warnings": []}
-
-    content = open(abs_path).read()
-
-    if not content.strip().endswith("</html>"):
-        errors.append("HTML file appears truncated — doesn't end with </html>")
-
-    if "<script" not in content:
-        warnings.append("No <script> tags found — might not be interactive")
-
-    if "<!DOCTYPE" not in content and "<!doctype" not in content:
-        warnings.append("Missing DOCTYPE declaration")
-
-    # 2. Check for common JS errors in source
-    js_issues = _check_js_source(content)
-    errors.extend(js_issues)
-
-    # 3. Serve and test with headless browser
-    browser_issues = await _browser_test(serve_dir, port)
-    errors.extend(browser_issues.get("errors", []))
-    warnings.extend(browser_issues.get("warnings", []))
-
-    passed = len(errors) == 0
-    return {"passed": passed, "errors": errors, "warnings": warnings}
-
-
-def _check_js_source(html: str) -> list[str]:
-    """Static analysis of JavaScript in HTML for common issues."""
-    import re
-    errors = []
-
-    # Extract all script content
-    scripts = re.findall(r'<script[^>]*>(.*?)</script>', html, re.DOTALL)
-    js_code = "\n".join(scripts)
-
-    if not js_code.strip():
-        return []
-
-    # Unmatched braces
-    opens = js_code.count("{") + js_code.count("(") + js_code.count("[")
-    closes = js_code.count("}") + js_code.count(")") + js_code.count("]")
-    if abs(opens - closes) > 2:
-        errors.append(f"Unbalanced brackets: {opens} opens vs {closes} closes")
-
-    # Undefined references to common mistakes
-    if "addEventListener" in js_code and "document" not in js_code and "window" not in js_code:
-        errors.append("addEventListener used but no document/window reference")
-
-    # Canvas without getContext
-    if "canvas" in js_code.lower() and "getContext" not in js_code:
-        errors.append("Canvas referenced but getContext never called")
-
-    # requestAnimationFrame without function
-    if "requestAnimationFrame" in js_code:
-        # Check it's called with a function argument
-        raf_calls = re.findall(r'requestAnimationFrame\s*\(\s*(\w+)', js_code)
-        for fn_name in raf_calls:
-            if fn_name not in js_code.replace(f"requestAnimationFrame({fn_name}", ""):
-                errors.append(f"requestAnimationFrame calls '{fn_name}' but function may not exist")
-
-    # Three.js specific checks
-    if "THREE" in js_code or "three" in html:
-        if "renderer" in js_code and "render(" not in js_code:
-            errors.append("Three.js renderer created but render() never called")
-        if "scene" in js_code and "add(" not in js_code:
-            errors.append("Three.js scene created but nothing added to it")
-
-    return errors
-
-
-async def _browser_test(serve_dir: str, port: int) -> dict:
-    """Serve the HTML and test it in a headless browser."""
-    errors = []
-    warnings = []
+        return QAReport(passed=False, results=[
+            LeverResult(lever=Lever(action="file"), passed=False, saw="file does not exist")
+        ])
 
     try:
         from playwright.async_api import async_playwright
     except ImportError:
-        warnings.append("Playwright not installed — skipping browser tests")
-        return {"errors": errors, "warnings": warnings}
+        return QAReport(passed=False, results=[
+            LeverResult(lever=Lever(action="setup"), passed=False, saw="playwright not installed")
+        ])
 
-    # Start a simple HTTP server
+    # Start HTTP server
     server_proc = await asyncio.create_subprocess_exec(
         "python3", "-m", "http.server", str(port),
         cwd=serve_dir,
@@ -127,51 +100,50 @@ async def _browser_test(serve_dir: str, port: int) -> dict:
         stderr=asyncio.subprocess.DEVNULL,
     )
 
+    report = QAReport(passed=True)
+
     try:
-        await asyncio.sleep(1)  # let server start
+        await asyncio.sleep(1)
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
 
-            # Collect console errors
-            console_errors = []
-            page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
+            # Collect console output
+            console_msgs = []
+            page.on("console", lambda msg: console_msgs.append((msg.type, msg.text)))
             page_errors = []
             page.on("pageerror", lambda err: page_errors.append(str(err)))
 
             try:
-                response = await page.goto(f"http://localhost:{port}/index.html", timeout=10000)
-
-                if response and response.status != 200:
-                    errors.append(f"Page returned HTTP {response.status}")
-
-                # Wait for any JS to execute
-                await asyncio.sleep(2)
-
-                # Check for console errors
-                for err in console_errors:
-                    errors.append(f"Console error: {err}")
-                for err in page_errors:
-                    errors.append(f"Page error: {err}")
-
-                # Check if page has visible content
-                body_text = await page.evaluate("document.body.innerText")
-                if len(body_text.strip()) < 10:
-                    warnings.append("Page appears mostly blank — very little text content")
-
-                # Check if canvas exists and has content
-                has_canvas = await page.evaluate("!!document.querySelector('canvas')")
-                if has_canvas:
-                    canvas_size = await page.evaluate("""() => {
-                        const c = document.querySelector('canvas');
-                        return {w: c.width, h: c.height};
-                    }""")
-                    if canvas_size["w"] == 0 or canvas_size["h"] == 0:
-                        errors.append("Canvas has zero dimensions")
-
+                resp = await page.goto(
+                    f"http://localhost:{port}/{filename}", timeout=10000
+                )
+                await asyncio.sleep(2)  # let JS initialize
             except Exception as e:
-                errors.append(f"Browser test error: {str(e)[:200]}")
+                report.passed = False
+                report.results.append(LeverResult(
+                    lever=Lever(action="load"), passed=False,
+                    saw=f"page failed to load: {str(e)[:200]}"
+                ))
+                await browser.close()
+                return report
+
+            # Record any page errors from loading
+            report.console_errors = [e for e in page_errors]
+            if page_errors:
+                report.results.append(LeverResult(
+                    lever=Lever(action="load"), passed=False,
+                    saw=f"JS errors on load: {'; '.join(page_errors[:3])}"
+                ))
+                report.passed = False
+
+            # Pull each lever
+            for lever in levers:
+                result = await _pull_one(page, lever, console_msgs)
+                report.results.append(result)
+                if not result.passed:
+                    report.passed = False
 
             await browser.close()
 
@@ -182,25 +154,447 @@ async def _browser_test(serve_dir: str, port: int) -> dict:
         except asyncio.TimeoutError:
             server_proc.kill()
 
-    return {"errors": errors, "warnings": warnings}
+    return report
+
+
+async def _pull_one(page, lever: Lever, console_msgs: list) -> LeverResult:
+    """Pull a single lever and report what happened."""
+
+    try:
+        if lever.action == "screenshot":
+            return await _lever_screenshot(page, lever)
+
+        elif lever.action == "press":
+            return await _lever_press(page, lever)
+
+        elif lever.action == "click":
+            return await _lever_click(page, lever)
+
+        elif lever.action == "read_text":
+            return await _lever_read_text(page, lever)
+
+        elif lever.action == "console":
+            errors = [text for typ, text in console_msgs if typ == "error"]
+            if errors:
+                return LeverResult(
+                    lever=lever, passed=False,
+                    saw=f"{len(errors)} console errors: {'; '.join(errors[:5])}"
+                )
+            return LeverResult(lever=lever, passed=True, saw="no console errors")
+
+        elif lever.action == "wait":
+            await asyncio.sleep(lever.ms / 1000)
+            return LeverResult(lever=lever, passed=True, saw=f"waited {lever.ms}ms")
+
+        else:
+            return LeverResult(
+                lever=lever, passed=False,
+                saw=f"unknown lever action: {lever.action}"
+            )
+
+    except Exception as e:
+        return LeverResult(lever=lever, passed=False, saw=f"error: {str(e)[:200]}")
+
+
+# ──────────────────── lever implementations ────────────────────
+
+
+async def _lever_screenshot(page, lever: Lever) -> LeverResult:
+    """Take a screenshot, describe it, compare to expectation."""
+    screenshot_bytes = await page.screenshot()
+    stats, desc = _describe_screenshot(screenshot_bytes)
+
+    # If the wave provided an expectation, ask the eddy to compare
+    if lever.expect:
+        verdict = await _eddy_compare(desc, lever.expect)
+        passed = verdict.startswith("PASS")
+        return LeverResult(lever=lever, passed=passed, saw=desc, detail=verdict)
+
+    # No expectation — just report what we see
+    return LeverResult(lever=lever, passed=True, saw=desc)
+
+
+async def _lever_press(page, lever: Lever) -> LeverResult:
+    """Press a key, check if pixels or DOM changed."""
+    dom_before = await page.evaluate("document.body.innerText")
+    before = await page.screenshot()
+    await page.keyboard.press(lever.key)
+    await asyncio.sleep(0.5)
+    after = await page.screenshot()
+    dom_after = await page.evaluate("document.body.innerText")
+
+    pixels_changed = _screenshots_differ(before, after)
+    dom_changed = dom_before != dom_after
+    changed = pixels_changed or dom_changed
+
+    parts = []
+    if pixels_changed:
+        parts.append("pixels changed")
+    if dom_changed:
+        parts.append("DOM text changed")
+    if not changed:
+        parts.append("nothing changed")
+
+    saw = f"pressed {lever.key}, {', '.join(parts)}"
+
+    if lever.expect:
+        verdict = await _eddy_compare(saw, lever.expect)
+        passed = verdict.startswith("PASS")
+        return LeverResult(lever=lever, passed=passed, saw=saw, detail=verdict)
+
+    return LeverResult(lever=lever, passed=changed, saw=saw)
+
+
+async def _lever_click(page, lever: Lever) -> LeverResult:
+    """Click a selector, report if anything changed (pixels or DOM)."""
+    try:
+        el = await page.query_selector(lever.selector)
+        if not el:
+            return LeverResult(
+                lever=lever, passed=False,
+                saw=f"selector '{lever.selector}' not found on page"
+            )
+        # Check visibility before clicking (avoids 30s timeout)
+        visible = await el.is_visible()
+        if not visible:
+            return LeverResult(
+                lever=lever, passed=False,
+                saw=f"'{lever.selector}' exists but is not visible"
+            )
+        # Snapshot DOM text before
+        dom_before = await page.evaluate("document.body.innerText")
+        before = await page.screenshot()
+        await el.click(timeout=5000)
+        await asyncio.sleep(0.5)
+        after = await page.screenshot()
+        dom_after = await page.evaluate("document.body.innerText")
+
+        pixels_changed = _screenshots_differ(before, after)
+        dom_changed = dom_before != dom_after
+        changed = pixels_changed or dom_changed
+
+        parts = []
+        if pixels_changed:
+            parts.append("pixels changed")
+        if dom_changed:
+            parts.append("DOM text changed")
+        if not changed:
+            parts.append("nothing changed")
+
+        saw = f"clicked '{lever.selector}', {', '.join(parts)}"
+        return LeverResult(lever=lever, passed=changed, saw=saw)
+    except Exception as e:
+        return LeverResult(lever=lever, passed=False, saw=f"click failed: {e}")
+
+
+async def _lever_read_text(page, lever: Lever) -> LeverResult:
+    """Read text content from a selector."""
+    try:
+        text = await page.evaluate(
+            f"(() => {{ const el = document.querySelector('{lever.selector}'); "
+            f"if (!el) return '(not found)'; "
+            f"return el.value || el.innerText || el.textContent || '(empty)'; }})()"
+        )
+        saw = f"'{lever.selector}' says: {text[:200]}"
+
+        if lever.expect:
+            verdict = await _eddy_compare(saw, lever.expect)
+            passed = verdict.startswith("PASS")
+            return LeverResult(lever=lever, passed=passed, saw=saw, detail=verdict)
+
+        return LeverResult(lever=lever, passed=text != "(not found)", saw=saw)
+    except Exception as e:
+        return LeverResult(lever=lever, passed=False, saw=f"read failed: {e}")
+
+
+# ──────────────────── helpers ────────────────────
+
+
+def _describe_screenshot(screenshot_bytes: bytes) -> tuple[dict, str]:
+    """Convert screenshot to text description. Pure pixels, no opinions."""
+    stats = {}
+    lines = []
+
+    try:
+        from PIL import Image
+        from collections import Counter
+        import io
+
+        img = Image.open(io.BytesIO(screenshot_bytes)).convert("RGB")
+        w, h = img.size
+        pixels = list(img.getdata())
+        total = len(pixels)
+        stats["width"] = w
+        stats["height"] = h
+
+        step = max(1, total // 10000)
+        sampled = pixels[::step]
+        n = len(sampled)
+
+        color_counts = Counter(sampled)
+        unique = len(color_counts)
+        top_color, top_count = color_counts.most_common(1)[0]
+        dominant_pct = top_count / n
+
+        near_black = sum(1 for r, g, b in sampled if r < 20 and g < 20 and b < 20) / n
+        near_white = sum(1 for r, g, b in sampled if r > 240 and g > 240 and b > 240) / n
+        avg_brightness = sum(sum(c) / 3 for c in sampled) / n
+
+        stats.update({
+            "unique_colors": unique,
+            "dominant_color": top_color,
+            "dominant_pct": dominant_pct,
+            "near_black_pct": near_black,
+            "avg_brightness": avg_brightness,
+        })
+
+        lines.append(f"{w}x{h}, {unique} unique colors, avg brightness {avg_brightness:.0f}/255")
+        lines.append(f"{near_black:.0%} near-black, {near_white:.0%} near-white")
+        lines.append(f"dominant color: rgb{top_color} at {dominant_pct:.0%}")
+
+        # Quadrant breakdown
+        for name, box in [
+            ("top-left", (0, 0, w // 2, h // 2)),
+            ("top-right", (w // 2, 0, w, h // 2)),
+            ("center", (w // 4, h // 4, 3 * w // 4, 3 * h // 4)),
+            ("bottom-left", (0, h // 2, w // 2, h)),
+            ("bottom-right", (w // 2, h // 2, w, h)),
+        ]:
+            region = img.crop(box)
+            rpx = list(region.getdata())
+            ravg = sum(sum(c) / 3 for c in rpx) / len(rpx) if rpx else 0
+            rblack = sum(1 for r, g, b in rpx if r < 20 and g < 20 and b < 20) / len(rpx) if rpx else 0
+            runiq = len(set(rpx[::max(1, len(rpx) // 500)]))
+            lines.append(f"  {name}: brightness={ravg:.0f}, {rblack:.0%} black, {runiq} colors")
+
+        img.save("/tmp/undertow_screenshot.png")
+
+    except ImportError:
+        lines.append("(PIL not available)")
+    except Exception as e:
+        lines.append(f"(error: {e})")
+
+    return stats, "\n".join(lines)
+
+
+def _screenshots_differ(before_bytes: bytes, after_bytes: bytes, threshold: float = 0.01) -> bool:
+    """Do two screenshots differ by more than threshold?"""
+    try:
+        from PIL import Image
+        import io
+
+        img_a = Image.open(io.BytesIO(before_bytes)).convert("RGB")
+        img_b = Image.open(io.BytesIO(after_bytes)).convert("RGB")
+
+        px_a = list(img_a.getdata())
+        px_b = list(img_b.getdata())
+
+        if len(px_a) != len(px_b):
+            return True
+
+        step = max(1, len(px_a) // 5000)
+        diffs = sum(
+            1 for i in range(0, len(px_a), step)
+            if px_a[i] != px_b[i]
+        )
+        ratio = diffs / (len(px_a) // step)
+        return ratio > threshold
+
+    except Exception:
+        return False  # can't tell, assume no change
+
+
+async def _eddy_compare(saw: str, expected: str) -> str:
+    """Ask the eddy: does what we saw match what was expected?
+
+    The eddy is dumb. It just says PASS or FAIL and what it noticed.
+    """
+    prompt = f"""Expected: {expected}
+Saw: {saw}
+
+Does what was seen satisfy what was expected? Be reasonable — if the expectation is "score display visible" and you see "SCORE: 0", that's a PASS.
+
+One line:
+PASS: [why it matches]
+FAIL: [what's wrong]"""
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                f"{BEE_ENDPOINT}/v1/chat/completions",
+                json={
+                    "model": "qwen",
+                    "messages": [
+                        {"role": "system", "content": "You are QA. One line answers only."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "max_tokens": 80,
+                    "temperature": 0.1,
+                },
+                headers={"Authorization": "Bearer not-needed"},
+            )
+            if resp.status_code == 200:
+                content = resp.json()["choices"][0]["message"]["content"].strip()
+                # Take first line only
+                return content.split("\n")[0]
+    except Exception as e:
+        log.debug(f"Eddy compare failed: {e}")
+
+    return "UNCLEAR: eddy unavailable"
+
+
+# ──────────────────── formatting ────────────────────
+
+
+def format_report(report: QAReport) -> str:
+    """Format QA report for the wave to read."""
+    status = "PASS" if report.passed else "FAIL"
+    lines = [f"QA: {status}"]
+
+    for r in report.results:
+        mark = "✓" if r.passed else "✗"
+        lines.append(f"  {mark} [{r.lever.action}] {r.saw}")
+        if r.detail and not r.passed:
+            lines.append(f"    → {r.detail}")
+
+    if report.console_errors:
+        lines.append(f"\n  Console errors: {'; '.join(report.console_errors[:5])}")
+
+    return "\n".join(lines)
+
+
+# ──────────────────── convenience for backward compat ────────────────────
+
+
+def generate_levers(user_request: str, html_content: str = "") -> list[Lever]:
+    """Generate test levers from what's in the HTML.
+
+    Doesn't guess. Finds every testable surface in the code:
+    - Every element ID → read_text lever
+    - Every key binding → press lever
+    - Every clickable thing → click lever
+    - Always: console check + screenshot with expectation
+
+    Also flags what SHOULD be testable but ISN'T — the tension.
+    """
+    import re
+    levers: list[Lever] = []
+
+    # Always start with console + screenshot
+    levers.append(Lever(action="console"))
+    levers.append(Lever(action="screenshot", expect=user_request))
+
+    if not html_content:
+        return levers
+
+    # Find every element ID → read its text
+    # No expect = just check it exists and has content. Pure fact check.
+    ids = re.findall(r'id=["\']([^"\']+)["\']', html_content)
+    for eid in ids:
+        levers.append(Lever(action="read_text", selector=f"#{eid}"))
+
+    # Find every key binding → press it
+    # For press levers, expect="" means "just check if screen changed"
+    # The undertow uses pixel diff, no eddy needed
+    key_names = re.findall(
+        r"""['"](Arrow(?:Left|Right|Up|Down)|Space|Enter|Escape|"""
+        r"""Key[A-Z]|Digit\d|Tab|Backspace|Delete)['"]""",
+        html_content
+    )
+    seen_keys = set()
+    for key in key_names:
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        levers.append(Lever(action="press", key=key))
+
+    # Find clickable elements
+    # Buttons with IDs
+    buttons = re.findall(r'<button[^>]*id=["\']([^"\']+)', html_content)
+    for btn in buttons:
+        levers.append(Lever(action="click", selector=f"#{btn}"))
+    # If no ID buttons, try first few buttons by index
+    if not buttons:
+        button_count = len(re.findall(r'<button\b', html_content))
+        for i in range(min(button_count, 3)):
+            levers.append(Lever(action="click", selector=f"button:nth-of-type({i+1})"))
+
+    # End with another screenshot after interactions
+    if len(levers) > 3:
+        levers.append(Lever(action="screenshot", expect="page state changed after interactions"))
+
+    return levers
+
+
+async def run_drag(html_path: str, port: int = 9876, user_request: str = "") -> dict:
+    """Full QA run — eddy generates test plan, undertow executes it."""
+    # Read HTML for hints
+    html_content = ""
+    try:
+        html_content = open(html_path).read()
+    except Exception:
+        pass
+
+    # Generate levers from user request
+    if user_request:
+        levers = generate_levers(user_request, html_content)
+        log.info(f"Undertow: generated {len(levers)} levers from request")
+    else:
+        levers = [
+            Lever(action="console"),
+            Lever(action="screenshot"),
+        ]
+
+    report = await pull_levers(html_path, levers, port=port)
+
+    # Flag untested features
+    warnings = []
+    tested_actions = {r.lever.action for r in report.results}
+    if "press" not in tested_actions and user_request and any(
+        w in user_request.lower() for w in ["game", "interactive", "keyboard", "control"]
+    ):
+        warnings.append("No keyboard interactions were tested")
+    if "click" not in tested_actions and user_request and any(
+        w in user_request.lower() for w in ["button", "click", "menu", "nav"]
+    ):
+        warnings.append("No click interactions were tested")
+
+    # Convert to old format + compute code tension
+    errors = []
+    for r in report.results:
+        if not r.passed:
+            msg = r.saw
+            if r.detail:
+                msg += f" — {r.detail}"
+            errors.append(msg)
+    if report.console_errors:
+        errors.extend([f"JS error: {e}" for e in report.console_errors])
+
+    # Code tension = ratio of failed levers to total levers
+    total = len(report.results)
+    failed = sum(1 for r in report.results if not r.passed)
+    code_tension = failed / total if total > 0 else 0.5
+
+    return {
+        "passed": report.passed,
+        "errors": errors,
+        "warnings": warnings,
+        "code_tension": code_tension,
+        "levers_total": total,
+        "levers_failed": failed,
+    }
 
 
 def format_qa_report(result: dict) -> str:
-    """Format QA results for the wave to read."""
+    """Backward-compatible format."""
     status = "PASS" if result["passed"] else "FAIL"
     lines = [f"QA: {status}"]
-
     if result["errors"]:
-        lines.append(f"\nErrors ({len(result['errors'])}):")
         for e in result["errors"]:
             lines.append(f"  ✗ {e}")
-
-    if result["warnings"]:
-        lines.append(f"\nWarnings ({len(result['warnings'])}):")
+    if result.get("warnings"):
         for w in result["warnings"]:
             lines.append(f"  ⚠ {w}")
-
     if result["passed"]:
-        lines.append("\nAll checks passed. App is ready to ship.")
-
+        lines.append("\nAll checks passed.")
     return "\n".join(lines)

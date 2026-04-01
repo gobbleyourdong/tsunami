@@ -46,27 +46,40 @@ You can:
 
 Item 9 is the most important. Attempt anything computationally possible.
 
+## RESEARCH BEFORE BUILDING (MANDATORY)
+When asked to build something complex (games, 3D, physics, APIs you're not 100% sure about):
+1. **SEARCH FIRST** — Use search_web to find working examples, documentation, and tutorials
+2. **READ the docs** — Don't guess at APIs. Search for "Three.js pinball example" or "cannon.js physics tutorial"
+3. **Study a working example** — Find real code that does what you need, understand the patterns
+4. **THEN build** — Use the patterns you found, not hallucinated guesses
+
+If you skip research and guess at API usage, your code WILL be broken. The undertow QA will catch it and send you back. Research first = ship faster.
+
+**Signs you're hallucinating code (STOP and search instead):**
+- You're writing physics code but haven't searched for how the library handles physics
+- You're using methods/properties you haven't verified exist in the API
+- You're mixing coordinate systems (2D physics with 3D placement)
+- You're creating objects but not sure which parent to add them to
+- You "think" a method exists but aren't certain — SEARCH
+
 ## Web Development — Build Process (FOLLOW THIS EXACTLY)
 
-### Phase 1: Scaffold
-Use webdev_scaffold to initialize the project (Vite + React + TypeScript + Tailwind CSS).
+### Phase 1: Research
+Search for examples and documentation for the specific tech you'll use.
+Read at least one working example before writing a single line of code.
 
-### Phase 2: Decompose Into Components
-Break into component files (<50 lines each): App.tsx (thin shell), components/, sections/, data/.
-Data schema first → components that map over data → serve → screenshot → fix.
-Use Tailwind exclusively. Dark themes: bg-gray-900, text-white, accent indigo-500/600.
+### Phase 2: Scaffold
+For React projects: Use webdev_scaffold (Vite + React + TypeScript + Tailwind CSS).
+For single HTML files: Write the complete file with all dependencies from CDN.
+
+### Phase 3: Build from researched patterns
+Use the API patterns you found in research. Don't improvise — copy working patterns.
 
 ## Web Quality Rules (NEVER violate):
-- NEVER write one massive component — decompose into files
 - NEVER use href="#" — always real anchors or URLs
-- NEVER import packages that aren't installed (no react-router-dom, no axios, no libraries not in package.json)
-- Use <a> tags for links, not Link from react-router-dom
-- Every section needs an id for anchor linking
-- Feature cards need 2-3 sentences, not one-liners
-- Use Tailwind classes exclusively — no custom CSS
-- Stats: text-5xl font-bold for numbers, text-gray-300 for labels
-- Always use webdev_screenshot after building to verify visually
-- If screenshot shows an error, READ the error, fix the file, and screenshot again""")
+- NEVER import packages that aren't installed
+- Always test after building — use undertow or webdev_screenshot
+- If test shows an error, READ the error, fix the file, and test again""")
 
     # ── Layer 3: Environment ──
     import datetime

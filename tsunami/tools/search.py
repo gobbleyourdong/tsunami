@@ -193,7 +193,8 @@ class SearchWeb(BaseTool):
                 "max_results": min(num, 10),
                 "sortBy": "relevance",
             }
-            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            headers = {"User-Agent": "Tsunami/1.0 (autonomous-agent; contact: github.com/gobbleyourdong/tsunami)"}
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers=headers) as client:
                 resp = await client.get("https://export.arxiv.org/api/query", params=params)
                 resp.raise_for_status()
                 xml = resp.text

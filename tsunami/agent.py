@@ -377,8 +377,8 @@ class Agent:
         if tool_call.name == "message_info":
             self._info_streak = getattr(self, '_info_streak', 0) + 1
             self._info_total = getattr(self, '_info_total', 0) + 1
-            # Force termination on 5 consecutive OR 10 total message_info calls
-            if self._info_streak >= 5 or self._info_total >= 10:
+            # Force termination on 3 consecutive OR 6 total message_info calls
+            if self._info_streak >= 3 or self._info_total >= 6:
                 log.info(f"Info loop detected (streak={self._info_streak}, total={self._info_total}). Forcing termination.")
                 # Silent termination — the previous message_info already displayed the answer
                 tool_call = ToolCall(
@@ -548,50 +548,107 @@ class Agent:
             tension = measure_heuristic(result.content)
             self._pressure.record(tension, tool_call.name)
 
+            # Track delivery attempts — prevent infinite block loops
+            self._delivery_attempts = getattr(self, '_delivery_attempts', 0) + 1
+
+            # Always evaluate tension — but only BLOCK if this is a factual claim,
+            # not a build delivery, and we haven't already blocked twice
+            can_block = (
+                self._delivery_attempts <= 2
+                and self.state.iteration < self.config.max_iterations - 1
+            )
+
             circ = Circulation()
             route = circ.route(
                 self.state.conversation[1].content if len(self.state.conversation) > 1 else "",
                 tension,
             )
 
-            if route.action == "refuse" and self.state.iteration < self.config.max_iterations - 1:
-                log.warning(f"Tension gate: REFUSING delivery (tension={tension:.2f})")
-                self.state.add_system_note(
-                    f"TENSION CRITICAL ({tension:.2f}): Your response is likely hallucinated. "
-                    f"Either search to verify your claims, or say you don't know. "
-                    f"Do NOT deliver unverified content."
-                )
-                return result.content
+            log.info(
+                f"Tension gate: tension={tension:.2f} route={route.action} "
+                f"delivery_attempt={self._delivery_attempts} can_block={can_block}"
+            )
 
-            if route.action in ("search", "caveat") and self.state.iteration < self.config.max_iterations - 1:
-                did_search = any(
-                    "search_web" in m.content or "browser_navigate" in m.content
-                    for m in self.state.conversation if m.role == "tool_result"
-                )
-                if not did_search:
-                    log.info(f"Tension gate: forcing verification (tension={tension:.2f})")
+            if can_block:
+                if route.action == "refuse":
+                    log.warning(f"Tension gate: REFUSING delivery (tension={tension:.2f})")
                     self.state.add_system_note(
-                        f"TENSION ELEVATED ({tension:.2f}): Your response needs verification. "
-                        f"Search external sources before delivering. Tools suggested: {route.tools}"
+                        f"TENSION CRITICAL ({tension:.2f}): Your response is likely hallucinated. "
+                        f"Either search to verify your claims, or say you don't know. "
+                        f"Do NOT deliver unverified content."
                     )
                     return result.content
 
-            # Adversarial review — cross-examine reasoning before delivery
-            if len(result.content) > 200 and self.state.iteration < self.config.max_iterations - 2:
-                try:
-                    from .adversarial import review_before_delivery
-                    should_deliver, review_text = await review_before_delivery(
-                        result.content,
-                        self.state.conversation[1].content if len(self.state.conversation) > 1 else "",
+                if route.action in ("search", "caveat"):
+                    did_search = any(
+                        "search_web" in m.content or "browser_navigate" in m.content
+                        for m in self.state.conversation if m.role == "tool_result"
                     )
-                    if not should_deliver and review_text:
-                        log.info("Adversarial review: FAIL — sending objections back to wave")
-                        self.state.add_system_note(review_text)
-                        return result.content  # don't terminate — let wave address objections
+                    if not did_search:
+                        log.info(f"Tension gate: forcing verification (tension={tension:.2f})")
+                        self.state.add_system_note(
+                            f"TENSION ELEVATED ({tension:.2f}): Your response needs verification. "
+                            f"Search external sources before delivering. Tools suggested: {route.tools}"
+                        )
+                        return result.content
+
+                # Adversarial review — cross-examine reasoning before delivery
+                if len(result.content) > 200 and self.state.iteration < self.config.max_iterations - 2:
+                    try:
+                        from .adversarial import review_before_delivery
+                        should_deliver, review_text = await review_before_delivery(
+                            result.content,
+                            self.state.conversation[1].content if len(self.state.conversation) > 1 else "",
+                        )
+                        if not should_deliver and review_text:
+                            log.info("Adversarial review: FAIL — sending objections back to wave")
+                            self.state.add_system_note(review_text)
+                            return result.content  # don't terminate — let wave address objections
+                    except Exception as e:
+                        log.debug(f"Adversarial review skipped: {e}")
+            elif self._delivery_attempts > 2:
+                log.info(f"Tension gate: allowing delivery after {self._delivery_attempts} attempts (loop prevention)")
+
+            # 10. Code tension — undertow QA gate for file deliveries
+            # Find the last HTML file written in this session
+            last_html = None
+            for msg in reversed(self.state.conversation):
+                if msg.role == "tool_result" and ".html" in msg.content:
+                    import re as _re
+                    paths = _re.findall(r'(/[^\s"\']+\.html)', msg.content)
+                    if paths:
+                        last_html = paths[0]
+                        break
+
+            if last_html and self._delivery_attempts <= 2 and self.state.iteration < self.config.max_iterations - 2:
+                try:
+                    from .undertow import run_drag
+                    user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                    qa = await run_drag(last_html, user_request=user_req)
+
+                    # Record code tension into pressure alongside prose tension
+                    code_tension = qa.get("code_tension", 0.0)
+                    self._pressure.record(code_tension, "undertow")
+                    log.info(
+                        f"Undertow: code_tension={code_tension:.2f} "
+                        f"({qa.get('levers_failed', 0)}/{qa.get('levers_total', 0)} failed)"
+                    )
+
+                    if not qa["passed"] and qa["errors"]:
+                        error_list = "\n".join(f"  - {e}" for e in qa["errors"][:5])
+                        log.info(f"Undertow gate: FAIL — {len(qa['errors'])} error(s)")
+                        self.state.add_system_note(
+                            f"UNDERTOW QA ({qa.get('levers_failed', 0)}/{qa.get('levers_total', 0)} levers failed):\n"
+                            f"{error_list}"
+                        )
+                        return result.content
+                    elif qa["passed"]:
+                        log.info(f"Undertow gate: PASS — {last_html}")
                 except Exception as e:
-                    log.debug(f"Adversarial review skipped: {e}")
+                    log.debug(f"Undertow gate skipped: {e}")
 
             # All gates passed — deliver
+            self._delivery_attempts = 0
             if tension < DRIFTING:
                 self._pressure.reset()
             self.state.task_complete = True

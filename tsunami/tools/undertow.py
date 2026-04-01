@@ -16,9 +16,9 @@ log = logging.getLogger("tsunami.tools.qa")
 class Undertow(BaseTool):
     name = "undertow"
     description = (
-        "Test an HTML file for errors before delivering. "
-        "Checks: valid structure, JS syntax, console errors in headless browser, "
-        "canvas rendering, visible content. Returns PASS or FAIL with error list. "
+        "Test an HTML file by pulling levers — screenshot, keypresses, clicks, "
+        "text reads. Reports what it sees. PASS or FAIL with specifics. "
+        "Provide 'expect' to describe what the app should look like/do. "
         "ALWAYS run this on code you built before calling message_result."
     )
 
@@ -27,15 +27,20 @@ class Undertow(BaseTool):
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Path to the HTML file to test"},
+                "expect": {"type": "string", "description": "What the app should look like and do — the undertow compares this against what it sees"},
             },
             "required": ["path"],
         }
 
-    async def execute(self, path: str, **kw) -> ToolResult:
+    async def execute(self, path: str, expect: str = "", **kw) -> ToolResult:
         try:
             from ..undertow import run_drag, format_qa_report
-            result = await run_drag(path)
+            result = await run_drag(path, user_request=expect)
             report = format_qa_report(result)
+            tension = result.get("code_tension", 0)
+            failed = result.get("levers_failed", 0)
+            total = result.get("levers_total", 0)
+            report += f"\n\nCode tension: {tension:.2f} ({failed}/{total} levers failed)"
             return ToolResult(report, is_error=not result["passed"])
         except Exception as e:
             return ToolResult(f"QA error: {e}", is_error=True)

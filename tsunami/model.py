@@ -94,7 +94,7 @@ class LLMModel(ABC):
                 await asyncio.sleep(wait)
             except httpx.HTTPStatusError as e:
                 status = e.response.status_code
-                if status in (429, 502, 503, 504):
+                if status in (429, 500, 502, 503, 504):
                     last_error = e
                     # Extract Retry-After header for 429s
                     retry_after = e.response.headers.get("retry-after") if status == 429 else None
@@ -219,10 +219,12 @@ class OpenAICompatModel(LLMModel):
                     json=payload,
                     headers=headers,
                 )
-                if resp.status_code == 500 and payload["max_tokens"] > 512:
-                    # Server error — likely generation exceeded context slot.
-                    # Halve max_tokens and retry.
-                    payload["max_tokens"] = payload["max_tokens"] // 2
+                if resp.status_code == 500:
+                    # Server busy or generation failed — wait then retry
+                    # (parallel=1 means only one request at a time)
+                    await asyncio.sleep(2 * (attempt + 1))
+                    if payload["max_tokens"] > 512:
+                        payload["max_tokens"] = payload["max_tokens"] // 2
                     continue
                 if resp.status_code == 400 and payload["max_tokens"] > 512:
                     # Context overflow — halve and retry

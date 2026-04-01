@@ -74,12 +74,17 @@ QUALITY_ANCHORS = [
     r'\bpublished in\b',
 ]
 
+# Code tension — measured by the undertow (screenshot + static analysis),
+# not by pattern matching here. Current only measures prose tension.
+# The undertow is QA. Current is the lie detector. Different jobs.
+
 
 def measure_heuristic(text: str) -> float:
     """Fast heuristic tension measurement — no model call needed.
 
-    Scans for red flags and quality anchors in the text.
-    Returns tension score 0.0-1.0.
+    Measures PROSE tension only — is the text hedging, fabricating, or grounded?
+    Code quality is measured by the undertow (screenshot + static analysis).
+    Current is the lie detector. Undertow is QA. Different jobs.
     """
     if not text.strip():
         return 0.5  # empty = uncertain
@@ -94,13 +99,12 @@ def measure_heuristic(text: str) -> float:
     )
 
     # Base tension from text length (very short = suspicious)
-    length_factor = min(1.0, len(text) / 200)  # short answers more suspicious
+    length_factor = min(1.0, len(text) / 200)
 
-    # Calculate tension
     tension = 0.3  # baseline uncertain
-    tension += red_flag_count * 0.1   # each red flag adds 0.1
-    tension -= quality_count * 0.15    # each quality anchor removes 0.15
-    tension -= length_factor * 0.1     # longer = slightly less suspicious
+    tension += red_flag_count * 0.1
+    tension -= quality_count * 0.15
+    tension -= length_factor * 0.1
 
     return max(0.0, min(1.0, tension))
 
