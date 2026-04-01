@@ -210,7 +210,7 @@ class OpenAICompatModel(LLMModel):
         }
         if tools:
             payload["tools"] = self._convert_tools(tools)
-            payload["tool_choice"] = "auto"
+            payload["tool_choice"] = "required"  # Ark: MUST respond with function calling
 
         async with httpx.AsyncClient(timeout=900) as client:
             for attempt in range(3):

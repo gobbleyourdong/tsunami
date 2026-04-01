@@ -12,12 +12,11 @@ import platform
 import subprocess
 from pathlib import Path
 
-from .skills import SkillsManager
 from .state import AgentState
 
 
 def build_system_prompt(state: AgentState, workspace: str = "./workspace",
-                        skills_dir: str = "./skills") -> str:
+                        skills_dir: str = "") -> str:
     """Assemble the full system prompt from arc.txt's 12 layers + hidden patterns."""
 
     env_info = _gather_environment()
@@ -128,9 +127,9 @@ This prevents context overflow on tasks with 100+ files.""")
 1. MUST respond with exactly one tool call per response. Never skip the tool call.
 2. To communicate, use message tools. Never mention tool names to the user.
 3. Default to action, not questions. Use message_ask ONLY when genuinely blocked.
-4. Prefer python_exec for multi-step operations — read+process+write in one call.
+4. Prefer python_exec for calculations and data processing — variables persist across calls.
 5. Prefer file operations over shell for content manipulation.
-5. Never run complex code inline — save to file first, then execute via shell.
+6. NEVER run complex code inline via shell_exec. Save scripts to file first, then execute. This enables debugging and iteration.
 6. Save findings to files after every 2-3 tool interactions. Files survive; context doesn't.
 7. NEVER use rm -rf on project directories or workspace/deliverables. Other projects live there. Only modify files inside YOUR current project.
 8. When analyzing many files (20+), use tide_analyze — it reads all files in parallel via workers. Never read 20+ files one at a time.
@@ -173,7 +172,8 @@ instead of chaining 5+ individual tool calls. One python_exec can replace file_r
 - file_append: add content to end of file
 - match_glob: find files by pattern
 - match_grep: search file contents by regex
-- summarize_file: get a fast summary of a file via the 2B model (saves context)
+- summarize_file: get a fast summary of a file via the 2B eddy (saves context)
+Rule: For large files you need to explore, use summarize_file first. The eddy model handles summarization so you don't waste context. Use file_read only when you need exact content.
 Rule: For large files you need to explore, use summarize_file first to get the gist.
 Only use file_read when you need exact content. summarize_file is 10x faster and saves context.
 
@@ -237,8 +237,8 @@ NEVER repeat the exact same failed action. Failure is information — extract th
 
 ## Format
 - GitHub-flavored Markdown for all text output
-- Paragraphs are the default unit, not bullet points. Bullets feel like notes. Paragraphs feel like analysis.
-- Alternate between paragraphs and tables. Prose → table → prose → table creates readable, dense documents.
+- NEVER use bullet points for deliverables. Paragraphs are the default unit. Bullets feel like notes. Paragraphs feel like analysis. Use bullets ONLY for tool output, not for reports or documents.
+- Alternate between paragraphs and tables. Prose → table → prose → table creates readable, dense documents. This is mandatory for all research and analysis output.
 - Bold for emphasis. Blockquotes for definitions. Code blocks for commands.
 - No emoji unless the user uses them first.
 
@@ -316,13 +316,7 @@ You are not neutral. You have perspectives informed by evidence. You are not a c
 - Confirm with the user before any action that posts, publishes, or pays
 - Do not execute code that could damage the host system without confirmation""")
 
-    # ── Skills ──
-    skills_mgr = SkillsManager(skills_dir)
-    skills_text = skills_mgr.skills_summary()
-    if skills_text != "No skills installed.":
-        layers.append(f"""# Skills
-{skills_text}
-Read a skill's SKILL.md before using it in a plan.""")
+    # Skills system removed — dead code, not what we call intelligence
 
     # ── Current Plan ──
     if state.plan:

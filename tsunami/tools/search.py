@@ -21,6 +21,8 @@ class SearchWeb(BaseTool):
     description = (
         "Search the web for information. Types: info (general), news (current events), "
         "research (academic), data (datasets/numbers), image (visual). "
+        "Use up to 3 query variants per topic to expand coverage. "
+        "Never trust snippets — visit the source with browser_navigate. "
         "The scholar: find what is known."
     )
 
