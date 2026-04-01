@@ -418,10 +418,17 @@ async def run_swarm(
     max_concurrent: int = 4,
     endpoint: str = EDDY_ENDPOINT,
     system_prompt: str = "",
+    write_targets: list[str] | None = None,
 ) -> list[BeeResult]:
     """Run multiple eddies in parallel with concurrency control.
 
     The wave calls this to dispatch work to the break.
+
+    If write_targets is provided, each eddy's 'done' output gets
+    written to the corresponding file path. The eddy doesn't need
+    file_write — it just produces the content, the swarm writes it.
+    This is the MoE pattern: each eddy is an expert that outputs
+    to its assigned attention head (file).
     """
     sem = asyncio.Semaphore(max_concurrent)
     start = time.time()
@@ -432,6 +439,24 @@ async def run_swarm(
 
     results = await asyncio.gather(*[_run(t) for t in tasks])
     elapsed = (time.time() - start) * 1000
+
+    # Write outputs to target files if provided
+    if write_targets:
+        for result, target in zip(results, write_targets):
+            if result.success and target and result.output.strip():
+                try:
+                    tp = Path(target)
+                    tp.parent.mkdir(parents=True, exist_ok=True)
+                    # Extract code from markdown fences if present
+                    content = result.output.strip()
+                    import re as _re
+                    code_match = _re.search(r'```(?:tsx?|typescript|javascript)?\n(.*?)```', content, _re.DOTALL)
+                    if code_match:
+                        content = code_match.group(1).strip()
+                    tp.write_text(content)
+                    log.info(f"Wrote eddy output to {target} ({len(content)} chars)")
+                except Exception as e:
+                    log.warning(f"Failed to write eddy output to {target}: {e}")
 
     succeeded = sum(1 for r in results if r.success)
     total_tool_calls = sum(r.tool_calls for r in results)
