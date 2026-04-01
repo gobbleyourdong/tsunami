@@ -518,20 +518,31 @@ class Agent:
             result.is_error, self.session_id,
         )
 
-        # 8a. Auto-serve — serve project on dev port after writing to deliverables
-        if tool_call.name in ("file_write", "file_edit") and not result.is_error:
-            written_path = tool_call.arguments.get("path", "")
-            if "deliverables/" in written_path and written_path.endswith((".html", ".htm", ".tsx", ".ts")):
+        # 8a. Auto-serve — start dev server ONCE, Vite HMR handles the rest
+        if tool_call.name in ("file_write", "file_edit", "shell_exec") and not result.is_error:
+            written_path = tool_call.arguments.get("path", "") or tool_call.arguments.get("command", "")
+            if "deliverables/" in written_path or "npm install" in written_path:
+                serving_project = getattr(self, '_serving_project', None)
                 try:
                     from .serve import serve_project
-                    # Find project root (first dir under deliverables/)
                     parts = written_path.split("deliverables/")
                     if len(parts) > 1:
                         project_name = parts[1].split("/")[0]
+                    elif "npm install" in written_path:
+                        # Extract project from cd command
+                        import re as _re
+                        cd_match = _re.search(r'cd\s+\S*deliverables/(\S+)', written_path)
+                        project_name = cd_match.group(1) if cd_match else None
+                    else:
+                        project_name = None
+
+                    if project_name and project_name != serving_project:
                         project_dir = str(Path(self.config.workspace_dir) / "deliverables" / project_name)
-                        url = serve_project(project_dir)
-                        if url.startswith("http"):
-                            log.info(f"Auto-serve: {url}")
+                        if Path(project_dir).exists():
+                            url = serve_project(project_dir)
+                            if url.startswith("http"):
+                                self._serving_project = project_name
+                                log.info(f"Auto-serve: {url} (HMR active)")
                 except Exception as e:
                     log.debug(f"Auto-serve skipped: {e}")
 

@@ -55,12 +55,22 @@ def _is_html_project(project_dir: str) -> bool:
     return (Path(project_dir) / "index.html").exists()
 
 
-def serve_project(project_dir: str, port: int = DEV_PORT) -> str:
-    """Serve a project on the dev port. Kills whatever was there before.
+_current_project = None
 
-    Returns the URL.
+def serve_project(project_dir: str, port: int = DEV_PORT) -> str:
+    """Serve a project on the dev port.
+
+    If the same project is already being served, do nothing (Vite HMR handles updates).
+    If a different project, kill the old server and start new.
     """
+    global _current_project
+
+    # Already serving this project — Vite HMR handles file changes
+    if _current_project == project_dir:
+        return f"http://localhost:{port}"
+
     _kill_port(port)
+    _current_project = project_dir
 
     import time
     time.sleep(0.5)
