@@ -58,19 +58,20 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
     from .summarize import SummarizeFile
     from .swell import Swell
     from .undertow import Undertow
+    from .webdev import WebdevScaffold
     from .toolbox import LoadToolbox, set_registry
 
     registry = ToolRegistry()
 
-    # Bootstrap — lean core (15 tools to stay under 9B context limit)
-    # swell_analyze, swell_build, shell_view, plan_advance, file_append
-    # available via load_toolbox when needed
+    # Bootstrap — lean core (16 tools)
+    # webdev_scaffold is in bootstrap — all interactive builds go through Vite+React+TS
     for cls in [FileRead, FileWrite, FileEdit,
                 MatchGlob, MatchGrep,
                 ShellExec,
                 MessageInfo, MessageAsk, MessageResult,
                 PlanUpdate,
-                SearchWeb, PythonExec, SummarizeFile, Swell, Undertow]:
+                SearchWeb, PythonExec, SummarizeFile, Swell, Undertow,
+                WebdevScaffold]:
         registry.register(cls(config))
 
     # The one meta-tool — loads everything else from disk

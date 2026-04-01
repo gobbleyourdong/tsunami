@@ -60,9 +60,10 @@ Time: {now}
 
 # Building
 - Search GitHub first (search_web with type="code") — max 2 searches, then build.
-- Decompose into small files (<100 lines each). index.html is a thin shell.
-- Never write one massive file. Small files = clean context = fewer bugs.
-- Test with undertow after building. Fix what fails. Retest. Repeat.
+- ALWAYS use webdev_scaffold first. It sets up Vite + React + TypeScript + Tailwind.
+- Write small TypeScript components (<100 lines each). One component per file.
+- Never write vanilla HTML/JS. Always React + TypeScript.
+- Undertow tests automatically. Read the QA results and fix what fails.
 - Deliver only when it works, not when it renders.
 
 # Reference (read from {context_dir}/ when needed)
