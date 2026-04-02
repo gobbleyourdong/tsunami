@@ -7,391 +7,361 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --bg: #0a0a14;
-      --panel: #0d0d1a;
-      --panel2: #111122;
-      --border: #1a1a2e;
-      --border-active: #2a2a4a;
-      --text: #d4d4d8;
-      --muted: #555;
-      --accent: #00cccc;
-      --accent2: #0088aa;
-      --green: #4ec9b0;
-      --yellow: #dcdcaa;
-      --orange: #ce9178;
-      --red: #f44747;
-      --blue: #569cd6;
-      --purple: #c586c0;
-      --input: #0f0f1e;
-      --radius: 6px;
+      --bg: #080810;
+      --bg2: #0c0c18;
+      --panel: #0e0e1c;
+      --panel2: #12122a;
+      --border: #1a1a30;
+      --border-hi: #252550;
+      --text: #c8c8d8;
+      --muted: #4a4a6a;
+      --accent: #1a8a8a;
+      --accent-glow: #0d6868;
+      --accent-bright: #2ab8b8;
+      --green: #3da87a;
+      --yellow: #b8a040;
+      --red: #a83a3a;
+      --blue: #4070a8;
+      --purple: #7050a0;
+      --orange: #a86830;
     }
-    html, body, #app { height: 100%; background: var(--bg); color: var(--text); font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace; font-size: 13px; overflow: hidden; }
+    html, body, #app { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 13px; overflow: hidden; }
 
-    /* ── Layout: 3-column IDE ── */
-    #app { display: grid; grid-template-columns: 48px 220px 1fr; grid-template-rows: 36px 1fr 200px; height: 100vh; }
+    /* === LAYOUT: Chat left, Artifacts right === */
+    #app { display: grid; grid-template-columns: 48px 1fr 1fr; grid-template-rows: 40px 1fr; }
 
-    /* Activity bar (far left) */
-    .activity-bar {
-      grid-row: 1 / -1; background: var(--bg);
-      border-right: 1px solid var(--border);
-      display: flex; flex-direction: column; align-items: center;
-      padding-top: 8px; gap: 4px;
-    }
-    .activity-bar button {
-      width: 36px; height: 36px; border: none; background: none;
-      color: var(--muted); cursor: pointer; border-radius: var(--radius);
-      font-size: 16px; display: flex; align-items: center; justify-content: center;
-    }
-    .activity-bar button:hover, .activity-bar button.active { color: var(--text); background: var(--panel); }
+    /* Activity bar */
+    .activity-bar { grid-row: 1 / -1; background: var(--bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding-top: 10px; gap: 2px; }
+    .activity-bar button { width: 38px; height: 38px; border: none; background: none; color: var(--muted); cursor: pointer; border-radius: 6px; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+    .activity-bar button:hover { color: var(--text); background: var(--panel); }
+    .activity-bar button.active { color: var(--accent-bright); background: var(--panel2); border-left: 2px solid var(--accent); }
 
-    /* Title bar */
-    .title-bar {
-      grid-column: 2 / -1;
-      background: var(--bg); border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; padding: 0 16px;
-      font-size: 12px; color: var(--muted);
-      -webkit-app-region: drag;
-    }
-    .title-bar .logo { color: var(--accent); font-weight: 700; margin-right: 16px; font-size: 13px; }
-    .title-bar .status { margin-left: auto; display: flex; gap: 12px; align-items: center; }
-    .title-bar .dot { width: 8px; height: 8px; border-radius: 50%; }
-    .title-bar .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .title-bar .dot.off { background: var(--red); }
+    /* Top bar */
+    .top-bar { grid-column: 2 / -1; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 16px; -webkit-app-region: drag; }
+    .top-bar .logo { color: var(--accent-bright); font-weight: 700; font-size: 14px; letter-spacing: 2px; }
+    .top-bar .status-hud { margin-left: auto; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+    .top-bar .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .top-bar .dot.on { background: var(--green); box-shadow: 0 0 4px var(--green); }
+    .top-bar .dot.off { background: var(--red); }
 
-    /* Sidebar (file tree / tools) */
-    .sidebar {
-      background: var(--panel); border-right: 1px solid var(--border);
-      overflow-y: auto; font-size: 12px;
-    }
-    .sidebar-header { padding: 10px 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
-    .file-tree { padding: 0 4px; }
-    .file-item {
-      padding: 4px 8px 4px 20px; cursor: pointer; border-radius: 3px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      color: var(--text); display: flex; align-items: center; gap: 6px;
-    }
-    .file-item:hover { background: var(--panel2); }
-    .file-item .icon { color: var(--muted); font-size: 11px; }
-    .file-item.folder .icon { color: var(--yellow); }
-    .file-item.tsx .icon { color: var(--blue); }
-    .file-item.ts .icon { color: var(--green); }
-    .file-item.css .icon { color: var(--purple); }
-    .file-item.json .icon { color: var(--orange); }
+    /* === CHAT PANE (left) === */
+    .chat-pane { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); }
 
-    /* Main content area */
-    .main {
-      background: var(--panel2); overflow: auto;
-      display: flex; flex-direction: column;
-    }
-
-    /* Tab bar */
-    .tab-bar {
-      display: flex; background: var(--panel); border-bottom: 1px solid var(--border);
-      min-height: 32px; overflow-x: auto;
-    }
-    .tab {
-      padding: 6px 16px; cursor: pointer; border-right: 1px solid var(--border);
-      color: var(--muted); font-size: 12px; white-space: nowrap;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .tab:hover { color: var(--text); }
-    .tab.active { color: var(--text); background: var(--panel2); border-bottom: 2px solid var(--accent); }
-
-    /* Content area (chat / preview / code) */
-    .content { flex: 1; overflow-y: auto; padding: 16px; }
+    /* Plan display at top of chat */
+    .plan-bar { padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--border); font-size: 11px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .plan-phase { padding: 3px 10px; border-radius: 12px; font-size: 11px; }
+    .plan-phase.active { background: var(--accent); color: #000; font-weight: 600; }
+    .plan-phase.done { background: var(--border-hi); color: var(--green); text-decoration: line-through; }
+    .plan-phase.pending { background: var(--border); color: var(--muted); }
 
     /* Chat messages */
-    .msg { margin-bottom: 12px; line-height: 1.6; }
-    .msg.user { color: var(--accent); }
-    .msg.user::before { content: "› "; color: var(--accent); }
-    .msg.agent { color: var(--text); padding-left: 8px; border-left: 2px solid var(--border); }
-    .msg.tool { color: var(--muted); font-size: 12px; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 14px; }
+    .msg { margin-bottom: 10px; line-height: 1.6; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .msg.user { color: var(--accent-bright); }
+    .msg.user::before { content: "you › "; font-size: 11px; color: var(--muted); }
+    .msg.agent { padding-left: 10px; border-left: 2px solid var(--border-hi); }
+    .msg.tool { color: var(--muted); font-size: 11px; padding-left: 10px; }
     .msg.tool::before { content: "⚙ "; }
     .msg.error { color: var(--red); }
-    .msg.system { color: var(--muted); font-style: italic; font-size: 12px; }
-
-    /* Welcome screen */
-    .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--muted); }
-    .welcome h1 { color: var(--accent); font-size: 28px; font-weight: 300; margin-bottom: 4px; letter-spacing: 4px; }
-    .welcome p { font-size: 13px; margin-bottom: 24px; }
-    .welcome .hint { font-size: 12px; color: var(--border-active); }
-
-    /* Terminal panel (bottom) */
-    .terminal {
-      grid-column: 2 / -1;
-      background: var(--bg); border-top: 1px solid var(--border);
-      display: flex; flex-direction: column;
-    }
-    .terminal-header {
-      display: flex; align-items: center; padding: 6px 12px;
-      background: var(--panel); border-bottom: 1px solid var(--border);
-      font-size: 11px; color: var(--muted); gap: 16px;
-    }
-    .terminal-header span.active { color: var(--text); border-bottom: 1px solid var(--accent); padding-bottom: 2px; }
-    .terminal-output { flex: 1; overflow-y: auto; padding: 8px 12px; font-size: 12px; }
-    .terminal-output .line { color: var(--muted); }
-    .terminal-output .line.info { color: var(--green); }
-    .terminal-output .line.warn { color: var(--yellow); }
-    .terminal-output .line.err { color: var(--red); }
+    .msg.system { color: var(--muted); font-style: italic; font-size: 11px; }
 
     /* Input */
-    .input-area {
-      display: flex; padding: 8px 12px; gap: 8px;
-      border-top: 1px solid var(--border); background: var(--panel);
-    }
-    .input-area input {
-      flex: 1; background: var(--input); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 10px 14px; color: var(--text);
-      font-family: inherit; font-size: 13px; outline: none;
-    }
-    .input-area input:focus { border-color: var(--accent); }
-    .input-area input::placeholder { color: var(--muted); }
-    .input-area button {
-      background: var(--accent); color: #000; border: none;
-      border-radius: var(--radius); padding: 10px 20px; font-weight: 600;
-      cursor: pointer; font-family: inherit; font-size: 13px;
-    }
-    .input-area button:hover { background: var(--accent2); }
+    .chat-input { display: flex; padding: 10px; gap: 8px; border-top: 1px solid var(--border); background: var(--panel); }
+    .chat-input input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: var(--text); font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.15s; }
+    .chat-input input:focus { border-color: var(--accent); }
+    .chat-input input::placeholder { color: var(--muted); }
+    .chat-input button { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 11px 18px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+    .chat-input button:hover { background: var(--accent-glow); }
+
+    /* === ARTIFACTS PANE (right) === */
+    .artifacts-pane { display: flex; flex-direction: column; background: var(--bg); position: relative; }
+
+    /* Artifacts tab bar */
+    .artifact-tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); min-height: 32px; overflow-x: auto; }
+    .artifact-tab { padding: 7px 16px; cursor: pointer; border-right: 1px solid var(--border); color: var(--muted); font-size: 11px; white-space: nowrap; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+    .artifact-tab:hover { color: var(--text); }
+    .artifact-tab.active { color: var(--accent-bright); background: var(--bg); border-bottom: 2px solid var(--accent); }
+
+    /* Artifact content */
+    .artifact-content { flex: 1; overflow: auto; position: relative; }
+
+    /* Terminal view */
+    .terminal-view { padding: 12px; font-size: 12px; line-height: 1.5; }
+    .terminal-view .cmd { color: var(--green); }
+    .terminal-view .out { color: var(--text); }
+    .terminal-view .err { color: var(--red); }
+
+    /* Code view */
+    .code-view { padding: 12px; font-size: 12px; white-space: pre-wrap; line-height: 1.5; }
+    .code-view .line-num { color: var(--muted); display: inline-block; width: 35px; text-align: right; margin-right: 12px; user-select: none; }
+    .code-view .highlight { background: rgba(26,138,138,0.15); display: block; margin: 0 -12px; padding: 0 12px; }
 
     /* Preview iframe */
-    .preview-frame { width: 100%; height: 100%; border: none; background: #fff; border-radius: 4px; }
+    .preview-frame { width: 100%; height: 100%; border: none; background: #fff; }
+
+    /* File manager */
+    .file-list { padding: 8px; }
+    .file-item { padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px; }
+    .file-item:hover { background: var(--panel2); }
+    .file-item .ext { font-size: 10px; color: var(--muted); }
+
+    /* Welcome / empty state */
+    .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; background: radial-gradient(ellipse at center bottom, var(--panel2) 0%, var(--bg) 70%); }
+    .welcome h1 { color: var(--accent-bright); font-size: 32px; font-weight: 300; letter-spacing: 6px; margin-bottom: 6px; text-shadow: 0 0 20px var(--accent-glow); }
+    .welcome p { color: var(--muted); font-size: 13px; }
+
+    /* Status HUD overlay */
+    .hud-status { position: absolute; top: 8px; right: 12px; font-size: 11px; color: var(--muted); background: var(--bg); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border); z-index: 5; display: flex; align-items: center; gap: 6px; }
+    .hud-status .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
     /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
-    /* Responsive: collapse sidebar on small screens */
-    @media (max-width: 800px) {
-      #app { grid-template-columns: 48px 1fr; }
-      .sidebar { display: none; }
-    }
+    /* Responsive */
+    @media (max-width: 900px) { #app { grid-template-columns: 48px 1fr; } .artifacts-pane { display: none; } }
   </style>
 </head>
 <body>
   <div id="app">
     <!-- Activity Bar -->
     <div class="activity-bar">
-      <button class="active" onclick="showView('chat')" title="Chat">💬</button>
-      <button onclick="showView('files')" title="Files">📁</button>
-      <button onclick="showView('preview')" title="Preview">👁</button>
+      <button class="active" onclick="switchActivity(this,'chat')" title="Chat">💬</button>
+      <button onclick="switchActivity(this,'files')" title="Files">📂</button>
+      <button onclick="switchActivity(this,'preview')" title="Preview">👁</button>
+      <button onclick="switchActivity(this,'settings')" title="Settings">⚙</button>
       <div style="flex:1"></div>
-      <button onclick="showView('settings')" title="Settings">⚙</button>
+      <button onclick="switchActivity(this,'help')" title="Help" style="font-size:13px">?</button>
     </div>
 
-    <!-- Title Bar -->
-    <div class="title-bar">
+    <!-- Top Bar -->
+    <div class="top-bar">
       <span class="logo">TSUNAMI</span>
-      <span id="project-name">no project</span>
-      <div class="status">
-        <span id="iter-count"></span>
+      <span id="project-name" style="color:var(--muted);font-size:12px">ready</span>
+      <div class="status-hud">
+        <span id="hud-text">idle</span>
         <span>wave</span><div class="dot" id="wave-dot"></div>
         <span>eddy</span><div class="dot" id="eddy-dot"></div>
       </div>
     </div>
 
-    <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
-      <div class="sidebar-header">Explorer</div>
-      <div class="file-tree" id="file-tree">
-        <div style="padding: 20px 12px; color: var(--muted); font-size: 12px;">No project yet</div>
-      </div>
-    </div>
-
-    <!-- Main Content -->
-    <div class="main">
-      <div class="tab-bar" id="tab-bar">
-        <div class="tab active" onclick="switchTab('chat')">Chat</div>
-      </div>
-      <div class="content" id="content">
+    <!-- Chat Pane -->
+    <div class="chat-pane">
+      <div class="plan-bar" id="plan-bar" style="display:none"></div>
+      <div class="chat-messages" id="chat-messages">
         <div class="welcome">
           <h1>tsunami</h1>
           <p>what do you want to build?</p>
-          <div class="hint">type below to start</div>
         </div>
       </div>
-      <div class="input-area">
-        <input id="prompt-input" placeholder="build a calculator..." onkeydown="if(event.key==='Enter')sendPrompt()" autofocus />
-        <button onclick="sendPrompt()">Build →</button>
+      <div class="chat-input">
+        <input id="prompt" placeholder="build me a..." onkeydown="if(event.key==='Enter')send()" autofocus />
+        <button onclick="send()">→</button>
       </div>
     </div>
 
-    <!-- Terminal -->
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="active">Output</span>
-        <span>Problems</span>
-        <span>Terminal</span>
+    <!-- Artifacts Pane -->
+    <div class="artifacts-pane" id="artifacts-pane">
+      <div class="artifact-tabs" id="artifact-tabs">
+        <div class="artifact-tab active" data-view="terminal" onclick="showArtifact('terminal',this)">Terminal</div>
+        <div class="artifact-tab" data-view="code" onclick="showArtifact('code',this)">Code</div>
+        <div class="artifact-tab" data-view="preview" onclick="showArtifact('preview',this)">Preview</div>
+        <div class="artifact-tab" data-view="files" onclick="showArtifact('files',this)">Files</div>
       </div>
-      <div class="terminal-output" id="terminal">
-        <div class="line info">Tsunami ready. Waiting for prompt.</div>
+      <div class="hud-status" id="hud-status" style="display:none">
+        <div class="pulse"></div>
+        <span id="hud-action">working...</span>
+      </div>
+      <div class="artifact-content" id="artifact-content">
+        <div class="terminal-view" id="terminal-view"></div>
       </div>
     </div>
   </div>
 
   <script>
     const WS_URL = "ws://localhost:3002"
-    let ws = null
-    let messages = []
-    let connected = false
-    let currentView = 'chat'
+    let ws = null, connected = false
+    let messages = [], terminalLines = [], codeContent = "", currentFile = ""
 
-    // Connect WebSocket
+    // ── WebSocket ──
     function connect() {
       ws = new WebSocket(WS_URL)
-      ws.onopen = () => {
-        connected = true
-        document.getElementById('wave-dot').className = 'dot on'
-        termLog('Connected to agent', 'info')
-      }
-      ws.onclose = () => {
-        connected = false
-        document.getElementById('wave-dot').className = 'dot off'
-        termLog('Disconnected', 'warn')
-        setTimeout(connect, 3000)
-      }
+      ws.onopen = () => { connected = true; updateDots(); addTerm("Connected to agent", "cmd") }
+      ws.onclose = () => { connected = false; updateDots(); setTimeout(connect, 3000) }
       ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data)
-          handleMessage(data)
-        } catch {
-          addMessage('agent', e.data)
-        }
+        try { handleMsg(JSON.parse(e.data)) } catch { addChat("agent", e.data) }
       }
     }
 
-    function handleMessage(data) {
-      if (data.type === 'tool_call') {
-        addMessage('tool', `${data.name} ${data.preview || ''}`)
-        termLog(`[${data.name}] ${data.preview || ''}`)
-      } else if (data.type === 'message') {
-        addMessage('agent', data.text)
-      } else if (data.type === 'error') {
-        addMessage('error', data.text)
-        termLog(data.text, 'err')
-      } else if (data.type === 'complete') {
-        addMessage('system', `Done in ${data.iterations} iterations`)
-        termLog(`Complete: ${data.iterations} iterations`, 'info')
-        // Update project name
-        if (data.text && data.text.includes('deliverables/')) {
-          const match = data.text.match(/deliverables\/([^\s/]+)/)
-          if (match) document.getElementById('project-name').textContent = match[1]
+    function handleMsg(data) {
+      if (data.type === "tool_call") {
+        addChat("tool", `${data.name} ${data.preview || ""}`)
+        addTerm(`[${data.name}] ${data.preview || ""}`, "out")
+        setHud(toolLabel(data.name))
+
+        // Show code in code view when writing files
+        if (data.name === "file_write" && data.content) {
+          codeContent = data.content
+          currentFile = data.path || ""
+          if (getCurrentArtifact() === "code") renderCode()
         }
-      } else if (data.type === 'files') {
-        updateFileTree(data.files)
+      } else if (data.type === "message") {
+        addChat("agent", data.text)
+        setHud("thinking...")
+      } else if (data.type === "error") {
+        addChat("error", data.text)
+        addTerm(data.text, "err")
+      } else if (data.type === "complete") {
+        addChat("system", `✓ done (${data.iterations} iterations)`)
+        addTerm(`Complete: ${data.iterations} iterations`, "cmd")
+        setHud("done", false)
+        if (data.text?.includes("deliverables/")) {
+          const m = data.text.match(/deliverables\/([^\s/]+)/)
+          if (m) document.getElementById("project-name").textContent = m[1]
+        }
+      } else if (data.type === "plan") {
+        renderPlan(data.phases)
       }
     }
 
-    function sendPrompt() {
-      const input = document.getElementById('prompt-input')
+    // ── Chat ──
+    function send() {
+      const input = document.getElementById("prompt")
       const text = input.value.trim()
       if (!text) return
-
-      addMessage('user', text)
-      input.value = ''
-
-      if (ws && ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'prompt', text }))
-        termLog(`Prompt: ${text}`, 'info')
+      addChat("user", text)
+      input.value = ""
+      if (ws?.readyState === 1) {
+        ws.send(JSON.stringify({ type: "prompt", text }))
+        setHud("starting...")
       } else {
-        addMessage('error', 'Not connected — is the server running?')
+        addChat("error", "not connected")
       }
     }
 
-    function addMessage(type, text) {
+    function addChat(type, text) {
       messages.push({ type, text })
-      renderMessages()
+      const el = document.getElementById("chat-messages")
+      // Remove welcome on first message
+      const welcome = el.querySelector(".welcome")
+      if (welcome) welcome.remove()
+      const div = document.createElement("div")
+      div.className = `msg ${type}`
+      div.textContent = text
+      el.appendChild(div)
+      el.scrollTop = el.scrollHeight
     }
 
-    function renderMessages() {
-      if (currentView !== 'chat') return
-      const content = document.getElementById('content')
-      content.innerHTML = messages.map(m =>
-        `<div class="msg ${m.type}">${escapeHtml(m.text)}</div>`
-      ).join('')
-      content.scrollTop = content.scrollHeight
-    }
-
-    function termLog(text, cls = '') {
-      const terminal = document.getElementById('terminal')
-      const line = document.createElement('div')
-      line.className = `line ${cls}`
-      line.textContent = `${new Date().toLocaleTimeString()} ${text}`
-      terminal.appendChild(line)
-      terminal.scrollTop = terminal.scrollHeight
-    }
-
-    function showView(view) {
-      currentView = view
-      document.querySelectorAll('.activity-bar button').forEach(b => b.classList.remove('active'))
-      event.target.classList.add('active')
-
-      const content = document.getElementById('content')
-      const tabBar = document.getElementById('tab-bar')
-
-      if (view === 'chat') {
-        tabBar.innerHTML = '<div class="tab active">Chat</div>'
-        renderMessages()
-      } else if (view === 'preview') {
-        tabBar.innerHTML = '<div class="tab active">Preview</div>'
-        content.innerHTML = '<iframe class="preview-frame" src="http://localhost:9876"></iframe>'
-      } else if (view === 'files') {
-        tabBar.innerHTML = '<div class="tab active">Files</div>'
-        content.innerHTML = '<div style="padding:20px;color:var(--muted)">File browser — coming soon</div>'
-      } else if (view === 'settings') {
-        tabBar.innerHTML = '<div class="tab active">Settings</div>'
-        content.innerHTML = `
-          <div style="padding:20px;max-width:400px">
-            <h3 style="margin-bottom:16px">Settings</h3>
-            <label style="display:block;margin-bottom:12px;font-size:12px;color:var(--muted)">
-              Wave endpoint
-              <input value="http://localhost:8090" style="margin-top:4px;width:100%;background:var(--input);border:1px solid var(--border);border-radius:var(--radius);padding:8px;color:var(--text);font-family:inherit" />
-            </label>
-            <label style="display:block;margin-bottom:12px;font-size:12px;color:var(--muted)">
-              Eddy endpoint
-              <input value="http://localhost:8092" style="margin-top:4px;width:100%;background:var(--input);border:1px solid var(--border);border-radius:var(--radius);padding:8px;color:var(--text);font-family:inherit" />
-            </label>
-            <label style="display:block;margin-bottom:12px;font-size:12px;color:var(--muted)">
-              Max iterations
-              <input type="number" value="60" style="margin-top:4px;width:100%;background:var(--input);border:1px solid var(--border);border-radius:var(--radius);padding:8px;color:var(--text);font-family:inherit" />
-            </label>
-          </div>`
+    // ── Terminal ──
+    function addTerm(text, cls = "out") {
+      terminalLines.push({ text, cls })
+      if (getCurrentArtifact() === "terminal") {
+        const view = document.getElementById("terminal-view")
+        const div = document.createElement("div")
+        div.className = cls
+        div.textContent = `${time()} ${text}`
+        view.appendChild(div)
+        view.scrollTop = view.scrollHeight
       }
     }
 
-    function switchTab(name) {
-      if (name === 'chat') showView('chat')
+    // ── Code View ──
+    function renderCode() {
+      const el = document.getElementById("artifact-content")
+      const lines = codeContent.split("\n")
+      el.innerHTML = `<div class="code-view"><div style="color:var(--muted);font-size:11px;margin-bottom:8px">${esc(currentFile)}</div>` +
+        lines.map((line, i) => `<div><span class="line-num">${i + 1}</span>${esc(line)}</div>`).join("") +
+        `</div>`
     }
 
-    function updateFileTree(files) {
-      const tree = document.getElementById('file-tree')
-      tree.innerHTML = files.map(f => {
-        const ext = f.split('.').pop()
-        const cls = ['tsx','jsx'].includes(ext) ? 'tsx' : ['ts'].includes(ext) ? 'ts' : ['css'].includes(ext) ? 'css' : ['json'].includes(ext) ? 'json' : ''
-        return `<div class="file-item ${cls}"><span class="icon">📄</span>${f}</div>`
-      }).join('')
+    // ── Plan ──
+    function renderPlan(phases) {
+      const bar = document.getElementById("plan-bar")
+      bar.style.display = "flex"
+      bar.innerHTML = phases.map(p =>
+        `<span class="plan-phase ${p.status}">${p.title}</span>`
+      ).join("")
     }
 
-    function escapeHtml(text) {
-      const d = document.createElement('div')
-      d.textContent = text
-      return d.innerHTML
+    // ── Artifacts switching ──
+    function showArtifact(view, tab) {
+      document.querySelectorAll(".artifact-tab").forEach(t => t.classList.remove("active"))
+      if (tab) tab.classList.add("active")
+      const content = document.getElementById("artifact-content")
+
+      if (view === "terminal") {
+        content.innerHTML = '<div class="terminal-view" id="terminal-view"></div>'
+        const tv = document.getElementById("terminal-view")
+        terminalLines.forEach(l => {
+          const d = document.createElement("div")
+          d.className = l.cls
+          d.textContent = `${l.text}`
+          tv.appendChild(d)
+        })
+        tv.scrollTop = tv.scrollHeight
+      } else if (view === "code") {
+        renderCode()
+      } else if (view === "preview") {
+        content.innerHTML = '<iframe class="preview-frame" src="http://localhost:9876"></iframe>'
+      } else if (view === "files") {
+        content.innerHTML = '<div class="file-list"><div style="padding:20px;color:var(--muted)">File browser — connect to see project files</div></div>'
+      }
     }
 
-    // Health check
+    function getCurrentArtifact() {
+      const active = document.querySelector(".artifact-tab.active")
+      return active?.dataset.view || "terminal"
+    }
+
+    function switchActivity(btn, view) {
+      document.querySelectorAll(".activity-bar button").forEach(b => b.classList.remove("active"))
+      btn.classList.add("active")
+      if (view === "preview") showArtifact("preview")
+      else if (view === "files") showArtifact("files")
+      else if (view === "chat") showArtifact("terminal")
+    }
+
+    // ── HUD ──
+    function setHud(text, active = true) {
+      const el = document.getElementById("hud-status")
+      const action = document.getElementById("hud-action")
+      el.style.display = active ? "flex" : "none"
+      action.textContent = text
+      document.getElementById("hud-text").textContent = active ? text : "idle"
+    }
+
+    function toolLabel(name) {
+      const labels = {
+        file_write: "writing code", file_edit: "editing code", file_read: "reading file",
+        shell_exec: "running command", search_web: "searching", project_init: "scaffolding project",
+        match_glob: "finding files", match_grep: "searching code", python_exec: "running python",
+        plan_update: "planning", message_result: "delivering", swell: "dispatching eddies",
+        undertow: "testing app",
+      }
+      return labels[name] || name.replace("_", " ")
+    }
+
+    // ── Health ──
+    function updateDots() {
+      document.getElementById("wave-dot").className = "dot " + (connected ? "on" : "off")
+    }
     async function checkHealth() {
-      try {
-        const r = await fetch('http://localhost:8090/health')
-        document.getElementById('wave-dot').className = r.ok ? 'dot on' : 'dot off'
-      } catch { document.getElementById('wave-dot').className = 'dot off' }
-      try {
-        const r = await fetch('http://localhost:8092/health')
-        document.getElementById('eddy-dot').className = r.ok ? 'dot on' : 'dot off'
-      } catch { document.getElementById('eddy-dot').className = 'dot off' }
+      for (const [id, port] of [["wave-dot", 8090], ["eddy-dot", 8092]]) {
+        try {
+          const r = await fetch(`http://localhost:${port}/health`, { signal: AbortSignal.timeout(2000) })
+          document.getElementById(id).className = "dot " + (r.ok ? "on" : "off")
+        } catch { document.getElementById(id).className = "dot off" }
+      }
     }
 
-    // Init
+    // ── Helpers ──
+    function time() { return new Date().toLocaleTimeString("en", { hour12: false }) }
+    function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML }
+
+    // ── Init ──
     connect()
     checkHealth()
     setInterval(checkHealth, 5000)
