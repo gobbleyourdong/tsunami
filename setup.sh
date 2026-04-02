@@ -50,7 +50,7 @@ fi
 echo "  RAM: ${RAM}GB"
 
 # --- Auto-scale ---
-if [ "$RAM" -lt 6 ] 2>/dev/null; then
+if [ "$RAM" -lt 8 ] 2>/dev/null; then
   MODE="lite"
   WAVE="2B"
   echo "  → lite mode (2B only)"

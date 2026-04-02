@@ -314,7 +314,7 @@ def main():
     mem_gb, mem_source = get_available_memory_gb()
     print(f"  {mem_source}: {mem_gb}GB")
 
-    if mem_gb < 10:
+    if mem_gb < 8:
         mode = "lite"
         print("  → Lite mode (2B + image gen)")
     else:
