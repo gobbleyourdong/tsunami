@@ -43,6 +43,51 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 </Layout>
 ```
 
+### Bar chart
+```tsx
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
+
+<Card title="Monthly Sales">
+  <ResponsiveContainer width="100%" height={250}>
+    <BarChart data={[{month:"Jan",sales:40},{month:"Feb",sales:55},{month:"Mar",sales:70}]}>
+      <XAxis dataKey="month" /><YAxis /><Tooltip />
+      <Bar dataKey="sales" fill="#0ff" radius={[4,4,0,0]} />
+    </BarChart>
+  </ResponsiveContainer>
+</Card>
+```
+
+### Pie chart
+```tsx
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
+
+const COLORS = ["#0ff", "#f0f", "#ff0", "#0f0"]
+<Card title="Distribution">
+  <ResponsiveContainer width="100%" height={250}>
+    <PieChart>
+      <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
+        {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+      </Pie>
+    </PieChart>
+  </ResponsiveContainer>
+</Card>
+```
+
+### Table with data
+```tsx
+<DataTable
+  columns={[
+    { key: "name", label: "Name" },
+    { key: "amount", label: "Amount" },
+    { key: "status", label: "Status" },
+  ]}
+  rows={[
+    { name: "Order #1", amount: "$120", status: "Completed" },
+    { name: "Order #2", amount: "$85", status: "Pending" },
+  ]}
+/>
+```
+
 ## File Structure
 
 ```
