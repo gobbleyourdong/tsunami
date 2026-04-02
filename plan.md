@@ -103,3 +103,7 @@ project_init should analyze the request and provide matching features:
 - Session 1: 39KB reference doc saved to intel/ — the instruction set pattern
 - Session 1: Calculator with README: 10 iters (was 22), proper grid layout, centered dark card
 - Session 1: README cut iterations by 55% and fixed layout. The instruction set IS the product.
+- Session 1: Snake with README: 12 iters (was 16). Excel diff: 17 (was 22). Todo: 40 (hit max).
+- Session 1: Crypto dashboard: 30 iters, compiled, but stub App.tsx — ran out of iters before wiring.
+- Session 1: Pattern: simple apps (calc=10) work great, complex (dashboard=30) need more iters or earlier App.tsx.
+- Session 1: 8 test runners total. READMEs improve speed 25-55% across all apps.
