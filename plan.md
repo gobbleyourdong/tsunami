@@ -77,3 +77,7 @@ project_init should analyze the request and provide matching features:
 - Session 1: Rhythm game: 22 iters, 11 components on threejs-game scaffold, compiles clean, React.FC crash
 - Session 1: Fixed: global React in all scaffold main.tsx — models write React.FC without import
 - Session 1: All 5 scaffolds have: dark theme + CSS utilities + global React. All compile clean.
+- Session 1: Manus scaffold docs obtained — 3 tiers (web-static, web-db-user, mobile-app)
+- Session 1: Manus gaming: R3F + PixiJS + Rapier + Matter.js + Socket.io + Web Workers
+- Session 1: Our gap: no backend scaffold, no 2D game, no mobile. But local-first doesn't need cloud.
+- Session 1: Next scaffolds to build: pixijs-game (2D), fullstack (Express+tRPC+SQLite)
