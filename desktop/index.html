@@ -307,7 +307,7 @@
       } else if (view === "preview") {
         content.innerHTML = '<iframe class="preview-frame" src="http://localhost:9876"></iframe>'
       } else if (view === "files") {
-        content.innerHTML = '<div class="file-list"><div style="padding:20px;color:var(--muted)">File browser — connect to see project files</div></div>'
+        renderFiles()
       }
     }
 
@@ -361,8 +361,66 @@
     function time() { return new Date().toLocaleTimeString("en", { hour12: false }) }
     function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML }
 
+    // ── File Watcher Connection ──
+    let fileList = []
+    let fileWs = null
+    let changeLog = []  // persistent log of all file changes
+
+    function connectFileWatcher() {
+      fileWs = new WebSocket("ws://localhost:3003")
+      fileWs.onopen = () => addTerm("File watcher connected", "cmd")
+      fileWs.onclose = () => setTimeout(connectFileWatcher, 3000)
+      fileWs.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data)
+          if (data.type === "files") {
+            fileList = data.files
+            if (getCurrentArtifact() === "files") renderFiles()
+          }
+          if (data.type === "file_changed") {
+            // Update code view if we're watching
+            codeContent = data.content
+            currentFile = data.path
+            if (getCurrentArtifact() === "code") renderCode()
+            // Auto-switch to code view on first file write
+            if (changeLog.length === 0) {
+              showArtifact("code", document.querySelector('[data-view="code"]'))
+            }
+            // Log the change
+            const entry = `${time()} ${data.path}`
+            changeLog.push(entry)
+            addTerm(`FILE: ${data.path}`, "cmd")
+          }
+        } catch {}
+      }
+    }
+
+    function renderFiles() {
+      const content = document.getElementById("artifact-content")
+      if (fileList.length === 0) {
+        content.innerHTML = '<div class="file-list"><div style="padding:20px;color:var(--muted)">No project files yet</div></div>'
+        return
+      }
+      const extColors = { tsx: "var(--blue)", ts: "var(--green)", css: "var(--purple)", json: "var(--orange)", html: "var(--red)", js: "var(--yellow)", md: "var(--text)", py: "var(--green)" }
+      content.innerHTML = '<div class="file-list">' + fileList.map(f => {
+        const ext = f.split(".").pop()
+        const color = extColors[ext] || "var(--muted)"
+        return `<div class="file-item" onclick="viewFile('${esc(f)}')"><span style="color:${color}">●</span> ${esc(f)} <span class="ext">.${ext}</span></div>`
+      }).join("") + '</div>'
+    }
+
+    function viewFile(path) {
+      currentFile = path
+      // Request file content via watcher
+      if (fileWs?.readyState === 1) {
+        // For now just switch to code view — watcher will push content on next change
+        showArtifact("code", document.querySelector('[data-view="code"]'))
+      }
+    }
+
     // ── Init ──
     connect()
+    connectFileWatcher()
     checkHealth()
     setInterval(checkHealth, 5000)
   </script>
