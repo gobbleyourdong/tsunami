@@ -102,8 +102,10 @@ class Agent:
         from .pressure import Pressure
         self._pressure = Pressure()
 
-        # Stall detection
+        # Stall detection — abort on no-progress loops
         self._empty_steps = 0
+        self._tool_history: list[str] = []  # last N tool calls
+        self._project_init_called = False  # block repeated scaffold
 
         # Auto-compact circuit breaker
         # Stops retrying compression after N consecutive failures
@@ -530,6 +532,33 @@ class Agent:
             self._info_streak = 0
 
         log.info(f"[{self.state.iteration}] Tool: {tool_call.name} | Args: {_truncate(tool_call.arguments)}")
+
+        # 3b. Stall detection — detect no-progress loops
+        self._tool_history.append(tool_call.name)
+        if len(self._tool_history) > 10:
+            self._tool_history = self._tool_history[-10:]
+        # If last 8 calls are all message_info or search with no file writes → stalled
+        if len(self._tool_history) >= 8:
+            recent = self._tool_history[-8:]
+            no_progress = all(t in ("message_info", "search_web", "file_read", "match_glob", "match_grep", "summarize_file") for t in recent)
+            if no_progress:
+                log.warning("Stall detected: 8 consecutive read-only tools with no writes")
+                self.state.add_system_note(
+                    "STALL: You've made 8 tool calls without writing any files. "
+                    "Stop researching and start building. Write code now."
+                )
+
+        # 3c. Block repeated project_init — only scaffold once per session
+        if tool_call.name == "project_init":
+            if self._project_init_called:
+                log.info("Blocked repeated project_init call")
+                self.state.add_tool_result(
+                    tool_call.name, tool_call.arguments,
+                    "Project already scaffolded this session. Write your components in src/.",
+                    is_error=True,
+                )
+                return "Project already scaffolded."
+            self._project_init_called = True
 
         # 4. Watcher replaced by current/circulation/pressure tension system
         # Tension measurement happens at tool choice (above) and delivery (section 9)
