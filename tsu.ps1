@@ -78,12 +78,13 @@ function Find-LlamaServer {
     $candidates = @(
         $(if ($cmd1) { $cmd1.Source }),
         $(if ($cmd2) { $cmd2.Source }),
+        "$DIR\llama-server\llama-server.exe",
         "$DIR\llama.cpp\llama-server.exe",
         "$DIR\llama.cpp\build\bin\Release\llama-server.exe",
         "$DIR\llama.cpp\build\bin\llama-server.exe",
+        "$env:USERPROFILE\tsunami\llama-server\llama-server.exe",
         "$env:USERPROFILE\llama.cpp\llama-server.exe",
-        "$env:USERPROFILE\llama.cpp\build\bin\Release\llama-server.exe",
-        "$env:USERPROFILE\llama.cpp\build\bin\llama-server.exe"
+        "$env:USERPROFILE\llama.cpp\build\bin\Release\llama-server.exe"
     )
     foreach ($p in $candidates) {
         if ($p -and (Test-Path $p)) { return $p }
