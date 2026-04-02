@@ -139,10 +139,10 @@ class AgentState:
                     msgs.append({"role": "system", "content": m.content})
                     first_system_done = True
                 else:
-                    # Drop mid-conversation system notes entirely — they cause
-                    # Qwen3.5 Jinja "system must be first" template errors.
-                    # The info is not critical enough to risk crashing the call.
-                    pass
+                    # Preserve watcher/system notes by re-mapping them to user messages.
+                    # Qwen3.5 templates often require the true system message to be first,
+                    # but dropping later notes entirely disables the agent's own guardrails.
+                    msgs.append({"role": "user", "content": m.content})
                 continue
             if m.role == "tool_result":
                 msgs.append({"role": "user", "content": m.content})

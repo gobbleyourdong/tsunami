@@ -9,6 +9,21 @@ from pathlib import Path
 import yaml
 
 
+def resolve_model_endpoint(default: str = "http://localhost:8090") -> str:
+    """Resolve the primary local model endpoint from environment."""
+    return os.environ.get("TSUNAMI_MODEL_ENDPOINT", default)
+
+
+def resolve_aux_model_endpoint(default: str = "http://localhost:8090") -> str:
+    """Resolve the fast/watcher endpoint, falling back to the main model."""
+    return (
+        os.environ.get("TSUNAMI_BEE_ENDPOINT")
+        or os.environ.get("TSUNAMI_WATCHER_ENDPOINT")
+        or os.environ.get("TSUNAMI_MODEL_ENDPOINT")
+        or default
+    )
+
+
 @dataclass
 class TsunamiConfig:
     # --- Model (primary reasoning core) ---
@@ -64,8 +79,10 @@ class TsunamiConfig:
             "TSUNAMI_MODEL_NAME": "model_name",
             "TSUNAMI_MODEL_ENDPOINT": "model_endpoint",
             "TSUNAMI_API_KEY": "api_key",
+            "TSUNAMI_MAX_TOKENS": "max_tokens",
             "TSUNAMI_WATCHER_ENABLED": "watcher_enabled",
             "TSUNAMI_WATCHER_MODEL": "watcher_model",
+            "TSUNAMI_WATCHER_ENDPOINT": "watcher_endpoint",
             "TSUNAMI_WORKSPACE": "workspace_dir",
             "TSUNAMI_SEARCH_BACKEND": "search_backend",
             "TSUNAMI_SEARCH_API_KEY": "search_api_key",

@@ -19,6 +19,8 @@ Read this when you're unsure which tool to use.
 
 ## Code
 - python_exec: persistent Python interpreter. Use for data processing, calculations.
+- If a project is active, python_exec runs from that project root.
+- In python_exec, use project-local paths like `src/App.tsx`, not `./workspace/deliverables/<project>/src/App.tsx`.
 - shell_exec: run commands. Simple one-liners only. Multi-line → save to file first.
 
 ## Files
@@ -28,6 +30,11 @@ Read this when you're unsure which tool to use.
 - match_glob: find files by pattern
 - match_grep: search contents by regex
 - summarize_file: fast summary via 2B eddy (saves context)
+
+## Paths
+- Use repo-relative paths like `./workspace/deliverables/<project>`.
+- Do not invent absolute repo paths like `/workspace/...` or `/skills/...`.
+- For shell builds, prefer `cd ./workspace/deliverables/<project> && npx vite build`.
 
 ## Parallel
 - swell: dispatch parallel eddy workers for 5+ independent tasks

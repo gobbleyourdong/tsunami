@@ -12,11 +12,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import re
 import time
 from datetime import datetime
 from pathlib import Path
+
+from .config import resolve_aux_model_endpoint
 
 log = logging.getLogger("tsunami.observer")
 
@@ -131,8 +132,9 @@ class Observer:
         path.write_text(json.dumps(instinct, indent=2))
         log.info(f"Saved instinct: {iid} (confidence={instinct.get('confidence', 0)})")
 
-    async def analyze_observations(self, fast_endpoint: str = "http://localhost:8092"):
+    async def analyze_observations(self, fast_endpoint: str | None = None):
         """Use the 2B model to extract instincts from recent observations."""
+        fast_endpoint = fast_endpoint or resolve_aux_model_endpoint()
         recent = self.get_recent_observations(50)
         if len(recent) < 5:
             return  # Not enough data
@@ -251,12 +253,13 @@ Rules:
         except Exception:
             return {}
 
-    async def extract_session_memories(self, fast_endpoint: str = "http://localhost:8092"):
+    async def extract_session_memories(self, fast_endpoint: str | None = None):
         """Background memory extraction after session ends.
 
         Analyzes recent observations and writes structured memories to disk.
         Runs as a background task — doesn't block the agent loop.
         """
+        fast_endpoint = fast_endpoint or resolve_aux_model_endpoint()
         recent = self.get_recent_observations(30)
         if len(recent) < 3:
             return

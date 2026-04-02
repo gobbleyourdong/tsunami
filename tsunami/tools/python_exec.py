@@ -12,9 +12,12 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import os
 import sys
 import traceback
 from contextlib import redirect_stdout, redirect_stderr
+from pathlib import Path
+import re
 
 from .base import BaseTool, ToolResult
 
@@ -22,6 +25,69 @@ log = logging.getLogger("tsunami.python_exec")
 
 # Persistent namespace shared across calls
 _namespace = {}
+
+
+def _execution_cwd() -> str:
+    """Use the active project root when available, otherwise fall back to repo root."""
+    try:
+        from .plan import get_agent_state
+        state = get_agent_state()
+        root = getattr(state, "active_project_root", "") if state is not None else ""
+        if root and os.path.isdir(root):
+            return root
+    except Exception:
+        pass
+    return str(Path(__file__).parent.parent.parent)
+
+
+def _normalize_project_prefixed_code(code: str, exec_cwd: str) -> str:
+    """Rewrite workspace-prefixed paths to project-local paths when already inside a project.
+
+    The model often emits paths like ./workspace/deliverables/<project>/src/App.tsx
+    even though python_exec runs from that project's root. Inside the active project,
+    those paths should become ./src/App.tsx.
+    """
+    try:
+        project_root = Path(exec_cwd).resolve()
+        from .plan import get_agent_state
+        state = get_agent_state()
+        active_project = getattr(state, "active_project", "") if state is not None else ""
+    except Exception:
+        return code
+
+    if not active_project:
+        return code
+
+    prefixes = [
+        f"./workspace/deliverables/{active_project}/",
+        f"workspace/deliverables/{active_project}/",
+        f"/workspace/deliverables/{active_project}/",
+        f"{project_root.as_posix()}/",
+    ]
+
+    normalized = code
+    for prefix in prefixes:
+        normalized = normalized.replace(prefix, "./")
+
+    normalized = re.sub(
+        r"(?<![\w/])(?:\.?/)?workspace/deliverables/[^/\s'\"`]+/",
+        "./",
+        normalized,
+    )
+    normalized = re.sub(
+        r"(?<![\w.])/workspace/deliverables/[^/\s'\"`]+/",
+        "./",
+        normalized,
+    )
+
+    repo_root = Path(__file__).parent.parent.parent.resolve().as_posix()
+    normalized = re.sub(r"(?<![\w/])\./tsunami/", f"{repo_root}/tsunami/", normalized)
+    normalized = re.sub(r"(?<![\w/])tsunami/", f"{repo_root}/tsunami/", normalized)
+    normalized = re.sub(r"(?<![\w/])\./toolboxes/", f"{repo_root}/toolboxes/", normalized)
+    normalized = re.sub(r"(?<![\w/])toolboxes/", f"{repo_root}/toolboxes/", normalized)
+    normalized = re.sub(r"(?<![\w/])\./README\.md", f"{repo_root}/README.md", normalized)
+    normalized = re.sub(r"(?<![\w/])README\.md", f"{repo_root}/README.md", normalized)
+    return normalized
 
 
 class PythonExec(BaseTool):
@@ -58,8 +124,7 @@ class PythonExec(BaseTool):
 
         # Inject useful defaults into namespace (persistent across calls)
         if "os" not in _namespace:
-            import os, json, csv, re, math, datetime, collections
-            from pathlib import Path
+            import json, csv, re, math, datetime, collections
 
             _namespace["os"] = os
             _namespace["json"] = json
@@ -71,12 +136,16 @@ class PythonExec(BaseTool):
             _namespace["Path"] = Path
             _namespace["__builtins__"] = __builtins__
 
-            # Set working directory to project root
-            ark_dir = str(Path(__file__).parent.parent.parent)
-            os.chdir(ark_dir)
-            _namespace["ARK_DIR"] = ark_dir
-            _namespace["WORKSPACE"] = os.path.join(ark_dir, "workspace")
-            _namespace["DELIVERABLES"] = os.path.join(ark_dir, "workspace", "deliverables")
+        ark_dir = str(Path(__file__).parent.parent.parent)
+        exec_cwd = _execution_cwd()
+        code = _normalize_project_prefixed_code(code, exec_cwd)
+        prev_cwd = os.getcwd()
+        os.chdir(exec_cwd)
+        _namespace["ARK_DIR"] = ark_dir
+        _namespace["WORKSPACE"] = os.path.join(ark_dir, "workspace")
+        _namespace["DELIVERABLES"] = os.path.join(ark_dir, "workspace", "deliverables")
+        _namespace["CWD"] = exec_cwd
+        _namespace["PROJECT_ROOT"] = exec_cwd
 
         try:
             with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
@@ -112,3 +181,8 @@ class PythonExec(BaseTool):
             if len(tb) > 500:
                 tb = "..." + tb[-500:]
             return ToolResult(f"Error: {e}\n{tb}", is_error=True)
+        finally:
+            try:
+                os.chdir(prev_cwd)
+            except Exception:
+                pass

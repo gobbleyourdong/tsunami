@@ -18,6 +18,8 @@ import subprocess
 import time
 from pathlib import Path
 
+from .config import resolve_aux_model_endpoint
+
 log = logging.getLogger("tsunami.orchestrate")
 
 
@@ -91,10 +93,11 @@ class Orchestrator:
     def plan_subtasks(self, task: str, num_workers: int) -> list[dict]:
         """Use the fast model to decompose a task into parallel subtasks."""
         import httpx, json, re
+        endpoint = resolve_aux_model_endpoint()
 
         try:
             resp = httpx.post(
-                "http://localhost:8092/v1/chat/completions",
+                f"{endpoint}/v1/chat/completions",
                 json={
                     "model": "qwen",
                     "messages": [

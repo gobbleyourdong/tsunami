@@ -62,9 +62,10 @@ class MessageAsk(BaseTool):
         if _input_callback:
             response = await _input_callback(text)
         else:
-            # Fallback: read from stdin
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(None, lambda: input("\n> "))
+            response = (
+                "[No interactive stdin is available in this interface. "
+                "The question was surfaced to the user, but the agent should not wait on terminal input here.]"
+            )
         return ToolResult(f"User response: {response}")
 
 

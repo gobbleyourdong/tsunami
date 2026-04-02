@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from ..config import resolve_aux_model_endpoint
 from .base import BaseTool, ToolResult
 
 log = logging.getLogger("tsunami.summarize")
@@ -70,12 +71,14 @@ File: {p.name}
 <|im_start|>assistant
 """
 
-        # Call the fast model (2B on port 8092)
+        endpoint = resolve_aux_model_endpoint()
+
+        # Call the fast model.
         try:
             import httpx
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
-                    "http://localhost:8092/completion",
+                    f"{endpoint}/completion",
                     json={
                         "prompt": prompt,
                         "temperature": 0.3,
@@ -97,7 +100,7 @@ File: {p.name}
 
         except httpx.ConnectError:
             return ToolResult(
-                "Fast model (2B) not running on port 8092. Falling back to file_read.",
+                f"Fast model not reachable at {endpoint}. Falling back to file_read.",
                 is_error=True,
             )
         except Exception as e:

@@ -32,10 +32,10 @@ This now replaces the original "best effort" installer with a usable in-repo har
 
 ## What is still missing
 
-- optional browser/image extras, if you want Playwright or diffusion dependencies bundled into setup
+- optional diffusion/image-generation extras, if you want those bundled into setup too
 - the legacy `tsu update` path, if you want runtime updates to be ref-pinned too
 
-The core local setup path is now pinned and verified. The remaining gaps are optional capability installs.
+The core local setup path is now pinned and verified, including browser automation for the built-in screenshot and browser tools.
 
 ## Example usage
 
@@ -49,5 +49,5 @@ cd tsunami
 To override the bundled defaults:
 
 ```bash
-LLAMA_CPP_REF=b7472 MODEL_MANIFEST="$PWD/models/model-manifest.lock" ./setup.sh
+LLAMA_CPP_REF=b8611 MODEL_MANIFEST="$PWD/models/model-manifest.lock" ./setup.sh
 ```

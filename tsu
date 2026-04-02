@@ -13,6 +13,127 @@ fi
 
 cd "$DIR"
 
+detect_ram_gb() {
+  local ram
+  ram="$(free -g 2>/dev/null | awk '/^Mem:/{print $2}' || true)"
+  if [ -n "$ram" ]; then
+    echo "$ram"
+    return
+  fi
+  ram="$(sysctl -n hw.memsize 2>/dev/null | awk '{print int($1/1073741824)}' || true)"
+  if [ -n "$ram" ]; then
+    echo "$ram"
+    return
+  fi
+  echo 0
+}
+
+wait_for_health() {
+  local port="$1"
+  local tries="${2:-60}"
+  local log_file="${3:-}"
+  local pid="${4:-}"
+  local label="${5:-server}"
+  local last_line=""
+  local line=""
+
+  for _ in $(seq 1 "$tries"); do
+    if curl -sf "http://localhost:${port}/health" > /dev/null 2>&1; then
+      [ -n "$last_line" ] && echo "  ${label} ready on :${port}"
+      return 0
+    fi
+
+    if [ -n "$log_file" ] && [ -f "$log_file" ]; then
+      line="$(
+        awk '
+          /loading model|loaded meta data|offload|offloading|CUDA|Metal|listening|error|failed|context|KV|slot|cache|warming|initializing/ {
+            last=$0
+          }
+          END {
+            if (last != "") print last
+          }
+        ' "$log_file" 2>/dev/null
+      )"
+      if [ -n "$line" ] && [ "$line" != "$last_line" ]; then
+        echo "  ${label}: $line"
+        last_line="$line"
+      fi
+    fi
+
+    if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+      if [ -f "$log_file" ]; then
+        line="$(tail -n 5 "$log_file" 2>/dev/null | awk 'NF{last=$0} END{print last}')"
+        [ -n "$line" ] && echo "  ${label} exited: $line"
+      fi
+      return 1
+    fi
+
+    sleep 1
+  done
+  return 1
+}
+
+clear_stale_llama_port() {
+  local port="$1"
+  local had_pid=0
+  local pid proc_details listener_snapshot
+
+  for pid in $(lsof -ti "tcp:${port}" 2>/dev/null || true); do
+    had_pid=1
+    proc_details="$(lsof -nP -p "$pid" 2>/dev/null || true)"
+    listener_snapshot="$(lsof -nP -iTCP:${port} -sTCP:LISTEN 2>/dev/null || true)"
+
+    if [ -z "$proc_details" ] && [ -z "$listener_snapshot" ]; then
+      # Port cleared between probes — nothing to do.
+      continue
+    fi
+
+    if echo "$proc_details"$'\n'"$listener_snapshot" | grep -Eq "/llama-server|^llama-ser[[:space:]]"; then
+      echo "  replacing stale llama-server on :${port} (pid ${pid})"
+      kill "$pid" 2>/dev/null || true
+    else
+      echo "  port :${port} is occupied by a non-llama process; leaving it alone"
+      return 1
+    fi
+  done
+
+  if [ "$had_pid" = "1" ]; then
+    sleep 1
+  fi
+  return 0
+}
+
+start_llama_server() {
+  local port="$1"
+  local model_path="$2"
+  local mmproj_path="$3"
+  local cache_k="$4"
+  local cache_v="$5"
+  local extra_args=()
+  local parallel="${TSUNAMI_LLAMA_PARALLEL:-1}"
+
+  [ -n "$model_path" ] || return 1
+  [ -x "$LLAMA" ] || return 1
+
+  if [ -n "$mmproj_path" ]; then
+    extra_args+=(--mmproj "$mmproj_path")
+  fi
+  if [ -n "$cache_k" ]; then
+    extra_args+=(--cache-type-k "$cache_k")
+  fi
+  if [ -n "$cache_v" ]; then
+    extra_args+=(--cache-type-v "$cache_v")
+  fi
+
+  "$LLAMA" --model "$model_path" "${extra_args[@]}" \
+    --host 0.0.0.0 --port "$port" \
+    --parallel "$parallel" \
+    --ctx-size 16384 --n-gpu-layers 99 -fa on \
+    --jinja --chat-template-kwargs '{"enable_thinking":false}' \
+    > "/tmp/llama-server-${port}.log" 2>&1 &
+  echo $!
+}
+
 # Handle commands
 case "${1:-}" in
   update)
@@ -36,60 +157,114 @@ esac
 # Check model server
 check_model() { curl -sf http://localhost:8090/health > /dev/null 2>&1; }
 
+BEE_ENDPOINT="${TSUNAMI_BEE_ENDPOINT:-http://localhost:8090}"
+export TSUNAMI_MODEL_ENDPOINT="http://localhost:8090"
+export TSUNAMI_WATCHER_ENDPOINT="$BEE_ENDPOINT"
+export TSUNAMI_BEE_ENDPOINT="$BEE_ENDPOINT"
+export TSUNAMI_MAX_TOKENS="${TSUNAMI_MAX_TOKENS:-1024}"
+
 if ! check_model; then
+  clear_stale_llama_port 8090 || true
+
   # Find llama-server — check common locations
   LLAMA=""
   for p in \
-    "$(which llama-server 2>/dev/null)" \
+    "$DIR/llama.cpp/build/bin/llama-server" \
+    "$(command -v llama-server 2>/dev/null || true)" \
     "$HOME/llama.cpp/build/bin/llama-server" \
     "/usr/local/bin/llama-server" \
     "$HOME/vscode/signet/forge/llama.cpp/build/bin/llama-server"; do
     [ -x "$p" ] && LLAMA="$p" && break
   done
 
-  # Model priority: 27B dense > 122B MoE > text 8B
+  if [ -z "$LLAMA" ]; then
+    echo "  llama-server not found; expected $DIR/llama.cpp/build/bin/llama-server or a PATH install"
+  fi
+
+  RAM_GB="$(detect_ram_gb)"
+  FORCE_SMALL="${TSUNAMI_FORCE_SMALL_MODEL:-0}"
+
+  # Model priority: prefer repo-local 2B on smaller systems, 27B only when there is headroom.
   DENSE_27B=$(ls models/Qwen3.5-27B*.gguf 2>/dev/null | head -1)
   MMPROJ_27B=$(ls models/mmproj-27B*.gguf models/mmproj-BF16.gguf models/mmproj-F16.gguf 2>/dev/null | head -1)
   MOE_MODEL=$(ls models/*122B*-00001-of-*.gguf 2>/dev/null | head -1)
-  TEXT_MODEL=$(ls models/Qwen3*-8B*.gguf models/Qwen3*-2B*.gguf 2>/dev/null | head -1)
+  TEXT_MODEL=$(ls models/Qwen3*-9B*.gguf models/Qwen3*-8B*.gguf models/Qwen3*-2B*.gguf 2>/dev/null | head -1)
+  MMPROJ_SMALL=$(ls models/mmproj-2B-BF16.gguf models/mmproj-BF16.gguf models/mmproj-F16.gguf 2>/dev/null | head -1)
 
-  if [ -n "$DENSE_27B" ] && [ -f "$LLAMA" ]; then
-    MMPROJ_FLAG=""
-    [ -n "$MMPROJ_27B" ] && MMPROJ_FLAG="--mmproj $MMPROJ_27B"
-    echo "  starting 27B dense: $(basename $DENSE_27B)"
-    "$LLAMA" --model "$DENSE_27B" $MMPROJ_FLAG \
-      --host 0.0.0.0 --port 8090 \
-      --ctx-size 16384 --n-gpu-layers 99 -fa on \
-      --cache-type-k bf16 --cache-type-v bf16 \
-      --jinja --chat-template-kwargs '{"enable_thinking":false}' \
-      > /tmp/llama-server.log 2>&1 &
-    MODEL_PID=$!
-  elif [ -n "$MOE_MODEL" ] && [ -f "$LLAMA" ]; then
+  PREFERRED_WAVE=""
+  WAVE_MMPROJ=""
+  WAVE_CACHE_K=""
+  WAVE_CACHE_V=""
+
+  if [ "$FORCE_SMALL" = "1" ] && [ -n "$TEXT_MODEL" ]; then
+    PREFERRED_WAVE="$TEXT_MODEL"
+    WAVE_MMPROJ="$MMPROJ_SMALL"
+  elif [ -n "$DENSE_27B" ] && [ "$RAM_GB" -ge 48 ] 2>/dev/null; then
+    PREFERRED_WAVE="$DENSE_27B"
+    WAVE_MMPROJ="$MMPROJ_27B"
+    WAVE_CACHE_K="bf16"
+    WAVE_CACHE_V="bf16"
+  elif [ -n "$TEXT_MODEL" ]; then
+    PREFERRED_WAVE="$TEXT_MODEL"
+    WAVE_MMPROJ="$MMPROJ_SMALL"
+  elif [ -n "$DENSE_27B" ]; then
+    PREFERRED_WAVE="$DENSE_27B"
+    WAVE_MMPROJ="$MMPROJ_27B"
+    WAVE_CACHE_K="bf16"
+    WAVE_CACHE_V="bf16"
+  fi
+
+  if [ -n "$MOE_MODEL" ] && [ -f "$LLAMA" ] && [ -z "$PREFERRED_WAVE" ]; then
     echo "  starting 122B MoE: $(basename $MOE_MODEL)"
     "$LLAMA" --model "$MOE_MODEL" \
       --host 0.0.0.0 --port 8090 \
       --ctx-size 16384 --n-gpu-layers 99 -fa on \
       --cache-type-k q8_0 --cache-type-v q8_0 \
-      > /tmp/llama-server.log 2>&1 &
+      > /tmp/llama-server-8090.log 2>&1 &
     MODEL_PID=$!
-  elif [ -n "$TEXT_MODEL" ] && [ -f "$LLAMA" ]; then
-    MMPROJ_SMALL=$(ls models/mmproj-2B-BF16.gguf 2>/dev/null | head -1)
-    MMPROJ_FLAG=""
-    [ -n "$MMPROJ_SMALL" ] && MMPROJ_FLAG="--mmproj $MMPROJ_SMALL"
-    echo "  starting $(basename $TEXT_MODEL)${MMPROJ_SMALL:+ + vision}"
-    "$LLAMA" --model "$TEXT_MODEL" $MMPROJ_FLAG \
-      --host 0.0.0.0 --port 8090 \
-      --ctx-size 16384 --n-gpu-layers 99 -fa on \
-      --jinja --chat-template-kwargs '{"enable_thinking":false}' \
-      > /tmp/llama-server.log 2>&1 &
-    MODEL_PID=$!
+  elif [ -n "$PREFERRED_WAVE" ] && [ -f "$LLAMA" ]; then
+    echo "  starting wave on :8090 -> $(basename "$PREFERRED_WAVE")"
+    MODEL_PID="$(start_llama_server 8090 "$PREFERRED_WAVE" "$WAVE_MMPROJ" "$WAVE_CACHE_K" "$WAVE_CACHE_V")"
   fi
 
   if [ -n "$MODEL_PID" ]; then
-    echo "  waiting for model to load..."
-    for i in $(seq 1 120); do check_model && break; sleep 1; done
+    echo "  waiting for wave to load..."
+    if ! wait_for_health 8090 120 "/tmp/llama-server-8090.log" "${MODEL_PID:-}" "wave"; then
+      if [ -n "$DENSE_27B" ] && [ "$PREFERRED_WAVE" = "$DENSE_27B" ] && [ -n "$TEXT_MODEL" ]; then
+        kill "$MODEL_PID" 2>/dev/null || true
+        echo "  27B wave failed to load; falling back to $(basename "$TEXT_MODEL")"
+        MODEL_PID="$(start_llama_server 8090 "$TEXT_MODEL" "$MMPROJ_SMALL" "" "")"
+        if ! wait_for_health 8090 120 "/tmp/llama-server-8090.log" "${MODEL_PID:-}" "wave"; then
+          echo "  local model failed to come up on :8090; see /tmp/llama-server-8090.log"
+        fi
+      else
+        echo "  local model failed to come up on :8090; see /tmp/llama-server-8090.log"
+      fi
+    fi
+  fi
+
+  # Dedicated bee on :8092 when possible, otherwise route all bee traffic to :8090.
+  if curl -sf http://localhost:8090/health > /dev/null 2>&1; then
+    if [ -n "$TEXT_MODEL" ] && [ "$PREFERRED_WAVE" != "$TEXT_MODEL" ] && [ -f "$LLAMA" ]; then
+      clear_stale_llama_port 8092 || true
+      echo "  starting bee on :8092 -> $(basename "$TEXT_MODEL")"
+      BEE_PID="$(start_llama_server 8092 "$TEXT_MODEL" "$MMPROJ_SMALL" "" "")"
+      if wait_for_health 8092 60 "/tmp/llama-server-8092.log" "${BEE_PID:-}" "bee"; then
+        BEE_ENDPOINT="http://localhost:8092"
+      else
+        kill "$BEE_PID" 2>/dev/null || true
+        BEE_PID=""
+        BEE_ENDPOINT="http://localhost:8090"
+      fi
+    else
+      BEE_ENDPOINT="http://localhost:8090"
+    fi
   fi
 fi
+
+export TSUNAMI_MODEL_ENDPOINT="http://localhost:8090"
+export TSUNAMI_WATCHER_ENDPOINT="$BEE_ENDPOINT"
+export TSUNAMI_BEE_ENDPOINT="$BEE_ENDPOINT"
 
 # Start Python WebSocket backend if not running
 BACKEND_READY=0
@@ -125,8 +300,9 @@ else
 fi
 
 cleanup() {
-  [ -n "$SERVER_PID" ] && kill $SERVER_PID 2>/dev/null
-  [ -n "$MODEL_PID" ] && kill $MODEL_PID 2>/dev/null
+  [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null
+  [ -n "${MODEL_PID:-}" ] && kill "$MODEL_PID" 2>/dev/null
+  [ -n "${BEE_PID:-}" ] && kill "$BEE_PID" 2>/dev/null
 }
 trap cleanup EXIT
 

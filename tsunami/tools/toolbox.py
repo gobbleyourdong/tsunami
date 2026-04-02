@@ -7,6 +7,7 @@ to register those tools dynamically. File system as context.
 
 from __future__ import annotations
 
+import importlib.util
 import logging
 from pathlib import Path
 
@@ -15,6 +16,10 @@ from .base import BaseTool, ToolResult
 log = logging.getLogger("tsunami.toolbox")
 
 _registry = None
+
+
+def _playwright_available() -> bool:
+    return importlib.util.find_spec("playwright") is not None
 
 
 def set_registry(registry):
@@ -32,7 +37,23 @@ LOADERS = {
 }
 
 
+def load_toolbox_into_registry(registry, config, toolbox: str) -> list[str]:
+    """Register a toolbox into a registry and return the newly loaded tool names."""
+    if toolbox not in LOADERS:
+        raise KeyError(toolbox)
+
+    tools = LOADERS[toolbox](config)
+    loaded: list[str] = []
+    for tool in tools:
+        if registry.get(tool.name) is None:
+            registry.register(tool)
+            loaded.append(tool.name)
+    return loaded
+
+
 def _browser_tools():
+    if not _playwright_available():
+        return []
     from .browser import (
         BrowserNavigate, BrowserView, BrowserClick, BrowserInput,
         BrowserScroll, BrowserFindKeyword, BrowserConsoleExec,
@@ -45,8 +66,12 @@ def _browser_tools():
             BrowserSaveImage, BrowserUploadFile, BrowserClose]
 
 def _webdev_tools():
-    from .webdev import WebdevScaffold, WebdevServe, WebdevScreenshot, WebdevGenerateAssets
-    return [WebdevScaffold, WebdevServe, WebdevScreenshot, WebdevGenerateAssets]
+    from .webdev import WebdevScaffold, WebdevServe, WebdevGenerateAssets
+    tools = [WebdevScaffold, WebdevServe, WebdevGenerateAssets]
+    if _playwright_available():
+        from .webdev import WebdevScreenshot
+        tools.append(WebdevScreenshot)
+    return tools
 
 def _generate_tools():
     from .generate import GenerateImage
@@ -100,12 +125,7 @@ class LoadToolbox(BaseTool):
         if _registry is None:
             return ToolResult("Registry not initialized", is_error=True)
 
-        tools = LOADERS[toolbox](self.config)
-        loaded = []
-        for tool in tools:
-            if _registry.get(tool.name) is None:
-                _registry.register(tool)
-                loaded.append(tool.name)
+        loaded = load_toolbox_into_registry(_registry, self.config, toolbox)
 
         if not loaded:
             return ToolResult(f"Toolbox '{toolbox}' already loaded.")

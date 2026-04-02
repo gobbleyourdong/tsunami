@@ -30,9 +30,11 @@ from pathlib import Path
 
 import httpx
 
+from .config import resolve_aux_model_endpoint
+
 log = logging.getLogger("tsunami.eddy")
 
-EDDY_ENDPOINT = os.environ.get("TSUNAMI_BEE_ENDPOINT", "http://localhost:8092")
+EDDY_ENDPOINT = resolve_aux_model_endpoint()
 MAX_TURNS = 10  # safety cap per eddy
 EDDY_TIMEOUT = 30  # seconds per LLM call
 

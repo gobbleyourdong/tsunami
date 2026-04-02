@@ -1,10 +1,11 @@
 # Pinned core runtime dependencies for ./setup.sh.
-# Optional browser/image extras remain opt-in and are not installed here.
+# Browser automation is part of the standard local install.
 httpx==0.28.1
 PyYAML==6.0.2
 rich==13.9.4
 fastapi==0.115.12
 uvicorn==0.34.0
 websockets==15.0.1
+playwright==1.58.0
 duckduckgo-search==5.3.0
 Pillow==10.4.0

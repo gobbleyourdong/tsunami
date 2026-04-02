@@ -11,7 +11,25 @@ import subprocess
 import shutil
 from pathlib import Path
 
+from ..config import resolve_aux_model_endpoint
 from .base import BaseTool, ToolResult
+
+SCREENSHOT_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+def normalize_screenshot_output_path(output_path: str) -> tuple[str, str | None]:
+    """Coerce screenshot outputs to a real image extension."""
+    out = Path(output_path or "screenshot.png")
+    suffix = out.suffix.lower()
+    if suffix in SCREENSHOT_EXTENSIONS:
+        return str(out), None
+
+    if suffix:
+        corrected = str(out.with_suffix(".png"))
+        return corrected, f"Adjusted screenshot output path from {output_path} to {corrected}."
+
+    corrected = str(out.with_name(f"{out.name}.png"))
+    return corrected, f"Adjusted screenshot output path from {output_path or 'screenshot'} to {corrected}."
 
 
 class WebdevScaffold(BaseTool):
@@ -394,7 +412,8 @@ class WebdevScreenshot(BaseTool):
 
             # Resolve output path
             ws = Path(self.config.workspace_dir)
-            out = Path(output_path)
+            normalized_output_path, path_note = normalize_screenshot_output_path(output_path)
+            out = Path(normalized_output_path)
             if not out.is_absolute():
                 out = ws / out
             out.parent.mkdir(parents=True, exist_ok=True)
@@ -431,6 +450,8 @@ class WebdevScreenshot(BaseTool):
 
             size_kb = out.stat().st_size // 1024
             result_msg = f"Screenshot saved to {out} ({size_kb}KB)\nURL: {url}\nViewport: {width}x{height}\n"
+            if path_note:
+                result_msg = f"{path_note}\n{result_msg}"
 
             if error_text:
                 result_msg += f"\n⚠️ BUILD ERROR DETECTED:\n{error_text}\n\nFix the error in the source file and screenshot again."
@@ -446,7 +467,7 @@ class WebdevScreenshot(BaseTool):
 
         except ImportError:
             return ToolResult(
-                "Playwright not installed. Run: pip install playwright && python -m playwright install chromium",
+                "Playwright not installed. Rerun ./setup.sh or install it in the repo venv: ./.venv/bin/python -m pip install playwright && ./.venv/bin/python -m playwright install chromium",
                 is_error=True,
             )
         except Exception as e:
@@ -461,8 +482,13 @@ class WebdevScreenshot(BaseTool):
             with open(image_path, "rb") as f:
                 b64 = base64.b64encode(f.read()).decode()
 
-            # Try primary model first, fall back to fast model
-            for endpoint in [self.config.model_endpoint, "http://localhost:8092"]:
+            # Try primary model first, then the auxiliary endpoint if it differs.
+            endpoints = [self.config.model_endpoint]
+            aux_endpoint = resolve_aux_model_endpoint()
+            if aux_endpoint not in endpoints:
+                endpoints.append(aux_endpoint)
+
+            for endpoint in endpoints:
                 try:
                     async with httpx.AsyncClient(timeout=30) as client:
                         resp = await client.post(

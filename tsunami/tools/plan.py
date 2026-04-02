@@ -19,6 +19,10 @@ def set_agent_state(state):
     _agent_state = state
 
 
+def get_agent_state():
+    return _agent_state
+
+
 class PlanUpdate(BaseTool):
     name = "plan_update"
     description = "Create or revise the task plan. The architect: before building, draw the blueprint."

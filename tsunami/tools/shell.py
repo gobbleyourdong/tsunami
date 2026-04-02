@@ -61,6 +61,7 @@ import asyncio
 import logging
 import os
 import signal
+from pathlib import Path
 
 from .base import BaseTool, ToolResult
 
@@ -70,6 +71,17 @@ log = logging.getLogger("tsunami.shell")
 _sessions: dict[str, asyncio.subprocess.Process] = {}
 _session_output: dict[str, str] = {}
 _session_counter = 0
+
+
+def _normalize_workspace_paths(command: str) -> str:
+    """Rewrite hallucinated absolute repo paths to repo-relative paths.
+
+    The model often invents /workspace/... even though Tsunami runs from the repo
+    root and should use ./workspace/... paths instead.
+    """
+    command = re.sub(r'(?<!\.)/workspace(?=/|\b)', "./workspace", command)
+    command = re.sub(r'(?<!\.)/skills(?=/|\b)', "./skills", command)
+    return command
 
 
 def _next_session_id() -> str:
@@ -94,6 +106,8 @@ class ShellExec(BaseTool):
         }
 
     async def execute(self, command: str, timeout: int = 3600, workdir: str = "", **kw) -> ToolResult:
+        command = _normalize_workspace_paths(command)
+
         # Destructive command detection
         import re
         warning = _check_destructive(command)
@@ -113,19 +127,18 @@ class ShellExec(BaseTool):
 
         try:
             # Resolve workdir — default to the ark directory
-            import os
-            cwd = None
+            ark_dir = Path(__file__).resolve().parents[2]
+            cwd = str(ark_dir)
             if workdir:
                 expanded = os.path.expanduser(workdir)
                 if os.path.isdir(expanded):
                     cwd = expanded
                 else:
                     # Try relative to ark dir
-                    ark_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                    candidate = os.path.join(ark_dir, workdir)
+                    candidate = os.path.join(str(ark_dir), workdir)
                     if os.path.isdir(candidate):
                         cwd = candidate
-                    # else: let it use default cwd
+                    # else: keep repo-root default cwd
 
             proc = await asyncio.create_subprocess_shell(
                 command,

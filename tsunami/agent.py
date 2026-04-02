@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from pathlib import Path
 
@@ -33,13 +34,22 @@ from .state import AgentState
 from .tool_dedup import ToolDedup
 from .tool_result_storage import maybe_persist, TOOL_RESULT_CLEARED_MESSAGE
 from .tools import ToolRegistry, build_registry
+from .tools.base import ToolResult
 from .tools.plan import set_agent_state
+from .tools.toolbox import load_toolbox_into_registry
 from .watcher import Watcher
 
 log = logging.getLogger("tsunami.agent")
 
 # Maximum watcher re-generations per step to prevent infinite recursion
 MAX_WATCHER_REVISIONS = 2
+PROJECT_SUMMARY_IGNORED_DIRS = {"node_modules", "dist", ".vite", "__pycache__"}
+PROJECT_BOOTSTRAP_TOOLBOXES = ("webdev", "browser")
+PROJECT_LOCAL_PATH_HEADS = {
+    "src", "public", "app", "components", "pages", "assets", "styles",
+    "lib", "hooks", "tests", "index.html", "package.json", "package-lock.json",
+    "vite.config.ts", "tsconfig.json", "tsconfig.app.json", "todo.md", "tsunami.md",
+}
 
 
 class Agent:
@@ -117,6 +127,66 @@ class Agent:
         self.active_project: str | None = None
         self.project_context: str = ""
 
+    def _recent_tool_results(self, limit: int = 8) -> list[tuple[Message, Message]]:
+        """Return recent assistant tool call + tool_result pairs."""
+        pairs: list[tuple[Message, Message]] = []
+        convo = self.state.conversation
+        for i in range(1, len(convo)):
+            prev = convo[i - 1]
+            cur = convo[i]
+            if prev.role == "assistant" and prev.tool_call and cur.role == "tool_result":
+                pairs.append((prev, cur))
+        return pairs[-limit:]
+
+    def _detect_stall_reason(self) -> str | None:
+        """Detect a no-progress tool loop and return a human-readable reason."""
+        pairs = self._recent_tool_results(10)
+        if len(pairs) < 8:
+            return None
+
+        low_signal_hits = 0
+        path_hits: dict[str, int] = {}
+        tool_names: list[str] = []
+
+        for assistant_msg, result_msg in pairs:
+            tc = assistant_msg.tool_call.get("function", assistant_msg.tool_call)
+            tool_name = tc.get("name", "")
+            args = tc.get("arguments", {}) or {}
+            tool_names.append(tool_name)
+
+            result_text = result_msg.content.lower()
+            if any(marker in result_text for marker in (
+                "no files match",
+                "(no output",
+                "total 0",
+                "not a file",
+                "file not found",
+            )):
+                low_signal_hits += 1
+
+            for key in ("path", "directory", "command"):
+                val = args.get(key)
+                if isinstance(val, str) and "/users/" in val:
+                    path_hits[val] = path_hits.get(val, 0) + 1
+
+        if low_signal_hits < 8:
+            return None
+
+        if len(set(tool_names)) > 4:
+            return None
+
+        repeated_target = max(path_hits.items(), key=lambda item: item[1])[0] if path_hits else None
+        if repeated_target and path_hits.get(repeated_target, 0) >= 5:
+            return (
+                f"Agent stalled probing the same path without progress: {repeated_target}. "
+                f"Recent tools were low-signal repeats ({', '.join(tool_names[-5:])})."
+            )
+
+        return (
+            "Agent stalled in a no-progress tool loop. "
+            f"Recent tools were low-signal repeats ({', '.join(tool_names[-5:])})."
+        )
+
     def _inject_todo(self):
         """Inject todo.md into context if it exists in any active deliverable.
 
@@ -156,6 +226,8 @@ class Agent:
 
         self.active_project = project_name
         self.project_context = ""
+        self.state.active_project = project_name
+        self.state.active_project_root = str(project_dir)
 
         # Read tsunami.md if it exists
         tmd = project_dir / "tsunami.md"
@@ -165,6 +237,8 @@ class Agent:
         # List project files
         files = []
         for f in sorted(project_dir.rglob("*")):
+            if any(part in PROJECT_SUMMARY_IGNORED_DIRS for part in f.parts):
+                continue
             if f.is_file() and f.name != "tsunami.md":
                 size = f.stat().st_size
                 files.append(f"  {f.relative_to(project_dir)} ({size} bytes)")
@@ -179,6 +253,137 @@ class Agent:
             summary += "\nNo files yet."
 
         return summary
+
+    def _preload_project_toolboxes(self) -> list[str]:
+        """Load the core build/inspection toolboxes once a project is active."""
+        loaded: list[str] = []
+        for toolbox in PROJECT_BOOTSTRAP_TOOLBOXES:
+            loaded.extend(load_toolbox_into_registry(self.registry, self.config, toolbox))
+        return loaded
+
+    def _active_project_continue_result(self, summary: str | None = None) -> ToolResult:
+        """Short corrective result that pushes the model toward file edits."""
+        active_root = f"./workspace/deliverables/{self.active_project}"
+        parts = [
+            f"Project '{self.active_project}' is already active.",
+            f"Continue working in {active_root}/ and do not scaffold it again.",
+            "Next step: write todo.md if it does not exist, then edit src/App.tsx and src/components/* inside the active project.",
+            'Do not call project_init or webdev_scaffold again unless the user explicitly asks for a separate second project.',
+        ]
+        if summary:
+            parts.append("")
+            parts.append(summary)
+        return ToolResult("\n".join(parts))
+
+    def _maybe_redirect_active_project_setup(self, tool_call: ToolCall) -> ToolResult | None:
+        """Block repeated setup/scaffold calls once a run already has an active project."""
+        if tool_call.name not in ("project_init", "webdev_scaffold") or not self.active_project:
+            return None
+
+        requested_name = str(
+            tool_call.arguments.get("name", "") or tool_call.arguments.get("project_name", "")
+        ).strip()
+        active_root = f"./workspace/deliverables/{self.active_project}"
+
+        if requested_name == self.active_project:
+            project_summary = self.set_project(self.active_project)
+            return self._active_project_continue_result(project_summary)
+
+        return ToolResult(
+            f"Project '{self.active_project}' is already active for this run. "
+            f"Do not create '{requested_name}'. Continue working in {active_root}/ instead. "
+            "Only create a second project if the user explicitly asks for a separate project.",
+            is_error=True,
+        )
+
+    def _rewrite_project_local_path(self, raw: str) -> str:
+        """Resolve obvious project-local relative paths against the active project."""
+        if not self.active_project or not raw:
+            return raw
+        if raw.startswith(("/", "~")):
+            return raw
+        if raw.startswith("./workspace/") or raw.startswith("workspace/"):
+            return raw
+
+        candidate = Path(raw)
+        head = candidate.parts[0] if candidate.parts else ""
+        if head not in PROJECT_LOCAL_PATH_HEADS:
+            return raw
+
+        repo_root = Path(self.config.workspace_dir).parent.resolve()
+        if (repo_root / raw).exists() or (Path(self.config.workspace_dir).resolve() / raw).exists():
+            return raw
+
+        project_path = Path(self.config.workspace_dir) / "deliverables" / self.active_project / raw
+        try:
+            rel = project_path.relative_to(repo_root)
+            return f"./{rel.as_posix()}"
+        except ValueError:
+            return str(project_path)
+
+    def _rewrite_active_project_reference(self, raw: str) -> str:
+        """Keep tool arguments pinned to the active project during a run."""
+        if not self.active_project or not raw:
+            return raw
+
+        normalized = raw
+
+        rel_pattern = re.compile(r'(?P<prefix>(?:^|[^\w.]))(?P<base>\.?/?workspace/deliverables/|/workspace/deliverables/)(?P<project>[^/\s\'"]+)')
+
+        def replace_rel(match: re.Match[str]) -> str:
+            prefix = match.group("prefix")
+            base = match.group("base")
+            project = match.group("project")
+            if project == self.active_project:
+                return match.group(0)
+            return f"{prefix}{base}{self.active_project}"
+
+        normalized = rel_pattern.sub(replace_rel, normalized)
+
+        workspace_deliverables = str((Path(self.config.workspace_dir) / "deliverables").resolve())
+        abs_pattern = re.compile(re.escape(workspace_deliverables) + r"/([^/\s'\"]+)")
+        normalized = abs_pattern.sub(
+            lambda m: f"{workspace_deliverables}/{self.active_project}" if m.group(1) != self.active_project else m.group(0),
+            normalized,
+        )
+        return normalized
+
+    def _normalize_project_local_args(self, tool_call: ToolCall) -> ToolCall:
+        """Rewrite path-like tool arguments to the active project's root when appropriate."""
+        if not self.active_project:
+            return tool_call
+
+        args = dict(tool_call.arguments or {})
+        changed = False
+        active_project_root = str(Path(self.config.workspace_dir) / "deliverables" / self.active_project)
+
+        if tool_call.name in ("match_glob", "match_grep"):
+            directory = args.get("directory")
+            if directory in (None, "", ".", "./"):
+                pattern_sources = [
+                    str(args.get("pattern", "")),
+                    str(args.get("file_pattern", "")),
+                ]
+                repo_markers = ("tsunami/", "toolboxes/", "workspace/", "skills/", "README", ".md")
+                wants_repo_scope = any(marker in source for source in pattern_sources for marker in repo_markers)
+                if not wants_repo_scope:
+                    args["directory"] = active_project_root
+                    changed = True
+
+        for key in ("path", "directory", "workdir", "command", "code"):
+            val = args.get(key)
+            if isinstance(val, str):
+                new_val = self._rewrite_active_project_reference(val)
+                if key in ("path", "directory", "workdir"):
+                    new_val = self._rewrite_project_local_path(new_val)
+                if new_val != val:
+                    args[key] = new_val
+                    changed = True
+
+        if not changed:
+            return tool_call
+
+        return ToolCall(name=tool_call.name, arguments=args)
 
     @staticmethod
     def list_projects(workspace_dir: str) -> list[dict]:
@@ -233,6 +438,7 @@ class Agent:
 
         log.info(f"Starting agent loop: {user_message[:100]}")
         consecutive_errors = 0
+        fatal_bad_request_errors = 0
 
         while self.state.iteration < self.config.max_iterations:
             self.state.iteration += 1
@@ -298,10 +504,25 @@ class Agent:
             try:
                 result = await self._step()
                 consecutive_errors = 0  # reset on success
+                fatal_bad_request_errors = 0
             except Exception as e:
                 consecutive_errors += 1
                 error_str = str(e)
                 log.error(f"Agent loop error at iteration {self.state.iteration}: {e}")
+
+                if "400" in error_str and (
+                    "/v1/chat/completions" in error_str or "/completion" in error_str
+                ):
+                    fatal_bad_request_errors += 1
+                    self.state.add_system_note(f"Model request rejected: {error_str}")
+                    save_session(self.state, self.session_dir, self.session_id)
+                    if fatal_bad_request_errors >= 2:
+                        return (
+                            "Model rejected consecutive requests with HTTP 400. "
+                            f"Stopping early at iteration {self.state.iteration}. Last error: {error_str}"
+                        )
+                else:
+                    fatal_bad_request_errors = 0
 
                 # Auto-compress on context overflow (400 Bad Request)
                 if "400" in error_str and consecutive_errors <= 2:
@@ -321,6 +542,14 @@ class Agent:
 
             elapsed = time.time() - iter_start
             log.debug(f"Iteration {self.state.iteration} took {elapsed:.1f}s")
+
+            stall_reason = self._detect_stall_reason()
+            if stall_reason:
+                log.warning(f"Stall gate: {stall_reason}")
+                save_session(self.state, self.session_dir, self.session_id)
+                save_session_summary(self.state, self.session_dir, self.session_id)
+                self.cost_tracker.save(self.config.workspace_dir)
+                return stall_reason
 
             # Auto-save every 5 iterations
             if self.state.iteration % 5 == 0:
@@ -396,6 +625,8 @@ class Agent:
 
         # Reset empty step counter on successful tool call
         self._empty_steps = 0
+
+        tool_call = self._normalize_project_local_args(tool_call)
 
         # Auto-promote message_info → message_result when it looks like a final answer
         if tool_call.name == "message_info":
@@ -498,33 +729,51 @@ class Agent:
             self.state.add_tool_result(tool_call.name, tool_call.arguments, error_msg, is_error=True)
             return error_msg
 
-        # Tool dedup check — skip re-execution of identical read-only calls
-        cached = self.tool_dedup.lookup(tool_call.name, tool_call.arguments)
-        if cached is not None:
-            content, is_error = cached
-            log.info(f"  Dedup hit for {tool_call.name} — returning cached result")
-            self.state.add_tool_result(tool_call.name, tool_call.arguments, content, is_error=is_error)
-            return content
+        redirected = self._maybe_redirect_active_project_setup(tool_call)
+        if redirected is not None:
+            log.info(f"  Project setup blocked — active project is {self.active_project}")
+            result = redirected
+        else:
+            # Tool dedup check — skip re-execution of identical read-only calls
+            cached = self.tool_dedup.lookup(tool_call.name, tool_call.arguments)
+            if cached is not None:
+                content, is_error = cached
+                log.info(f"  Dedup hit for {tool_call.name} — returning cached result")
+                self.state.add_tool_result(tool_call.name, tool_call.arguments, content, is_error=is_error)
+                return content
 
-        try:
-            result = await tool.execute(**tool_call.arguments)
-        except TypeError as e:
-            # LLM sent wrong argument names — common with smaller models
-            error_msg = f"Bad arguments for {tool_call.name}: {e}. Expected: {list(tool.parameters_schema().get('properties', {}).keys())}"
-            log.warning(error_msg)
-            self.state.add_tool_result(tool_call.name, tool_call.arguments, error_msg, is_error=True)
-            self.state.record_error(tool_call.name, tool_call.arguments, error_msg)
-            return error_msg
-        except Exception as e:
-            error_msg = f"Tool {tool_call.name} crashed: {type(e).__name__}: {e}"
-            log.error(error_msg)
-            self.state.add_tool_result(tool_call.name, tool_call.arguments, error_msg, is_error=True)
-            self.state.record_error(tool_call.name, tool_call.arguments, error_msg)
-            return error_msg
+            try:
+                result = await tool.execute(**tool_call.arguments)
+            except TypeError as e:
+                # LLM sent wrong argument names — common with smaller models
+                error_msg = f"Bad arguments for {tool_call.name}: {e}. Expected: {list(tool.parameters_schema().get('properties', {}).keys())}"
+                log.warning(error_msg)
+                self.state.add_tool_result(tool_call.name, tool_call.arguments, error_msg, is_error=True)
+                self.state.record_error(tool_call.name, tool_call.arguments, error_msg)
+                return error_msg
+            except Exception as e:
+                error_msg = f"Tool {tool_call.name} crashed: {type(e).__name__}: {e}"
+                log.error(error_msg)
+                self.state.add_tool_result(tool_call.name, tool_call.arguments, error_msg, is_error=True)
+                self.state.record_error(tool_call.name, tool_call.arguments, error_msg)
+                return error_msg
 
         # 7. Persist large results to disk (production pattern)
         # Large outputs go to disk with a 2KB preview in context.
         # file_read is excluded (circular read prevention).
+        if tool_call.name == "project_init" and not result.is_error:
+            project_name = tool_call.arguments.get("name", "")
+            if project_name:
+                project_summary = self.set_project(project_name)
+                preloaded = self._preload_project_toolboxes()
+                result.content += f"\n\n{project_summary}"
+                if preloaded:
+                    result.content += (
+                        "\n\nPreloaded tools for this project: "
+                        + ", ".join(preloaded)
+                        + "\nUse the browser/webdev tools directly instead of searching for load_toolbox first."
+                    )
+
         display_content = result.content
         if not result.is_error:
             display_content = maybe_persist(

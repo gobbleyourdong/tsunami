@@ -14,6 +14,7 @@ import os
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse
@@ -47,6 +48,47 @@ def get_config() -> TsunamiConfig:
     return _config
 
 
+def _log_path_for_endpoint(endpoint: str) -> Path | None:
+    try:
+        parsed = urlparse(endpoint)
+        if parsed.port:
+            return Path(f"/tmp/llama-server-{parsed.port}.log")
+    except Exception:
+        return None
+    return None
+
+
+def _read_last_log_signal(log_path: Path | None) -> str | None:
+    if not log_path or not log_path.exists():
+        return None
+
+    last = None
+    patterns = (
+        "error",
+        "failed",
+        "loading model",
+        "loaded meta data",
+        "listening",
+        "offload",
+        "cache",
+        "context",
+        "warming",
+        "initializing",
+    )
+
+    try:
+        for line in log_path.read_text(errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            lowered = line.lower()
+            if any(pattern in lowered for pattern in patterns):
+                last = line
+        return last
+    except Exception:
+        return None
+
+
 async def broadcast(event: dict):
     """Send an event to all connected WebSocket clients."""
     data = json.dumps(event)
@@ -58,6 +100,18 @@ async def broadcast(event: dict):
             dead.append(ws)
     for ws in dead:
         connections.remove(ws)
+
+
+async def _safe_send(ws: WebSocket, payload: dict, agent: Agent | None = None) -> bool:
+    """Send a websocket payload, aborting the agent if the client is gone."""
+    try:
+        await ws.send_text(json.dumps(payload))
+        return True
+    except Exception as e:
+        if agent is not None:
+            agent.abort_signal.abort("websocket_disconnect")
+        log.info(f"WebSocket send failed: {e}")
+        return False
 
 
 # ── HTML UI ──
@@ -75,20 +129,40 @@ async def index():
 @app.get("/api/health")
 async def health():
     cfg = get_config()
+    watcher_ok = None
+    watcher_error = None
+    model_error = None
     try:
         import httpx
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.get(f"{cfg.model_endpoint}/health")
             model_ok = resp.status_code == 200
+            if cfg.watcher_enabled:
+                watcher_resp = await client.get(f"{cfg.watcher_endpoint}/health")
+                watcher_ok = watcher_resp.status_code == 200
     except Exception:
         model_ok = False
+        if cfg.watcher_enabled:
+            watcher_ok = False
+
+    if not model_ok:
+        model_error = _read_last_log_signal(_log_path_for_endpoint(cfg.model_endpoint))
+    if cfg.watcher_enabled and watcher_ok is False:
+        watcher_error = _read_last_log_signal(_log_path_for_endpoint(cfg.watcher_endpoint))
 
     registry = build_registry(cfg)
     return {
         "status": "ok",
+        "backend_ok": True,
         "model_endpoint": cfg.model_endpoint,
         "model_ok": model_ok,
         "model_name": cfg.model_name,
+        "model_error": model_error,
+        "watcher_enabled": cfg.watcher_enabled,
+        "watcher_endpoint": cfg.watcher_endpoint,
+        "watcher_ok": watcher_ok,
+        "watcher_model": cfg.watcher_model,
+        "watcher_error": watcher_error,
         "tool_count": len(registry.names()),
         "tool_loading": "on-demand via load_toolbox",
     }
@@ -292,11 +366,12 @@ async def run_agent_with_streaming(ws: WebSocket, task: str):
         agent.set_project(_active_project)
 
     # Send start event
-    await ws.send_text(json.dumps({
+    if not await _safe_send(ws, {
         "type": "start",
         "task": task,
         "timestamp": time.time(),
-    }))
+    }, agent=agent):
+        return
 
     # Monkey-patch the agent to stream iterations
     original_step = agent._step
@@ -326,13 +401,15 @@ async def run_agent_with_streaming(ws: WebSocket, task: str):
         if agent.state.plan:
             plan_data = agent.state.plan.to_dict()
 
-        await ws.send_text(json.dumps({
+        sent = await _safe_send(ws, {
             "type": "step",
             "iteration": agent.state.iteration,
             "events": events,
             "plan": plan_data,
             "complete": agent.state.task_complete,
-        }))
+        }, agent=agent)
+        if not sent:
+            raise RuntimeError("websocket disconnected during streaming")
 
         return result
 
@@ -358,13 +435,16 @@ async def run_agent_with_streaming(ws: WebSocket, task: str):
                 "message": result[:5000] if result else "Agent stopped without delivering a result.",
             })
 
-        await ws.send_text(json.dumps(payload))
+        await _safe_send(ws, payload, agent=agent)
     except Exception as e:
-        await ws.send_text(json.dumps({
+        if "websocket disconnected" in str(e).lower() or "close message has been sent" in str(e).lower():
+            log.info("Stopping agent after websocket disconnect.")
+            return
+        await _safe_send(ws, {
             "type": "error",
             "message": str(e),
             "iteration": agent.state.iteration,
-        }))
+        }, agent=agent)
 
 
 def start_server(host: str = "0.0.0.0", port: int = 3000):

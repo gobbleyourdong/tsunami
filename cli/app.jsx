@@ -218,24 +218,73 @@ function makeSuggestions(input, attachedFiles) {
   return [];
 }
 
+function previewText(text, maxLen = 120) {
+  if (!text) return '';
+  const compact = String(text).replace(/\s+/g, ' ').trim();
+  if (compact.length <= maxLen) return compact;
+  return `${compact.slice(0, maxLen - 3)}...`;
+}
+
+function traceLineForEvent(evt, iteration) {
+  if (evt.tool && !evt.tool.startsWith('message_')) {
+    const label = toolLabel(evt.tool, evt.args || {});
+    return {
+      kind: 'call',
+      iteration,
+      text: label,
+    };
+  }
+
+  if (evt.role === 'tool_result') {
+    return {
+      kind: evt.content?.includes('ERROR:') ? 'error' : 'result',
+      iteration,
+      text: previewText(evt.content || ''),
+    };
+  }
+
+  if (evt.tool === 'message_info') {
+    return {
+      kind: 'info',
+      iteration,
+      text: previewText(evt.args?.text || ''),
+    };
+  }
+
+  return null;
+}
+
 function App({ serverUrl, singleTask }) {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const cols = stdout?.columns || 80;
+  const healthUrl = serverUrl.replace(/^ws/, 'http').replace(/\/ws$/, '/api/health');
 
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
+  const [traceEntries, setTraceEntries] = useState([]);
   const [running, setRunning] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [health, setHealth] = useState(null);
   const [iteration, setIteration] = useState(0);
   const [startTime, setStartTime] = useState(null);
   const [currentAction, setCurrentAction] = useState(null);
+  const [showTrace, setShowTrace] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [activeProject, setActiveProject] = useState(null);
   const [inputVersion, setInputVersion] = useState(0);
   const wsRef = useRef(null);
+  const attachedFilesRef = useRef([]);
+
+  const updateAttachedFiles = useCallback(updater => {
+    setAttachedFiles(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      attachedFilesRef.current = next;
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const ws = new WebSocket(serverUrl);
@@ -251,11 +300,22 @@ function App({ serverUrl, singleTask }) {
         setIteration(0);
         setStartTime(Date.now());
         setCurrentAction(null);
+        setTraceEntries([{
+          kind: 'status',
+          iteration: 0,
+          text: `run started: ${previewText(msg.task || '', 140)}`,
+        }]);
       }
 
       if (msg.type === 'step') {
         setIteration(msg.iteration);
+        const nextTraceEntries = [];
         for (const evt of msg.events || []) {
+          const traceLine = traceLineForEvent(evt, msg.iteration);
+          if (traceLine) {
+            nextTraceEntries.push(traceLine);
+          }
+
           if (evt.tool && !evt.tool.startsWith('message_')) {
             const label = toolLabel(evt.tool, evt.args || {});
             setCurrentAction(label);
@@ -276,11 +336,19 @@ function App({ serverUrl, singleTask }) {
             }
           }
         }
+        if (nextTraceEntries.length > 0) {
+          setTraceEntries(prev => [...prev, ...nextTraceEntries].slice(-200));
+        }
       }
 
       if (msg.type === 'complete') {
         setRunning(false);
         setCurrentAction(null);
+        setTraceEntries(prev => [...prev, {
+          kind: 'status',
+          iteration: msg.iterations,
+          text: `run completed after ${msg.iterations} ${msg.iterations === 1 ? 'iteration' : 'iterations'}`,
+        }].slice(-200));
         if (msg.result) {
           setMessages(prev => [...prev, { type: 'result', text: msg.result, iters: msg.iterations }]);
         }
@@ -290,6 +358,11 @@ function App({ serverUrl, singleTask }) {
       if (msg.type === 'error') {
         setRunning(false);
         setCurrentAction(null);
+        setTraceEntries(prev => [...prev, {
+          kind: 'error',
+          iteration: msg.iteration ?? msg.iterations ?? iteration,
+          text: previewText(msg.message || 'agent error', 160),
+        }].slice(-200));
         setMessages(prev => [...prev, {
           type: 'error',
           text: msg.message,
@@ -306,6 +379,37 @@ function App({ serverUrl, singleTask }) {
   }, [exit, serverUrl, singleTask]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function pollHealth() {
+      try {
+        const resp = await fetch(healthUrl);
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+        const data = await resp.json();
+        if (!cancelled) {
+          setHealth(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setHealth({
+            backend_ok: false,
+            error: error?.message || 'backend unavailable',
+          });
+        }
+      }
+    }
+
+    pollHealth();
+    const timer = setInterval(pollHealth, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [healthUrl]);
+
+  useEffect(() => {
     if (singleTask && connected) {
       setMessages([{ type: 'user', text: singleTask }]);
       wsRef.current?.send(JSON.stringify({ type: 'run', task: singleTask }));
@@ -320,56 +424,58 @@ function App({ serverUrl, singleTask }) {
 
   function addAttachedFile(rawPath) {
     const resolvedPath = path.resolve(expandHome(rawPath));
+    const currentAttachedFiles = attachedFilesRef.current;
     if (!fs.existsSync(resolvedPath)) {
       return { ok: false, message: `File not found: ${rawPath}` };
     }
-    if (attachedFiles.includes(resolvedPath)) {
+    if (currentAttachedFiles.includes(resolvedPath)) {
       return { ok: false, message: `Already attached: ${path.basename(resolvedPath)}` };
     }
-    setAttachedFiles(prev => [...prev, resolvedPath]);
+    updateAttachedFiles(prev => [...prev, resolvedPath]);
     return { ok: true, message: `Attached: ${path.basename(resolvedPath)}` };
   }
 
   function removeAttachedFile(rawTarget) {
     const target = rawTarget.trim();
+    const currentAttachedFiles = attachedFilesRef.current;
     if (!target) {
       return { ok: false, message: 'Usage: /unattach <index|path|basename|all>' };
     }
 
     if (target.toLowerCase() === 'all') {
-      if (attachedFiles.length === 0) {
+      if (currentAttachedFiles.length === 0) {
         return { ok: false, message: 'No attached files.' };
       }
-      const removedCount = attachedFiles.length;
-      setAttachedFiles([]);
+      const removedCount = currentAttachedFiles.length;
+      updateAttachedFiles([]);
       return { ok: true, message: `Removed ${removedCount} attached ${removedCount === 1 ? 'file' : 'files'}.` };
     }
 
     const index = Number.parseInt(target, 10);
-    if (Number.isInteger(index) && String(index) === target && index >= 1 && index <= attachedFiles.length) {
-      const removed = attachedFiles[index - 1];
-      setAttachedFiles(prev => prev.filter((_, i) => i !== index - 1));
+    if (Number.isInteger(index) && String(index) === target && index >= 1 && index <= currentAttachedFiles.length) {
+      const removed = currentAttachedFiles[index - 1];
+      updateAttachedFiles(prev => prev.filter((_, i) => i !== index - 1));
       return { ok: true, message: `Removed: ${path.basename(removed)}` };
     }
 
     const resolvedTarget = path.resolve(expandHome(target));
-    const exactMatches = attachedFiles.filter(filePath => (
+    const exactMatches = currentAttachedFiles.filter(filePath => (
       filePath === resolvedTarget ||
       compactHome(filePath) === target
     ));
     if (exactMatches.length === 1) {
       const match = exactMatches[0];
-      setAttachedFiles(prev => prev.filter(filePath => filePath !== match));
+      updateAttachedFiles(prev => prev.filter(filePath => filePath !== match));
       return { ok: true, message: `Removed: ${path.basename(match)}` };
     }
     if (exactMatches.length > 1) {
       return { ok: false, message: `Multiple attached files match '${target}'. Use /unattach <index> instead.` };
     }
 
-    const basenameMatches = attachedFiles.filter(filePath => path.basename(filePath) === target);
+    const basenameMatches = currentAttachedFiles.filter(filePath => path.basename(filePath) === target);
     if (basenameMatches.length === 1) {
       const match = basenameMatches[0];
-      setAttachedFiles(prev => prev.filter(filePath => filePath !== match));
+      updateAttachedFiles(prev => prev.filter(filePath => filePath !== match));
       return { ok: true, message: `Removed: ${path.basename(match)}` };
     }
     if (basenameMatches.length > 1) {
@@ -490,11 +596,11 @@ function App({ serverUrl, singleTask }) {
 
     if (cmd === '/unattach' || cmd === '/detach') {
       if (!argText) {
-        if (attachedFiles.length === 0) {
+        if (attachedFilesRef.current.length === 0) {
           setMessages(prev => [...prev, { type: 'user', text }, { type: 'result', text: 'No attached files.' }]);
           return true;
         }
-        const listing = attachedFiles
+        const listing = attachedFilesRef.current
           .map((filePath, index) => `  ${index + 1}. ${compactHome(filePath)}`)
           .join('\n');
         setMessages(prev => [...prev, {
@@ -518,7 +624,8 @@ function App({ serverUrl, singleTask }) {
 
   const handleSubmit = useCallback(value => {
     const text = value.trim();
-    if (!text && attachedFiles.length === 0) return;
+    const currentAttachedFiles = attachedFilesRef.current;
+    if (!text && currentAttachedFiles.length === 0) return;
 
     if (['exit', 'quit'].includes(text.toLowerCase())) {
       exit();
@@ -534,7 +641,7 @@ function App({ serverUrl, singleTask }) {
     setInput('');
 
     let task = text;
-    for (const filePath of attachedFiles) {
+    for (const filePath of currentAttachedFiles) {
       const ext = path.extname(filePath).toLowerCase();
       const isImage = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'].includes(ext);
       task += `\n[Attached ${isImage ? 'image' : 'file'}: ${filePath}]`;
@@ -543,11 +650,11 @@ function App({ serverUrl, singleTask }) {
     setMessages(prev => [...prev, {
       type: 'user',
       text,
-      files: [...attachedFiles],
+      files: [...currentAttachedFiles],
     }]);
-    setAttachedFiles([]);
+    updateAttachedFiles([]);
     wsRef.current?.send(JSON.stringify({ type: 'run', task }));
-  }, [attachedFiles, exit]);
+  }, [exit, updateAttachedFiles]);
 
   useInput((ch, key) => {
     if (key.ctrl && ch === 'c') {
@@ -561,6 +668,11 @@ function App({ serverUrl, singleTask }) {
 
     if (key.ctrl && ch === 'd') {
       exit();
+      return;
+    }
+
+    if ((running || showTrace) && !key.ctrl && !key.meta && !key.shift && ch === 't') {
+      setShowTrace(prev => !prev);
       return;
     }
 
@@ -594,9 +706,16 @@ function App({ serverUrl, singleTask }) {
       <Text color="#4a9eff" bold> Autonomous Execution Agent</Text>
       <Text> </Text>
 
-      {messages.map((msg, index) => (
-        <MessageView key={index} msg={msg} cols={cols} />
-      ))}
+      <StatusView connected={connected} health={health} />
+      <Text> </Text>
+
+      {showTrace ? (
+        <TraceTailView entries={traceEntries} cols={cols} />
+      ) : (
+        messages.map((msg, index) => (
+          <MessageView key={index} msg={msg} cols={cols} />
+        ))
+      )}
 
       {running && currentAction && (
         <Box marginLeft={2}>
@@ -614,6 +733,7 @@ function App({ serverUrl, singleTask }) {
       {running && startTime && (
         <Box marginTop={0} marginLeft={2}>
           <Text dimColor>({timeAgo(startTime)} · iteration {iteration})</Text>
+          <Text dimColor>  · press t for {showTrace ? 'normal view' : 'trace tail'}</Text>
         </Box>
       )}
 
@@ -672,7 +792,7 @@ function App({ serverUrl, singleTask }) {
           </Box>
           {!input.startsWith('/') && (
             <Box marginLeft={2}>
-              <Text dimColor>type / for commands · exit to quit</Text>
+              <Text dimColor>type / for commands · t toggles trace · exit to quit</Text>
             </Box>
           )}
           {input.startsWith('/') && suggestions.length > 0 && (
@@ -758,6 +878,98 @@ function MessageView({ msg, cols }) {
   }
 
   return null;
+}
+
+function TraceTailView({ entries, cols }) {
+  const visible = entries.slice(-Math.max(10, Math.min(28, cols ? Math.floor(cols / 3) : 18)));
+
+  return (
+    <Box flexDirection="column" marginLeft={2}>
+      <Text color="#4a9eff">Trace Tail</Text>
+      {visible.length === 0 ? (
+        <Text dimColor>waiting for agent activity...</Text>
+      ) : (
+        visible.map((entry, index) => (
+          <Box key={`${entry.iteration}-${index}`}>
+            <Text dimColor>[{String(entry.iteration).padStart(3, ' ')}]</Text>
+            <Text> </Text>
+            <Text color={
+              entry.kind === 'call' ? '#4a9eff' :
+              entry.kind === 'error' ? 'red' :
+              entry.kind === 'status' ? 'green' :
+              entry.kind === 'info' ? 'cyan' :
+              'gray'
+            }>
+              {entry.text}
+            </Text>
+          </Box>
+        ))
+      )}
+    </Box>
+  );
+}
+
+function StatusView({ connected, health }) {
+  const backendOk = connected && health?.backend_ok !== false;
+  const modelOk = Boolean(health?.model_ok);
+  const watcherEnabled = Boolean(health?.watcher_enabled);
+  const watcherOk = health?.watcher_ok;
+
+  return (
+    <Box flexDirection="column" marginLeft={2}>
+      <Box>
+        <Text color={backendOk ? 'green' : 'red'}>backend {backendOk ? 'ready' : 'down'}</Text>
+        <Text dimColor> · </Text>
+        <Text color={modelOk ? 'green' : 'red'}>
+          wave {modelOk ? 'ready' : 'down'}
+        </Text>
+        {health?.model_name && (
+          <>
+            <Text dimColor> · </Text>
+            <Text dimColor>{health.model_name}</Text>
+          </>
+        )}
+        {watcherEnabled && (
+          <>
+            <Text dimColor> · </Text>
+            <Text color={watcherOk ? 'green' : 'yellow'}>
+              bee {watcherOk ? 'ready' : 'fallback'}
+            </Text>
+          </>
+        )}
+      </Box>
+
+      {health?.model_endpoint && (
+        <Box>
+          <Text dimColor>wave endpoint: {health.model_endpoint}</Text>
+        </Box>
+      )}
+
+      {!modelOk && health?.model_error && (
+        <Box>
+          <Text color="red" wrap="wrap">wave error: {health.model_error}</Text>
+        </Box>
+      )}
+
+      {watcherEnabled && health?.watcher_endpoint && !watcherOk && (
+        <Box>
+          <Text dimColor>bee endpoint: {health.watcher_endpoint}</Text>
+          {health?.watcher_error ? (
+            <>
+              <Text dimColor> · </Text>
+              <Text color="yellow" wrap="wrap">{health.watcher_error}</Text>
+            </>
+          ) : null}
+        </Box>
+      )}
+
+      {!health && (
+        <Box>
+          <Text dimColor>checking local model status...</Text>
+        </Box>
+      )}
+    </Box>
+  );
 }
 
 const args = process.argv.slice(2);

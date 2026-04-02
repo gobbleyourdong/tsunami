@@ -8,8 +8,8 @@ fastapi>=0.110.0       # Backend API + WebSocket server for the Ink CLI
 uvicorn>=0.29.0        # ASGI server for the backend
 websockets>=15.0.0     # WebSocket transport for uvicorn/FastAPI
 
-# Optional — browser automation
-# playwright>=1.40.0   # pip install playwright && playwright install chromium
+# Core — browser automation
+playwright>=1.58.0     # setup.sh installs this and downloads Chromium
 
 # Optional — web search
 # duckduckgo-search>=4.0  # pip install duckduckgo-search

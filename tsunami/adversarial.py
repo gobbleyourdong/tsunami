@@ -22,9 +22,11 @@ import os
 
 import httpx
 
+from .config import resolve_aux_model_endpoint
+
 log = logging.getLogger("tsunami.adversarial")
 
-EDDY_ENDPOINT = os.environ.get("TSUNAMI_BEE_ENDPOINT", "http://localhost:8092")
+EDDY_ENDPOINT = resolve_aux_model_endpoint()
 
 
 async def cross_examine(

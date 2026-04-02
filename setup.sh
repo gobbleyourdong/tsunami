@@ -8,6 +8,7 @@
 #
 # Defaults:
 # - installs Python deps into ./.venv
+# - installs Playwright + Chromium for browser/screenshot tools unless INSTALL_PLAYWRIGHT=0
 # - pins llama.cpp to a repo-selected release tag unless overridden
 # - verifies model downloads against a repo-shipped manifest
 # - does not edit shell rc files unless INSTALL_SHELL_ALIAS=1
@@ -18,7 +19,7 @@ IFS=$'\n\t'
 
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-readonly DEFAULT_LLAMA_CPP_REF="b7472"
+readonly DEFAULT_LLAMA_CPP_REF="b8611"
 
 trap 'echo "[$SCRIPT_NAME] failed at line $LINENO" >&2' ERR
 
@@ -38,6 +39,7 @@ LLAMA_CPP_REF="${LLAMA_CPP_REF:-$DEFAULT_LLAMA_CPP_REF}"
 MODEL_MANIFEST="${MODEL_MANIFEST:-$DIR/models/model-manifest.lock}"
 INSTALL_SHELL_ALIAS="${INSTALL_SHELL_ALIAS:-0}"
 ALLOW_UNPINNED_NPM="${ALLOW_UNPINNED_NPM:-0}"
+INSTALL_PLAYWRIGHT="${INSTALL_PLAYWRIGHT:-1}"
 
 if [ -n "${TSUNAMI_DIR:-}" ] && [ "$(cd -- "$TSUNAMI_DIR" 2>/dev/null && pwd -P || true)" != "$DIR" ]; then
   echo "TSUNAMI_DIR must point at this checked-out repo: $DIR" >&2
@@ -206,6 +208,16 @@ install_python_deps() {
   fi
 
   "$VENV_DIR/bin/python" -m pip install --require-virtualenv -r "$DIR/requirements.lock"
+}
+
+install_playwright_runtime() {
+  if [ "$INSTALL_PLAYWRIGHT" != "1" ]; then
+    echo "  - skipping Playwright browser install: INSTALL_PLAYWRIGHT=0"
+    return
+  fi
+
+  echo "  - installing Playwright Chromium runtime"
+  "$VENV_DIR/bin/python" -m playwright install chromium
 }
 
 install_node_deps() {
@@ -433,6 +445,10 @@ echo "Installing Python dependencies"
 install_python_deps
 
 echo ""
+echo "Installing browser runtime"
+install_playwright_runtime
+
+echo ""
 echo "Installing CLI dependencies"
 install_node_deps
 
@@ -464,3 +480,4 @@ echo ""
 echo "Setup complete"
 echo "  ./tsu"
 echo "  INSTALL_SHELL_ALIAS=1 ./setup.sh    # optional alias"
+echo "  INSTALL_PLAYWRIGHT=0 ./setup.sh     # opt out of browser runtime install"

@@ -28,9 +28,11 @@ from pathlib import Path
 
 import httpx
 
+from .config import resolve_aux_model_endpoint
+
 log = logging.getLogger("tsunami.undertow")
 
-BEE_ENDPOINT = os.environ.get("TSUNAMI_BEE_ENDPOINT", "http://localhost:8092")
+BEE_ENDPOINT = resolve_aux_model_endpoint()
 
 
 # ──────────────────── data types ────────────────────

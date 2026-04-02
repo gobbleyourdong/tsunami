@@ -101,7 +101,9 @@ runs on any nvidia gpu with 12GB+ vram. macs with 16GB+ unified memory. no cloud
 ## setup notes
 
 - `setup.sh` is the supported installer. it replaces the old best-effort bootstrap flow.
+- `setup.sh` now installs Playwright and the Chromium runtime as part of the standard local setup, so browser inspection and screenshots work out of the box.
 - `INSTALL_SHELL_ALIAS=1 ./setup.sh` adds a `tsunami` alias to your shell rc if you want it.
+- `INSTALL_PLAYWRIGHT=0 ./setup.sh` opts out of the browser runtime install if you explicitly want a smaller setup.
 - if `node` and `npm` are present, setup installs the ink cli with `npm ci` from the tracked `cli/package-lock.json`.
 - the python repl path is still the fallback when node is unavailable.
 

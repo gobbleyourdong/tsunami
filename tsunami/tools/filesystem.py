@@ -58,7 +58,17 @@ def _resolve_path(path: str, workspace_dir: str) -> Path:
     (e.g., model writes "workspace/deliverables/x" which would become
     "workspace/workspace/deliverables/x" without this fix).
     """
-    p = Path(path)
+    normalized = path
+    if normalized.startswith("/workspace/"):
+        normalized = f"./{normalized.lstrip('/')}"
+    elif normalized == "/workspace":
+        normalized = "./workspace"
+    elif normalized.startswith("/skills/"):
+        normalized = f"./{normalized.lstrip('/')}"
+    elif normalized == "/skills":
+        normalized = "./skills"
+
+    p = Path(normalized)
     if not p.is_absolute() and not path.startswith("~"):
         # Strip workspace dir name prefix if model included it
         ws_name = Path(workspace_dir).name  # e.g. "workspace"
@@ -75,7 +85,7 @@ def _resolve_path(path: str, workspace_dir: str) -> Path:
             p = ws_path
         else:
             # Try relative to project root (parent of workspace)
-            root_path = Path(workspace_dir).parent / Path(path)
+            root_path = Path(workspace_dir).parent / p
             if root_path.exists():
                 p = root_path
             else:

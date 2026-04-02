@@ -26,11 +26,11 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
     deps_lower = {d.lower() for d in dependencies}
     name_lower = name.lower()
 
-    # 3D/game keywords → threejs-game scaffold
-    game_keywords = {"three", "cannon", "rapier", "3d", "game", "physics"}
-    if deps_lower & game_keywords or any(k in name_lower for k in ["game", "3d", "pinball"]):
-        if (SCAFFOLDS_DIR / "threejs-game").exists():
-            return "threejs-game"
+    # Landing/marketing keywords → landing scaffold
+    landing_keywords = {"landing", "marketing", "homepage", "website", "portfolio", "splash"}
+    if any(k in name_lower for k in landing_keywords):
+        if (SCAFFOLDS_DIR / "landing").exists():
+            return "landing"
 
     # Dashboard/analytics keywords → dashboard scaffold
     dash_keywords = {"chart", "dashboard", "analytics", "stats", "metrics", "recharts", "d3"}
@@ -38,11 +38,12 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
         if (SCAFFOLDS_DIR / "dashboard").exists():
             return "dashboard"
 
-    # Landing/marketing keywords → landing scaffold
-    landing_keywords = {"landing", "marketing", "homepage", "website", "portfolio"}
-    if any(k in name_lower for k in landing_keywords):
-        if (SCAFFOLDS_DIR / "landing").exists():
-            return "landing"
+    # 3D/game keywords → threejs-game scaffold.
+    # A lone "three" dependency is not enough; marketing sites often add it for decoration.
+    game_dep_keywords = {"cannon", "rapier", "physics"}
+    if any(k in name_lower for k in ["game", "3d", "pinball"]) or deps_lower & game_dep_keywords:
+        if (SCAFFOLDS_DIR / "threejs-game").exists():
+            return "threejs-game"
 
     # File/form/upload keywords → form-app scaffold (xlsx, csv, editable table)
     form_keywords = {"xlsx", "csv", "upload", "file", "form", "spreadsheet", "excel", "papaparse"}
@@ -90,10 +91,14 @@ class ProjectInit(BaseTool):
 
         ws = Path(self.config.workspace_dir)
         project_dir = ws / "deliverables" / name
+        tmd_path = project_dir / "tsunami.md"
 
         if (project_dir / "package.json").exists():
+            if not tmd_path.exists():
+                tmd_path.write_text(f"# {name}\n\nProject context goes here.\n")
             return ToolResult(
                 f"Project '{name}' exists at {project_dir}. "
+                f"Use ./workspace/deliverables/{name} as the project root. "
                 f"Write your components in {project_dir}/src/"
             )
 
@@ -194,6 +199,15 @@ class ProjectInit(BaseTool):
                     '}\n'
                 )
 
+            if not tmd_path.exists():
+                tmd_path.write_text(
+                    f"# {name}\n\n"
+                    "Goal: describe what this project should become.\n\n"
+                    "Constraints:\n"
+                    "- Build inside this project directory.\n"
+                    "- Keep edits scoped to the active project.\n"
+                )
+
             # npm install
             result = subprocess.run(
                 ["npm", "install"],
@@ -217,11 +231,13 @@ class ProjectInit(BaseTool):
             dep_list = ", ".join(dependencies) if dependencies else "none"
             return ToolResult(
                 f"Project '{name}' ready{scaffold_info} at {project_dir}\n"
+                f"Project root: ./workspace/deliverables/{name}\n"
+                f"Context file: ./workspace/deliverables/{name}/tsunami.md\n"
                 f"Extra deps: {dep_list}\n"
                 f"Dev server: {url or 'run npx vite --port 9876'}\n\n"
                 f"src/App.tsx is a stub — replace it with your app.\n"
                 f"Write components in src/components/.\n"
-                f"After all files: shell_exec 'cd {project_dir} && npx vite build'"
+                f"After all files: shell_exec 'cd ./workspace/deliverables/{name} && npx vite build'"
             )
 
         except Exception as e:

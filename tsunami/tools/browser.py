@@ -34,7 +34,7 @@ async def _ensure_browser(headless: bool = True):
         from playwright.async_api import async_playwright
     except ImportError:
         raise RuntimeError(
-            "Playwright not installed. Run: pip install playwright && playwright install chromium"
+            "Playwright not installed. Rerun ./setup.sh or install it in the repo venv: ./.venv/bin/python -m pip install playwright && ./.venv/bin/python -m playwright install chromium"
         )
 
     pw = await async_playwright().start()

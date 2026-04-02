@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 
 import httpx
 
+from .config import resolve_aux_model_endpoint
+
 log = logging.getLogger("tsunami.current")
 
 # Tension thresholds
@@ -111,7 +113,7 @@ def measure_heuristic(text: str) -> float:
 
 async def measure_with_model(
     text: str,
-    endpoint: str = "http://localhost:8092",
+    endpoint: str | None = None,
     model: str = "qwen",
 ) -> Depth:
     """Deep tension measurement using the 2B eddy as probe.
@@ -119,6 +121,8 @@ async def measure_with_model(
     Asks the model to evaluate the response against truth anchors
     and drift markers. Returns a Depth measurement.
     """
+    endpoint = endpoint or resolve_aux_model_endpoint()
+
     # First: fast heuristic
     heuristic_score = measure_heuristic(text)
 
@@ -204,7 +208,7 @@ Example: "8 grounded" or "3 drifting"."""
 async def correct_thought(
     original: str,
     tension: float,
-    endpoint: str = "http://localhost:8092",
+    endpoint: str | None = None,
     model: str = "qwen",
     max_iterations: int = 3,
 ) -> str:
@@ -213,6 +217,8 @@ async def correct_thought(
     The TuningFork pattern: re-ask with focus on uncertain parts
     until tension drops or max iterations reached.
     """
+    endpoint = endpoint or resolve_aux_model_endpoint()
+
     if tension < UNCERTAIN:
         return original  # no correction needed
 

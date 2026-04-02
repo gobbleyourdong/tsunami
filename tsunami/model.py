@@ -24,6 +24,26 @@ BASE_DELAY_MS = 500
 MAX_DELAY_MS = 32_000  # 32 seconds cap
 
 
+def _http_error_detail(resp: httpx.Response, limit: int = 300) -> str:
+    """Extract a short readable error detail from an HTTP response body."""
+    try:
+        data = resp.json()
+        if isinstance(data, dict):
+            for key in ("error", "message", "detail"):
+                val = data.get(key)
+                if isinstance(val, str) and val.strip():
+                    text = val.strip()
+                    return text[:limit] + ("..." if len(text) > limit else "")
+    except Exception:
+        pass
+
+    text = resp.text.strip() if resp.text else ""
+    if not text:
+        return ""
+    text = " ".join(text.split())
+    return text[:limit] + ("..." if len(text) > limit else "")
+
+
 def get_retry_delay(attempt: int, retry_after: str | None = None, max_delay_ms: int = MAX_DELAY_MS) -> float:
     """Exponential backoff with jitter .
 
@@ -231,7 +251,12 @@ class OpenAICompatModel(LLMModel):
                     payload["max_tokens"] = payload["max_tokens"] // 2
                     continue
                 break
-            resp.raise_for_status()
+            if resp.is_error:
+                detail = _http_error_detail(resp)
+                message = f"{resp.status_code} error from {resp.request.url}"
+                if detail:
+                    message += f": {detail}"
+                raise httpx.HTTPStatusError(message, request=resp.request, response=resp)
             data = resp.json()
 
         choice = data["choices"][0]
@@ -293,7 +318,7 @@ class CompletionModel(LLMModel):
                 )
                 tool_lines.append(f'- {f["name"]}({param_desc}): {f["description"]}')
             tool_block = "\n".join(tool_lines)
-            parts.insert(1, f'<|im_start|>user\nRespond with exactly one JSON tool call. Format:\n{{"name": "tool_name", "arguments": {{"param": "value"}}}}\n\nExample:\n{{"name": "file_write", "arguments": {{"path": "workspace/deliverables/test/hello.py", "content": "print(\'hello\')"}}}}\n\nTools:\n{tool_block}<|im_end|>\n')
+            parts.insert(1, f'<|im_start|>user\nRespond with exactly one JSON tool call. Format:\n{{"name": "tool_name", "arguments": {{"param": "value"}}}}\n\nExample:\n{{"name": "file_write", "arguments": {{"path": "./workspace/deliverables/test/hello.py", "content": "print(\'hello\')"}}}}\n\nUse repo-relative paths like ./workspace/... Never use /workspace/...\n\nTools:\n{tool_block}<|im_end|>\n')
 
         parts.append("<|im_start|>assistant\n")
         return "".join(parts)
