@@ -253,26 +253,42 @@ def cleanup():
             proc.kill()
 
 
-def get_ram_gb():
-    """Get total system RAM in GB."""
+def get_available_memory_gb():
+    """Get GPU VRAM (preferred) or system RAM in GB. Returns (gb, source)."""
+    import shutil
+
+    # Try NVIDIA VRAM first
+    if shutil.which("nvidia-smi"):
+        try:
+            out = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+                text=True, timeout=5,
+            )
+            vram_mb = int(out.strip().split("\n")[0])
+            if vram_mb > 0:
+                return vram_mb // 1024, "GPU VRAM"
+        except Exception:
+            pass
+
+    # Fallback to system RAM
     import platform
     try:
         if platform.system() == "Darwin":
             out = subprocess.check_output(["sysctl", "-n", "hw.memsize"], text=True)
-            return int(out.strip()) // (1024**3)
+            return int(out.strip()) // (1024**3), "unified"
         elif platform.system() == "Windows":
             import ctypes
             mem = ctypes.c_ulonglong(0)
             ctypes.windll.kernel32.GetPhysicallyInstalledSystemMemory(ctypes.byref(mem))
-            return mem.value // (1024 * 1024)  # KB to GB
+            return mem.value // (1024 * 1024), "RAM"
         else:
             with open("/proc/meminfo") as f:
                 for line in f:
                     if line.startswith("MemTotal:"):
-                        return int(line.split()[1]) // (1024 * 1024)  # KB to GB
+                        return int(line.split()[1]) // (1024 * 1024), "RAM"
     except Exception:
         pass
-    return 8  # safe default
+    return 8, "RAM"
 
 
 def main():
@@ -281,11 +297,11 @@ def main():
     print("  ╚══════════════════════════╝")
     print()
 
-    # Detect RAM and pick mode
-    ram = get_ram_gb()
-    print(f"  RAM: {ram}GB")
+    # Detect VRAM/RAM and pick mode
+    mem_gb, mem_source = get_available_memory_gb()
+    print(f"  {mem_source}: {mem_gb}GB")
 
-    if ram < 6:
+    if mem_gb < 10:
         mode = "lite"
         print("  → Lite mode (2B only — low memory detected)")
     else:
