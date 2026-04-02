@@ -107,3 +107,5 @@ project_init should analyze the request and provide matching features:
 - Session 1: Crypto dashboard: 30 iters, compiled, but stub App.tsx — ran out of iters before wiring.
 - Session 1: Pattern: simple apps (calc=10) work great, complex (dashboard=30) need more iters or earlier App.tsx.
 - Session 1: 8 test runners total. READMEs improve speed 25-55% across all apps.
+- Session 1: App.tsx FIRST strategy: dashboard now has wired App.tsx (was stub). White screen = component bug, not missing orchestrator. Fixable.
+- Session 1: The ordering fix turns "no app" into "app with a bug" — massive improvement.
