@@ -58,6 +58,8 @@ function Find-LlamaServer {
     $candidates = @(
         (Get-Command 'llama-server.exe' -EA SilentlyContinue)?.Source,
         (Get-Command 'llama-server' -EA SilentlyContinue)?.Source,
+        "$DIR\llama.cpp\build\bin\Release\llama-server.exe",
+        "$DIR\llama.cpp\build\bin\llama-server.exe",
         "$env:USERPROFILE\llama.cpp\build\bin\Release\llama-server.exe",
         "$env:USERPROFILE\llama.cpp\build\bin\llama-server.exe"
     )
