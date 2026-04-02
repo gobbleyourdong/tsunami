@@ -22,6 +22,8 @@ cd tsunami
 
 that's the default path now. setup runs from a checked-out repo, installs into `./.venv`, verifies model downloads from `models/model-manifest.lock`, and keeps shell alias changes opt-in.
 
+`./tsu` is the app launcher. it starts the local model server if needed, starts the Tsunami backend, and opens the terminal UI.
+
 **[see it work →](https://gobbleyourdong.github.io/tsunami/)**
 
 ---
@@ -125,6 +127,78 @@ runs on any nvidia gpu with 12GB+ vram. macs with 16GB+ unified memory. no cloud
 - `BUILD_DOCKER_EXEC=0 ./setup.sh` opts out of the Docker sandbox image build.
 - if `node` and `npm` are present, setup installs the ink cli with `npm ci` from the tracked `cli/package-lock.json`.
 - the python repl path is still the fallback when node is unavailable.
+
+## common switches
+
+install-time examples:
+
+```bash
+INSTALL_SHELL_ALIAS=1 ./setup.sh
+```
+
+adds a `tsunami` shell alias.
+
+```bash
+INSTALL_PLAYWRIGHT=0 ./setup.sh
+```
+
+skips the host browser runtime install. useful if you only want the lighter non-browser path.
+
+```bash
+BUILD_DOCKER_EXEC=0 ./setup.sh
+```
+
+skips building the local Docker execution image.
+
+run-time examples:
+
+```bash
+./tsu
+```
+
+launches the app with the default auto-detected runtime.
+
+```bash
+TSUNAMI_DOCKER_BACKEND=1 ./tsu
+```
+
+forces the Docker-backed backend path.
+
+```bash
+TSUNAMI_DOCKER_BACKEND=0 TSUNAMI_DOCKER_EXEC=0 ./tsu
+```
+
+disables Docker and runs the host path only.
+
+```bash
+TSUNAMI_FORCE_SMALL_MODEL=1 ./tsu
+```
+
+forces the smaller local text model path when available.
+
+```bash
+TSUNAMI_CTX_SIZE=32768 ./tsu
+```
+
+sets the local `llama-server` context window.
+
+```bash
+TSUNAMI_LLAMA_PARALLEL=1 ./tsu
+```
+
+controls the local `llama-server` slot count / parallel request setting.
+
+```bash
+TSUNAMI_MAX_TOKENS=8000 ./tsu
+```
+
+changes the backend generation cap for model responses.
+
+```bash
+TSUNAMI_DOCKER_REBUILD=0 TSUNAMI_DOCKER_BACKEND=1 ./tsu
+```
+
+reuses the existing Docker backend image instead of rebuilding it from the current tree on launch.
 
 ## docker mode
 
