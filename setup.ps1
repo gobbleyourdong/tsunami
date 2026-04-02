@@ -304,6 +304,26 @@ if (Test-Path (Join-Path $DIR ".git")) {
     & git clone https://github.com/gobbleyourdong/tsunami.git "$DIR"
 }
 
+# Ensure tsu.ps1 exists in install dir (may not be present in older installs)
+$tsuPs1Dest = Join-Path $DIR "tsu.ps1"
+if (-not (Test-Path $tsuPs1Dest)) {
+    # Download from the same branch/source as this script was fetched from
+    $tsuPs1Url = "https://raw.githubusercontent.com/jamesburton/tsunami/feature/windows-support/tsu.ps1"
+    try {
+        Invoke-RestMethod -Uri $tsuPs1Url -OutFile $tsuPs1Dest -ErrorAction Stop
+        Write-Ok "Downloaded tsu.ps1"
+    } catch {
+        # Fallback: generate a minimal launcher that delegates to tsunami_cmd
+        @'
+#!/usr/bin/env pwsh
+$DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $DIR
+& python "$DIR\tsunami_cmd" @args
+'@ | Set-Content $tsuPs1Dest -Encoding UTF8
+        Write-Ok "Generated tsu.ps1 launcher"
+    }
+}
+
 if (-not (Test-Path $DIR)) {
     Write-Fail "Repository clone failed — check your internet connection and try again."
     exit 1
@@ -560,9 +580,9 @@ if ($userPath -notlike "*$DIR*") {
     Write-Ok "Added $DIR to user PATH"
 }
 
-# 3. Add 'tsunami' alias to PowerShell profile
-$tsuExe  = Join-Path $DIR "tsu"
-$psAlias = "Set-Alias -Name tsunami -Value `"$tsuExe`""
+# 3. Add 'tsunami' function to PowerShell profile
+$tsuPs1  = Join-Path $DIR "tsu.ps1"
+$psAlias = "function tsunami { & `"$tsuPs1`" @args }"
 $profilePath = $PROFILE   # resolves to the current user's profile file
 
 if (-not (Test-Path (Split-Path $profilePath -Parent))) {
@@ -573,15 +593,27 @@ if (-not (Test-Path $profilePath)) {
     New-Item -ItemType File -Force -Path $profilePath | Out-Null
 }
 
-$profileContent = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
-if ($profileContent -notmatch "tsunami") {
+$profileContent = ""
+try { $profileContent = [System.IO.File]::ReadAllText($profilePath) } catch {}
+
+$correctEntry = $psAlias -replace '"', '"'
+if ($profileContent -match "function tsunami\s*\{[^}]*`"$([regex]::Escape($tsuPs1))`"") {
+    # Correct function already present
+    Write-Ok "'tsunami' already present in PowerShell profile"
+} elseif ($profileContent -match "tsunami") {
+    # Stale entry (old Set-Alias or wrong path) — replace it
+    $lines = $profileContent -split "`n"
+    $lines = $lines | Where-Object { $_ -notmatch '(Set-Alias.*tsunami|function tsunami)' }
+    $cleaned = ($lines -join "`n").TrimEnd()
+    $newContent = $cleaned + "`n`n# Tsunami AI Agent`n$psAlias`n`$env:PATH += `";$llamaBinDir`"`n"
+    [System.IO.File]::WriteAllText($profilePath, $newContent)
+    Write-Ok "Updated 'tsunami' entry in PowerShell profile"
+} else {
     Add-Content -Path $profilePath -Value ""
     Add-Content -Path $profilePath -Value "# Tsunami AI Agent"
     Add-Content -Path $profilePath -Value $psAlias
     Add-Content -Path $profilePath -Value "`$env:PATH += `";$llamaBinDir`""
-    Write-Ok "Added 'tsunami' alias to PowerShell profile ($profilePath)"
-} else {
-    Write-Ok "'tsunami' already present in PowerShell profile"
+    Write-Ok "Added 'tsunami' to PowerShell profile ($profilePath)"
 }
 
 # ---------------------------------------------------------------------------
