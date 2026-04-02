@@ -7,6 +7,22 @@ $ErrorActionPreference = 'Stop'
 $DIR = Split-Path -Parent (Resolve-Path $MyInvocation.MyCommand.Path)
 Set-Location $DIR
 
+# ── Auto-update on launch (silent, non-blocking) ────────────────────────────
+if (Test-Path "$DIR\.git") {
+    try {
+        $local = (git rev-parse HEAD 2>$null).Trim()
+        git fetch origin main --quiet 2>$null
+        $remote = (git rev-parse origin/main 2>$null).Trim()
+        if ($local -ne $remote) {
+            git pull --ff-only --quiet 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                $sha = (git rev-parse --short HEAD).Trim()
+                Write-Host "  Updated to $sha"
+            }
+        }
+    } catch { }  # offline is fine
+}
+
 # ── Command dispatch ──────────────────────────────────────────────────────────
 switch ($args[0]) {
     'update' {

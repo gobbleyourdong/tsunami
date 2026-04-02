@@ -3,6 +3,17 @@
 DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 cd "$DIR"
 
+# Auto-update on launch (silent, non-blocking)
+if [ -d "$DIR/.git" ]; then
+  _local=$(git rev-parse HEAD 2>/dev/null)
+  git fetch origin main --quiet 2>/dev/null
+  _remote=$(git rev-parse origin/main 2>/dev/null)
+  if [ "$_local" != "$_remote" ] 2>/dev/null; then
+    git pull --ff-only --quiet 2>/dev/null && \
+      echo "  Updated to $(git rev-parse --short HEAD)"
+  fi
+fi
+
 # Handle commands
 case "${1:-}" in
   update)
