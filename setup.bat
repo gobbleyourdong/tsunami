@@ -271,7 +271,8 @@ if /I "%MODE%"=="full" (
     echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8092 --ctx-size 16384 --parallel 4 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
 ) else (
     echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8090 --ctx-size 16384 --parallel 1 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
-    echo echo   Lite mode - 2B only >> "%TSUNAMI_DIR%\start.bat"
+    echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8092 --ctx-size 8192 --parallel 2 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
+    echo echo   Lite mode - 2B wave + 2B eddies >> "%TSUNAMI_DIR%\start.bat"
 )
 echo timeout /t 5 /nobreak ^>nul >> "%TSUNAMI_DIR%\start.bat"
 echo cd /d "%TSUNAMI_DIR%" >> "%TSUNAMI_DIR%\start.bat"
