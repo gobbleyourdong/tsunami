@@ -70,7 +70,12 @@ function Find-LlamaServer {
 }
 
 function Find-Model([string]$pattern) {
-    $found = Get-ChildItem -Path "$DIR\models" -Filter $pattern -EA SilentlyContinue | Select-Object -First 1
+    # Use Where-Object -like instead of -Filter: the Windows file API used by
+    # -Filter treats the first dot as an extension separator, so patterns like
+    # 'Qwen3.5*' fail to match 'Qwen3.5-27B-Q8_0.gguf'.
+    $found = Get-ChildItem -Path "$DIR\models" -EA SilentlyContinue |
+             Where-Object { $_.Name -like $pattern } |
+             Select-Object -First 1
     return $found?.FullName
 }
 
