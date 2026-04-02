@@ -184,6 +184,14 @@ class FileWrite(BaseTool):
             if p.name == "App.tsx" and "index.css" not in content and p.parent.name == "src":
                 if (p.parent / "index.css").exists():
                     content = 'import "./index.css"\n' + content
+            # Auto-inject React hook imports when hooks are used without import
+            # The 2B forgets this constantly — useState, useEffect, useRef etc.
+            if p.suffix == ".tsx" and "deliverables/" in str(p):
+                import re as _hook_re
+                hooks_used = set(_hook_re.findall(r'\b(useState|useEffect|useRef|useCallback|useMemo|useContext)\b', content))
+                if hooks_used and 'from "react"' not in content and "from 'react'" not in content:
+                    hook_list = ", ".join(sorted(hooks_used))
+                    content = f'import {{ {hook_list} }} from "react"\n' + content
 
             # Fix unicode escapes (\\u00f7 → ÷) — models double-escape these
             if "\\u00" in content or "\\u2" in content:
