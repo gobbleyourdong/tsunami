@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tsunami</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0a0a14;
+      --panel-bg: #0f0f1a;
+      --border: #1a1a2e;
+      --text: #e0e0e0;
+      --muted: #666;
+      --accent: #00cccc;
+      --input-bg: #111122;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 14px; overflow: hidden; }
+
+    /* Split pane container */
+    #app { display: flex; height: 100vh; }
+    .pane {
+      flex: 1; display: flex; flex-direction: column;
+      border-right: 1px solid var(--border);
+      min-width: 200px;
+      position: relative;
+    }
+    .pane:last-child { border-right: none; }
+
+    /* Pane header */
+    .pane-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 12px; background: var(--panel-bg);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px; color: var(--muted);
+      user-select: none;
+    }
+    .pane-header .title { color: var(--accent); font-weight: 600; }
+    .pane-header .close-btn {
+      cursor: pointer; color: var(--muted); padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .pane-header .close-btn:hover { background: #2a2a3a; color: #f44; }
+
+    /* Output area */
+    .output {
+      flex: 1; overflow-y: auto; padding: 12px;
+      font-size: 13px; line-height: 1.5;
+      white-space: pre-wrap; word-wrap: break-word;
+    }
+    .output .system { color: var(--muted); }
+    .output .user { color: var(--accent); }
+    .output .agent { color: var(--text); }
+    .output .tool { color: #888; font-size: 12px; }
+    .output .error { color: #f44; }
+
+    /* Input area */
+    .input-row {
+      display: flex; padding: 8px; gap: 8px;
+      border-top: 1px solid var(--border);
+      background: var(--panel-bg);
+    }
+    .input-row input {
+      flex: 1; background: var(--input-bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 10px 14px; color: var(--text);
+      font-family: inherit; font-size: 14px; outline: none;
+    }
+    .input-row input:focus { border-color: var(--accent); }
+    .input-row input::placeholder { color: var(--muted); }
+    .input-row button {
+      background: var(--accent); color: #000; border: none;
+      border-radius: 6px; padding: 10px 20px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+    .input-row button:hover { opacity: 0.9; }
+
+    /* Right-click menu */
+    .context-menu {
+      position: fixed; background: var(--panel-bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 4px 0; min-width: 160px; z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: none;
+    }
+    .context-menu.show { display: block; }
+    .context-menu button {
+      display: block; width: 100%; text-align: left;
+      background: none; border: none; color: var(--text);
+      padding: 8px 16px; cursor: pointer; font-family: inherit; font-size: 13px;
+    }
+    .context-menu button:hover { background: var(--border); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Splash */
+    .splash {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; color: var(--muted);
+    }
+    .splash h1 { color: var(--accent); font-size: 24px; margin-bottom: 8px; }
+    .splash p { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div class="context-menu" id="ctx-menu">
+    <button onclick="splitPane()">Split Right</button>
+    <button onclick="closePane()">Close Pane</button>
+  </div>
+
+  <script>
+    const WS_URL = "ws://localhost:3002"
+    let panes = []
+    let activePane = null
+    let ctxTargetPane = null
+
+    function createPane() {
+      const id = `pane-${Date.now()}`
+      const pane = {
+        id,
+        messages: [],
+        ws: null,
+        connected: false,
+      }
+
+      // Connect WebSocket
+      try {
+        pane.ws = new WebSocket(WS_URL)
+        pane.ws.onopen = () => { pane.connected = true; renderPanes() }
+        pane.ws.onclose = () => { pane.connected = false; renderPanes() }
+        pane.ws.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data)
+            if (data.type === "tool_call") {
+              pane.messages.push({ type: "tool", text: `[${data.name}] ${data.preview || ""}` })
+            } else if (data.type === "message") {
+              pane.messages.push({ type: "agent", text: data.text })
+            } else if (data.type === "error") {
+              pane.messages.push({ type: "error", text: data.text })
+            } else if (data.type === "complete") {
+              pane.messages.push({ type: "system", text: "— done —" })
+            }
+          } catch {
+            pane.messages.push({ type: "agent", text: e.data })
+          }
+          renderPanes()
+          // Auto-scroll
+          const output = document.querySelector(`#${id} .output`)
+          if (output) output.scrollTop = output.scrollHeight
+        }
+      } catch {}
+
+      panes.push(pane)
+      renderPanes()
+      return pane
+    }
+
+    function renderPanes() {
+      const app = document.getElementById("app")
+      app.innerHTML = ""
+
+      if (panes.length === 0) {
+        app.innerHTML = `<div class="splash"><h1>tsunami</h1><p>right-click to open a pane</p></div>`
+        return
+      }
+
+      panes.forEach(pane => {
+        const div = document.createElement("div")
+        div.className = "pane"
+        div.id = pane.id
+        div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e, pane) }
+
+        const status = pane.connected ? "●" : "○"
+        const statusColor = pane.connected ? "#4f4" : "#f44"
+
+        div.innerHTML = `
+          <div class="pane-header">
+            <span class="title">tsunami</span>
+            <span style="color:${statusColor}">${status}</span>
+          </div>
+          <div class="output">${pane.messages.map(m =>
+            `<div class="${m.type}">${escapeHtml(m.text)}</div>`
+          ).join("")}</div>
+          <div class="input-row">
+            <input placeholder="what do you want to build?" onkeydown="handleInput(event, '${pane.id}')" />
+            <button onclick="sendFromPane('${pane.id}')">→</button>
+          </div>
+        `
+        app.appendChild(div)
+      })
+    }
+
+    function handleInput(e, paneId) {
+      if (e.key === "Enter") sendFromPane(paneId)
+    }
+
+    function sendFromPane(paneId) {
+      const pane = panes.find(p => p.id === paneId)
+      if (!pane) return
+      const input = document.querySelector(`#${paneId} input`)
+      const text = input.value.trim()
+      if (!text) return
+
+      pane.messages.push({ type: "user", text })
+      input.value = ""
+
+      if (pane.ws && pane.ws.readyState === 1) {
+        pane.ws.send(JSON.stringify({ type: "prompt", text }))
+      } else {
+        pane.messages.push({ type: "error", text: "not connected — is the server running?" })
+      }
+      renderPanes()
+    }
+
+    function showContextMenu(e, pane) {
+      ctxTargetPane = pane
+      const menu = document.getElementById("ctx-menu")
+      menu.style.left = e.clientX + "px"
+      menu.style.top = e.clientY + "px"
+      menu.classList.add("show")
+    }
+
+    document.addEventListener("click", () => {
+      document.getElementById("ctx-menu").classList.remove("show")
+    })
+
+    function splitPane() {
+      createPane()
+      document.getElementById("ctx-menu").classList.remove("show")
+    }
+
+    function closePane() {
+      if (ctxTargetPane) {
+        if (ctxTargetPane.ws) ctxTargetPane.ws.close()
+        panes = panes.filter(p => p.id !== ctxTargetPane.id)
+        renderPanes()
+      }
+      document.getElementById("ctx-menu").classList.remove("show")
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div")
+      div.textContent = text
+      return div.innerHTML
+    }
+
+    // Right-click on empty space creates first pane
+    document.getElementById("app").oncontextmenu = (e) => {
+      if (panes.length === 0) {
+        e.preventDefault()
+        createPane()
+      }
+    }
+
+    // Start with one pane
+    createPane()
+  </script>
+</body>
+</html>
