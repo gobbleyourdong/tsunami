@@ -8,253 +8,393 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
       --bg: #0a0a14;
-      --panel-bg: #0f0f1a;
+      --panel: #0d0d1a;
+      --panel2: #111122;
       --border: #1a1a2e;
-      --text: #e0e0e0;
-      --muted: #666;
+      --border-active: #2a2a4a;
+      --text: #d4d4d8;
+      --muted: #555;
       --accent: #00cccc;
-      --input-bg: #111122;
+      --accent2: #0088aa;
+      --green: #4ec9b0;
+      --yellow: #dcdcaa;
+      --orange: #ce9178;
+      --red: #f44747;
+      --blue: #569cd6;
+      --purple: #c586c0;
+      --input: #0f0f1e;
+      --radius: 6px;
     }
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 14px; overflow: hidden; }
+    html, body, #app { height: 100%; background: var(--bg); color: var(--text); font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace; font-size: 13px; overflow: hidden; }
 
-    /* Split pane container */
-    #app { display: flex; height: 100vh; }
-    .pane {
-      flex: 1; display: flex; flex-direction: column;
+    /* ── Layout: 3-column IDE ── */
+    #app { display: grid; grid-template-columns: 48px 220px 1fr; grid-template-rows: 36px 1fr 200px; height: 100vh; }
+
+    /* Activity bar (far left) */
+    .activity-bar {
+      grid-row: 1 / -1; background: var(--bg);
       border-right: 1px solid var(--border);
-      min-width: 200px;
-      position: relative;
+      display: flex; flex-direction: column; align-items: center;
+      padding-top: 8px; gap: 4px;
     }
-    .pane:last-child { border-right: none; }
+    .activity-bar button {
+      width: 36px; height: 36px; border: none; background: none;
+      color: var(--muted); cursor: pointer; border-radius: var(--radius);
+      font-size: 16px; display: flex; align-items: center; justify-content: center;
+    }
+    .activity-bar button:hover, .activity-bar button.active { color: var(--text); background: var(--panel); }
 
-    /* Pane header */
-    .pane-header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 6px 12px; background: var(--panel-bg);
-      border-bottom: 1px solid var(--border);
+    /* Title bar */
+    .title-bar {
+      grid-column: 2 / -1;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 16px;
       font-size: 12px; color: var(--muted);
-      user-select: none;
+      -webkit-app-region: drag;
     }
-    .pane-header .title { color: var(--accent); font-weight: 600; }
-    .pane-header .close-btn {
-      cursor: pointer; color: var(--muted); padding: 2px 6px;
-      border-radius: 3px;
-    }
-    .pane-header .close-btn:hover { background: #2a2a3a; color: #f44; }
+    .title-bar .logo { color: var(--accent); font-weight: 700; margin-right: 16px; font-size: 13px; }
+    .title-bar .status { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+    .title-bar .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .title-bar .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .title-bar .dot.off { background: var(--red); }
 
-    /* Output area */
-    .output {
-      flex: 1; overflow-y: auto; padding: 12px;
-      font-size: 13px; line-height: 1.5;
-      white-space: pre-wrap; word-wrap: break-word;
+    /* Sidebar (file tree / tools) */
+    .sidebar {
+      background: var(--panel); border-right: 1px solid var(--border);
+      overflow-y: auto; font-size: 12px;
     }
-    .output .system { color: var(--muted); }
-    .output .user { color: var(--accent); }
-    .output .agent { color: var(--text); }
-    .output .tool { color: #888; font-size: 12px; }
-    .output .error { color: #f44; }
+    .sidebar-header { padding: 10px 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
+    .file-tree { padding: 0 4px; }
+    .file-item {
+      padding: 4px 8px 4px 20px; cursor: pointer; border-radius: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      color: var(--text); display: flex; align-items: center; gap: 6px;
+    }
+    .file-item:hover { background: var(--panel2); }
+    .file-item .icon { color: var(--muted); font-size: 11px; }
+    .file-item.folder .icon { color: var(--yellow); }
+    .file-item.tsx .icon { color: var(--blue); }
+    .file-item.ts .icon { color: var(--green); }
+    .file-item.css .icon { color: var(--purple); }
+    .file-item.json .icon { color: var(--orange); }
 
-    /* Input area */
-    .input-row {
-      display: flex; padding: 8px; gap: 8px;
-      border-top: 1px solid var(--border);
-      background: var(--panel-bg);
+    /* Main content area */
+    .main {
+      background: var(--panel2); overflow: auto;
+      display: flex; flex-direction: column;
     }
-    .input-row input {
-      flex: 1; background: var(--input-bg); border: 1px solid var(--border);
-      border-radius: 6px; padding: 10px 14px; color: var(--text);
-      font-family: inherit; font-size: 14px; outline: none;
+
+    /* Tab bar */
+    .tab-bar {
+      display: flex; background: var(--panel); border-bottom: 1px solid var(--border);
+      min-height: 32px; overflow-x: auto;
     }
-    .input-row input:focus { border-color: var(--accent); }
-    .input-row input::placeholder { color: var(--muted); }
-    .input-row button {
+    .tab {
+      padding: 6px 16px; cursor: pointer; border-right: 1px solid var(--border);
+      color: var(--muted); font-size: 12px; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); background: var(--panel2); border-bottom: 2px solid var(--accent); }
+
+    /* Content area (chat / preview / code) */
+    .content { flex: 1; overflow-y: auto; padding: 16px; }
+
+    /* Chat messages */
+    .msg { margin-bottom: 12px; line-height: 1.6; }
+    .msg.user { color: var(--accent); }
+    .msg.user::before { content: "› "; color: var(--accent); }
+    .msg.agent { color: var(--text); padding-left: 8px; border-left: 2px solid var(--border); }
+    .msg.tool { color: var(--muted); font-size: 12px; }
+    .msg.tool::before { content: "⚙ "; }
+    .msg.error { color: var(--red); }
+    .msg.system { color: var(--muted); font-style: italic; font-size: 12px; }
+
+    /* Welcome screen */
+    .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--muted); }
+    .welcome h1 { color: var(--accent); font-size: 28px; font-weight: 300; margin-bottom: 4px; letter-spacing: 4px; }
+    .welcome p { font-size: 13px; margin-bottom: 24px; }
+    .welcome .hint { font-size: 12px; color: var(--border-active); }
+
+    /* Terminal panel (bottom) */
+    .terminal {
+      grid-column: 2 / -1;
+      background: var(--bg); border-top: 1px solid var(--border);
+      display: flex; flex-direction: column;
+    }
+    .terminal-header {
+      display: flex; align-items: center; padding: 6px 12px;
+      background: var(--panel); border-bottom: 1px solid var(--border);
+      font-size: 11px; color: var(--muted); gap: 16px;
+    }
+    .terminal-header span.active { color: var(--text); border-bottom: 1px solid var(--accent); padding-bottom: 2px; }
+    .terminal-output { flex: 1; overflow-y: auto; padding: 8px 12px; font-size: 12px; }
+    .terminal-output .line { color: var(--muted); }
+    .terminal-output .line.info { color: var(--green); }
+    .terminal-output .line.warn { color: var(--yellow); }
+    .terminal-output .line.err { color: var(--red); }
+
+    /* Input */
+    .input-area {
+      display: flex; padding: 8px 12px; gap: 8px;
+      border-top: 1px solid var(--border); background: var(--panel);
+    }
+    .input-area input {
+      flex: 1; background: var(--input); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px; color: var(--text);
+      font-family: inherit; font-size: 13px; outline: none;
+    }
+    .input-area input:focus { border-color: var(--accent); }
+    .input-area input::placeholder { color: var(--muted); }
+    .input-area button {
       background: var(--accent); color: #000; border: none;
-      border-radius: 6px; padding: 10px 20px; font-weight: 600;
-      cursor: pointer; font-family: inherit;
+      border-radius: var(--radius); padding: 10px 20px; font-weight: 600;
+      cursor: pointer; font-family: inherit; font-size: 13px;
     }
-    .input-row button:hover { opacity: 0.9; }
+    .input-area button:hover { background: var(--accent2); }
 
-    /* Right-click menu */
-    .context-menu {
-      position: fixed; background: var(--panel-bg); border: 1px solid var(--border);
-      border-radius: 6px; padding: 4px 0; min-width: 160px; z-index: 100;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: none;
-    }
-    .context-menu.show { display: block; }
-    .context-menu button {
-      display: block; width: 100%; text-align: left;
-      background: none; border: none; color: var(--text);
-      padding: 8px 16px; cursor: pointer; font-family: inherit; font-size: 13px;
-    }
-    .context-menu button:hover { background: var(--border); }
+    /* Preview iframe */
+    .preview-frame { width: 100%; height: 100%; border: none; background: #fff; border-radius: 4px; }
 
     /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
-    /* Splash */
-    .splash {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; height: 100%; color: var(--muted);
+    /* Responsive: collapse sidebar on small screens */
+    @media (max-width: 800px) {
+      #app { grid-template-columns: 48px 1fr; }
+      .sidebar { display: none; }
     }
-    .splash h1 { color: var(--accent); font-size: 24px; margin-bottom: 8px; }
-    .splash p { font-size: 13px; }
   </style>
 </head>
 <body>
-  <div id="app"></div>
-  <div class="context-menu" id="ctx-menu">
-    <button onclick="splitPane()">Split Right</button>
-    <button onclick="closePane()">Close Pane</button>
+  <div id="app">
+    <!-- Activity Bar -->
+    <div class="activity-bar">
+      <button class="active" onclick="showView('chat')" title="Chat">💬</button>
+      <button onclick="showView('files')" title="Files">📁</button>
+      <button onclick="showView('preview')" title="Preview">👁</button>
+      <div style="flex:1"></div>
+      <button onclick="showView('settings')" title="Settings">⚙</button>
+    </div>
+
+    <!-- Title Bar -->
+    <div class="title-bar">
+      <span class="logo">TSUNAMI</span>
+      <span id="project-name">no project</span>
+      <div class="status">
+        <span id="iter-count"></span>
+        <span>wave</span><div class="dot" id="wave-dot"></div>
+        <span>eddy</span><div class="dot" id="eddy-dot"></div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">Explorer</div>
+      <div class="file-tree" id="file-tree">
+        <div style="padding: 20px 12px; color: var(--muted); font-size: 12px;">No project yet</div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main">
+      <div class="tab-bar" id="tab-bar">
+        <div class="tab active" onclick="switchTab('chat')">Chat</div>
+      </div>
+      <div class="content" id="content">
+        <div class="welcome">
+          <h1>tsunami</h1>
+          <p>what do you want to build?</p>
+          <div class="hint">type below to start</div>
+        </div>
+      </div>
+      <div class="input-area">
+        <input id="prompt-input" placeholder="build a calculator..." onkeydown="if(event.key==='Enter')sendPrompt()" autofocus />
+        <button onclick="sendPrompt()">Build →</button>
+      </div>
+    </div>
+
+    <!-- Terminal -->
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="active">Output</span>
+        <span>Problems</span>
+        <span>Terminal</span>
+      </div>
+      <div class="terminal-output" id="terminal">
+        <div class="line info">Tsunami ready. Waiting for prompt.</div>
+      </div>
+    </div>
   </div>
 
   <script>
     const WS_URL = "ws://localhost:3002"
-    let panes = []
-    let activePane = null
-    let ctxTargetPane = null
+    let ws = null
+    let messages = []
+    let connected = false
+    let currentView = 'chat'
 
-    function createPane() {
-      const id = `pane-${Date.now()}`
-      const pane = {
-        id,
-        messages: [],
-        ws: null,
-        connected: false,
+    // Connect WebSocket
+    function connect() {
+      ws = new WebSocket(WS_URL)
+      ws.onopen = () => {
+        connected = true
+        document.getElementById('wave-dot').className = 'dot on'
+        termLog('Connected to agent', 'info')
       }
-
-      // Connect WebSocket
-      try {
-        pane.ws = new WebSocket(WS_URL)
-        pane.ws.onopen = () => { pane.connected = true; renderPanes() }
-        pane.ws.onclose = () => { pane.connected = false; renderPanes() }
-        pane.ws.onmessage = (e) => {
-          try {
-            const data = JSON.parse(e.data)
-            if (data.type === "tool_call") {
-              pane.messages.push({ type: "tool", text: `[${data.name}] ${data.preview || ""}` })
-            } else if (data.type === "message") {
-              pane.messages.push({ type: "agent", text: data.text })
-            } else if (data.type === "error") {
-              pane.messages.push({ type: "error", text: data.text })
-            } else if (data.type === "complete") {
-              pane.messages.push({ type: "system", text: "— done —" })
-            }
-          } catch {
-            pane.messages.push({ type: "agent", text: e.data })
-          }
-          renderPanes()
-          // Auto-scroll
-          const output = document.querySelector(`#${id} .output`)
-          if (output) output.scrollTop = output.scrollHeight
+      ws.onclose = () => {
+        connected = false
+        document.getElementById('wave-dot').className = 'dot off'
+        termLog('Disconnected', 'warn')
+        setTimeout(connect, 3000)
+      }
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data)
+          handleMessage(data)
+        } catch {
+          addMessage('agent', e.data)
         }
-      } catch {}
-
-      panes.push(pane)
-      renderPanes()
-      return pane
-    }
-
-    function renderPanes() {
-      const app = document.getElementById("app")
-      app.innerHTML = ""
-
-      if (panes.length === 0) {
-        app.innerHTML = `<div class="splash"><h1>tsunami</h1><p>right-click to open a pane</p></div>`
-        return
       }
-
-      panes.forEach(pane => {
-        const div = document.createElement("div")
-        div.className = "pane"
-        div.id = pane.id
-        div.oncontextmenu = (e) => { e.preventDefault(); showContextMenu(e, pane) }
-
-        const status = pane.connected ? "●" : "○"
-        const statusColor = pane.connected ? "#4f4" : "#f44"
-
-        div.innerHTML = `
-          <div class="pane-header">
-            <span class="title">tsunami</span>
-            <span style="color:${statusColor}">${status}</span>
-          </div>
-          <div class="output">${pane.messages.map(m =>
-            `<div class="${m.type}">${escapeHtml(m.text)}</div>`
-          ).join("")}</div>
-          <div class="input-row">
-            <input placeholder="what do you want to build?" onkeydown="handleInput(event, '${pane.id}')" />
-            <button onclick="sendFromPane('${pane.id}')">→</button>
-          </div>
-        `
-        app.appendChild(div)
-      })
     }
 
-    function handleInput(e, paneId) {
-      if (e.key === "Enter") sendFromPane(paneId)
+    function handleMessage(data) {
+      if (data.type === 'tool_call') {
+        addMessage('tool', `${data.name} ${data.preview || ''}`)
+        termLog(`[${data.name}] ${data.preview || ''}`)
+      } else if (data.type === 'message') {
+        addMessage('agent', data.text)
+      } else if (data.type === 'error') {
+        addMessage('error', data.text)
+        termLog(data.text, 'err')
+      } else if (data.type === 'complete') {
+        addMessage('system', `Done in ${data.iterations} iterations`)
+        termLog(`Complete: ${data.iterations} iterations`, 'info')
+        // Update project name
+        if (data.text && data.text.includes('deliverables/')) {
+          const match = data.text.match(/deliverables\/([^\s/]+)/)
+          if (match) document.getElementById('project-name').textContent = match[1]
+        }
+      } else if (data.type === 'files') {
+        updateFileTree(data.files)
+      }
     }
 
-    function sendFromPane(paneId) {
-      const pane = panes.find(p => p.id === paneId)
-      if (!pane) return
-      const input = document.querySelector(`#${paneId} input`)
+    function sendPrompt() {
+      const input = document.getElementById('prompt-input')
       const text = input.value.trim()
       if (!text) return
 
-      pane.messages.push({ type: "user", text })
-      input.value = ""
+      addMessage('user', text)
+      input.value = ''
 
-      if (pane.ws && pane.ws.readyState === 1) {
-        pane.ws.send(JSON.stringify({ type: "prompt", text }))
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'prompt', text }))
+        termLog(`Prompt: ${text}`, 'info')
       } else {
-        pane.messages.push({ type: "error", text: "not connected — is the server running?" })
+        addMessage('error', 'Not connected — is the server running?')
       }
-      renderPanes()
     }
 
-    function showContextMenu(e, pane) {
-      ctxTargetPane = pane
-      const menu = document.getElementById("ctx-menu")
-      menu.style.left = e.clientX + "px"
-      menu.style.top = e.clientY + "px"
-      menu.classList.add("show")
+    function addMessage(type, text) {
+      messages.push({ type, text })
+      renderMessages()
     }
 
-    document.addEventListener("click", () => {
-      document.getElementById("ctx-menu").classList.remove("show")
-    })
-
-    function splitPane() {
-      createPane()
-      document.getElementById("ctx-menu").classList.remove("show")
+    function renderMessages() {
+      if (currentView !== 'chat') return
+      const content = document.getElementById('content')
+      content.innerHTML = messages.map(m =>
+        `<div class="msg ${m.type}">${escapeHtml(m.text)}</div>`
+      ).join('')
+      content.scrollTop = content.scrollHeight
     }
 
-    function closePane() {
-      if (ctxTargetPane) {
-        if (ctxTargetPane.ws) ctxTargetPane.ws.close()
-        panes = panes.filter(p => p.id !== ctxTargetPane.id)
-        renderPanes()
+    function termLog(text, cls = '') {
+      const terminal = document.getElementById('terminal')
+      const line = document.createElement('div')
+      line.className = `line ${cls}`
+      line.textContent = `${new Date().toLocaleTimeString()} ${text}`
+      terminal.appendChild(line)
+      terminal.scrollTop = terminal.scrollHeight
+    }
+
+    function showView(view) {
+      currentView = view
+      document.querySelectorAll('.activity-bar button').forEach(b => b.classList.remove('active'))
+      event.target.classList.add('active')
+
+      const content = document.getElementById('content')
+      const tabBar = document.getElementById('tab-bar')
+
+      if (view === 'chat') {
+        tabBar.innerHTML = '<div class="tab active">Chat</div>'
+        renderMessages()
+      } else if (view === 'preview') {
+        tabBar.innerHTML = '<div class="tab active">Preview</div>'
+        content.innerHTML = '<iframe class="preview-frame" src="http://localhost:9876"></iframe>'
+      } else if (view === 'files') {
+        tabBar.innerHTML = '<div class="tab active">Files</div>'
+        content.innerHTML = '<div style="padding:20px;color:var(--muted)">File browser — coming soon</div>'
+      } else if (view === 'settings') {
+        tabBar.innerHTML = '<div class="tab active">Settings</div>'
+        content.innerHTML = `
+          <div style="padding:20px;max-width:400px">
+            <h3 style="margin-bottom:16px">Settings</h3>
+            <label style="display:block;margin-bottom:12px;font-size:12px;color:var(--muted)">
+              Wave endpoint
+              <input value="http://localhost:8090" style="margin-top:4px;width:100%;background:var(--input);border:1px solid var(--border);border-radius:var(--radius);padding:8px;color:var(--text);font-family:inherit" />
+            </label>
+            <label style="display:block;margin-bottom:12px;font-size:12px;color:var(--muted)">
+              Eddy endpoint
+              <input value="http://localhost:8092" style="margin-top:4px;width:100%;background:var(--input);border:1px solid var(--border);border-radius:var(--radius);padding:8px;color:var(--text);font-family:inherit" />
+            </label>
+            <label style="display:block;margin-bottom:12px;font-size:12px;color:var(--muted)">
+              Max iterations
+              <input type="number" value="60" style="margin-top:4px;width:100%;background:var(--input);border:1px solid var(--border);border-radius:var(--radius);padding:8px;color:var(--text);font-family:inherit" />
+            </label>
+          </div>`
       }
-      document.getElementById("ctx-menu").classList.remove("show")
+    }
+
+    function switchTab(name) {
+      if (name === 'chat') showView('chat')
+    }
+
+    function updateFileTree(files) {
+      const tree = document.getElementById('file-tree')
+      tree.innerHTML = files.map(f => {
+        const ext = f.split('.').pop()
+        const cls = ['tsx','jsx'].includes(ext) ? 'tsx' : ['ts'].includes(ext) ? 'ts' : ['css'].includes(ext) ? 'css' : ['json'].includes(ext) ? 'json' : ''
+        return `<div class="file-item ${cls}"><span class="icon">📄</span>${f}</div>`
+      }).join('')
     }
 
     function escapeHtml(text) {
-      const div = document.createElement("div")
-      div.textContent = text
-      return div.innerHTML
+      const d = document.createElement('div')
+      d.textContent = text
+      return d.innerHTML
     }
 
-    // Right-click on empty space creates first pane
-    document.getElementById("app").oncontextmenu = (e) => {
-      if (panes.length === 0) {
-        e.preventDefault()
-        createPane()
-      }
+    // Health check
+    async function checkHealth() {
+      try {
+        const r = await fetch('http://localhost:8090/health')
+        document.getElementById('wave-dot').className = r.ok ? 'dot on' : 'dot off'
+      } catch { document.getElementById('wave-dot').className = 'dot off' }
+      try {
+        const r = await fetch('http://localhost:8092/health')
+        document.getElementById('eddy-dot').className = r.ok ? 'dot on' : 'dot off'
+      } catch { document.getElementById('eddy-dot').className = 'dot off' }
     }
 
-    // Start with one pane
-    createPane()
+    // Init
+    connect()
+    checkHealth()
+    setInterval(checkHealth, 5000)
   </script>
 </body>
 </html>
