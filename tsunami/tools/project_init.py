@@ -53,7 +53,13 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
         if (SCAFFOLDS_DIR / "pixijs-game").exists():
             return "pixijs-game"
 
-    # 4. Needs persistence (database, accounts, saving state)
+    # 4. Needs realtime (chat, live, multiplayer, notifications)
+    if needs("chat", "realtime", "live", "multiplayer", "websocket", "socket",
+             "notification", "collab", "sync"):
+        if (SCAFFOLDS_DIR / "realtime").exists():
+            return "realtime"
+
+    # 5. Needs persistence (database, accounts, saving state)
     if needs("database", "login", "auth", "account", "persist", "save", "crud",
              "backend", "api", "server", "express", "sqlite", "todo", "saas",
              "track", "log", "history", "bookmark", "favorite"):
