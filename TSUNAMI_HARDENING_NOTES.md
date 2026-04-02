@@ -22,7 +22,7 @@ This now replaces the original "best effort" installer with a usable in-repo har
    The original attempted `pip3 install`, `--break-system-packages`, and `--user`. The hardened version uses `python3 -m venv`, installs from repo-shipped `requirements.lock`, and the launcher now prefers `./.venv/bin/python`.
 
 6. Node installs are no longer automatic.
-   The original tried to install Node itself. The hardened version only uses existing `node` and runs `npm ci` only if `cli/package-lock.json` exists. You can explicitly opt into `ALLOW_UNPINNED_NPM=1`, but the default path skips mutable npm installs.
+   The original tried to install Node itself. The hardened version only uses existing `node`, installs the CLI with `npm ci` from tracked `cli/package-lock.json`, and only falls back to mutable npm installs if you explicitly opt into `ALLOW_UNPINNED_NPM=1`.
 
 7. Shell persistence is opt-in.
    The original appended aliases and `PATH` changes to the first shell rc file it found. The hardened version does this only when `INSTALL_SHELL_ALIAS=1`.
@@ -32,7 +32,6 @@ This now replaces the original "best effort" installer with a usable in-repo har
 
 ## What is still missing
 
-- `cli/package-lock.json`, if you want the Ink CLI install path to be hardened as well
 - optional browser/image extras, if you want Playwright or diffusion dependencies bundled into setup
 - the legacy `tsu update` path, if you want runtime updates to be ref-pinned too
 

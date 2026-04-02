@@ -2,13 +2,13 @@
   "name": "tsunami-cli",
   "version": "1.0.0",
   "type": "module",
-  "main": "app.js",
+  "main": "dist/tsunami.js",
   "bin": {
     "tsunami": "./dist/tsunami.js"
   },
   "scripts": {
-    "dev": "node app.js",
-    "build": "npx esbuild app.js --bundle --platform=node --format=esm --outfile=dist/tsunami.js --external:yoga-wasm-web --banner:js='#!/usr/bin/env node'"
+    "dev": "tsx app.jsx",
+    "build": "esbuild app.jsx --bundle --platform=node --format=esm --outfile=dist/tsunami.js --external:yoga-wasm-web --banner:js='#!/usr/bin/env node'"
   },
   "dependencies": {
     "ink": "^5.2.0",

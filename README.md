@@ -102,7 +102,8 @@ runs on any nvidia gpu with 12GB+ vram. macs with 16GB+ unified memory. no cloud
 
 - `setup.sh` is the supported installer. it replaces the old best-effort bootstrap flow.
 - `INSTALL_SHELL_ALIAS=1 ./setup.sh` adds a `tsunami` alias to your shell rc if you want it.
-- the python repl path works out of the box. the ink cli is only installed when `cli/package-lock.json` exists or you explicitly allow `ALLOW_UNPINNED_NPM=1`.
+- if `node` and `npm` are present, setup installs the ink cli with `npm ci` from the tracked `cli/package-lock.json`.
+- the python repl path is still the fallback when node is unavailable.
 
 ---
 
