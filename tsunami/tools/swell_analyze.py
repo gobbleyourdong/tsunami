@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 
 from .base import BaseTool, ToolResult
+from .filesystem import _resolve_path
 
 log = logging.getLogger("tsunami.swell_analyze")
 
@@ -46,15 +47,12 @@ class SwellAnalyze(BaseTool):
         if not directory or not question:
             return ToolResult("directory and question required", is_error=True)
 
-        # Resolve directory
-        root = Path(directory).expanduser().resolve()
-        if not root.exists():
-            stripped = directory.lstrip("/")
-            root = Path(self.config.workspace_dir).parent / stripped
-        if not root.exists():
-            root = Path(self.config.workspace_dir).parent / directory.replace("/workspace/", "workspace/")
+        # Resolve directory through the shared workspace-aware resolver
+        root = _resolve_path(directory, self.config.workspace_dir)
         if not root.exists():
             return ToolResult(f"Directory not found: {directory}", is_error=True)
+        if not root.is_dir():
+            return ToolResult(f"Not a directory: {directory}", is_error=True)
 
         files = sorted(root.glob(pattern))
         if not files:
@@ -93,7 +91,7 @@ class SwellAnalyze(BaseTool):
         # Save results to disk
         if not output_path:
             output_path = str(root / "_swarm_results.txt")
-        out = Path(output_path)
+        out = _resolve_path(output_path, self.config.workspace_dir)
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w") as f:
             for r in results:

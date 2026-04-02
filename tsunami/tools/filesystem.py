@@ -11,6 +11,30 @@ from pathlib import Path
 from .base import BaseTool, ToolResult
 
 
+def _normalize_workspace_like_path(path: str, workspace_dir: str) -> str:
+    """Rewrite common host/Docker workspace path variants to the configured workspace."""
+    normalized = path.replace("\\", "/")
+    workspace = Path(workspace_dir).resolve()
+    repo_root = workspace.parent
+
+    variants = {
+        "/app/workspace": str(workspace),
+        "/workspace/tsunami/workspace": str(workspace),
+        "/workspace/tsunami/deliverables": str(workspace / "deliverables"),
+        "/workspace/deliverables": str(workspace / "deliverables"),
+        "/workspace": str(workspace),
+        str(repo_root / "deliverables"): str(workspace / "deliverables"),
+    }
+
+    for src, dst in sorted(variants.items(), key=lambda item: len(item[0]), reverse=True):
+        if normalized == src:
+            return dst
+        if normalized.startswith(src + "/"):
+            return dst + normalized[len(src):]
+
+    return normalized
+
+
 def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
     """Check if a write path is safe. Returns error message or None if OK."""
     resolved = str(p.resolve())
@@ -62,6 +86,7 @@ def _resolve_path(path: str, workspace_dir: str) -> Path:
     - deliverables/x/file.tsx
     - /absolute/path/to/file.tsx
     """
+    path = _normalize_workspace_like_path(path, workspace_dir)
     p = Path(path)
 
     # Already absolute — use as-is

@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 
 from .base import BaseTool, ToolResult
+from .filesystem import _resolve_path
 
 
 class MatchGlob(BaseTool):
@@ -31,9 +32,11 @@ class MatchGlob(BaseTool):
 
     async def execute(self, pattern: str, directory: str = ".", limit: int = 50, **kw) -> ToolResult:
         try:
-            root = Path(directory).expanduser().resolve()
+            root = _resolve_path(directory, self.config.workspace_dir)
             if not root.exists():
                 return ToolResult(f"Directory not found: {directory}", is_error=True)
+            if not root.is_dir():
+                return ToolResult(f"Not a directory: {directory}", is_error=True)
 
             matches = sorted(root.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
             results = [str(m.relative_to(root)) for m in matches[:limit]]
@@ -74,7 +77,11 @@ class MatchGrep(BaseTool):
     async def execute(self, pattern: str, directory: str = ".", file_pattern: str = "",
                       limit: int = 30, **kw) -> ToolResult:
         try:
-            root = Path(directory).expanduser().resolve()
+            root = _resolve_path(directory, self.config.workspace_dir)
+            if not root.exists():
+                return ToolResult(f"Directory not found: {directory}", is_error=True)
+            if not root.is_dir():
+                return ToolResult(f"Not a directory: {directory}", is_error=True)
 
             if shutil.which("grep"):
                 cmd = ["grep", "-rn", "--include", file_pattern or "*", "-E", pattern, str(root)]
