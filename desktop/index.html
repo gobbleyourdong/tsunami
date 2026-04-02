@@ -167,7 +167,11 @@
       ws = new WebSocket(WS_AGENT)
       ws.onopen = () => { addTerm("Connected", "cmd"); updateDots() }
       ws.onclose = () => { updateDots(); setTimeout(connectAgent, 3000) }
+      let replayDone = false
       ws.onmessage = e => {
+        // Skip replay buffer if we already have messages from localStorage
+        if (!replayDone && messages.length > 0) { replayDone = true; return }
+        replayDone = true
         try { handleMsg(JSON.parse(e.data)) } catch { addChat("agent", e.data) }
       }
     }
