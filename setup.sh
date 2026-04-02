@@ -139,12 +139,18 @@ cd "$DIR"
 
 # --- Python deps ---
 echo "  → Installing Python dependencies..."
-# Core deps only — no torch/diffusers (huge, not needed for agent core)
 DEPS="httpx pyyaml ddgs pillow"
 pip3 install -q $DEPS 2>/dev/null || \
 pip3 install --break-system-packages -q $DEPS 2>/dev/null || \
 pip3 install --user -q $DEPS 2>/dev/null || \
 echo "  ⚠ pip install failed — try: pip3 install $DEPS"
+
+# SD-Turbo image generation (~2GB model, auto-downloads on first use)
+echo "  → Installing image generation (SD-Turbo)..."
+pip3 install -q diffusers torch transformers accelerate 2>/dev/null || \
+pip3 install --break-system-packages -q diffusers torch transformers accelerate 2>/dev/null || \
+pip3 install --user -q diffusers torch transformers accelerate 2>/dev/null || \
+echo "  ⚠ diffusers install failed — image gen won't work (pip3 install diffusers torch)"
 
 # Optional: playwright for undertow QA
 pip3 install -q playwright 2>/dev/null && python3 -m playwright install chromium 2>/dev/null && \

@@ -55,8 +55,8 @@ class GenerateImage(BaseTool):
         p = (Path(self.config.workspace_dir) / clean).resolve()
         p.parent.mkdir(parents=True, exist_ok=True)
 
-        # Try backends in order: diffusion server > DALL-E > placeholder
-        for backend in [self._try_diffusion_server, self._try_openai_api, self._try_placeholder]:
+        # SD-Turbo in-process first, placeholder fallback
+        for backend in [self._try_sd_turbo_local, self._try_placeholder]:
             result = await backend(prompt, p, width, height, style)
             if not result.is_error:
                 return result
@@ -64,11 +64,10 @@ class GenerateImage(BaseTool):
         return ToolResult("No image generation backend available", is_error=True)
 
     async def _try_diffusion_server(self, prompt: str, path: Path, w: int, h: int, style: str) -> ToolResult:
-        """Try the TSUNAMI diffusion server (Qwen-Image via Docker)."""
+        """Try the SD-Turbo server on :8091."""
         try:
             import httpx
-            async with httpx.AsyncClient(timeout=None) as client:
-                # Health check first
+            async with httpx.AsyncClient(timeout=120) as client:
                 try:
                     resp = await client.get("http://localhost:8091/health")
                     if resp.status_code != 200:
@@ -76,20 +75,14 @@ class GenerateImage(BaseTool):
                 except Exception:
                     return ToolResult("Diffusion server not running on :8091", is_error=True)
 
-                # Generate — convert host path to Docker container path
-                ark_dir = str(Path(__file__).parent.parent.parent)
-                container_path = str(path).replace(ark_dir, "/ark")
                 resp = await client.post("http://localhost:8091/generate", json={
                     "prompt": prompt,
-                    "width": w,
-                    "height": h,
-                    "save_path": container_path,
-                    "steps": 30,
-                    "cfg": 4.0,
+                    "width": min(w, 512),
+                    "height": min(h, 512),
+                    "steps": 1,
                 })
 
                 if resp.status_code == 200:
-                    # Always write response bytes to host path
                     if resp.headers.get("content-type", "").startswith("image"):
                         path.parent.mkdir(parents=True, exist_ok=True)
                         path.write_bytes(resp.content)
@@ -100,6 +93,48 @@ class GenerateImage(BaseTool):
                     return ToolResult(f"Diffusion error: {error}", is_error=True)
         except Exception as e:
             return ToolResult(f"Diffusion server error: {e}", is_error=True)
+
+    async def _try_sd_turbo_local(self, prompt: str, path: Path, w: int, h: int, style: str) -> ToolResult:
+        """Run SD-Turbo in-process. Auto-downloads the model on first use (~2GB)."""
+        try:
+            import torch
+            from diffusers import AutoPipelineForText2Image
+        except ImportError:
+            return ToolResult("diffusers not installed (pip install diffusers torch)", is_error=True)
+
+        try:
+            import torch
+
+            # Lazy-load the pipeline (cached after first call)
+            if not hasattr(self, '_sd_pipe'):
+                dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                log.info(f"Loading SD-Turbo on {device} (first time downloads ~2GB)...")
+                self._sd_pipe = AutoPipelineForText2Image.from_pretrained(
+                    "stabilityai/sd-turbo",
+                    torch_dtype=dtype,
+                    variant="fp16" if dtype == torch.float16 else None,
+                )
+                self._sd_pipe.to(device)
+                log.info("SD-Turbo loaded")
+
+            import time
+            t0 = time.time()
+            image = self._sd_pipe(
+                prompt=prompt,
+                num_inference_steps=1,
+                guidance_scale=0.0,
+                width=min(w, 512),
+                height=min(h, 512),
+            ).images[0]
+            elapsed = time.time() - t0
+
+            path.parent.mkdir(parents=True, exist_ok=True)
+            image.save(str(path))
+            return ToolResult(f"Image generated and saved to {path} (SD-Turbo, {elapsed:.1f}s)")
+
+        except Exception as e:
+            return ToolResult(f"SD-Turbo error: {e}", is_error=True)
 
     async def _try_comfyui(self, prompt: str, path: Path, w: int, h: int, style: str) -> ToolResult:
         """Try local ComfyUI instance."""
