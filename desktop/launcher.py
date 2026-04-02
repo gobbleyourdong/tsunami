@@ -253,43 +253,81 @@ def cleanup():
             proc.kill()
 
 
+def get_ram_gb():
+    """Get total system RAM in GB."""
+    import platform
+    try:
+        if platform.system() == "Darwin":
+            out = subprocess.check_output(["sysctl", "-n", "hw.memsize"], text=True)
+            return int(out.strip()) // (1024**3)
+        elif platform.system() == "Windows":
+            import ctypes
+            mem = ctypes.c_ulonglong(0)
+            ctypes.windll.kernel32.GetPhysicallyInstalledSystemMemory(ctypes.byref(mem))
+            return mem.value // (1024 * 1024)  # KB to GB
+        else:
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        return int(line.split()[1]) // (1024 * 1024)  # KB to GB
+    except Exception:
+        pass
+    return 8  # safe default
+
+
 def main():
     print("  ╔══════════════════════════╗")
     print("  ║   TSUNAMI DESKTOP        ║")
     print("  ╚══════════════════════════╝")
     print()
 
+    # Detect RAM and pick mode
+    ram = get_ram_gb()
+    print(f"  RAM: {ram}GB")
+
+    if ram < 6:
+        mode = "lite"
+        print("  → Lite mode (2B only — low memory detected)")
+    else:
+        mode = "full"
+        print("  → Full mode (9B wave + 2B eddies)")
+
     # Find or download models
     wave_model = find_model("*9B*Q4*.gguf") or find_model("*Qwen*9B*.gguf")
     eddy_model = find_model("*2B*Q4*.gguf") or find_model("*Qwen*2B*.gguf")
 
-    if not wave_model or not eddy_model:
-        MODELS_DIR.mkdir(parents=True, exist_ok=True)
-        import urllib.request
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    import urllib.request
 
-        def download_model(url, dest):
-            name = Path(dest).name
-            if Path(dest).exists():
-                return
-            print(f"  → Downloading {name}...")
-            print(f"    This is a one-time download. Please wait.")
-            urllib.request.urlretrieve(url, dest)
-            print(f"  ✓ {name}")
+    def download_model(url, dest):
+        name = Path(dest).name
+        if Path(dest).exists():
+            return
+        print(f"  → Downloading {name}...")
+        print(f"    One-time download. Please wait.")
+        urllib.request.urlretrieve(url, dest)
+        print(f"  ✓ {name}")
 
-        if not eddy_model:
-            dest = str(MODELS_DIR / "Qwen3.5-2B-Q4_K_M.gguf")
-            download_model("https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf", dest)
-            eddy_model = dest
+    # Always need 2B (used as eddy in full mode, or as the brain in lite mode)
+    if not eddy_model:
+        dest = str(MODELS_DIR / "Qwen3.5-2B-Q4_K_M.gguf")
+        download_model("https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf", dest)
+        eddy_model = dest
 
-        if not wave_model:
-            dest = str(MODELS_DIR / "Qwen3.5-9B-Q4_K_M.gguf")
-            download_model("https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf", dest)
-            wave_model = dest
+    # Only download 9B if we have enough RAM
+    if mode == "full" and not wave_model:
+        dest = str(MODELS_DIR / "Qwen3.5-9B-Q4_K_M.gguf")
+        download_model("https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf", dest)
+        wave_model = dest
 
-    # Start servers
-    start_server("wave (9B)", 8090, wave_model, ctx_size=32768)
-    if eddy_model:
+    # Start servers based on mode
+    if mode == "full" and wave_model:
+        start_server("wave (9B)", 8090, wave_model, ctx_size=32768)
         start_server("eddy (2B)", 8092, eddy_model, ctx_size=16384, parallel=4)
+    else:
+        # Lite: 2B does everything
+        start_server("wave (2B lite)", 8090, eddy_model, ctx_size=16384)
+        print("  ⚠ Lite mode: 2B only. Results will be simpler.")
 
     # Wait for servers to start
     print("  → Waiting for servers...")
