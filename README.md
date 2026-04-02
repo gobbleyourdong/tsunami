@@ -13,6 +13,11 @@ the intended runtime split in this fork is:
 
 credit to the original repo for the core agent architecture, naming, scaffolds, and project direction. this fork builds on that base rather than replacing it.
 
+sync status:
+- this fork is intended to stay close to the original repo, not diverge into a separate product
+- in our view, it currently includes the upstream `main` functionality through commit `ea43925` ("Plan complete — 28 UI components, 9 scaffolds, everything verified", April 2, 2026)
+- the main differences are the personal-build concerns here: mac-first testing, hardened setup/install flow, and a Docker-backed execution surface
+
 ```bash
 git clone https://github.com/meanaverage/tsunami.git
 cd tsunami
@@ -269,6 +274,8 @@ this fork adds and emphasizes:
 - pinned dependency and model-manifest flows
 - mac-first runtime testing
 - a Docker-backed execution surface while keeping the local model on the host
+
+the goal is to remain broadly in sync with upstream capabilities while carrying those local operational choices on top.
 
 tsunami itself was built from the distilled patterns of agents that came before — the ones that worked, the ones that failed, and the lessons they left behind.
 
