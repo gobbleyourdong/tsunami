@@ -8,6 +8,20 @@ source ~/.bashrc
 tsunami
 ```
 
+**Windows:**
+
+```powershell
+irm https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
+# restart PowerShell, then:
+tsunami
+```
+
+> **Windows prerequisites:** [Git](https://git-scm.com/download/win), [Python 3.10+](https://python.org/downloads/), [cmake](https://cmake.org/download/), and [Visual Studio Build Tools 2019–2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (for llama.cpp CUDA build). The installer checks for these and guides you if anything's missing.
+>
+> **CUDA users:** CUDA 12.x/13.x requires **Visual Studio 2019 or 2022**. VS 2026 (Preview/Insider) is not yet supported by nvcc — the installer detects this and automatically selects VS 2022 if both are present.
+>
+> Run the installer from a regular PowerShell terminal (not a Developer Command Prompt). The script sets up the build environment automatically.
+
 that's it. one command. it downloads everything, detects your gpu, starts the models, and you're in.
 
 **[see it work →](https://gobbleyourdong.github.io/tsunami/)**
@@ -95,7 +109,7 @@ tsunami auto-detects your memory and configures itself. you never think about th
 
 the full stack is **10GB total**: 9B wave (5.3GB) + 2B eddies (1.8GB) + SD-Turbo image gen (2GB).
 
-runs on any nvidia gpu with 12GB+ vram. macs with 16GB+ unified memory. no cloud required.
+runs on any nvidia gpu with 12GB+ vram. macs with 16GB+ unified memory. windows, linux, and mac. no cloud required.
 
 ---
 
@@ -125,6 +139,11 @@ the installer gives you everything. if you want a bigger brain later:
 
 ```bash
 # 27B wave (32GB+ systems)
+huggingface-cli download unsloth/Qwen3.5-27B-GGUF Qwen3.5-27B-Q8_0.gguf --local-dir models
+```
+
+```powershell
+# Windows — 27B wave (32GB+ systems)
 huggingface-cli download unsloth/Qwen3.5-27B-GGUF Qwen3.5-27B-Q8_0.gguf --local-dir models
 ```
 

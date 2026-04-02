@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import platform
 import subprocess
+import sys
 from pathlib import Path
 
 from .state import AgentState
@@ -91,7 +92,7 @@ def _gather_environment() -> str:
     except Exception:
         parts.append("OS: Unknown")
     try:
-        result = subprocess.run(["python3", "--version"], capture_output=True, text=True, timeout=5)
+        result = subprocess.run([sys.executable, "--version"], capture_output=True, text=True, timeout=5)
         parts.append(f"Python: {result.stdout.strip()}")
     except Exception:
         parts.append("Python: available")

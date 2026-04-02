@@ -51,10 +51,7 @@ def send_bell():
 
 
 def send_desktop_notification(title: str, message: str) -> bool:
-    """Send a desktop notification via notify-send (Linux) or osascript (macOS).
-
-    Returns True if sent successfully.
-    """
+    """Send a desktop notification. Returns True if sent successfully."""
     try:
         if sys.platform == "darwin":
             subprocess.run(
@@ -62,8 +59,16 @@ def send_desktop_notification(title: str, message: str) -> bool:
                 capture_output=True, timeout=5,
             )
             return True
-        elif sys.platform == "linux":
-            # Try notify-send (most Linux desktops)
+        elif sys.platform == "win32":
+            # Use Win32 MessageBoxW via ctypes — avoids PowerShell injection risk
+            try:
+                import ctypes
+                MB_OK = 0x0
+                ctypes.windll.user32.MessageBoxW(None, message, title, MB_OK)
+                return True
+            except Exception:
+                return False
+        elif sys.platform.startswith("linux"):
             result = subprocess.run(
                 ["notify-send", title, message],
                 capture_output=True, timeout=5,
@@ -94,7 +99,7 @@ def notify(
 
     # Desktop notification (if display available)
     terminal = detect_terminal()
-    if desktop and terminal in ("iterm", "kitty", "ghostty", "linux_desktop"):
+    if desktop and (sys.platform == "win32" or terminal in ("iterm", "kitty", "ghostty", "linux_desktop")):
         if send_desktop_notification(title, message):
             channels_used.append("desktop")
 

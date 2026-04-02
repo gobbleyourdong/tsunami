@@ -8,10 +8,45 @@ from __future__ import annotations
 
 import asyncio
 import subprocess
+import sys
 import shutil
 from pathlib import Path
 
 from .base import BaseTool, ToolResult
+
+
+def _kill_port(port: int) -> None:
+    """Kill any process listening on the given TCP port (cross-platform)."""
+    if sys.platform == "win32":
+        try:
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                if "LISTENING" not in line:
+                    continue
+                parts = line.split()
+                if len(parts) < 5:
+                    continue
+                # Local Address is parts[1]: e.g. "0.0.0.0:5173" or "[::]:5173"
+                local_addr = parts[1]
+                # Use rsplit to handle IPv6 addresses like "[::1]:5173"
+                if ":" in local_addr:
+                    candidate = local_addr.rsplit(":", 1)[-1]
+                    if candidate.isdigit() and int(candidate) == port:
+                        pid = parts[-1]
+                        if pid.isdigit():
+                            subprocess.run(["taskkill", "/PID", pid, "/F"],
+                                           capture_output=True, timeout=5)
+        except Exception:
+            pass
+    else:
+        try:
+            subprocess.run(["fuser", "-k", f"{port}/tcp"],
+                           capture_output=True, timeout=5)
+        except FileNotFoundError:
+            pass
 
 
 class WebdevScaffold(BaseTool):
@@ -304,8 +339,7 @@ class WebdevServe(BaseTool):
                         build_warnings = "\n⚠️ BUILD WARNINGS:\n" + "\n".join(errors) + "\nFix these before screenshotting.\n"
 
                 # Kill any existing dev server on this port
-                subprocess.run(["fuser", "-k", f"{port}/tcp"],
-                              capture_output=True, timeout=5)
+                _kill_port(port)
                 await asyncio.sleep(1)
 
                 # Start vite dev server in background
@@ -324,12 +358,11 @@ class WebdevServe(BaseTool):
                 )
             else:
                 # Static HTML project — use python http.server
-                subprocess.run(["fuser", "-k", f"{port}/tcp"],
-                              capture_output=True, timeout=5)
+                _kill_port(port)
                 await asyncio.sleep(1)
 
                 proc = subprocess.Popen(
-                    ["python3", "-m", "http.server", str(port)],
+                    [sys.executable, "-m", "http.server", str(port)],
                     cwd=str(project_dir),
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 )

@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import sys
 
 log = logging.getLogger("tsunami.scaling")
 
@@ -30,7 +31,7 @@ MIN_BEES = 1
 
 
 def get_total_memory_gb() -> float:
-    """Get total system memory in GB. Works on Linux and macOS."""
+    """Get total system memory in GB. Works on Linux, macOS, and Windows."""
     try:
         # Try GPU memory first (unified memory systems report this)
         result = subprocess.run(
@@ -42,7 +43,42 @@ def get_total_memory_gb() -> float:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
-    # Fall back to system RAM
+    # Windows
+    if sys.platform == "win32":
+        try:
+            result = subprocess.run(
+                ["wmic", "computersystem", "get", "TotalPhysicalMemory", "/value"],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                if "TotalPhysicalMemory=" in line:
+                    return int(line.split("=")[1].strip()) / (1024 ** 3)
+        except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+            pass
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+            mem = MEMORYSTATUSEX()
+            mem.dwLength = ctypes.sizeof(mem)
+            if kernel32.GlobalMemoryStatusEx(ctypes.byref(mem)):
+                return mem.ullTotalPhys / (1024 ** 3)
+        except Exception:
+            pass
+        return 8.0  # conservative default
+
+    # Linux
     try:
         with open("/proc/meminfo") as f:
             for line in f:
@@ -67,6 +103,30 @@ def get_total_memory_gb() -> float:
 
 def get_available_memory_gb() -> float:
     """Get available (free) memory in GB."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            class MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+            mem = MEMORYSTATUSEX()
+            mem.dwLength = ctypes.sizeof(mem)
+            kernel32.GlobalMemoryStatusEx(ctypes.byref(mem))
+            return mem.ullAvailPhys / (1024 ** 3)
+        except Exception:
+            pass
+        return get_total_memory_gb() * 0.7
+
     try:
         with open("/proc/meminfo") as f:
             for line in f:
