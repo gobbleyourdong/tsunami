@@ -113,33 +113,70 @@ if exist "%LLAMA_DIR%\llama-server.exe" (
     exit /b 1
 )
 
+:: Detect VRAM (NVIDIA) or RAM (CPU/integrated)
+echo.
+set VRAM_MB=0
+set RAM_GB=8
+where nvidia-smi >nul 2>&1
+if not errorlevel 1 (
+    for /f "tokens=*" %%i in ('nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2^>nul') do set VRAM_MB=%%i
+)
+for /f "tokens=2 delims==" %%i in ('wmic computersystem get TotalPhysicalMemory /value 2^>nul') do set RAM_BYTES=%%i
+set /a RAM_GB=%RAM_BYTES:~0,-9% 2>nul
+if "%RAM_GB%"=="" set RAM_GB=8
+
+if %VRAM_MB% GTR 0 (
+    echo   GPU VRAM: %VRAM_MB%MB
+    set /a VRAM_GB=%VRAM_MB%/1024
+) else (
+    echo   No NVIDIA GPU - using system RAM: %RAM_GB%GB
+    set VRAM_GB=%RAM_GB%
+)
+
+:: Pick mode: need ~8GB for 9B + 2B, or 2GB for 2B only
+set MODE=full
+if %VRAM_GB% LSS 10 (
+    set MODE=lite
+    echo   [!] Under 10GB available - lite mode (2B only, 1.2GB download)
+) else (
+    echo   [OK] Full mode (9B wave + 2B eddies, 6.5GB download)
+)
+
 :: Download models
 mkdir "%MODELS_DIR%" 2>nul
 
-echo.
+:: Always need 2B
 if not exist "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" (
-    echo   [..] Downloading eddy model - 1.2GB...
+    echo   [..] Downloading 2B model - 1.2GB...
     curl -fSL --progress-bar -o "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf"
-    echo   [OK] Eddy model
+    echo   [OK] 2B model
 ) else (
-    echo   [OK] Eddy model already downloaded
+    echo   [OK] 2B model already downloaded
 )
 
-if not exist "%MODELS_DIR%\Qwen3.5-9B-Q4_K_M.gguf" (
-    echo   [..] Downloading wave model - 5.3GB (this takes a few minutes)...
-    curl -fSL --progress-bar -o "%MODELS_DIR%\Qwen3.5-9B-Q4_K_M.gguf" "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf"
-    echo   [OK] Wave model
-) else (
-    echo   [OK] Wave model already downloaded
+:: Only download 9B if enough RAM
+if "%MODE%"=="full" (
+    if not exist "%MODELS_DIR%\Qwen3.5-9B-Q4_K_M.gguf" (
+        echo   [..] Downloading 9B model - 5.3GB (this takes a few minutes^)...
+        curl -fSL --progress-bar -o "%MODELS_DIR%\Qwen3.5-9B-Q4_K_M.gguf" "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf"
+        echo   [OK] 9B model
+    ) else (
+        echo   [OK] 9B model already downloaded
+    )
 )
 
-:: Create start script
+:: Create start script based on mode
 echo @echo off > "%TSUNAMI_DIR%\start.bat"
 echo title Tsunami >> "%TSUNAMI_DIR%\start.bat"
 echo color 0B >> "%TSUNAMI_DIR%\start.bat"
 echo echo Starting Tsunami... >> "%TSUNAMI_DIR%\start.bat"
-echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-9B-Q4_K_M.gguf" --port 8090 --ctx-size 32768 --parallel 1 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
-echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8092 --ctx-size 16384 --parallel 4 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
+if "%MODE%"=="full" (
+    echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-9B-Q4_K_M.gguf" --port 8090 --ctx-size 32768 --parallel 1 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
+    echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8092 --ctx-size 16384 --parallel 4 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
+) else (
+    echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8090 --ctx-size 16384 --parallel 1 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
+    echo echo   Lite mode - 2B only >> "%TSUNAMI_DIR%\start.bat"
+)
 echo timeout /t 5 /nobreak ^>nul >> "%TSUNAMI_DIR%\start.bat"
 echo cd /d "%TSUNAMI_DIR%" >> "%TSUNAMI_DIR%\start.bat"
 echo python desktop\ws_bridge.py >> "%TSUNAMI_DIR%\start.bat"
