@@ -142,12 +142,7 @@ async def handle_client(websocket):
     log.info("Client connected")
     clients.add(websocket)
 
-    # Replay buffered messages so reconnecting clients catch up
-    for msg in message_buffer:
-        try:
-            await websocket.send(msg)
-        except Exception:
-            break
+    # Don't replay buffer — localStorage handles persistence on the client side
 
     config = TsunamiConfig.from_yaml("config.yaml")
     config.max_iterations = 60
