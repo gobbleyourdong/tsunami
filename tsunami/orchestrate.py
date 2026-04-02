@@ -94,8 +94,9 @@ class Orchestrator:
         import httpx, json, re
 
         try:
+            _eddy = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")
             resp = httpx.post(
-                "http://localhost:8092/v1/chat/completions",
+                f"{_eddy}/v1/chat/completions",
                 json={
                     "model": "qwen",
                     "messages": [

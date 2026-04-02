@@ -353,10 +353,10 @@ def main():
         start_server("wave (9B)", 8090, wave_model, ctx_size=32768)
         start_server("eddy (2B)", 8092, eddy_model, ctx_size=16384, parallel=4)
     else:
-        # Lite: 2B plays both roles — wave AND eddy
-        # Start on both ports so swell/eddies still work
-        start_server("wave (2B)", 8090, eddy_model, ctx_size=16384)
-        start_server("eddy (2B)", 8092, eddy_model, ctx_size=8192, parallel=2)
+        # Lite: 2B plays both roles — one server, one model
+        start_server("wave+eddy (2B)", 8090, eddy_model, ctx_size=16384, parallel=2)
+        # Point eddy at the wave — no second server needed
+        os.environ["TSUNAMI_EDDY_ENDPOINT"] = "http://localhost:8090"
 
     # Always try image gen — even lite mode gets it
     start_image_gen()

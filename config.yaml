@@ -8,9 +8,8 @@ model_endpoint: "http://localhost:8090"
 temperature: 0.7
 max_tokens: 8192
 
-# --- Eddies (fast workers — 2B) ---
-fast_model_name: "Qwen3.5-2B"
-fast_model_endpoint: "http://localhost:8092"
+# --- Eddies (fast workers — 2B on full, same as wave on lite) ---
+eddy_endpoint: "http://localhost:8092"
 
 # --- Watcher (2B reviews every 3rd tool call) ---
 watcher_enabled: true

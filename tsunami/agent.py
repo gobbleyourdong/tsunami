@@ -49,6 +49,11 @@ class Agent:
         self.config = config
         config.ensure_dirs()
 
+        # Propagate eddy endpoint to all modules via env var
+        # On lite mode, this points at the same port as the wave
+        import os
+        os.environ["TSUNAMI_EDDY_ENDPOINT"] = config.eddy_endpoint
+
         # The reasoning core
         self.model: LLMModel = create_model(
             backend=config.model_backend,

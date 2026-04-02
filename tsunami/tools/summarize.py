@@ -73,9 +73,11 @@ File: {p.name}
         # Call the fast model (2B on port 8092)
         try:
             import httpx
+            import os as _os
+            _eddy = _os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
-                    "http://localhost:8092/completion",
+                    f"{_eddy}/completion",
                     json={
                         "prompt": prompt,
                         "temperature": 0.3,

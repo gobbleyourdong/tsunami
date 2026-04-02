@@ -31,7 +31,7 @@ import httpx
 
 log = logging.getLogger("tsunami.undertow")
 
-BEE_ENDPOINT = os.environ.get("TSUNAMI_BEE_ENDPOINT", "http://localhost:8092")
+BEE_ENDPOINT = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")
 
 
 # ──────────────────── data types ────────────────────

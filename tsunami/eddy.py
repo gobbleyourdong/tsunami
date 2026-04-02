@@ -32,7 +32,7 @@ import httpx
 
 log = logging.getLogger("tsunami.eddy")
 
-EDDY_ENDPOINT = os.environ.get("TSUNAMI_BEE_ENDPOINT", "http://localhost:8092")
+EDDY_ENDPOINT = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")
 MAX_TURNS = 10  # safety cap per eddy
 EDDY_TIMEOUT = 30  # seconds per LLM call
 

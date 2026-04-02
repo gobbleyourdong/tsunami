@@ -131,7 +131,7 @@ class Observer:
         path.write_text(json.dumps(instinct, indent=2))
         log.info(f"Saved instinct: {iid} (confidence={instinct.get('confidence', 0)})")
 
-    async def analyze_observations(self, fast_endpoint: str = "http://localhost:8092"):
+    async def analyze_observations(self, fast_endpoint: str = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")):
         """Use the 2B model to extract instincts from recent observations."""
         recent = self.get_recent_observations(50)
         if len(recent) < 5:
@@ -251,7 +251,7 @@ Rules:
         except Exception:
             return {}
 
-    async def extract_session_memories(self, fast_endpoint: str = "http://localhost:8092"):
+    async def extract_session_memories(self, fast_endpoint: str = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")):
         """Background memory extraction after session ends.
 
         Analyzes recent observations and writes structured memories to disk.

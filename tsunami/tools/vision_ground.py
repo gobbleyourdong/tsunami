@@ -74,7 +74,7 @@ class VisionGround(BaseTool):
             return ToolResult(f"Failed to encode image: {p}", is_error=True)
 
         # Try dedicated VL endpoint first, then fall back to eddy
-        for endpoint in [VL_ENDPOINT, os.environ.get("TSUNAMI_BEE_ENDPOINT", "http://localhost:8092")]:
+        for endpoint in [VL_ENDPOINT, os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")]:
             result = await _ground_elements(endpoint, image_b64, elements, str(p))
             if result:
                 return ToolResult(result)

@@ -45,7 +45,8 @@ if [ "$MODE" = "full" ]; then
         > /tmp/eddy.log 2>&1 &
     EDDY_PID=$!
 else
-    # Lite mode: point eddy at the same port as wave
+    # Lite mode: one model, one server — eddy points at wave
+    export TSUNAMI_EDDY_ENDPOINT="http://localhost:8090"
     EDDY_PID=""
 fi
 

@@ -24,7 +24,7 @@ import httpx
 
 log = logging.getLogger("tsunami.adversarial")
 
-EDDY_ENDPOINT = os.environ.get("TSUNAMI_BEE_ENDPOINT", "http://localhost:8092")
+EDDY_ENDPOINT = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")
 
 
 async def cross_examine(

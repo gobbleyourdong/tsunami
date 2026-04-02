@@ -22,6 +22,9 @@ class TsunamiConfig:
     presence_penalty: float = 1.5
     max_tokens: int = 2048
 
+    # --- Eddy (fast workers — same model on lite, 2B on full) ---
+    eddy_endpoint: str = "http://localhost:8092"
+
     # --- Watcher (self-evaluation, lighter model) ---
     watcher_enabled: bool = False
     watcher_model: str = "qwen2.5:7b"

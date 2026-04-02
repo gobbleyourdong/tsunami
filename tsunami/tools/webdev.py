@@ -495,7 +495,7 @@ class WebdevScreenshot(BaseTool):
                 b64 = base64.b64encode(f.read()).decode()
 
             # Try primary model first, fall back to fast model
-            for endpoint in [self.config.model_endpoint, "http://localhost:8092"]:
+            for endpoint in [self.config.model_endpoint, self.config.eddy_endpoint]:
                 try:
                     async with httpx.AsyncClient(timeout=30) as client:
                         resp = await client.post(
