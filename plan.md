@@ -80,4 +80,8 @@ project_init should analyze the request and provide matching features:
 - Session 1: Manus scaffold docs obtained — 3 tiers (web-static, web-db-user, mobile-app)
 - Session 1: Manus gaming: R3F + PixiJS + Rapier + Matter.js + Socket.io + Web Workers
 - Session 1: Our gap: no backend scaffold, no 2D game, no mobile. But local-first doesn't need cloud.
-- Session 1: Next scaffolds to build: pixijs-game (2D), fullstack (Express+tRPC+SQLite)
+- Session 1: pixijs-game scaffold built (PixiJS 8 + Matter.js, GameCanvas, Physics2D)
+- Session 1: fullstack scaffold built (Express 5 + better-sqlite3, CRUD API, useApi hook)
+- Session 1: Snake game PASSES: 16 iters, 7 components on pixijs-game scaffold, compiles + renders clean
+- Session 1: ALL 5 APPS PASS: calculator, quiz, excel-diff, rhythm, snake — from one-prompt runners
+- Session 1: 7 scaffolds total: threejs-game, pixijs-game, react-app, dashboard, form-app, landing, fullstack
