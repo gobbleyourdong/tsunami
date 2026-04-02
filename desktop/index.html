@@ -167,11 +167,7 @@
       ws = new WebSocket(WS_AGENT)
       ws.onopen = () => { addTerm("Connected", "cmd"); updateDots() }
       ws.onclose = () => { updateDots(); setTimeout(connectAgent, 3000) }
-      let replayDone = false
       ws.onmessage = e => {
-        // Skip replay buffer if we already have messages from localStorage
-        if (!replayDone && messages.length > 0) { replayDone = true; return }
-        replayDone = true
         try { handleMsg(JSON.parse(e.data)) } catch { addChat("agent", e.data) }
       }
     }
@@ -225,7 +221,15 @@
       activeSession = s
       messages = s.messages
       renderProjects()
+      renderChat()
+    }
+
+    function renderChat() {
       const el = document.getElementById("chat-msgs")
+      if (!messages.length) {
+        el.innerHTML = '<div class="welcome"><h1>tsunami</h1><p>what do you want to build?</p></div>'
+        return
+      }
       el.innerHTML = messages.map(m => `<div class="msg ${m.type}">${esc(m.text)}</div>`).join("")
       el.scrollTop = el.scrollHeight
     }
@@ -380,7 +384,7 @@
           sessions = saved
           const activeId = parseInt(localStorage.getItem("tsunami_active"))
           const s = sessions.find(x => x.id === activeId && !x.hidden) || sessions.find(x => !x.hidden)
-          if (s) { switchSession(s.id); return true }
+          if (s) { activeSession = s; messages = s.messages; renderProjects(); renderChat(); return true }
         }
       } catch {}
       return false
