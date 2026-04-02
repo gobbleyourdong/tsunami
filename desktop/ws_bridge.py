@@ -46,10 +46,16 @@ def wire_streaming(agent, websocket, loop):
     """Monkey-patch the agent's state to stream everything to the UI."""
     state = agent.state
 
+    # Track if we've already delivered — stop streaming after that
+    delivered = [False]
+    last_sent = [None]
+
     # Intercept assistant messages (tool calls)
     original_add_assistant = state.add_assistant
     def streaming_add_assistant(content, tool_call=None):
         original_add_assistant(content, tool_call)
+        if delivered[0]:
+            return  # already delivered, stop sending
         if tool_call:
             func = tool_call.get("function", {})
             name = func.get("name", "")
@@ -78,10 +84,17 @@ def wire_streaming(agent, websocket, loop):
                     payload["preview"] = f"{len(tasks)} parallel tasks"
                 elif name in ("message_info", "message_ask", "message_result"):
                     text = args.get("text", "")[:500]
+                    if name == "message_result":
+                        delivered[0] = True
                     payload = {"type": "message", "text": text}
                 else:
                     payload["preview"] = str(args)[:200]
 
+            # Dedup — don't send identical payloads
+            key = json.dumps(payload)[:100]
+            if key == last_sent[0]:
+                return
+            last_sent[0] = key
             asyncio.run_coroutine_threadsafe(broadcast(payload), loop)
 
     state.add_assistant = streaming_add_assistant
