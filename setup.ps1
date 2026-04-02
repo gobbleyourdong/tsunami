@@ -65,7 +65,7 @@ Write-Host ""
 # ---------------------------------------------------------------------------
 $DIR        = if ($env:TSUNAMI_DIR) { $env:TSUNAMI_DIR } else { Join-Path $env:USERPROFILE "tsunami" }
 $MODELS_DIR = Join-Path $DIR "models"
-$LLAMA_DIR  = Join-Path $DIR "llama.cpp"
+$LLAMA_DIR  = Join-Path $DIR "llama-server"
 
 # ---------------------------------------------------------------------------
 # GPU detection
