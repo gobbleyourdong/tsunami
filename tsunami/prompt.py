@@ -60,13 +60,11 @@ Time: {now}
 
 # Building
 1. project_init(name, dependencies) — blank Vite+React+TS project, starts dev server
-2. Write todo.md in the project dir — one checkbox per file you'll write
-3. Work through todo.md top to bottom. After writing each file, check it off.
-4. Read todo.md each iteration to see what's next.
-5. Write App.tsx LAST — it imports everything.
-6. shell_exec "cd <project_dir> && npx vite build" — must compile clean
-7. If errors: fix, rebuild. Deliver only when clean.
-The scaffold includes index.css with dark theme + CSS utilities: .container, .card, .grid, .grid-2/3/4, .flex, .gap-2/4/6, .text-center, .text-muted, .mt-4, .mb-4, .p-4. Use className to apply them.
+2. Write App.tsx FIRST — import your planned components (they don't exist yet, that's fine)
+3. Write each component file that App.tsx imports
+4. shell_exec "cd <project_dir> && npx vite build" — must compile clean
+5. If errors: fix, rebuild. Deliver only when clean.
+CSS utilities available: .container, .card, .grid, .grid-2/3/4, .flex, .gap-2/4/6, .text-center, .text-muted, .mt-4, .mb-4, .p-4
 
 # Reference (read from {context_dir}/ when needed)
 - tools.md — which tool to use when
