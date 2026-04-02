@@ -656,6 +656,29 @@ class Agent:
                     "approach or use message_ask to request guidance from the user."
                 )
 
+        # 8d. Stub detection — catch App.tsx not wired
+        if tool_call.name == "message_result" and self._delivery_attempts <= 2:
+            # Find the project dir from recent writes
+            for msg in reversed(self.state.conversation[-20:]):
+                if msg.role == "tool_result" and "deliverables/" in msg.content:
+                    import re as _re2
+                    match = _re2.search(r'deliverables/([^/\s]+)', msg.content)
+                    if match:
+                        app_path = Path(self.config.workspace_dir) / "deliverables" / match.group(1) / "src" / "App.tsx"
+                        comp_dir = Path(self.config.workspace_dir) / "deliverables" / match.group(1) / "src" / "components"
+                        if app_path.exists() and comp_dir.exists():
+                            app_content = app_path.read_text()
+                            has_components = any(comp_dir.iterdir())
+                            is_stub = "TODO" in app_content or "not built yet" in app_content or (len(app_content) < 200 and "import" not in app_content.lower())
+                            if is_stub and has_components:
+                                log.info("Stub detection: App.tsx is still a stub but components exist")
+                                self.state.add_system_note(
+                                    "App.tsx is still a stub but you wrote components in src/components/. "
+                                    "Replace App.tsx to import and use your components before delivering."
+                                )
+                                return result.content
+                    break
+
         # 9. Tension gate — measure current before allowing delivery
         if tool_call.name == "message_result":
             from .current import measure_heuristic, UNCERTAIN, DRIFTING
