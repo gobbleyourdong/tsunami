@@ -705,6 +705,66 @@ class Agent:
                 except Exception as e:
                     log.debug(f"Auto-scaffold skipped: {e}")
 
+        # 8a1. Auto-swell — when App.tsx is written with imports to missing files, fire eddies
+        if tool_call.name == "file_write" and not result.is_error:
+            written_path = tool_call.arguments.get("path", "")
+            if written_path.endswith("App.tsx") and "deliverables/" in written_path:
+                try:
+                    content = tool_call.arguments.get("content", "")
+                    if not content:
+                        content = Path(written_path).read_text() if Path(written_path).exists() else ""
+
+                    # Find imports to ./components/ that don't exist yet
+                    import re as _re3
+                    imports = _re3.findall(r'from\s+["\']\.\/components\/(\w+)["\']', content)
+                    project_dir = Path(written_path).parent.parent if "/src/" in written_path else Path(written_path).parent
+
+                    missing = []
+                    for comp in imports:
+                        comp_path = project_dir / "src" / "components" / f"{comp}.tsx"
+                        if not comp_path.exists():
+                            missing.append(comp)
+
+                    if len(missing) >= 2:
+                        # Fire eddies for missing components
+                        user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+
+                        # Read types.ts if it exists for context
+                        types_content = ""
+                        types_path = project_dir / "src" / "types.ts"
+                        if types_path.exists():
+                            types_content = f"\n\nTypes:\n```\n{types_path.read_text()[:500]}\n```"
+
+                        tasks = []
+                        targets = []
+                        for comp in missing:
+                            target = str(project_dir / "src" / "components" / f"{comp}.tsx")
+                            prompt = (
+                                f"Write a React TypeScript component called {comp} for: {user_req[:200]}\n"
+                                f"Export default function {comp}. Under 80 lines.{types_content}"
+                            )
+                            tasks.append(prompt)
+                            targets.append(target)
+
+                        log.info(f"Auto-swell: firing {len(tasks)} eddies for missing components: {missing}")
+                        from .eddy import run_swarm
+                        import asyncio
+                        swell_results = await run_swarm(
+                            tasks=tasks,
+                            workdir=str(project_dir),
+                            max_concurrent=4,
+                            system_prompt="You are a React TypeScript expert. Call done() with ONLY the raw TSX code. No markdown fences.",
+                            write_targets=targets,
+                        )
+                        written = sum(1 for r in swell_results if r.success)
+                        log.info(f"Auto-swell: {written}/{len(tasks)} components written")
+                        if written > 0:
+                            self.state.add_system_note(
+                                f"Auto-generated {written} components via eddies: {', '.join(missing[:5])}"
+                            )
+                except Exception as e:
+                    log.debug(f"Auto-swell skipped: {e}")
+
         # 8a. Auto-serve — start dev server ONCE, Vite HMR handles the rest
         if tool_call.name in ("file_write", "file_edit", "shell_exec") and not result.is_error:
             written_path = tool_call.arguments.get("path", "") or tool_call.arguments.get("command", "")
