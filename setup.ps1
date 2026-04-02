@@ -307,13 +307,14 @@ if (Test-Path (Join-Path $DIR ".git")) {
 # Ensure tsu.ps1 exists in install dir (may not be present in older installs)
 $tsuPs1Dest = Join-Path $DIR "tsu.ps1"
 if (-not (Test-Path $tsuPs1Dest)) {
-    # Download from the same branch/source as this script was fetched from
-    $tsuPs1Url = "https://raw.githubusercontent.com/jamesburton/tsunami/feature/windows-support/tsu.ps1"
+    # tsu.ps1 is included in the repo — it should be present after clone/pull.
+    # This fallback handles edge cases (e.g., running against an older checkout).
+    $tsuPs1Url = "https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/tsu.ps1"
     try {
         Invoke-RestMethod -Uri $tsuPs1Url -OutFile $tsuPs1Dest -ErrorAction Stop
         Write-Ok "Downloaded tsu.ps1"
     } catch {
-        # Fallback: generate a minimal launcher that delegates to tsunami_cmd
+        # Last-resort: generate a minimal launcher that delegates to tsunami_cmd
         @'
 #!/usr/bin/env pwsh
 $DIR = Split-Path -Parent $MyInvocation.MyCommand.Path

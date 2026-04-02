@@ -1,6 +1,6 @@
 # TSUNAMI — Windows entry point
 # PowerShell equivalent of the `tsu` bash script
-#Requires -Version 5.1
+#Requires -Version 7.0
 
 $ErrorActionPreference = 'Stop'
 
@@ -27,8 +27,8 @@ switch ($args[0]) {
         exit 0
     }
     'swarm' {
-        $rest = $args[1..$args.Length]
-        if (-not $rest) {
+        $rest = @($args | Select-Object -Skip 1)
+        if ($args.Length -lt 2 -or -not $rest[0]) {
             Write-Error 'Usage: tsu swarm "task description" [num_workers]'
             exit 1
         }
@@ -55,9 +55,11 @@ function Test-BackendServer {
 }
 
 function Find-LlamaServer {
+    $cmd1 = Get-Command 'llama-server.exe' -EA SilentlyContinue
+    $cmd2 = Get-Command 'llama-server' -EA SilentlyContinue
     $candidates = @(
-        (Get-Command 'llama-server.exe' -EA SilentlyContinue)?.Source,
-        (Get-Command 'llama-server' -EA SilentlyContinue)?.Source,
+        $(if ($cmd1) { $cmd1.Source }),
+        $(if ($cmd2) { $cmd2.Source }),
         "$DIR\llama.cpp\build\bin\Release\llama-server.exe",
         "$DIR\llama.cpp\build\bin\llama-server.exe",
         "$env:USERPROFILE\llama.cpp\build\bin\Release\llama-server.exe",

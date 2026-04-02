@@ -68,12 +68,12 @@ def get_total_memory_gb() -> float:
                     ("ullAvailPageFile", ctypes.c_ulonglong),
                     ("ullTotalVirtual", ctypes.c_ulonglong),
                     ("ullAvailVirtual", ctypes.c_ulonglong),
-                    ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
                 ]
             mem = MEMORYSTATUSEX()
             mem.dwLength = ctypes.sizeof(mem)
-            kernel32.GlobalMemoryStatusEx(ctypes.byref(mem))
-            return mem.ullTotalPhys / (1024 ** 3)
+            if kernel32.GlobalMemoryStatusEx(ctypes.byref(mem)):
+                return mem.ullTotalPhys / (1024 ** 3)
         except Exception:
             pass
         return 8.0  # conservative default

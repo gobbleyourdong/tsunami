@@ -24,12 +24,21 @@ def _kill_port(port: int) -> None:
                 capture_output=True, text=True, timeout=5,
             )
             for line in result.stdout.splitlines():
-                if f":{port}" in line and "LISTENING" in line:
-                    parts = line.split()
-                    pid = parts[-1]
-                    if pid.isdigit():
-                        subprocess.run(["taskkill", "/PID", pid, "/F"],
-                                       capture_output=True, timeout=5)
+                if "LISTENING" not in line:
+                    continue
+                parts = line.split()
+                if len(parts) < 5:
+                    continue
+                # Local Address is parts[1]: e.g. "0.0.0.0:5173" or "[::]:5173"
+                local_addr = parts[1]
+                # Use rsplit to handle IPv6 addresses like "[::1]:5173"
+                if ":" in local_addr:
+                    candidate = local_addr.rsplit(":", 1)[-1]
+                    if candidate.isdigit() and int(candidate) == port:
+                        pid = parts[-1]
+                        if pid.isdigit():
+                            subprocess.run(["taskkill", "/PID", pid, "/F"],
+                                           capture_output=True, timeout=5)
         except Exception:
             pass
     else:

@@ -100,6 +100,8 @@ class MatchGrep(BaseTool):
                                     break
                     except Exception:
                         continue
+                    if len(lines) >= limit * 2:
+                        break
 
             if not lines:
                 return ToolResult(f"No matches for '{pattern}' in {root}")

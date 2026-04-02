@@ -227,21 +227,13 @@ class ScheduleTool(BaseTool):
     async def execute(self, command: str, delay_seconds: int = 0, cron: str = "", **kw) -> ToolResult:
         if cron:
             if sys.platform == "win32":
-                # Use Windows Task Scheduler
-                try:
-                    # Parse cron into a rough schedule (best-effort for common cases)
-                    task_name = f"tsunami-{abs(hash(command)) % 100000}"
-                    result = subprocess.run(
-                        ["schtasks", "/create", "/tn", task_name,
-                         "/tr", command, "/sc", "MINUTE", "/f"],
-                        capture_output=True, text=True,
-                    )
-                    if result.returncode == 0:
-                        return ToolResult(f"Scheduled recurring task '{task_name}': {command}")
-                    else:
-                        return ToolResult(f"schtasks failed: {result.stderr}", is_error=True)
-                except Exception as e:
-                    return ToolResult(f"Schedule error: {e}", is_error=True)
+                # Windows Task Scheduler does not natively support cron expressions.
+                # Return an informative error rather than silently creating a wrong schedule.
+                return ToolResult(
+                    "Cron scheduling is not supported on Windows. "
+                    "Use Windows Task Scheduler (taskschd.msc) manually, or run this on Linux/macOS.",
+                    is_error=True,
+                )
             else:
                 # Add to user's crontab (Unix)
                 try:

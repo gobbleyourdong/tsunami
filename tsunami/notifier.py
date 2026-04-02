@@ -60,16 +60,14 @@ def send_desktop_notification(title: str, message: str) -> bool:
             )
             return True
         elif sys.platform == "win32":
-            # Use PowerShell toast notification (Windows 10+)
-            ps_script = (
-                f'[System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null; '
-                f'[System.Windows.Forms.MessageBox]::Show("{message}", "{title}") | Out-Null'
-            )
-            subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
-                capture_output=True, timeout=10,
-            )
-            return True
+            # Use Win32 MessageBoxW via ctypes — avoids PowerShell injection risk
+            try:
+                import ctypes
+                MB_OK = 0x0
+                ctypes.windll.user32.MessageBoxW(None, message, title, MB_OK)
+                return True
+            except Exception:
+                return False
         elif sys.platform.startswith("linux"):
             result = subprocess.run(
                 ["notify-send", title, message],
