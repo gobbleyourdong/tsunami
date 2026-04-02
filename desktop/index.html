@@ -245,7 +245,11 @@
       if (s === activeSession) {
         const next = sessions.find(x => !x.hidden)
         if (next) switchSession(next.id)
-        else newSession()
+        else {
+          activeSession = null
+          messages = []
+          document.getElementById("chat-msgs").innerHTML = '<div class="welcome"><h1>tsunami</h1><p>what do you want to build?</p></div>'
+        }
       }
       renderProjects()
     }
