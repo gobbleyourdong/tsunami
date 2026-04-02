@@ -39,7 +39,9 @@ class MessageInfo(BaseTool):
     async def execute(self, text: str = "", **kw) -> ToolResult:
         global _last_displayed
         if text:
-            print(f"\n  {text}")
+            # Strip emojis — Windows console (cp1252) crashes on them
+            clean = text.encode("ascii", errors="ignore").decode("ascii")
+            print(f"\n  {clean}")
         _last_displayed = text
         return ToolResult("Message delivered.")
 
@@ -91,7 +93,8 @@ class MessageResult(BaseTool):
         global _last_displayed
         # Don't re-display if message_info already showed this exact text
         if text != _last_displayed:
-            print(f"\n  {text}")
+            clean = text.encode("ascii", errors="ignore").decode("ascii")
+            print(f"\n  {clean}")
         if attachments:
             print(f"  \033[2m{', '.join(attachments)}\033[0m")
         _last_displayed = None

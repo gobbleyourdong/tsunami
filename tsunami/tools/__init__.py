@@ -60,20 +60,19 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
     from .undertow import Undertow
     from .project_init import ProjectInit
     from .generate import GenerateImage
-    from .vision_ground import VisionGround
     from .toolbox import LoadToolbox, set_registry
 
     registry = ToolRegistry()
 
-    # Bootstrap — lean core (18 tools)
-    # generate_image + vision_ground in bootstrap — visual projects need them from the start
+    # Bootstrap — lean core (17 tools)
+    # vision_ground is NOT in bootstrap — loaded by auto-ground when VL model is detected
     for cls in [FileRead, FileWrite, FileEdit,
                 MatchGlob, MatchGrep,
                 ShellExec,
                 MessageInfo, MessageAsk, MessageResult,
                 PlanUpdate,
                 SearchWeb, PythonExec, SummarizeFile, Swell, Undertow,
-                ProjectInit, GenerateImage, VisionGround]:
+                ProjectInit, GenerateImage]:
         registry.register(cls(config))
 
     # The one meta-tool — loads everything else from disk
