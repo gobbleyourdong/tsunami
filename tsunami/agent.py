@@ -553,6 +553,24 @@ class Agent:
             result.is_error, self.session_id,
         )
 
+        # 8a0. Auto-scaffold — if .tsx written to deliverables without package.json, provision it
+        if tool_call.name == "file_write" and not result.is_error:
+            written_path = tool_call.arguments.get("path", "")
+            if "deliverables/" in written_path and written_path.endswith((".tsx", ".ts")):
+                try:
+                    parts = written_path.split("deliverables/")
+                    if len(parts) > 1:
+                        project_name = parts[1].split("/")[0]
+                        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+                        if project_dir.exists() and not (project_dir / "package.json").exists():
+                            log.info(f"Auto-scaffold: {project_name} missing package.json, provisioning")
+                            from .tools.project_init import ProjectInit
+                            init_tool = ProjectInit(self.config)
+                            scaffold_result = await init_tool.execute(name=project_name)
+                            log.info(f"Auto-scaffold: {scaffold_result.content[:100]}")
+                except Exception as e:
+                    log.debug(f"Auto-scaffold skipped: {e}")
+
         # 8a. Auto-serve — start dev server ONCE, Vite HMR handles the rest
         if tool_call.name in ("file_write", "file_edit", "shell_exec") and not result.is_error:
             written_path = tool_call.arguments.get("path", "") or tool_call.arguments.get("command", "")
