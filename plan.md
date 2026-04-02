@@ -101,3 +101,5 @@ project_init should analyze the request and provide matching features:
 - Session 1: Scaffold READMEs — 7 READMEs with build loop, components, usage examples
 - Session 1: project_init returns README inline — 9B sees what's available immediately
 - Session 1: 39KB reference doc saved to intel/ — the instruction set pattern
+- Session 1: Calculator with README: 10 iters (was 22), proper grid layout, centered dark card
+- Session 1: README cut iterations by 55% and fixed layout. The instruction set IS the product.
