@@ -72,11 +72,16 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
         if (SCAFFOLDS_DIR / "form-app").exists():
             return "form-app"
 
-    # 6. Needs data visualization (charts, metrics)
-    if needs("chart", "dashboard", "analytics", "metrics", "stats", "graph",
-             "monitor", "visualiz", "report", "recharts", "d3"):
+    # 6a. Dashboard (sidebar + charts + tables)
+    if needs("dashboard", "admin", "panel", "monitor"):
         if (SCAFFOLDS_DIR / "dashboard").exists():
             return "dashboard"
+
+    # 6b. Data visualization (charts, graphs, d3 — no sidebar)
+    if needs("chart", "analytics", "metrics", "stats", "graph",
+             "visualiz", "report", "recharts", "d3", "plot", "data"):
+        if (SCAFFOLDS_DIR / "data-viz").exists():
+            return "data-viz"
 
     # 7. Presentation (landing, portfolio)
     if needs("landing", "portfolio", "marketing", "homepage", "website",
