@@ -61,7 +61,7 @@ Time: {now}
 # Building
 1. project_init(name, dependencies) — blank Vite+React+TS project, starts dev server
 2. Write App.tsx FIRST — start with `import "./index.css"` then import your planned components
-3. For 3+ components: use swell([{prompt, target}, ...]) to write them in parallel
+3. For 3+ components: use swell to write them in parallel (each gets a prompt + target file path)
    For 1-2 components: write them directly with file_write
 4. shell_exec "cd <project_dir> && npx vite build" — must compile clean
 5. If errors: fix, rebuild. Deliver only when clean.
