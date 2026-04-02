@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { render, Box, Text, useInput, useApp, useStdout } from 'ink';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ARK_DIR = path.resolve(__dirname, '..');
+const CLI_HISTORY_PATH = path.join(ARK_DIR, 'workspace', '.history', 'cli_prompt_history.json');
 
 // ── Banner: white froth → deep blue water ──
 const BANNER_LINES = [
@@ -28,6 +29,197 @@ const TOOL_LABELS = {
   browser_navigate: 'Navigate', plan_update: 'Plan',
   plan_advance: 'Advance plan',
 };
+
+const COMMAND_SPECS = [
+  { cmd: '/project', desc: 'list · open with /project <name> · new · del' },
+  { cmd: '/serve', desc: 'serve active project on localhost[:port]' },
+  { cmd: '/stop', desc: 'stop the active run' },
+  { cmd: '/attach', desc: 'attach a file or image' },
+  { cmd: '/unattach', desc: 'remove an attached file' },
+  { cmd: '/help', desc: 'show all commands' },
+];
+
+function safeListProjects(deliverablesDir) {
+  try {
+    return fs.readdirSync(deliverablesDir).filter((d) => {
+      try {
+        return fs.statSync(path.join(deliverablesDir, d)).isDirectory() && !d.startsWith('.');
+      } catch {
+        return false;
+      }
+    }).sort();
+  } catch {
+    return [];
+  }
+}
+
+function expandHome(inputPath) {
+  if (!inputPath) return inputPath;
+  if (inputPath === '~') return process.env.HOME || inputPath;
+  if (inputPath.startsWith('~/')) return path.join(process.env.HOME || '~', inputPath.slice(2));
+  return inputPath;
+}
+
+function longestCommonPrefix(values) {
+  if (!values.length) return '';
+  let prefix = values[0];
+  for (const value of values.slice(1)) {
+    while (!value.startsWith(prefix) && prefix) {
+      prefix = prefix.slice(0, -1);
+    }
+    if (!prefix) break;
+  }
+  return prefix;
+}
+
+function buildPathSuggestions(rawInput) {
+  const typed = rawInput ?? '';
+  const homeDir = process.env.HOME || '';
+  const usingHome = typed === '~' || typed.startsWith('~/');
+  const expanded = expandHome(typed);
+  const hasSlash = expanded.includes('/');
+  const typedEndsWithSlash = typed.endsWith('/') || typed.endsWith(path.sep);
+  const endsWithSlash = typedEndsWithSlash || expanded.endsWith(path.sep) || expanded.endsWith('/');
+  let baseDir;
+  let fragment;
+
+  if (typed === '~' && homeDir) {
+    baseDir = homeDir;
+    fragment = '';
+  } else {
+    baseDir = endsWithSlash
+      ? expanded || '.'
+      : (hasSlash ? path.dirname(expanded) : '.');
+    fragment = endsWithSlash ? '' : (hasSlash ? path.basename(expanded) : expanded);
+  }
+  const resolvedBase = path.resolve(process.cwd(), baseDir === '.' ? '' : baseDir);
+
+  let entries = [];
+  try {
+    entries = fs.readdirSync(resolvedBase, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  let prefix = '';
+  if (usingHome) {
+    if (typed === '~') {
+      prefix = '~/';
+    } else {
+      prefix = typed.slice(0, typed.lastIndexOf('/') + 1);
+    }
+  } else if (typed.includes('/')) {
+    prefix = typed.slice(0, typed.lastIndexOf('/') + 1);
+  }
+
+  return entries
+    .filter((entry) => entry.name.toLowerCase().startsWith(fragment.toLowerCase()))
+    .sort((a, b) => {
+      if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, 12)
+    .map((entry) => {
+      const suffix = entry.isDirectory() ? '/' : '';
+      let replacement = `${prefix}${entry.name}${suffix}`;
+      if (usingHome && typed === '~' && homeDir) {
+        replacement = `~/${entry.name}${suffix}`;
+      }
+      return {
+        value: replacement,
+        label: replacement || './',
+        desc: entry.isDirectory() ? 'folder' : 'file',
+      };
+    });
+}
+
+function buildUnattachSuggestions(input, attachedFiles) {
+  const query = input.trim().toLowerCase();
+  const suggestions = attachedFiles.map((filePath, index) => {
+    const display = path.basename(filePath);
+    return {
+      value: `/unattach ${display}`,
+      label: `/unattach ${display}`,
+      desc: `attached #${index + 1}`,
+    };
+  }).filter((entry) => !query || entry.value.toLowerCase().startsWith(`/unattach ${query}`) || entry.label.toLowerCase().includes(query));
+
+  if ('all'.startsWith(query)) {
+    suggestions.unshift({
+      value: '/unattach all',
+      label: '/unattach all',
+      desc: 'remove every attached file',
+    });
+  }
+
+  return suggestions;
+}
+
+function buildSlashSuggestions(input, deliverablesDir, activeProject, attachedFiles) {
+  if (!input.startsWith('/')) return [];
+
+  const projects = safeListProjects(deliverablesDir);
+  const hasTrailingSpace = /\s$/.test(input);
+  const trimmed = input.trim();
+  const parts = trimmed ? trimmed.split(/\s+/) : [];
+  const cmd = parts[0] || '';
+
+  if (!trimmed.includes(' ')) {
+    return COMMAND_SPECS
+      .filter((spec) => spec.cmd.startsWith(trimmed || '/'))
+      .map((spec) => ({
+        value: spec.cmd,
+        label: spec.cmd,
+        desc: spec.desc,
+      }));
+  }
+
+  if (cmd === '/project') {
+    const arg = hasTrailingSpace ? '' : (parts[1] || '');
+    if (parts.length <= 2 && (parts[1] !== 'new' || hasTrailingSpace)) {
+      const options = [
+        { value: '/project list', label: '/project list', desc: 'list projects' },
+        { value: '/project new ', label: '/project new ', desc: 'create a new project' },
+        { value: '/project del ', label: '/project del ', desc: 'delete a project' },
+        ...projects.map((name) => ({
+          value: `/project ${name}`,
+          label: `/project ${name}${name === activeProject ? ' ← active' : ''}`,
+          desc: 'open project',
+        })),
+      ];
+      return options.filter((option) => option.value.startsWith(`/project ${arg}`));
+    }
+    return [];
+  }
+
+  if (cmd === '/attach') {
+    const rawPath = input.slice('/attach'.length).trimStart();
+    return buildPathSuggestions(rawPath).map((entry) => ({
+      ...entry,
+      value: `/attach ${entry.value}`,
+      label: `/attach ${entry.label}`,
+    }));
+  }
+
+  if (cmd === '/unattach') {
+    const rawTarget = input.slice('/unattach'.length).trimStart();
+    return buildUnattachSuggestions(rawTarget, attachedFiles);
+  }
+
+  if (cmd === '/serve') {
+    const ports = ['8080', '9876', '4173'];
+    const arg = hasTrailingSpace ? '' : (parts[1] || '');
+    return ports
+      .filter((port) => port.startsWith(arg))
+      .map((port) => ({
+        value: `/serve ${port}`,
+        label: `/serve ${port}`,
+        desc: port === '8080' ? 'static preview' : 'common dev port',
+      }));
+  }
+
+  return [];
+}
 
 function toolLabel(name, args) {
   const base = TOOL_LABELS[name] || name.replace(/_/g, ' ');
@@ -49,6 +241,69 @@ function humanSize(bytes) {
   return `${bytes.toFixed(1)}TB`;
 }
 
+function loadCliHistory() {
+  try {
+    if (!fs.existsSync(CLI_HISTORY_PATH)) return [];
+    const raw = JSON.parse(fs.readFileSync(CLI_HISTORY_PATH, 'utf-8'));
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((entry) => typeof entry === 'string' && entry.trim().length > 0).slice(-200);
+  } catch {
+    return [];
+  }
+}
+
+function saveCliHistory(entries) {
+  try {
+    fs.mkdirSync(path.dirname(CLI_HISTORY_PATH), { recursive: true });
+    fs.writeFileSync(CLI_HISTORY_PATH, JSON.stringify(entries.slice(-200), null, 2));
+  } catch {}
+}
+
+function previewText(text, maxLen = 320) {
+  if (!text) return '';
+  const normalized = String(text)
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  if (normalized.length <= maxLen) return normalized;
+  return `${normalized.slice(0, maxLen - 3)}...`;
+}
+
+function traceLabelForTool(name, args) {
+  const base = TOOL_LABELS[name] || name.replace(/_/g, ' ');
+  const detail = args?.command || args?.path || args?.query || args?.pattern || args?.url || '';
+  return detail ? `${base}(${String(detail).slice(0, 110)})` : base;
+}
+
+function traceLineForEvent(evt, iteration) {
+  if (evt.tool && !evt.tool.startsWith('message_')) {
+    return {
+      kind: 'call',
+      iteration,
+      text: traceLabelForTool(evt.tool, evt.args || {}),
+    };
+  }
+
+  if (evt.role === 'tool_result') {
+    const content = previewText(evt.content || '', 420);
+    return {
+      kind: content.includes('ERROR:') ? 'error' : 'result',
+      iteration,
+      text: content,
+    };
+  }
+
+  if (evt.tool === 'message_info') {
+    return {
+      kind: 'info',
+      iteration,
+      text: previewText(evt.args?.text || '', 260),
+    };
+  }
+
+  return null;
+}
+
 // ── Main App ──
 function App({ serverUrl, singleTask }) {
   const { exit } = useApp();
@@ -57,13 +312,28 @@ function App({ serverUrl, singleTask }) {
 
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
+  const [traceEntries, setTraceEntries] = useState([]);
   const [running, setRunning] = useState(false);
   const [connected, setConnected] = useState(false);
   const [iteration, setIteration] = useState(0);
   const [startTime, setStartTime] = useState(null);
   const [currentAction, setCurrentAction] = useState(null);
+  const [showTrace, setShowTrace] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+  const [inputVersion, setInputVersion] = useState(0);
+  const [history, setHistory] = useState(() => loadCliHistory());
+  const [historyIndex, setHistoryIndex] = useState(null);
+  const [historyDraft, setHistoryDraft] = useState('');
   const wsRef = useRef(null);
+  const inputRef = useRef('');
+  const runningRef = useRef(false);
+  const deliverablesDir = path.resolve(ARK_DIR, 'workspace/deliverables');
+
+  useEffect(() => {
+    inputRef.current = input;
+    runningRef.current = running;
+  }, [input, running]);
 
   useEffect(() => {
     const ws = new WebSocket(serverUrl);
@@ -79,11 +349,30 @@ function App({ serverUrl, singleTask }) {
         setIteration(0);
         setStartTime(Date.now());
         setCurrentAction(null);
+        setTraceEntries([{
+          kind: 'status',
+          iteration: 0,
+          text: `run started: ${previewText(msg.task || '', 180)}`,
+        }]);
+      }
+
+      if (msg.type === 'status') {
+        setMessages(prev => [...prev, { type: 'result', text: msg.message }]);
+        setTraceEntries(prev => [...prev, {
+          kind: 'status',
+          iteration,
+          text: previewText(msg.message || '', 180),
+        }]);
       }
 
       if (msg.type === 'step') {
         setIteration(msg.iteration);
+        const nextTraceEntries = [];
         for (const evt of (msg.events || [])) {
+          const traceLine = traceLineForEvent(evt, msg.iteration);
+          if (traceLine) {
+            nextTraceEntries.push(traceLine);
+          }
           if (evt.tool && !evt.tool.startsWith('message_')) {
             const label = toolLabel(evt.tool, evt.args || {});
             setCurrentAction(label);
@@ -103,11 +392,19 @@ function App({ serverUrl, singleTask }) {
             }
           }
         }
+        if (nextTraceEntries.length > 0) {
+          setTraceEntries(prev => [...prev, ...nextTraceEntries].slice(-160));
+        }
       }
 
       if (msg.type === 'complete') {
         setRunning(false);
         setCurrentAction(null);
+        setTraceEntries(prev => [...prev, {
+          kind: 'status',
+          iteration: msg.iterations ?? iteration,
+          text: `run completed after ${msg.iterations} ${msg.iterations === 1 ? 'iteration' : 'iterations'}`,
+        }].slice(-160));
         if (msg.result) {
           setMessages(prev => [...prev, { type: 'result', text: msg.result, iters: msg.iterations }]);
         }
@@ -118,6 +415,11 @@ function App({ serverUrl, singleTask }) {
         setRunning(false);
         setCurrentAction(null);
         setMessages(prev => [...prev, { type: 'error', text: msg.message }]);
+        setTraceEntries(prev => [...prev, {
+          kind: 'error',
+          iteration: msg.iteration ?? iteration,
+          text: previewText(msg.message || '', 220),
+        }].slice(-160));
       }
     });
 
@@ -133,6 +435,51 @@ function App({ serverUrl, singleTask }) {
 
   // ── Slash commands — client-side, instant, no agent ──
   const [activeProject, setActiveProject] = useState(null);
+  const slashSuggestions = useMemo(
+    () => buildSlashSuggestions(input, deliverablesDir, activeProject, attachedFiles),
+    [input, deliverablesDir, activeProject, attachedFiles],
+  );
+  const activeSuggestion = slashSuggestions[suggestionIndex] || null;
+
+  const applyInputValue = useCallback((nextValue) => {
+    setInput(nextValue);
+    setInputVersion((v) => v + 1);
+  }, []);
+
+  const pushHistory = useCallback((entry) => {
+    if (!entry) return;
+    setHistory((prev) => {
+      if (prev[prev.length - 1] === entry) return prev;
+      return [...prev, entry].slice(-200);
+    });
+    setHistoryIndex(null);
+    setHistoryDraft('');
+  }, []);
+
+  useEffect(() => {
+    saveCliHistory(history);
+  }, [history]);
+
+  useEffect(() => {
+    const onSigInt = () => {
+      if (!runningRef.current && inputRef.current.length > 0) {
+        setHistoryIndex(null);
+        setHistoryDraft('');
+        applyInputValue('');
+        return;
+      }
+      exit();
+    };
+
+    process.on('SIGINT', onSigInt);
+    return () => {
+      process.off('SIGINT', onSigInt);
+    };
+  }, [applyInputValue, exit]);
+
+  useEffect(() => {
+    setSuggestionIndex(0);
+  }, [input]);
 
   function handleSlashCommand(text) {
     const parts = text.split(/\s+/);
@@ -140,13 +487,22 @@ function App({ serverUrl, singleTask }) {
 
     if (cmd === '/help') {
       setMessages(prev => [...prev, { type: 'user', text }, { type: 'result', text:
-        'Commands:\n  /project              list projects\n  /project <name>       switch to project\n  /project new <name>   create new project\n  /serve [port]         serve active project\n  /help                 this message\n  exit                  quit\n\nAnything else goes to the agent.'
+        'Commands:\n  /project              list projects\n  /project <name>       open a project\n  /project new <name>   create a new project\n  /project del <name>   delete a project\n  /serve [port]         serve active project on localhost using the given port\n  /stop                 stop the active run\n  /attach <path>        attach a file or image\n  /unattach <target>    remove an attached file\n  /help                 this message\n  exit                  quit\n\nAnything else goes to the agent.'
       }]);
       return true;
     }
 
+    if (cmd === '/stop') {
+      if (running) {
+        wsRef.current?.send(JSON.stringify({ type: 'abort' }));
+      } else {
+        setMessages(prev => [...prev, { type: 'user', text }, { type: 'result', text: 'No run is currently active.' }]);
+      }
+      return true;
+    }
+
     if (cmd === '/project') {
-      const delDir = path.resolve(ARK_DIR, 'workspace/deliverables');
+      const delDir = deliverablesDir;
 
       // List projects: /project or /project list
       if (parts.length === 1 || parts[1] === 'list') {
@@ -174,6 +530,21 @@ function App({ serverUrl, singleTask }) {
         fs.writeFileSync(path.join(projDir, 'tsunami.md'), `# ${name}\n\nNew project.\n`);
         setActiveProject(name);
         setMessages(prev => [...prev, { type: 'user', text }, { type: 'result', text: `Created project: ${name}` }]);
+        return true;
+      }
+
+      if ((parts[1] === 'delete' || parts[1] === 'del') && parts[2]) {
+        const name = parts[2];
+        const projDir = path.join(delDir, name);
+        if (!fs.existsSync(projDir) || !fs.statSync(projDir).isDirectory()) {
+          setMessages(prev => [...prev, { type: 'user', text }, { type: 'error', text: `Project '${name}' not found` }]);
+          return true;
+        }
+        fs.rmSync(projDir, { recursive: true, force: true });
+        if (activeProject === name) {
+          setActiveProject(null);
+        }
+        setMessages(prev => [...prev, { type: 'user', text }, { type: 'result', text: `Deleted project: ${name}` }]);
         return true;
       }
 
@@ -208,9 +579,10 @@ function App({ serverUrl, singleTask }) {
       // If path provided, use it directly
       if (parts[1]) {
         const filePath = parts.slice(1).join(' ');
-        if (fs.existsSync(filePath)) {
-          setAttachedFiles(prev => [...prev, filePath]);
-          setMessages(prev => [...prev, { type: 'result', text: `Attached: ${path.basename(filePath)}` }]);
+        const resolvedPath = expandHome(filePath);
+        if (fs.existsSync(resolvedPath)) {
+          setAttachedFiles(prev => [...prev, resolvedPath]);
+          setMessages(prev => [...prev, { type: 'result', text: `Attached: ${path.basename(resolvedPath)}` }]);
         } else {
           setMessages(prev => [...prev, { type: 'error', text: `File not found: ${filePath}` }]);
         }
@@ -234,6 +606,36 @@ function App({ serverUrl, singleTask }) {
       return true;
     }
 
+    if (cmd === '/unattach') {
+      const target = parts.slice(1).join(' ').trim();
+      if (!target) {
+        setMessages(prev => [...prev, { type: 'user', text }, { type: 'result', text: attachedFiles.length ? `Attached files:\n${attachedFiles.map((filePath, index) => `  ${index + 1}. ${path.basename(filePath)}`).join('\n')}` : 'No files are currently attached.' }]);
+        return true;
+      }
+
+      if (target.toLowerCase() === 'all') {
+        setAttachedFiles([]);
+        setMessages(prev => [...prev, { type: 'user', text }, { type: 'result', text: 'Removed all attached files.' }]);
+        return true;
+      }
+
+      const normalizedTarget = target.toLowerCase();
+      const matchIndex = attachedFiles.findIndex((filePath, index) => {
+        const basename = path.basename(filePath).toLowerCase();
+        return basename === normalizedTarget || String(index + 1) === target || filePath.toLowerCase() === normalizedTarget;
+      });
+
+      if (matchIndex === -1) {
+        setMessages(prev => [...prev, { type: 'user', text }, { type: 'error', text: `Attached file not found: ${target}` }]);
+        return true;
+      }
+
+      const removed = attachedFiles[matchIndex];
+      setAttachedFiles(prev => prev.filter((_, index) => index !== matchIndex));
+      setMessages(prev => [...prev, { type: 'user', text }, { type: 'result', text: `Unattached: ${path.basename(removed)}` }]);
+      return true;
+    }
+
     // Unknown slash command
     setMessages(prev => [...prev, { type: 'user', text }, { type: 'error', text: `Unknown command: ${cmd}. Type /help` }]);
     return true;
@@ -243,6 +645,14 @@ function App({ serverUrl, singleTask }) {
     const text = value.trim();
     if (!text && attachedFiles.length === 0) return;
 
+    if (!running && !singleTask && activeSuggestion && value.startsWith('/')) {
+      const normalizedInput = value.trimEnd();
+      if (activeSuggestion.value !== normalizedInput) {
+        applyInputValue(activeSuggestion.value);
+        return;
+      }
+    }
+
     if (['exit', 'quit'].includes(text.toLowerCase())) {
       exit();
       return;
@@ -250,12 +660,18 @@ function App({ serverUrl, singleTask }) {
 
     // Slash commands — instant, no agent
     if (text.startsWith('/')) {
+      pushHistory(text);
       setInput('');
+      setHistoryIndex(null);
+      setHistoryDraft('');
       handleSlashCommand(text);
       return;
     }
 
+    pushHistory(text);
     setInput('');
+    setHistoryIndex(null);
+    setHistoryDraft('');
 
     // Build task with file context
     let task = text;
@@ -280,18 +696,18 @@ function App({ serverUrl, singleTask }) {
     }]);
     setAttachedFiles([]);
     wsRef.current?.send(JSON.stringify({ type: 'run', task }));
-  }, [exit, attachedFiles]);
+  }, [exit, attachedFiles, activeSuggestion, running, singleTask, applyInputValue, pushHistory]);
 
-  // Key bindings — Ctrl+C does NOT exit, only cancels current action
+  // Key bindings
   useInput((ch, key) => {
     if (key.ctrl && ch === 'c') {
-      if (running) {
-        // Cancel current task (TODO: send cancel to backend)
-        setRunning(false);
-        setCurrentAction(null);
-        setMessages(prev => [...prev, { type: 'error', text: 'interrupted' }]);
+      if (!running && input.length > 0) {
+        setHistoryIndex(null);
+        setHistoryDraft('');
+        applyInputValue('');
+      } else {
+        exit();
       }
-      // Don't exit — user can keep typing
       return;
     }
 
@@ -301,11 +717,78 @@ function App({ serverUrl, singleTask }) {
       return;
     }
 
-    // /attach <path> command
+    if (key.escape) {
+      if (input.length > 0) {
+        setHistoryIndex(null);
+        setHistoryDraft('');
+        applyInputValue('');
+      } else if (running) {
+        wsRef.current?.send(JSON.stringify({ type: 'abort' }));
+      }
+      return;
+    }
+
+    if (running && !input.length && !key.ctrl && !key.meta && ch === 't') {
+      setShowTrace((prev) => !prev);
+      return;
+    }
+
+    if (!running && !singleTask && slashSuggestions.length > 0) {
+      if (key.upArrow) {
+        setSuggestionIndex((prev) => (prev - 1 + slashSuggestions.length) % slashSuggestions.length);
+        return;
+      }
+
+      if (key.downArrow) {
+        setSuggestionIndex((prev) => (prev + 1) % slashSuggestions.length);
+        return;
+      }
+    }
+
+    if (!running && !singleTask && key.tab && slashSuggestions.length > 0) {
+      const suggestion = slashSuggestions[suggestionIndex] || slashSuggestions[0];
+      const common = longestCommonPrefix(slashSuggestions.map((item) => item.value));
+      const nextValue = slashSuggestions.length === 1
+        ? suggestion.value
+        : (common.length > input.length ? common : suggestion.value);
+      applyInputValue(nextValue);
+      if (slashSuggestions.length > 1 && (common.length <= input.length || nextValue === suggestion.value)) {
+        setSuggestionIndex((prev) => (prev + 1) % slashSuggestions.length);
+      }
+      return;
+    }
+
+    if (!running && !singleTask && slashSuggestions.length === 0 && history.length > 0) {
+      if (key.upArrow) {
+        setHistoryIndex((prev) => {
+          const nextIndex = prev == null ? history.length - 1 : Math.max(0, prev - 1);
+          if (prev == null) setHistoryDraft(input);
+          applyInputValue(history[nextIndex] || '');
+          return nextIndex;
+        });
+        return;
+      }
+
+      if (key.downArrow && historyIndex != null) {
+        if (historyIndex >= history.length - 1) {
+          setHistoryIndex(null);
+          applyInputValue(historyDraft);
+        } else {
+          const nextIndex = historyIndex + 1;
+          setHistoryIndex(nextIndex);
+          applyInputValue(history[nextIndex] || '');
+        }
+        return;
+      }
+    }
   }, { isActive: !singleTask });
 
   // Handle /commands in input
   const handleChange = useCallback((value) => {
+    if (historyIndex != null) {
+      setHistoryIndex(null);
+      setHistoryDraft('');
+    }
     // Check for /attach command
     if (value.endsWith(' ') && value.trim().startsWith('/attach ')) {
       const filePath = value.trim().slice(8).trim();
@@ -316,7 +799,7 @@ function App({ serverUrl, singleTask }) {
       }
     }
     setInput(value);
-  }, []);
+  }, [historyIndex]);
 
   return (
     <Box flexDirection="column" width={cols}>
@@ -329,10 +812,14 @@ function App({ serverUrl, singleTask }) {
       <Text color="#4a9eff" bold> Autonomous Execution Agent</Text>
       <Text> </Text>
 
-      {/* Messages */}
-      {messages.map((msg, i) => (
-        <MessageView key={i} msg={msg} cols={cols} />
-      ))}
+      {/* Messages / Trace */}
+      {showTrace && running ? (
+        <TraceTailView entries={traceEntries} cols={cols} />
+      ) : (
+        messages.map((msg, i) => (
+          <MessageView key={i} msg={msg} cols={cols} />
+        ))
+      )}
 
       {/* Current activity */}
       {running && currentAction && (
@@ -352,6 +839,7 @@ function App({ serverUrl, singleTask }) {
       {running && startTime && (
         <Box marginTop={0} marginLeft={2}>
           <Text dimColor>({timeAgo(startTime)} · iteration {iteration})</Text>
+          <Text dimColor>  · esc stops run · t for {showTrace ? 'normal view' : 'trace tail'}</Text>
         </Box>
       )}
 
@@ -374,19 +862,19 @@ function App({ serverUrl, singleTask }) {
       )}
 
       {/* Command suggestions */}
-      {!running && !singleTask && input.startsWith('/') && input.length < 15 && (
+      {!running && !singleTask && input.startsWith('/') && slashSuggestions.length > 0 && (
         <Box flexDirection="column" marginLeft={2} marginBottom={0}>
-          {[
-            { cmd: '/project', desc: 'list / switch / create projects' },
-            { cmd: '/serve', desc: 'host active project on localhost' },
-            { cmd: '/attach', desc: 'attach a file or image' },
-            { cmd: '/help', desc: 'show all commands' },
-          ].filter(c => c.cmd.startsWith(input)).map((c, i) => (
+          {slashSuggestions.map((suggestion, i) => (
             <Box key={i}>
-              <Text color="#4a9eff">{c.cmd}</Text>
-              <Text dimColor>  {c.desc}</Text>
+              <Text color={i === suggestionIndex ? '#ffffff' : '#4a9eff'}>
+                {i === suggestionIndex ? '› ' : '  '}{suggestion.label}
+              </Text>
+              <Text dimColor>  {suggestion.desc}</Text>
             </Box>
           ))}
+          <Box>
+            <Text dimColor>↑/↓ to select · tab or enter to complete</Text>
+          </Box>
         </Box>
       )}
 
@@ -401,6 +889,7 @@ function App({ serverUrl, singleTask }) {
             width={cols - 2}
           >
             <TextInput
+              key={inputVersion}
               value={input}
               onChange={handleChange}
               onSubmit={handleSubmit}
@@ -409,7 +898,7 @@ function App({ serverUrl, singleTask }) {
           </Box>
           {!input.startsWith('/') && (
             <Box marginLeft={2}>
-              <Text dimColor>type / for commands · exit to quit</Text>
+              <Text dimColor>type / for commands · ↑/↓ recall history · esc clears or stops · ctrl-c exits</Text>
             </Box>
           )}
         </Box>
@@ -488,6 +977,38 @@ function MessageView({ msg, cols }) {
   return null;
 }
 
+function TraceTailView({ entries, cols }) {
+  const visible = entries.slice(-Math.max(14, Math.min(36, cols ? Math.floor(cols / 2) : 20)));
+
+  return (
+    <Box flexDirection="column" marginLeft={2}>
+      <Text color="#4a9eff">Trace Tail</Text>
+      {visible.length === 0 ? (
+        <Text dimColor>waiting for agent activity...</Text>
+      ) : (
+        visible.map((entry, index) => (
+          <Box key={`${entry.iteration}-${index}`}>
+            <Text dimColor>[{String(entry.iteration).padStart(3, ' ')}]</Text>
+            <Text> </Text>
+            <Text
+              wrap="wrap"
+              color={
+                entry.kind === 'call' ? '#4a9eff' :
+                entry.kind === 'error' ? 'red' :
+                entry.kind === 'status' ? 'green' :
+                entry.kind === 'info' ? 'cyan' :
+                'gray'
+              }
+            >
+              {entry.text}
+            </Text>
+          </Box>
+        ))
+      )}
+    </Box>
+  );
+}
+
 // ── CLI entry ──
 const args = process.argv.slice(2);
 let task = null;
@@ -508,4 +1029,4 @@ if (task && attachFiles.length > 0) {
 }
 
 const serverUrl = `ws://localhost:${wsPort}/ws`;
-render(<App serverUrl={serverUrl} singleTask={task} />);
+render(<App serverUrl={serverUrl} singleTask={task} />, { exitOnCtrlC: false });
