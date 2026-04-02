@@ -220,7 +220,7 @@ if %VRAM_MB% GTR 0 (
 )
 
 set "MODE=full"
-if %VRAM_GB% LSS 10 (
+if %VRAM_GB% LSS 8 (
     set "MODE=lite"
     echo   [!] Under 10GB available - lite mode ^(2B only, 1.2GB download^)
 ) else (
