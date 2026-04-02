@@ -26,11 +26,28 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
     deps_lower = {d.lower() for d in dependencies}
     name_lower = name.lower()
 
-    # 3D/game keywords → threejs-game scaffold
-    game_keywords = {"three", "cannon", "rapier", "3d", "game", "physics"}
-    if deps_lower & game_keywords or any(k in name_lower for k in ["game", "3d", "pinball"]):
+    # 3D game keywords → threejs-game scaffold
+    game_3d = {"three", "cannon", "rapier", "3d", "r3f"}
+    if deps_lower & game_3d or any(k in name_lower for k in ["3d", "pinball", "fps", "voxel"]):
         if (SCAFFOLDS_DIR / "threejs-game").exists():
             return "threejs-game"
+
+    # 2D game keywords → pixijs-game scaffold
+    game_2d = {"pixi", "pixijs", "matter", "2d", "sprite", "platformer"}
+    if deps_lower & game_2d or any(k in name_lower for k in ["2d", "platformer", "arcade", "shooter", "tetris", "snake", "pong"]):
+        if (SCAFFOLDS_DIR / "pixijs-game").exists():
+            return "pixijs-game"
+
+    # Generic game → 2D by default (simpler)
+    if any(k in name_lower for k in ["game"]):
+        if (SCAFFOLDS_DIR / "pixijs-game").exists():
+            return "pixijs-game"
+
+    # Fullstack/API/database keywords → fullstack scaffold
+    fullstack_keywords = {"express", "sqlite", "database", "api", "backend", "server", "crud"}
+    if deps_lower & fullstack_keywords or any(k in name_lower for k in ["fullstack", "api", "backend", "crud", "todo-app"]):
+        if (SCAFFOLDS_DIR / "fullstack").exists():
+            return "fullstack"
 
     # Dashboard/analytics keywords → dashboard scaffold
     dash_keywords = {"chart", "dashboard", "analytics", "stats", "metrics", "recharts", "d3"}
