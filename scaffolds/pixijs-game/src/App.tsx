@@ -1,3 +1,4 @@
+import "./index.css"
 // TODO: Replace with your game
 export default function App() {
   return <div className="container text-center" style={{ paddingTop: 40 }}>

@@ -1,3 +1,4 @@
+import "./index.css"
 // TODO: Replace with your app
 export default function App() {
   return <div className="container">
