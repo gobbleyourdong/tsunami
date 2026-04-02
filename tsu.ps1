@@ -99,11 +99,18 @@ if (-not (Test-ModelServer)) {
                      ForEach-Object { Find-Model $_ } | Where-Object { $_ } | Select-Object -First 1
         $mmprojSmall = Find-Model 'mmproj-2B-BF16.gguf'
 
+        # Windows CommandLineToArgvW strips unquoted double-quotes from JSON values
+        # e.g. {"enable_thinking":false} → {enable_thinking:false} (keys unquoted)
+        # Proper Windows escaping: wrap in quotes and escape inner quotes with backslash
+        # '"{\"enable_thinking\":false}"' → command line: "{\"enable_thinking\":false}"
+        # → CommandLineToArgvW result: {"enable_thinking":false}  ✓
+        $noThinkingArg = '"{\"enable_thinking\":false}"'
+
         if ($dense27) {
             Write-Host "  starting 27B dense: $(Split-Path -Leaf $dense27)"
             $modelArgs = @('--model', $dense27) + $llamaArgs + @('-fa', 'on',
                 '--cache-type-k', 'bf16', '--cache-type-v', 'bf16',
-                '--jinja', '--chat-template-kwargs', '{"enable_thinking":false}')
+                '--jinja', '--chat-template-kwargs', $noThinkingArg)
             if ($mmproj27) { $modelArgs += @('--mmproj', $mmproj27) }
         } elseif ($moeModel) {
             Write-Host "  starting 122B MoE: $(Split-Path -Leaf $moeModel)"
@@ -113,7 +120,7 @@ if (-not (Test-ModelServer)) {
             $vizNote = if ($mmprojSmall) { ' + vision' } else { '' }
             Write-Host "  starting $(Split-Path -Leaf $textModel)$vizNote"
             $modelArgs = @('--model', $textModel) + $llamaArgs + @('-fa', 'on',
-                '--jinja', '--chat-template-kwargs', '{"enable_thinking":false}')
+                '--jinja', '--chat-template-kwargs', $noThinkingArg)
             if ($mmprojSmall) { $modelArgs += @('--mmproj', $mmprojSmall) }
         } else {
             Write-Warning "No .gguf model found in $DIR\models — run setup.ps1 to download models."
