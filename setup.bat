@@ -65,21 +65,29 @@ if not exist "%LLAMA_DIR%\llama-server.exe" (
     echo   [..] Downloading llama-server for Windows...
     mkdir "%LLAMA_DIR%" 2>nul
 
-    :: Download latest release (CUDA build for NVIDIA, or CPU fallback)
-    echo   Checking for NVIDIA GPU...
+    :: Get latest release tag
+    echo   Finding latest llama.cpp release...
+    for /f "tokens=*" %%i in ('curl -sI https://github.com/ggerganov/llama.cpp/releases/latest 2^>nul ^| findstr /i "location:"') do set REDIR=%%i
+    for /f "tokens=8 delims=/" %%i in ("%REDIR%") do set LLAMA_TAG=%%i
+    :: Clean CR/LF
+    set LLAMA_TAG=%LLAMA_TAG: =%
+    if "%LLAMA_TAG%"=="" set LLAMA_TAG=b8611
+    echo   Latest: %LLAMA_TAG%
+
+    :: Download (CUDA for NVIDIA, CPU fallback)
     where nvidia-smi >nul 2>&1
     if errorlevel 1 (
         echo   No NVIDIA GPU - downloading CPU version...
-        set LLAMA_URL=https://github.com/ggerganov/llama.cpp/releases/latest/download/llama-server-windows-x64.zip
+        set LLAMA_URL=https://github.com/ggerganov/llama.cpp/releases/download/%LLAMA_TAG%/llama-%LLAMA_TAG%-bin-win-cpu-x64.zip
     ) else (
         echo   NVIDIA GPU found - downloading CUDA version...
-        set LLAMA_URL=https://github.com/ggerganov/llama.cpp/releases/latest/download/llama-server-windows-cuda12-x64.zip
+        set LLAMA_URL=https://github.com/ggerganov/llama.cpp/releases/download/%LLAMA_TAG%/llama-%LLAMA_TAG%-bin-win-cuda-12.4-x64.zip
     )
 
-    curl -fSL -o "%LLAMA_DIR%\llama-server.zip" "%LLAMA_URL%"
+    curl -fSL --progress-bar -o "%LLAMA_DIR%\llama-server.zip" "%LLAMA_URL%"
     if errorlevel 1 (
-        echo   [!] Download failed, trying CPU version...
-        curl -fSL -o "%LLAMA_DIR%\llama-server.zip" "https://github.com/ggerganov/llama.cpp/releases/latest/download/llama-server-windows-x64.zip"
+        echo   [!] CUDA download failed, trying CPU version...
+        curl -fSL --progress-bar -o "%LLAMA_DIR%\llama-server.zip" "https://github.com/ggerganov/llama.cpp/releases/download/%LLAMA_TAG%/llama-%LLAMA_TAG%-bin-win-cpu-x64.zip"
     )
 
     :: Extract
