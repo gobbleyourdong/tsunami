@@ -114,7 +114,7 @@ if (-not (Test-ModelServer)) {
 
         if ($modelArgs) {
             $proc = Start-Process -FilePath $llama -ArgumentList $modelArgs `
-                        -RedirectStandardOutput $logFile -RedirectStandardError $logFile `
+                        -RedirectStandardOutput $logFile -RedirectStandardError "$logFile.err" `
                         -WindowStyle Hidden -PassThru
             $ModelPid = $proc.Id
 
@@ -140,7 +140,7 @@ start_server(host='0.0.0.0', port=3000)
     $tmpScript = "$env:TEMP\tsunami_server_start.py"
     $serverScript | Set-Content $tmpScript -Encoding UTF8
     $srvProc = Start-Process -FilePath python -ArgumentList $tmpScript `
-                   -RedirectStandardOutput $serverLog -RedirectStandardError $serverLog `
+                   -RedirectStandardOutput $serverLog -RedirectStandardError "$serverLog.err" `
                    -WindowStyle Hidden -PassThru
     $ServerPid = $srvProc.Id
 
