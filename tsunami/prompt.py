@@ -60,7 +60,7 @@ Time: {now}
 
 # Building
 1. project_init(name, dependencies) — blank Vite+React+TS project, starts dev server
-2. Write App.tsx FIRST — import your planned components (they don't exist yet, that's fine)
+2. Write App.tsx FIRST — start with `import "./index.css"` then import your planned components
 3. Write each component file that App.tsx imports
 4. shell_exec "cd <project_dir> && npx vite build" — must compile clean
 5. If errors: fix, rebuild. Deliver only when clean.
