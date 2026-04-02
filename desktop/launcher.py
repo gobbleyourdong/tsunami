@@ -37,19 +37,130 @@ def find_model(pattern):
 
 
 def find_llama_server():
-    """Find llama-server binary."""
+    """Find llama-server binary. Downloads pre-built if missing on Windows."""
+    llama_dir = TSUNAMI_DIR / "llama-server"
     candidates = [
+        llama_dir / "llama-server.exe",
+        llama_dir / "llama-server",
         TSUNAMI_DIR / "llama.cpp" / "build" / "bin" / "llama-server",
-        Path.home() / "llama.cpp" / "build" / "bin" / "llama-server",
-        # Windows paths
+        TSUNAMI_DIR / "llama.cpp" / "build" / "bin" / "llama-server.exe",
         TSUNAMI_DIR / "llama.cpp" / "build" / "bin" / "Release" / "llama-server.exe",
     ]
     for c in candidates:
         if c.exists():
             return str(c)
+
     # Try PATH
     import shutil
-    return shutil.which("llama-server")
+    found = shutil.which("llama-server")
+    if found:
+        return found
+
+    # Not found — download pre-built binary
+    print("  → llama-server not found, downloading pre-built binary...")
+    return download_llama_server()
+
+
+def download_llama_server():
+    """Download pre-built llama-server from GitHub releases."""
+    import platform
+    import urllib.request
+    import zipfile
+    import tarfile
+
+    llama_dir = TSUNAMI_DIR / "llama-server"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+
+    # Get latest release tag
+    try:
+        import json
+        req = urllib.request.Request(
+            "https://api.github.com/repos/ggerganov/llama.cpp/releases/latest",
+            headers={"User-Agent": "Tsunami/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            tag = json.loads(resp.read())["tag_name"]
+    except Exception:
+        tag = "b8611"
+
+    print(f"  Release: {tag}")
+
+    system = platform.system()
+    machine = platform.machine().lower()
+
+    # Pick the right binary
+    if system == "Windows":
+        # Check for NVIDIA GPU
+        has_nvidia = shutil.which("nvidia-smi") is not None
+        if has_nvidia:
+            asset = f"llama-{tag}-bin-win-cuda-12.4-x64.zip"
+        else:
+            asset = f"llama-{tag}-bin-win-cpu-x64.zip"
+        ext = ".zip"
+        binary_name = "llama-server.exe"
+    elif system == "Darwin":
+        if "arm" in machine or "aarch" in machine:
+            asset = f"llama-{tag}-bin-macos-arm64.tar.gz"
+        else:
+            asset = f"llama-{tag}-bin-macos-x64.tar.gz"
+        ext = ".tar.gz"
+        binary_name = "llama-server"
+    else:  # Linux
+        asset = f"llama-{tag}-bin-ubuntu-x64.tar.gz"
+        ext = ".tar.gz"
+        binary_name = "llama-server"
+
+    url = f"https://github.com/ggerganov/llama.cpp/releases/download/{tag}/{asset}"
+    archive_path = llama_dir / f"llama{ext}"
+
+    print(f"  Downloading {asset}...")
+    try:
+        urllib.request.urlretrieve(url, str(archive_path))
+    except Exception as e:
+        # Fallback to CPU version
+        if "cuda" in asset:
+            print(f"  CUDA download failed, trying CPU...")
+            asset = asset.replace("cuda-12.4", "cpu")
+            url = f"https://github.com/ggerganov/llama.cpp/releases/download/{tag}/{asset}"
+            try:
+                urllib.request.urlretrieve(url, str(archive_path))
+            except Exception as e2:
+                print(f"  ✗ Download failed: {e2}")
+                return None
+        else:
+            print(f"  ✗ Download failed: {e}")
+            return None
+
+    # Extract
+    print("  Extracting...")
+    try:
+        if ext == ".zip":
+            with zipfile.ZipFile(str(archive_path), 'r') as z:
+                z.extractall(str(llama_dir))
+        else:
+            with tarfile.open(str(archive_path), 'r:gz') as t:
+                t.extractall(str(llama_dir))
+    except Exception as e:
+        print(f"  ✗ Extract failed: {e}")
+        return None
+
+    archive_path.unlink(missing_ok=True)
+
+    # Find the binary in extracted files
+    for f in llama_dir.rglob(binary_name):
+        # Move to top level
+        if f.parent != llama_dir:
+            dest = llama_dir / binary_name
+            f.rename(dest)
+            f = dest
+        # Make executable on Unix
+        if system != "Windows":
+            f.chmod(0o755)
+        print(f"  ✓ {binary_name} ready")
+        return str(f)
+
+    print(f"  ✗ {binary_name} not found in archive")
+    return None
 
 
 def start_server(name, port, model, ctx_size=16384, parallel=1, extra_args=None):
@@ -148,15 +259,32 @@ def main():
     print("  ╚══════════════════════════╝")
     print()
 
-    # Find models
+    # Find or download models
     wave_model = find_model("*9B*Q4*.gguf") or find_model("*Qwen*9B*.gguf")
     eddy_model = find_model("*2B*Q4*.gguf") or find_model("*Qwen*2B*.gguf")
 
-    if not wave_model:
-        print("  ✗ No 9B model found in models/")
-        print("    Run setup.sh first to download models")
-        input("  Press Enter to exit...")
-        sys.exit(1)
+    if not wave_model or not eddy_model:
+        MODELS_DIR.mkdir(parents=True, exist_ok=True)
+        import urllib.request
+
+        def download_model(url, dest):
+            name = Path(dest).name
+            if Path(dest).exists():
+                return
+            print(f"  → Downloading {name}...")
+            print(f"    This is a one-time download. Please wait.")
+            urllib.request.urlretrieve(url, dest)
+            print(f"  ✓ {name}")
+
+        if not eddy_model:
+            dest = str(MODELS_DIR / "Qwen3.5-2B-Q4_K_M.gguf")
+            download_model("https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf", dest)
+            eddy_model = dest
+
+        if not wave_model:
+            dest = str(MODELS_DIR / "Qwen3.5-9B-Q4_K_M.gguf")
+            download_model("https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf", dest)
+            wave_model = dest
 
     # Start servers
     start_server("wave (9B)", 8090, wave_model, ctx_size=32768)
