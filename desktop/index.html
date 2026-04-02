@@ -7,168 +7,124 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --bg: #080810;
-      --bg2: #0c0c18;
-      --panel: #0e0e1c;
-      --panel2: #12122a;
-      --border: #1a1a30;
-      --border-hi: #252550;
-      --text: #c8c8d8;
-      --muted: #4a4a6a;
-      --accent: #1a8a8a;
-      --accent-glow: #0d6868;
-      --accent-bright: #2ab8b8;
-      --green: #3da87a;
-      --yellow: #b8a040;
-      --red: #a83a3a;
-      --blue: #4070a8;
-      --purple: #7050a0;
-      --orange: #a86830;
+      --bg: #080810; --bg2: #0c0c18; --panel: #0e0e1c; --panel2: #12122a;
+      --border: #1a1a30; --border-hi: #252550;
+      --text: #c8c8d8; --muted: #4a4a6a;
+      --accent: #1a8a8a; --accent-glow: #0d6868; --accent-bright: #2ab8b8;
+      --green: #3da87a; --yellow: #b8a040; --red: #a83a3a;
+      --blue: #4070a8; --purple: #7050a0; --orange: #a86830;
     }
-    html, body, #app { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 13px; overflow: hidden; }
+    html, body, #app { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono','Cascadia Code','Fira Code','Consolas',monospace; font-size: 13px; overflow: hidden; }
 
-    /* === LAYOUT: Chat left, Artifacts right === */
-    #app { display: grid; grid-template-columns: 48px 200px 1fr 1fr; grid-template-rows: 40px 1fr; }
+    /* === 3-COLUMN LAYOUT === */
+    #app { display: grid; grid-template-columns: 200px 1fr 1fr; grid-template-rows: 36px 1fr; height: 100vh; }
 
-    /* File sidebar */
-    .file-sidebar { grid-row: 2; background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; font-size: 12px; }
-    .file-sidebar-header { padding: 8px 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-size: 10px; border-bottom: 1px solid var(--border); }
-    .sidebar-file { padding: 3px 8px 3px 16px; cursor: pointer; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; font-size: 11px; }
-    .sidebar-file:hover { background: var(--panel2); }
-    .sidebar-file.active { background: var(--panel2); color: var(--accent-bright); }
+    /* Top bar spans everything */
+    .top-bar { grid-column: 1 / -1; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 12px; -webkit-app-region: drag; }
+    .top-bar .logo { color: var(--accent-bright); font-weight: 700; font-size: 13px; letter-spacing: 2px; }
+    .top-bar .spacer { flex: 1; }
+    .top-bar .hud { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .dot.on { background: var(--green); box-shadow: 0 0 4px var(--green); }
+    .dot.off { background: var(--red); }
 
-    /* Activity bar */
-    .activity-bar { grid-row: 1 / -1; background: var(--bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding-top: 10px; gap: 2px; }
-    .activity-bar button { width: 38px; height: 38px; border: none; background: none; color: var(--muted); cursor: pointer; border-radius: 6px; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
-    .activity-bar button:hover { color: var(--text); background: var(--panel); }
-    .activity-bar button.active { color: var(--accent-bright); background: var(--panel2); border-left: 2px solid var(--accent); }
+    /* === COL 1: PROJECT LIST === */
+    .projects { background: var(--bg); border-right: 1px solid var(--border); overflow-y: auto; }
+    .projects-header { padding: 8px 10px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+    .project-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .project-item:hover { background: var(--panel); }
+    .project-item.active { background: var(--panel2); border-left: 2px solid var(--accent); color: var(--accent-bright); }
+    .project-item .name { font-weight: 500; }
+    .project-item .time { color: var(--muted); font-size: 10px; margin-top: 2px; }
+    .new-project { padding: 8px 10px; cursor: pointer; color: var(--accent); font-size: 12px; border-bottom: 1px solid var(--border); }
+    .new-project:hover { background: var(--panel); }
 
-    /* Top bar */
-    .top-bar { grid-column: 2 / -1; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 16px; -webkit-app-region: drag; }
-    .top-bar .logo { color: var(--accent-bright); font-weight: 700; font-size: 14px; letter-spacing: 2px; }
-    .top-bar .status-hud { margin-left: auto; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
-    .top-bar .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-    .top-bar .dot.on { background: var(--green); box-shadow: 0 0 4px var(--green); }
-    .top-bar .dot.off { background: var(--red); }
-
-    /* === CHAT PANE (left) === */
-    .chat-pane { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); }
-
-    /* Plan display at top of chat */
-    .plan-bar { padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--border); font-size: 11px; display: flex; gap: 12px; flex-wrap: wrap; }
-    .plan-phase { padding: 3px 10px; border-radius: 12px; font-size: 11px; }
-    .plan-phase.active { background: var(--accent); color: #000; font-weight: 600; }
-    .plan-phase.done { background: var(--border-hi); color: var(--green); text-decoration: line-through; }
-    .plan-phase.pending { background: var(--border); color: var(--muted); }
-
-    /* Chat messages */
-    .chat-messages { flex: 1; overflow-y: auto; padding: 14px; }
-    .msg { margin-bottom: 10px; line-height: 1.6; animation: fadeIn 0.2s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    /* === COL 2: CHAT === */
+    .chat { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); }
+    .chat-msgs { flex: 1; overflow-y: auto; padding: 14px; }
+    .msg { margin-bottom: 10px; line-height: 1.6; animation: fadeIn 0.2s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
     .msg.user { color: var(--accent-bright); }
     .msg.user::before { content: "you › "; font-size: 11px; color: var(--muted); }
     .msg.agent { padding-left: 10px; border-left: 2px solid var(--border-hi); }
-    .msg.tool { color: var(--muted); font-size: 11px; padding-left: 10px; }
+    .msg.tool { color: var(--muted); font-size: 11px; }
     .msg.tool::before { content: "⚙ "; }
     .msg.error { color: var(--red); }
     .msg.system { color: var(--muted); font-style: italic; font-size: 11px; }
-
-    /* Input */
-    .chat-input { display: flex; padding: 10px; gap: 8px; border-top: 1px solid var(--border); background: var(--panel); }
-    .chat-input input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: var(--text); font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.15s; }
+    .chat-input { display: flex; padding: 8px; gap: 6px; border-top: 1px solid var(--border); background: var(--panel); }
+    .chat-input input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text); font-family: inherit; font-size: 13px; outline: none; }
     .chat-input input:focus { border-color: var(--accent); }
     .chat-input input::placeholder { color: var(--muted); }
-    .chat-input button { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 11px 18px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
-    .chat-input button:hover { background: var(--accent-glow); }
+    .chat-input button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+    .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+    .welcome h1 { color: var(--accent-bright); font-size: 28px; font-weight: 300; letter-spacing: 5px; text-shadow: 0 0 20px var(--accent-glow); }
+    .welcome p { color: var(--muted); font-size: 12px; margin-top: 4px; }
 
-    /* === ARTIFACTS PANE (right) === */
-    .artifacts-pane { display: flex; flex-direction: column; background: var(--bg); position: relative; }
+    /* === COL 3: WORKSPACE (code + file tree + preview) === */
+    .workspace { display: flex; flex-direction: column; background: var(--bg); }
 
-    /* Artifacts tab bar */
-    .artifact-tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); min-height: 32px; overflow-x: auto; }
-    .artifact-tab { padding: 7px 16px; cursor: pointer; border-right: 1px solid var(--border); color: var(--muted); font-size: 11px; white-space: nowrap; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
-    .artifact-tab:hover { color: var(--text); }
-    .artifact-tab.active { color: var(--accent-bright); background: var(--bg); border-bottom: 2px solid var(--accent); }
+    /* Workspace tabs */
+    .ws-tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); min-height: 30px; }
+    .ws-tab { padding: 6px 14px; cursor: pointer; color: var(--muted); font-size: 11px; border-right: 1px solid var(--border); }
+    .ws-tab:hover { color: var(--text); }
+    .ws-tab.active { color: var(--accent-bright); background: var(--bg); border-bottom: 2px solid var(--accent); }
 
-    /* Artifact content */
-    .artifact-content { flex: 1; overflow: auto; position: relative; }
+    /* Workspace content — code view has its own sidebar */
+    .ws-content { flex: 1; display: flex; overflow: hidden; }
 
-    /* Terminal view */
-    .terminal-view { padding: 12px; font-size: 12px; line-height: 1.5; }
-    .terminal-view .cmd { color: var(--green); }
-    .terminal-view .out { color: var(--text); }
-    .terminal-view .err { color: var(--red); }
+    /* Code file tree (inside workspace) */
+    .code-sidebar { width: 180px; background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
+    .code-sidebar-header { padding: 6px 8px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+    .code-file { padding: 3px 6px 3px 14px; cursor: pointer; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
+    .code-file:hover { background: var(--panel2); }
+    .code-file.active { background: var(--panel2); color: var(--accent-bright); }
 
-    /* Code view */
-    .code-view { padding: 12px; font-size: 12px; white-space: pre-wrap; line-height: 1.5; }
-    .code-view .line-num { color: var(--muted); display: inline-block; width: 35px; text-align: right; margin-right: 12px; user-select: none; }
-    .code-view .highlight { background: rgba(26,138,138,0.15); display: block; margin: 0 -12px; padding: 0 12px; }
+    /* Code editor area */
+    .code-area { flex: 1; overflow: auto; padding: 10px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+    .code-area .ln { color: var(--muted); display: inline-block; width: 30px; text-align: right; margin-right: 10px; user-select: none; }
+    .code-path { padding: 4px 10px; background: var(--panel); font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); }
 
-    /* Preview iframe */
+    /* Preview */
     .preview-frame { width: 100%; height: 100%; border: none; background: #fff; }
 
-    /* File manager */
-    .file-list { padding: 8px; }
-    .file-item { padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px; }
-    .file-item:hover { background: var(--panel2); }
-    .file-item .ext { font-size: 10px; color: var(--muted); }
+    /* Terminal */
+    .terminal { padding: 10px; font-size: 11px; line-height: 1.5; overflow-y: auto; height: 100%; }
+    .terminal .cmd { color: var(--green); }
+    .terminal .out { color: var(--text); }
+    .terminal .err { color: var(--red); }
 
-    /* Welcome / empty state */
-    .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; background: radial-gradient(ellipse at center bottom, var(--panel2) 0%, var(--bg) 70%); }
-    .welcome h1 { color: var(--accent-bright); font-size: 32px; font-weight: 300; letter-spacing: 6px; margin-bottom: 6px; text-shadow: 0 0 20px var(--accent-glow); }
-    .welcome p { color: var(--muted); font-size: 13px; }
+    /* HUD overlay */
+    .hud-float { position: fixed; top: 42px; right: 10px; font-size: 11px; color: var(--muted); background: var(--panel); padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border); z-index: 10; display: none; }
+    .hud-float .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; display: inline-block; margin-right: 5px; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    /* Status HUD overlay */
-    .hud-status { position: absolute; top: 8px; right: 12px; font-size: 11px; color: var(--muted); background: var(--bg); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border); z-index: 5; display: flex; align-items: center; gap: 6px; }
-    .hud-status .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    /* Responsive */
-    @media (max-width: 900px) { #app { grid-template-columns: 48px 1fr; } .artifacts-pane { display: none; } }
+    ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   </style>
 </head>
 <body>
   <div id="app">
-    <!-- Activity Bar -->
-    <div class="activity-bar">
-      <button class="active" onclick="switchActivity(this,'chat')" title="Chat">💬</button>
-      <button onclick="switchActivity(this,'files')" title="Files">📂</button>
-      <button onclick="switchActivity(this,'preview')" title="Preview">👁</button>
-      <button onclick="switchActivity(this,'settings')" title="Settings">⚙</button>
-      <div style="flex:1"></div>
-      <button onclick="switchActivity(this,'help')" title="Help" style="font-size:13px">?</button>
-    </div>
-
-    <!-- Top Bar -->
+    <!-- Top bar -->
     <div class="top-bar">
       <span class="logo">TSUNAMI</span>
-      <span id="project-name" style="color:var(--muted);font-size:12px">ready</span>
-      <div class="status-hud">
+      <span class="spacer"></span>
+      <div class="hud">
         <span id="hud-text">idle</span>
-        <span>wave</span><div class="dot" id="wave-dot"></div>
-        <span>eddy</span><div class="dot" id="eddy-dot"></div>
+        wave <div class="dot" id="wave-dot"></div>
+        eddy <div class="dot" id="eddy-dot"></div>
       </div>
     </div>
 
-    <!-- File Sidebar (VS Code style) -->
-    <div class="file-sidebar" id="file-sidebar">
-      <div class="file-sidebar-header">Explorer</div>
-      <div id="sidebar-files"><div style="padding:10px;color:var(--muted)">no project</div></div>
+    <!-- Col 1: Projects -->
+    <div class="projects">
+      <div class="projects-header">Sessions</div>
+      <div class="new-project" onclick="newSession()">+ New Session</div>
+      <div id="project-list"></div>
     </div>
 
-    <!-- Chat Pane -->
-    <div class="chat-pane">
-      <div class="plan-bar" id="plan-bar" style="display:none"></div>
-      <div class="chat-messages" id="chat-messages">
-        <div class="welcome">
-          <h1>tsunami</h1>
-          <p>what do you want to build?</p>
-        </div>
+    <!-- Col 2: Chat -->
+    <div class="chat">
+      <div class="chat-msgs" id="chat-msgs">
+        <div class="welcome"><h1>tsunami</h1><p>what do you want to build?</p></div>
       </div>
       <div class="chat-input">
         <input id="prompt" placeholder="build me a..." onkeydown="if(event.key==='Enter')send()" autofocus />
@@ -176,91 +132,125 @@
       </div>
     </div>
 
-    <!-- Artifacts Pane -->
-    <div class="artifacts-pane" id="artifacts-pane">
-      <div class="artifact-tabs" id="artifact-tabs">
-        <div class="artifact-tab active" data-view="terminal" onclick="showArtifact('terminal',this)">Terminal</div>
-        <div class="artifact-tab" data-view="code" onclick="showArtifact('code',this)">Code</div>
-        <div class="artifact-tab" data-view="preview" onclick="showArtifact('preview',this)">Preview</div>
-        <div class="artifact-tab" data-view="files" onclick="showArtifact('files',this)">Files</div>
+    <!-- Col 3: Workspace -->
+    <div class="workspace">
+      <div class="ws-tabs">
+        <div class="ws-tab active" onclick="showWs('code',this)">Code</div>
+        <div class="ws-tab" onclick="showWs('preview',this)">Preview</div>
+        <div class="ws-tab" onclick="showWs('terminal',this)">Terminal</div>
       </div>
-      <div class="hud-status" id="hud-status" style="display:none">
-        <div class="pulse"></div>
-        <span id="hud-action">working...</span>
-      </div>
-      <div class="artifact-content" id="artifact-content">
-        <div class="terminal-view" id="terminal-view"></div>
+      <div class="ws-content" id="ws-content">
+        <!-- Code view with file tree -->
+        <div class="code-sidebar" id="code-sidebar">
+          <div class="code-sidebar-header">Files</div>
+          <div id="code-files"></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+          <div class="code-path" id="code-path">no file selected</div>
+          <div class="code-area" id="code-area"></div>
+        </div>
       </div>
     </div>
+
+    <div class="hud-float" id="hud-float"><span class="pulse"></span><span id="hud-action"></span></div>
   </div>
 
   <script>
-    const WS_URL = "ws://localhost:3002"
-    let ws = null, connected = false
-    let messages = [], terminalLines = [], codeContent = "", currentFile = ""
+    const WS_AGENT = "ws://localhost:3002"
+    const WS_FILES = "ws://localhost:3003"
+    let ws = null, fileWs = null
+    let messages = [], termLines = [], fileList = [], codeContent = "", currentFile = ""
+    let sessions = [], activeSession = null
 
-    // ── WebSocket ──
-    function connect() {
-      ws = new WebSocket(WS_URL)
-      ws.onopen = () => { connected = true; updateDots(); addTerm("Connected to agent", "cmd") }
-      ws.onclose = () => { connected = false; updateDots(); setTimeout(connect, 3000) }
-      ws.onmessage = (e) => {
+    // === AGENT CONNECTION ===
+    function connectAgent() {
+      ws = new WebSocket(WS_AGENT)
+      ws.onopen = () => { addTerm("Connected", "cmd"); updateDots() }
+      ws.onclose = () => { updateDots(); setTimeout(connectAgent, 3000) }
+      ws.onmessage = e => {
         try { handleMsg(JSON.parse(e.data)) } catch { addChat("agent", e.data) }
       }
     }
 
-    function handleMsg(data) {
-      if (data.type === "tool_call") {
-        addChat("tool", `${data.name} ${data.preview || ""}`)
-        addTerm(`[${data.name}] ${data.preview || ""}`, "out")
-        setHud(toolLabel(data.name))
-
-        // Show code in code view when writing files
-        if (data.name === "file_write" && data.content) {
-          codeContent = data.content
-          currentFile = data.path || ""
-          if (getCurrentArtifact() === "code") renderCode()
-        }
-      } else if (data.type === "message") {
-        addChat("agent", data.text)
-        setHud("thinking...")
-      } else if (data.type === "error") {
-        addChat("error", data.text)
-        addTerm(data.text, "err")
-      } else if (data.type === "complete") {
-        addChat("system", `✓ done (${data.iterations} iterations)`)
-        addTerm(`Complete: ${data.iterations} iterations`, "cmd")
+    function handleMsg(d) {
+      if (d.type === "tool_call") {
+        addChat("tool", `${d.name} ${d.preview || ""}`)
+        addTerm(`[${d.name}] ${d.preview || ""}`, "out")
+        setHud(toolLabel(d.name))
+        if (d.content && d.path) { codeContent = d.content; currentFile = d.path; renderCode() }
+      } else if (d.type === "message") { addChat("agent", d.text) }
+      else if (d.type === "error") { addChat("error", d.text); addTerm(d.text, "err") }
+      else if (d.type === "complete") {
+        addChat("system", `✓ done (${d.iterations} iters)`)
         setHud("done", false)
-        if (data.text?.includes("deliverables/")) {
-          const m = data.text.match(/deliverables\/([^\s/]+)/)
-          if (m) document.getElementById("project-name").textContent = m[1]
-        }
-      } else if (data.type === "plan") {
-        renderPlan(data.phases)
+        if (activeSession) activeSession.name = d.text?.match(/deliverables\/([^\s/]+)/)?.[1] || activeSession.name
+        renderProjects()
       }
     }
 
-    // ── Chat ──
+    // === FILE WATCHER ===
+    function connectFiles() {
+      fileWs = new WebSocket(WS_FILES)
+      fileWs.onclose = () => setTimeout(connectFiles, 3000)
+      fileWs.onmessage = e => {
+        try {
+          const d = JSON.parse(e.data)
+          if (d.type === "files") { fileList = d.files; renderFileTree() }
+          if (d.type === "file_changed") {
+            codeContent = d.content; currentFile = d.path
+            renderCode(); renderFileTree()
+            addTerm(`FILE ${d.path}`, "cmd")
+          }
+        } catch {}
+      }
+    }
+
+    // === SESSIONS ===
+    function newSession() {
+      const s = { id: Date.now(), name: `session-${sessions.length + 1}`, messages: [], time: new Date().toLocaleTimeString() }
+      sessions.unshift(s)
+      activeSession = s
+      messages = s.messages
+      renderProjects()
+      document.getElementById("chat-msgs").innerHTML = '<div class="welcome"><h1>tsunami</h1><p>what do you want to build?</p></div>'
+    }
+
+    function switchSession(id) {
+      const s = sessions.find(x => x.id === id)
+      if (!s) return
+      activeSession = s
+      messages = s.messages
+      renderProjects()
+      const el = document.getElementById("chat-msgs")
+      el.innerHTML = messages.map(m => `<div class="msg ${m.type}">${esc(m.text)}</div>`).join("")
+      el.scrollTop = el.scrollHeight
+    }
+
+    function renderProjects() {
+      document.getElementById("project-list").innerHTML = sessions.map(s =>
+        `<div class="project-item${s === activeSession ? " active" : ""}" onclick="switchSession(${s.id})">
+          <div class="name">${esc(s.name)}</div>
+          <div class="time">${s.time}</div>
+        </div>`
+      ).join("")
+    }
+
+    // === CHAT ===
     function send() {
       const input = document.getElementById("prompt")
       const text = input.value.trim()
       if (!text) return
+      if (!activeSession) newSession()
       addChat("user", text)
       input.value = ""
-      if (ws?.readyState === 1) {
-        ws.send(JSON.stringify({ type: "prompt", text }))
-        setHud("starting...")
-      } else {
-        addChat("error", "not connected")
-      }
+      if (ws?.readyState === 1) { ws.send(JSON.stringify({ type: "prompt", text })); setHud("starting...") }
+      else addChat("error", "not connected")
     }
 
     function addChat(type, text) {
       messages.push({ type, text })
-      const el = document.getElementById("chat-messages")
-      // Remove welcome on first message
-      const welcome = el.querySelector(".welcome")
-      if (welcome) welcome.remove()
+      const el = document.getElementById("chat-msgs")
+      const w = el.querySelector(".welcome"); if (w) w.remove()
       const div = document.createElement("div")
       div.className = `msg ${type}`
       div.textContent = text
@@ -268,195 +258,87 @@
       el.scrollTop = el.scrollHeight
     }
 
-    // ── Terminal ──
-    function addTerm(text, cls = "out") {
-      terminalLines.push({ text, cls })
-      if (getCurrentArtifact() === "terminal") {
-        const view = document.getElementById("terminal-view")
-        const div = document.createElement("div")
-        div.className = cls
-        div.textContent = `${time()} ${text}`
-        view.appendChild(div)
-        view.scrollTop = view.scrollHeight
-      }
-    }
+    // === TERMINAL ===
+    function addTerm(text, cls = "out") { termLines.push({ text, cls }) }
 
-    // ── Code View ──
+    // === CODE VIEW ===
     function renderCode() {
-      const el = document.getElementById("artifact-content")
-      const lines = codeContent.split("\n")
-      el.innerHTML = `<div class="code-view"><div style="color:var(--muted);font-size:11px;margin-bottom:8px">${esc(currentFile)}</div>` +
-        lines.map((line, i) => `<div><span class="line-num">${i + 1}</span>${esc(line)}</div>`).join("") +
-        `</div>`
-    }
-
-    // ── Plan ──
-    function renderPlan(phases) {
-      const bar = document.getElementById("plan-bar")
-      bar.style.display = "flex"
-      bar.innerHTML = phases.map(p =>
-        `<span class="plan-phase ${p.status}">${p.title}</span>`
+      if (getCurrentWs() !== "code") return
+      document.getElementById("code-path").textContent = currentFile || "no file"
+      const area = document.getElementById("code-area")
+      if (!codeContent) { area.innerHTML = '<span style="color:var(--muted)">select a file</span>'; return }
+      area.innerHTML = codeContent.split("\n").map((line, i) =>
+        `<div><span class="ln">${i + 1}</span>${esc(line)}</div>`
       ).join("")
     }
 
-    // ── Artifacts switching ──
-    function showArtifact(view, tab) {
-      document.querySelectorAll(".artifact-tab").forEach(t => t.classList.remove("active"))
-      if (tab) tab.classList.add("active")
-      const content = document.getElementById("artifact-content")
-
-      if (view === "terminal") {
-        content.innerHTML = '<div class="terminal-view" id="terminal-view"></div>'
-        const tv = document.getElementById("terminal-view")
-        terminalLines.forEach(l => {
-          const d = document.createElement("div")
-          d.className = l.cls
-          d.textContent = `${l.text}`
-          tv.appendChild(d)
-        })
-        tv.scrollTop = tv.scrollHeight
-      } else if (view === "code") {
-        renderCode()
-      } else if (view === "preview") {
-        content.innerHTML = '<iframe class="preview-frame" src="http://localhost:9876"></iframe>'
-      } else if (view === "files") {
-        renderFiles()
-      }
-    }
-
-    function getCurrentArtifact() {
-      const active = document.querySelector(".artifact-tab.active")
-      return active?.dataset.view || "terminal"
-    }
-
-    function switchActivity(btn, view) {
-      document.querySelectorAll(".activity-bar button").forEach(b => b.classList.remove("active"))
-      btn.classList.add("active")
-      if (view === "preview") showArtifact("preview")
-      else if (view === "files") showArtifact("files")
-      else if (view === "chat") showArtifact("terminal")
-    }
-
-    // ── HUD ──
-    function setHud(text, active = true) {
-      const el = document.getElementById("hud-status")
-      const action = document.getElementById("hud-action")
-      el.style.display = active ? "flex" : "none"
-      action.textContent = text
-      document.getElementById("hud-text").textContent = active ? text : "idle"
-    }
-
-    function toolLabel(name) {
-      const labels = {
-        file_write: "writing code", file_edit: "editing code", file_read: "reading file",
-        shell_exec: "running command", search_web: "searching", project_init: "scaffolding project",
-        match_glob: "finding files", match_grep: "searching code", python_exec: "running python",
-        plan_update: "planning", message_result: "delivering", swell: "dispatching eddies",
-        undertow: "testing app",
-      }
-      return labels[name] || name.replace("_", " ")
-    }
-
-    // ── Health ──
-    function updateDots() {
-      document.getElementById("wave-dot").className = "dot " + (connected ? "on" : "off")
-    }
-    async function checkHealth() {
-      for (const [id, port] of [["wave-dot", 8090], ["eddy-dot", 8092]]) {
-        try {
-          const r = await fetch(`http://localhost:${port}/health`, { signal: AbortSignal.timeout(2000) })
-          document.getElementById(id).className = "dot " + (r.ok ? "on" : "off")
-        } catch { document.getElementById(id).className = "dot off" }
-      }
-    }
-
-    // ── Helpers ──
-    function time() { return new Date().toLocaleTimeString("en", { hour12: false }) }
-    function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML }
-
-    // ── File Watcher Connection ──
-    let fileList = []
-    let fileWs = null
-    let changeLog = []  // persistent log of all file changes
-
-    function connectFileWatcher() {
-      fileWs = new WebSocket("ws://localhost:3003")
-      fileWs.onopen = () => addTerm("File watcher connected", "cmd")
-      fileWs.onclose = () => setTimeout(connectFileWatcher, 3000)
-      fileWs.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data)
-          if (data.type === "files") {
-            fileList = data.files
-            renderSidebarFiles()
-          }
-          if (data.type === "file_changed") {
-            // Update code view if we're watching
-            codeContent = data.content
-            currentFile = data.path
-            if (getCurrentArtifact() === "code") renderCode()
-            // Auto-switch to code view on first file write
-            if (changeLog.length === 0) {
-              showArtifact("code", document.querySelector('[data-view="code"]'))
-            }
-            // Log the change
-            const entry = `${time()} ${data.path}`
-            changeLog.push(entry)
-            addTerm(`FILE: ${data.path}`, "cmd")
-          }
-        } catch {}
-      }
-    }
-
-    function renderSidebarFiles() {
-      const el = document.getElementById("sidebar-files")
-      if (fileList.length === 0) {
-        el.innerHTML = '<div style="padding:10px;color:var(--muted)">no files</div>'
-        return
-      }
-      const extColors = { tsx: "var(--blue)", ts: "var(--green)", css: "var(--purple)", json: "var(--orange)", html: "var(--red)", js: "var(--yellow)" }
-      el.innerHTML = fileList.slice(0, 50).map(f => {
-        const ext = f.split(".").pop()
-        const color = extColors[ext] || "var(--muted)"
+    function renderFileTree() {
+      const el = document.getElementById("code-files")
+      if (!fileList.length) { el.innerHTML = '<div style="padding:8px;color:var(--muted)">empty</div>'; return }
+      const colors = { tsx: "var(--blue)", ts: "var(--green)", css: "var(--purple)", json: "var(--orange)", html: "var(--red)", js: "var(--yellow)" }
+      el.innerHTML = fileList.slice(0, 60).map(f => {
         const name = f.split("/").pop()
+        const ext = name.split(".").pop()
+        const c = colors[ext] || "var(--muted)"
         const active = f === currentFile ? " active" : ""
-        return `<div class="sidebar-file${active}" onclick="clickFile('${esc(f)}')"><span style="color:${color};font-size:9px">●</span>${esc(name)}</div>`
+        return `<div class="code-file${active}" onclick="selectFile('${esc(f)}')"><span style="color:${c};font-size:9px">●</span>${esc(name)}</div>`
       }).join("")
     }
 
-    function clickFile(path) {
-      currentFile = path
-      // Request this file's content from watcher by just switching to code view
-      showArtifact("code", document.querySelector('[data-view="code"]'))
-      renderSidebarFiles()
-    }
+    function selectFile(path) { currentFile = path; renderCode(); renderFileTree() }
 
-    function renderFiles() {
-      const content = document.getElementById("artifact-content")
-      if (fileList.length === 0) {
-        content.innerHTML = '<div class="file-list"><div style="padding:20px;color:var(--muted)">No project files yet</div></div>'
-        return
-      }
-      const extColors = { tsx: "var(--blue)", ts: "var(--green)", css: "var(--purple)", json: "var(--orange)", html: "var(--red)", js: "var(--yellow)", md: "var(--text)", py: "var(--green)" }
-      content.innerHTML = '<div class="file-list">' + fileList.map(f => {
-        const ext = f.split(".").pop()
-        const color = extColors[ext] || "var(--muted)"
-        return `<div class="file-item" onclick="viewFile('${esc(f)}')"><span style="color:${color}">●</span> ${esc(f)} <span class="ext">.${ext}</span></div>`
-      }).join("") + '</div>'
-    }
-
-    function viewFile(path) {
-      currentFile = path
-      // Request file content via watcher
-      if (fileWs?.readyState === 1) {
-        // For now just switch to code view — watcher will push content on next change
-        showArtifact("code", document.querySelector('[data-view="code"]'))
+    // === WORKSPACE TABS ===
+    function showWs(view, tab) {
+      document.querySelectorAll(".ws-tab").forEach(t => t.classList.remove("active"))
+      if (tab) tab.classList.add("active")
+      const c = document.getElementById("ws-content")
+      if (view === "code") {
+        c.innerHTML = `
+          <div class="code-sidebar" id="code-sidebar"><div class="code-sidebar-header">Files</div><div id="code-files"></div></div>
+          <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+            <div class="code-path" id="code-path">${esc(currentFile || "no file")}</div>
+            <div class="code-area" id="code-area"></div>
+          </div>`
+        renderCode(); renderFileTree()
+      } else if (view === "preview") {
+        c.innerHTML = '<iframe class="preview-frame" src="http://localhost:9876"></iframe>'
+      } else if (view === "terminal") {
+        c.innerHTML = '<div class="terminal" id="term-view"></div>'
+        const tv = document.getElementById("term-view")
+        termLines.forEach(l => { const d = document.createElement("div"); d.className = l.cls; d.textContent = l.text; tv.appendChild(d) })
+        tv.scrollTop = tv.scrollHeight
       }
     }
+    function getCurrentWs() { return document.querySelector(".ws-tab.active")?.textContent.toLowerCase() || "code" }
 
-    // ── Init ──
-    connect()
-    connectFileWatcher()
+    // === HUD ===
+    function setHud(text, active = true) {
+      const el = document.getElementById("hud-float")
+      el.style.display = active ? "block" : "none"
+      document.getElementById("hud-action").textContent = text
+      document.getElementById("hud-text").textContent = active ? text : "idle"
+    }
+    function toolLabel(n) {
+      return { file_write:"writing code", file_edit:"editing", shell_exec:"running command", search_web:"searching", project_init:"scaffolding", swell:"dispatching eddies", undertow:"testing" }[n] || n.replace("_"," ")
+    }
+
+    // === HEALTH ===
+    function updateDots() {
+      document.getElementById("wave-dot").className = "dot " + (ws?.readyState === 1 ? "on" : "off")
+    }
+    async function checkHealth() {
+      for (const [id, port] of [["wave-dot", 8090], ["eddy-dot", 8092]]) {
+        try { const r = await fetch(`http://localhost:${port}/health`, {signal: AbortSignal.timeout(2000)}); document.getElementById(id).className = "dot " + (r.ok ? "on" : "off") }
+        catch { document.getElementById(id).className = "dot off" }
+      }
+    }
+
+    function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML }
+
+    // === INIT ===
+    newSession()
+    connectAgent()
+    connectFiles()
     checkHealth()
     setInterval(checkHealth, 5000)
   </script>
