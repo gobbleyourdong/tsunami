@@ -65,7 +65,7 @@ async def watcher_loop():
     global file_states
 
     while True:
-        await asyncio.sleep(1)
+        await asyncio.sleep(3)
 
         current = scan_files()
 
@@ -104,10 +104,24 @@ async def handle_client(websocket):
     """New UI client connects — send current file list."""
     clients.add(websocket)
     current = scan_files()
+    file_list = sorted(current.keys())
     await websocket.send(json.dumps({
         "type": "files",
-        "files": sorted(current.keys()),
+        "files": file_list,
     }))
+    # Send the most recently modified source file's content
+    if file_list:
+        code_exts = {"tsx", "ts", "jsx", "js", "css", "html", "json", "py"}
+        source_files = [f for f in file_list if f.rsplit(".", 1)[-1] in code_exts]
+        if source_files:
+            # Find most recently modified
+            newest = max(source_files, key=lambda f: current.get(f, 0))
+            content = read_file(newest)
+            await websocket.send(json.dumps({
+                "type": "file_changed",
+                "path": newest,
+                "content": content,
+            }))
     try:
         async for _ in websocket:
             pass  # we only send, never receive
