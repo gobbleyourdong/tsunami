@@ -271,8 +271,9 @@
       if (!activeSession) newSession()
       // Name the session from the first prompt
       if (activeSession && activeSession.name.startsWith("session-")) {
-        const words = text.split(/\s+/).filter(w => w.length > 2 && !["build","make","create","the","for","with","and","that","app","save","workspace"].includes(w.toLowerCase()))
-        activeSession.name = words.slice(0, 3).join(" ") || text.slice(0, 30)
+        const skip = new Set(["build","make","create","the","for","with","and","that","app","save","workspace","deliverables","sure","really","works","please","want","need","like","just","some","this","from","into","have","about","very","also","here","there","then","when","what","which","where","they","them","been","will","would","could","should","more","most","other","than","only","each","every","after","before"])
+        const words = text.split(/\s+/).filter(w => w.length > 2 && !skip.has(w.toLowerCase()))
+        activeSession.name = words.slice(0, 2).join(" ").slice(0, 20) || text.slice(0, 20)
         renderProjects()
       }
       addChat("user", text)
