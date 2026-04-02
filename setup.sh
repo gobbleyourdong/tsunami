@@ -42,23 +42,19 @@ fi
 
 echo "  RAM: ${RAM}GB"
 
-# --- Capacity check — auto-scale queen + bee slots ---
+# --- Capacity check — auto-scale wave model ---
 if [ "$RAM" -lt 6 ] 2>/dev/null; then
   MODE="lite"
-  QUEEN="2B"
+  WAVE="2B"
   echo "  → ${RAM}GB RAM: lite mode (2B only)"
-elif [ "$RAM" -lt 10 ] 2>/dev/null; then
+elif [ "$RAM" -lt 48 ] 2>/dev/null; then
   MODE="full"
-  QUEEN="9B"
-  echo "  → ${RAM}GB RAM: full mode (9B queen + bees)"
-elif [ "$RAM" -lt 32 ] 2>/dev/null; then
-  MODE="full"
-  QUEEN="9B"
-  echo "  → ${RAM}GB RAM: full mode (9B queen + bees)"
+  WAVE="9B"
+  echo "  → ${RAM}GB RAM: full mode (9B wave + 2B eddies)"
 else
   MODE="full"
-  QUEEN="27B"
-  echo "  → ${RAM}GB RAM: full mode (27B queen + bees)"
+  WAVE="9B"
+  echo "  → ${RAM}GB RAM: full mode (9B wave + 2B eddies)"
 fi
 
 # --- Check dependencies ---
@@ -191,30 +187,21 @@ download() {
 
 echo ""
 
-# Always download the 2B (bees need it)
-echo "  Downloading bee model (1.2GB)..."
+# Always download the 2B (eddies need it)
+echo "  Downloading eddy model (1.2GB)..."
 download "unsloth/Qwen3.5-2B-GGUF" "Qwen3.5-2B-Q4_K_M.gguf"
 download "unsloth/Qwen3.5-2B-GGUF" "mmproj-BF16.gguf"
 [ -f "$MODELS_DIR/mmproj-BF16.gguf" ] && [ ! -f "$MODELS_DIR/mmproj-2B-BF16.gguf" ] && \
   mv "$MODELS_DIR/mmproj-BF16.gguf" "$MODELS_DIR/mmproj-2B-BF16.gguf"
 
-# Download queen model based on available memory
-if [ "$QUEEN" = "9B" ]; then
-  echo "  Downloading queen model (5.3GB)..."
+# Download wave model (9B — the orchestration makes it smart, not bigger weights)
+if [ "$WAVE" = "9B" ]; then
+  echo "  Downloading wave model (5.3GB)..."
   download "unsloth/Qwen3.5-9B-GGUF" "Qwen3.5-9B-Q4_K_M.gguf"
-  download "unsloth/Qwen3.5-9B-GGUF" "mmproj-BF16.gguf"
-  [ -f "$MODELS_DIR/mmproj-BF16.gguf" ] && [ ! -f "$MODELS_DIR/mmproj-9B-BF16.gguf" ] && \
-    mv "$MODELS_DIR/mmproj-BF16.gguf" "$MODELS_DIR/mmproj-9B-BF16.gguf"
-elif [ "$QUEEN" = "27B" ]; then
-  echo "  Downloading queen model (27GB)..."
-  download "unsloth/Qwen3.5-27B-GGUF" "Qwen3.5-27B-Q8_0.gguf"
-  download "unsloth/Qwen3.5-27B-GGUF" "mmproj-BF16.gguf"
-  [ -f "$MODELS_DIR/mmproj-BF16.gguf" ] && [ ! -f "$MODELS_DIR/mmproj-27B-BF16.gguf" ] && \
-    mv "$MODELS_DIR/mmproj-BF16.gguf" "$MODELS_DIR/mmproj-27B-BF16.gguf"
 fi
 
 echo ""
-echo "  Models installed: $QUEEN queen + 2B bees"
+echo "  Models: $WAVE wave + 2B eddies"
 echo "  Tsunami auto-detects and scales on startup."
 
 # Auto-download image model if Docker available and enough RAM
@@ -268,6 +255,6 @@ echo "  ║  2. tsunami                                ║"
 echo "  ║                                            ║"
 echo "  ║  Or: cd $DIR && ./tsu        ║"
 echo "  ║                                            ║"
-echo "  ║  GPU: $GPU | RAM: ${RAM}GB | Queen: $QUEEN   ║"
+echo "  ║  GPU: $GPU | RAM: ${RAM}GB | Queen: $WAVE   ║"
 echo "  ╚════════════════════════════════════════════╝"
 echo ""
