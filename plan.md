@@ -109,3 +109,4 @@ project_init should analyze the request and provide matching features:
 - Session 1: 8 test runners total. READMEs improve speed 25-55% across all apps.
 - Session 1: App.tsx FIRST strategy: dashboard now has wired App.tsx (was stub). White screen = component bug, not missing orchestrator. Fixable.
 - Session 1: The ordering fix turns "no app" into "app with a bug" — massive improvement.
+- Session 1: CRYPTO DASHBOARD RENDERS: 17 iters, 5 stat cards + 2 line charts, dark theme. Best result yet.
