@@ -60,18 +60,18 @@ Type: filesandordirs; Name: "{app}\node_modules"
 Type: filesandordirs; Name: "{app}\.venv"
 
 [Code]
-// Show a message about download size before install
 function InitializeSetup(): Boolean;
+var
+  Msg: String;
 begin
-  Result := MsgBox(
-    'Tsunami will install the app (~5MB) then download AI models (~7GB).' + #13#10 +
-    #13#10 +
-    'Requirements:' + #13#10 +
-    '  - Windows 10 or later' + #13#10 +
-    '  - 8GB+ RAM (or GPU VRAM)' + #13#10 +
-    '  - ~10GB free disk space' + #13#10 +
-    '  - Internet connection for model download' + #13#10 +
-    #13#10 +
-    'Continue?',
-    mbConfirmation, MB_YESNO) = IDYES;
+  Msg := 'Tsunami will install the app (~5MB) then download AI models (~7GB).' + Chr(13) + Chr(10) +
+    Chr(13) + Chr(10) +
+    'Requirements:' + Chr(13) + Chr(10) +
+    '  - Windows 10 or later' + Chr(13) + Chr(10) +
+    '  - 8GB+ RAM (or GPU VRAM)' + Chr(13) + Chr(10) +
+    '  - ~10GB free disk space' + Chr(13) + Chr(10) +
+    '  - Internet connection for model download' + Chr(13) + Chr(10) +
+    Chr(13) + Chr(10) +
+    'Continue?';
+  Result := MsgBox(Msg, mbConfirmation, MB_YESNO) = IDYES;
 end;
