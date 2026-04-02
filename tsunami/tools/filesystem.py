@@ -183,6 +183,11 @@ class FileWrite(BaseTool):
             # Fix double-escaped sequences from models
             if "\n" not in content and "\\n" in content:
                 content = content.replace("\\n", "\n").replace("\\t", "\t")
+            # Auto-inject CSS import into App.tsx if missing
+            if p.name == "App.tsx" and "index.css" not in content and p.parent.name == "src":
+                if (p.parent / "index.css").exists():
+                    content = 'import "./index.css"\n' + content
+
             # Fix unicode escapes (\\u00f7 → ÷) — models double-escape these
             if "\\u00" in content or "\\u2" in content:
                 import re
