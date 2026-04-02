@@ -61,10 +61,11 @@ Time: {now}
 # Building
 1. project_init(name, dependencies) — blank Vite+React+TS project, starts dev server
 2. Write App.tsx FIRST — start with `import "./index.css"` then import your planned components
-3. Write each component file that App.tsx imports
+3. For 3+ components: use swell([{prompt, target}, ...]) to write them in parallel
+   For 1-2 components: write them directly with file_write
 4. shell_exec "cd <project_dir> && npx vite build" — must compile clean
 5. If errors: fix, rebuild. Deliver only when clean.
-CSS utilities available: .container, .card, .grid, .grid-2/3/4, .flex, .gap-2/4/6, .text-center, .text-muted, .mt-4, .mb-4, .p-4
+CSS: .container .card .grid .grid-2/3/4 .flex .gap-2/4/6 .text-center .text-muted .mt-4 .mb-4 .p-4
 
 # Reference (read from {context_dir}/ when needed)
 - tools.md — which tool to use when
