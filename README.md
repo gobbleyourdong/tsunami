@@ -151,6 +151,20 @@ tsunami auto-detects and uses the biggest model available.
 
 ---
 
+## contributing
+
+this codebase is under heavy active development. multiple files change per day. PRs against core files (`agent.py`, `prompt.py`, `tools/`, `undertow.py`) will likely conflict within hours.
+
+**best approach:**
+1. open an issue first to discuss what you want to change
+2. target isolated new files (new scaffolds, new tools, new tests) that don't overlap with the core
+3. keep PRs small and focused — one feature per PR
+4. expect rebases — the main branch moves fast
+
+we read every PR and incorporate good ideas even if we can't merge directly. your contribution shapes the direction.
+
+---
+
 ## origin
 
 tsunami was built from the distilled patterns of agents that came before — the ones that worked, the ones that failed, and the lessons they left behind.
