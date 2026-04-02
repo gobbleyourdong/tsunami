@@ -291,6 +291,7 @@ if ($MISSING.Count -gt 0) {
     Write-Host ""
     Write-Fail "Missing dependencies: $($MISSING -join ', ')"
     Write-Host "    Install them and re-run this script."
+    Write-Host ""; Write-Host "  Press any key to close..."; $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     return
 }
 
@@ -331,6 +332,7 @@ Set-Location $DIR
 
 if (-not (Test-Path $DIR)) {
     Write-Fail "Repository clone failed — check your internet connection and try again."
+    Write-Host ""; Write-Host "  Press any key to close..."; $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     return
 }
 
@@ -675,3 +677,9 @@ Write-Host "  ${BOLD}╚══════════════════�
 Write-Host ""
 Write-Host "  ${YLW}NOTE: Restart PowerShell (or run '. `$PROFILE') to use the 'tsunami' command.${RST}"
 Write-Host ""
+
+# Keep window open when double-clicked
+if ($Host.Name -eq 'ConsoleHost') {
+    Write-Host "  Press any key to close..."
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}
