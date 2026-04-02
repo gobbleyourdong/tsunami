@@ -1,7 +1,6 @@
 #!/bin/bash
 # TSUNAMI — One-Click Installer
 # curl -sSL https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.sh | bash
-# Don't exit on error — we handle failures gracefully
 set +e
 
 echo "
@@ -19,8 +18,16 @@ OS=$(uname -s)
 ARCH=$(uname -m)
 GPU=""
 VRAM=0
-RAM=$(free -g 2>/dev/null | awk '/^Mem:/{print $2}' || sysctl -n hw.memsize 2>/dev/null | awk '{print int($1/1073741824)}')
 
+# RAM detection (works on both Linux and Mac)
+if [ "$OS" = "Darwin" ]; then
+  RAM=$(sysctl -n hw.memsize 2>/dev/null | awk '{print int($1/1073741824)}')
+else
+  RAM=$(free -g 2>/dev/null | awk '/^Mem:/{print $2}')
+fi
+RAM=${RAM:-8}  # default to 8GB if detection fails
+
+# GPU detection
 if command -v nvidia-smi &>/dev/null; then
   GPU="cuda"
   VRAM=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')
@@ -42,63 +49,67 @@ fi
 
 echo "  RAM: ${RAM}GB"
 
-# --- Capacity check — auto-scale wave model ---
+# --- Auto-scale ---
 if [ "$RAM" -lt 6 ] 2>/dev/null; then
   MODE="lite"
   WAVE="2B"
-  echo "  → ${RAM}GB RAM: lite mode (2B only)"
-elif [ "$RAM" -lt 48 ] 2>/dev/null; then
-  MODE="full"
-  WAVE="9B"
-  echo "  → ${RAM}GB RAM: full mode (9B wave + 2B eddies)"
+  echo "  → lite mode (2B only)"
 else
   MODE="full"
   WAVE="9B"
-  echo "  → ${RAM}GB RAM: full mode (9B wave + 2B eddies)"
+  echo "  → full mode (9B wave + 2B eddies)"
 fi
 
 # --- Check dependencies ---
+echo ""
+echo "  Checking dependencies..."
 MISSING=""
 check_dep() {
   if ! command -v "$1" &>/dev/null; then
     MISSING="$MISSING $1"
-    echo "  ✗ $1 missing — $2"
+    if [ "$OS" = "Darwin" ]; then
+      echo "  ✗ $1 missing — brew install $1"
+    else
+      echo "  ✗ $1 missing — apt install $2"
+    fi
   else
     echo "  ✓ $1"
   fi
 }
 
-echo ""
-echo "  Checking dependencies..."
-check_dep git "apt install git / brew install git"
-check_dep python3 "apt install python3 / brew install python3"
-check_dep pip3 "apt install python3-pip / brew install python3"
-check_dep cmake "apt install cmake / brew install cmake"
+check_dep git "git"
+check_dep python3 "python3"
+check_dep pip3 "python3-pip"
+check_dep cmake "cmake"
 
-# Install Node if missing (for Ink CLI)
+# Mac: check for Xcode CLI tools
+if [ "$OS" = "Darwin" ] && ! xcode-select -p &>/dev/null; then
+  echo "  → Installing Xcode Command Line Tools..."
+  xcode-select --install 2>/dev/null
+  echo "  ⚠ Xcode CLI tools required — run the installer that popped up, then re-run this script"
+  exit 1
+fi
+
+# Install Node if missing
 if ! command -v node &>/dev/null; then
   echo "  → Installing Node.js..."
   if [ "$OS" = "Darwin" ]; then
-    # macOS
     if command -v brew &>/dev/null; then
       brew install node 2>/dev/null
     else
-      curl -fsSL https://fnm.vercel.app/install | bash 2>/dev/null
-      export PATH="$HOME/.local/share/fnm:$PATH"
-      eval "$(fnm env)" 2>/dev/null
-      fnm install --lts 2>/dev/null
+      echo "  ⚠ Install Homebrew first: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+      echo "    Then re-run this script."
     fi
   else
-    # Linux — use fnm (fast node manager)
     curl -fsSL https://fnm.vercel.app/install | bash 2>/dev/null
     export PATH="$HOME/.local/share/fnm:$PATH"
     eval "$(fnm env)" 2>/dev/null
     fnm install --lts 2>/dev/null
   fi
   if command -v node &>/dev/null; then
-    echo "  ✓ Node.js $(node -v) installed"
+    echo "  ✓ Node.js $(node -v)"
   else
-    echo "  ⚠ Node.js install failed — agent works via Python REPL (install node manually for full CLI)"
+    echo "  ⚠ Node.js not installed — CLI won't work but agent runs via Python"
   fi
 else
   echo "  ✓ node $(node -v)"
@@ -106,15 +117,19 @@ fi
 
 if [ -n "$MISSING" ]; then
   echo ""
-  echo "  ✗ Missing dependencies:$MISSING"
-  echo "    Install them and re-run this script."
+  echo "  ✗ Missing:$MISSING"
+  if [ "$OS" = "Darwin" ]; then
+    echo "    Install with: brew install$MISSING"
+  else
+    echo "    Install with: sudo apt install$MISSING"
+  fi
   exit 1
 fi
 
 # --- Clone repo ---
 echo ""
 if [ -d "$DIR/.git" ]; then
-  echo "  → Updating existing installation..."
+  echo "  → Updating..."
   cd "$DIR" && git pull --ff-only 2>/dev/null || true
 else
   echo "  → Cloning tsunami..."
@@ -124,15 +139,20 @@ cd "$DIR"
 
 # --- Python deps ---
 echo "  → Installing Python dependencies..."
-DEPS="httpx pyyaml duckduckgo-search>=7 diffusers torch accelerate"
+# Core deps only — no torch/diffusers (huge, not needed for agent core)
+DEPS="httpx pyyaml ddgs pillow"
 pip3 install -q $DEPS 2>/dev/null || \
 pip3 install --break-system-packages -q $DEPS 2>/dev/null || \
 pip3 install --user -q $DEPS 2>/dev/null || \
-echo "  ⚠ pip install failed — try: pip3 install --break-system-packages $DEPS"
+echo "  ⚠ pip install failed — try: pip3 install $DEPS"
 
-# --- Node deps (optional) ---
+# Optional: playwright for undertow QA
+pip3 install -q playwright 2>/dev/null && python3 -m playwright install chromium 2>/dev/null && \
+echo "  ✓ Playwright (undertow QA)" || echo "  ⚠ Playwright skipped — undertow QA won't work"
+
+# --- Node deps ---
 if command -v node &>/dev/null && [ -d "$DIR/cli" ]; then
-  echo "  → Installing CLI frontend..."
+  echo "  → Installing CLI..."
   cd "$DIR/cli" && npm install --silent 2>/dev/null && cd "$DIR"
 fi
 
@@ -155,14 +175,17 @@ if [ ! -f "$LLAMA_BIN" ]; then
 
   cmake "$LLAMA_DIR" -B "$LLAMA_DIR/build" $CMAKE_ARGS
   CORES=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-  cmake --build "$LLAMA_DIR/build" --config Release -j"$CORES" \
-    --target llama-server
-  # Verify build succeeded
+  cmake --build "$LLAMA_DIR/build" --config Release -j"$CORES" --target llama-server
+
   if [ -f "$LLAMA_BIN" ]; then
     echo "  ✓ llama.cpp built"
   else
-    echo "  ✗ llama.cpp build FAILED — check cmake output above"
-    echo "    You may need: apt install build-essential cmake"
+    echo "  ✗ llama.cpp build FAILED"
+    if [ "$OS" = "Darwin" ]; then
+      echo "    Try: xcode-select --install"
+    else
+      echo "    Try: sudo apt install build-essential cmake"
+    fi
     exit 1
   fi
 else
@@ -174,27 +197,25 @@ mkdir -p "$MODELS_DIR"
 
 download() {
   local repo="$1" file="$2"
-  local dest
-  dest="$(cd "$DIR" && mkdir -p models && cd models && pwd)/$file"
+  local dest="$MODELS_DIR/$file"
   [ -f "$dest" ] && echo "  ✓ $file ($(du -h "$dest" | cut -f1))" && return
   echo "  → Downloading $file..."
-  local url="https://huggingface.co/$repo/resolve/main/$file"
-  curl -fSL -o "$dest" "$url" 2>&1 | tail -1
-  [ -f "$dest" ] && [ "$(stat -c%s "$dest" 2>/dev/null || stat -f%z "$dest" 2>/dev/null)" -gt 1000 ] \
-    && echo "  ✓ $file ($(du -h "$dest" | cut -f1))" \
-    || echo "  ✗ Download failed: $file"
+  curl -fSL --progress-bar -o "$dest" "https://huggingface.co/$repo/resolve/main/$file"
+  if [ -f "$dest" ] && [ "$(stat -c%s "$dest" 2>/dev/null || stat -f%z "$dest" 2>/dev/null)" -gt 1000 ]; then
+    echo "  ✓ $file ($(du -h "$dest" | cut -f1))"
+  else
+    echo "  ✗ Download failed: $file"
+    rm -f "$dest"
+  fi
 }
 
 echo ""
 
-# Always download the 2B (eddies need it)
+# 2B eddy model (always needed)
 echo "  Downloading eddy model (1.2GB)..."
 download "unsloth/Qwen3.5-2B-GGUF" "Qwen3.5-2B-Q4_K_M.gguf"
-download "unsloth/Qwen3.5-2B-GGUF" "mmproj-BF16.gguf"
-[ -f "$MODELS_DIR/mmproj-BF16.gguf" ] && [ ! -f "$MODELS_DIR/mmproj-2B-BF16.gguf" ] && \
-  mv "$MODELS_DIR/mmproj-BF16.gguf" "$MODELS_DIR/mmproj-2B-BF16.gguf"
 
-# Download wave model (9B — the orchestration makes it smart, not bigger weights)
+# 9B wave model
 if [ "$WAVE" = "9B" ]; then
   echo "  Downloading wave model (5.3GB)..."
   download "unsloth/Qwen3.5-9B-GGUF" "Qwen3.5-9B-Q4_K_M.gguf"
@@ -202,28 +223,27 @@ fi
 
 echo ""
 echo "  Models: $WAVE wave + 2B eddies"
-echo "  Tsunami auto-detects and scales on startup."
 
-# Auto-download image model if Docker available and enough RAM
-if command -v docker &>/dev/null && [ "$RAM" -ge 48 ] 2>/dev/null; then
-  echo ""
-  echo "  Docker detected with ${RAM}GB RAM — downloading image model..."
-  download "unsloth/Qwen-Image-2512-GGUF" "qwen-image-2512-Q4_K_M.gguf"
-fi
-
-# --- Create global command ---
+# --- Shell alias ---
 echo ""
-chmod +x "$DIR/tsu"
+chmod +x "$DIR/tsu" 2>/dev/null
+
+# Prefer zsh on Mac, bash on Linux
 SHELL_RC=""
-[ -f "$HOME/.zshrc" ] && SHELL_RC="$HOME/.zshrc"
-[ -f "$HOME/.bashrc" ] && SHELL_RC="$HOME/.bashrc"
+if [ "$OS" = "Darwin" ]; then
+  SHELL_RC="$HOME/.zshrc"
+  touch "$SHELL_RC"  # zshrc might not exist yet
+else
+  [ -f "$HOME/.bashrc" ] && SHELL_RC="$HOME/.bashrc"
+  [ -f "$HOME/.zshrc" ] && SHELL_RC="$HOME/.zshrc"
+fi
 
 if [ -n "$SHELL_RC" ] && ! grep -q "tsunami" "$SHELL_RC" 2>/dev/null; then
   echo "" >> "$SHELL_RC"
   echo "# Tsunami AI Agent" >> "$SHELL_RC"
   echo "alias tsunami='$DIR/tsu'" >> "$SHELL_RC"
   echo "export PATH=\"$LLAMA_DIR/build/bin:\$PATH\"" >> "$SHELL_RC"
-  echo "  ✓ Added 'tsunami' command to $(basename $SHELL_RC)"
+  echo "  ✓ Added 'tsunami' to $(basename $SHELL_RC)"
 fi
 
 # --- Verify ---
@@ -238,23 +258,14 @@ registry = build_registry(config)
 print(f'  ✓ Agent: {len(registry.schemas())} tools ready')
 " 2>/dev/null || echo "  ⚠ Verification failed — check Python deps"
 
-# Check model files
 echo ""
-echo "  Models:"
-for f in "$MODELS_DIR"/*.gguf; do
-  [ -f "$f" ] && echo "  ✓ $(basename $f) ($(du -h "$f" | cut -f1))"
-done
-
-echo ""
-echo "  ╔════════════════════════════════════════════╗"
-echo "  ║          TSUNAMI INSTALLED                 ║"
-echo "  ╠════════════════════════════════════════════╣"
-echo "  ║                                            ║"
-echo "  ║  1. source ~/${SHELL_RC##*/}                        ║"
-echo "  ║  2. tsunami                                ║"
-echo "  ║                                            ║"
-echo "  ║  Or: cd $DIR && ./tsu        ║"
-echo "  ║                                            ║"
-echo "  ║  GPU: $GPU | RAM: ${RAM}GB | Queen: $WAVE   ║"
-echo "  ╚════════════════════════════════════════════╝"
+echo "  ╔════════════════════════════════════════╗"
+echo "  ║        TSUNAMI INSTALLED               ║"
+echo "  ╠════════════════════════════════════════╣"
+echo "  ║                                        ║"
+echo "  ║  source ~/${SHELL_RC##*/}                       ║"
+echo "  ║  tsunami                               ║"
+echo "  ║                                        ║"
+echo "  ║  $GPU | ${RAM}GB | $WAVE wave          ║"
+echo "  ╚════════════════════════════════════════╝"
 echo ""
