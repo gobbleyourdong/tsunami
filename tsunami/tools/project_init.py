@@ -220,7 +220,7 @@ class ProjectInit(BaseTool):
                 f"Extra deps: {dep_list}\n"
                 f"Dev server: {url or 'run npx vite --port 9876'}\n\n"
                 f"src/App.tsx is a stub — replace it with your app.\n"
-                f"After all files: shell_exec 'cd {project_dir} && npx vite build'"
+                f"After all files: shell_exec command='npx vite build' workdir='deliverables/{name}'"
                 f"{readme_content}"
             )
 
