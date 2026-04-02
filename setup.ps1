@@ -631,13 +631,17 @@ Write-Host "  Verifying..."
 Set-Location $DIR
 
 $verifyScript = @"
+import sys, io
+# Force UTF-8 output so Unicode characters don't crash on cp1252 consoles
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 from tsunami.config import TsunamiConfig
 from tsunami.tools import build_registry
 config = TsunamiConfig.from_yaml('config.yaml')
 registry = build_registry(config)
-print(f'  ✓ Agent: {len(registry.schemas())} tools ready')
+print(f'  [OK] Agent: {len(registry.schemas())} tools ready')
 "@
 
+$env:PYTHONIOENCODING = "utf-8"
 $verifyResult = & $PYTHON -c $verifyScript 2>&1
 if ($LASTEXITCODE -eq 0) {
     Write-Host $verifyResult
