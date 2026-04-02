@@ -335,24 +335,31 @@ Set-Location $DIR
 # Python dependencies
 # ---------------------------------------------------------------------------
 Write-Step "Installing Python dependencies..."
-$pyDeps = @(
-    "httpx",
-    "pyyaml",
+
+# Install from requirements.txt first (core deps: httpx, pyyaml, rich, psutil, etc.)
+$reqFile = Join-Path $DIR "requirements.txt"
+if (Test-Path $reqFile) {
+    $pipResult = & $PIP install -q -r $reqFile 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn "pip install -r requirements.txt failed, retrying with --user flag..."
+        & $PIP install --user -q -r $reqFile 2>&1 | Out-Null
+    }
+}
+
+# Additional optional dependencies (search, AI/diffusion, etc.)
+$pyExtraDeps = @(
     "duckduckgo-search>=7",
     "diffusers",
     "torch",
     "accelerate"
 )
-
-$pipArgs = @("install", "-q") + $pyDeps
-$pipResult = & $PIP @pipArgs 2>&1
+$pipResult = & $PIP install -q @pyExtraDeps 2>&1
 if ($LASTEXITCODE -ne 0) {
-    # Try with --user flag as fallback
     Write-Warn "pip install failed, retrying with --user flag..."
-    & $PIP install --user -q @pyDeps 2>&1 | Out-Null
+    & $PIP install --user -q @pyExtraDeps 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Warn "pip install failed — try manually:"
-        Write-Warn "  $PIP install $($pyDeps -join ' ')"
+        Write-Warn "  $PIP install $($pyExtraDeps -join ' ')"
     }
 }
 
@@ -636,7 +643,9 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host $verifyResult
 } else {
     Write-Warn "Verification failed — check Python deps"
-    Write-Warn "  $PIP install httpx pyyaml 'duckduckgo-search>=7' diffusers torch accelerate"
+    # Show actual error so user knows what to fix
+    $verifyResult | ForEach-Object { Write-Host "  $_" }
+    Write-Warn "  Try: $PIP install -r $DIR\requirements.txt"
 }
 
 # ---------------------------------------------------------------------------
@@ -664,7 +673,7 @@ Write-Host "  ${BOLD}║       . `$PROFILE                           ║${RST}"
 Write-Host "  ${BOLD}║  2. tsunami                                ║${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
 Write-Host "  ${BOLD}║  Or directly: cd $DIR${RST}"
-Write-Host "  ${BOLD}║              .\tsu                          ║${RST}"
+Write-Host "  ${BOLD}║              .\tsu.ps1                      ║${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
 Write-Host "  ${BOLD}║  GPU: $GPU  |  RAM: ${RAM}GB  |  Queen: $QUEEN${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
