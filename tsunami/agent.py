@@ -117,6 +117,59 @@ class Agent:
         self.active_project: str | None = None
         self.project_context: str = ""
 
+    async def _pre_scaffold(self, user_message: str) -> str:
+        """Hidden pre-scaffold step — detect build tasks, provision automatically.
+
+        Like the classifier layer: analyze the prompt, pick the right scaffold,
+        provision the project BEFORE the model starts. The model wakes up
+        inside a ready project with a README.
+        """
+        msg = user_message.lower()
+
+        # Detect build tasks
+        build_keywords = ["build", "create", "make", "develop", "design",
+                          "app", "game", "website", "dashboard", "tool",
+                          "tracker", "page", "editor", "viewer"]
+        is_build = any(k in msg for k in build_keywords)
+        if not is_build:
+            return ""
+
+        # Extract project name from the message
+        import re
+        # Try to find "save to workspace/deliverables/X" or infer from context
+        save_match = re.search(r'deliverables/([a-z0-9_-]+)', msg)
+        if save_match:
+            project_name = save_match.group(1)
+        else:
+            # Generate a name from key words
+            words = re.findall(r'[a-z]+', msg)
+            skip = {"build", "create", "make", "a", "an", "the", "with", "and",
+                    "for", "that", "app", "save", "to", "workspace"}
+            name_words = [w for w in words if w not in skip and len(w) > 2][:3]
+            project_name = "-".join(name_words) if name_words else ""
+
+        if not project_name:
+            return ""
+
+        # Check if project already exists
+        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+        if (project_dir / "package.json").exists():
+            return ""
+
+        # Provision via project_init
+        try:
+            from .tools.project_init import ProjectInit
+            init_tool = ProjectInit(self.config)
+            result = await init_tool.execute(name=project_name)
+            if not result.is_error:
+                log.info(f"Pre-scaffold: provisioned '{project_name}'")
+                return f"\n[Project '{project_name}' has been scaffolded at {project_dir}. " \
+                       f"Dev server running. Write your components in src/.]\n\n{result.content}"
+        except Exception as e:
+            log.debug(f"Pre-scaffold failed: {e}")
+
+        return ""
+
     def _auto_wire_on_exit(self):
         """Auto-wire any stub App.tsx in deliverables before exiting.
 
@@ -271,7 +324,14 @@ class Agent:
             system_prompt += f"\n\n---\n\n{instincts}"
 
         self.state.add_system(system_prompt)
-        self.state.add_user(user_message)
+
+        # Hidden pre-scaffold step — detect build tasks and provision automatically
+        # The model never chooses the scaffold. The platform does.
+        scaffold_context = await self._pre_scaffold(user_message)
+        if scaffold_context:
+            self.state.add_user(user_message + "\n\n" + scaffold_context)
+        else:
+            self.state.add_user(user_message)
 
         log.info(f"Starting agent loop: {user_message[:100]}")
         consecutive_errors = 0
