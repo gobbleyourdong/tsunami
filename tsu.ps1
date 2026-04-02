@@ -1,6 +1,6 @@
-# TSUNAMI — Windows entry point
+﻿# TSUNAMI — Windows entry point
 # PowerShell equivalent of the `tsu` bash script
-#Requires -Version 7.0
+#Requires -Version 5.1
 
 $ErrorActionPreference = 'Stop'
 
@@ -42,15 +42,17 @@ switch ($args[0]) {
 # ── Helpers ───────────────────────────────────────────────────────────────────
 function Test-ModelServer {
     try {
-        $r = Invoke-WebRequest -Uri 'http://localhost:8090/health' -UseBasicParsing -TimeoutSec 2 -EA Stop
-        return $r.StatusCode -eq 200
+        $wc = New-Object System.Net.WebClient
+        $result = $wc.DownloadString('http://localhost:8090/health')
+        return $result -match '"ok"'
     } catch { return $false }
 }
 
 function Test-BackendServer {
     try {
-        $r = Invoke-WebRequest -Uri 'http://localhost:3000/api/health' -UseBasicParsing -TimeoutSec 2 -EA Stop
-        return $r.StatusCode -eq 200
+        $wc = New-Object System.Net.WebClient
+        $result = $wc.DownloadString('http://localhost:3000/api/health')
+        return $true
     } catch { return $false }
 }
 
@@ -60,8 +62,10 @@ function Find-LlamaServer {
     $candidates = @(
         $(if ($cmd1) { $cmd1.Source }),
         $(if ($cmd2) { $cmd2.Source }),
+        "$DIR\llama.cpp\llama-server.exe",
         "$DIR\llama.cpp\build\bin\Release\llama-server.exe",
         "$DIR\llama.cpp\build\bin\llama-server.exe",
+        "$env:USERPROFILE\llama.cpp\llama-server.exe",
         "$env:USERPROFILE\llama.cpp\build\bin\Release\llama-server.exe",
         "$env:USERPROFILE\llama.cpp\build\bin\llama-server.exe"
     )
@@ -136,9 +140,15 @@ if (-not (Test-ModelServer)) {
             $ModelPid = $proc.Id
 
             Write-Host "  waiting for model to load (up to 120s)..."
+            $serverUp = $false
             for ($i = 0; $i -lt 120; $i++) {
-                if (Test-ModelServer) { break }
+                if (Test-ModelServer) { $serverUp = $true; break }
                 Start-Sleep -Seconds 1
+            }
+            if ($serverUp) {
+                Write-Host "  server is running on http://localhost:8090"
+            } else {
+                Write-Warning "model server failed to start within 120s -- check $logFile.err"
             }
         }
     }
@@ -178,6 +188,9 @@ $CleanupBlock = {
 }
 
 # ── Launch frontend ───────────────────────────────────────────────────────────
+# Refresh PATH in case Node was installed in this session (e.g. by setup.ps1)
+$env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
+            [System.Environment]::GetEnvironmentVariable("PATH", "User")
 try {
     $npx = Get-Command npx -EA SilentlyContinue
     $cliModules = Test-Path "$DIR\cli\node_modules"
