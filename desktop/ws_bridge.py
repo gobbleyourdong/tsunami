@@ -1,16 +1,13 @@
-"""WebSocket bridge — streams agent activity to the desktop UI.
+"""WebSocket bridge — streams agent activity to the desktop UI in real time.
 
-Listens on ws://localhost:3002. Sends real-time updates:
-- tool_call: what tool is running, with file content for code view
-- message: agent's text responses
-- plan: phase updates
-- complete: task done with iteration count
-- error: something went wrong
+Hooks into the agent's state to intercept every tool call, tool result,
+and message as it happens. Sends to the UI immediately.
 """
 
 import asyncio
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -20,7 +17,6 @@ import websockets
 
 from tsunami.config import TsunamiConfig
 from tsunami.agent import Agent
-from tsunami.state import AgentState
 
 log = logging.getLogger("tsunami.bridge")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -28,49 +24,99 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 PORT = 3002
 
 
-class StreamingAgent(Agent):
-    """Agent that streams tool calls to a WebSocket client."""
+def wire_streaming(agent, websocket, loop):
+    """Monkey-patch the agent's state to stream everything to the UI."""
+    state = agent.state
 
-    def __init__(self, config, websocket):
-        super().__init__(config)
-        self._ws = websocket
-        self._original_add_tool_result = self.state.add_tool_result
+    # Intercept assistant messages (tool calls)
+    original_add_assistant = state.add_assistant
+    def streaming_add_assistant(content, tool_call=None):
+        original_add_assistant(content, tool_call)
+        if tool_call:
+            func = tool_call.get("function", {})
+            name = func.get("name", "")
+            args = func.get("arguments", {})
 
-    async def _step(self, _watcher_depth=0):
-        """Override to intercept tool calls and stream them."""
-        result = await super()._step(_watcher_depth)
+            payload = {
+                "type": "tool_call",
+                "name": name,
+                "preview": "",
+            }
 
-        # Stream the latest tool call to the UI
-        if self.state.conversation:
-            for msg in reversed(self.state.conversation[-3:]):
-                # Find assistant messages with tool calls
-                if msg.role == "assistant" and hasattr(msg, 'tool_call') and msg.tool_call:
-                    tc = msg.tool_call.get("function", {})
-                    name = tc.get("name", "")
-                    args = tc.get("arguments", {})
+            if isinstance(args, dict):
+                # For file writes, send content to code view
+                if name in ("file_write", "file_edit", "file_append"):
+                    payload["path"] = args.get("path", "")
+                    payload["content"] = args.get("content", "")[:8000]
+                    payload["preview"] = args.get("path", "")
+                elif name == "shell_exec":
+                    payload["preview"] = args.get("command", "")[:200]
+                elif name == "search_web":
+                    payload["preview"] = args.get("query", "")[:200]
+                elif name == "project_init":
+                    payload["preview"] = args.get("name", "")
+                elif name == "swell":
+                    tasks = args.get("tasks", [])
+                    payload["preview"] = f"{len(tasks)} parallel tasks"
+                elif name in ("message_info", "message_ask", "message_result"):
+                    text = args.get("text", "")[:500]
+                    payload = {"type": "message", "text": text}
+                else:
+                    payload["preview"] = str(args)[:200]
 
-                    payload = {
-                        "type": "tool_call",
-                        "name": name,
-                        "preview": str(args)[:200],
-                    }
+            asyncio.run_coroutine_threadsafe(_send(websocket, payload), loop)
 
-                    # Include file content for code view
-                    if name in ("file_write", "file_edit") and isinstance(args, dict):
-                        payload["path"] = args.get("path", "")
-                        payload["content"] = args.get("content", "")[:5000]
+    state.add_assistant = streaming_add_assistant
 
-                    try:
-                        await self._ws.send(json.dumps(payload))
-                    except Exception:
-                        pass
-                    break
+    # Intercept tool results
+    original_add_tool_result = state.add_tool_result
+    def streaming_add_tool_result(name, args, content, is_error=False):
+        original_add_tool_result(name, args, content, is_error)
 
-                # Find tool results
-                if msg.role == "tool_result":
-                    break
+        # Send file list updates after file operations
+        if name in ("file_write", "file_edit", "file_append", "project_init"):
+            files = _scan_project_files(agent)
+            if files:
+                asyncio.run_coroutine_threadsafe(
+                    _send(websocket, {"type": "files", "files": files}), loop
+                )
 
-        return result
+        # Send tool result preview
+        preview = content[:300] if isinstance(content, str) else str(content)[:300]
+        payload = {
+            "type": "tool_result",
+            "name": name,
+            "preview": preview,
+            "is_error": is_error,
+        }
+        asyncio.run_coroutine_threadsafe(_send(websocket, payload), loop)
+
+    state.add_tool_result = streaming_add_tool_result
+
+
+def _scan_project_files(agent):
+    """Scan the active deliverable for files."""
+    deliverables = Path(agent.config.workspace_dir) / "deliverables"
+    if not deliverables.exists():
+        return []
+
+    files = []
+    for project in deliverables.iterdir():
+        if not project.is_dir() or project.name.startswith("."):
+            continue
+        for f in sorted(project.rglob("*")):
+            if f.is_file() and "node_modules" not in str(f) and "dist" not in str(f) and ".vite" not in str(f):
+                rel = str(f.relative_to(deliverables))
+                files.append(rel)
+    return files[:100]  # cap at 100
+
+
+async def _send(ws, data):
+    """Safe send — ignore if connection closed."""
+    try:
+        await ws.send(json.dumps(data))
+    except Exception:
+        pass
 
 
 async def handle_client(websocket):
@@ -79,13 +125,14 @@ async def handle_client(websocket):
 
     config = TsunamiConfig.from_yaml("config.yaml")
     config.max_iterations = 60
+    loop = asyncio.get_event_loop()
 
     try:
         async for raw in websocket:
             try:
                 msg = json.loads(raw)
             except json.JSONDecodeError:
-                await websocket.send(json.dumps({"type": "error", "text": "Invalid JSON"}))
+                await _send(websocket, {"type": "error", "text": "Invalid JSON"})
                 continue
 
             if msg.get("type") == "prompt":
@@ -94,22 +141,27 @@ async def handle_client(websocket):
                     continue
 
                 log.info(f"Prompt: {text[:100]}")
-                await websocket.send(json.dumps({"type": "message", "text": f"Building: {text}"}))
+                await _send(websocket, {"type": "message", "text": f"Building: {text}"})
 
                 try:
-                    agent = StreamingAgent(config, websocket)
+                    agent = Agent(config)
+                    wire_streaming(agent, websocket, loop)
+
                     result = await agent.run(text)
-                    await websocket.send(json.dumps({
+                    await _send(websocket, {
                         "type": "complete",
                         "text": result[:1000],
                         "iterations": agent.state.iteration,
-                    }))
+                    })
+
+                    # Send final file list
+                    files = _scan_project_files(agent)
+                    if files:
+                        await _send(websocket, {"type": "files", "files": files})
+
                 except Exception as e:
-                    log.error(f"Agent error: {e}")
-                    await websocket.send(json.dumps({
-                        "type": "error",
-                        "text": f"Agent error: {e}",
-                    }))
+                    log.error(f"Agent error: {e}", exc_info=True)
+                    await _send(websocket, {"type": "error", "text": str(e)})
 
     except websockets.exceptions.ConnectionClosed:
         log.info("Client disconnected")
