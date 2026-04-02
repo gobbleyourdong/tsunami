@@ -23,6 +23,24 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
 PORT = 3002
 
+# Global state — all connected clients see everything
+clients = set()
+message_buffer = []  # last 100 messages for reconnecting clients
+MAX_BUFFER = 100
+
+
+async def broadcast(data):
+    """Send to ALL connected clients."""
+    msg = json.dumps(data)
+    message_buffer.append(msg)
+    if len(message_buffer) > MAX_BUFFER:
+        message_buffer.pop(0)
+    for ws in list(clients):
+        try:
+            await ws.send(msg)
+        except Exception:
+            clients.discard(ws)
+
 
 def wire_streaming(agent, websocket, loop):
     """Monkey-patch the agent's state to stream everything to the UI."""
@@ -64,7 +82,7 @@ def wire_streaming(agent, websocket, loop):
                 else:
                     payload["preview"] = str(args)[:200]
 
-            asyncio.run_coroutine_threadsafe(_send(websocket, payload), loop)
+            asyncio.run_coroutine_threadsafe(broadcast(payload), loop)
 
     state.add_assistant = streaming_add_assistant
 
@@ -89,7 +107,7 @@ def wire_streaming(agent, websocket, loop):
             "preview": preview,
             "is_error": is_error,
         }
-        asyncio.run_coroutine_threadsafe(_send(websocket, payload), loop)
+        asyncio.run_coroutine_threadsafe(broadcast(payload), loop)
 
     state.add_tool_result = streaming_add_tool_result
 
@@ -122,6 +140,14 @@ async def _send(ws, data):
 async def handle_client(websocket):
     """Handle a single WebSocket client connection."""
     log.info("Client connected")
+    clients.add(websocket)
+
+    # Replay buffered messages so reconnecting clients catch up
+    for msg in message_buffer:
+        try:
+            await websocket.send(msg)
+        except Exception:
+            break
 
     config = TsunamiConfig.from_yaml("config.yaml")
     config.max_iterations = 60
@@ -132,7 +158,7 @@ async def handle_client(websocket):
             try:
                 msg = json.loads(raw)
             except json.JSONDecodeError:
-                await _send(websocket, {"type": "error", "text": "Invalid JSON"})
+                await broadcast( {"type": "error", "text": "Invalid JSON"})
                 continue
 
             if msg.get("type") == "prompt":
@@ -141,14 +167,14 @@ async def handle_client(websocket):
                     continue
 
                 log.info(f"Prompt: {text[:100]}")
-                await _send(websocket, {"type": "message", "text": f"Building: {text}"})
+                await broadcast( {"type": "message", "text": f"Building: {text}"})
 
                 try:
                     agent = Agent(config)
                     wire_streaming(agent, websocket, loop)
 
                     result = await agent.run(text)
-                    await _send(websocket, {
+                    await broadcast( {
                         "type": "complete",
                         "text": result[:1000],
                         "iterations": agent.state.iteration,
@@ -157,13 +183,16 @@ async def handle_client(websocket):
                     # Send final file list
                     files = _scan_project_files(agent)
                     if files:
-                        await _send(websocket, {"type": "files", "files": files})
+                        await broadcast( {"type": "files", "files": files})
 
                 except Exception as e:
                     log.error(f"Agent error: {e}", exc_info=True)
-                    await _send(websocket, {"type": "error", "text": str(e)})
+                    await broadcast( {"type": "error", "text": str(e)})
 
     except websockets.exceptions.ConnectionClosed:
+        pass
+    finally:
+        clients.discard(websocket)
         log.info("Client disconnected")
 
 

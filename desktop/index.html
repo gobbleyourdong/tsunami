@@ -360,8 +360,29 @@
 
     function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML }
 
+    // === PERSISTENCE (localStorage) ===
+    function saveSessions() {
+      try { localStorage.setItem("tsunami_sessions", JSON.stringify(sessions)) } catch {}
+      try { localStorage.setItem("tsunami_active", activeSession?.id || "") } catch {}
+    }
+    function loadSessions() {
+      try {
+        const saved = JSON.parse(localStorage.getItem("tsunami_sessions") || "[]")
+        if (saved.length) {
+          sessions = saved
+          const activeId = parseInt(localStorage.getItem("tsunami_active"))
+          const s = sessions.find(x => x.id === activeId && !x.hidden) || sessions.find(x => !x.hidden)
+          if (s) { switchSession(s.id); return true }
+        }
+      } catch {}
+      return false
+    }
+    // Hook saves into mutations
+    const _addChat = addChat; addChat = function(t, x) { _addChat(t, x); saveSessions() }
+    const _renderP = renderProjects; renderProjects = function() { _renderP(); saveSessions() }
+
     // === INIT ===
-    newSession()
+    if (!loadSessions()) { /* empty — session created on first prompt */ }
     connectAgent()
     connectFiles()
     checkHealth()
