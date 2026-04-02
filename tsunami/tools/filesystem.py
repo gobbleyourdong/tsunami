@@ -54,40 +54,30 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
 
 
 def _resolve_path(path: str, workspace_dir: str) -> Path:
-    """Resolve a file path.
+    """Resolve a file path to an absolute path inside the workspace.
 
-    If the path is relative (doesn't start with / or ~), resolve it
-    relative to the workspace directory. This ensures the agent writes
-    files into the workspace, not the process CWD.
-
-    Also strips redundant workspace prefix to avoid double-nesting
-    (e.g., model writes "workspace/deliverables/x" which would become
-    "workspace/workspace/deliverables/x" without this fix).
+    Handles all the weird ways the 9B writes paths:
+    - ./workspace/deliverables/x/file.tsx
+    - workspace/deliverables/x/file.tsx
+    - deliverables/x/file.tsx
+    - /absolute/path/to/file.tsx
     """
     p = Path(path)
-    if not p.is_absolute() and not path.startswith("~"):
-        # Strip workspace dir name prefix if model included it
-        ws_name = Path(workspace_dir).name  # e.g. "workspace"
-        parts = p.parts
-        if parts and parts[0] == ws_name:
-            p = Path(*parts[1:]) if len(parts) > 1 else Path(".")
-        # Also handle "./workspace/..." - use Path parts comparison for cross-platform
-        try:
-            p = p.relative_to(Path(f"./{ws_name}"))
-        except ValueError:
-            pass
-        # Try workspace first, fall back to project root
-        ws_path = Path(workspace_dir) / p
-        if ws_path.exists():
-            p = ws_path
-        else:
-            # Try relative to project root (parent of workspace)
-            root_path = Path(workspace_dir).parent / Path(path)
-            if root_path.exists():
-                p = root_path
-            else:
-                p = ws_path  # default to workspace (will error naturally)
-    return p.expanduser().resolve()
+
+    # Already absolute — use as-is
+    if p.is_absolute() or path.startswith("~"):
+        return p.expanduser().resolve()
+
+    # Strip leading ./ if present
+    path_clean = path.lstrip("./") if path.startswith("./") else path
+
+    # Strip workspace dir name prefix (e.g. "workspace/deliverables/..." → "deliverables/...")
+    ws_name = Path(workspace_dir).name
+    if path_clean.startswith(ws_name + "/"):
+        path_clean = path_clean[len(ws_name) + 1:]
+
+    # Resolve relative to workspace dir
+    return (Path(workspace_dir) / path_clean).resolve()
 
 
 # Pre-read file size gate (.
