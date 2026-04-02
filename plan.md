@@ -97,4 +97,7 @@ project_init should analyze the request and provide matching features:
 - Session 1: SCORE: 7/7 compile, 7/7 RENDER. Rhythm fixed — 15 iters, letters falling, MISS! feedback.
 - Session 1: PERFECT SCORE. Every scaffold tested. Every app renders from one-prompt runners.
 - Session 1: Classifier upgraded: requirement analysis not keyword matching. 8/9 test cases pass.
-- Session 1: Manus full intel saved: tools, models (GPT-4.1-mini+Gemini flash), 3-strike errors, classifier pseudocode, capability routing in plan phases, expose tunnel (manus.im)
+- Session 1: Full competitor intel saved to intel/ and memory
+- Session 1: Scaffold READMEs — 7 READMEs with build loop, components, usage examples
+- Session 1: project_init returns README inline — 9B sees what's available immediately
+- Session 1: 39KB reference doc saved to intel/ — the instruction set pattern
