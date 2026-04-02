@@ -282,11 +282,12 @@
       else addChat("error", "not connected")
     }
 
-    let lastChatText = ""
+    let lastChatText = "", lastChatType = ""
     function addChat(type, text) {
-      // Deduplicate consecutive identical messages
-      if (text === lastChatText && type !== "user") return
+      // Deduplicate consecutive identical or similar messages
+      if (type !== "user" && (text === lastChatText || (type === lastChatType && type === "agent" && text.slice(0, 50) === lastChatText.slice(0, 50)))) return
       lastChatText = text
+      lastChatType = type
       messages.push({ type, text })
       const el = document.getElementById("chat-msgs")
       const w = el.querySelector(".welcome"); if (w) w.remove()
