@@ -40,8 +40,8 @@
     .new-project:hover { background: var(--panel); }
 
     /* === COL 2: CHAT === */
-    .chat { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); }
-    .chat-msgs { flex: 1; overflow-y: auto; padding: 14px; }
+    .chat { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); overflow: hidden; min-height: 0; }
+    .chat-msgs { flex: 1; overflow-y: auto; padding: 14px; min-height: 0; }
     .msg { margin-bottom: 10px; line-height: 1.6; animation: fadeIn 0.2s; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
     .msg.user { color: var(--accent-bright); }
