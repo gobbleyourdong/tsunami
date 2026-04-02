@@ -96,3 +96,5 @@ project_init should analyze the request and provide matching features:
 - Session 1: Landing FIXED: stub detection forced wave to wire App.tsx. Now renders "Nebula Brew" fully.
 - Session 1: SCORE: 7/7 compile, 7/7 RENDER. Rhythm fixed — 15 iters, letters falling, MISS! feedback.
 - Session 1: PERFECT SCORE. Every scaffold tested. Every app renders from one-prompt runners.
+- Session 1: Classifier upgraded: requirement analysis not keyword matching. 8/9 test cases pass.
+- Session 1: Manus full intel saved: tools, models (GPT-4.1-mini+Gemini flash), 3-strike errors, classifier pseudocode, capability routing in plan phases, expose tunnel (manus.im)
