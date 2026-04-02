@@ -44,6 +44,12 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
             if filename == config:
                 return f"BLOCKED: Cannot modify {p.name} — config protection. Fix the code, not the config."
 
+    # Protect scaffold infrastructure files — the 9B overwrites these, breaking the project
+    scaffold_files = ["main.tsx", "vite.config.ts", "index.css"]
+    if resolved.startswith(str(Path(workspace_dir) / "deliverables")):
+        if filename in scaffold_files and p.exists():
+            return f"BLOCKED: {p.name} is scaffold infrastructure — don't overwrite it. Write your code in App.tsx and src/components/."
+
     return None
 
 

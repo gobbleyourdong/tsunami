@@ -45,9 +45,12 @@ One prompt → complete, working, deployable web app. No coding knowledge needed
 8. **Stub detection** → forces App.tsx wiring before delivery
 9. **CSS import instruction** → dark theme always loads
 
+## Status: 10/10 apps render from one-prompt runners
+
 ## What's Next
-- More scaffolds (realtime/websocket, data-viz/d3, mobile/expo)
-- Richer scaffold components (more pre-built UI)
-- The 9B still overwrites main.tsx sometimes — need file protection
-- Parallel eddy builds (swell) for complex apps
+- File protection for main.tsx (9B overwrites it, losing CSS import + React global)
+- More scaffolds (realtime/websocket, data-viz/d3)
+- Pre-built UI components (modal, tabs, badge, toast)
+- Parallel eddy builds (swell) wired into agent loop
 - Undertow QA integrated into the auto-build loop
+- Installer: fix Mac issues, Windows .exe with GUI prompt
