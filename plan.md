@@ -1,59 +1,42 @@
 # Plan: Tsunami Development
 
-## Status
+## Status: COMPLETE
 - 10/10 test apps render from one-prompt runners
 - 9 scaffolds, all compile clean
-- 4 UI components (Modal, Tabs, Toast, Badge)
+- 28 UI components per web scaffold (24 ui/ + 4 root)
+- 9 threejs components (shaders, procedural, sprites, textures)
+- 3 pixijs components (canvas, physics, sprite animator)
 - 5 auto-fix layers (scaffold, swell, CSS, compile, wire)
 - Pre-scaffold hidden step + requirement classifier
+- IDE-style desktop UI with split panes + live preview
 - Windows .exe + setup.bat + setup.sh — all check VRAM
 - GitHub Actions builds .exe automatically
 - v0.1.0 release published
+- Stall detection + block repeated scaffold
+- 501 token system prompt, 17 tools
+- 27/27 tests pass
 
-## Overnight Priority: shadcn-lite Component Library
+## Component Library (28 UI components)
+Base: Modal, Tabs, Toast, Badge
+shadcn-lite: Dialog, Select, Skeleton, Progress, Avatar, Accordion, Alert, Tooltip, Switch, Dropdown
+Fancy: StarRating, GlowCard, Parallax, AnimatedCounter
+Niche: BeforeAfter, ColorPicker, Timeline, Kanban
+CSS Effects: AnnouncementBar, Marquee, TypeWriter, GradientText
+Interactive: ScrollReveal, Slideshow
 
-Build 10-15 styled React components, add to every scaffold.
-The 9B writes `<Dialog>` and it works. This is the highest leverage.
+## Domain Components
+threejs: Scene, Ground, Box, Sphere, HUD, ShaderMaterial (3 GLSL), ProceduralTerrain, ProceduralPlanet, SpriteSheet, TextureGen (4 generators)
+pixijs: GameCanvas, Physics2D, SpriteAnimator, Puppet rig
+landing: Navbar, Hero, Section, FeatureGrid, Footer, ParallaxHero, PortfolioGrid
+dashboard: Layout, StatCard, DataTable, Card
+form-app: FileDropzone, DataTable, parseFile
+realtime: useWebSocket
+fullstack: useApi + Express/SQLite CRUD
 
-### Components to build (in react-app/src/components/ui/):
-- [ ] Dialog — modal with overlay, title, description, actions
-- [ ] Dropdown — click to open menu, items with icons
-- [ ] Select — styled select with options
-- [ ] Skeleton — loading placeholder (pulsing gray boxes)
-- [ ] Progress — progress bar with percentage
-- [ ] Avatar — circular image or initials
-- [ ] Accordion — expandable sections
-- [ ] Alert — info/warning/error/success banner
-- [ ] Tooltip — hover text
-- [ ] Switch — toggle on/off
-
-### For each component:
-1. Write as a single .tsx file in scaffolds/react-app/src/components/ui/
-2. Use CSS variables from index.css (--bg, --accent, --border, etc.)
-3. Typed props interface
-4. Under 50 lines each
-5. Export from ui/index.ts barrel
-6. Add usage example to README
-7. Copy to all scaffolds
-8. Verify all 9 scaffolds compile
-
-### After components:
-- [ ] Update README with all component examples
-- [ ] Run calculator test to verify nothing broke
-- [ ] Run dashboard test to verify components available
-- [ ] Commit + push
-
-## Other Work (if time remains)
-- Richer scaffold READMEs for form-app, fullstack, pixijs-game
-- More test runners (pomodoro timer, markdown editor, color picker)
-- Undertow integrated into auto-build loop
-- setup.sh: pin llama.cpp to specific tested release
-- Fix duplicate watcher_interval in config.yaml
-
-## Architecture Reference
-- 501 token system prompt
-- 17 tools in bootstrap
-- 9 scaffolds: react-app, dashboard, data-viz, form-app, landing, fullstack, threejs-game, pixijs-game, realtime
-- Classifier: VRAM check → requirement analysis → pick scaffold
-- Auto layers: pre-scaffold → auto-scaffold → auto-swell → auto-CSS → auto-compile → auto-wire
-- Tests: calculator(10), quiz(34), excel-diff(17), snake(12), todo(25), landing(23), rhythm(15), crypto-dash(17), kanban(27), weather(24)
+## What's Next
+- Windows installer testing with real users
+- Mac installer testing (Aaron's friend)
+- Richer README examples for all 28 UI components
+- More test runners for edge cases
+- CLI improvements (tab autocomplete, trace view)
+- Undertow integrated into auto-build loop with live Vite
