@@ -58,6 +58,13 @@ class SearchWeb(BaseTool):
             if not result.is_error:
                 return result
 
+        # Image search: DDG images API is blocked for Python HTTP clients (TLS fingerprinting).
+        # Use curl-based fallback first since it bypasses the detection.
+        if search_type == "image":
+            result = await self._search_ddg_images_curl(query, num_results)
+            if not result.is_error:
+                return result
+
         # Try backends in order of preference
         for backend in [self._search_ddg, self._search_brave, self._search_httpx_fallback]:
             result = await backend(query, search_type, num_results)
@@ -69,6 +76,54 @@ class SearchWeb(BaseTool):
             "navigate to https://duckduckgo.com/?q=your+query",
             is_error=True,
         )
+
+    async def _search_ddg_images_curl(self, query: str, num: int) -> ToolResult:
+        """DDG image search via curl — bypasses TLS fingerprint detection.
+
+        DDG's i.js endpoint 403s all Python HTTP clients (primp, httpx, requests)
+        regardless of headers or impersonation. curl's TLS stack passes.
+        """
+        import subprocess
+        import re
+
+        try:
+            # Step 1: Get VQD token from main page
+            r1 = subprocess.run(
+                ["curl", "-s", "--max-time", "10",
+                 f"https://duckduckgo.com/?q={query.replace(' ', '+')}",
+                 "-H", "User-Agent: Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36"],
+                capture_output=True, text=True, timeout=15,
+            )
+            vqd_match = re.search(r'vqd="([^"]+)"', r1.stdout)
+            if not vqd_match:
+                return ToolResult("DDG images: no VQD token", is_error=True)
+            vqd = vqd_match.group(1)
+
+            # Step 2: Fetch images via i.js
+            r2 = subprocess.run(
+                ["curl", "-s", "--max-time", "10",
+                 f"https://duckduckgo.com/i.js?o=json&q={query.replace(' ', '+')}&l=us-en&vqd={vqd}&p=1&ct=AT",
+                 "-H", "Referer: https://duckduckgo.com/",
+                 "-H", "User-Agent: Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36"],
+                capture_output=True, text=True, timeout=15,
+            )
+            data = json.loads(r2.stdout)
+            images = data.get("results", [])[:num]
+            if not images:
+                return ToolResult(f"No image results for '{query}'", is_error=True)
+
+            results = []
+            for img in images:
+                results.append({
+                    "title": img.get("title", ""),
+                    "href": img.get("image", ""),
+                    "body": f"{img.get('width', '?')}x{img.get('height', '?')} from {img.get('source', '?')}",
+                })
+            return self._format_results(query, "image", results)
+
+        except Exception as e:
+            log.warning(f"DDG images curl failed: {e}")
+            return ToolResult(f"DDG images curl error: {e}", is_error=True)
 
     async def _search_ddg(self, query: str, search_type: str, num: int) -> ToolResult:
         """Search using DuckDuckGo via the duckduckgo-search package."""

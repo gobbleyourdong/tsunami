@@ -39,7 +39,7 @@ async def main():
     workspace.mkdir(exist_ok=True)
     (workspace / "deliverables").mkdir(exist_ok=True)
     config.workspace_dir = str(workspace)
-    config.max_iterations = 30
+    # No iteration cap — workers run until task_complete or abort
 
     agent = Agent(config)
     try:

@@ -18,6 +18,31 @@ from .session import list_sessions, load_session
 from .tools.message import set_input_callback
 
 
+def _serve_latest(config: TsunamiConfig):
+    """Serve the most recently modified deliverable on :9876.
+
+    Keeps the dev server alive after the agent finishes so the user
+    can see the output in their browser.
+    """
+    deliverables = Path(config.workspace_dir) / "deliverables"
+    if not deliverables.exists():
+        return
+    projects = sorted(
+        [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
+        key=lambda p: p.stat().st_mtime, reverse=True,
+    )
+    if not projects:
+        return
+    latest = projects[0]
+    try:
+        from .serve import serve_project
+        url = serve_project(str(latest))
+        if url.startswith("http"):
+            print(f"\n  → {url}  ({latest.name})")
+    except Exception:
+        pass
+
+
 BANNER = """
 ▀▛▘▞▀▖▌ ▌▙ ▌▞▀▖▙▗▌▜▘
  ▌ ▚▄ ▌ ▌▌▌▌▙▄▌▌▘▌▐
@@ -101,6 +126,7 @@ async def _run_task(config: TsunamiConfig, task: str):
     result = await agent.run(task)
     print(f"\n{'='*60}")
     print(result)
+    _serve_latest(config)
 
 
 async def _resume_session(config: TsunamiConfig, session_id: str):
@@ -140,7 +166,7 @@ async def _interactive(config: TsunamiConfig):
     print(f"  Endpoint: {config.model_endpoint}")
     print(f"  Watcher: {'ON' if config.watcher_enabled else 'OFF'}")
     print(f"  Workspace: {config.workspace_dir}")
-    print(f"  Tools: {len(__import__('manus.tools', fromlist=['build_registry']).build_registry(config).names())}")
+    print(f"  Tools: {len(__import__('tsunami.tools', fromlist=['build_registry']).build_registry(config).names())}")
     print()
 
     # Set up async input callback for message_ask
@@ -181,6 +207,7 @@ async def _interactive(config: TsunamiConfig):
         agent = Agent(config)
         try:
             await agent.run(user_input)
+            _serve_latest(config)
         except KeyboardInterrupt:
             print("\n[interrupted]")
         except Exception as e:

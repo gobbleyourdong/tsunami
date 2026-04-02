@@ -1,4 +1,4 @@
-import { Application, Sprite, Texture, Rectangle, BaseTexture } from "pixi.js"
+import { Application, Sprite, Texture, Rectangle } from "pixi.js"
 
 interface SpriteFrame {
   x: number
@@ -18,14 +18,14 @@ export function createAnimatedSprite(
   totalFrames: number,
   fps: number = 12,
 ): { sprite: Sprite; update: (dt: number) => void } {
-  const baseTexture = BaseTexture.from(sheetUrl)
+  const sheetTexture = Texture.from(sheetUrl)
   const frames: Texture[] = []
 
   for (let i = 0; i < totalFrames; i++) {
     const col = i % columns
     const row = Math.floor(i / columns)
     const rect = new Rectangle(col * frameWidth, row * frameHeight, frameWidth, frameHeight)
-    frames.push(new Texture({ source: baseTexture, frame: rect }))
+    frames.push(new Texture({ source: sheetTexture.source, frame: rect }))
   }
 
   const sprite = new Sprite(frames[0])

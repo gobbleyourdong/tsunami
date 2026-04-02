@@ -45,7 +45,14 @@ class GenerateImage(BaseTool):
 
     async def execute(self, prompt: str, save_path: str, width: int = 1024,
                       height: int = 1024, style: str = "photo", **kw) -> ToolResult:
-        p = Path(save_path).expanduser().resolve()
+        # Resolve path — always within workspace, strip leading /workspace
+        clean = save_path.lstrip("/")
+        # Strip "workspace/" prefix if the model sends absolute-looking paths
+        for prefix in ["workspace/", "app/workspace/"]:
+            if clean.startswith(prefix):
+                clean = clean[len(prefix):]
+                break
+        p = (Path(self.config.workspace_dir) / clean).resolve()
         p.parent.mkdir(parents=True, exist_ok=True)
 
         # Try backends in order: diffusion server > DALL-E > placeholder

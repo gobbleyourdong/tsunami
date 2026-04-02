@@ -59,19 +59,21 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
     from .swell import Swell
     from .undertow import Undertow
     from .project_init import ProjectInit
+    from .generate import GenerateImage
+    from .vision_ground import VisionGround
     from .toolbox import LoadToolbox, set_registry
 
     registry = ToolRegistry()
 
-    # Bootstrap — lean core (16 tools)
-    # webdev_scaffold is in bootstrap — all interactive builds go through Vite+React+TS
+    # Bootstrap — lean core (18 tools)
+    # generate_image + vision_ground in bootstrap — visual projects need them from the start
     for cls in [FileRead, FileWrite, FileEdit,
                 MatchGlob, MatchGrep,
                 ShellExec,
                 MessageInfo, MessageAsk, MessageResult,
                 PlanUpdate,
                 SearchWeb, PythonExec, SummarizeFile, Swell, Undertow,
-                ProjectInit]:
+                ProjectInit, GenerateImage, VisionGround]:
         registry.register(cls(config))
 
     # The one meta-tool — loads everything else from disk

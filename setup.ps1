@@ -125,23 +125,27 @@ try {
 Write-Host "  RAM: ${RAM}GB"
 
 # ---------------------------------------------------------------------------
-# Capacity / mode selection (mirrors bash logic exactly)
+# Capacity / mode selection — use VRAM when available, RAM as fallback
 # ---------------------------------------------------------------------------
 $MODE  = "full"
-$QUEEN = "9B"
+$WAVE = "9B"
 
-if ($RAM -lt 6) {
+# Use VRAM for GPU machines, RAM only for CPU-only
+$CAPACITY_GB = if ($GPU -eq "cuda" -and $VRAM -gt 0) {
+    [math]::Floor($VRAM / 1024)
+} else {
+    $RAM
+}
+$CAPACITY_SRC = if ($GPU -eq "cuda" -and $VRAM -gt 0) { "VRAM" } else { "RAM" }
+
+if ($CAPACITY_GB -lt 10) {
     $MODE  = "lite"
-    $QUEEN = "2B"
-    Write-Host "  → ${RAM}GB RAM: lite mode (2B only)"
-} elseif ($RAM -lt 32) {
-    $MODE  = "full"
-    $QUEEN = "9B"
-    Write-Host "  → ${RAM}GB RAM: full mode (9B queen + bees)"
+    $WAVE = "2B"
+    Write-Host "  → ${CAPACITY_GB}GB ${CAPACITY_SRC}: lite mode (2B only)"
 } else {
     $MODE  = "full"
-    $QUEEN = "27B"
-    Write-Host "  → ${RAM}GB RAM: full mode (27B queen + bees)"
+    $WAVE = "9B"
+    Write-Host "  → ${CAPACITY_GB}GB ${CAPACITY_SRC}: full mode (9B wave + 2B eddies)"
 }
 
 # ---------------------------------------------------------------------------
@@ -287,7 +291,7 @@ if ($MISSING.Count -gt 0) {
     Write-Host ""
     Write-Fail "Missing dependencies: $($MISSING -join ', ')"
     Write-Host "    Install them and re-run this script."
-    exit 1
+    return
 }
 
 # ---------------------------------------------------------------------------
@@ -327,7 +331,7 @@ Set-Location $DIR
 
 if (-not (Test-Path $DIR)) {
     Write-Fail "Repository clone failed — check your internet connection and try again."
-    exit 1
+    return
 }
 
 Set-Location $DIR
@@ -376,108 +380,101 @@ if ((Get-Command "node" -ErrorAction SilentlyContinue) -and (Test-Path $CLI_DIR)
 }
 
 # ---------------------------------------------------------------------------
-# Build llama.cpp
+# Download pre-built llama-server (pinned b8628 from ggml-org)
+# Much faster than building from source — no cmake, no MSVC needed.
+# Falls back to source build if download fails.
 # ---------------------------------------------------------------------------
+$LLAMA_RELEASE = "b8628"
+$LLAMA_CPU_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cpu-x64.zip"
 
-# On Windows, Release binaries land in one of two locations depending on the
-# CMake generator (Ninja vs MSBuild/Visual Studio)
+# Detect CUDA version for matching binaries
+$LLAMA_MAIN_URL = ""
+$LLAMA_DLL_URL  = ""
+if ($GPU -eq "cuda") {
+    try {
+        $cudaVer = (& nvidia-smi 2>$null | Select-String "CUDA Version:" |
+                    ForEach-Object { $_.Line -replace '.*CUDA Version:\s*', '' -replace '\s.*', '' }).Trim()
+        $cudaMajor = ($cudaVer -split '\.')[0]
+
+        if ($cudaMajor -ge 13) {
+            $LLAMA_MAIN_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cuda-13.1-x64.zip"
+            $LLAMA_DLL_URL  = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/cudart-llama-bin-win-cuda-13.1-x64.zip"
+            Write-Ok "CUDA $cudaVer (using 13.1 binaries)"
+        } elseif ($cudaMajor -eq 12) {
+            $LLAMA_MAIN_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cuda-12.4-x64.zip"
+            $LLAMA_DLL_URL  = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/cudart-llama-bin-win-cuda-12.4-x64.zip"
+            Write-Ok "CUDA $cudaVer (using 12.4 binaries)"
+        }
+    } catch {
+        Write-Warn "Could not parse CUDA version — using CPU build"
+    }
+}
+
+$llamaExe = Join-Path $LLAMA_DIR "llama-server.exe"
+# Also check legacy cmake build paths
 $LLAMA_BIN_MSBUILD = Join-Path $LLAMA_DIR "build\bin\Release\llama-server.exe"
 $LLAMA_BIN_NINJA   = Join-Path $LLAMA_DIR "build\bin\llama-server.exe"
 
 function Get-LlamaBin {
-    if (Test-Path $LLAMA_BIN_MSBUILD) { return $LLAMA_BIN_MSBUILD }
-    if (Test-Path $LLAMA_BIN_NINJA)   { return $LLAMA_BIN_NINJA   }
+    if (Test-Path $llamaExe)           { return $llamaExe }
+    if (Test-Path $LLAMA_BIN_MSBUILD)  { return $LLAMA_BIN_MSBUILD }
+    if (Test-Path $LLAMA_BIN_NINJA)    { return $LLAMA_BIN_NINJA }
     return $null
 }
 
 $existingBin = Get-LlamaBin
 if ($existingBin) {
-    Write-Ok "llama.cpp already built ($existingBin)"
+    Write-Ok "llama-server already installed ($existingBin)"
 } else {
-    Write-Step "Building llama.cpp (this takes 2-5 minutes)..."
-
     if (-not (Test-Path $LLAMA_DIR)) {
-        & git clone --depth 1 https://github.com/ggerganov/llama.cpp "$LLAMA_DIR"
+        New-Item -ItemType Directory -Force -Path $LLAMA_DIR | Out-Null
     }
 
-    # If a prior cmake configure used a different generator (e.g. VS 2026 was picked
-    # before and we now want to force VS 2022), the cached CMakeCache.txt will conflict.
-    # Wipe the build dir so cmake starts fresh.
-    $cmakeCache = Join-Path $LLAMA_DIR "build\CMakeCache.txt"
-    if ((Test-Path $cmakeCache) -and $cmakeCudaGenerator) {
-        $cachedGen = (Select-String -Path $cmakeCache -Pattern 'CMAKE_GENERATOR:' |
-                      Select-Object -First 1).Line
-        if ($cachedGen -and $cachedGen -notmatch [regex]::Escape($cmakeCudaGenerator)) {
-            Write-Host "  Clearing stale cmake cache (generator mismatch)..."
-            Remove-Item -Recurse -Force (Join-Path $LLAMA_DIR "build")
-        }
+    $downloadUrl = if ($LLAMA_MAIN_URL) { $LLAMA_MAIN_URL } else { $LLAMA_CPU_URL }
+    $variant = if ($LLAMA_MAIN_URL) { "CUDA" } else { "CPU" }
+
+    Write-Step "Downloading llama-server ($variant, pinned $LLAMA_RELEASE)..."
+    $zipPath = Join-Path $LLAMA_DIR "llama-server.zip"
+    & curl.exe -fSL --progress-bar -o "$zipPath" "$downloadUrl"
+
+    if ($LASTEXITCODE -ne 0 -and $LLAMA_MAIN_URL) {
+        Write-Warn "CUDA download failed — falling back to CPU"
+        & curl.exe -fSL --progress-bar -o "$zipPath" "$LLAMA_CPU_URL"
     }
 
-    # Assemble cmake arguments
-    $cmakeArgs = @(
-        "$LLAMA_DIR",
-        "-B", "$LLAMA_DIR\build",
-        "-DCMAKE_BUILD_TYPE=Release",
-        "-DBUILD_SHARED_LIBS=OFF"
-    )
-    # Force a specific VS generator when we know cmake would otherwise pick an
-    # incompatible version (e.g. VS 2026+ with CUDA 13.x).
-    if ($cmakeCudaGenerator) {
-        $cmakeArgs += "-G", $cmakeCudaGenerator
-    }
-    switch ($GPU) {
-        "cuda" {
-            $cmakeArgs += "-DGGML_CUDA=ON"
-            if ($CUDA_ARCH) {
-                $cmakeArgs += "-DCMAKE_CUDA_ARCHITECTURES=$CUDA_ARCH"
-            }
-            # CMAKE_CUDA_FLAGS is NOT applied during cmake's own CUDA compiler test,
-            # so we also set CUDAFLAGS in the environment — nvcc reads that at every stage.
-            if ($cudaAllowUnsupported) {
-                $env:CUDAFLAGS = "-allow-unsupported-compiler"
-                $cmakeArgs    += "-DCMAKE_CUDA_FLAGS=-allow-unsupported-compiler"
+    if (Test-Path $zipPath) {
+        Write-Step "Extracting..."
+        Expand-Archive -Force -Path $zipPath -DestinationPath $LLAMA_DIR
+        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+        # Download CUDA runtime DLLs alongside if needed
+        if ($LLAMA_DLL_URL) {
+            Write-Step "Downloading CUDA runtime DLLs..."
+            $dllZip = Join-Path $LLAMA_DIR "cudart.zip"
+            & curl.exe -fSL --progress-bar -o "$dllZip" "$LLAMA_DLL_URL"
+            if (Test-Path $dllZip) {
+                Expand-Archive -Force -Path $dllZip -DestinationPath $LLAMA_DIR
+                Remove-Item $dllZip -Force -ErrorAction SilentlyContinue
+                Write-Ok "CUDA DLLs installed"
+            } else {
+                Write-Warn "CUDA DLL download failed — GPU may not work"
             }
         }
-        "rocm" { $cmakeArgs += "-DGGML_HIP=ON" }   # unlikely on Windows but included
-    }
 
-    Write-Host ""
-    Write-Host "  cmake configure..."
-    & cmake @cmakeArgs
-    if ($LASTEXITCODE -ne 0) {
-        Write-Fail "cmake configure failed — check output above"
-        if ($cmakeCudaGenerator) {
-            Write-Warn "  Tried generator: $cmakeCudaGenerator"
-            Write-Warn "  If error persists, open a 'Developer Command Prompt for VS 2022' and retry"
-        } elseif ($cudaAllowUnsupported) {
-            Write-Warn "  VS 2026+ + CUDA: if still failing, try upgrading CUDA toolkit"
-            Write-Warn "  or remove llama.cpp\build and re-run after installing VS 2022"
+        # Find llama-server.exe (may be in a subdirectory after extraction)
+        $found = Get-ChildItem -Path $LLAMA_DIR -Recurse -Filter "llama-server.exe" |
+                 Select-Object -First 1
+        if ($found) {
+            # Move to root of LLAMA_DIR if nested
+            if ($found.DirectoryName -ne $LLAMA_DIR) {
+                Get-ChildItem -Path $found.DirectoryName -File | Move-Item -Destination $LLAMA_DIR -Force -ErrorAction SilentlyContinue
+            }
+            Write-Ok "llama-server installed ($variant)"
         } else {
-            Write-Warn "  Ensure Visual Studio Build Tools are installed:"
-            Write-Warn "  winget install Microsoft.VisualStudio.2022.BuildTools"
-            Write-Warn "  Then re-run this script from a Developer Command Prompt"
+            Write-Fail "llama-server.exe not found after extraction"
         }
     } else {
-        $cores = (Get-WmiObject -Class Win32_Processor -ErrorAction SilentlyContinue |
-                  Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
-        if (-not $cores -or $cores -lt 1) { $cores = 4 }
-
-        Write-Host "  cmake build (using $cores cores)..."
-        & cmake --build "$LLAMA_DIR\build" --config Release -j $cores --target llama-server
-
-        $builtBin = Get-LlamaBin
-        if ($builtBin) {
-            Write-Ok "llama.cpp built successfully"
-        } else {
-            Write-Fail "llama.cpp build FAILED — check cmake output above"
-            if ($cmakeCudaGenerator -or $cudaAllowUnsupported) {
-                Write-Warn "  Ensure you run from a Developer Command Prompt matching the generator"
-            } else {
-                Write-Warn "  You may need: winget install Microsoft.VisualStudio.2022.BuildTools"
-            }
-            Write-Warn "  Ensure you run this script from a Developer Command Prompt for VS"
-            # Non-fatal — continue so models are still downloaded
-        }
+        Write-Fail "Download failed — check internet connection"
     }
 }
 
@@ -519,8 +516,8 @@ if (-not (Get-Command "curl.exe" -ErrorAction SilentlyContinue)) {
 
     Write-Host ""
 
-    # --- Always download 2B bee model ---
-    Write-Host "  Downloading bee model (1.2GB)..."
+    # --- Always download 2B eddy model ---
+    Write-Host "  Downloading eddy model (1.2GB)..."
     Get-Model "unsloth/Qwen3.5-2B-GGUF" "Qwen3.5-2B-Q4_K_M.gguf"
     Get-Model "unsloth/Qwen3.5-2B-GGUF" "mmproj-BF16.gguf"
     $mmproj = Join-Path $MODELS_DIR "mmproj-BF16.gguf"
@@ -529,22 +526,14 @@ if (-not (Get-Command "curl.exe" -ErrorAction SilentlyContinue)) {
         Move-Item $mmproj $mmproj2B
     }
 
-    # --- Queen model based on available RAM ---
-    if ($QUEEN -eq "9B") {
-        Write-Host "  Downloading queen model (5.3GB)..."
+    # --- Wave model based on available VRAM/RAM ---
+    if ($WAVE -eq "9B") {
+        Write-Host "  Downloading wave model (5.3GB)..."
         Get-Model "unsloth/Qwen3.5-9B-GGUF" "Qwen3.5-9B-Q4_K_M.gguf"
         Get-Model "unsloth/Qwen3.5-9B-GGUF" "mmproj-BF16.gguf"
         $mmproj9B = Join-Path $MODELS_DIR "mmproj-9B-BF16.gguf"
         if ((Test-Path $mmproj) -and -not (Test-Path $mmproj9B)) {
             Move-Item $mmproj $mmproj9B
-        }
-    } elseif ($QUEEN -eq "27B") {
-        Write-Host "  Downloading queen model (27GB)..."
-        Get-Model "unsloth/Qwen3.5-27B-GGUF" "Qwen3.5-27B-Q8_0.gguf"
-        Get-Model "unsloth/Qwen3.5-27B-GGUF" "mmproj-BF16.gguf"
-        $mmproj27B = Join-Path $MODELS_DIR "mmproj-27B-BF16.gguf"
-        if ((Test-Path $mmproj) -and -not (Test-Path $mmproj27B)) {
-            Move-Item $mmproj $mmproj27B
         }
     }
 
@@ -556,7 +545,7 @@ if (-not (Get-Command "curl.exe" -ErrorAction SilentlyContinue)) {
     }
 
     Write-Host ""
-    Write-Ok "Models installed: $QUEEN queen + 2B bees"
+    Write-Ok "Models installed: $WAVE wave + 2B eddies"
     Write-Host "  Tsunami auto-detects and scales on startup."
 }
 
@@ -680,7 +669,7 @@ Write-Host "  ${BOLD}║                                            ║${RST}"
 Write-Host "  ${BOLD}║  Or directly: cd $DIR${RST}"
 Write-Host "  ${BOLD}║              .\tsu.ps1                      ║${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
-Write-Host "  ${BOLD}║  GPU: $GPU  |  RAM: ${RAM}GB  |  Queen: $QUEEN${RST}"
+Write-Host "  ${BOLD}║  GPU: $GPU  |  ${CAPACITY_SRC}: ${CAPACITY_GB}GB  |  Wave: $WAVE${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
 Write-Host "  ${BOLD}╚════════════════════════════════════════════╝${RST}"
 Write-Host ""

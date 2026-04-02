@@ -1,0 +1,25 @@
+# TSUNAMI — Docker Configuration
+# Models at /app/models, workspace at /app/workspace
+
+model_backend: completion
+model_name: "Qwen3.5-9B"
+model_endpoint: "http://localhost:8090"
+temperature: 0.7
+max_tokens: 8192
+
+fast_model_name: "Qwen3.5-2B"
+fast_model_endpoint: "http://localhost:8092"
+
+watcher_enabled: true
+watcher_model: "Qwen3.5-2B"
+watcher_endpoint: "http://localhost:8092"
+watcher_interval: 3
+
+workspace_dir: "/app/workspace"
+skills_dir: "/app/skills"
+
+tool_timeout: 120
+error_escalation_threshold: 3
+
+search_backend: duckduckgo
+browser_headless: true

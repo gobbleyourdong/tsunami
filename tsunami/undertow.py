@@ -644,10 +644,29 @@ async def run_drag(html_path: str, port: int = 9876, user_request: str = "") -> 
     except Exception:
         pass
 
+    # Load reference context if available (from research phase)
+    reference_context = ""
+    try:
+        project_dir = Path(html_path).resolve().parent
+        # Walk up to find reference.md (could be in project root or src/)
+        for _ in range(4):
+            ref_file = project_dir / "reference.md"
+            if ref_file.exists():
+                reference_context = ref_file.read_text()[:500]
+                break
+            project_dir = project_dir.parent
+    except Exception:
+        pass
+
     # Generate levers from user request
     if user_request:
-        levers = generate_levers(user_request, html_content)
-        log.info(f"Undertow: generated {len(levers)} levers from request")
+        # Enrich the screenshot expectation with reference context
+        expect = user_request
+        if reference_context:
+            expect = f"{user_request}. Reference details: {reference_context[:200]}"
+        levers = generate_levers(expect, html_content)
+        log.info(f"Undertow: generated {len(levers)} levers from request" +
+                 (" (with reference)" if reference_context else ""))
     else:
         levers = [
             Lever(action="console"),

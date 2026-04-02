@@ -106,6 +106,7 @@ class Agent:
         self._empty_steps = 0
         self._tool_history: list[str] = []  # last N tool calls
         self._project_init_called = False  # block repeated scaffold
+        self._has_researched = False  # research gate — must search before writing
 
         # Auto-compact circuit breaker
         # Stops retrying compression after N consecutive failures
@@ -302,8 +303,10 @@ class Agent:
 
         The loop continues until:
         - message_result is called (task complete)
-        - max_iterations is reached
         - an unrecoverable error occurs
+        - abort signal received
+
+        There is no iteration cap. The agent iterates until it finishes.
         """
 
         # Build system prompt and initialize conversation
@@ -338,7 +341,7 @@ class Agent:
         log.info(f"Starting agent loop: {user_message[:100]}")
         consecutive_errors = 0
 
-        while self.state.iteration < self.config.max_iterations:
+        while True:
             self.state.iteration += 1
             iter_start = time.time()
 
@@ -443,14 +446,12 @@ class Agent:
                     pass  # Non-critical
                 return result
 
-        # Auto-wire any stub App.tsx before exiting on max iterations
+        # Should never reach here — loop exits via task_complete, abort, or error
         self._auto_wire_on_exit()
-
-        # Save on max iterations (incomplete task — summary helps resume)
         save_session(self.state, self.session_dir, self.session_id)
         save_session_summary(self.state, self.session_dir, self.session_id)
         self.cost_tracker.save(self.config.workspace_dir)
-        return f"Reached max iterations ({self.config.max_iterations}). Session saved: {self.session_id}"
+        return f"Agent loop exited unexpectedly after {self.state.iteration} iterations. Session saved: {self.session_id}"
 
     async def _step(self, _watcher_depth: int = 0) -> str:
         """Execute one iteration of the agent loop."""
@@ -548,7 +549,27 @@ class Agent:
                     "Stop researching and start building. Write code now."
                 )
 
-        # 3c. Block repeated project_init — only scaffold once per session
+        # 3c. Research gate — nudge research before writing code
+        if tool_call.name in ("search_web", "browser_navigate"):
+            self._has_researched = True
+        if tool_call.name in ("file_write", "file_edit") and not self._has_researched:
+            written_path = tool_call.arguments.get("path", "")
+            if "deliverables/" in written_path and written_path.endswith((".tsx", ".ts", ".css")):
+                # Check if this looks like a visual build task
+                user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                visual_keywords = ["game", "ui", "design", "calculator", "gameboy", "interface",
+                                   "dashboard", "visual", "replica", "clone", "pixel", "retro"]
+                if any(k in user_req.lower() for k in visual_keywords):
+                    self.state.add_system_note(
+                        "RESEARCH FIRST: You're writing code for a visual project but haven't "
+                        "searched for any reference images or code yet. Use search_web with "
+                        'type="image" to find reference images of what you\'re building. '
+                        "Study the reference BEFORE writing code. This is mandatory."
+                    )
+                    # Don't block the write — just nudge once
+                    self._has_researched = True  # only nudge once
+
+        # 3d. Block repeated project_init — only scaffold once per session
         if tool_call.name == "project_init":
             if self._project_init_called:
                 log.info("Blocked repeated project_init call")
@@ -636,9 +657,20 @@ class Agent:
         cached = self.tool_dedup.lookup(tool_call.name, tool_call.arguments)
         if cached is not None:
             content, is_error = cached
-            log.info(f"  Dedup hit for {tool_call.name} — returning cached result")
+            self._dedup_hits = getattr(self, '_dedup_hits', 0) + 1
+            log.info(f"  Dedup hit #{self._dedup_hits} for {tool_call.name} — returning cached result")
             self.state.add_tool_result(tool_call.name, tool_call.arguments, content, is_error=is_error)
+            # After 3 consecutive dedup hits, the agent is stuck in a loop
+            if self._dedup_hits >= 3:
+                self.state.add_system_note(
+                    f"LOOP DETECTED: You've called {tool_call.name} with the same arguments "
+                    f"{self._dedup_hits} times and got the same result. Try a different approach. "
+                    f"If the task is done, call message_result. If stuck, modify the code and retry."
+                )
+                self._dedup_hits = 0
             return content
+        else:
+            self._dedup_hits = 0  # reset on non-cached call
 
         try:
             result = await tool.execute(**tool_call.arguments)
@@ -686,6 +718,129 @@ class Agent:
             tool_call.name, tool_call.arguments, result.content,
             result.is_error, self.session_id,
         )
+
+        # 8ref. Auto-save reference — when search returns images, save URLs to project
+        if tool_call.name == "search_web" and not result.is_error:
+            search_type = tool_call.arguments.get("search_type", "")
+            if search_type == "image" or "image" in result.content.lower()[:50]:
+                # Find active project and save reference URLs
+                try:
+                    deliverables = Path(self.config.workspace_dir) / "deliverables"
+                    if deliverables.exists():
+                        # Find most recent project
+                        projects = sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+                        for proj in projects:
+                            if proj.is_dir() and not proj.name.startswith("."):
+                                ref_file = proj / "reference.md"
+                                # Append search results to reference file
+                                import re as _ref_re
+                                urls = _ref_re.findall(r'URL:\s*(https?://\S+)', result.content)
+                                if urls:
+                                    existing = ref_file.read_text() if ref_file.exists() else "# Reference\n"
+                                    query = tool_call.arguments.get("query", "")
+                                    existing += f"\n## {query}\n"
+                                    for url in urls[:5]:
+                                        existing += f"- {url}\n"
+                                    ref_file.write_text(existing)
+                                    log.info(f"Saved {len(urls)} reference URLs to {ref_file}")
+                                break
+                except Exception as e:
+                    log.debug(f"Reference save skipped: {e}")
+
+        # 8vg. Auto-ground — after generate_image, extract element positions from the image
+        if tool_call.name == "generate_image" and not result.is_error:
+            save_path = tool_call.arguments.get("save_path", "")
+            if save_path and Path(save_path).exists():
+                try:
+                    # Infer elements to find from the user's request
+                    user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                    # Extract likely UI elements from the request
+                    element_keywords = {
+                        "button": ["A button", "B button"],
+                        "d-pad": ["D-pad"],
+                        "dpad": ["D-pad"],
+                        "screen": ["screen", "LCD screen"],
+                        "speaker": ["speaker grille"],
+                        "start": ["START button"],
+                        "select": ["SELECT button"],
+                        "keyboard": ["keyboard", "keypad"],
+                        "display": ["display", "screen"],
+                        "logo": ["logo", "brand text"],
+                    }
+                    elements = []
+                    for keyword, names in element_keywords.items():
+                        if keyword in user_req.lower():
+                            elements.extend(names)
+                    # Always look for the main body/casing
+                    elements.append("main body/casing")
+
+                    if elements:
+                        from .tools.vision_ground import VisionGround, _parse_grounding_response
+                        vg = VisionGround(self.config)
+                        ground_result = await vg.execute(image_path=save_path, elements=elements)
+                        if not ground_result.is_error:
+                            log.info(f"Auto-ground: extracted positions for {len(elements)} elements")
+                            # Write a layout.css file into the project with the grounded positions
+                            # This is a FILE, not a note — the 9B imports it instead of guessing
+                            try:
+                                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                                if deliverables.exists():
+                                    projects = sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+                                    for proj in projects:
+                                        if proj.is_dir() and not proj.name.startswith("."):
+                                            # Extract aspect ratio if present
+                                            import re as _ar_re
+                                            ar_match = _ar_re.search(r'ASPECT_RATIO:\s*(\d+):(\d+)', ground_result.content)
+                                            ar_w, ar_h = (7, 12) if not ar_match else (int(ar_match.group(1)), int(ar_match.group(2)))
+                                            # All positions are ratios — resolution independent
+                                            css_lines = [
+                                                "/* AUTO-GENERATED from vision grounding */",
+                                                "/* All positions are RATIOS (%) — resolution independent */",
+                                                "/* Import: import './layout.css' */",
+                                                "",
+                                                ".device-body {",
+                                                "  position: relative;",
+                                                f"  aspect-ratio: {ar_w} / {ar_h};",
+                                                "  width: min(90vw, 320px);",
+                                                "  margin: 0 auto;",
+                                                "}",
+                                                "",
+                                            ]
+                                            # Parse CSS positioning hints from the grounding output
+                                            for line in ground_result.content.splitlines():
+                                                if line.strip().startswith(".") and "{" in line:
+                                                    css_lines.append(line.strip())
+
+                                            layout_path = proj / "src" / "layout.css"
+                                            layout_path.parent.mkdir(parents=True, exist_ok=True)
+                                            layout_path.write_text("\n".join(css_lines) + "\n")
+                                            log.info(f"Wrote grounded layout to {layout_path}")
+
+                                            # Save to reference.md too
+                                            ref_file = proj / "reference.md"
+                                            existing = ref_file.read_text() if ref_file.exists() else "# Reference\n"
+                                            existing += f"\n## Element Positions\n```\n{ground_result.content}\n```\n"
+                                            ref_file.write_text(existing)
+
+                                            # Tell the agent about the file
+                                            self.state.add_system_note(
+                                                f"LAYOUT FILE WRITTEN: src/layout.css\n"
+                                                f"Import it: import './layout.css'\n"
+                                                f"Use class .device-body as the container (position:relative, portrait 280x480).\n"
+                                                f"Each element has a class with position:absolute and exact percentages.\n"
+                                                f"DO NOT override these positions with inline styles. Use the classes.\n\n"
+                                                f"Elements found:\n{ground_result.content}"
+                                            )
+                                            break
+                            except Exception as e:
+                                log.debug(f"Layout CSS write failed: {e}")
+                                # Fallback: just inject as note
+                                self.state.add_system_note(
+                                    f"ELEMENT POSITIONS:\n{ground_result.content}\n\n"
+                                    f"Use these exact positions. position:absolute inside position:relative."
+                                )
+                except Exception as e:
+                    log.debug(f"Auto-ground skipped: {e}")
 
         # 8a0. Auto-scaffold — if .tsx written to deliverables without package.json, provision it
         if tool_call.name == "file_write" and not result.is_error:
@@ -859,6 +1014,73 @@ class Agent:
                     "Save your findings/progress to a file NOW before context is lost."
                 )
 
+        # 8w. Mid-loop auto-wire — if components exist but App.tsx is a stub, wire it NOW
+        # Don't wait until exit — the dev server shows "Loading..." until App.tsx has imports
+        if tool_call.name in ("file_write", "file_edit") and not result.is_error:
+            written_path = tool_call.arguments.get("path", "")
+            if "components/" in written_path and written_path.endswith(".tsx"):
+                try:
+                    # Find the project dir from the written path
+                    import re as _re_wire
+                    parts = written_path.split("deliverables/")
+                    if len(parts) > 1:
+                        project_name = parts[1].split("/")[0]
+                        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+                        app_path = project_dir / "src" / "App.tsx"
+                        comp_dir = project_dir / "src" / "components"
+                        if app_path.exists() and comp_dir.exists():
+                            app_content = app_path.read_text()
+                            is_stub = "TODO" in app_content or len(app_content) < 150
+                            components = [
+                                f.stem for f in comp_dir.iterdir()
+                                if f.suffix in ('.tsx', '.ts') and f.stem not in ('index', 'types')
+                                and not f.stem.startswith('.')
+                            ]
+                            # Auto-wire when 2+ components exist and App.tsx is still a stub
+                            if is_stub and len(components) >= 2:
+                                imports = "\n".join(f'import {c} from "./components/{c}"' for c in sorted(components))
+                                jsx = "\n        ".join(f'<{c} />' for c in sorted(components))
+                                auto_app = (
+                                    f'import "./index.css"\n{imports}\n\n'
+                                    f'export default function App() {{\n'
+                                    f'  return (\n'
+                                    f'    <div className="container">\n'
+                                    f'      {jsx}\n'
+                                    f'    </div>\n'
+                                    f'  )\n'
+                                    f'}}\n'
+                                )
+                                app_path.write_text(auto_app)
+                                log.info(f"Mid-loop auto-wire: {project_name}/App.tsx with {len(components)} components")
+                                self.state.add_system_note(
+                                    f"Auto-wired App.tsx with {len(components)} components: {', '.join(sorted(components))}. "
+                                    f"Dev server now shows your work. Iterate on the components."
+                                )
+                except Exception as e:
+                    log.debug(f"Mid-loop auto-wire skipped: {e}")
+
+        # 8z. Generate nudge — visual projects should use SD-Turbo for assets
+        if self.state.iteration > 0 and self.state.iteration % 12 == 0:
+            has_generated = any(
+                t == "generate_image" or t == "webdev_generate_assets"
+                for t in self._tool_history
+            )
+            has_deliverable = any(
+                "deliverables/" in m.content
+                for m in self.state.conversation if m.role == "tool_result"
+            )
+            if has_deliverable and not has_generated:
+                # Check if this looks like a visual project
+                user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                visual_keywords = ["game", "ui", "design", "calculator", "gameboy", "interface",
+                                   "dashboard", "visual", "replica", "clone", "app", "pixel"]
+                if any(k in user_req.lower() for k in visual_keywords):
+                    self.state.add_system_note(
+                        "GENERATE REMINDER: Use generate_image to create textures, icons, "
+                        "backgrounds, and visual assets. SD-Turbo generates in <1 second. "
+                        "Don't use placeholder SVGs when you can generate real images."
+                    )
+
         # 8. Error tracking
         if result.is_error:
             self.state.record_error(tool_call.name, tool_call.arguments, result.content)
@@ -922,10 +1144,7 @@ class Agent:
 
             # Always evaluate tension — but only BLOCK if this is a factual claim,
             # not a build delivery, and we haven't already blocked twice
-            can_block = (
-                self._delivery_attempts <= 5
-                and self.state.iteration < self.config.max_iterations - 1
-            )
+            can_block = self._delivery_attempts <= 5
 
             circ = Circulation()
             route = circ.route(
@@ -962,7 +1181,7 @@ class Agent:
                         return result.content
 
                 # Adversarial review — cross-examine reasoning before delivery
-                if len(result.content) > 200 and self.state.iteration < self.config.max_iterations - 2:
+                if len(result.content) > 200:
                     try:
                         from .adversarial import review_before_delivery
                         should_deliver, review_text = await review_before_delivery(
@@ -978,18 +1197,57 @@ class Agent:
             elif self._delivery_attempts > 2:
                 log.info(f"Tension gate: allowing delivery after {self._delivery_attempts} attempts (loop prevention)")
 
-            # 10. Code tension — undertow QA gate for file deliveries
-            # Find the last HTML file written in this session
-            last_html = None
-            for msg in reversed(self.state.conversation):
-                if msg.role == "tool_result" and ".html" in msg.content:
-                    import re as _re
-                    paths = _re.findall(r'(/[^\s"\']+\.html)', msg.content)
-                    if paths:
-                        last_html = paths[0]
-                        break
+            # 10a. Swell compile gate — vite build must pass for React deliveries
+            if self._delivery_attempts <= 5:
+                try:
+                    deliverables = Path(self.config.workspace_dir) / "deliverables"
+                    if deliverables.exists():
+                        # Find the most recently modified project
+                        projects = sorted(
+                            [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
+                            key=lambda p: p.stat().st_mtime, reverse=True
+                        )
+                        for proj in projects[:1]:
+                            if (proj / "package.json").exists() and (proj / "node_modules").exists():
+                                import subprocess
+                                build = subprocess.run(
+                                    ["npx", "vite", "build"],
+                                    cwd=str(proj), capture_output=True, text=True, timeout=30,
+                                )
+                                if build.returncode != 0:
+                                    errors = [l.strip() for l in build.stderr.splitlines() if "Error" in l][:3]
+                                    if errors:
+                                        error_list = "\n".join(f"  - {e}" for e in errors)
+                                        log.info(f"Swell compile gate: FAIL — {len(errors)} errors in {proj.name}")
+                                        self.state.add_system_note(
+                                            f"SWELL COMPILE CHECK FAILED for {proj.name}:\n{error_list}\n"
+                                            f"Fix these build errors before delivering."
+                                        )
+                                        return result.content
+                                    else:
+                                        log.info(f"Swell compile gate: FAIL (no parsed errors) in {proj.name}")
+                                else:
+                                    log.info(f"Swell compile gate: PASS — {proj.name}")
+                except Exception as e:
+                    log.debug(f"Swell compile gate skipped: {e}")
 
-            if last_html and self._delivery_attempts <= 5 and self.state.iteration < self.config.max_iterations - 2:
+            # 10b. Code tension — undertow QA gate for file deliveries
+            # For React projects with a dev server, skip static HTML testing
+            # (dist/index.html is an empty shell — the compile gate above is sufficient)
+            serving = getattr(self, '_serving_project', None)
+
+            # Find the last HTML file written in this session (non-React projects only)
+            last_html = None
+            if not serving:
+                for msg in reversed(self.state.conversation):
+                    if msg.role == "tool_result" and ".html" in msg.content:
+                        import re as _re
+                        paths = _re.findall(r'(/[^\s"\']+\.html)', msg.content)
+                        if paths:
+                            last_html = paths[0]
+                            break
+
+            if last_html and self._delivery_attempts <= 5:
                 try:
                     from .undertow import run_drag
                     user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
