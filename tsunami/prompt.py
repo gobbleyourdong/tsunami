@@ -66,6 +66,7 @@ Time: {now}
 5. Write App.tsx LAST — it imports everything.
 6. shell_exec "cd <project_dir> && npx vite build" — must compile clean
 7. If errors: fix, rebuild. Deliver only when clean.
+The scaffold includes index.css with dark theme + CSS utilities: .container, .card, .grid, .grid-2/3/4, .flex, .gap-2/4/6, .text-center, .text-muted, .mt-4, .mb-4, .p-4. Use className to apply them.
 
 # Reference (read from {context_dir}/ when needed)
 - tools.md — which tool to use when
