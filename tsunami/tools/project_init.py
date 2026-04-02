@@ -197,13 +197,20 @@ class ProjectInit(BaseTool):
 
             scaffold_info = f" (scaffold: {scaffold_name})" if scaffold_name else ""
             dep_list = ", ".join(dependencies) if dependencies else "none"
+
+            # Include README content so the model knows what's available
+            readme_content = ""
+            readme_path = project_dir / "README.md"
+            if readme_path.exists():
+                readme_content = "\n\n---\n\n" + readme_path.read_text()
+
             return ToolResult(
                 f"Project '{name}' ready{scaffold_info} at {project_dir}\n"
                 f"Extra deps: {dep_list}\n"
                 f"Dev server: {url or 'run npx vite --port 9876'}\n\n"
                 f"src/App.tsx is a stub — replace it with your app.\n"
-                f"Write components in src/components/.\n"
                 f"After all files: shell_exec 'cd {project_dir} && npx vite build'"
+                f"{readme_content}"
             )
 
         except Exception as e:
