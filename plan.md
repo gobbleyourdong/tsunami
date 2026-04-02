@@ -73,4 +73,7 @@ project_init should analyze the request and provide matching features:
 - Session 1: Base dark theme added to all scaffolds — buttons/inputs/tables styled automatically
 - Session 1: Calculator with theme: dark bg, styled buttons. 15 iters (was 27). Unicode escape bug on ÷/×.
 - Session 1: Unicode fix: \\u00f7 → ÷ in file_write. Calculator now shows proper symbols.
-- Session 1: Remaining gap: grid layout (9B writes flex row not CSS grid)
+- Session 1: CSS utilities exposed in prompt (.grid-4, .card, etc.)
+- Session 1: Rhythm game: 22 iters, 11 components on threejs-game scaffold, compiles clean, React.FC crash
+- Session 1: Fixed: global React in all scaffold main.tsx — models write React.FC without import
+- Session 1: All 5 scaffolds have: dark theme + CSS utilities + global React. All compile clean.
