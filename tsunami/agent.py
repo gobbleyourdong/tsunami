@@ -117,6 +117,48 @@ class Agent:
         self.active_project: str | None = None
         self.project_context: str = ""
 
+    def _auto_wire_on_exit(self):
+        """Auto-wire any stub App.tsx in deliverables before exiting.
+
+        Scans all projects the wave wrote to. If App.tsx is a stub
+        but components exist, generate imports automatically.
+        """
+        deliverables = Path(self.config.workspace_dir) / "deliverables"
+        if not deliverables.exists():
+            return
+
+        for project_dir in deliverables.iterdir():
+            if not project_dir.is_dir():
+                continue
+            app_path = project_dir / "src" / "App.tsx"
+            comp_dir = project_dir / "src" / "components"
+            if not app_path.exists() or not comp_dir.exists():
+                continue
+
+            app_content = app_path.read_text()
+            is_stub = "TODO" in app_content or "not built yet" in app_content or (
+                len(app_content) < 200 and "import" not in app_content.lower()
+            )
+            components = [
+                f.stem for f in comp_dir.iterdir()
+                if f.suffix in ('.tsx', '.ts') and f.stem not in ('index', 'types')
+            ]
+            if is_stub and components:
+                imports = "\n".join(f'import {c} from "./components/{c}"' for c in sorted(components))
+                jsx = "\n        ".join(f'<{c} />' for c in sorted(components))
+                auto_app = (
+                    f'import "./index.css"\n{imports}\n\n'
+                    f'export default function App() {{\n'
+                    f'  return (\n'
+                    f'    <div className="container">\n'
+                    f'      {jsx}\n'
+                    f'    </div>\n'
+                    f'  )\n'
+                    f'}}\n'
+                )
+                app_path.write_text(auto_app)
+                log.info(f"Auto-wired {project_dir.name}/App.tsx with {len(components)} components")
+
     def _inject_todo(self):
         """Inject todo.md into context if it exists in any active deliverable.
 
@@ -338,6 +380,9 @@ class Agent:
                 except Exception:
                     pass  # Non-critical
                 return result
+
+        # Auto-wire any stub App.tsx before exiting on max iterations
+        self._auto_wire_on_exit()
 
         # Save on max iterations (incomplete task — summary helps resume)
         save_session(self.state, self.session_dir, self.session_id)
