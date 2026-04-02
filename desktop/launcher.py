@@ -4,10 +4,11 @@ For Windows: PyInstaller bundles this into a .exe
 For Mac/Linux: python3 launcher.py
 
 Starts:
-1. llama-server (9B wave on :8090)
-2. llama-server (2B eddy on :8092)
-3. WebSocket bridge (agent on :3002)
-4. Opens native window with the terminal UI
+1. llama-server (9B wave or 2B lite on :8090)
+2. llama-server (2B eddy on :8092, full mode only)
+3. SD-Turbo image gen (always, if available)
+4. WebSocket bridge (agent on :3002)
+5. Opens native window with the terminal UI
 """
 
 import os
@@ -17,7 +18,8 @@ import time
 import signal
 import subprocess
 import threading
-import asyncio
+import shutil
+import platform
 from pathlib import Path
 
 # Find tsunami root
@@ -25,6 +27,10 @@ SCRIPT_DIR = Path(__file__).parent.resolve()
 TSUNAMI_DIR = SCRIPT_DIR.parent
 MODELS_DIR = TSUNAMI_DIR / "models"
 UI_PATH = SCRIPT_DIR / "index.html"
+
+# Pinned release — matches the battle-tested setup.bat
+LLAMA_TAG = "b8628"
+LLAMA_ORG = "ggml-org"  # NOT ggerganov — releases moved
 
 processes = []
 
@@ -37,33 +43,46 @@ def find_model(pattern):
 
 
 def find_llama_server():
-    """Find llama-server binary. Downloads pre-built if missing on Windows."""
+    """Find llama-server binary. Downloads pre-built if missing."""
     llama_dir = TSUNAMI_DIR / "llama-server"
     candidates = [
         llama_dir / "llama-server.exe",
         llama_dir / "llama-server",
         TSUNAMI_DIR / "llama.cpp" / "build" / "bin" / "llama-server",
         TSUNAMI_DIR / "llama.cpp" / "build" / "bin" / "llama-server.exe",
-        TSUNAMI_DIR / "llama.cpp" / "build" / "bin" / "Release" / "llama-server.exe",
     ]
     for c in candidates:
         if c.exists():
             return str(c)
 
-    # Try PATH
-    import shutil
     found = shutil.which("llama-server")
     if found:
         return found
 
-    # Not found — download pre-built binary
-    print("  → llama-server not found, downloading pre-built binary...")
+    print("  → llama-server not found, downloading...")
     return download_llama_server()
+
+
+def detect_cuda_version():
+    """Detect CUDA version from nvidia-smi. Returns '12.4', '13.1', or None."""
+    try:
+        out = subprocess.check_output(["nvidia-smi"], text=True, timeout=5)
+        for line in out.splitlines():
+            if "CUDA Version:" in line:
+                parts = line.split("CUDA Version:")[1].strip().split()
+                ver = parts[0] if parts else ""
+                major = ver.split(".")[0]
+                if major == "12":
+                    return "12.4"
+                elif int(major) >= 13:
+                    return "13.1"
+    except Exception:
+        pass
+    return None
 
 
 def download_llama_server():
     """Download pre-built llama-server from GitHub releases."""
-    import platform
     import urllib.request
     import zipfile
     import tarfile
@@ -71,67 +90,54 @@ def download_llama_server():
     llama_dir = TSUNAMI_DIR / "llama-server"
     llama_dir.mkdir(parents=True, exist_ok=True)
 
-    # Get latest release tag
-    try:
-        import json
-        req = urllib.request.Request(
-            "https://api.github.com/repos/ggerganov/llama.cpp/releases/latest",
-            headers={"User-Agent": "Tsunami/1.0"},
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            tag = json.loads(resp.read())["tag_name"]
-    except Exception:
-        tag = "b8611"
-
-    print(f"  Release: {tag}")
-
     system = platform.system()
     machine = platform.machine().lower()
+    tag = LLAMA_TAG
+    cuda_dll_url = None
 
-    # Pick the right binary
     if system == "Windows":
-        # Check for NVIDIA GPU
-        has_nvidia = shutil.which("nvidia-smi") is not None
-        if has_nvidia:
-            asset = f"llama-{tag}-bin-win-cuda-12.4-x64.zip"
+        cuda_ver = detect_cuda_version()
+        if cuda_ver:
+            asset = f"llama-{tag}-bin-win-cuda-{cuda_ver}-x64.zip"
+            cuda_dll_url = f"https://github.com/{LLAMA_ORG}/llama.cpp/releases/download/{tag}/cudart-llama-bin-win-cuda-{cuda_ver}-x64.zip"
+            print(f"  CUDA {cuda_ver} detected")
         else:
             asset = f"llama-{tag}-bin-win-cpu-x64.zip"
+            print("  No CUDA — CPU mode")
         ext = ".zip"
         binary_name = "llama-server.exe"
     elif system == "Darwin":
-        if "arm" in machine or "aarch" in machine:
-            asset = f"llama-{tag}-bin-macos-arm64.tar.gz"
-        else:
-            asset = f"llama-{tag}-bin-macos-x64.tar.gz"
+        arch = "arm64" if ("arm" in machine or "aarch" in machine) else "x64"
+        asset = f"llama-{tag}-bin-macos-{arch}.tar.gz"
         ext = ".tar.gz"
         binary_name = "llama-server"
-    else:  # Linux
+    else:
         asset = f"llama-{tag}-bin-ubuntu-x64.tar.gz"
         ext = ".tar.gz"
         binary_name = "llama-server"
 
-    url = f"https://github.com/ggerganov/llama.cpp/releases/download/{tag}/{asset}"
+    url = f"https://github.com/{LLAMA_ORG}/llama.cpp/releases/download/{tag}/{asset}"
     archive_path = llama_dir / f"llama{ext}"
 
     print(f"  Downloading {asset}...")
     try:
         urllib.request.urlretrieve(url, str(archive_path))
     except Exception as e:
-        # Fallback to CPU version
         if "cuda" in asset:
-            print(f"  CUDA download failed, trying CPU...")
-            asset = asset.replace("cuda-12.4", "cpu")
-            url = f"https://github.com/ggerganov/llama.cpp/releases/download/{tag}/{asset}"
+            print(f"  CUDA failed, trying CPU...")
+            cpu_asset = f"llama-{tag}-bin-win-cpu-x64.zip"
+            cpu_url = f"https://github.com/{LLAMA_ORG}/llama.cpp/releases/download/{tag}/{cpu_asset}"
             try:
-                urllib.request.urlretrieve(url, str(archive_path))
-            except Exception as e2:
-                print(f"  ✗ Download failed: {e2}")
+                urllib.request.urlretrieve(cpu_url, str(archive_path))
+                cuda_dll_url = None  # no DLLs needed for CPU
+            except Exception:
+                print(f"  ✗ Download failed")
                 return None
         else:
             print(f"  ✗ Download failed: {e}")
             return None
 
-    # Extract
+    # Extract main package
     print("  Extracting...")
     try:
         if ext == ".zip":
@@ -143,17 +149,27 @@ def download_llama_server():
     except Exception as e:
         print(f"  ✗ Extract failed: {e}")
         return None
-
     archive_path.unlink(missing_ok=True)
 
-    # Find the binary in extracted files
+    # Download CUDA runtime DLLs (Windows only)
+    if cuda_dll_url:
+        print("  Downloading CUDA runtime DLLs...")
+        dll_path = llama_dir / "cudart.zip"
+        try:
+            urllib.request.urlretrieve(cuda_dll_url, str(dll_path))
+            with zipfile.ZipFile(str(dll_path), 'r') as z:
+                z.extractall(str(llama_dir))
+            dll_path.unlink(missing_ok=True)
+            print("  ✓ CUDA DLLs")
+        except Exception:
+            print("  ⚠ CUDA DLLs failed — may still work if CUDA toolkit installed")
+
+    # Find the binary
     for f in llama_dir.rglob(binary_name):
-        # Move to top level
         if f.parent != llama_dir:
             dest = llama_dir / binary_name
             f.rename(dest)
             f = dest
-        # Make executable on Unix
         if system != "Windows":
             f.chmod(0o755)
         print(f"  ✓ {binary_name} ready")
@@ -163,15 +179,11 @@ def download_llama_server():
     return None
 
 
-def start_server(name, port, model, ctx_size=16384, parallel=1, extra_args=None):
+def start_server(name, port, model, ctx_size=16384, parallel=1):
     """Start a llama-server instance."""
     binary = find_llama_server()
-    if not binary:
-        print(f"  ✗ llama-server not found — build it first")
-        return None
-
-    if not model:
-        print(f"  ✗ Model not found for {name}")
+    if not binary or not model:
+        print(f"  ✗ Cannot start {name}")
         return None
 
     cmd = [
@@ -183,24 +195,40 @@ def start_server(name, port, model, ctx_size=16384, parallel=1, extra_args=None)
         "--jinja",
         "--chat-template-kwargs", '{"enable_thinking":false}',
     ]
-    if extra_args:
-        cmd.extend(extra_args)
 
     print(f"  → Starting {name} on :{port}...")
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    processes.append(proc)
+    return proc
+
+
+def start_image_gen():
+    """Start SD-Turbo image generation server if available."""
+    serve_path = TSUNAMI_DIR / "serve_diffusion.py"
+    if not serve_path.exists():
+        return None
+
+    # Check if diffusers is installed
+    try:
+        subprocess.check_output([sys.executable, "-c", "import diffusers"], timeout=5, stderr=subprocess.DEVNULL)
+    except Exception:
+        print("  ⚠ Image gen: install diffusers for SD-Turbo (pip install diffusers torch)")
+        return None
+
+    print("  → Starting SD-Turbo image gen...")
     proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        [sys.executable, str(serve_path)],
+        cwd=str(TSUNAMI_DIR),
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     processes.append(proc)
     return proc
 
 
 def start_ws_bridge():
-    """Start the WebSocket bridge that connects the UI to the agent."""
+    """Start the WebSocket bridge."""
     bridge_path = SCRIPT_DIR / "ws_bridge.py"
     if not bridge_path.exists():
-        print("  ✗ ws_bridge.py not found")
         return None
 
     proc = subprocess.Popen(
@@ -211,53 +239,8 @@ def start_ws_bridge():
     return proc
 
 
-def open_ui():
-    """Open the UI in a native window or browser."""
-    url = f"file://{UI_PATH}"
-
-    # Try pywebview first (native window)
-    try:
-        import webview
-        webview.create_window(
-            "Tsunami",
-            str(UI_PATH),
-            width=1200,
-            height=800,
-            background_color="#0a0a14",
-        )
-        webview.start()
-        return
-    except ImportError:
-        pass
-
-    # Fallback: open in browser
-    import webbrowser
-    webbrowser.open(url)
-    print(f"  UI opened in browser: {url}")
-    print("  For native window: pip install pywebview")
-    # Keep alive
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
-
-
-def cleanup():
-    """Kill all child processes."""
-    for proc in processes:
-        try:
-            proc.terminate()
-            proc.wait(timeout=3)
-        except:
-            proc.kill()
-
-
 def get_available_memory_gb():
-    """Get GPU VRAM (preferred) or system RAM in GB. Returns (gb, source)."""
-    import shutil
-
-    # Try NVIDIA VRAM first
+    """Get GPU VRAM (preferred) or system RAM in GB."""
     if shutil.which("nvidia-smi"):
         try:
             out = subprocess.check_output(
@@ -270,8 +253,6 @@ def get_available_memory_gb():
         except Exception:
             pass
 
-    # Fallback to system RAM
-    import platform
     try:
         if platform.system() == "Darwin":
             out = subprocess.check_output(["sysctl", "-n", "hw.memsize"], text=True)
@@ -291,81 +272,111 @@ def get_available_memory_gb():
     return 8, "RAM"
 
 
+def open_ui():
+    """Open the UI."""
+    url = f"file://{UI_PATH}"
+    try:
+        import webview
+        webview.create_window("Tsunami", str(UI_PATH), width=1200, height=800, background_color="#0a0a14")
+        webview.start()
+        return
+    except ImportError:
+        pass
+
+    import webbrowser
+    webbrowser.open(url)
+    print(f"  UI: {url}")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+
+
+def cleanup():
+    for proc in processes:
+        try:
+            proc.terminate()
+            proc.wait(timeout=3)
+        except:
+            try:
+                proc.kill()
+            except:
+                pass
+
+
 def main():
     print("  ╔══════════════════════════╗")
     print("  ║   TSUNAMI DESKTOP        ║")
     print("  ╚══════════════════════════╝")
     print()
 
-    # Detect VRAM/RAM and pick mode
     mem_gb, mem_source = get_available_memory_gb()
     print(f"  {mem_source}: {mem_gb}GB")
 
     if mem_gb < 10:
         mode = "lite"
-        print("  → Lite mode (2B only — low memory detected)")
+        print("  → Lite mode (2B + image gen)")
     else:
         mode = "full"
-        print("  → Full mode (9B wave + 2B eddies)")
+        print("  → Full mode (9B wave + 2B eddies + image gen)")
 
     # Find or download models
-    wave_model = find_model("*9B*Q4*.gguf") or find_model("*Qwen*9B*.gguf")
-    eddy_model = find_model("*2B*Q4*.gguf") or find_model("*Qwen*2B*.gguf")
+    wave_model = find_model("*9B*Q4*.gguf")
+    eddy_model = find_model("*2B*Q4*.gguf")
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     import urllib.request
 
-    def download_model(url, dest):
-        name = Path(dest).name
+    def dl(url, dest):
         if Path(dest).exists():
             return
+        name = Path(dest).name
         print(f"  → Downloading {name}...")
-        print(f"    One-time download. Please wait.")
         urllib.request.urlretrieve(url, dest)
         print(f"  ✓ {name}")
 
-    # Always need 2B (used as eddy in full mode, or as the brain in lite mode)
+    # Always need 2B
     if not eddy_model:
         dest = str(MODELS_DIR / "Qwen3.5-2B-Q4_K_M.gguf")
-        download_model("https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf", dest)
+        dl("https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf", dest)
         eddy_model = dest
 
-    # Only download 9B if we have enough RAM
+    # 9B only in full mode
     if mode == "full" and not wave_model:
         dest = str(MODELS_DIR / "Qwen3.5-9B-Q4_K_M.gguf")
-        download_model("https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf", dest)
+        dl("https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf", dest)
         wave_model = dest
 
-    # Start servers based on mode
+    # Start servers
     if mode == "full" and wave_model:
         start_server("wave (9B)", 8090, wave_model, ctx_size=32768)
         start_server("eddy (2B)", 8092, eddy_model, ctx_size=16384, parallel=4)
     else:
-        # Lite: 2B does everything
-        start_server("wave (2B lite)", 8090, eddy_model, ctx_size=16384)
-        print("  ⚠ Lite mode: 2B only. Results will be simpler.")
+        # Lite: 2B plays both roles — wave AND eddy
+        # Start on both ports so swell/eddies still work
+        start_server("wave (2B)", 8090, eddy_model, ctx_size=16384)
+        start_server("eddy (2B)", 8092, eddy_model, ctx_size=8192, parallel=2)
 
-    # Wait for servers to start
+    # Always try image gen — even lite mode gets it
+    start_image_gen()
+
     print("  → Waiting for servers...")
     time.sleep(5)
 
-    # Start WS bridge
     start_ws_bridge()
     time.sleep(1)
 
     print("  ✓ Ready")
     print()
 
-    # Register cleanup
     import atexit
     atexit.register(cleanup)
     signal.signal(signal.SIGTERM, lambda s, f: (cleanup(), sys.exit(0)))
     if hasattr(signal, "SIGINT"):
         signal.signal(signal.SIGINT, lambda s, f: (cleanup(), sys.exit(0)))
 
-    # Open UI
     open_ui()
-
     cleanup()
 
 
