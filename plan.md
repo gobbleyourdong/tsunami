@@ -88,5 +88,8 @@ project_init should analyze the request and provide matching features:
 - Session 1: Todo app PASSES: 25 iters, fullstack scaffold (Express+SQLite+useApi), renders with styled UI
 - Session 1: Landing page building...
 - Session 1: Landing COMPILES: 30 iters, landing scaffold, shows "Loading..." (lazy load stuck)
-- Session 1: FINAL: 7/7 compile, 5/7 render fully, 2/7 have minor runtime issues (React.FC, lazy load)
+- Session 1: FINAL: 7/7 compile, 5/7 render fully, 2/7 minor runtime issues
 - Session 1: Every scaffold tested and proven. The CDN works.
+- Session 1: Stub detection added — blocks delivery if App.tsx not wired but components exist
+- Session 1: Manus arch doc obtained: Write→Lint→Fix→Build loop, expose tool, pnpm, headless browser
+- Session 1: Our arch converges with Manus: same write/compile/fix/preview loop, different models
