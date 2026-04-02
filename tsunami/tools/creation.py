@@ -10,6 +10,7 @@ import asyncio
 import json
 import mimetypes
 import subprocess
+import sys
 from pathlib import Path
 
 from .base import BaseTool, ToolResult
@@ -47,7 +48,7 @@ class FileView(BaseTool):
             if mime.startswith("image/"):
                 try:
                     result = subprocess.run(
-                        ["python3", "-c", f"from PIL import Image; im=Image.open('{p}'); print(im.size, im.mode)"],
+                        [sys.executable, "-c", f"from PIL import Image; im=Image.open('{p}'); print(im.size, im.mode)"],
                         capture_output=True, text=True, timeout=10,
                     )
                     if result.returncode == 0:

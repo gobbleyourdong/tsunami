@@ -9,10 +9,11 @@ build/
 # Node
 node_modules/
 cli/dist/
-cli/package-lock.json
 
 # Models (too large for git — users download their own)
-models/
+models/*
+!models/.gitkeep
+!models/model-manifest.lock
 
 # Workspace (runtime artifacts)
 workspace/.history/

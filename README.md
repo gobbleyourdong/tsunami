@@ -3,12 +3,13 @@
 **an ai agent that runs on your computer. tell it what to build, it builds it.**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.sh | bash
-source ~/.bashrc
-tsunami
+git clone https://github.com/gobbleyourdong/tsunami.git
+cd tsunami
+./setup.sh
+./tsu
 ```
 
-that's it. one command. it downloads everything, detects your gpu, starts the models, and you're in.
+that's the default path now. setup runs from a checked-out repo, installs into `./.venv`, verifies model downloads from `models/model-manifest.lock`, and keeps shell alias changes opt-in.
 
 **[see it work →](https://gobbleyourdong.github.io/tsunami/)**
 
@@ -96,6 +97,12 @@ tsunami auto-detects your memory and configures itself. you never think about th
 the full stack is **10GB total**: 9B wave (5.3GB) + 2B eddies (1.8GB) + SD-Turbo image gen (2GB).
 
 runs on any nvidia gpu with 12GB+ vram. macs with 16GB+ unified memory. no cloud required.
+
+## setup notes
+
+- `setup.sh` is the supported installer. it replaces the old best-effort bootstrap flow.
+- `INSTALL_SHELL_ALIAS=1 ./setup.sh` adds a `tsunami` alias to your shell rc if you want it.
+- the python repl path works out of the box. the ink cli is only installed when `cli/package-lock.json` exists or you explicitly allow `ALLOW_UNPINNED_NPM=1`.
 
 ---
 

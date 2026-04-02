@@ -1,6 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # TSUNAMI — Reborn from the Flood
-DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
+DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+PYTHON_BIN="$DIR/.venv/bin/python"
+if [ ! -x "$PYTHON_BIN" ]; then
+  PYTHON_BIN="$(command -v python3 || true)"
+fi
+
+if [ -z "$PYTHON_BIN" ]; then
+  echo "python3 not found. Run ./setup.sh first." >&2
+  exit 1
+fi
+
 cd "$DIR"
 
 # Handle commands
@@ -18,7 +28,7 @@ case "${1:-}" in
     shift
     TASK="${1:?Usage: tsunami swarm \"task description\" [num_workers]}"
     WORKERS="${2:-2}"
-    python3 -m tsunami.orchestrate "$TASK" "$WORKERS"
+    "$PYTHON_BIN" -m tsunami.orchestrate "$TASK" "$WORKERS"
     exit $?
     ;;
 esac
@@ -83,7 +93,7 @@ fi
 
 # Start Python WebSocket backend if not running
 if ! curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
-  python3 -c "
+  "$PYTHON_BIN" -c "
 import sys; sys.path.insert(0,'$DIR')
 from tsunami.server import start_server
 start_server(host='0.0.0.0', port=3000)
@@ -102,13 +112,13 @@ cleanup() {
 trap cleanup EXIT
 
 # Launch frontend — Ink CLI if Node available, Python fallback otherwise
-if command -v npx &>/dev/null && [ -d "$DIR/cli/node_modules" ]; then
+if [ -x "$DIR/cli/node_modules/.bin/tsx" ]; then
   cd "$DIR/cli"
-  exec npx tsx app.jsx "$@"
+  exec "$DIR/cli/node_modules/.bin/tsx" app.jsx "$@"
 else
   # Python fallback — simple REPL that talks to the agent
   cd "$DIR"
-  exec python3 -c "
+  exec "$PYTHON_BIN" -c "
 import sys, asyncio
 sys.path.insert(0, '$DIR')
 from tsunami.agent import Agent
