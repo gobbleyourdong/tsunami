@@ -73,7 +73,7 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
             return "form-app"
 
     # 6a. Dashboard (sidebar + charts + tables)
-    if needs("dashboard", "admin", "panel", "monitor"):
+    if needs("dashboard", "dash", "admin", "panel", "monitor"):
         if (SCAFFOLDS_DIR / "dashboard").exists():
             return "dashboard"
 
