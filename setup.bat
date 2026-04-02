@@ -64,14 +64,15 @@ if errorlevel 1 (
         pause
         exit /b 1
     )
-    echo   [OK] Python installed - RESTART this script after install
+    echo   [OK] Python installed
     pause
     exit /b 0
 )
 echo   [OK] Python found
-
+set "PATH=%LocalAppData%\Programs\Python\Python312;%LocalAppData%\Programs\Python\Python312\Scripts;%ProgramFiles%\Python312;%ProgramFiles%\Python312\Scripts;%PATH%"
 echo   [..] Refreshing tsunami repo...
 call :log "Running git clone"
+set "PATH=%ProgramFiles%\Git\cmd;%ProgramFiles(x86)%\Git\cmd;%PATH%"
 git clone https://github.com/gobbleyourdong/tsunami.git "%TSUNAMI_DIR%" >>"%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo   [X] Git clone failed
@@ -84,7 +85,8 @@ echo   [OK] Repo ready
 
 echo   [..] Installing Python packages...
 call :log "Installing Python packages"
-python -m pip install -q httpx pyyaml ddgs pillow websockets >>"%LOG_FILE%" 2>&1
+set "PATH=%LocalAppData%\Programs\Python\Python312;%LocalAppData%\Programs\Python\Python312\Scripts;%ProgramFiles%\Python312;%ProgramFiles%\Python312\Scripts;%PATH%"
+python -m pip install -q httpx pyyaml ddgs pillow websockets fastapi uvicorn rich psutil >>"%LOG_FILE%" 2>&1
 if errorlevel 1 (
     echo   [X] Python package install failed
     echo       Log: %LOG_FILE%
@@ -271,12 +273,11 @@ if /I "%MODE%"=="full" (
     echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8092 --ctx-size 16384 --parallel 4 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
 ) else (
     echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8090 --ctx-size 16384 --parallel 1 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
-    echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8092 --ctx-size 8192 --parallel 2 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
-    echo echo   Lite mode - 2B wave + 2B eddies >> "%TSUNAMI_DIR%\start.bat"
+    echo echo   Lite mode - 2B only >> "%TSUNAMI_DIR%\start.bat"
 )
 echo timeout /t 5 /nobreak ^>nul >> "%TSUNAMI_DIR%\start.bat"
 echo cd /d "%TSUNAMI_DIR%" >> "%TSUNAMI_DIR%\start.bat"
-echo python desktop\ws_bridge.py >> "%TSUNAMI_DIR%\start.bat"
+echo start "" python desktop\ws_bridge.py >> "%TSUNAMI_DIR%\start.bat"
 echo start "" "%TSUNAMI_DIR%\desktop\index.html" >> "%TSUNAMI_DIR%\start.bat"
 
 echo Creating shortcut...
