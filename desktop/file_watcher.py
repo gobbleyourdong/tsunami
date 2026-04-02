@@ -23,14 +23,33 @@ clients = set()
 file_states = {}  # path → mtime
 
 
-def scan_files():
-    """Scan deliverables for all source files with mtimes."""
-    files = {}
+def find_latest_project():
+    """Find the most recently modified project in deliverables/."""
     if not WATCH_DIR.exists():
+        return None
+    latest = None
+    latest_time = 0
+    for d in WATCH_DIR.iterdir():
+        if d.is_dir() and not d.name.startswith("."):
+            try:
+                mtime = max((f.stat().st_mtime for f in d.rglob("*") if f.is_file()), default=0)
+                if mtime > latest_time:
+                    latest_time = mtime
+                    latest = d
+            except Exception:
+                pass
+    return latest
+
+
+def scan_files():
+    """Scan the latest project for source files with mtimes."""
+    files = {}
+    project = find_latest_project()
+    if not project:
         return files
-    for f in WATCH_DIR.rglob("*"):
+    for f in project.rglob("*"):
         if f.is_file() and not any(s in f.parts for s in SKIP):
-            rel = str(f.relative_to(WATCH_DIR))
+            rel = str(f.relative_to(project))
             try:
                 files[rel] = f.stat().st_mtime
             except OSError:
@@ -40,7 +59,10 @@ def scan_files():
 
 def read_file(rel_path):
     """Read file content (text only, skip binary)."""
-    full = WATCH_DIR / rel_path
+    project = find_latest_project()
+    if not project:
+        return "[no project]"
+    full = project / rel_path
     try:
         if full.stat().st_size > 100_000:
             return f"[file too large: {full.stat().st_size // 1024}KB]"

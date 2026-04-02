@@ -28,7 +28,14 @@
     html, body, #app { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 13px; overflow: hidden; }
 
     /* === LAYOUT: Chat left, Artifacts right === */
-    #app { display: grid; grid-template-columns: 48px 1fr 1fr; grid-template-rows: 40px 1fr; }
+    #app { display: grid; grid-template-columns: 48px 200px 1fr 1fr; grid-template-rows: 40px 1fr; }
+
+    /* File sidebar */
+    .file-sidebar { grid-row: 2; background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; font-size: 12px; }
+    .file-sidebar-header { padding: 8px 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-size: 10px; border-bottom: 1px solid var(--border); }
+    .sidebar-file { padding: 3px 8px 3px 16px; cursor: pointer; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; font-size: 11px; }
+    .sidebar-file:hover { background: var(--panel2); }
+    .sidebar-file.active { background: var(--panel2); color: var(--accent-bright); }
 
     /* Activity bar */
     .activity-bar { grid-row: 1 / -1; background: var(--bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding-top: 10px; gap: 2px; }
@@ -146,6 +153,12 @@
         <span>wave</span><div class="dot" id="wave-dot"></div>
         <span>eddy</span><div class="dot" id="eddy-dot"></div>
       </div>
+    </div>
+
+    <!-- File Sidebar (VS Code style) -->
+    <div class="file-sidebar" id="file-sidebar">
+      <div class="file-sidebar-header">Explorer</div>
+      <div id="sidebar-files"><div style="padding:10px;color:var(--muted)">no project</div></div>
     </div>
 
     <!-- Chat Pane -->
@@ -375,7 +388,7 @@
           const data = JSON.parse(e.data)
           if (data.type === "files") {
             fileList = data.files
-            if (getCurrentArtifact() === "files") renderFiles()
+            renderSidebarFiles()
           }
           if (data.type === "file_changed") {
             // Update code view if we're watching
@@ -393,6 +406,29 @@
           }
         } catch {}
       }
+    }
+
+    function renderSidebarFiles() {
+      const el = document.getElementById("sidebar-files")
+      if (fileList.length === 0) {
+        el.innerHTML = '<div style="padding:10px;color:var(--muted)">no files</div>'
+        return
+      }
+      const extColors = { tsx: "var(--blue)", ts: "var(--green)", css: "var(--purple)", json: "var(--orange)", html: "var(--red)", js: "var(--yellow)" }
+      el.innerHTML = fileList.slice(0, 50).map(f => {
+        const ext = f.split(".").pop()
+        const color = extColors[ext] || "var(--muted)"
+        const name = f.split("/").pop()
+        const active = f === currentFile ? " active" : ""
+        return `<div class="sidebar-file${active}" onclick="clickFile('${esc(f)}')"><span style="color:${color};font-size:9px">●</span>${esc(name)}</div>`
+      }).join("")
+    }
+
+    function clickFile(path) {
+      currentFile = path
+      // Request this file's content from watcher by just switching to code view
+      showArtifact("code", document.querySelector('[data-view="code"]'))
+      renderSidebarFiles()
     }
 
     function renderFiles() {
