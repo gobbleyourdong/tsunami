@@ -40,6 +40,61 @@ import { Scene, Ground, Box, Sphere, HUD } from "./components"
 - `debug` — show physics wireframes and grid (default: false)
 - `camera` — position and fov (default: { position: [0, 8, 12], fov: 50 })
 
+## Common Patterns
+
+### Keyboard input
+```tsx
+import { useEffect } from "react"
+
+function useKeyboard(onKey: (key: string) => void) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onKey(e.code)
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [onKey])
+}
+```
+
+### Spawning objects on interval
+```tsx
+import { useEffect, useRef } from "react"
+
+function useInterval(callback: () => void, ms: number, active: boolean) {
+  const ref = useRef(callback)
+  ref.current = callback
+  useEffect(() => {
+    if (!active) return
+    const id = setInterval(() => ref.current(), ms)
+    return () => clearInterval(id)
+  }, [ms, active])
+}
+```
+
+### Click to add physics object
+```tsx
+const [objects, setObjects] = useState<[number,number,number][]>([])
+
+<Scene>
+  <Ground />
+  {objects.map((pos, i) => <Box key={i} position={pos} />)}
+  <mesh onClick={(e) => setObjects(prev => [...prev, [e.point.x, 5, e.point.z]])}>
+    <planeGeometry args={[50, 50]} />
+    <meshBasicMaterial visible={false} />
+  </mesh>
+</Scene>
+```
+
+### Game state with useRef (avoid re-renders in game loop)
+```tsx
+const gameState = useRef({ score: 0, lives: 3, level: 1 })
+const [displayScore, setDisplayScore] = useState(0)
+
+// Update ref in game logic (fast, no re-render)
+gameState.current.score += 10
+// Sync to state periodically for display
+setDisplayScore(gameState.current.score)
+```
+
 ## File Structure
 
 ```
