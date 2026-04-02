@@ -1,4 +1,4 @@
-# TSUNAMI — One-Click Windows Installer (PowerShell)
+﻿# TSUNAMI — One-Click Windows Installer (PowerShell)
 # Usage:
 #   iwr -useb https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
 #   — or —
@@ -179,7 +179,7 @@ if (Get-Command "python3" -ErrorAction SilentlyContinue) {
     $pyVer = (& python --version 2>&1) -replace "Python ", ""
     if ($pyVer -match "^3\.") {
         $PYTHON = "python"
-        Write-Ok "python ($pyVer)"
+        Write-Ok "python `($pyVer`)"
     } else {
         Write-Fail "python3 missing (found Python 2) — https://python.org/downloads"
         $MISSING += "python3"
@@ -202,8 +202,10 @@ if (Get-Command "pip3" -ErrorAction SilentlyContinue) {
     $MISSING += "pip"
 }
 
-if (-not (Test-Dep "cmake" "winget install Kitware.CMake  OR  https://cmake.org/download")) {
-    Write-Warn "  cmake is required to build llama.cpp"
+if (Get-Command "cmake" -ErrorAction SilentlyContinue) {
+    Write-Ok "cmake"
+} else {
+    Write-Warn "cmake not found — not needed for prebuilt binaries, only if building from source"
 }
 
 # C++ build tools check
@@ -353,11 +355,13 @@ if (Test-Path $reqFile) {
     }
 }
 
-# Additional optional dependencies (search, AI/diffusion, etc.)
+# SD-Turbo image generation (~2GB model, auto-downloads on first use)
+Write-Step "Installing image generation (SD-Turbo)..."
 $pyExtraDeps = @(
     "duckduckgo-search>=7",
     "diffusers",
     "torch",
+    "transformers",
     "accelerate"
 )
 $pipResult = & $PIP install -q @pyExtraDeps 2>&1
@@ -365,9 +369,23 @@ if ($LASTEXITCODE -ne 0) {
     Write-Warn "pip install failed, retrying with --user flag..."
     & $PIP install --user -q @pyExtraDeps 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        Write-Warn "pip install failed — try manually:"
+        Write-Warn "diffusers install failed -- image gen won't work"
         Write-Warn "  $PIP install $($pyExtraDeps -join ' ')"
     }
+}
+
+# Optional: playwright for undertow QA
+Write-Step "Installing Playwright (undertow QA)..."
+& $PIP install -q playwright 2>&1 | Out-Null
+if ($LASTEXITCODE -eq 0) {
+    & $PYTHON -m playwright install chromium 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "Playwright (undertow QA)"
+    } else {
+        Write-Warn "Playwright browser install failed -- undertow QA won't work"
+    }
+} else {
+    Write-Warn "Playwright skipped -- undertow QA won't work"
 }
 
 # ---------------------------------------------------------------------------
@@ -401,11 +419,11 @@ if ($GPU -eq "cuda") {
         if ($cudaMajor -ge 13) {
             $LLAMA_MAIN_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cuda-13.1-x64.zip"
             $LLAMA_DLL_URL  = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/cudart-llama-bin-win-cuda-13.1-x64.zip"
-            Write-Ok "CUDA $cudaVer (using 13.1 binaries)"
+            Write-Ok "CUDA $cudaVer `(using 13.1 binaries`)"
         } elseif ($cudaMajor -eq 12) {
             $LLAMA_MAIN_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cuda-12.4-x64.zip"
             $LLAMA_DLL_URL  = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/cudart-llama-bin-win-cuda-12.4-x64.zip"
-            Write-Ok "CUDA $cudaVer (using 12.4 binaries)"
+            Write-Ok "CUDA $cudaVer `(using 12.4 binaries`)"
         }
     } catch {
         Write-Warn "Could not parse CUDA version — using CPU build"
@@ -426,7 +444,7 @@ function Get-LlamaBin {
 
 $existingBin = Get-LlamaBin
 if ($existingBin) {
-    Write-Ok "llama-server already installed ($existingBin)"
+    Write-Ok "llama-server already installed `($existingBin`)"
 } else {
     if (-not (Test-Path $LLAMA_DIR)) {
         New-Item -ItemType Directory -Force -Path $LLAMA_DIR | Out-Null
@@ -435,7 +453,7 @@ if ($existingBin) {
     $downloadUrl = if ($LLAMA_MAIN_URL) { $LLAMA_MAIN_URL } else { $LLAMA_CPU_URL }
     $variant = if ($LLAMA_MAIN_URL) { "CUDA" } else { "CPU" }
 
-    Write-Step "Downloading llama-server ($variant, pinned $LLAMA_RELEASE)..."
+    Write-Step "Downloading llama-server `($variant, pinned $LLAMA_RELEASE`)..."
     $zipPath = Join-Path $LLAMA_DIR "llama-server.zip"
     & curl.exe -fSL --progress-bar -o "$zipPath" "$downloadUrl"
 
@@ -471,7 +489,7 @@ if ($existingBin) {
             if ($found.DirectoryName -ne $LLAMA_DIR) {
                 Get-ChildItem -Path $found.DirectoryName -File | Move-Item -Destination $LLAMA_DIR -Force -ErrorAction SilentlyContinue
             }
-            Write-Ok "llama-server installed ($variant)"
+            Write-Ok "llama-server installed `($variant`)"
         } else {
             Write-Fail "llama-server.exe not found after extraction"
         }
@@ -500,7 +518,7 @@ if (-not (Get-Command "curl.exe" -ErrorAction SilentlyContinue)) {
         $dest = Join-Path $MODELS_DIR $File
         if (Test-Path $dest) {
             $sizeMB = [math]::Round((Get-Item $dest).Length / 1MB, 0)
-            Write-Ok "$File (${sizeMB}MB)"
+            Write-Ok "$File `(${sizeMB}MB`)"
             return
         }
         Write-Step "Downloading $File..."
@@ -509,7 +527,7 @@ if (-not (Get-Command "curl.exe" -ErrorAction SilentlyContinue)) {
         & curl.exe -fSL --progress-bar -o "$dest" "$url"
         if ((Test-Path $dest) -and (Get-Item $dest).Length -gt 1000) {
             $sizeMB = [math]::Round((Get-Item $dest).Length / 1MB, 0)
-            Write-Ok "$File (${sizeMB}MB)"
+            Write-Ok "$File `(${sizeMB}MB`)"
         } else {
             Write-Fail "Download failed: $File"
             if (Test-Path $dest) { Remove-Item $dest -Force }
@@ -539,15 +557,9 @@ if (-not (Get-Command "curl.exe" -ErrorAction SilentlyContinue)) {
         }
     }
 
-    # --- Optional: image model if enough RAM ---
-    if ((Get-Command "docker" -ErrorAction SilentlyContinue) -and $RAM -ge 48) {
-        Write-Host ""
-        Write-Step "Docker detected with ${RAM}GB RAM — downloading image model..."
-        Get-Model "unsloth/Qwen-Image-2512-GGUF" "qwen-image-2512-Q4_K_M.gguf"
-    }
-
+    # SD-Turbo (~2GB) auto-downloads on first image generation via diffusers
     Write-Host ""
-    Write-Ok "Models installed: $WAVE wave + 2B eddies"
+    Write-Ok "Models installed: $WAVE wave + 2B eddies + SD-Turbo (downloads on first use)"
     Write-Host "  Tsunami auto-detects and scales on startup."
 }
 
@@ -612,7 +624,7 @@ if ($profileContent -match "function tsunami\s*\{[^}]*`"$([regex]::Escape($tsuPs
     Add-Content -Path $profilePath -Value "# Tsunami AI Agent"
     Add-Content -Path $profilePath -Value $psAlias
     Add-Content -Path $profilePath -Value "`$env:PATH += `";$llamaBinDir`""
-    Write-Ok "Added 'tsunami' to PowerShell profile ($profilePath)"
+    Write-Ok "Added 'tsunami' to PowerShell profile `($profilePath`)"
 }
 
 # ---------------------------------------------------------------------------
@@ -652,7 +664,7 @@ Write-Host "  Models:"
 if (Test-Path $MODELS_DIR) {
     Get-ChildItem -Path $MODELS_DIR -Filter "*.gguf" -File | ForEach-Object {
         $sizeMB = [math]::Round($_.Length / 1MB, 0)
-        Write-Ok "$($_.Name) (${sizeMB}MB)"
+        Write-Ok "$($_.Name) `(${sizeMB}MB`)"
     }
 }
 
