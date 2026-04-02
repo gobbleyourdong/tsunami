@@ -227,12 +227,27 @@
     }
 
     function renderProjects() {
-      document.getElementById("project-list").innerHTML = sessions.map(s =>
+      document.getElementById("project-list").innerHTML = sessions.filter(s => !s.hidden).map(s =>
         `<div class="project-item${s === activeSession ? " active" : ""}" onclick="switchSession(${s.id})">
-          <div class="name">${esc(s.name)}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="name">${esc(s.name)}</div>
+            <span onclick="event.stopPropagation();hideSession(${s.id})" style="color:var(--muted);cursor:pointer;font-size:11px;padding:2px 4px;border-radius:3px" onmouseenter="this.style.color='var(--red)'" onmouseleave="this.style.color='var(--muted)'">&times;</span>
+          </div>
           <div class="time">${s.time}</div>
         </div>`
       ).join("")
+    }
+
+    function hideSession(id) {
+      const s = sessions.find(x => x.id === id)
+      if (!s) return
+      s.hidden = true
+      if (s === activeSession) {
+        const next = sessions.find(x => !x.hidden)
+        if (next) switchSession(next.id)
+        else newSession()
+      }
+      renderProjects()
     }
 
     // === CHAT ===
