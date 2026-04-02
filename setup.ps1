@@ -203,35 +203,46 @@ if (-not (Test-Dep "cmake" "winget install Kitware.CMake  OR  https://cmake.org/
 }
 
 # C++ build tools check
-$hasBuildTools       = $false
-$msvcVersion         = $null   # e.g. "19.50"
-$cudaAllowUnsupported = $false  # set true when MSVC > VS 2022 (19.4x)
+$hasBuildTools        = $false
+$cmakeCudaGenerator   = ""      # e.g. "Visual Studio 17 2022" if we want to force it
+$cudaAllowUnsupported = $false  # set true when cmake will use MSVC > VS 2022
 
 if (Get-Command "cl.exe" -ErrorAction SilentlyContinue) {
     $hasBuildTools = $true
-    # Parse "Microsoft (R) C/C++ Optimizing Compiler Version 19.50.xxxxx ..."
-    try {
-        $clVer = (& cl.exe /? 2>&1 | Select-Object -First 3 |
-                  Select-String 'Version\s+(\d+\.\d+)' |
-                  ForEach-Object { $_.Matches[0].Groups[1].Value } |
-                  Select-Object -First 1)
-        if ($clVer) {
-            $msvcVersion = $clVer
-            $parts = $clVer -split '\.'
-            $major = [int]$parts[0]
-            $minor = [int]$parts[1]
-            # CUDA officially supports up to MSVC 19.4x (VS 2022).
-            # 19.50+ is VS 2026 / Insiders — needs -allow-unsupported-compiler.
-            if ($major -gt 19 -or ($major -eq 19 -and $minor -ge 50)) {
-                $cudaAllowUnsupported = $true
-                Write-Ok "MSVC cl.exe v$clVer (VS 2026+, will use -allow-unsupported-compiler for CUDA)"
+
+    # Use vswhere.exe to determine what cmake will actually pick (it always uses the
+    # latest VS installation, which may differ from the cl.exe in PATH).
+    $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vsWhere) {
+        try {
+            # installationVersion: "17.x" = VS 2022, "18.x" = VS 2026, etc.
+            $latestVsVer = (& $vsWhere -latest -property installationVersion 2>$null |
+                            Select-Object -First 1).Trim()
+            if ($latestVsVer -match '^(\d+)\.') {
+                $latestVsMajor = [int]$Matches[1]
+                if ($latestVsMajor -ge 18) {
+                    # cmake will pick VS 2026+. CUDA 13.x only supports up to VS 2022.
+                    # Prefer forcing VS 2022 generator if VS 2022 is also installed.
+                    $vs2022Path = (& $vsWhere -version "[17.0,18.0)" -property installationPath 2>$null |
+                                   Select-Object -First 1)
+                    if ($vs2022Path) {
+                        $cmakeCudaGenerator = "Visual Studio 17 2022"
+                        Write-Ok "MSVC cl.exe (VS 2026+ present; will force VS 2022 generator for CUDA)"
+                    } else {
+                        # Only VS 2026+ available — must use -allow-unsupported-compiler
+                        $cudaAllowUnsupported = $true
+                        Write-Ok "MSVC cl.exe (VS 2026+ only; will use -allow-unsupported-compiler for CUDA)"
+                    }
+                } else {
+                    Write-Ok "MSVC cl.exe (VS 20$(20 + $latestVsMajor - 17), C++ build tools)"
+                }
             } else {
-                Write-Ok "MSVC cl.exe v$clVer (C++ build tools)"
+                Write-Ok "MSVC cl.exe (C++ build tools)"
             }
-        } else {
+        } catch {
             Write-Ok "MSVC cl.exe (C++ build tools)"
         }
-    } catch {
+    } else {
         Write-Ok "MSVC cl.exe (C++ build tools)"
     }
 } elseif (Get-Command "msbuild" -ErrorAction SilentlyContinue) {
@@ -361,6 +372,19 @@ if ($existingBin) {
         & git clone --depth 1 https://github.com/ggerganov/llama.cpp "$LLAMA_DIR"
     }
 
+    # If a prior cmake configure used a different generator (e.g. VS 2026 was picked
+    # before and we now want to force VS 2022), the cached CMakeCache.txt will conflict.
+    # Wipe the build dir so cmake starts fresh.
+    $cmakeCache = Join-Path $LLAMA_DIR "build\CMakeCache.txt"
+    if ((Test-Path $cmakeCache) -and $cmakeCudaGenerator) {
+        $cachedGen = (Select-String -Path $cmakeCache -Pattern 'CMAKE_GENERATOR:' |
+                      Select-Object -First 1).Line
+        if ($cachedGen -and $cachedGen -notmatch [regex]::Escape($cmakeCudaGenerator)) {
+            Write-Host "  Clearing stale cmake cache (generator mismatch)..."
+            Remove-Item -Recurse -Force (Join-Path $LLAMA_DIR "build")
+        }
+    }
+
     # Assemble cmake arguments
     $cmakeArgs = @(
         "$LLAMA_DIR",
@@ -368,19 +392,25 @@ if ($existingBin) {
         "-DCMAKE_BUILD_TYPE=Release",
         "-DBUILD_SHARED_LIBS=OFF"
     )
+    # Force a specific VS generator when we know cmake would otherwise pick an
+    # incompatible version (e.g. VS 2026+ with CUDA 13.x).
+    if ($cmakeCudaGenerator) {
+        $cmakeArgs += "-G", $cmakeCudaGenerator
+    }
     switch ($GPU) {
         "cuda" {
             $cmakeArgs += "-DGGML_CUDA=ON"
             if ($CUDA_ARCH) {
                 $cmakeArgs += "-DCMAKE_CUDA_ARCHITECTURES=$CUDA_ARCH"
             }
-            # VS 2026+ (MSVC 19.50+) is not yet officially supported by nvcc.
-            # Pass -allow-unsupported-compiler so the build proceeds anyway.
+            # CMAKE_CUDA_FLAGS is NOT applied during cmake's own CUDA compiler test,
+            # so we also set CUDAFLAGS in the environment — nvcc reads that at every stage.
             if ($cudaAllowUnsupported) {
-                $cmakeArgs += "-DCMAKE_CUDA_FLAGS=-allow-unsupported-compiler"
+                $env:CUDAFLAGS = "-allow-unsupported-compiler"
+                $cmakeArgs    += "-DCMAKE_CUDA_FLAGS=-allow-unsupported-compiler"
             }
         }
-        "rocm" { $cmakeArgs += "-DGGML_HIP=ON"   }   # unlikely on Windows but included for completeness
+        "rocm" { $cmakeArgs += "-DGGML_HIP=ON" }   # unlikely on Windows but included
     }
 
     Write-Host ""
@@ -388,9 +418,12 @@ if ($existingBin) {
     & cmake @cmakeArgs
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "cmake configure failed — check output above"
-        if ($cudaAllowUnsupported) {
-            Write-Warn "  Using VS 2026+ with CUDA — if still failing, try upgrading CUDA toolkit"
-            Write-Warn "  or build without CUDA: remove llama.cpp\build and re-run without GPU"
+        if ($cmakeCudaGenerator) {
+            Write-Warn "  Tried generator: $cmakeCudaGenerator"
+            Write-Warn "  If error persists, open a 'Developer Command Prompt for VS 2022' and retry"
+        } elseif ($cudaAllowUnsupported) {
+            Write-Warn "  VS 2026+ + CUDA: if still failing, try upgrading CUDA toolkit"
+            Write-Warn "  or remove llama.cpp\build and re-run after installing VS 2022"
         } else {
             Write-Warn "  Ensure Visual Studio Build Tools are installed:"
             Write-Warn "  winget install Microsoft.VisualStudio.2022.BuildTools"
@@ -409,7 +442,9 @@ if ($existingBin) {
             Write-Ok "llama.cpp built successfully"
         } else {
             Write-Fail "llama.cpp build FAILED — check cmake output above"
-            if (-not $cudaAllowUnsupported) {
+            if ($cmakeCudaGenerator -or $cudaAllowUnsupported) {
+                Write-Warn "  Ensure you run from a Developer Command Prompt matching the generator"
+            } else {
                 Write-Warn "  You may need: winget install Microsoft.VisualStudio.2022.BuildTools"
             }
             Write-Warn "  Ensure you run this script from a Developer Command Prompt for VS"
