@@ -113,18 +113,17 @@ if (-not (Test-ModelServer)) {
         $noThinkingArg = '"{\"enable_thinking\":false}"'
 
         if ($dense27) {
-            Write-Host "  starting 27B dense: $(Split-Path -Leaf $dense27)"
+            Write-Host "  Loading model..."
             $modelArgs = @('--model', $dense27) + $llamaArgs + @('-fa', 'on',
                 '--cache-type-k', 'bf16', '--cache-type-v', 'bf16',
                 '--jinja', '--chat-template-kwargs', $noThinkingArg)
             if ($mmproj27) { $modelArgs += @('--mmproj', $mmproj27) }
         } elseif ($moeModel) {
-            Write-Host "  starting 122B MoE: $(Split-Path -Leaf $moeModel)"
+            Write-Host "  Loading model..."
             $modelArgs = @('--model', $moeModel) + $llamaArgs + @('-fa', 'on',
                 '--cache-type-k', 'q8_0', '--cache-type-v', 'q8_0')
         } elseif ($textModel) {
-            $vizNote = if ($mmprojSmall) { ' + vision' } else { '' }
-            Write-Host "  starting $(Split-Path -Leaf $textModel)$vizNote"
+            Write-Host "  Loading model..."
             $modelArgs = @('--model', $textModel) + $llamaArgs + @('-fa', 'on',
                 '--jinja', '--chat-template-kwargs', $noThinkingArg)
             if ($mmprojSmall) { $modelArgs += @('--mmproj', $mmprojSmall) }
@@ -139,16 +138,16 @@ if (-not (Test-ModelServer)) {
                         -WindowStyle Hidden -PassThru
             $ModelPid = $proc.Id
 
-            Write-Host "  waiting for model to load (up to 120s)..."
+            Write-Host "  Starting up..."
             $serverUp = $false
             for ($i = 0; $i -lt 120; $i++) {
                 if (Test-ModelServer) { $serverUp = $true; break }
                 Start-Sleep -Seconds 1
             }
             if ($serverUp) {
-                Write-Host "  server is running on http://localhost:8090"
+                Write-Host "  Ready"
             } else {
-                Write-Warning "model server failed to start within 120s -- check $logFile.err"
+                Write-Warning "Startup failed — check $logFile.err"
             }
         }
     }

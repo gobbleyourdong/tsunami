@@ -139,7 +139,7 @@ cd "$DIR"
 
 # --- Python deps ---
 echo "  → Installing Python dependencies..."
-DEPS="httpx pyyaml ddgs pillow"
+DEPS="httpx pyyaml ddgs pillow websockets fastapi uvicorn rich psutil"
 pip3 install -q $DEPS 2>/dev/null || \
 pip3 install --break-system-packages -q $DEPS 2>/dev/null || \
 pip3 install --user -q $DEPS 2>/dev/null || \
