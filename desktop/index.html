@@ -241,6 +241,12 @@
       const text = input.value.trim()
       if (!text) return
       if (!activeSession) newSession()
+      // Name the session from the first prompt
+      if (activeSession && activeSession.name.startsWith("session-")) {
+        const words = text.split(/\s+/).filter(w => w.length > 2 && !["build","make","create","the","for","with","and","that","app","save","workspace"].includes(w.toLowerCase()))
+        activeSession.name = words.slice(0, 3).join(" ") || text.slice(0, 30)
+        renderProjects()
+      }
       addChat("user", text)
       input.value = ""
       if (ws?.readyState === 1) { ws.send(JSON.stringify({ type: "prompt", text })); setHud("starting...") }
