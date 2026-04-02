@@ -76,7 +76,8 @@ function Find-Model([string]$pattern) {
     $found = Get-ChildItem -Path "$DIR\models" -EA SilentlyContinue |
              Where-Object { $_.Name -like $pattern } |
              Select-Object -First 1
-    return $found?.FullName
+    if ($found) { return $found.FullName }
+    return $null
 }
 
 # ── Start model server if not running ─────────────────────────────────────────
