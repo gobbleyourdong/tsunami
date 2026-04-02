@@ -215,7 +215,7 @@ if defined RAM_BYTES (
 
 if %VRAM_MB% GTR 0 (
     echo   GPU VRAM: %VRAM_MB%MB
-    set /a VRAM_GB=%VRAM_MB%/1024
+    set /a VRAM_GB=(%VRAM_MB%+1023)/1024
 ) else (
     echo   No NVIDIA GPU detected - using system RAM: %RAM_GB%GB
     set "VRAM_GB=%RAM_GB%"

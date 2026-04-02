@@ -132,7 +132,7 @@ $WAVE = "9B"
 
 # Use VRAM for GPU machines, RAM only for CPU-only
 $CAPACITY_GB = if ($GPU -eq "cuda" -and $VRAM -gt 0) {
-    [math]::Floor($VRAM / 1024)
+    [math]::Ceiling($VRAM / 1024)
 } else {
     $RAM
 }

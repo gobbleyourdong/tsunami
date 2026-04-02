@@ -265,7 +265,7 @@ def get_available_memory_gb():
             )
             vram_mb = int(out.strip().split("\n")[0])
             if vram_mb > 0:
-                return vram_mb // 1024, "GPU VRAM"
+                return -(-vram_mb // 1024), "GPU VRAM"  # round up
         except Exception:
             pass
 
