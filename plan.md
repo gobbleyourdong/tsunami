@@ -94,4 +94,5 @@ project_init should analyze the request and provide matching features:
 - Session 1: Manus arch doc obtained: Write→Lint→Fix→Build loop, expose tool, pnpm, headless browser
 - Session 1: Our arch converges with Manus: same write/compile/fix/preview loop, different models
 - Session 1: Landing FIXED: stub detection forced wave to wire App.tsx. Now renders "Nebula Brew" fully.
-- Session 1: SCORE: 7/7 compile, 6/7 render (only rhythm has React.FC issue — needs new scaffold build)
+- Session 1: SCORE: 7/7 compile, 7/7 RENDER. Rhythm fixed — 15 iters, letters falling, MISS! feedback.
+- Session 1: PERFECT SCORE. Every scaffold tested. Every app renders from one-prompt runners.
