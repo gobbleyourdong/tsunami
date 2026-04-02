@@ -31,6 +31,7 @@ app = FastAPI(title="TSUNAMI", version="1.0.0")
 
 # Active WebSocket connections
 connections: list[WebSocket] = []
+active_runs: dict[int, dict[str, Any]] = {}
 
 # Server state
 _config: TsunamiConfig | None = None
@@ -155,6 +156,7 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     connections.append(ws)
     log.info(f"WebSocket connected. {len(connections)} active.")
+    ws_id = id(ws)
 
     try:
         while True:
@@ -167,12 +169,38 @@ async def websocket_endpoint(ws: WebSocket):
                     if task.startswith("/"):
                         await handle_command(ws, task)
                     else:
-                        await run_agent_with_streaming(ws, task)
+                        current = active_runs.get(ws_id)
+                        if current and not current["task"].done():
+                            await ws.send_text(json.dumps({
+                                "type": "error",
+                                "message": "A run is already in progress. Stop it before starting another.",
+                            }))
+                            continue
+                        run_task = asyncio.create_task(run_agent_with_streaming(ws, task))
+                        active_runs[ws_id] = {"task": run_task, "agent": None}
+
+            elif msg.get("type") == "abort":
+                current = active_runs.get(ws_id)
+                if current and current.get("agent") is not None:
+                    current["agent"].abort_signal.abort("user_stop")
+                    await ws.send_text(json.dumps({
+                        "type": "status",
+                        "message": "Stopping run...",
+                    }))
+                else:
+                    await ws.send_text(json.dumps({
+                        "type": "status",
+                        "message": "No run is currently active.",
+                    }))
 
             elif msg.get("type") == "ping":
                 await ws.send_text(json.dumps({"type": "pong"}))
 
     except WebSocketDisconnect:
+        current = active_runs.get(ws_id)
+        if current and current.get("agent") is not None:
+            current["agent"].abort_signal.abort("websocket_disconnect")
+        active_runs.pop(ws_id, None)
         connections.remove(ws)
         log.info(f"WebSocket disconnected. {len(connections)} active.")
 
@@ -222,6 +250,26 @@ async def handle_command(ws: WebSocket, command: str):
                 "iterations": 0,
             }))
 
+        elif parts[1] in {"delete", "del"} and len(parts) == 3:
+            name = parts[2]
+            proj_dir = workspace / "deliverables" / name
+            if not proj_dir.exists():
+                await ws.send_text(json.dumps({
+                    "type": "error",
+                    "message": f"Project '{name}' not found. Use /project to list.",
+                }))
+                return
+
+            import shutil
+            shutil.rmtree(proj_dir)
+            if _active_project == name:
+                _active_project = None
+            await ws.send_text(json.dumps({
+                "type": "complete",
+                "result": f"Deleted project: {name}",
+                "iterations": 0,
+            }))
+
         else:
             # Switch to project
             name = parts[1]
@@ -267,7 +315,8 @@ async def handle_command(ws: WebSocket, command: str):
                 "  /project              list projects\n"
                 "  /project <name>       switch to project (loads tsunami.md)\n"
                 "  /project new <name>   create new project\n"
-                "  /serve [port]         serve active project on localhost\n"
+                "  /project del <name>   delete a project\n"
+                "  /serve [port]         serve active project on localhost using the given port\n"
                 "  /help                 this message\n"
                 "  exit                  quit\n"
                 "\nAnything else goes to the agent."
@@ -286,6 +335,10 @@ async def run_agent_with_streaming(ws: WebSocket, task: str):
     """Run the agent loop, streaming each iteration to the WebSocket."""
     cfg = get_config()
     agent = Agent(cfg)
+    ws_id = id(ws)
+    current = active_runs.get(ws_id)
+    if current is not None:
+        current["agent"] = agent
 
     # Inject active project context
     if _active_project:
@@ -353,6 +406,8 @@ async def run_agent_with_streaming(ws: WebSocket, task: str):
             "message": str(e),
             "iteration": agent.state.iteration,
         }))
+    finally:
+        active_runs.pop(ws_id, None)
 
 
 def start_server(host: str = "0.0.0.0", port: int = 3000):
