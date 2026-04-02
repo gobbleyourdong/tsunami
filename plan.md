@@ -85,3 +85,6 @@ project_init should analyze the request and provide matching features:
 - Session 1: Snake game PASSES: 16 iters, 7 components on pixijs-game scaffold, compiles + renders clean
 - Session 1: ALL 5 APPS PASS: calculator, quiz, excel-diff, rhythm, snake — from one-prompt runners
 - Session 1: 7 scaffolds total: threejs-game, pixijs-game, react-app, dashboard, form-app, landing, fullstack
+- Session 1: Todo app PASSES: 25 iters, fullstack scaffold (Express+SQLite+useApi), renders with styled UI
+- Session 1: Landing page building...
+- Session 1: 6/7 test apps pass. Every scaffold tested except landing.
