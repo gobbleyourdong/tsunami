@@ -120,27 +120,24 @@ class ProjectInit(BaseTool):
         project_dir = ws / "deliverables" / name
         tmd_path = project_dir / "tsunami.md"
 
-        if (project_dir / "package.json").exists():
-            if not tmd_path.exists():
-                tmd_path.write_text(f"# {name}\n\nProject context goes here.\n")
-
-            readme_content = ""
-            readme_path = project_dir / "README.md"
-            if readme_path.exists():
-                readme_content = "\n\n---\n\n" + readme_path.read_text()
-
-            return ToolResult(
-                f"Project '{name}' exists at {project_dir}. "
-                f"Use ./workspace/deliverables/{name} as the project root. "
-                f"Context file: ./workspace/deliverables/{name}/tsunami.md. "
-                f"Write your components in {project_dir}/src/"
-                f"{readme_content}"
-            )
+        project_exists = (project_dir / "package.json").exists()
 
         try:
-            scaffold_name = _pick_scaffold(name, dependencies)
+            scaffold_name = ""
 
-            if scaffold_name:
+            if project_exists:
+                if not tmd_path.exists():
+                    tmd_path.write_text(
+                        f"# {name}\n\n"
+                        "Goal: describe what this project should become.\n\n"
+                        "Constraints:\n"
+                        "- Build inside this project directory.\n"
+                        "- Keep edits scoped to the active project.\n"
+                    )
+            else:
+                scaffold_name = _pick_scaffold(name, dependencies)
+
+            if not project_exists and scaffold_name:
                 scaffold_dir = SCAFFOLDS_DIR / scaffold_name
                 shutil.copytree(
                     scaffold_dir,
@@ -165,7 +162,7 @@ class ProjectInit(BaseTool):
                         '  return <div>Loading...</div>\n'
                         '}\n'
                     )
-            else:
+            elif not project_exists:
                 project_dir.mkdir(parents=True, exist_ok=True)
                 src = project_dir / "src"
                 src.mkdir(exist_ok=True)
@@ -242,17 +239,31 @@ class ProjectInit(BaseTool):
                 )
 
             install_mode = "host"
-            if docker_requested():
-                out, err, returncode, reason = await run_shell_in_docker("npm install", str(project_dir), 120)
-                if reason is None:
-                    install_mode = "docker"
-                    if returncode != 0:
-                        return ToolResult(
-                            f"Project created but npm install failed: {(err or out)[:300]}",
-                            is_error=True,
+            if not project_exists:
+                if docker_requested():
+                    out, err, returncode, reason = await run_shell_in_docker("npm install", str(project_dir), 120)
+                    if reason is None:
+                        install_mode = "docker"
+                        if returncode != 0:
+                            return ToolResult(
+                                f"Project created but npm install failed: {(err or out)[:300]}",
+                                is_error=True,
+                            )
+                    elif docker_required():
+                        return ToolResult(f"Project created but Docker execution failed: {reason}", is_error=True)
+                    else:
+                        result = subprocess.run(
+                            ["npm", "install"],
+                            cwd=str(project_dir),
+                            capture_output=True,
+                            text=True,
+                            timeout=120,
                         )
-                elif docker_required():
-                    return ToolResult(f"Project created but Docker execution failed: {reason}", is_error=True)
+                        if result.returncode != 0:
+                            return ToolResult(
+                                f"Project created but npm install failed: {result.stderr[:300]}",
+                                is_error=True,
+                            )
                 else:
                     result = subprocess.run(
                         ["npm", "install"],
@@ -266,19 +277,8 @@ class ProjectInit(BaseTool):
                             f"Project created but npm install failed: {result.stderr[:300]}",
                             is_error=True,
                         )
-            else:
-                result = subprocess.run(
-                    ["npm", "install"],
-                    cwd=str(project_dir),
-                    capture_output=True,
-                    text=True,
-                    timeout=120,
-                )
-                if result.returncode != 0:
-                    return ToolResult(
-                        f"Project created but npm install failed: {result.stderr[:300]}",
-                        is_error=True,
-                    )
+            elif docker_requested():
+                install_mode = "docker"
 
             url = ""
             serve_mode = install_mode
@@ -311,8 +311,12 @@ class ProjectInit(BaseTool):
             if readme_path.exists():
                 readme_content = "\n\n---\n\n" + readme_path.read_text()
 
+            ready_prefix = "ready"
+            if project_exists:
+                ready_prefix = "ready (existing project)"
+
             return ToolResult(
-                f"Project '{name}' ready{scaffold_info} at {project_dir}\n"
+                f"Project '{name}' {ready_prefix}{scaffold_info} at {project_dir}\n"
                 f"Project root: ./workspace/deliverables/{name}\n"
                 f"Context file: ./workspace/deliverables/{name}/tsunami.md\n"
                 f"Extra deps: {dep_list}\n"

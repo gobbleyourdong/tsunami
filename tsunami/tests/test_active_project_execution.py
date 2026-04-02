@@ -45,6 +45,16 @@ async def _run_python_exec_with_workspace_prefixed_path(tool: PythonExec):
     )
 
 
+async def _run_python_exec_with_workspace_prefixed_project_root_file(tool: PythonExec):
+    return await tool.execute(
+        code=(
+            "from pathlib import Path\n"
+            "Path('package.json').write_text('{\"name\": \"demo-project\"}')\n"
+            "print(Path('./workspace/deliverables/demo-project/package.json').read_text())\n"
+        )
+    )
+
+
 async def _run_python_exec_with_repo_relative_path(tool: PythonExec):
     return await tool.execute(
         code=(
@@ -118,6 +128,25 @@ def test_python_exec_restores_process_cwd_after_execution():
         assert not result.is_error
         assert str(project_dir) in result.content
         assert after == before
+
+
+def test_python_exec_rewrites_workspace_prefixed_project_root_files():
+    import asyncio
+
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        cfg = TsunamiConfig(workspace_dir=str(tmp / "workspace"), watcher_enabled=False)
+        agent = Agent(cfg)
+        project_dir = cfg.deliverables_dir / "demo-project"
+        project_dir.mkdir(parents=True)
+        (project_dir / "tsunami.md").write_text("# demo-project\n")
+        agent.set_project("demo-project")
+
+        tool = PythonExec(cfg)
+        result = asyncio.run(_run_python_exec_with_workspace_prefixed_project_root_file(tool))
+
+        assert not result.is_error
+        assert result.content.strip() == '{"name": "demo-project"}'
 
 
 def test_python_exec_rewrites_repo_relative_paths_from_active_project():

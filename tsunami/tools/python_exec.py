@@ -28,6 +28,44 @@ log = logging.getLogger("tsunami.python_exec")
 _namespace = {}
 
 
+def _looks_like_non_python_source(code: str) -> bool:
+    snippet = code.strip()
+    if not snippet:
+        return False
+
+    tsx_markers = (
+        'import {',
+        'from "./',
+        'from "../',
+        'export default function',
+        'interface ',
+        'type ',
+        'return (',
+        '</div>',
+        '<section',
+        '<main',
+        '<div',
+        'className=',
+        'onClick=',
+    )
+    score = sum(1 for marker in tsx_markers if marker in snippet)
+    return score >= 2
+
+
+def _error_hint(exc: Exception, code: str) -> str:
+    message = str(exc)
+    stripped = code.strip()
+    if isinstance(exc, ValueError) and "too many values to unpack" in message:
+        return (
+            "Hint: one of your loops is unpacking the wrong tuple shape. "
+            "If you append 3-tuples like (name, label, size), iterate with three variables "
+            "or change the tuple to two values."
+        )
+    if isinstance(exc, SyntaxError) and stripped.startswith("import "):
+        return "Hint: this is multi-line Python, so exec() is the correct path; inspect the later traceback frame for the real runtime error."
+    return ""
+
+
 def _execution_cwd() -> str:
     """Use the active project root when available, otherwise fall back to repo root."""
     try:
@@ -56,14 +94,31 @@ def _normalize_project_prefixed_code(code: str, exec_cwd: str) -> str:
     except Exception:
         return code
 
-    if not active_project:
+    project_name = active_project
+    try:
+        parts = project_root.parts
+        if "deliverables" in parts:
+            deliverables_index = parts.index("deliverables")
+            if deliverables_index + 1 < len(parts):
+                project_name = parts[deliverables_index + 1]
+    except Exception:
+        pass
+
+    if not project_name:
         return code
 
+    repo_root = Path(__file__).parent.parent.parent.resolve()
+    repo_root_posix = repo_root.as_posix()
+    project_root_posix = project_root.as_posix()
+
     prefixes = [
-        f"./workspace/deliverables/{active_project}/",
-        f"workspace/deliverables/{active_project}/",
-        f"/workspace/deliverables/{active_project}/",
-        f"{project_root.as_posix()}/",
+        f"./workspace/deliverables/{project_name}/",
+        f"workspace/deliverables/{project_name}/",
+        f"/workspace/deliverables/{project_name}/",
+        f"./workspace/tsunami/workspace/deliverables/{project_name}/",
+        f"/workspace/tsunami/workspace/deliverables/{project_name}/",
+        f"{repo_root_posix}/workspace/deliverables/{project_name}/",
+        f"{project_root_posix}/",
     ]
 
     normalized = code
@@ -80,14 +135,23 @@ def _normalize_project_prefixed_code(code: str, exec_cwd: str) -> str:
         "./",
         normalized,
     )
+    normalized = re.sub(
+        r"(?<![\w/])(?:\./)?workspace/tsunami/workspace/deliverables/[^/\s'\"`]+/",
+        "./",
+        normalized,
+    )
+    normalized = re.sub(
+        rf"{re.escape(repo_root_posix)}/workspace/deliverables/[^/\s'\"`]+/",
+        "./",
+        normalized,
+    )
 
-    repo_root = Path(__file__).parent.parent.parent.resolve().as_posix()
-    normalized = re.sub(r"(?<![\w/])\./tsunami/", f"{repo_root}/tsunami/", normalized)
-    normalized = re.sub(r"(?<![\w/])tsunami/", f"{repo_root}/tsunami/", normalized)
-    normalized = re.sub(r"(?<![\w/])\./toolboxes/", f"{repo_root}/toolboxes/", normalized)
-    normalized = re.sub(r"(?<![\w/])toolboxes/", f"{repo_root}/toolboxes/", normalized)
-    normalized = re.sub(r"(?<![\w/])\./README\.md", f"{repo_root}/README.md", normalized)
-    normalized = re.sub(r"(?<![\w/])README\.md", f"{repo_root}/README.md", normalized)
+    normalized = re.sub(r"(?<![\w/])\./tsunami/", f"{repo_root_posix}/tsunami/", normalized)
+    normalized = re.sub(r"(?<![\w/])tsunami/", f"{repo_root_posix}/tsunami/", normalized)
+    normalized = re.sub(r"(?<![\w/])\./toolboxes/", f"{repo_root_posix}/toolboxes/", normalized)
+    normalized = re.sub(r"(?<![\w/])toolboxes/", f"{repo_root_posix}/toolboxes/", normalized)
+    normalized = re.sub(r"(?<![\w/])\./README\.md", f"{repo_root_posix}/README.md", normalized)
+    normalized = re.sub(r"(?<![\w/])README\.md", f"{repo_root_posix}/README.md", normalized)
     return normalized
 
 
@@ -112,6 +176,13 @@ class PythonExec(BaseTool):
     async def execute(self, code: str = "", **kwargs) -> ToolResult:
         if not code.strip():
             return ToolResult("No code provided", is_error=True)
+
+        if _looks_like_non_python_source(code):
+            return ToolResult(
+                "This looks like TS/JSX source code, not Python. "
+                "Use file_write or file_edit to update src/*.tsx, src/*.ts, or CSS files instead of python_exec.",
+                is_error=True,
+            )
 
         # Safety: block obviously destructive operations
         blocked = ["shutil.rmtree", "os.remove", "os.unlink", "subprocess.call('rm"]
@@ -192,7 +263,9 @@ class PythonExec(BaseTool):
             # Keep last 500 chars of traceback
             if len(tb) > 500:
                 tb = "..." + tb[-500:]
-            return ToolResult(f"Error: {e}\n{tb}", is_error=True)
+            hint = _error_hint(e, code)
+            extra = f"\n{hint}" if hint else ""
+            return ToolResult(f"Error: {e}{extra}\n{tb}", is_error=True)
         finally:
             try:
                 os.chdir(prev_cwd)

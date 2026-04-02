@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import subprocess
 import shutil
+import urllib.request
 from pathlib import Path
 
 from ..config import resolve_aux_model_endpoint
@@ -21,6 +22,33 @@ from ..docker_exec import (
 from .base import BaseTool, ToolResult
 
 SCREENSHOT_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+async def _wait_for_http_ready(url: str, timeout_s: float = 12.0) -> bool:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_s
+    while loop.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=2) as resp:
+                if 200 <= resp.status < 500:
+                    return True
+        except Exception:
+            pass
+        await asyncio.sleep(0.5)
+    return False
+
+
+def _tail_log_hint(log_path: str) -> str:
+    path = Path(log_path)
+    if not path.exists():
+        return log_path
+    try:
+        lines = [line.strip() for line in path.read_text(errors="replace").splitlines() if line.strip()]
+        if not lines:
+            return log_path
+        return f"{log_path} — last line: {lines[-1][:220]}"
+    except Exception:
+        return log_path
 
 
 def normalize_screenshot_output_path(output_path: str) -> tuple[str, str | None]:
@@ -181,7 +209,7 @@ export default function App() {
                 f"Vite + React + TypeScript + Tailwind CSS project.\n"
                 f"Type: {template}\n\n"
                 f"## Development\n"
-                f"- `npm run dev` to start dev server on port 5173\n"
+                f"- `npm run dev -- --port 9876` to start dev server on port 9876\n"
                 f"- Edit src/App.tsx for main component\n"
                 f"- Tailwind classes available everywhere\n"
                 f"- Public assets in public/\n"
@@ -310,13 +338,13 @@ class WebdevServe(BaseTool):
                 "port": {
                     "type": "integer",
                     "description": "Port to serve on",
-                    "default": 5173,
+                    "default": 9876,
                 },
             },
             "required": ["project_name"],
         }
 
-    async def execute(self, project_name: str, port: int = 5173, **kw) -> ToolResult:
+    async def execute(self, project_name: str, port: int = 9876, **kw) -> ToolResult:
         try:
             ws = Path(self.config.workspace_dir)
             project_dir = ws / "deliverables" / project_name
@@ -364,14 +392,22 @@ class WebdevServe(BaseTool):
                         build_warnings = "\n⚠️ BUILD WARNINGS:\n" + "\n".join(errors) + "\nFix these before screenshotting.\n"
 
                 if sandbox_mode == "docker":
+                    log_path = f"/tmp/tsunami-vite-{project_name}-{port}.log"
                     start_cmd = (
                         f"pkill -f 'vite.*--port {port}' >/dev/null 2>&1 || true; "
                         f"nohup npm run dev -- --host 0.0.0.0 --port {port} "
-                        f"> /tmp/tsunami-vite-{project_name}-{port}.log 2>&1 & echo $!"
+                        f"> {log_path} 2>&1 & echo $!"
                     )
                     out, err, returncode, reason = await run_shell_in_docker(start_cmd, str(project_dir), 20)
                     if reason is None and returncode == 0:
-                        await asyncio.sleep(3)
+                        ready = await _wait_for_http_ready(f"http://localhost:{port}")
+                        if not ready:
+                            return ToolResult(
+                                f"Dev server failed to come up at http://localhost:{port}\n"
+                                f"Execution sandbox: docker\n"
+                                f"Check {_tail_log_hint(log_path)}",
+                                is_error=True,
+                            )
                         pid_text = out.strip().splitlines()[-1] if out.strip() else "docker"
                         return ToolResult(
                             f"Dev server running at http://localhost:{port}\n"
@@ -389,12 +425,25 @@ class WebdevServe(BaseTool):
                 await asyncio.sleep(1)
 
                 # Start vite dev server in background
+                log_path = f"/tmp/tsunami-vite-{project_name}-{port}.log"
+                log_handle = open(log_path, "ab")
                 proc = subprocess.Popen(
                     ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", str(port)],
                     cwd=str(project_dir),
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    stdout=log_handle, stderr=subprocess.STDOUT,
                 )
-                await asyncio.sleep(3)  # Wait for server to start
+                try:
+                    log_handle.close()
+                except Exception:
+                    pass
+                ready = await _wait_for_http_ready(f"http://localhost:{port}")
+                if not ready:
+                    return ToolResult(
+                        f"Dev server failed to come up at http://localhost:{port}\n"
+                        f"Execution sandbox: host\n"
+                        f"Check {_tail_log_hint(log_path)}",
+                        is_error=True,
+                    )
 
                 return ToolResult(
                     f"Dev server running at http://localhost:{port}\n"
@@ -439,8 +488,8 @@ class WebdevScreenshot(BaseTool):
             "properties": {
                 "url": {
                     "type": "string",
-                    "description": "URL to screenshot (e.g., http://localhost:5173)",
-                    "default": "http://localhost:5173",
+                    "description": "URL to screenshot (e.g., http://localhost:9876)",
+                    "default": "http://localhost:9876",
                 },
                 "output_path": {
                     "type": "string",
@@ -466,7 +515,7 @@ class WebdevScreenshot(BaseTool):
             "required": [],
         }
 
-    async def execute(self, url: str = "http://localhost:5173",
+    async def execute(self, url: str = "http://localhost:9876",
                       output_path: str = "screenshot.png",
                       full_page: bool = True,
                       width: int = 1440, height: int = 900, **kw) -> ToolResult:

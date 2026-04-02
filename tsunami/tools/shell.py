@@ -66,6 +66,7 @@ from pathlib import Path
 from ..docker_exec import (
     docker_required,
     docker_requested,
+    running_inside_docker,
     run_shell as run_shell_in_docker,
     start_background_shell as start_background_shell_in_docker,
 )
@@ -85,6 +86,8 @@ def _normalize_workspace_paths(command: str) -> str:
     The model often invents /workspace/... even though Tsunami runs from the repo
     root and should use ./workspace/... paths instead.
     """
+    if running_inside_docker():
+        return command
     command = re.sub(r'(?<!\.)/workspace(?=/|\b)', "./workspace", command)
     command = re.sub(r'(?<!\.)/skills(?=/|\b)', "./skills", command)
     return command
@@ -94,6 +97,31 @@ def _next_session_id() -> str:
     global _session_counter
     _session_counter += 1
     return f"proc_{_session_counter}"
+
+
+def _active_project_cwd() -> str | None:
+    try:
+        from .plan import get_agent_state
+        state = get_agent_state()
+        root = getattr(state, "active_project_root", "") if state is not None else ""
+        if root and os.path.isdir(root):
+            return root
+    except Exception:
+        pass
+    return None
+
+
+def _command_looks_project_local(command: str) -> bool:
+    command = command.strip().lower()
+    if not command:
+        return False
+    local_markers = (
+        "./src", "src/", "./components", "components/", "./public", "public/",
+        "./app", "app/", "./index.html", "index.html", "./package.json", "package.json",
+        "./vite.config.ts", "vite.config.ts", "./tsconfig.json", "tsconfig.json",
+        "npm run", "pnpm ", "yarn ",
+    )
+    return any(marker in command for marker in local_markers)
 
 
 class ShellExec(BaseTool):
@@ -132,7 +160,8 @@ class ShellExec(BaseTool):
             log.warning(f"Bash security warnings for '{command[:80]}': {sec_warnings}")
 
         try:
-            # Resolve workdir — default to the ark directory
+            # Resolve workdir — default to the active project root when the command
+            # looks project-local, otherwise fall back to the repo root.
             ark_dir = Path(__file__).resolve().parents[2]
             cwd = str(ark_dir)
             if workdir:
@@ -145,6 +174,10 @@ class ShellExec(BaseTool):
                     if os.path.isdir(candidate):
                         cwd = candidate
                     # else: keep repo-root default cwd
+            else:
+                active_project_cwd = _active_project_cwd()
+                if active_project_cwd and _command_looks_project_local(command):
+                    cwd = active_project_cwd
 
             if docker_requested():
                 if timeout == 0:

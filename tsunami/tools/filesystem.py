@@ -65,7 +65,15 @@ def _resolve_path(path: str, workspace_dir: str) -> Path:
     "workspace/workspace/deliverables/x" without this fix).
     """
     normalized = path
-    if normalized.startswith("/workspace/"):
+    if normalized.startswith("/workspace/tsunami/workspace/"):
+        normalized = f"./workspace/{normalized[len('/workspace/tsunami/workspace/'):]}"
+    elif normalized == "/workspace/tsunami/workspace":
+        normalized = "./workspace"
+    elif normalized.startswith("/workspace/tsunami/skills/"):
+        normalized = f"./skills/{normalized[len('/workspace/tsunami/skills/'):]}"
+    elif normalized == "/workspace/tsunami/skills":
+        normalized = "./skills"
+    elif normalized.startswith("/workspace/"):
         normalized = f"./{normalized.lstrip('/')}"
     elif normalized == "/workspace":
         normalized = "./workspace"

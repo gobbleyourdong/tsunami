@@ -102,6 +102,11 @@ async def _extract_markdown(page) -> str:
     return text
 
 
+def _invalid_wait_selector(wait_for: str) -> bool:
+    selector = (wait_for or "").strip()
+    return selector in {"", ".", ".."}
+
+
 class BrowserNavigate(BaseTool):
     name = "browser_navigate"
     description = "Navigate to a URL. The step: move to where the information lives."
@@ -119,7 +124,7 @@ class BrowserNavigate(BaseTool):
     async def execute(self, url: str, wait_for: str = "", **kw) -> ToolResult:
         docker_result = await _maybe_execute_in_docker(
             "navigate",
-            {"url": url, "wait_for": wait_for, "headless": self.config.browser_headless},
+            {"url": url, "wait_for": "" if _invalid_wait_selector(wait_for) else wait_for, "headless": self.config.browser_headless},
         )
         if docker_result is not None:
             return docker_result
@@ -127,8 +132,11 @@ class BrowserNavigate(BaseTool):
             page = await _ensure_browser(self.config.browser_headless)
             response = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
-            if wait_for:
-                await page.wait_for_selector(wait_for, timeout=10000)
+            if wait_for and not _invalid_wait_selector(wait_for):
+                try:
+                    await page.wait_for_selector(wait_for, timeout=10000)
+                except Exception as e:
+                    log.info(f"Ignoring invalid or unmet wait_for selector {wait_for!r}: {e}")
 
             status = response.status if response else "unknown"
             title = await page.title()
@@ -157,6 +165,12 @@ class BrowserView(BaseTool):
         try:
             page = await _ensure_browser(self.config.browser_headless)
             url = page.url
+            if url in ("about:blank", "chrome-error://chromewebdata/"):
+                return ToolResult(
+                    "Browser has no useful page loaded yet. Start a project and run webdev_serve, "
+                    "then use browser_navigate on the returned URL.",
+                    is_error=True,
+                )
             title = await page.title()
             content = await _extract_markdown(page)
             elements = await _get_page_elements(page)
