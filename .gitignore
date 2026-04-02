@@ -40,3 +40,4 @@ Thumbs.db
 intel/
 workspace/
 *.output
+.vite/

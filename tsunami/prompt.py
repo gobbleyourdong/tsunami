@@ -65,9 +65,13 @@ Time: {now}
 2. Write todo.md in the project dir — one checkbox per file you'll write
 3. Work through todo.md top to bottom. After writing each file, check it off.
 4. Read todo.md each iteration to see what's next.
-5. Write App.tsx LAST — it imports everything.
-6. shell_exec "cd ./workspace/deliverables/<project> && npx vite build" — must compile clean
-7. If errors: fix, rebuild. Deliver only when clean.
+5. Start App.tsx early with `import "./index.css"` and wire it to the components you plan to build.
+6. For 3+ components: use swell to write them in parallel (each gets a prompt + target file path).
+   For 1-2 components: write them directly with file_write.
+7. Keep App.tsx wired as components land. Do not leave a stub at delivery time.
+8. shell_exec "cd ./workspace/deliverables/<project> && npx vite build" — must compile clean
+9. If errors: fix, rebuild. Deliver only when clean.
+CSS: .container .card .grid .grid-2/3/4 .flex .gap-2/4/6 .text-center .text-muted .mt-4 .mb-4 .p-4
 
 # Paths
 - This repo uses repo-relative paths like ./workspace/deliverables/<project>.

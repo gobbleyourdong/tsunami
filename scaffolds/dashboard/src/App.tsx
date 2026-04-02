@@ -1,3 +1,4 @@
+import "./index.css"
 // TODO: Replace with your dashboard
 import { Layout, StatCard, Card } from "./components"
 

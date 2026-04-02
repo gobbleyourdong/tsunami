@@ -37,7 +37,14 @@ Read this when you're unsure which tool to use.
 - For shell builds, prefer `cd ./workspace/deliverables/<project> && npx vite build`.
 
 ## Parallel
-- swell: dispatch parallel eddy workers for 5+ independent tasks
+- swell: write multiple component files at once
+  ```
+  swell(tasks=[
+    {"prompt": "Write a React component for...", "target": "/path/to/Component.tsx"},
+    {"prompt": "Write a React component for...", "target": "/path/to/Other.tsx"},
+  ])
+  ```
+  Each eddy writes one file. Use for 3+ components. Give each the types/interfaces it needs.
 
 ## QA
 - undertow: test HTML by pulling levers (screenshot, keypresses, clicks, text reads)

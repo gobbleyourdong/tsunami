@@ -1,8 +1,8 @@
 """Project Init — provision from scaffold library.
 
-Like Manus's webdev_init_project: picks the right scaffold
-based on what the project needs, copies it, installs deps,
-starts dev server. The model writes domain logic into src/.
+Like Manus's webdev_init_project: analyzes what the project REQUIRES,
+picks the right scaffold, copies it, installs deps, starts dev server.
+The model writes domain logic into src/.
 """
 
 from __future__ import annotations
@@ -22,48 +22,86 @@ SCAFFOLDS_DIR = Path(__file__).parent.parent.parent / "scaffolds"
 
 
 def _pick_scaffold(name: str, dependencies: list[str]) -> str:
-    """Pick the best scaffold based on project name and dependencies."""
+    """Pick scaffold by analyzing what the project requires."""
     deps_lower = {d.lower() for d in dependencies}
-    name_lower = name.lower()
+    all_text = name.lower() + " " + " ".join(deps_lower)
 
-    # Landing/marketing keywords → landing scaffold
-    landing_keywords = {"landing", "marketing", "homepage", "website", "portfolio", "splash"}
-    if any(k in name_lower for k in landing_keywords):
-        if (SCAFFOLDS_DIR / "landing").exists():
-            return "landing"
+    def needs(*keywords: str) -> bool:
+        return any(keyword in all_text for keyword in keywords)
 
-    # Dashboard/analytics keywords → dashboard scaffold
-    dash_keywords = {"chart", "dashboard", "analytics", "stats", "metrics", "recharts", "d3"}
-    if deps_lower & dash_keywords or any(k in name_lower for k in ["dash", "analytics", "tracker", "monitor"]):
-        if (SCAFFOLDS_DIR / "dashboard").exists():
-            return "dashboard"
+    presentation = needs(
+        "landing", "portfolio", "marketing", "homepage", "website",
+        "showcase", "brochure", "about", "splash",
+    )
 
-    # 3D/game keywords → threejs-game scaffold.
-    # A lone "three" dependency is not enough; marketing sites often add it for decoration.
-    game_dep_keywords = {"cannon", "rapier", "physics"}
-    if any(k in name_lower for k in ["game", "3d", "pinball"]) or deps_lower & game_dep_keywords:
+    # Prefer presentation scaffolds before decorative "three" pushes us into game mode.
+    if presentation and (SCAFFOLDS_DIR / "landing").exists():
+        return "landing"
+
+    # 3D game/simulation. A lone "three" dependency is not enough for business sites.
+    if (
+        needs("pinball", "fps", "voxel", "r3f", "rapier", "cannon", "physics")
+        or (needs("three", "3d") and not presentation)
+    ):
         if (SCAFFOLDS_DIR / "threejs-game").exists():
             return "threejs-game"
 
-    # File/form/upload keywords → form-app scaffold (xlsx, csv, editable table)
-    form_keywords = {"xlsx", "csv", "upload", "file", "form", "spreadsheet", "excel", "papaparse"}
-    if deps_lower & form_keywords or any(k in name_lower for k in ["excel", "upload", "form", "csv", "diff", "sheet"]):
+    # 2D game
+    if needs("pixi", "2d", "sprite", "platformer", "arcade", "tetris", "snake", "pong", "matter"):
+        if (SCAFFOLDS_DIR / "pixijs-game").exists():
+            return "pixijs-game"
+
+    # Any game defaults to 2D unless stronger 3D signals exist.
+    if needs("game"):
+        if (SCAFFOLDS_DIR / "pixijs-game").exists():
+            return "pixijs-game"
+
+    # Realtime / collaboration
+    if needs("chat", "realtime", "live", "multiplayer", "websocket", "socket", "notification", "collab", "sync"):
+        if (SCAFFOLDS_DIR / "realtime").exists():
+            return "realtime"
+
+    # Persistence / backend
+    if needs(
+        "database", "login", "auth", "account", "persist", "save", "crud",
+        "backend", "api", "server", "express", "sqlite", "todo", "saas",
+        "track", "log", "history", "bookmark", "favorite",
+    ):
+        if (SCAFFOLDS_DIR / "fullstack").exists():
+            return "fullstack"
+
+    # File handling / spreadsheets
+    if needs("upload", "file", "xlsx", "csv", "excel", "spreadsheet", "import", "export", "pdf", "document", "parse", "diff", "sheet"):
         if (SCAFFOLDS_DIR / "form-app").exists():
             return "form-app"
 
-    # Default → react-app
+    # Dashboard (sidebar + charts + tables)
+    if needs("dashboard", "dash", "admin", "panel", "monitor"):
+        if (SCAFFOLDS_DIR / "dashboard").exists():
+            return "dashboard"
+
+    # Data visualization (charts, graphs, d3 — no sidebar)
+    if needs("chart", "analytics", "metrics", "stats", "graph", "visualiz", "report", "recharts", "d3", "plot", "data"):
+        if (SCAFFOLDS_DIR / "data-viz").exists():
+            return "data-viz"
+
+    # Presentation fallback if not already selected.
+    if presentation and (SCAFFOLDS_DIR / "landing").exists():
+        return "landing"
+
+    # Default: minimal React app
     if (SCAFFOLDS_DIR / "react-app").exists():
         return "react-app"
 
-    return ""  # no scaffold found, generate from scratch
+    return ""
 
 
 class ProjectInit(BaseTool):
     name = "project_init"
     description = (
         "Create a project from the scaffold library. "
-        "Picks the right template (react-app, threejs-game, etc.) "
-        "based on project name and dependencies. Installs deps, starts dev server. "
+        "Analyzes what the project needs (3D, database, file uploads, charts, etc.) "
+        "and picks the right template. Installs deps, starts dev server. "
         "You write everything in src/ after this. "
         "Pass extra npm packages in 'dependencies' (e.g. ['xlsx', 'three'])."
     )
@@ -96,28 +134,32 @@ class ProjectInit(BaseTool):
         if (project_dir / "package.json").exists():
             if not tmd_path.exists():
                 tmd_path.write_text(f"# {name}\n\nProject context goes here.\n")
+
+            readme_content = ""
+            readme_path = project_dir / "README.md"
+            if readme_path.exists():
+                readme_content = "\n\n---\n\n" + readme_path.read_text()
+
             return ToolResult(
                 f"Project '{name}' exists at {project_dir}. "
                 f"Use ./workspace/deliverables/{name} as the project root. "
+                f"Context file: ./workspace/deliverables/{name}/tsunami.md. "
                 f"Write your components in {project_dir}/src/"
+                f"{readme_content}"
             )
 
         try:
-            # Pick scaffold
             scaffold_name = _pick_scaffold(name, dependencies)
 
             if scaffold_name:
                 scaffold_dir = SCAFFOLDS_DIR / scaffold_name
-                # Copy scaffold (skip node_modules and dist)
                 shutil.copytree(
-                    scaffold_dir, project_dir,
-                    ignore=shutil.ignore_patterns(
-                        "node_modules", "dist", ".vite", "package-lock.json"
-                    ),
+                    scaffold_dir,
+                    project_dir,
+                    ignore=shutil.ignore_patterns("node_modules", "dist", ".vite", "package-lock.json"),
                 )
                 log.info(f"Copied scaffold '{scaffold_name}' → {project_dir}")
 
-                # Add extra dependencies to package.json
                 if dependencies:
                     pkg_path = project_dir / "package.json"
                     pkg = json.loads(pkg_path.read_text())
@@ -126,7 +168,6 @@ class ProjectInit(BaseTool):
                     pkg["name"] = name
                     pkg_path.write_text(json.dumps(pkg, indent=2))
 
-                # Reset App.tsx to stub
                 app_tsx = project_dir / "src" / "App.tsx"
                 if app_tsx.exists():
                     app_tsx.write_text(
@@ -136,7 +177,6 @@ class ProjectInit(BaseTool):
                         '}\n'
                     )
             else:
-                # Fallback: generate minimal project
                 project_dir.mkdir(parents=True, exist_ok=True)
                 src = project_dir / "src"
                 src.mkdir(exist_ok=True)
@@ -147,52 +187,56 @@ class ProjectInit(BaseTool):
                     deps[dep] = "latest"
 
                 (project_dir / "package.json").write_text(json.dumps({
-                    "name": name, "private": True, "type": "module",
+                    "name": name,
+                    "private": True,
+                    "type": "module",
                     "scripts": {"dev": "vite", "build": "vite build"},
                     "dependencies": deps,
                     "devDependencies": {
-                        "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0",
+                        "@types/react": "^19.0.0",
+                        "@types/react-dom": "^19.0.0",
                         "@vitejs/plugin-react": "^4.3.0",
-                        "typescript": "~5.7.0", "vite": "^6.0.0",
-                    }
-                }, indent=2))
-
-                (project_dir / "index.html").write_text(
-                    f'<!DOCTYPE html>\n<html lang="en">\n<head>\n'
-                    f'  <meta charset="UTF-8"/>\n'
-                    f'  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>\n'
-                    f'  <title>{name}</title>\n'
-                    f'  <style>* {{ margin:0; padding:0; box-sizing:border-box; }}</style>\n'
-                    f'</head>\n<body>\n'
-                    f'  <div id="root"></div>\n'
-                    f'  <script type="module" src="/src/main.tsx"></script>\n'
-                    f'</body>\n</html>\n'
-                )
-
-                (project_dir / "vite.config.ts").write_text(
-                    'import { defineConfig } from "vite"\n'
-                    'import react from "@vitejs/plugin-react"\n'
-                    'export default defineConfig({ plugins: [react()] })\n'
-                )
-
-                (project_dir / "tsconfig.json").write_text(json.dumps({
-                    "compilerOptions": {
-                        "target": "ES2020", "module": "ESNext",
-                        "lib": ["ES2020", "DOM", "DOM.Iterable"],
-                        "jsx": "react-jsx", "moduleResolution": "bundler",
-                        "strict": False, "noEmit": True,
-                        "isolatedModules": True, "esModuleInterop": True,
-                        "skipLibCheck": True, "allowImportingTsExtensions": True,
+                        "typescript": "~5.7.0",
+                        "vite": "^6.0.0",
                     },
-                    "include": ["src"]
                 }, indent=2))
+
+                for fname, content in [
+                    (
+                        "index.html",
+                        f'<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8"/>\n  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>\n  <title>{name}</title>\n  <style>* {{ margin:0; padding:0; box-sizing:border-box; }}</style>\n</head>\n<body>\n  <div id="root"></div>\n  <script type="module" src="/src/main.tsx"></script>\n</body>\n</html>\n',
+                    ),
+                    (
+                        "vite.config.ts",
+                        'import { defineConfig } from "vite"\nimport react from "@vitejs/plugin-react"\nexport default defineConfig({ plugins: [react()] })\n',
+                    ),
+                    (
+                        "tsconfig.json",
+                        json.dumps({
+                            "compilerOptions": {
+                                "target": "ES2020",
+                                "module": "ESNext",
+                                "lib": ["ES2020", "DOM", "DOM.Iterable"],
+                                "jsx": "react-jsx",
+                                "moduleResolution": "bundler",
+                                "strict": False,
+                                "noEmit": True,
+                                "isolatedModules": True,
+                                "esModuleInterop": True,
+                                "skipLibCheck": True,
+                                "allowImportingTsExtensions": True,
+                            },
+                            "include": ["src"],
+                        }, indent=2),
+                    ),
+                ]:
+                    (project_dir / fname).write_text(content)
 
                 (src / "main.tsx").write_text(
                     'import { createRoot } from "react-dom/client"\n'
                     'import App from "./App"\n'
                     'createRoot(document.getElementById("root")!).render(<App />)\n'
                 )
-
                 (src / "App.tsx").write_text(
                     'export default function App() {\n'
                     '  return <div>Loading...</div>\n'
@@ -208,27 +252,30 @@ class ProjectInit(BaseTool):
                     "- Keep edits scoped to the active project.\n"
                 )
 
-            # npm install
             result = subprocess.run(
                 ["npm", "install"],
                 cwd=str(project_dir),
-                capture_output=True, text=True, timeout=120,
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
             if result.returncode != 0:
-                return ToolResult(
-                    f"Project created but npm install failed: {result.stderr[:300]}",
-                    is_error=True,
-                )
+                return ToolResult(f"Project created but npm install failed: {result.stderr[:300]}", is_error=True)
 
-            # Start dev server
             try:
                 from ..serve import serve_project
                 url = serve_project(str(project_dir))
             except Exception:
                 url = ""
 
-            scaffold_info = f" (from '{scaffold_name}' scaffold)" if scaffold_name else ""
+            scaffold_info = f" (scaffold: {scaffold_name})" if scaffold_name else ""
             dep_list = ", ".join(dependencies) if dependencies else "none"
+
+            readme_content = ""
+            readme_path = project_dir / "README.md"
+            if readme_path.exists():
+                readme_content = "\n\n---\n\n" + readme_path.read_text()
+
             return ToolResult(
                 f"Project '{name}' ready{scaffold_info} at {project_dir}\n"
                 f"Project root: ./workspace/deliverables/{name}\n"
@@ -238,6 +285,7 @@ class ProjectInit(BaseTool):
                 f"src/App.tsx is a stub — replace it with your app.\n"
                 f"Write components in src/components/.\n"
                 f"After all files: shell_exec 'cd ./workspace/deliverables/{name} && npx vite build'"
+                f"{readme_content}"
             )
 
         except Exception as e:

@@ -112,8 +112,10 @@ class Agent:
         from .pressure import Pressure
         self._pressure = Pressure()
 
-        # Stall detection
+        # Stall detection — abort on no-progress loops
         self._empty_steps = 0
+        self._tool_history: list[str] = []  # last N tool calls
+        self._project_init_called = False  # block repeated scaffold
 
         # Auto-compact circuit breaker
         # Stops retrying compression after N consecutive failures
@@ -186,6 +188,122 @@ class Agent:
             "Agent stalled in a no-progress tool loop. "
             f"Recent tools were low-signal repeats ({', '.join(tool_names[-5:])})."
         )
+
+    async def _pre_scaffold(self, user_message: str) -> str:
+        """Hidden pre-scaffold step — detect build tasks, provision automatically.
+
+        Like the classifier layer: analyze the prompt, pick the right scaffold,
+        provision the project BEFORE the model starts. The model wakes up
+        inside a ready project with a README.
+        """
+        msg = user_message.lower()
+
+        # Detect build tasks
+        build_keywords = ["build", "create", "make", "develop", "design",
+                          "app", "game", "website", "dashboard", "tool",
+                          "tracker", "page", "editor", "viewer"]
+        is_build = any(k in msg for k in build_keywords)
+        if not is_build:
+            return ""
+
+        # Extract project name from the message
+        import re
+        # Try to find "save to workspace/deliverables/X" or infer from context
+        save_match = re.search(r'deliverables/([a-z0-9_-]+)', msg)
+        if save_match:
+            project_name = save_match.group(1)
+        else:
+            # Generate a name from key words
+            words = re.findall(r'[a-z]+', msg)
+            skip = {"build", "create", "make", "a", "an", "the", "with", "and",
+                    "for", "that", "app", "save", "to", "workspace"}
+            name_words = [w for w in words if w not in skip and len(w) > 2][:3]
+            project_name = "-".join(name_words) if name_words else ""
+
+        if not project_name:
+            return ""
+
+        # Check if project already exists
+        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+        if (project_dir / "package.json").exists():
+            project_summary = self.set_project(project_name)
+            preloaded = self._preload_project_toolboxes()
+            context = f"\n[Project '{project_name}' already exists at {project_dir}. Use it as the active project.]\n\n{project_summary}"
+            if preloaded:
+                context += (
+                    "\n\nPreloaded tools for this project: "
+                    + ", ".join(preloaded)
+                    + "\nUse the browser/webdev tools directly instead of searching for load_toolbox first."
+                )
+            return context
+
+        # Provision via project_init
+        try:
+            from .tools.project_init import ProjectInit
+            init_tool = ProjectInit(self.config)
+            result = await init_tool.execute(name=project_name)
+            if not result.is_error:
+                log.info(f"Pre-scaffold: provisioned '{project_name}'")
+                project_summary = self.set_project(project_name)
+                preloaded = self._preload_project_toolboxes()
+                context = (
+                    f"\n[Project '{project_name}' has been scaffolded at {project_dir}. "
+                    f"Dev server running. Write your components in src/.]\n\n"
+                    f"{result.content}\n\n{project_summary}"
+                )
+                if preloaded:
+                    context += (
+                        "\n\nPreloaded tools for this project: "
+                        + ", ".join(preloaded)
+                        + "\nUse the browser/webdev tools directly instead of searching for load_toolbox first."
+                    )
+                return context
+        except Exception as e:
+            log.debug(f"Pre-scaffold failed: {e}")
+
+        return ""
+
+    def _auto_wire_on_exit(self):
+        """Auto-wire any stub App.tsx in deliverables before exiting.
+
+        Scans all projects the wave wrote to. If App.tsx is a stub
+        but components exist, generate imports automatically.
+        """
+        deliverables = Path(self.config.workspace_dir) / "deliverables"
+        if not deliverables.exists():
+            return
+
+        for project_dir in deliverables.iterdir():
+            if not project_dir.is_dir():
+                continue
+            app_path = project_dir / "src" / "App.tsx"
+            comp_dir = project_dir / "src" / "components"
+            if not app_path.exists() or not comp_dir.exists():
+                continue
+
+            app_content = app_path.read_text()
+            is_stub = "TODO" in app_content or "not built yet" in app_content or (
+                len(app_content) < 200 and "import" not in app_content.lower()
+            )
+            components = [
+                f.stem for f in comp_dir.iterdir()
+                if f.suffix in ('.tsx', '.ts') and f.stem not in ('index', 'types')
+            ]
+            if is_stub and components:
+                imports = "\n".join(f'import {c} from "./components/{c}"' for c in sorted(components))
+                jsx = "\n        ".join(f'<{c} />' for c in sorted(components))
+                auto_app = (
+                    f'import "./index.css"\n{imports}\n\n'
+                    f'export default function App() {{\n'
+                    f'  return (\n'
+                    f'    <div className="container">\n'
+                    f'      {jsx}\n'
+                    f'    </div>\n'
+                    f'  )\n'
+                    f'}}\n'
+                )
+                app_path.write_text(auto_app)
+                log.info(f"Auto-wired {project_dir.name}/App.tsx with {len(components)} components")
 
     def _inject_todo(self):
         """Inject todo.md into context if it exists in any active deliverable.
@@ -434,7 +552,14 @@ class Agent:
             system_prompt += f"\n\n---\n\n{instincts}"
 
         self.state.add_system(system_prompt)
-        self.state.add_user(user_message)
+
+        # Hidden pre-scaffold step — detect build tasks and provision automatically
+        # The model never chooses the scaffold. The platform does.
+        scaffold_context = await self._pre_scaffold(user_message)
+        if scaffold_context:
+            self.state.add_user(user_message + "\n\n" + scaffold_context)
+        else:
+            self.state.add_user(user_message)
 
         log.info(f"Starting agent loop: {user_message[:100]}")
         consecutive_errors = 0
@@ -568,6 +693,9 @@ class Agent:
                     pass  # Non-critical
                 return result
 
+        # Auto-wire any stub App.tsx before exiting on max iterations
+        self._auto_wire_on_exit()
+
         # Save on max iterations (incomplete task — summary helps resume)
         save_session(self.state, self.session_dir, self.session_id)
         save_session_summary(self.state, self.session_dir, self.session_id)
@@ -656,6 +784,33 @@ class Agent:
             self._info_streak = 0
 
         log.info(f"[{self.state.iteration}] Tool: {tool_call.name} | Args: {_truncate(tool_call.arguments)}")
+
+        # 3b. Stall detection — detect no-progress loops
+        self._tool_history.append(tool_call.name)
+        if len(self._tool_history) > 10:
+            self._tool_history = self._tool_history[-10:]
+        # If last 8 calls are all message_info or search with no file writes → stalled
+        if len(self._tool_history) >= 8:
+            recent = self._tool_history[-8:]
+            no_progress = all(t in ("message_info", "search_web", "file_read", "match_glob", "match_grep", "summarize_file") for t in recent)
+            if no_progress:
+                log.warning("Stall detected: 8 consecutive read-only tools with no writes")
+                self.state.add_system_note(
+                    "STALL: You've made 8 tool calls without writing any files. "
+                    "Stop researching and start building. Write code now."
+                )
+
+        # 3c. Block repeated project_init — only scaffold once per session
+        if tool_call.name == "project_init":
+            if self._project_init_called:
+                log.info("Blocked repeated project_init call")
+                self.state.add_tool_result(
+                    tool_call.name, tool_call.arguments,
+                    "Project already scaffolded this session. Write your components in src/.",
+                    is_error=True,
+                )
+                return "Project already scaffolded."
+            self._project_init_called = True
 
         # 4. Watcher replaced by current/circulation/pressure tension system
         # Tension measurement happens at tool choice (above) and delivery (section 9)
@@ -802,6 +957,84 @@ class Agent:
             result.is_error, self.session_id,
         )
 
+        # 8a0. Auto-scaffold — if .tsx written to deliverables without package.json, provision it
+        if tool_call.name == "file_write" and not result.is_error:
+            written_path = tool_call.arguments.get("path", "")
+            if "deliverables/" in written_path and written_path.endswith((".tsx", ".ts")):
+                try:
+                    parts = written_path.split("deliverables/")
+                    if len(parts) > 1:
+                        project_name = parts[1].split("/")[0]
+                        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+                        if project_dir.exists() and not (project_dir / "package.json").exists():
+                            log.info(f"Auto-scaffold: {project_name} missing package.json, provisioning")
+                            from .tools.project_init import ProjectInit
+                            init_tool = ProjectInit(self.config)
+                            scaffold_result = await init_tool.execute(name=project_name)
+                            log.info(f"Auto-scaffold: {scaffold_result.content[:100]}")
+                except Exception as e:
+                    log.debug(f"Auto-scaffold skipped: {e}")
+
+        # 8a1. Auto-swell — when App.tsx is written with imports to missing files, fire eddies
+        if tool_call.name == "file_write" and not result.is_error:
+            written_path = tool_call.arguments.get("path", "")
+            if written_path.endswith("App.tsx") and "deliverables/" in written_path:
+                try:
+                    content = tool_call.arguments.get("content", "")
+                    if not content:
+                        content = Path(written_path).read_text() if Path(written_path).exists() else ""
+
+                    # Find imports to ./components/ that don't exist yet
+                    import re as _re3
+                    imports = _re3.findall(r'from\s+["\']\.\/components\/(\w+)["\']', content)
+                    project_dir = Path(written_path).parent.parent if "/src/" in written_path else Path(written_path).parent
+
+                    missing = []
+                    for comp in imports:
+                        comp_path = project_dir / "src" / "components" / f"{comp}.tsx"
+                        if not comp_path.exists():
+                            missing.append(comp)
+
+                    if len(missing) >= 2:
+                        # Fire eddies for missing components
+                        user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+
+                        # Read types.ts if it exists for context
+                        types_content = ""
+                        types_path = project_dir / "src" / "types.ts"
+                        if types_path.exists():
+                            types_content = f"\n\nTypes:\n```\n{types_path.read_text()[:500]}\n```"
+
+                        tasks = []
+                        targets = []
+                        for comp in missing:
+                            target = str(project_dir / "src" / "components" / f"{comp}.tsx")
+                            prompt = (
+                                f"Write a React TypeScript component called {comp} for: {user_req[:200]}\n"
+                                f"Export default function {comp}. Under 80 lines.{types_content}"
+                            )
+                            tasks.append(prompt)
+                            targets.append(target)
+
+                        log.info(f"Auto-swell: firing {len(tasks)} eddies for missing components: {missing}")
+                        from .eddy import run_swarm
+                        import asyncio
+                        swell_results = await run_swarm(
+                            tasks=tasks,
+                            workdir=str(project_dir),
+                            max_concurrent=4,
+                            system_prompt="You are a React TypeScript expert. Call done() with ONLY the raw TSX code. No markdown fences.",
+                            write_targets=targets,
+                        )
+                        written = sum(1 for r in swell_results if r.success)
+                        log.info(f"Auto-swell: {written}/{len(tasks)} components written")
+                        if written > 0:
+                            self.state.add_system_note(
+                                f"Auto-generated {written} components via eddies: {', '.join(missing[:5])}"
+                            )
+                except Exception as e:
+                    log.debug(f"Auto-swell skipped: {e}")
+
         # 8a. Auto-serve — start dev server ONCE, Vite HMR handles the rest
         if tool_call.name in ("file_write", "file_edit", "shell_exec") and not result.is_error:
             written_path = tool_call.arguments.get("path", "") or tool_call.arguments.get("command", "")
@@ -904,6 +1137,47 @@ class Agent:
                     "3 failures on same approach. You must try a fundamentally different "
                     "approach or use message_ask to request guidance from the user."
                 )
+
+        # 8d. Stub detection — catch App.tsx not wired
+        if tool_call.name == "message_result" and getattr(self, '_delivery_attempts', 0) <= 2:
+            # Find the project dir from recent writes
+            for msg in reversed(self.state.conversation[-20:]):
+                if msg.role == "tool_result" and "deliverables/" in msg.content:
+                    import re as _re2
+                    match = _re2.search(r'deliverables/([^/\s]+)', msg.content)
+                    if match:
+                        app_path = Path(self.config.workspace_dir) / "deliverables" / match.group(1) / "src" / "App.tsx"
+                        comp_dir = Path(self.config.workspace_dir) / "deliverables" / match.group(1) / "src" / "components"
+                        if app_path.exists() and comp_dir.exists():
+                            app_content = app_path.read_text()
+                            has_components = any(comp_dir.iterdir())
+                            is_stub = "TODO" in app_content or "not built yet" in app_content or (len(app_content) < 200 and "import" not in app_content.lower())
+                            if is_stub and has_components:
+                                # Auto-wire: generate App.tsx from discovered components
+                                components = [
+                                    f.stem for f in comp_dir.iterdir()
+                                    if f.suffix in ('.tsx', '.ts') and f.stem not in ('index', 'types')
+                                ]
+                                if components:
+                                    imports = "\n".join(
+                                        f'import {c} from "./components/{c}"'
+                                        for c in sorted(components)
+                                    )
+                                    jsx = "\n        ".join(f'<{c} />' for c in sorted(components))
+                                    auto_app = (
+                                        f'import "./index.css"\n{imports}\n\n'
+                                        f'export default function App() {{\n'
+                                        f'  return (\n'
+                                        f'    <div className="container">\n'
+                                        f'      <h1>App</h1>\n'
+                                        f'      {jsx}\n'
+                                        f'    </div>\n'
+                                        f'  )\n'
+                                        f'}}\n'
+                                    )
+                                    app_path.write_text(auto_app)
+                                    log.info(f"Auto-wired App.tsx with {len(components)} components: {components}")
+                    break
 
         # 9. Tension gate — measure current before allowing delivery
         if tool_call.name == "message_result":

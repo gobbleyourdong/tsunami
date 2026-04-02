@@ -44,6 +44,12 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
             if filename == config:
                 return f"BLOCKED: Cannot modify {p.name} — config protection. Fix the code, not the config."
 
+    # Protect scaffold infrastructure files — the 9B overwrites these, breaking the project
+    scaffold_files = ["main.tsx", "vite.config.ts", "index.css"]
+    if resolved.startswith(str(Path(workspace_dir) / "deliverables")):
+        if filename in scaffold_files and p.exists():
+            return f"BLOCKED: {p.name} is scaffold infrastructure — don't overwrite it. Write your code in App.tsx and src/components/."
+
     return None
 
 
@@ -190,9 +196,22 @@ class FileWrite(BaseTool):
             if err:
                 return ToolResult(err, is_error=True)
             p.parent.mkdir(parents=True, exist_ok=True)
-            # Fix double-escaped newlines from models that output \\n instead of \n
+            # Fix double-escaped sequences from models
             if "\n" not in content and "\\n" in content:
                 content = content.replace("\\n", "\n").replace("\\t", "\t")
+            # Auto-inject CSS import into App.tsx if missing
+            if p.name == "App.tsx" and "index.css" not in content and p.parent.name == "src":
+                if (p.parent / "index.css").exists():
+                    content = 'import "./index.css"\n' + content
+
+            # Fix unicode escapes (\\u00f7 → ÷) — models double-escape these
+            if "\\u00" in content or "\\u2" in content:
+                import re
+                content = re.sub(
+                    r'\\u([0-9a-fA-F]{4})',
+                    lambda m: chr(int(m.group(1), 16)),
+                    content,
+                )
             p.write_text(content)
             lines = content.count("\n") + 1
             return ToolResult(f"Wrote {lines} lines to {p}")
