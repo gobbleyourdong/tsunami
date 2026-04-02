@@ -1,10 +1,11 @@
 name: Build Windows Desktop
 
 on:
-  workflow_dispatch:  # manual trigger from GitHub UI
+  workflow_dispatch:
   push:
     paths:
       - 'desktop/**'
+      - 'tsunami/**'
       - '.github/workflows/build-windows.yml'
 
 jobs:
@@ -19,12 +20,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pyinstaller pywebview websockets httpx pyyaml ddgs pillow
+          pip install pyinstaller pywebview websockets httpx pyyaml ddgs pillow rich psutil fastapi uvicorn
 
       - name: Build .exe
         working-directory: desktop
-        run: |
-          pyinstaller launcher.py --name=Tsunami --onefile --windowed --add-data "index.html;." --add-data "ws_bridge.py;." --add-data "../tsunami;tsunami" --add-data "../config.yaml;." --add-data "../scaffolds;scaffolds" --hidden-import=websockets --hidden-import=webview --hidden-import=tsunami --hidden-import=tsunami.agent --hidden-import=tsunami.config --hidden-import=tsunami.tools
+        run: python build_exe.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
