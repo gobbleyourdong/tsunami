@@ -112,9 +112,10 @@ class ShellExec(BaseTool):
             log.warning(f"Bash security warnings for '{command[:80]}': {sec_warnings}")
 
         try:
-            # Resolve workdir — default to the ark directory
+            # Resolve workdir — default to workspace dir (not cwd)
             import os
-            cwd = None
+            ark_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            cwd = os.path.join(ark_dir, self.config.workspace_dir) if hasattr(self, 'config') else None
             if workdir:
                 expanded = os.path.expanduser(workdir)
                 if os.path.isdir(expanded):
