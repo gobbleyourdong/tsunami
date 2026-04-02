@@ -657,7 +657,7 @@ class Agent:
                 )
 
         # 8d. Stub detection — catch App.tsx not wired
-        if tool_call.name == "message_result" and self._delivery_attempts <= 2:
+        if tool_call.name == "message_result" and getattr(self, '_delivery_attempts', 0) <= 2:
             # Find the project dir from recent writes
             for msg in reversed(self.state.conversation[-20:]):
                 if msg.role == "tool_result" and "deliverables/" in msg.content:
