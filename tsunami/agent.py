@@ -671,12 +671,30 @@ class Agent:
                             has_components = any(comp_dir.iterdir())
                             is_stub = "TODO" in app_content or "not built yet" in app_content or (len(app_content) < 200 and "import" not in app_content.lower())
                             if is_stub and has_components:
-                                log.info("Stub detection: App.tsx is still a stub but components exist")
-                                self.state.add_system_note(
-                                    "App.tsx is still a stub but you wrote components in src/components/. "
-                                    "Replace App.tsx to import and use your components before delivering."
-                                )
-                                return result.content
+                                # Auto-wire: generate App.tsx from discovered components
+                                components = [
+                                    f.stem for f in comp_dir.iterdir()
+                                    if f.suffix in ('.tsx', '.ts') and f.stem not in ('index', 'types')
+                                ]
+                                if components:
+                                    imports = "\n".join(
+                                        f'import {c} from "./components/{c}"'
+                                        for c in sorted(components)
+                                    )
+                                    jsx = "\n        ".join(f'<{c} />' for c in sorted(components))
+                                    auto_app = (
+                                        f'import "./index.css"\n{imports}\n\n'
+                                        f'export default function App() {{\n'
+                                        f'  return (\n'
+                                        f'    <div className="container">\n'
+                                        f'      <h1>App</h1>\n'
+                                        f'      {jsx}\n'
+                                        f'    </div>\n'
+                                        f'  )\n'
+                                        f'}}\n'
+                                    )
+                                    app_path.write_text(auto_app)
+                                    log.info(f"Auto-wired App.tsx with {len(components)} components: {components}")
                     break
 
         # 9. Tension gate — measure current before allowing delivery
