@@ -12,6 +12,15 @@
 # Don't stop on every error — we handle failures gracefully (mirrors `set +e` in bash)
 $ErrorActionPreference = "Continue"
 
+# ALWAYS pause before window closes — no matter what happens
+trap {
+    Write-Host ""
+    Write-Host "  ERROR: $_" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  Press any key to close..."
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}
+
 # ---------------------------------------------------------------------------
 # ANSI color helpers (PowerShell 5+ honours VT sequences when ANSI is enabled)
 # ---------------------------------------------------------------------------
