@@ -314,9 +314,11 @@ class Agent:
         There is no iteration cap. The agent iterates until it finishes.
         """
 
-        # Build system prompt and initialize conversation
+        # Build system prompt — lite mode gets a shorter, simpler prompt
+        is_lite = self.config.eddy_endpoint == self.config.model_endpoint
         system_prompt = build_system_prompt(
-            self.state, self.config.workspace_dir, self.config.skills_dir
+            self.state, self.config.workspace_dir, self.config.skills_dir,
+            lite=is_lite,
         )
 
         # Inject project context if active
