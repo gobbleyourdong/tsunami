@@ -120,6 +120,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Show the UI URL
+LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+echo ""
+echo "  UI: http://${LOCAL_IP}:3000"
+echo "  UI: http://localhost:3000"
+echo ""
+
 # Launch frontend — Ink CLI if Node available, Python fallback otherwise
 if command -v npx &>/dev/null && [ -d "$DIR/cli/node_modules" ]; then
   cd "$DIR/cli"
