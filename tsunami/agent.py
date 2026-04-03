@@ -873,16 +873,38 @@ class Agent:
                     log.debug(f"Write-swell skipped: {e}")
 
         # Check for repetition loop (same tool called 3+ times consecutively)
-        # Auto-swell: when the wave is doing the same thing 3+ times, hint to use swell
         if len(self._recent_tools) >= 3:
             last_3_names = [t[0] for t in self._recent_tools[-3:]]
-            if len(set(last_3_names)) == 1 and last_3_names[0] in ("file_read", "summarize_file", "match_grep"):
-                log.info(f"Auto-swell hint: {last_3_names[0]} called 3x in a row")
-                self.state.add_system_note(
-                    f"You're calling {last_3_names[0]} repeatedly. Use the swell tool to "
-                    f"dispatch multiple eddy workers in parallel — it's faster and uses less context. "
-                    f"Give each eddy a specific subtask string."
-                )
+            if len(set(last_3_names)) == 1:
+                repeated_tool = last_3_names[0]
+                log.info(f"Repetition detected: {repeated_tool} called 3x in a row")
+                if repeated_tool in ("file_read", "summarize_file", "match_grep"):
+                    self.state.add_system_note(
+                        f"You're calling {repeated_tool} repeatedly. Use the swell tool to "
+                        f"dispatch multiple eddy workers in parallel — it's faster and uses less context. "
+                        f"Give each eddy a specific subtask string."
+                    )
+                elif repeated_tool == "generate_image":
+                    self.state.add_system_note(
+                        "STOP GENERATING IMAGES. You've called generate_image 3 times in a row. "
+                        "Use the images you already generated. Reference them in your HTML/JSX with "
+                        "<img src='...'> and move on to building the UI. Do NOT call generate_image again."
+                    )
+                elif repeated_tool == "search_web":
+                    self.state.add_system_note(
+                        "STOP SEARCHING. You've searched 3 times in a row. Use the results you "
+                        "already have and start building. Call file_write or project_init next."
+                    )
+                elif repeated_tool == "shell_exec":
+                    self.state.add_system_note(
+                        f"You've run shell_exec 3 times in a row. If the build is failing, "
+                        f"read the error and fix the code. If it's passing, call message_result."
+                    )
+                else:
+                    self.state.add_system_note(
+                        f"You're calling {repeated_tool} repeatedly. Try a different approach. "
+                        f"If the task is done, call message_result."
+                    )
 
         # 6. Execute the tool — with argument safety
         tool = self.registry.get(tool_call.name)
