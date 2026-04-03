@@ -81,11 +81,30 @@ TRUTH_MARKERS = [
 class Circulation:
     """Routes flow based on current (tension) readings."""
 
-    # Thresholds
+    # Default thresholds
     LOW = 0.15
     MEDIUM = 0.30
     HIGH = 0.50
     CRITICAL = 0.70
+
+    def __init__(self, task_type: str = "general"):
+        """Adapt thresholds to task type.
+
+        Build tasks are more lenient — code output isn't "hallucinating."
+        Research/factual tasks are stricter — claims need verification.
+        """
+        if task_type == "build":
+            # Building code: higher tolerance, less blocking
+            self.LOW = 0.25
+            self.MEDIUM = 0.45
+            self.HIGH = 0.65
+            self.CRITICAL = 0.85
+        elif task_type == "research":
+            # Factual queries: lower tolerance, more verification
+            self.LOW = 0.10
+            self.MEDIUM = 0.25
+            self.HIGH = 0.40
+            self.CRITICAL = 0.60
 
     def route(self, query: str, tension: float) -> Route:
         """Decide what to do based on tension."""
