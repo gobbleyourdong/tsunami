@@ -541,14 +541,29 @@ async def run_swarm(
     This is the MoE pattern: each eddy is an expert that outputs
     to its assigned attention head (file).
     """
+    from .eddy_communication import SharedSwellContext
+
     sem = asyncio.Semaphore(max_concurrent)
     start = time.time()
 
-    async def _run(task: str) -> BeeResult:
-        async with sem:
-            return await run_bee(task, workdir, endpoint, system_prompt=system_prompt)
+    # Load shared context from prior eddies
+    shared = SharedSwellContext(workdir)
+    shared.load()
+    prior_findings = shared.to_prompt_injection()
 
-    results = await asyncio.gather(*[_run(t) for t in tasks])
+    async def _run(task: str, eddy_id: str) -> BeeResult:
+        async with sem:
+            # Inject prior findings into eddy's system prompt
+            full_prompt = system_prompt
+            if prior_findings:
+                full_prompt = f"{system_prompt}\n\n{prior_findings}" if system_prompt else prior_findings
+            result = await run_bee(task, workdir, endpoint, system_prompt=full_prompt)
+            # Record finding for next eddy
+            finding = shared.extract_finding_from_result(eddy_id, task, result.output, result.success)
+            shared.add_finding(finding)
+            return result
+
+    results = await asyncio.gather(*[_run(t, f"eddy_{i}") for i, t in enumerate(tasks)])
     elapsed = (time.time() - start) * 1000
 
     # Write outputs to target files if provided
@@ -613,6 +628,9 @@ async def run_swarm(
                     log.warning(f"Swell compile check: FAIL — {'; '.join(errors)}")
             except Exception as e:
                 log.debug(f"Compile check skipped: {e}")
+
+    # Cleanup shared context after swell batch completes
+    shared.cleanup()
 
     succeeded = sum(1 for r in results if r.success)
     total_tool_calls = sum(r.tool_calls for r in results)
