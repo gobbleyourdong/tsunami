@@ -79,9 +79,9 @@ export function createText(
   const text = new Text({
     text: content,
     style: {
-      fontFamily: "Courier New",
+      fontFamily: "Rajdhani, sans-serif",
       fontSize: 24,
-      fill: 0x00ffff,
+      fill: 0x34d4b0,
       ...style,
     },
   })

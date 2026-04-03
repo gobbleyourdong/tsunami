@@ -6,18 +6,18 @@ interface CardProps {
   style?: React.CSSProperties
 }
 
-/** A dashboard card — use for stats, charts, tables, anything. */
 export default function Card({ title, children, style }: CardProps) {
   return (
-    <div style={{
-      background: "#1a1a2e",
-      borderRadius: 8,
-      border: "1px solid #2a2a4a",
-      padding: 20,
-      ...style,
-    }}>
+    <div className="card" style={style}>
       {title && (
-        <h3 style={{ margin: "0 0 12px", fontSize: 14, color: "#888", textTransform: "uppercase", letterSpacing: 1 }}>
+        <h3 style={{
+          margin: '0 0 14px',
+          fontSize: 'var(--text-xs, 0.75rem)',
+          fontWeight: 600,
+          color: 'var(--text-muted, #7a7f8e)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+        }}>
           {title}
         </h3>
       )}

@@ -23,7 +23,7 @@ export default function App() {
 ## Components (import from `./components`)
 
 ### Scene
-`<Scene gravity={[0,-9.81,0]} bgColor="#1a1a2e" camera={{position:[0,8,12]}} debug>`
+`<Scene gravity={[0,-9.81,0]} bgColor="#08090d" camera={{position:[0,8,12]}} debug>`
 - Canvas + camera + lighting + Rapier physics + OrbitControls
 - Everything inside has physics automatically
 
