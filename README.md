@@ -4,7 +4,7 @@
 
 **Windows (installer):**
 
-Download [TsunamiSetup.exe](https://github.com/gobbleyourdong/tsunami/actions) from the latest build. Double-click. It handles everything.
+Download [TsunamiSetup.exe](https://github.com/gobbleyourdong/tsunami/releases/latest) — double-click, it handles everything.
 
 **Windows (manual):**
 
