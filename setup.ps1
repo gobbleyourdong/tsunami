@@ -65,7 +65,7 @@ Write-Host ""
 # ---------------------------------------------------------------------------
 $DIR        = if ($env:TSUNAMI_DIR) { $env:TSUNAMI_DIR } else { Join-Path $env:USERPROFILE "tsunami" }
 $MODELS_DIR = Join-Path $DIR "models"
-$LLAMA_DIR  = Join-Path $DIR "llama.cpp"
+$LLAMA_DIR  = Join-Path $DIR "llama-server"
 
 # ---------------------------------------------------------------------------
 # GPU detection
@@ -74,10 +74,16 @@ $GPU       = "cpu"
 $VRAM      = 0
 $CUDA_ARCH = ""
 
-if (Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) {
+# Check PATH first, then the known Windows location (dual-GPU laptops often miss PATH)
+$nvidiaSmi = Get-Command "nvidia-smi" -ErrorAction SilentlyContinue
+if (-not $nvidiaSmi -and (Test-Path "C:\Windows\System32\nvidia-smi.exe")) {
+    $nvidiaSmi = Get-Item "C:\Windows\System32\nvidia-smi.exe"
+}
+if ($nvidiaSmi) {
     $GPU = "cuda"
+    $nvsmi = if ($nvidiaSmi.Source) { $nvidiaSmi.Source } else { $nvidiaSmi.FullName }
     try {
-        $vramRaw = (& nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null |
+        $vramRaw = (& $nvsmi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null |
                     Select-Object -First 1).Trim()
         if ($vramRaw -and $vramRaw -ne "[N/A]" -and $vramRaw -match '^\d+$') {
             $VRAM = [int]$vramRaw
@@ -92,7 +98,7 @@ if (Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) {
     # Detect CUDA compute capability so cmake doesn't have to query the GPU at configure time
     # (cmake's "native" detection fails in some environments even when nvidia-smi works fine)
     try {
-        $capRaw = (& nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>$null |
+        $capRaw = (& $nvsmi --query-gpu=compute_cap --format=csv,noheader 2>$null |
                    Select-Object -First 1).Trim()
         if ($capRaw -and $capRaw -match '^\d+\.\d+$') {
             # Convert "8.6" → "86" (cmake arch format)
@@ -132,7 +138,7 @@ $WAVE = "9B"
 
 # Use VRAM for GPU machines, RAM only for CPU-only
 $CAPACITY_GB = if ($GPU -eq "cuda" -and $VRAM -gt 0) {
-    [math]::Floor($VRAM / 1024)
+    [math]::Ceiling($VRAM / 1024)
 } else {
     $RAM
 }
@@ -306,6 +312,14 @@ if (Test-Path (Join-Path $DIR ".git")) {
     Push-Location $DIR
     & git pull --ff-only 2>&1 | Out-Null
     Pop-Location
+} elseif (Test-Path (Join-Path $DIR "tsunami")) {
+    # Installed by installer — files exist but no .git. Init for future updates.
+    Write-Step "Initializing git for auto-updates..."
+    Push-Location $DIR
+    & git init 2>&1 | Out-Null
+    & git remote add origin "https://github.com/gobbleyourdong/tsunami.git" 2>&1 | Out-Null
+    & git fetch origin main --quiet 2>&1 | Out-Null
+    Pop-Location
 } else {
     Write-Step "Cloning tsunami..."
     & git clone https://github.com/gobbleyourdong/tsunami.git "$DIR"
@@ -412,7 +426,7 @@ $LLAMA_MAIN_URL = ""
 $LLAMA_DLL_URL  = ""
 if ($GPU -eq "cuda") {
     try {
-        $cudaVer = (& nvidia-smi 2>$null | Select-String "CUDA Version:" |
+        $cudaVer = (& $nvsmi 2>$null | Select-String "CUDA Version:" |
                     ForEach-Object { $_.Line -replace '.*CUDA Version:\s*', '' -replace '\s.*', '' }).Trim()
         $cudaMajor = ($cudaVer -split '\.')[0]
 
@@ -683,7 +697,8 @@ Write-Host "  ${BOLD}║                                            ║${RST}"
 Write-Host "  ${BOLD}║  Or directly: cd $DIR${RST}"
 Write-Host "  ${BOLD}║              .\tsu.ps1                      ║${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
-Write-Host "  ${BOLD}║  GPU: $GPU  |  ${CAPACITY_SRC}: ${CAPACITY_GB}GB  |  Wave: $WAVE${RST}"
+$gpuLabel = if ($GPU -eq "cuda") { "NVIDIA" } else { "CPU (no GPU detected)" }
+Write-Host "  ${BOLD}║  $gpuLabel  |  ${CAPACITY_SRC}: ${CAPACITY_GB}GB  |  Wave: $WAVE${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
 Write-Host "  ${BOLD}╚════════════════════════════════════════════╝${RST}"
 Write-Host ""

@@ -78,12 +78,13 @@ function Find-LlamaServer {
     $candidates = @(
         $(if ($cmd1) { $cmd1.Source }),
         $(if ($cmd2) { $cmd2.Source }),
+        "$DIR\llama-server\llama-server.exe",
         "$DIR\llama.cpp\llama-server.exe",
         "$DIR\llama.cpp\build\bin\Release\llama-server.exe",
         "$DIR\llama.cpp\build\bin\llama-server.exe",
-        "$env:USERPROFILE\llama.cpp\llama-server.exe",
-        "$env:USERPROFILE\llama.cpp\build\bin\Release\llama-server.exe",
-        "$env:USERPROFILE\llama.cpp\build\bin\llama-server.exe"
+        "$env:USERPROFILE\tsunami\llama-server\llama-server.exe",
+        "$env:USERPROFILE\tsunami\llama.cpp\llama-server.exe",
+        "$env:USERPROFILE\tsunami\llama.cpp\build\bin\Release\llama-server.exe"
     )
     foreach ($p in $candidates) {
         if ($p -and (Test-Path $p)) { return $p }
@@ -92,13 +93,18 @@ function Find-LlamaServer {
 }
 
 function Find-Model([string]$pattern) {
-    # Use Where-Object -like instead of -Filter: the Windows file API used by
-    # -Filter treats the first dot as an extension separator, so patterns like
-    # 'Qwen3.5*' fail to match 'Qwen3.5-27B-Q8_0.gguf'.
-    $found = Get-ChildItem -Path "$DIR\models" -EA SilentlyContinue |
-             Where-Object { $_.Name -like $pattern } |
-             Select-Object -First 1
-    if ($found) { return $found.FullName }
+    # Check multiple locations — installer vs setup.ps1 vs setup.bat
+    $searchDirs = @(
+        "$DIR\models",
+        "$env:USERPROFILE\tsunami\models",
+        "$DIR\..\models"
+    )
+    foreach ($d in $searchDirs) {
+        $found = Get-ChildItem -Path $d -EA SilentlyContinue |
+                 Where-Object { $_.Name -like $pattern } |
+                 Select-Object -First 1
+        if ($found) { return $found.FullName }
+    }
     return $null
 }
 

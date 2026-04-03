@@ -115,8 +115,10 @@ class ShellExec(BaseTool):
             log.warning(f"Bash security warnings for '{command[:80]}': {sec_warnings}")
 
         try:
-            # Resolve workdir through the shared workspace-aware path normalizer
-            cwd = None
+            # Default to workspace dir, but resolve explicit workdir through the shared resolver
+            import os
+            ark_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            cwd = os.path.join(ark_dir, self.config.workspace_dir) if hasattr(self, 'config') else None
             if workdir:
                 resolved_workdir = _resolve_path(workdir, self.config.workspace_dir)
                 if resolved_workdir.is_dir():

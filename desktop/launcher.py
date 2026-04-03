@@ -196,8 +196,16 @@ def start_server(name, port, model, ctx_size=16384, parallel=1):
         "--chat-template-kwargs", '{"enable_thinking":false}',
     ]
 
-    print(f"  → Starting {name} on :{port}...")
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # Hide subprocess window on Windows (no console flash)
+    kwargs = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    if sys.platform == "win32":
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 0  # SW_HIDE
+        kwargs["startupinfo"] = si
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    proc = subprocess.Popen(cmd, **kwargs)
     processes.append(proc)
     return proc
 
@@ -215,12 +223,15 @@ def start_image_gen():
         print("  ⚠ Image gen: install diffusers for SD-Turbo (pip install diffusers torch)")
         return None
 
-    print("  → Starting SD-Turbo image gen...")
-    proc = subprocess.Popen(
-        [sys.executable, str(serve_path)],
-        cwd=str(TSUNAMI_DIR),
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+    kwargs = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "cwd": str(TSUNAMI_DIR)}
+    if sys.platform == "win32":
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 0
+        kwargs["startupinfo"] = si
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    proc = subprocess.Popen([sys.executable, str(serve_path)], **kwargs)
     processes.append(proc)
     return proc
 
@@ -231,10 +242,15 @@ def start_ws_bridge():
     if not bridge_path.exists():
         return None
 
-    proc = subprocess.Popen(
-        [sys.executable, str(bridge_path)],
-        cwd=str(TSUNAMI_DIR),
-    )
+    kwargs = {"cwd": str(TSUNAMI_DIR), "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    if sys.platform == "win32":
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 0
+        kwargs["startupinfo"] = si
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    proc = subprocess.Popen([sys.executable, str(bridge_path)], **kwargs)
     processes.append(proc)
     return proc
 
@@ -249,7 +265,7 @@ def get_available_memory_gb():
             )
             vram_mb = int(out.strip().split("\n")[0])
             if vram_mb > 0:
-                return vram_mb // 1024, "GPU VRAM"
+                return -(-vram_mb // 1024), "GPU VRAM"  # round up
         except Exception:
             pass
 
@@ -381,4 +397,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # PyInstaller on Windows: prevent child processes from re-running main()
+    import multiprocessing
+    multiprocessing.freeze_support()
     main()
