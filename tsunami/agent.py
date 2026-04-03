@@ -1719,9 +1719,13 @@ class Agent:
             # Only block factual claims that need verification, not build deliveries
             can_block = self._delivery_attempts <= 3
 
-            circ = Circulation()
+            # Detect task type for adaptive thresholds
+            user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+            build_keywords = ["build", "create", "make", "app", "game", "dashboard", "website"]
+            task_type = "build" if any(k in user_req.lower() for k in build_keywords) else "general"
+            circ = Circulation(task_type=task_type)
             route = circ.route(
-                self.state.conversation[1].content if len(self.state.conversation) > 1 else "",
+                user_req,
                 tension,
             )
 
