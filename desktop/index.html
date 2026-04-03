@@ -15,13 +15,13 @@
       --green: #3da87a; --yellow: #b8a040; --red: #a83a3a;
       --blue: #4070a8; --purple: #7050a0; --orange: #a86830;
     }
-    html, body, #app { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono','Cascadia Code','Fira Code','Consolas',monospace; font-size: 13px; overflow: hidden; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono','Cascadia Code','Fira Code','Consolas',monospace; font-size: 13px; overflow: hidden; }
 
-    /* === 3-COLUMN LAYOUT === */
-    #app { display: grid; grid-template-columns: 200px 1fr 1fr; grid-template-rows: 36px 1fr; height: 100vh; }
+    /* 3-column: chat | files+code | preview */
+    #app { display: grid; grid-template-columns: 280px 1fr 1fr; grid-template-rows: 36px 1fr; height: 100vh; }
 
-    /* Top bar spans everything */
-    .top-bar { grid-column: 1 / -1; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 12px; -webkit-app-region: drag; }
+    /* Top bar */
+    .top-bar { grid-column: 1 / -1; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 12px; }
     .top-bar .logo { color: var(--accent-bright); font-weight: 700; font-size: 13px; letter-spacing: 2px; }
     .top-bar .spacer { flex: 1; }
     .top-bar .hud { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
@@ -29,18 +29,7 @@
     .dot.on { background: var(--green); box-shadow: 0 0 4px var(--green); }
     .dot.off { background: var(--red); }
 
-    /* === COL 1: PROJECT LIST === */
-    .projects { background: var(--bg); border-right: 1px solid var(--border); overflow-y: auto; }
-    .projects-header { padding: 8px 10px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
-    .project-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 12px; }
-    .project-item:hover { background: var(--panel); }
-    .project-item.active { background: var(--panel2); border-left: 2px solid var(--accent); color: var(--accent-bright); }
-    .project-item .name { font-weight: 500; }
-    .project-item .time { color: var(--muted); font-size: 10px; margin-top: 2px; }
-    .new-project { padding: 8px 10px; cursor: pointer; color: var(--accent); font-size: 12px; border-bottom: 1px solid var(--border); }
-    .new-project:hover { background: var(--panel); }
-
-    /* === COL 2: CHAT === */
+    /* Col 1: Chat — just status updates from the agent */
     .chat { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); overflow: hidden; min-height: 0; }
     .chat-msgs { flex: 1; overflow-y: auto; padding: 14px; min-height: 0; }
     .msg { margin-bottom: 10px; line-height: 1.6; animation: fadeIn 0.2s; }
@@ -48,7 +37,7 @@
     .msg.user { color: var(--accent-bright); }
     .msg.user::before { content: "you › "; font-size: 11px; color: var(--muted); }
     .msg.agent { padding-left: 10px; border-left: 2px solid var(--border-hi); }
-    .msg.tool { color: var(--muted); font-size: 11px; }
+    .msg.tool { color: var(--muted); font-size: 11px; padding-left: 10px; }
     .msg.tool::before { content: "⚙ "; }
     .msg.error { color: var(--red); }
     .msg.system { color: var(--muted); font-style: italic; font-size: 11px; }
@@ -61,40 +50,25 @@
     .welcome h1 { color: var(--accent-bright); font-size: 28px; font-weight: 300; letter-spacing: 5px; text-shadow: 0 0 20px var(--accent-glow); }
     .welcome p { color: var(--muted); font-size: 12px; margin-top: 4px; }
 
-    /* === COL 3: WORKSPACE (code + file tree + preview) === */
-    .workspace { display: flex; flex-direction: column; background: var(--bg); }
-
-    /* Workspace tabs */
-    .ws-tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); min-height: 30px; }
-    .ws-tab { padding: 6px 14px; cursor: pointer; color: var(--muted); font-size: 11px; border-right: 1px solid var(--border); }
-    .ws-tab:hover { color: var(--text); }
-    .ws-tab.active { color: var(--accent-bright); background: var(--bg); border-bottom: 2px solid var(--accent); }
-
-    /* Workspace content — code view has its own sidebar */
-    .ws-content { flex: 1; display: flex; overflow: hidden; }
-
-    /* Code file tree (inside workspace) */
-    .code-sidebar { width: 180px; background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
-    .code-sidebar-header { padding: 6px 8px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
-    .code-file { padding: 3px 6px 3px 14px; cursor: pointer; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
-    .code-file:hover { background: var(--panel2); }
-    .code-file.active { background: var(--panel2); color: var(--accent-bright); }
-
-    /* Code editor area */
+    /* Col 2: Files + Code */
+    .editor { display: flex; border-right: 1px solid var(--border); overflow: hidden; }
+    .file-tree { width: 160px; background: var(--bg); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
+    .file-tree-header { padding: 6px 8px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
+    .file-item { padding: 3px 6px 3px 12px; cursor: pointer; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
+    .file-item:hover { background: var(--panel2); }
+    .file-item.active { background: var(--panel2); color: var(--accent-bright); }
+    .code-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .code-path { padding: 4px 10px; background: var(--panel); font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); }
     .code-area { flex: 1; overflow: auto; padding: 10px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
     .code-area .ln { color: var(--muted); display: inline-block; width: 30px; text-align: right; margin-right: 10px; user-select: none; }
-    .code-path { padding: 4px 10px; background: var(--panel); font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); }
 
-    /* Preview */
-    .preview-frame { width: 100%; height: 100%; border: none; background: #fff; }
+    /* Col 3: Preview */
+    .preview { background: var(--bg); overflow: hidden; }
+    .preview-header { padding: 6px 10px; background: var(--panel); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    .preview-header a { color: var(--accent); text-decoration: none; font-size: 10px; }
+    .preview iframe { width: 100%; height: calc(100% - 28px); border: none; background: #fff; }
 
-    /* Terminal */
-    .terminal { padding: 10px; font-size: 11px; line-height: 1.5; overflow-y: auto; height: 100%; }
-    .terminal .cmd { color: var(--green); }
-    .terminal .out { color: var(--text); }
-    .terminal .err { color: var(--red); }
-
-    /* HUD overlay */
+    /* HUD float */
     .hud-float { position: fixed; top: 42px; right: 10px; font-size: 11px; color: var(--muted); background: var(--panel); padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border); z-index: 10; display: none; }
     .hud-float .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; display: inline-block; margin-right: 5px; }
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
@@ -104,7 +78,6 @@
 </head>
 <body>
   <div id="app">
-    <!-- Top bar -->
     <div class="top-bar">
       <span class="logo">TSUNAMI</span>
       <span class="spacer"></span>
@@ -115,14 +88,7 @@
       </div>
     </div>
 
-    <!-- Col 1: Projects -->
-    <div class="projects">
-      <div class="projects-header">Sessions</div>
-      <div class="new-project" onclick="newSession()">+ New Session</div>
-      <div id="project-list"></div>
-    </div>
-
-    <!-- Col 2: Chat -->
+    <!-- Col 1: Chat -->
     <div class="chat">
       <div class="chat-msgs" id="chat-msgs">
         <div class="welcome"><h1>tsunami</h1><p>what do you want to build?</p></div>
@@ -133,24 +99,25 @@
       </div>
     </div>
 
-    <!-- Col 3: Workspace -->
-    <div class="workspace">
-      <div class="ws-tabs">
-        <div class="ws-tab active" onclick="showWs('code',this)">Code</div>
-        <div class="ws-tab" onclick="showWs('preview',this)">Preview</div>
-        <div class="ws-tab" onclick="showWs('terminal',this)">Terminal</div>
+    <!-- Col 2: Files + Code -->
+    <div class="editor">
+      <div class="file-tree">
+        <div class="file-tree-header">Files</div>
+        <div id="file-list"></div>
       </div>
-      <div class="ws-content" id="ws-content">
-        <!-- Code view with file tree -->
-        <div class="code-sidebar" id="code-sidebar">
-          <div class="code-sidebar-header">Files</div>
-          <div id="code-files"></div>
-        </div>
-        <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-          <div class="code-path" id="code-path">no file selected</div>
-          <div class="code-area" id="code-area"></div>
-        </div>
+      <div class="code-pane">
+        <div class="code-path" id="code-path">no file selected</div>
+        <div class="code-area" id="code-area"><span style="color:var(--muted)">select a file from the tree</span></div>
       </div>
+    </div>
+
+    <!-- Col 3: Preview -->
+    <div class="preview">
+      <div class="preview-header">
+        Output
+        <a href="http://localhost:9876" target="_blank">↗ open</a>
+      </div>
+      <iframe src="http://localhost:9876"></iframe>
     </div>
 
     <div class="hud-float" id="hud-float"><span class="pulse"></span><span id="hud-action"></span></div>
@@ -160,13 +127,12 @@
     const WS_AGENT = "ws://localhost:3002"
     const WS_FILES = "ws://localhost:3003"
     let ws = null, fileWs = null
-    let messages = [], termLines = [], fileList = [], codeContent = "", currentFile = ""
-    let sessions = [], activeSession = null
+    let messages = [], fileList = [], codeContent = "", currentFile = ""
 
     // === AGENT CONNECTION ===
     function connectAgent() {
       ws = new WebSocket(WS_AGENT)
-      ws.onopen = () => { addTerm("Connected", "cmd"); updateDots() }
+      ws.onopen = () => updateDots()
       ws.onclose = () => { updateDots(); setTimeout(connectAgent, 3000) }
       ws.onmessage = e => {
         try { handleMsg(JSON.parse(e.data)) } catch { addChat("agent", e.data) }
@@ -175,17 +141,16 @@
 
     function handleMsg(d) {
       if (d.type === "tool_call") {
-        addChat("tool", `${d.name} ${d.preview || ""}`)
-        addTerm(`[${d.name}] ${d.preview || ""}`, "out")
+        addChat("tool", toolLabel(d.name) + (d.preview ? ` ${d.preview}` : ""))
         setHud(toolLabel(d.name))
-        if (d.content && d.path) { codeContent = d.content; currentFile = d.path; renderCode() }
-      } else if (d.type === "message") { addChat("agent", d.text) }
-      else if (d.type === "error") { addChat("error", d.text); addTerm(d.text, "err") }
-      else if (d.type === "complete") {
-        addChat("system", `✓ done (${d.iterations} iters)`)
+        if (d.content && d.path) { codeContent = d.content; currentFile = d.path; renderCode(); renderFiles() }
+      } else if (d.type === "message") {
+        addChat("agent", d.text)
+      } else if (d.type === "error") {
+        addChat("error", d.text)
+      } else if (d.type === "complete") {
+        addChat("system", `done (${d.iterations} iters)`)
         setHud("done", false)
-        if (activeSession) activeSession.name = d.text?.match(/deliverables\/([^\s/]+)/)?.[1] || activeSession.name
-        renderProjects()
       }
     }
 
@@ -196,71 +161,13 @@
       fileWs.onmessage = e => {
         try {
           const d = JSON.parse(e.data)
-          if (d.type === "files") { fileList = d.files; renderFileTree() }
+          if (d.type === "files") { fileList = d.files; renderFiles() }
           if (d.type === "file_changed") {
             codeContent = d.content; currentFile = d.path
-            renderCode(); renderFileTree()
-            addTerm(`FILE ${d.path}`, "cmd")
+            renderCode(); renderFiles()
           }
         } catch {}
       }
-    }
-
-    // === SESSIONS ===
-    function newSession() {
-      const s = { id: Date.now(), name: `session-${sessions.length + 1}`, messages: [], time: new Date().toLocaleTimeString() }
-      sessions.unshift(s)
-      activeSession = s
-      messages = s.messages
-      renderProjects()
-      document.getElementById("chat-msgs").innerHTML = '<div class="welcome"><h1>tsunami</h1><p>what do you want to build?</p></div>'
-    }
-
-    function switchSession(id) {
-      const s = sessions.find(x => x.id === id)
-      if (!s) return
-      activeSession = s
-      messages = s.messages
-      renderProjects()
-      renderChat()
-    }
-
-    function renderChat() {
-      const el = document.getElementById("chat-msgs")
-      if (!messages.length) {
-        el.innerHTML = '<div class="welcome"><h1>tsunami</h1><p>what do you want to build?</p></div>'
-        return
-      }
-      el.innerHTML = messages.map(m => `<div class="msg ${m.type}">${esc(m.text)}</div>`).join("")
-      el.scrollTop = el.scrollHeight
-    }
-
-    function renderProjects() {
-      document.getElementById("project-list").innerHTML = sessions.filter(s => !s.hidden).map(s =>
-        `<div class="project-item${s === activeSession ? " active" : ""}" onclick="switchSession(${s.id})">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div class="name">${esc(s.name)}</div>
-            <span onclick="event.stopPropagation();hideSession(${s.id})" style="color:var(--muted);cursor:pointer;font-size:11px;padding:2px 4px;border-radius:3px" onmouseenter="this.style.color='var(--red)'" onmouseleave="this.style.color='var(--muted)'">&times;</span>
-          </div>
-          <div class="time">${s.time}</div>
-        </div>`
-      ).join("")
-    }
-
-    function hideSession(id) {
-      const s = sessions.find(x => x.id === id)
-      if (!s) return
-      s.hidden = true
-      if (s === activeSession) {
-        const next = sessions.find(x => !x.hidden)
-        if (next) switchSession(next.id)
-        else {
-          activeSession = null
-          messages = []
-          document.getElementById("chat-msgs").innerHTML = '<div class="welcome"><h1>tsunami</h1><p>what do you want to build?</p></div>'
-        }
-      }
-      renderProjects()
     }
 
     // === CHAT ===
@@ -268,26 +175,16 @@
       const input = document.getElementById("prompt")
       const text = input.value.trim()
       if (!text) return
-      if (!activeSession) newSession()
-      // Name the session from the first prompt
-      if (activeSession && activeSession.name.startsWith("session-")) {
-        const skip = new Set(["build","make","create","the","for","with","and","that","app","save","workspace","deliverables","sure","really","works","please","want","need","like","just","some","this","from","into","have","about","very","also","here","there","then","when","what","which","where","they","them","been","will","would","could","should","more","most","other","than","only","each","every","after","before"])
-        const words = text.split(/\s+/).filter(w => w.length > 2 && !skip.has(w.toLowerCase()))
-        activeSession.name = words.slice(0, 2).join(" ").slice(0, 20) || text.slice(0, 20)
-        renderProjects()
-      }
       addChat("user", text)
       input.value = ""
       if (ws?.readyState === 1) { ws.send(JSON.stringify({ type: "prompt", text })); setHud("starting...") }
       else addChat("error", "not connected")
     }
 
-    let lastChatText = "", lastChatType = ""
+    let lastChatText = ""
     function addChat(type, text) {
-      // Deduplicate consecutive identical or similar messages
-      if (type !== "user" && (text === lastChatText || (type === lastChatType && type === "agent" && text.slice(0, 50) === lastChatText.slice(0, 50)))) return
+      if (type !== "user" && text === lastChatText) return
       lastChatText = text
-      lastChatType = type
       messages.push({ type, text })
       const el = document.getElementById("chat-msgs")
       const w = el.querySelector(".welcome"); if (w) w.remove()
@@ -298,12 +195,8 @@
       el.scrollTop = el.scrollHeight
     }
 
-    // === TERMINAL ===
-    function addTerm(text, cls = "out") { termLines.push({ text, cls }) }
-
     // === CODE VIEW ===
     function renderCode() {
-      if (getCurrentWs() !== "code") return
       document.getElementById("code-path").textContent = currentFile || "no file"
       const area = document.getElementById("code-area")
       if (!codeContent) { area.innerHTML = '<span style="color:var(--muted)">select a file</span>'; return }
@@ -312,44 +205,27 @@
       ).join("")
     }
 
-    function renderFileTree() {
-      const el = document.getElementById("code-files")
-      if (!fileList.length) { el.innerHTML = '<div style="padding:8px;color:var(--muted)">empty</div>'; return }
-      const colors = { tsx: "var(--blue)", ts: "var(--green)", css: "var(--purple)", json: "var(--orange)", html: "var(--red)", js: "var(--yellow)" }
-      el.innerHTML = fileList.slice(0, 60).map(f => {
+    function renderFiles() {
+      const el = document.getElementById("file-list")
+      if (!fileList.length) { el.innerHTML = '<div style="padding:8px;color:var(--muted)">no files yet</div>'; return }
+      const colors = { tsx: "var(--blue)", ts: "var(--green)", css: "var(--purple)", json: "var(--orange)", html: "var(--red)", js: "var(--yellow)", py: "var(--green)", md: "var(--muted)" }
+      el.innerHTML = fileList.slice(0, 80).map(f => {
         const name = f.split("/").pop()
         const ext = name.split(".").pop()
         const c = colors[ext] || "var(--muted)"
         const active = f === currentFile ? " active" : ""
-        return `<div class="code-file${active}" onclick="selectFile('${esc(f)}')"><span style="color:${c};font-size:9px">●</span>${esc(name)}</div>`
+        return `<div class="file-item${active}" onclick="selectFile('${esc(f)}')"><span style="color:${c};font-size:9px">●</span>${esc(name)}</div>`
       }).join("")
     }
 
-    function selectFile(path) { currentFile = path; renderCode(); renderFileTree() }
-
-    // === WORKSPACE TABS ===
-    function showWs(view, tab) {
-      document.querySelectorAll(".ws-tab").forEach(t => t.classList.remove("active"))
-      if (tab) tab.classList.add("active")
-      const c = document.getElementById("ws-content")
-      if (view === "code") {
-        c.innerHTML = `
-          <div class="code-sidebar" id="code-sidebar"><div class="code-sidebar-header">Files</div><div id="code-files"></div></div>
-          <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-            <div class="code-path" id="code-path">${esc(currentFile || "no file")}</div>
-            <div class="code-area" id="code-area"></div>
-          </div>`
-        renderCode(); renderFileTree()
-      } else if (view === "preview") {
-        c.innerHTML = '<iframe class="preview-frame" src="http://localhost:9876"></iframe>'
-      } else if (view === "terminal") {
-        c.innerHTML = '<div class="terminal" id="term-view"></div>'
-        const tv = document.getElementById("term-view")
-        termLines.forEach(l => { const d = document.createElement("div"); d.className = l.cls; d.textContent = l.text; tv.appendChild(d) })
-        tv.scrollTop = tv.scrollHeight
+    function selectFile(path) {
+      currentFile = path
+      // Request file content from file watcher
+      if (fileWs?.readyState === 1) {
+        fileWs.send(JSON.stringify({ type: "read", path }))
       }
+      renderFiles()
     }
-    function getCurrentWs() { return document.querySelector(".ws-tab.active")?.textContent.toLowerCase() || "code" }
 
     // === HUD ===
     function setHud(text, active = true) {
@@ -359,7 +235,7 @@
       document.getElementById("hud-text").textContent = active ? text : "idle"
     }
     function toolLabel(n) {
-      return { file_write:"writing code", file_edit:"editing", shell_exec:"running command", search_web:"searching", project_init:"scaffolding", swell:"dispatching eddies", undertow:"testing" }[n] || n.replace("_"," ")
+      return { file_write:"writing", file_edit:"editing", file_read:"reading", shell_exec:"running", search_web:"searching", project_init:"scaffolding", swell:"dispatching", undertow:"testing", generate_image:"generating", plan_update:"planning", message_info:"thinking", message_result:"delivering" }[n] || n.replace(/_/g," ")
     }
 
     // === HEALTH ===
@@ -375,29 +251,7 @@
 
     function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML }
 
-    // === PERSISTENCE (localStorage) ===
-    function saveSessions() {
-      try { localStorage.setItem("tsunami_sessions", JSON.stringify(sessions)) } catch {}
-      try { localStorage.setItem("tsunami_active", activeSession?.id || "") } catch {}
-    }
-    function loadSessions() {
-      try {
-        const saved = JSON.parse(localStorage.getItem("tsunami_sessions") || "[]")
-        if (saved.length) {
-          sessions = saved
-          const activeId = parseInt(localStorage.getItem("tsunami_active"))
-          const s = sessions.find(x => x.id === activeId && !x.hidden) || sessions.find(x => !x.hidden)
-          if (s) { activeSession = s; messages = s.messages; renderProjects(); renderChat(); return true }
-        }
-      } catch {}
-      return false
-    }
-    // Hook saves into mutations
-    const _addChat = addChat; addChat = function(t, x) { _addChat(t, x); saveSessions() }
-    const _renderP = renderProjects; renderProjects = function() { _renderP(); saveSessions() }
-
     // === INIT ===
-    if (!loadSessions()) { /* empty — session created on first prompt */ }
     connectAgent()
     connectFiles()
     checkHealth()
