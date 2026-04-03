@@ -38,9 +38,11 @@
     .msg.user { color: var(--accent-bright); font-weight: 500; }
     .msg.user::before { content: "> "; color: var(--muted); }
     .msg.agent { padding-left: 10px; border-left: 2px solid var(--accent-glow); }
-    .msg.tool { color: var(--muted); font-size: 11px; padding-left: 10px; opacity: 0.7; }
+    .msg.tool { color: var(--muted); font-size: 11px; padding-left: 10px; opacity: 0.7; font-family: inherit; }
+    .msg.tool::before { content: "● "; color: var(--accent); }
     .msg.error { color: var(--red); font-size: 11px; }
     .msg.system { color: var(--green); font-size: 11px; }
+    .msg.system::before { content: "✓ "; }
     .chat-input { display: flex; padding: 8px; gap: 6px; border-top: 1px solid var(--border); background: var(--panel); }
     .chat-input input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text); font-family: inherit; font-size: 13px; outline: none; }
     .chat-input input:focus { border-color: var(--accent); }
@@ -99,7 +101,14 @@
     <!-- LEFT: Chat + Activity -->
     <div class="left">
       <div class="chat-msgs" id="chat-msgs">
-        <div class="welcome"><h1>tsunami</h1><p>what do you want to build?</p></div>
+        <div class="welcome">
+          <pre style="color:var(--accent-bright);font-size:11px;line-height:1.2;text-shadow:0 0 10px var(--accent-glow)">
+▀▛▘▞▀▖▌ ▌▙ ▌▞▀▖▙▗▌▜▘
+ ▌ ▚▄ ▌ ▌▌▌▌▙▄▌▌▘▌▐
+ ▌ ▖ ▌▌ ▌▌▝▌▌ ▌▌ ▌▐
+ ▘ ▝▀ ▝▀ ▘ ▘▘ ▘▘ ▘▀▘</pre>
+          <p style="color:var(--muted);font-size:11px;margin-top:8px">what do you want to build?</p>
+        </div>
       </div>
       <div class="chat-input">
         <input id="prompt" placeholder="build me a..." onkeydown="if(event.key==='Enter')send()" autofocus />
@@ -147,7 +156,7 @@
 
     function handleMsg(d) {
       if (d.type === "tool_call") {
-        addChat("tool", toolLabel(d.name) + (d.preview ? ` — ${d.preview}` : ""))
+        addChat("tool", `${toolLabel(d.name)}(${d.preview || ""})`)
         setHud(toolLabel(d.name))
         if (d.content && d.path) { codeContent = d.content; currentFile = d.path; renderCode(); renderFiles() }
       } else if (d.type === "message") {
@@ -267,7 +276,7 @@
       document.getElementById("hud-text").textContent = active ? text : "idle"
     }
     function toolLabel(n) {
-      return { file_write:"writing", file_edit:"editing", file_read:"reading", shell_exec:"running", search_web:"searching", project_init:"scaffolding", swell:"dispatching", undertow:"testing", generate_image:"generating", plan_update:"planning", message_info:"thinking", message_result:"delivering", match_glob:"finding files", match_grep:"searching code" }[n] || n.replace(/_/g," ")
+      return { file_write:"Write", file_edit:"Edit", file_read:"Read", shell_exec:"Run", search_web:"Search", project_init:"Init", swell:"Swell", undertow:"Test", generate_image:"Generate", plan_update:"Plan", message_info:"Info", message_result:"Result", match_glob:"Glob", match_grep:"Grep", python_exec:"Python", summarize_file:"Summarize" }[n] || n
     }
 
     // === HEALTH ===
