@@ -94,8 +94,26 @@ class ShellExec(BaseTool):
         }
 
     async def execute(self, command: str, timeout: int = 3600, workdir: str = "", **kw) -> ToolResult:
-        # Destructive command detection
+        # External dep validation — warn on suspicious npm installs
         import re
+        npm_match = re.search(r'npm install\s+([a-z@][a-z0-9@/._-]+)', command)
+        if npm_match:
+            pkg = npm_match.group(1).strip()
+            # Known-good packages pass through; unknown ones get a warning
+            known_good = {
+                "react", "react-dom", "recharts", "d3", "papaparse", "xlsx",
+                "matter-js", "three", "pixi.js", "express", "better-sqlite3",
+                "cors", "ws", "framer-motion", "zustand", "react-router-dom",
+                "react-icons", "date-fns", "lodash", "axios", "uuid",
+                "@react-three/fiber", "@react-three/drei", "@react-three/rapier",
+                "@pixi/react", "tailwindcss", "postcss", "autoprefixer",
+                "@uiw/react-md-editor", "marked", "highlight.js",
+                "chart.js", "react-chartjs-2", "socket.io-client",
+            }
+            if pkg not in known_good and not pkg.startswith("@types/"):
+                log.warning(f"Unknown npm package: {pkg}")
+
+        # Destructive command detection
         warning = _check_destructive(command)
         if warning and warning.startswith("BLOCKED"):
             return ToolResult(warning, is_error=True)
