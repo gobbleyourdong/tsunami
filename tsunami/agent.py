@@ -1300,6 +1300,59 @@ class Agent:
                     "Save your findings/progress to a file NOW before context is lost."
                 )
 
+        # 8sc. Scaffold awareness — remind agent what components are available
+        if self.state.iteration > 0 and self.state.iteration % 10 == 0:
+            try:
+                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                if deliverables.exists():
+                    projects = sorted(
+                        [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
+                        key=lambda p: p.stat().st_mtime, reverse=True
+                    )
+                    for proj in projects[:1]:
+                        readme = proj / "README.md"
+                        ui_dir = proj / "src" / "components" / "ui"
+                        comp_dir = proj / "src" / "components"
+                        if readme.exists() and ui_dir.exists():
+                            # List available UI components
+                            ui_components = [f.stem for f in ui_dir.iterdir()
+                                           if f.suffix in ('.tsx', '.ts') and f.stem != 'index']
+                            if ui_components:
+                                self.state.add_system_note(
+                                    f"AVAILABLE COMPONENTS (import from './components/ui'):\n"
+                                    f"{', '.join(sorted(ui_components))}\n"
+                                    f"Don't rewrite these — import them."
+                                )
+                                log.info(f"Scaffold awareness: {len(ui_components)} UI components available")
+                        break
+            except Exception:
+                pass
+
+        # 8sd. Scaffold duplicate detection — don't rewrite existing components
+        if tool_call.name == "file_write" and not result.is_error:
+            written_path = tool_call.arguments.get("path", "")
+            if "components/" in written_path and written_path.endswith(".tsx"):
+                comp_name = Path(written_path).stem
+                scaffold_names = {
+                    "Modal", "Toast", "Badge", "Tabs", "Accordion", "Alert",
+                    "Avatar", "Dialog", "Dropdown", "Progress", "Select",
+                    "Skeleton", "Switch", "Tooltip", "GlowCard", "Timeline",
+                }
+                if comp_name in scaffold_names:
+                    # Check if it exists in ui/
+                    try:
+                        parts = written_path.split("deliverables/")
+                        if len(parts) > 1:
+                            project_name = parts[1].split("/")[0]
+                            ui_path = Path(self.config.workspace_dir) / "deliverables" / project_name / "src" / "components" / "ui" / f"{comp_name}.tsx"
+                            if ui_path.exists():
+                                self.state.add_system_note(
+                                    f"DUPLICATE: {comp_name} already exists at components/ui/{comp_name}.tsx. "
+                                    f"Import it instead: import {{ {comp_name} }} from './components/ui'"
+                                )
+                    except Exception:
+                        pass
+
         # 8w. Mid-loop auto-wire — if components exist but App.tsx is a stub, wire it NOW
         # Don't wait until exit — the dev server shows "Loading..." until App.tsx has imports
         if tool_call.name in ("file_write", "file_edit") and not result.is_error:
