@@ -209,10 +209,18 @@ $CleanupBlock = {
 }
 
 # ── Open WebUI in browser ────────────────────────────────────────────────────
-$uiPath = Join-Path $DIR "desktop\index.html"
-if (Test-Path $uiPath) {
-    Start-Process "file:///$($uiPath -replace '\\','/')"
-    Write-Host "  Tsunami is running — open http://localhost:3000 or check the browser"
+# Serve via HTTP (not file://) so WebSocket bridge works
+$uiDir = Join-Path $DIR "desktop"
+if (Test-Path (Join-Path $uiDir "index.html")) {
+    $kwargs = @{
+        FilePath = "python"
+        ArgumentList = "-m http.server 9876 --directory `"$uiDir`""
+        WindowStyle = "Hidden"
+    }
+    Start-Process @kwargs
+    Start-Sleep -Seconds 1
+    Start-Process "http://localhost:9876"
+    Write-Host "  Tsunami is running at http://localhost:9876"
     Write-Host "  Press Ctrl+C to stop"
 }
 

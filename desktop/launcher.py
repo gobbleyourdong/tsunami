@@ -289,24 +289,44 @@ def get_available_memory_gb():
 
 
 def open_ui():
-    """Open the UI."""
-    url = f"file://{UI_PATH}"
+    """Open the UI — serve via HTTP, not file://."""
+    import webbrowser
+
+    # Serve index.html via the serve daemon or a simple server
     try:
-        import webview
-        webview.create_window("Tsunami", str(UI_PATH), width=1200, height=800, background_color="#0a0a14")
-        webview.start()
-        return
+        from .serve_daemon import find_latest_project
     except ImportError:
         pass
 
-    import webbrowser
-    webbrowser.open(url)
-    print(f"  UI: {url}")
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
+    # Open the WebSocket bridge URL if the backend is running, otherwise serve static
+    for url in ["http://localhost:3000", "http://localhost:9876"]:
+        try:
+            import httpx
+            r = httpx.get(url, timeout=2)
+            if r.status_code == 200:
+                webbrowser.open(url)
+                return
+        except Exception:
+            continue
+
+    # Fallback: serve index.html locally
+    import subprocess
+    html_dir = str(Path(__file__).parent)
+    kwargs = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    if sys.platform == "win32":
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 0
+        kwargs["startupinfo"] = si
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "http.server", "9876", "--directory", html_dir],
+        **kwargs,
+    )
+    processes.append(proc)
+    time.sleep(1)
+    webbrowser.open("http://localhost:9876")
+    print("  UI: http://localhost:9876")
 
 
 def cleanup():
