@@ -1061,15 +1061,45 @@ class Agent:
                                             page.on("pageerror", lambda e: js_errors.append(str(e)[:200]))
                                             await page.goto("http://localhost:9876", timeout=8000)
                                             await _aio.sleep(2)
-                                            await browser.close()
+
+                                            # Check for JS errors
                                             if js_errors:
+                                                await browser.close()
                                                 self.state.add_system_note(
                                                     f"RUNTIME ERROR (page loaded but JS crashed):\n" +
                                                     "\n".join(f"  {e}" for e in js_errors[:3])
                                                 )
                                                 log.info(f"Runtime check: {len(js_errors)} JS error(s)")
                                             else:
-                                                log.info("Runtime check: PASS")
+                                                # Blank page detection — check visible content
+                                                text = await page.evaluate("document.body?.innerText?.trim() || ''")
+                                                screenshot = await page.screenshot()
+                                                await browser.close()
+
+                                                is_blank = len(text) < 5
+                                                # Also check pixels — mostly white/black = likely blank
+                                                if is_blank:
+                                                    try:
+                                                        from PIL import Image
+                                                        import io
+                                                        img = Image.open(io.BytesIO(screenshot)).convert("RGB")
+                                                        pixels = list(img.getdata())[::50]
+                                                        near_white = sum(1 for r,g,b in pixels if r>240 and g>240 and b>240) / len(pixels)
+                                                        near_black = sum(1 for r,g,b in pixels if r<20 and g<20 and b<20) / len(pixels)
+                                                        is_blank = near_white > 0.9 or near_black > 0.95
+                                                    except Exception:
+                                                        pass
+
+                                                if is_blank:
+                                                    self.state.add_system_note(
+                                                        "BLANK PAGE: Build compiled but the page is empty. "
+                                                        "Check that App.tsx renders visible content, "
+                                                        "all imports resolve correctly, and any external "
+                                                        "packages are installed. The page shows nothing."
+                                                    )
+                                                    log.info("Runtime check: BLANK PAGE")
+                                                else:
+                                                    log.info(f"Runtime check: PASS ({len(text)} chars visible)")
                                     except Exception as e:
                                         log.debug(f"Runtime check skipped: {e}")
                 except Exception as e:
