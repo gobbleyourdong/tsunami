@@ -119,7 +119,7 @@
 - [x] Scaffold awareness (periodic component reminder + duplicate detection)
 - [x] SPA visual validation (blank page + content match + delivery runtime gate)
 - [x] Model-aware adaptation (11 tools for 2B, simpler prompt)
-- [ ] todo.md checklist pattern (wave writes, reads each iteration)
+- [x] todo.md checklist pattern (auto-generate + auto-check) (wave writes, reads each iteration)
 - [ ] Expose tool for public URL tunneling (like ngrok)
 
 ### Scaffolds
@@ -131,9 +131,9 @@
 
 ### Components
 - [ ] Rich text editor (Tiptap or ProseMirror)
-- [ ] Data grid with sorting/filtering/pagination
+- [x] Data grid with sorting/filtering/pagination
 - [ ] File manager (tree view + upload)
-- [ ] Chat interface (message bubbles, streaming)
+- [x] Chat interface (realtime scaffold ChatFeed) (message bubbles, streaming)
 - [ ] Map component (Leaflet or MapLibre)
 - [ ] Calendar / date picker
 - [ ] Notification center
@@ -150,23 +150,23 @@
 ### Intelligence
 - [ ] Train small tension classifier (50M params) for packaging
 - [ ] Vision model integration (Qwen3.5 multimodal with mmproj)
-- [ ] Eddy specialization (some eddies for code, some for research)
-- [ ] Session persistence across agent restarts
-- [ ] Learning from successful builds (pattern extraction)
+- [x] Eddy specialization (auto-detect task type → specialized prompt) (some eddies for code, some for research)
+- [x] Session persistence (enhanced summary + advice)
+- [x] Learning from successful builds (observer.learn_from_build) (pattern extraction)
 
 ### Methodology — SPA Visual Validation ✅ (implemented)
 - [x] Blank page detection (Playwright pixel + text check)
 - [x] Content verification (keyword match against user request)
 - [x] Dev server health gate at delivery
-- [ ] Screenshot diff on re-builds
-- [ ] External dep validation (check npm before installing)
+- [x] Screenshot diff on re-builds
+- [x] External dep validation (npm allowlist) (check npm before installing)
 
 ### Methodology — Iterative Refinement ✅ (implemented)
 - [x] Existing project detection (keyword match + iteration intent)
 - [x] Auto-load context (App.tsx + types.ts + components injected)
 - [ ] Quality assessment (screenshot current state before iterating)
-- [ ] Project history (track prompts per project)
-- [ ] Regression prevention (verify compile after edits)
+- [x] Project history (.history.md per project) (track prompts per project)
+- [x] Regression prevention (pre-edit build check) (verify compile after edits)
 
 ### Methodology — Model-Aware Adaptation ✅ (implemented)
 - [x] Lite tool set (11 tools for 2B, 18 for 9B)
@@ -186,12 +186,12 @@
 - [x] Error classifier + auto-fix (error_fixer.py — 5 patterns)
 - [x] npm auto-install from safe allowlist
 - [x] Import fixer (named/default mismatch)
-- [ ] Error memory within session (apply previous fix on recurrence)
+- [x] Error memory within session (apply previous fix on recurrence)
 
 ### Methodology — Scaffold Awareness ✅ (implemented)
 - [x] Component inventory re-injection every 10 iterations
 - [x] Duplicate component detection (writes Modal → "already exists in ui/")
-- [ ] Pin scaffold README in context (immune to compression)
+- [x] Pin scaffold README (cached for re-injection) (immune to compression)
 - [ ] Scaffold-aware prompt ("check components/ before writing new ones")
 
 ### Methodology — Priority-Based Context Management
@@ -227,8 +227,8 @@ keeping recent noise (build output, grep results).
       them in a pinned facts block.
 
 ### WebUI
-- [ ] Light / medium / dark themes (toggle in top bar)
-- [ ] Project history sidebar (list deliverables, click to preview)
+- [x] Light / medium / dark themes (toggle in top bar)
+- [x] Project history (.history.md per project) sidebar (list deliverables, click to preview)
 - [ ] File content loading (click file in tree → loads content)
 - [ ] Mobile responsive layout
 
