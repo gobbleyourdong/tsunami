@@ -10,6 +10,8 @@ Set-Location $DIR
 # ── Auto-update on launch (silent, non-blocking) ────────────────────────────
 if (Test-Path "$DIR\.git") {
     try {
+        # Ensure tracking is set (installer may init without it)
+        git branch --set-upstream-to=origin/main main 2>$null
         $local = (git rev-parse HEAD 2>$null).Trim()
         git fetch origin main --quiet 2>$null
         $remote = (git rev-parse origin/main 2>$null).Trim()
