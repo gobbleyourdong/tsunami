@@ -993,6 +993,30 @@ class Agent:
                                     log.info(f"Auto-compile: FAIL ({len(errors)} errors)")
                             else:
                                 log.info("Auto-compile: PASS")
+                                # Quick runtime check — load in headless browser, catch JS errors
+                                serving = getattr(self, '_serving_project', None)
+                                if serving == project_name:
+                                    try:
+                                        import asyncio as _aio
+                                        from playwright.async_api import async_playwright
+                                        async with async_playwright() as pw:
+                                            browser = await pw.chromium.launch(headless=True)
+                                            page = await browser.new_page()
+                                            js_errors = []
+                                            page.on("pageerror", lambda e: js_errors.append(str(e)[:200]))
+                                            await page.goto("http://localhost:9876", timeout=8000)
+                                            await _aio.sleep(2)
+                                            await browser.close()
+                                            if js_errors:
+                                                self.state.add_system_note(
+                                                    f"RUNTIME ERROR (page loaded but JS crashed):\n" +
+                                                    "\n".join(f"  {e}" for e in js_errors[:3])
+                                                )
+                                                log.info(f"Runtime check: {len(js_errors)} JS error(s)")
+                                            else:
+                                                log.info("Runtime check: PASS")
+                                    except Exception as e:
+                                        log.debug(f"Runtime check skipped: {e}")
                 except Exception as e:
                     log.debug(f"Auto-compile skipped: {e}")
 
