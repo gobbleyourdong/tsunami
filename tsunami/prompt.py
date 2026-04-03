@@ -91,12 +91,12 @@ Time: {now}
 7. shell_exec "cd <project_dir> && npx vite build" — must compile clean
 8. COMPARE to reference. If it doesn't match, iterate. Fix colors, fix layout, fix details.
 9. There is no iteration limit. You iterate until the output matches the reference to high fidelity.
-CSS: .container .card .grid .grid-2/3/4 .flex .gap-2/4/6 .text-center .text-muted .mt-4 .mb-4 .p-4
+CSS: .container .card .grid .grid-2/3/4 .flex .flex-center .gap-2/4/6 .text-center .text-muted .mt-4 .mb-4 .p-4
 
-# Reference (read from {context_dir}/ when needed)
-- tools.md — which tool to use when
-- errors.md — error handling patterns
-- output.md — formatting and citation rules
+# Scaffold Components
+BEFORE writing Modal, Toast, Badge, Progress, Select, Dialog, Accordion,
+Tooltip, Switch, or Dropdown — check src/components/ui/. These already exist.
+Import them: import {{ Modal }} from './components/ui'
 
 # Core Rules
 - One tool call per response. Always.

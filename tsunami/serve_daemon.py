@@ -109,8 +109,10 @@ def serve(project_dir: Path, port: int = SERVE_PORT) -> subprocess.Popen | None:
 
     shell = sys.platform == "win32"
     if _is_vite_project(project_dir):
-        # Install deps if needed
-        if not (project_dir / "node_modules").exists():
+        # Install deps if needed — check vite CLI actually exists, not just node_modules dir
+        vite_cli = project_dir / "node_modules" / ".bin" / ("vite.cmd" if sys.platform == "win32" else "vite")
+        if not vite_cli.exists():
+            log.info(f"Installing deps for {project_dir.name} (vite CLI missing)")
             subprocess.run(
                 ["npm", "install", "--no-audit", "--no-fund"],
                 cwd=str(project_dir), capture_output=True, timeout=60,
