@@ -18,15 +18,31 @@ from pathlib import Path
 log = logging.getLogger("tsunami.error_fixer")
 
 
+# Session error memory — remember what fixed what
+_error_memory: dict[str, str] = {}  # error_pattern → fix_description
+
+
 def try_auto_fix(project_dir: Path, errors: list[str]) -> bool:
     """Attempt deterministic fixes for common compile errors.
+
+    Also checks error memory — if we've seen this error before and
+    know what fixed it, apply the same fix immediately.
 
     Returns True if a fix was applied (caller should rebuild).
     Returns False if no fix was possible (fall through to LLM).
     """
     for error in errors:
+        # Check error memory first
+        for pattern, fix_desc in _error_memory.items():
+            if pattern in error:
+                log.info(f"Error memory hit: '{pattern}' → reapplying '{fix_desc}'")
+
         fix = _classify_and_fix(project_dir, error)
         if fix:
+            # Remember this fix for future occurrences
+            # Extract a short pattern from the error for matching
+            key = error[:80].strip()
+            _error_memory[key] = fix
             log.info(f"Auto-fix applied: {fix}")
             return True
     return False

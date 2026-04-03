@@ -209,11 +209,15 @@ class ProjectInit(BaseTool):
             scaffold_info = f" (scaffold: {scaffold_name})" if scaffold_name else ""
             dep_list = ", ".join(dependencies) if dependencies else "none"
 
-            # Include README content so the model knows what's available
+            # Include README — both in result AND as a pinned system note
+            # The result gets compressed; the system note survives longer
             readme_content = ""
             readme_path = project_dir / "README.md"
             if readme_path.exists():
-                readme_content = "\n\n---\n\n" + readme_path.read_text()
+                readme_text = readme_path.read_text()
+                readme_content = "\n\n---\n\n" + readme_text
+                # Store for periodic re-injection by scaffold awareness
+                self._readme_cache = readme_text
 
             return ToolResult(
                 f"Project '{name}' ready{scaffold_info} at {project_dir}\n"
