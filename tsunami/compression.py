@@ -203,9 +203,9 @@ def fast_prune(state: AgentState, keep_recent: int = 8) -> int:
         # Only prune messages with importance < 0.5 and content > 200 chars
         if importance < 0.5 and content_len > 200:
             filepath_line = ""
-            if "Full output saved to:" in m.content:
+            if ".context/" in m.content or "Full output saved to:" in m.content:
                 for line in m.content.split("\n"):
-                    if "saved to:" in line:
+                    if ".context/" in line or "saved to:" in line:
                         filepath_line = f" | {line.strip()}"
                         break
             state.conversation[i] = Message(
