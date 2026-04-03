@@ -766,13 +766,22 @@ class Agent:
                 except Exception as e:
                     log.debug(f"Reference save skipped: {e}")
 
-        # 8vg. Auto-ground — after generate_image, extract element positions from the image
-        if tool_call.name == "generate_image" and not result.is_error:
+        # 8vg. Auto-ground — after generate_image, extract element positions
+        # Only fires ONCE per session (first generate_image), only for UI replication tasks
+        _grounded = getattr(self, '_has_grounded', False)
+        if tool_call.name == "generate_image" and not result.is_error and not _grounded:
             save_path = tool_call.arguments.get("save_path", "")
             if save_path and Path(save_path).exists():
                 try:
-                    # Infer elements to find from the user's request
+                    # Only ground for UI replication tasks (device/interface replicas)
                     user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                    ui_task = any(k in user_req.lower() for k in [
+                        "replica", "clone", "gameboy", "game boy", "calculator",
+                        "console", "device", "interface", "remote", "dmg",
+                    ])
+                    if not ui_task:
+                        raise ValueError("Not a UI replication task — skip grounding")
+                    self._has_grounded = True
                     # Extract likely UI elements from the request
                     element_keywords = {
                         "button": ["A button", "B button"],
