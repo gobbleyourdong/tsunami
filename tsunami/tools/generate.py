@@ -107,8 +107,17 @@ class GenerateImage(BaseTool):
 
             # Lazy-load the pipeline (cached after first call)
             if not hasattr(self, '_sd_pipe'):
-                dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-                device = "cuda" if torch.cuda.is_available() else "cpu"
+                # Detect device safely — CUDA only if it actually works
+                device = "cpu"
+                dtype = torch.float32
+                if torch.cuda.is_available():
+                    try:
+                        torch.zeros(1, device="cuda")
+                        device = "cuda"
+                        dtype = torch.float16
+                    except Exception:
+                        pass  # CUDA reports available but doesn't work (XPU, driver issues)
+
                 log.info(f"Loading SD-Turbo on {device} (first time downloads ~2GB)...")
                 self._sd_pipe = AutoPipelineForText2Image.from_pretrained(
                     "stabilityai/sd-turbo",
