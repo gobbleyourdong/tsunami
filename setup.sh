@@ -140,6 +140,8 @@ elif [ -d "$DIR/tsunami" ]; then
   git init 2>/dev/null
   git remote add origin "https://github.com/gobbleyourdong/tsunami.git" 2>/dev/null
   git fetch origin main --quiet 2>/dev/null
+  git checkout -b main 2>/dev/null
+  git branch --set-upstream-to=origin/main main 2>/dev/null
 else
   echo "  → Cloning tsunami..."
   git clone https://github.com/gobbleyourdong/tsunami.git "$DIR"
