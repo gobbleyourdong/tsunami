@@ -161,35 +161,12 @@
 - [ ] Screenshot diff on re-builds
 - [ ] External dep validation (check npm before installing)
 
-### Methodology — Iterative Refinement (build once, never improve)
-Every prompt creates a new project. "Build a gameboy" was run 5 times
-this session — 5 separate projects, none improved. "Fix the blank
-page in notes app" would create a 6th project instead of fixing the
-existing one. The agent has no concept of brownfield work.
-
-The infrastructure exists (set_project, active_project) but is never
-called. This is the gap between a demo tool and a real development
-environment. Users want to iterate, not restart.
-
-- [ ] **Existing project detection**: Before project_init, check if
-      a deliverable with a similar name exists. "Build a calculator"
-      → detect calculator-resembles-graphic already exists → ask
-      "Improve existing or start fresh?"
-- [ ] **Auto-load context**: When working on an existing project,
-      read App.tsx + types.ts + package.json and inject into context.
-      The agent should know what's already built.
-- [ ] **Diff-based iteration**: "Make the buttons bigger" on an
-      existing project → read current code → file_edit (not
-      file_write) → preserve what works, change what's asked.
-- [ ] **Quality assessment on existing builds**: Before iterating,
-      screenshot the current state and inject it into context.
-      The agent sees what the user sees.
-- [ ] **Project history**: Track what prompts built each project.
-      "Build a calculator" then "add scientific functions" are
-      sequential refinements of one project, not two builds.
-- [ ] **Regression prevention**: After editing an existing project,
-      verify it still compiles and renders. The iteration shouldn't
-      break what was working.
+### Methodology — Iterative Refinement ✅ (implemented)
+- [x] Existing project detection (keyword match + iteration intent)
+- [x] Auto-load context (App.tsx + types.ts + components injected)
+- [ ] Quality assessment (screenshot current state before iterating)
+- [ ] Project history (track prompts per project)
+- [ ] Regression prevention (verify compile after edits)
 
 ### Methodology — Model-Aware Adaptation ✅ (implemented)
 - [x] Lite tool set (11 tools for 2B, 18 for 9B)
@@ -197,31 +174,13 @@ environment. Users want to iterate, not restart.
 - [ ] Phase-based tool filtering (research tools → build tools)
 - [ ] Model capability auto-detection (probe at init)
 
-### Methodology — Agent Loop Regression Tests (8 breakages, 0 caught)
-37 test files (6,288 lines) test components in isolation. None test
-the agent loop behavior. This session had 8 integration breakages —
-all caught by manual testing, zero by automated tests.
-
-The tests we need would have caught every issue this session:
-
-- [ ] **Greeting test**: `agent.run("hi")` completes in ≤3 iterations.
-      Would have caught: tension gate blocking greetings (6-14 iters).
-- [ ] **Build test**: `agent.run("build a counter")` produces a
-      deliverable that compiles. Would have caught: path resolution,
-      missing imports, blank pages.
-- [ ] **Iteration bound test**: no prompt takes >100 iterations.
-      Would have caught: message_info spam, verification stalls.
-- [ ] **Tool call test**: specific prompts trigger specific tools.
-      "build X" → project_init within first 5 calls.
-      "hi" → message_result within first 2 calls.
-- [ ] **Swell test**: plan with 3+ components auto-dispatches eddies.
-      Would have caught: swell never firing (0/400 calls).
-- [ ] **Lite mode test**: agent with eddy_endpoint=wave_endpoint
-      completes a build. Would have caught: 2B-specific failures.
-
-These are fast (~30s each with a running model) and catch exactly
-the class of bugs that ship to users. Unit tests pass, integration
-breaks — the gap that costs the most debugging time.
+### Methodology — Agent Loop Regression Tests ✅ (implemented)
+- [x] Greeting test (hi ≤3 iters)
+- [x] Iteration bound test (<30 for simple builds)
+- [x] Tool selection test (project_init in first 8 calls)
+- [x] Lite mode test (tool count, no python_exec)
+- [ ] Full build test (produces compilable deliverable)
+- [ ] Swell dispatch test (plan with 3+ components fires eddies)
 
 ### Methodology — Deterministic Error Recovery ✅ (implemented)
 - [x] Error classifier + auto-fix (error_fixer.py — 5 patterns)
@@ -267,7 +226,15 @@ keeping recent noise (build output, grep results).
       "user wants dark theme", "build needs recharts") and keep
       them in a pinned facts block.
 
-### Methodology — Closed-Loop Feedback (highest leverage)
+### WebUI
+- [ ] Light / medium / dark themes (toggle in top bar)
+- [ ] Project history sidebar (list deliverables, click to preview)
+- [ ] File content loading (click file in tree → loads content)
+- [ ] Mobile responsive layout
+
+### Methodology — Closed-Loop Feedback ✅ (implemented)
+- [x] FeedbackTracker (track outcomes, detect patterns, inject nudges)
+- [ ] Adaptive tension thresholds based on task type
 The agent measures quality (tension, undertow, pressure) but none of it
 feeds back into the next tool choice. All feedback loops are one-way.
 

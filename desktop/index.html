@@ -7,13 +7,29 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    :root {
+    /* Dark theme (default) */
+    :root, [data-theme="dark"] {
       --bg: #080810; --bg2: #0c0c18; --panel: #0e0e1c; --panel2: #12122a;
       --border: #1a1a30; --border-hi: #252550;
       --text: #c8c8d8; --muted: #4a4a6a;
       --accent: #1a8a8a; --accent-glow: #0d6868; --accent-bright: #2ab8b8;
       --green: #3da87a; --yellow: #b8a040; --red: #a83a3a;
       --blue: #4070a8; --purple: #7050a0; --orange: #a86830;
+    }
+    /* Medium theme */
+    [data-theme="medium"] {
+      --bg: #1e1e2e; --bg2: #252535; --panel: #2a2a3a; --panel2: #303045;
+      --border: #3a3a50; --border-hi: #4a4a65;
+      --text: #d4d4e0; --muted: #6a6a85;
+      --accent: #2a9a9a; --accent-glow: #1a7a7a; --accent-bright: #3ac8c8;
+    }
+    /* Light theme */
+    [data-theme="light"] {
+      --bg: #f5f5f8; --bg2: #eaeaf0; --panel: #e0e0e8; --panel2: #d8d8e2;
+      --border: #c0c0d0; --border-hi: #b0b0c0;
+      --text: #1a1a2a; --muted: #6a6a80;
+      --accent: #0a7a7a; --accent-glow: #088a8a; --accent-bright: #0a9a9a;
+      --green: #2a8a5a; --red: #c03030;
     }
     html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono','Cascadia Code','Fira Code','Consolas',monospace; font-size: 13px; overflow: hidden; }
 
@@ -92,6 +108,19 @@
     #app.preview-max .left { display: none; }
     #app.preview-max .right { border: none; }
 
+    /* Theme toggle */
+    .theme-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: inherit; }
+    .theme-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* Project dropdown */
+    .projects-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 2px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: inherit; position: relative; }
+    .projects-btn:hover { color: var(--text); border-color: var(--accent); }
+    .projects-list { display: none; position: absolute; top: 100%; right: 0; margin-top: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; min-width: 200px; max-height: 300px; overflow-y: auto; z-index: 50; }
+    .projects-list.open { display: block; }
+    .proj-item { padding: 6px 12px; cursor: pointer; font-size: 11px; border-bottom: 1px solid var(--border); }
+    .proj-item:hover { background: var(--panel2); color: var(--accent-bright); }
+    .proj-item:last-child { border-bottom: none; }
+
     ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   </style>
 </head>
@@ -99,7 +128,12 @@
   <div id="app">
     <div class="top-bar">
       <span class="logo">TSUNAMI</span>
+      <div style="position:relative">
+        <button class="projects-btn" onclick="toggleProjects()">Projects ▾</button>
+        <div class="projects-list" id="projects-list"></div>
+      </div>
       <span class="spacer"></span>
+      <button class="theme-btn" onclick="cycleTheme()" id="theme-btn">dark</button>
       <div class="hud">
         <span id="hud-text">idle</span>
         wave <div class="dot" id="wave-dot"></div>
@@ -296,6 +330,55 @@
     }
 
     function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML }
+
+    // === THEMES ===
+    const themes = ["dark", "medium", "light"]
+    let currentThemeIdx = parseInt(localStorage.getItem("tsunami_theme") || "0")
+    function cycleTheme() {
+      currentThemeIdx = (currentThemeIdx + 1) % themes.length
+      document.documentElement.setAttribute("data-theme", themes[currentThemeIdx])
+      document.getElementById("theme-btn").textContent = themes[currentThemeIdx]
+      localStorage.setItem("tsunami_theme", currentThemeIdx)
+    }
+    // Apply saved theme
+    document.documentElement.setAttribute("data-theme", themes[currentThemeIdx])
+    document.getElementById("theme-btn").textContent = themes[currentThemeIdx]
+
+    // === PROJECTS ===
+    function toggleProjects() {
+      const list = document.getElementById("projects-list")
+      list.classList.toggle("open")
+      if (list.classList.contains("open")) loadProjects()
+    }
+    async function loadProjects() {
+      const list = document.getElementById("projects-list")
+      try {
+        const r = await fetch("/api/projects")
+        if (!r.ok) throw new Error()
+        const projects = await r.json()
+        list.innerHTML = projects.length
+          ? projects.map(p => `<div class="proj-item" onclick="openProject('${esc(p.name)}')">${esc(p.name)} <span style="color:var(--muted)">${p.files} files</span></div>`).join("")
+          : '<div class="proj-item" style="color:var(--muted)">No projects yet</div>'
+      } catch {
+        // API not available — try reading from file watcher
+        list.innerHTML = fileList.length
+          ? [...new Set(fileList.map(f => f.split("/")[0]))].map(p =>
+              `<div class="proj-item" onclick="openProject('${esc(p)}')">${esc(p)}</div>`
+            ).join("")
+          : '<div class="proj-item" style="color:var(--muted)">No projects yet</div>'
+      }
+    }
+    function openProject(name) {
+      document.getElementById("projects-list").classList.remove("open")
+      // Switch preview to this project
+      addChat("system", `Viewing project: ${name}`)
+    }
+    // Close dropdown on outside click
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".projects-btn") && !e.target.closest(".projects-list")) {
+        document.getElementById("projects-list").classList.remove("open")
+      }
+    })
 
     // === INIT ===
     connectAgent()
