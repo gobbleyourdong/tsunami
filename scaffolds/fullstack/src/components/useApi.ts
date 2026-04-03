@@ -1,42 +1,61 @@
-const API_BASE = "http://localhost:3001/api"
+import { useState, useEffect, useCallback } from "react"
 
-/** Fetch helper — wraps fetch with JSON parsing and error handling. */
+const API_BASE = "/api"
+
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...options,
   })
-  if (!res.ok) throw new Error(`API error: ${res.status}`)
+  if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`)
   return res.json()
 }
 
-/** CRUD helpers — use these in your components. */
-export function useApi<T = any>(resource: string) {
-  return {
-    async list(): Promise<T[]> {
-      return api<T[]>(`/${resource}`)
-    },
+interface UseApiState<T> {
+  data: T[]
+  loading: boolean
+  error: string | null
+}
 
-    async get(id: number): Promise<T> {
-      return api<T>(`/${resource}/${id}`)
-    },
+/** React hook for CRUD operations against the Express API.
+ *
+ * Usage:
+ *   const { data, loading, error, create, update, remove, refresh } = useApi<Item>("items")
+ */
+export function useApi<T extends { id?: number }>(resource: string) {
+  const [state, setState] = useState<UseApiState<T>>({ data: [], loading: true, error: null })
 
-    async create(data: Partial<T>): Promise<{ id: number }> {
-      return api<{ id: number }>(`/${resource}`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      })
-    },
+  const refresh = useCallback(async () => {
+    setState(s => ({ ...s, loading: true, error: null }))
+    try {
+      const data = await api<T[]>(`/${resource}`)
+      setState({ data, loading: false, error: null })
+    } catch (e: any) {
+      setState(s => ({ ...s, loading: false, error: e.message }))
+    }
+  }, [resource])
 
-    async update(id: number, data: Partial<T>): Promise<void> {
-      await api(`/${resource}/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      })
-    },
+  useEffect(() => { refresh() }, [refresh])
 
-    async remove(id: number): Promise<void> {
-      await api(`/${resource}/${id}`, { method: "DELETE" })
-    },
-  }
+  const create = useCallback(async (item: Partial<T>) => {
+    const result = await api<{ id: number }>(`/${resource}`, {
+      method: "POST", body: JSON.stringify(item),
+    })
+    await refresh()
+    return result
+  }, [resource, refresh])
+
+  const update = useCallback(async (id: number, item: Partial<T>) => {
+    await api(`/${resource}/${id}`, {
+      method: "PUT", body: JSON.stringify(item),
+    })
+    await refresh()
+  }, [resource, refresh])
+
+  const remove = useCallback(async (id: number) => {
+    await api(`/${resource}/${id}`, { method: "DELETE" })
+    await refresh()
+  }, [resource, refresh])
+
+  return { ...state, create, update, remove, refresh }
 }

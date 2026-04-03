@@ -1,65 +1,41 @@
-# Fullstack Template
+# Fullstack Scaffold
 
-React 19 + TypeScript + Vite + Express 5 + SQLite. Local-first, no cloud needed.
+Vite + React 19 + Express + SQLite. Local-first CRUD with zero config.
 
-## Pre-built Components
+## Quick Start
+- Frontend: `src/App.tsx` — write your UI here
+- Backend: `server/index.js` — add tables and routes
+- Run both: `npm run dev` (uses concurrently)
 
-Import from `./components`:
-- `useApi(resource)` — CRUD helpers: `.list()`, `.get(id)`, `.create(data)`, `.update(id, data)`, `.remove(id)`
+## API (Express on :3001, proxied through Vite)
 
-Backend (server/index.js):
-- Express API on port 3001
-- SQLite database (WAL mode, auto-created)
-- CRUD endpoints for `items` table (GET/POST/PUT/DELETE)
-- CORS enabled
+### Built-in CRUD
+The server has generic CRUD for any table. Default table: `items`.
 
-## Build Loop
+```
+GET    /api/items          — list all
+GET    /api/items/:id      — get one
+POST   /api/items          — create (body: {name, description, ...})
+PUT    /api/items/:id      — update
+DELETE /api/items/:id      — delete
+GET    /api/health          — health check
+```
 
-1. Edit `server/index.js` — add your database tables and API routes
-2. Write types in `src/types.ts`
-3. Use `useApi` hook in components to call the API
-4. Wire in `src/App.tsx`
-5. Start both: `npm run dev` (runs Vite + server concurrently)
+### Adding tables
+In `server/index.js`, add `db.exec(CREATE TABLE...)` then `crudRoutes("tablename")`.
 
-## Usage Example
-
+### useApi Hook
 ```tsx
-import { useApi } from "./components"
-import { useEffect, useState } from "react"
+import { useApi } from './components/useApi'
 
-function TodoList() {
-  const api = useApi("items")
-  const [items, setItems] = useState([])
-
-  useEffect(() => { api.list().then(setItems) }, [])
-
-  const addItem = async (name) => {
-    await api.create({ name })
-    setItems(await api.list())
-  }
-
-  return items.map(item => <div key={item.id}>{item.name}</div>)
-}
+const { data, loading, error, create, update, remove, refresh } = useApi<Item>("items")
 ```
+Returns: data (T[]), loading (boolean), error (string|null), CRUD functions.
 
-## File Structure
+## Vite Proxy
+`/api/*` proxied to localhost:3001. No CORS issues.
 
-```
-src/
-  App.tsx              ← Wire your frontend here
-  types.ts             ← Your domain interfaces
-  components/
-    useApi.ts           ← CRUD API hook (ready to use)
-    index.ts            ← Barrel exports
-server/
-  index.js             ← Express API + SQLite (edit this)
-```
-
-## API Endpoints (default)
-
-- `GET /api/items` — list all items
-- `POST /api/items` — create item `{ name, data }`
-- `PUT /api/items/:id` — update item
-- `DELETE /api/items/:id` — delete item
-
-Add your own routes by following the same pattern in `server/index.js`.
+## Rules
+- Don't overwrite `main.tsx`, `vite.config.ts`, or `index.css`
+- Backend: `server/index.js`. Frontend: `src/`
+- useApi handles loading/error — just use data, loading, error
