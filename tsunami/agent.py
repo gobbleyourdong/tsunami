@@ -516,7 +516,9 @@ class Agent:
             # Check abort signal
             if self.abort_signal.aborted:
                 log.info(f"Abort signal received: {self.abort_signal.reason}")
+                self._auto_wire_on_exit()
                 save_session(self.state, self.session_dir, self.session_id)
+                save_session_summary(self.state, self.session_dir, self.session_id)
                 self.cost_tracker.save(self.config.workspace_dir)
                 return f"Aborted: {self.abort_signal.reason}"
 
