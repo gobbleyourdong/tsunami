@@ -181,6 +181,38 @@ Three builds tonight had white screens despite clean compiles:
       curl the dev server. If it returns 500 or the page has JS errors,
       block delivery (like the compile gate but for runtime).
 
+### Methodology — Priority-Based Context Management
+Context management is FIFO — oldest messages get pruned regardless of
+importance. On long builds (72+ iters), the agent forgets its own plan,
+architecture decisions, and user constraints because they were in early
+messages that got compressed away.
+
+The 9B on this machine has 32K context. At ~500 tokens/iter, that's
+~64 iterations before compression triggers. But compression drops
+critical early context (architecture, types, user intent) while
+keeping recent noise (build output, grep results).
+
+- [ ] **Message importance scoring**: Tag messages with importance
+      (0.0-1.0). plan_update=0.9, file_write=0.7, shell_exec "build
+      succeeded"=0.1. Compress low-importance first regardless of age.
+- [ ] **Pinned messages**: System prompt + user request + plan +
+      types.ts content should NEVER be compressed. Mark as pinned.
+      Currently plan is appended at the end (recency bias) but gets
+      swept on next compression cycle.
+- [ ] **File-backed context**: Instead of keeping file contents in
+      the conversation, write them to disk with a 1-line reference.
+      "Wrote src/App.tsx (45 lines) — see workspace/.context/App.tsx"
+      The tool_result_storage does this for large results but the
+      threshold is too high (2KB). Should be 500 chars.
+- [ ] **Incremental summarization**: Instead of compressing a big
+      block at once, summarize every 10 iterations into a running
+      "session memory" that's always in context. Like git commit
+      messages for the conversation.
+- [ ] **Fact extraction before compression**: Before dropping messages,
+      extract key facts ("wrote types.ts with Item interface",
+      "user wants dark theme", "build needs recharts") and keep
+      them in a pinned facts block.
+
 ### Methodology — Closed-Loop Feedback (highest leverage)
 The agent measures quality (tension, undertow, pressure) but none of it
 feeds back into the next tool choice. All feedback loops are one-way.
