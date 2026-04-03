@@ -181,6 +181,28 @@ Three builds tonight had white screens despite clean compiles:
       curl the dev server. If it returns 500 or the page has JS errors,
       block delivery (like the compile gate but for runtime).
 
+### Methodology — Scaffold Awareness (agent ignores what's available)
+Across 14 deliverables, the agent used 0 scaffold UI components.
+28 pre-built components (Modal, Toast, Progress, Accordion, etc.)
+sit unused. The agent rewrites them from scratch every time.
+
+The README is injected at project_init but compressed away by
+fast_prune before the agent starts writing code. The agent has
+no persistent memory of what the scaffold provides.
+
+- [ ] **Pin scaffold README in context**: Mark the README content
+      as "pinned" so fast_prune never drops it. It's 20-30 lines
+      and tells the agent exactly what's available.
+- [ ] **Component inventory injection**: After project_init, inject
+      a system note listing all available components with one-line
+      usage examples. Re-inject every 15 iterations.
+- [ ] **Import suggestion**: When the agent writes a component that
+      matches a scaffold component name (Modal, Toast, Badge, etc.),
+      inject "This component already exists — import from ./components/ui".
+- [ ] **Scaffold-aware prompt**: Add to system prompt: "ALWAYS check
+      src/components/ before writing a new component. Import existing
+      ones instead of rewriting."
+
 ### Methodology — Priority-Based Context Management
 Context management is FIFO — oldest messages get pruned regardless of
 importance. On long builds (72+ iters), the agent forgets its own plan,
