@@ -64,10 +64,12 @@ async def broadcast(event: dict):
 
 @app.get("/")
 async def index():
-    html_path = Path(__file__).parent.parent / "ui" / "index.html"
-    if html_path.exists():
-        return FileResponse(html_path)
-    return HTMLResponse("<h1>TSUNAMI</h1><p>UI not found. Place index.html in ark/ui/</p>")
+    ark_dir = Path(__file__).parent.parent
+    for ui_dir in ["desktop", "ui"]:
+        html_path = ark_dir / ui_dir / "index.html"
+        if html_path.exists():
+            return FileResponse(html_path)
+    return HTMLResponse("<h1>TSUNAMI</h1><p>UI not found.</p>")
 
 
 # ── API Routes ──
