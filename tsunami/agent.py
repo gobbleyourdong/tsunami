@@ -23,6 +23,7 @@ from .abort import AbortSignal
 from .compression import compress_context, needs_compression, fast_prune
 from .config import TsunamiConfig
 from .cost_tracker import CostTracker
+from .dynamic_tool_filter import DynamicToolFilter
 from .git_detect import GitTracker
 from .microcompact import microcompact_if_needed
 from .semantic_dedup import dedup_messages
@@ -95,6 +96,9 @@ class Agent:
 
         # Session memory — running summary + facts, survives compression
         self.session_memory = SessionMemory()
+
+        # Dynamic tool filter — steer tool selection based on effectiveness
+        self.tool_filter = DynamicToolFilter()
 
         # Cost tracking
         self.cost_tracker = CostTracker(session_id=self.session_id)
@@ -953,6 +957,8 @@ class Agent:
         from .current import measure_heuristic
         user_request = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
         tool_statement = f"User asked: {user_request[:200]}. Agent chose: {tool_call.name}({str(tool_call.arguments)[:200]})"
+        # Record pre-tool tension for dynamic tool filter
+        self.tool_filter.record_before(measure_heuristic(tool_statement))
         tool_tension = measure_heuristic(tool_statement)
         self._pressure.record(tool_tension, tool_call.name)
 
@@ -1053,6 +1059,14 @@ class Agent:
         if nudge:
             self.state.add_system_note(nudge)
             log.info(f"Feedback nudge: {nudge[:60]}")
+
+        # Dynamic tool filter — record post-tool tension + inject guidance
+        post_tension = measure_heuristic(result.content[:500]) if result.content else 0.0
+        self.tool_filter.record_after(tool_call.name, post_tension, not result.is_error)
+        tool_guidance = self.tool_filter.get_guidance()
+        if tool_guidance:
+            self.state.add_system_note(tool_guidance)
+            log.info(f"Tool guidance: {tool_guidance[:60]}")
 
         # 8rs. Research swell — on first search, dispatch parallel research eddies
         _research_swelled = getattr(self, '_research_swelled', False)
