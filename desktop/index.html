@@ -31,8 +31,8 @@
     .dot.off { background: var(--red); }
 
     /* LEFT: Chat + Activity */
-    .left { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); overflow: hidden; min-height: 0; }
-    .chat-msgs { flex: 1; overflow-y: auto; padding: 14px; min-height: 0; }
+    .left { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); overflow: hidden; min-height: 0; max-height: calc(100vh - 36px); }
+    .chat-msgs { flex: 1 1 0; overflow-y: auto; padding: 14px; min-height: 0; }
     .msg { margin-bottom: 8px; line-height: 1.5; animation: fadeIn 0.15s; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; } }
     .msg.user { color: var(--accent-bright); font-weight: 500; }
@@ -53,7 +53,7 @@
     .welcome p { color: var(--muted); font-size: 12px; margin-top: 4px; }
 
     /* RIGHT: Tabbed (Code | Preview) */
-    .right { display: flex; flex-direction: column; background: var(--bg); overflow: hidden; }
+    .right { display: flex; flex-direction: column; background: var(--bg); overflow: hidden; min-height: 0; max-height: calc(100vh - 36px); }
     .tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); min-height: 30px; align-items: center; }
     .tab { padding: 6px 14px; cursor: pointer; color: var(--muted); font-size: 11px; }
     .tab:hover { color: var(--text); }
@@ -62,10 +62,10 @@
     .tab-btn { padding: 4px 10px; cursor: pointer; color: var(--muted); font-size: 11px; }
     .tab-btn:hover { color: var(--accent-bright); }
 
-    .tab-content { flex: 1; overflow: hidden; display: flex; }
+    .tab-content { flex: 1 1 0; overflow: hidden; display: flex; min-height: 0; }
 
     /* Code view */
-    .file-tree { width: 160px; background: var(--bg); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
+    .file-tree { width: 160px; background: var(--bg); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; min-height: 0; }
     .file-tree-header { padding: 6px 8px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
     .file-item { padding: 3px 6px 3px 12px; cursor: pointer; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
     .file-item:hover { background: var(--panel2); }
