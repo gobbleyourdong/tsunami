@@ -336,8 +336,23 @@
 
     function selectFile(path) {
       currentFile = path
-      if (fileWs?.readyState === 1) fileWs.send(JSON.stringify({ type: "read", path }))
       renderFiles()
+      // Try file watcher WebSocket first
+      if (fileWs?.readyState === 1) {
+        fileWs.send(JSON.stringify({ type: "read", path }))
+      } else {
+        // Fallback: try to fetch from dev server
+        fetch(`http://localhost:9876/src/${path}`)
+          .then(r => r.ok ? r.text() : Promise.reject())
+          .then(text => { codeContent = text; renderCode() })
+          .catch(() => {
+            // Try without src/ prefix
+            fetch(`http://localhost:9876/${path}`)
+              .then(r => r.ok ? r.text() : Promise.reject())
+              .then(text => { codeContent = text; renderCode() })
+              .catch(() => {})
+          })
+      }
     }
 
     // === HUD ===
@@ -396,12 +411,12 @@
           ? projects.map(p => `<div class="proj-item" onclick="openProject('${esc(p.name)}')">${esc(p.name)} <span style="color:var(--muted)">${p.files} files</span></div>`).join("")
           : '<div class="proj-item" style="color:var(--muted)">No projects yet</div>'
       } catch {
-        // API not available — try reading from file watcher
-        list.innerHTML = fileList.length
-          ? [...new Set(fileList.map(f => f.split("/")[0]))].map(p =>
-              `<div class="proj-item" onclick="openProject('${esc(p)}')">${esc(p)}</div>`
-            ).join("")
-          : '<div class="proj-item" style="color:var(--muted)">No projects yet</div>'
+        // API not available — show file watcher's current project
+        if (fileList.length > 0) {
+          list.innerHTML = '<div class="proj-item active">Current project</div>'
+        } else {
+          list.innerHTML = '<div class="proj-item" style="color:var(--muted)">No projects yet</div>'
+        }
       }
     }
     function openProject(name) {
