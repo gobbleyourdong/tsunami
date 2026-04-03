@@ -1,57 +1,30 @@
-# Landing Page Template
+# Landing Page Scaffold
 
-React 19 + TypeScript + Vite. For marketing pages, portfolios, product sites.
+Vite + React 19 + TypeScript. Dark theme with animations, smooth scroll, glassmorphism.
 
-## Pre-built Components
+## Components (import from `./components`)
 
-Import from `./components`:
-- `Navbar` — sticky top nav with brand + links
-- `Hero` — full-height hero with title, subtitle, CTA button
-- `Section` — content section with title, subtitle, dark/light variants
-- `FeatureGrid` — responsive grid of feature cards with icons
-- `Footer` — footer with links and copyright
+### Navbar
+`<Navbar brand="Acme" links={[{label:"Features",href:"#features"}]} cta={{label:"Sign Up",href:"#"}} />`
 
-## Build Loop
+### Hero
+`<Hero title="Ship Faster" subtitle="Build in minutes" cta={{label:"Get Started",href:"#"}} />`
+- Full viewport, gradient background, fade-up animation
 
-1. Customize `Navbar` with your brand name and nav links
-2. Set `Hero` title, subtitle, and CTA
-3. Add `Section` blocks for features, about, pricing, etc.
-4. Use `FeatureGrid` inside sections for card layouts
-5. Wire everything in `src/App.tsx`
+### Section
+`<Section id="features" title="Features" subtitle="What we offer" dark centered>`
 
-## Usage Example
+### FeatureGrid
+`<FeatureGrid features={[{title:"Fast",description:"...",icon:"⚡"}]} columns={3} />`
 
-```tsx
-import { Navbar, Hero, Section, FeatureGrid, Footer } from "./components"
+### Footer
+`<Footer brand="Acme" links={[...]} socials={[{icon:"🐦",href:"..."}]} />`
 
-<Navbar brand="Acme" links={[
-  { label: "Features", href: "#features" },
-  { label: "Pricing", href: "#pricing" },
-]} />
-<Hero
-  title="Build faster with Acme"
-  subtitle="The tool that changes everything"
-  cta={{ label: "Get Started" }}
-/>
-<Section id="features" title="Features">
-  <FeatureGrid features={[
-    { title: "Fast", description: "Blazing speed", icon: "⚡" },
-    { title: "Secure", description: "Bank-grade security", icon: "🔒" },
-  ]} />
-</Section>
-<Footer brand="Acme" />
-```
-
-## File Structure
-
-```
-src/
-  App.tsx            ← Wire your landing page here
-  components/
-    Navbar.tsx        ← Top navigation (ready to use)
-    Hero.tsx          ← Hero section (ready to use)
-    Section.tsx       ← Content section (ready to use)
-    FeatureGrid.tsx   ← Feature cards (ready to use)
-    Footer.tsx        ← Page footer (ready to use)
-    index.ts          ← Barrel exports
-```
+## CSS Classes
+- `.hero`, `.hero-title`, `.hero-cta` — hero with fade-up animations
+- `.feature-grid.grid-2/3/4`, `.feature-card` — responsive card grid with hover
+- `.glass` — glassmorphism (frosted blur + border)
+- `.pricing-grid`, `.pricing-price` — pricing layout
+- `.section`, `.section-dark` — alternating page sections
+- `.navbar`, `.navbar-cta` — fixed blurred navigation
+- Smooth scroll, responsive breakpoints included
