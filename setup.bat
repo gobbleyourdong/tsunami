@@ -278,7 +278,9 @@ if /I "%MODE%"=="full" (
 echo timeout /t 5 /nobreak ^>nul >> "%TSUNAMI_DIR%\start.bat"
 echo cd /d "%TSUNAMI_DIR%" >> "%TSUNAMI_DIR%\start.bat"
 echo start "" python desktop\ws_bridge.py >> "%TSUNAMI_DIR%\start.bat"
-echo start "" "%TSUNAMI_DIR%\desktop\index.html" >> "%TSUNAMI_DIR%\start.bat"
+echo start "" python -m http.server 9876 --directory "%TSUNAMI_DIR%\desktop" >> "%TSUNAMI_DIR%\start.bat"
+echo timeout /t 2 /nobreak ^>nul >> "%TSUNAMI_DIR%\start.bat"
+echo start http://localhost:9876 >> "%TSUNAMI_DIR%\start.bat"
 
 echo Creating shortcut...
 powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $sc = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\Tsunami.lnk'); $sc.TargetPath = '%TSUNAMI_DIR%\start.bat'; $sc.WorkingDirectory = '%TSUNAMI_DIR%'; $sc.Description = 'Tsunami AI Agent'; $sc.Save()" >>"%LOG_FILE%" 2>&1
@@ -292,8 +294,7 @@ echo   Desktop shortcut created: Tsunami
 echo   Or run: %TSUNAMI_DIR%\start.bat
 echo   Log: %LOG_FILE%
 echo.
-echo   Then open in browser:
-echo   file:///%TSUNAMI_DIR:\=/%/desktop/index.html
+echo   Open: http://localhost:9876
 echo.
 pause
 exit /b 0
