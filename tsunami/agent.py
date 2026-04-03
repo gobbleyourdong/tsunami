@@ -901,34 +901,80 @@ class Agent:
                 except Exception as e:
                     log.debug(f"Auto-scaffold skipped: {e}")
 
-        # 8a1p. Plan-based auto-swell — when plan has 3+ file writes, dispatch eddies immediately
-        if tool_call.name == "plan_update" and not result.is_error:
+        # 8a1p. Plan-based auto-swell — when plan has 3+ components, dispatch eddies
+        _plan_swelled = getattr(self, '_plan_swelled', False)
+        if tool_call.name == "plan_update" and not result.is_error and not _plan_swelled:
             try:
                 phases = tool_call.arguments.get("phases", [])
-                # Count file write targets across all phases
-                write_targets = []
+                # Extract component names from write phases
+                component_phases = []
                 for phase in phases:
-                    title = str(phase.get("title", "")).lower()
-                    # Look for phases that mention writing specific files
-                    if any(w in title for w in ["write", "create", "component", "build"]):
-                        caps = phase.get("capabilities", [])
-                        if "file_write" in caps:
-                            write_targets.append(phase.get("title", ""))
+                    title = str(phase.get("title", ""))
+                    caps = phase.get("capabilities", [])
+                    if "file_write" in caps and any(w in title.lower() for w in
+                        ["write", "create", "component", "build", "implement"]):
+                        component_phases.append(title)
 
-                # If 3+ write phases AND a project exists, fire eddies
-                if len(write_targets) >= 3:
+                # If 3+ component phases AND a project with types.ts exists, auto-dispatch
+                if len(component_phases) >= 3:
                     deliverables = Path(self.config.workspace_dir) / "deliverables"
                     if deliverables.exists():
-                        projects = sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+                        projects = sorted(
+                            [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
+                            key=lambda p: p.stat().st_mtime, reverse=True
+                        )
                         for proj in projects[:1]:
                             if proj.is_dir() and (proj / "package.json").exists():
+                                self._plan_swelled = True
                                 user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
-                                log.info(f"Plan-swell: {len(write_targets)} write phases detected, hinting swell")
-                                self.state.add_system_note(
-                                    f"SWELL OPPORTUNITY: Your plan has {len(write_targets)} components to write. "
-                                    f"Use the swell tool to write them in parallel instead of one at a time. "
-                                    f"Give each eddy: component name, what it does, types/interfaces it needs."
-                                )
+
+                                # Read types.ts for shared context
+                                types_ctx = ""
+                                types_path = proj / "src" / "types.ts"
+                                if types_path.exists():
+                                    types_ctx = f"\n\nShared types:\n```\n{types_path.read_text()[:1500]}\n```"
+
+                                # Build eddy tasks from plan phases
+                                tasks = []
+                                targets = []
+                                for phase_title in component_phases[:6]:  # max 6 eddies
+                                    # Extract component name from phase title
+                                    import re as _swell_re
+                                    name_match = _swell_re.search(r'(\w+)(?:\.tsx|component|page|view)', phase_title, _swell_re.I)
+                                    comp_name = name_match.group(1) if name_match else phase_title.split()[-1]
+                                    comp_name = comp_name.replace(" ", "")
+
+                                    target = str(proj / "src" / "components" / f"{comp_name}.tsx")
+                                    prompt = (
+                                        f"Write a React TypeScript component for: {phase_title}\n"
+                                        f"Context: {user_req[:300]}\n"
+                                        f"Export default function {comp_name}. Under 80 lines.{types_ctx}"
+                                    )
+                                    tasks.append(prompt)
+                                    targets.append(target)
+
+                                if tasks:
+                                    log.info(f"Plan-swell: auto-dispatching {len(tasks)} eddies from plan")
+                                    from .eddy import run_swarm
+                                    swell_results = await run_swarm(
+                                        tasks=tasks,
+                                        workdir=str(proj),
+                                        max_concurrent=4,
+                                        system_prompt=(
+                                            "You are a React TypeScript expert. "
+                                            "Write a single component. Call done() with ONLY the raw TSX code. "
+                                            "No markdown. Export default function ComponentName."
+                                        ),
+                                        write_targets=targets,
+                                    )
+                                    written = sum(1 for r in swell_results if r.success)
+                                    names = [Path(t).stem for t in targets]
+                                    log.info(f"Plan-swell: {written}/{len(tasks)} components written")
+                                    self.state.add_system_note(
+                                        f"AUTO-SWELL: {written}/{len(tasks)} components written in parallel: "
+                                        f"{', '.join(names[:6])}. "
+                                        f"Now write App.tsx to import and compose them, then compile."
+                                    )
                                 break
             except Exception as e:
                 log.debug(f"Plan-swell skipped: {e}")
