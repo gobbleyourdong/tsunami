@@ -74,10 +74,16 @@ $GPU       = "cpu"
 $VRAM      = 0
 $CUDA_ARCH = ""
 
-if (Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) {
+# Check PATH first, then the known Windows location (dual-GPU laptops often miss PATH)
+$nvidiaSmi = Get-Command "nvidia-smi" -ErrorAction SilentlyContinue
+if (-not $nvidiaSmi -and (Test-Path "C:\Windows\System32\nvidia-smi.exe")) {
+    $nvidiaSmi = Get-Item "C:\Windows\System32\nvidia-smi.exe"
+}
+if ($nvidiaSmi) {
     $GPU = "cuda"
+    $nvsmi = if ($nvidiaSmi.Source) { $nvidiaSmi.Source } else { $nvidiaSmi.FullName }
     try {
-        $vramRaw = (& nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null |
+        $vramRaw = (& $nvsmi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null |
                     Select-Object -First 1).Trim()
         if ($vramRaw -and $vramRaw -ne "[N/A]" -and $vramRaw -match '^\d+$') {
             $VRAM = [int]$vramRaw
@@ -92,7 +98,7 @@ if (Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) {
     # Detect CUDA compute capability so cmake doesn't have to query the GPU at configure time
     # (cmake's "native" detection fails in some environments even when nvidia-smi works fine)
     try {
-        $capRaw = (& nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>$null |
+        $capRaw = (& $nvsmi --query-gpu=compute_cap --format=csv,noheader 2>$null |
                    Select-Object -First 1).Trim()
         if ($capRaw -and $capRaw -match '^\d+\.\d+$') {
             # Convert "8.6" → "86" (cmake arch format)
@@ -420,7 +426,7 @@ $LLAMA_MAIN_URL = ""
 $LLAMA_DLL_URL  = ""
 if ($GPU -eq "cuda") {
     try {
-        $cudaVer = (& nvidia-smi 2>$null | Select-String "CUDA Version:" |
+        $cudaVer = (& $nvsmi 2>$null | Select-String "CUDA Version:" |
                     ForEach-Object { $_.Line -replace '.*CUDA Version:\s*', '' -replace '\s.*', '' }).Trim()
         $cudaMajor = ($cudaVer -split '\.')[0]
 
