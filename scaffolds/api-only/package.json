@@ -1,0 +1,14 @@
+{
+  "name": "api-only",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server/index.js",
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "better-sqlite3": "^11.8.0",
+    "cors": "^2.8.5"
+  }
+}
