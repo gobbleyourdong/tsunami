@@ -751,6 +751,40 @@ class Agent:
             result.is_error, self.session_id,
         )
 
+        # 8rs. Research swell — on first search, dispatch parallel research eddies
+        _research_swelled = getattr(self, '_research_swelled', False)
+        if tool_call.name == "search_web" and not result.is_error and not _research_swelled:
+            self._research_swelled = True
+            user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+            if len(user_req) > 20:  # meaningful request, not just "hi"
+                try:
+                    query = tool_call.arguments.get("query", "")
+                    from .eddy import run_swarm
+                    # Fire 2 parallel research eddies with different search angles
+                    research_tasks = [
+                        f"Search for code examples of: {user_req[:200]}. Find GitHub repos or code snippets. Call done() with the best findings.",
+                        f"Search for UI/design reference images of: {user_req[:200]}. Find visual examples. Call done() with image URLs and descriptions.",
+                    ]
+                    research_results = await run_swarm(
+                        tasks=research_tasks,
+                        workdir=str(Path(self.config.workspace_dir)),
+                        max_concurrent=2,
+                        system_prompt="You are a research assistant. Search the web, find useful results, call done() with your findings. Be concise.",
+                    )
+                    # Inject findings into context
+                    findings = []
+                    for r in research_results:
+                        if r.success and r.output and len(r.output) > 20:
+                            findings.append(r.output[:500])
+                    if findings:
+                        self.state.add_system_note(
+                            f"PARALLEL RESEARCH ({len(findings)} eddies found results):\n" +
+                            "\n---\n".join(findings)
+                        )
+                        log.info(f"Research swell: {len(findings)} eddies returned findings")
+                except Exception as e:
+                    log.debug(f"Research swell skipped: {e}")
+
         # 8ref. Auto-save reference — when search returns images, save URLs to project
         if tool_call.name == "search_web" and not result.is_error:
             search_type = tool_call.arguments.get("search_type", "")
