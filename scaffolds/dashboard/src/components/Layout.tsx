@@ -1,71 +1,47 @@
 import { ReactNode, useState } from "react"
 
+interface NavItem { label: string; id: string; icon?: string }
+
 interface LayoutProps {
   children: ReactNode
   title?: string
-  navItems?: { label: string; id: string }[]
+  navItems?: NavItem[]
+  activeNav?: string
   onNav?: (id: string) => void
 }
 
-/** Dashboard layout with collapsible sidebar and header. */
 export default function Layout({
-  children,
-  title = "Dashboard",
-  navItems = [],
-  onNav,
+  children, title = "Dashboard", navItems = [], activeNav, onNav,
 }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#0f0f1a", color: "#e0e0e0", fontFamily: "system-ui" }}>
-      {/* Sidebar */}
-      <nav style={{
-        width: collapsed ? 60 : 220,
-        background: "#1a1a2e",
-        borderRight: "1px solid #2a2a4a",
-        padding: "16px 0",
-        transition: "width 0.2s",
-        overflow: "hidden",
-        flexShrink: 0,
-      }}>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          style={{
-            background: "none", border: "none", color: "#888",
-            cursor: "pointer", padding: "8px 16px", width: "100%", textAlign: "left",
-          }}
-        >
-          {collapsed ? "→" : "← Collapse"}
-        </button>
-        {navItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => onNav?.(item.id)}
-            style={{
-              display: "block", width: "100%", textAlign: "left",
-              background: "none", border: "none", color: "#ccc",
-              padding: "12px 16px", cursor: "pointer",
-              fontSize: 14, whiteSpace: "nowrap",
-            }}
-          >
-            {collapsed ? item.label[0] : item.label}
+    <div className="dashboard-layout">
+      <nav className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+        <div className="sidebar-header">
+          <button className="sidebar-toggle" onClick={() => setCollapsed(!collapsed)}>
+            {collapsed ? "→" : "←"}
           </button>
-        ))}
+          {!collapsed && <span className="sidebar-title">{title}</span>}
+        </div>
+        <div className="sidebar-nav">
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              className={`nav-item ${activeNav === item.id ? "active" : ""}`}
+              onClick={() => onNav?.(item.id)}
+            >
+              {item.icon && <span className="nav-icon">{item.icon}</span>}
+              {!collapsed && <span>{item.label}</span>}
+            </button>
+          ))}
+        </div>
       </nav>
-
-      {/* Main content */}
-      <div style={{ flex: 1, overflow: "auto" }}>
-        <header style={{
-          padding: "16px 24px",
-          borderBottom: "1px solid #2a2a4a",
-          fontSize: 20,
-          fontWeight: 600,
-        }}>
-          {title}
+      <div className="main-area">
+        <header className="top-header">
+          <h1>{title}</h1>
         </header>
-        <main style={{ padding: 24 }}>
-          {children}
-        </main>
+        <main className="content">{children}</main>
       </div>
     </div>
   )
