@@ -475,6 +475,35 @@ async def run_bee(
     )
 
 
+def _validate_eddy_code(content: str, target: str) -> bool:
+    """Quick validation of eddy-produced code before writing.
+
+    Catches obvious garbage: empty, too short, no export, markdown prose.
+    Returns True if code looks valid enough to write.
+    """
+    if not content or len(content) < 30:
+        return False  # too short to be real code
+
+    # Must have an export (default or named)
+    if target.endswith((".tsx", ".ts")):
+        has_export = "export" in content
+        if not has_export:
+            return False
+
+    # Reject if it's mostly prose (markdown, explanations)
+    lines = content.strip().splitlines()
+    code_lines = [l for l in lines if l.strip() and not l.strip().startswith(("#", "//", "/*", "*", "```"))]
+    if len(code_lines) < 3:
+        return False
+
+    # Reject if it starts with markdown header or explanation
+    first_line = content.strip().splitlines()[0].strip()
+    if first_line.startswith(("Here", "This", "The ", "I ", "Below", "Sure", "Let me")):
+        return False
+
+    return True
+
+
 async def run_swarm(
     tasks: list[str],
     workdir: str = ".",
@@ -532,6 +561,15 @@ async def run_swarm(
                     # Fix double-escaped newlines
                     if "\n" not in content and "\\n" in content:
                         content = content.replace("\\n", "\n").replace("\\t", "\t")
+
+                    # Quality gate — validate eddy output before writing
+                    is_valid = _validate_eddy_code(content, target)
+                    if not is_valid:
+                        log.warning(f"Eddy output failed validation for {tp.name} — skipped")
+                        result.success = False
+                        result.error = "validation_failed"
+                        continue
+
                     tp.write_text(content)
                     log.info(f"Wrote eddy output to {target} ({len(content)} chars)")
                 except Exception as e:
