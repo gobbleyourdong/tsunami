@@ -204,6 +204,7 @@ class Agent:
 
         # Regression check — does the existing project build?
         build_status = "unknown"
+        build_errors = ""
         if (best_match / "package.json").exists() and (best_match / "node_modules").exists():
             try:
                 import subprocess
@@ -211,15 +212,35 @@ class Agent:
                     ["npx", "vite", "build"],
                     cwd=str(best_match), capture_output=True, text=True, timeout=30,
                 )
-                build_status = "passes" if build.returncode == 0 else "FAILING"
+                if build.returncode == 0:
+                    build_status = "passes"
+                else:
+                    build_status = "BROKEN"
+                    errors = [l.strip() for l in build.stderr.splitlines() if "Error" in l][:3]
+                    if errors:
+                        build_errors = "\nBuild errors:\n" + "\n".join(f"  {e}" for e in errors)
             except Exception:
                 pass
+        elif (best_match / "package.json").exists():
+            build_status = "NEEDS npm install"
 
-        context_parts.append(
-            f"This project already exists (build: {build_status}). "
-            "Use file_edit to modify existing files instead of file_write (which overwrites). "
-            "Read the current code first. After changes, verify the build still passes."
-        )
+        if build_status == "BROKEN":
+            context_parts.append(
+                f"WARNING: This project exists but is BROKEN (won't compile).{build_errors}\n"
+                "Fix the build errors first, then make the requested changes. "
+                "Use file_edit to fix existing files. Use file_read to understand what's broken."
+            )
+        elif build_status == "NEEDS npm install":
+            context_parts.append(
+                "This project exists but needs dependencies installed. "
+                "Run: shell_exec 'cd <project_dir> && npm install' first."
+            )
+        else:
+            context_parts.append(
+                f"This project already exists (build: {build_status}). "
+                "Use file_edit to modify existing files instead of file_write (which overwrites). "
+                "Read the current code first. After changes, verify the build still passes."
+            )
 
         log.info(f"Iterative refinement: matched '{best_match.name}' (score={best_score})")
         return "\n".join(context_parts)
