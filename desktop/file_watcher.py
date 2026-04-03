@@ -145,8 +145,19 @@ async def handle_client(websocket):
                 "content": content,
             }))
     try:
-        async for _ in websocket:
-            pass  # we only send, never receive
+        async for msg in websocket:
+            # Handle file read requests from the UI
+            try:
+                data = json.loads(msg)
+                if data.get("type") == "read" and data.get("path"):
+                    content = read_file(data["path"])
+                    await websocket.send(json.dumps({
+                        "type": "file_changed",
+                        "path": data["path"],
+                        "content": content,
+                    }))
+            except (json.JSONDecodeError, Exception):
+                pass
     except websockets.exceptions.ConnectionClosed:
         pass
     finally:
