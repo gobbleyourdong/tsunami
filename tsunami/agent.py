@@ -485,6 +485,13 @@ class Agent:
             # Clears cold tool results when prompt cache has likely expired
             microcompact_if_needed(self.state)
 
+            # Incremental pruning — light cleanup every 10 iterations
+            # Prevents the cliff where context suddenly gets destroyed
+            if self.state.iteration > 0 and self.state.iteration % 10 == 0:
+                freed = fast_prune(self.state, keep_recent=10)
+                if freed > 0:
+                    log.info(f"Incremental prune: freed {freed} tokens at iter {self.state.iteration}")
+
             # Strategic compaction with circuit breaker
             # Circuit breaker: stop wasting API calls after N consecutive failures
             should_compact = False
