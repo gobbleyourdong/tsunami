@@ -181,6 +181,32 @@ Three builds tonight had white screens despite clean compiles:
       curl the dev server. If it returns 500 or the page has JS errors,
       block delivery (like the compile gate but for runtime).
 
+### Methodology — Agent Loop Regression Tests (8 breakages, 0 caught)
+37 test files (6,288 lines) test components in isolation. None test
+the agent loop behavior. This session had 8 integration breakages —
+all caught by manual testing, zero by automated tests.
+
+The tests we need would have caught every issue this session:
+
+- [ ] **Greeting test**: `agent.run("hi")` completes in ≤3 iterations.
+      Would have caught: tension gate blocking greetings (6-14 iters).
+- [ ] **Build test**: `agent.run("build a counter")` produces a
+      deliverable that compiles. Would have caught: path resolution,
+      missing imports, blank pages.
+- [ ] **Iteration bound test**: no prompt takes >100 iterations.
+      Would have caught: message_info spam, verification stalls.
+- [ ] **Tool call test**: specific prompts trigger specific tools.
+      "build X" → project_init within first 5 calls.
+      "hi" → message_result within first 2 calls.
+- [ ] **Swell test**: plan with 3+ components auto-dispatches eddies.
+      Would have caught: swell never firing (0/400 calls).
+- [ ] **Lite mode test**: agent with eddy_endpoint=wave_endpoint
+      completes a build. Would have caught: 2B-specific failures.
+
+These are fast (~30s each with a running model) and catch exactly
+the class of bugs that ship to users. Unit tests pass, integration
+breaks — the gap that costs the most debugging time.
+
 ### Methodology — Deterministic Error Recovery (don't LLM what you can regex)
 Error handling is "inject error text, hope LLM fixes it, escalate after 3."
 No classification, no playbooks, no deterministic fixes. The 2B takes 3-5
