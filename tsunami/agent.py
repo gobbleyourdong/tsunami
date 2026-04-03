@@ -538,33 +538,34 @@ class Agent:
             # Clears cold tool results when prompt cache has likely expired
             microcompact_if_needed(self.state)
 
-            # Incremental pruning — light cleanup every 10 iterations
-            # Prevents the cliff where context suddenly gets destroyed
-            if self.state.iteration > 0 and self.state.iteration % 10 == 0:
-                freed = fast_prune(self.state, keep_recent=10)
+            # Incremental pruning — more aggressive for lite mode (smaller context)
+            prune_interval = 3 if is_lite else 10
+            keep_recent = 4 if is_lite else 10
+            if self.state.iteration > 0 and self.state.iteration % prune_interval == 0:
+                freed = fast_prune(self.state, keep_recent=keep_recent)
                 if freed > 0:
                     log.info(f"Incremental prune: freed {freed} tokens at iter {self.state.iteration}")
 
-            # Strategic compaction with circuit breaker
-            # Circuit breaker: stop wasting API calls after N consecutive failures
+            # Strategic compaction — lower thresholds for lite mode (smaller context)
+            compact_threshold = 3000 if is_lite else 18000
+            compact_aggressive = 2000 if is_lite else 14000
+            compact_keep = 3 if is_lite else 6
+
             should_compact = False
             if self._compact_consecutive_failures >= self._max_compact_failures:
-                pass  # Circuit breaker tripped — skip compaction
-            elif needs_compression(self.state, max_tokens=18000):
+                pass  # Circuit breaker tripped
+            elif needs_compression(self.state, max_tokens=compact_threshold):
                 should_compact = True
-            elif self.observer.call_count >= 50 and self.observer.call_count % 25 == 0:
-                if needs_compression(self.state, max_tokens=14000):
+            elif self.observer.call_count >= 20 and self.observer.call_count % 10 == 0:
+                if needs_compression(self.state, max_tokens=compact_aggressive):
                     should_compact = True
 
             if should_compact:
                 try:
-                    # Two-tier compaction (ported ):
-                    # Tier 1: Fast prune (no LLM call, drop verbose tool results)
-                    freed = fast_prune(self.state, keep_recent=6)
-                    # Tier 2: LLM summary only if fast prune wasn't enough
-                    if needs_compression(self.state, max_tokens=18000):
+                    freed = fast_prune(self.state, keep_recent=compact_keep)
+                    if needs_compression(self.state, max_tokens=compact_threshold):
                         log.info(f"Fast prune freed {freed} tokens but still over limit — full compress")
-                        await compress_context(self.state, self.model, max_tokens=18000, keep_recent=6)
+                        await compress_context(self.state, self.model, max_tokens=compact_threshold, keep_recent=compact_keep)
                     else:
                         log.info(f"Fast prune sufficient — freed {freed} tokens")
                     # Reset on success
