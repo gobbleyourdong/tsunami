@@ -445,16 +445,20 @@ class Agent:
             self.state.iteration += 1
             iter_start = time.time()
 
-            # Safety valve — force deliver if truly lost (no writes in 50 iterations)
-            if self.state.iteration > 50:
-                has_writes = any(
-                    t in ("file_write", "file_edit", "project_init", "generate_image")
-                    for t in self._tool_history
-                )
-                if not has_writes:
-                    log.warning(f"Safety valve: {self.state.iteration} iterations with no file writes — forcing exit")
+            # Safety valve — force deliver if truly lost
+            if self.state.iteration > 30:
+                # Check RECENT writes (last 20 tools), not all-time
+                recent = self._tool_history[-20:] if len(self._tool_history) > 20 else self._tool_history
+                recent_writes = sum(1 for t in recent if t in ("file_write", "file_edit", "project_init"))
+                if recent_writes == 0 and self.state.iteration > 50:
+                    log.warning(f"Safety valve: {self.state.iteration} iters, 0 writes in last 20 — forcing exit")
                     self.state.task_complete = True
                     return "Task ended — no progress detected."
+                # Hard cap — nothing should ever run more than 200 iterations
+                if self.state.iteration > 200:
+                    log.warning(f"Hard cap: {self.state.iteration} iterations — forcing exit")
+                    self.state.task_complete = True
+                    return f"Task ended after {self.state.iteration} iterations."
 
             # Check abort signal
             if self.abort_signal.aborted:
