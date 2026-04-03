@@ -516,6 +516,9 @@ class Agent:
             is_final = any(kw in text for kw in [
                 "identified", "conclusion", "summary of findings", "failure point",
                 "complete", "results:", "answer:", "the wall", "analysis complete",
+                "built successfully", "all required elements", "ready to use",
+                "ready to deliver", "build succeeded", "all components created",
+                "compiled without errors", "compiled successfully",
             ])
             if is_final:
                 log.info("Auto-promoting message_info → message_result (looks like final answer)")
@@ -543,16 +546,27 @@ class Agent:
         self._tool_history.append(tool_call.name)
         if len(self._tool_history) > 10:
             self._tool_history = self._tool_history[-10:]
-        # If last 8 calls are all message_info or search with no file writes → stalled
+        # If last 8 calls are all read-only tools → stalled
         if len(self._tool_history) >= 8:
             recent = self._tool_history[-8:]
-            no_progress = all(t in ("message_info", "search_web", "file_read", "match_glob", "match_grep", "summarize_file") for t in recent)
-            if no_progress:
-                log.warning("Stall detected: 8 consecutive read-only tools with no writes")
-                self.state.add_system_note(
-                    "STALL: You've made 8 tool calls without writing any files. "
-                    "Stop researching and start building. Write code now."
-                )
+            read_only = {"message_info", "search_web", "file_read", "match_glob",
+                         "match_grep", "summarize_file", "shell_exec", "undertow"}
+            no_writes = all(t in read_only for t in recent)
+            if no_writes:
+                # Check if build already passed — verification stall
+                has_delivered = any(t == "message_info" for t in self._tool_history[-15:])
+                if has_delivered and self.state.iteration > 20:
+                    log.warning("Verification stall: build looks done, forcing delivery")
+                    self.state.add_system_note(
+                        "VERIFICATION STALL: You've been checking the build for 8+ calls "
+                        "without making changes. The build compiled. Call message_result NOW."
+                    )
+                else:
+                    log.warning("Stall detected: 8 consecutive read-only tools")
+                    self.state.add_system_note(
+                        "STALL: You've made 8 tool calls without writing any files. "
+                        "Stop researching and start building. Write code now."
+                    )
 
         # 3c. Research gate — nudge research before writing code
         if tool_call.name in ("search_web", "browser_navigate"):
