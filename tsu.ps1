@@ -77,7 +77,7 @@ function Test-BackendServer {
 # Kill stale servers from previous runs — prevents serving old code
 function Kill-StaleServers {
     # Kill anything on our ports (3000, 8090, 8092, 9876)
-    foreach ($port in @(3000, 9876)) {
+    foreach ($port in @(3000, 3002, 3003, 8090, 8092, 9876)) {
         $stale = netstat -ano 2>$null | Select-String ":$port\s" | ForEach-Object {
             ($_ -split '\s+')[-1]
         } | Where-Object { $_ -match '^\d+$' -and $_ -ne '0' } | Sort-Object -Unique
@@ -139,9 +139,9 @@ if (-not (Test-ModelServer)) {
         $mmproj27  = @('mmproj-27B*.gguf','mmproj-BF16.gguf','mmproj-F16.gguf') |
                      ForEach-Object { Find-Model $_ } | Where-Object { $_ } | Select-Object -First 1
         $moeModel  = Find-Model '*122B*-00001-of-*.gguf'
-        $textModel = @('Qwen3*-8B*.gguf','Qwen3*-2B*.gguf') |
+        $textModel = @('Qwen3*-9B*.gguf','Qwen3*-8B*.gguf','Qwen3*-2B*.gguf') |
                      ForEach-Object { Find-Model $_ } | Where-Object { $_ } | Select-Object -First 1
-        $mmprojSmall = Find-Model 'mmproj-2B-BF16.gguf'
+        $mmprojSmall = Find-Model 'mmproj-9B-BF16.gguf','mmproj-2B-BF16.gguf'
 
         # Windows CommandLineToArgvW strips unquoted double-quotes from JSON values
         # e.g. {"enable_thinking":false} → {enable_thinking:false} (keys unquoted)
@@ -214,8 +214,66 @@ start_server(host='0.0.0.0', port=3000)
     }
 }
 
+
+# Start WebSocket bridge (agent to UI on port 3002)
+$BridgePid = $null
+$bridgePath = Join-Path (Join-Path $DIR "desktop") "ws_bridge.py"
+if (Test-Path $bridgePath) {
+    $bridgeLog = Join-Path $env:TEMP "tsunami_bridge.log"
+    $bridgeProc = Start-Process -FilePath python -ArgumentList $bridgePath `
+                      -WorkingDirectory $DIR `
+                      -RedirectStandardOutput $bridgeLog -RedirectStandardError "$bridgeLog.err" `
+                      -WindowStyle Hidden -PassThru
+    $BridgePid = $bridgeProc.Id
+    Start-Sleep -Seconds 1
+    Write-Host "  WebSocket bridge on ws://localhost:3002"
+} else {
+    Write-Warning "ws_bridge.py not found -- agent streaming disabled"
+}
+
+# Start file watcher (pushes file changes to UI on port 3003)
+$WatcherPid = $null
+$watcherPath = Join-Path (Join-Path $DIR "desktop") "file_watcher.py"
+if (Test-Path $watcherPath) {
+    $watcherLog = Join-Path $env:TEMP "tsunami_watcher.log"
+    $watcherProc = Start-Process -FilePath python -ArgumentList $watcherPath `
+                       -WorkingDirectory $DIR `
+                       -RedirectStandardOutput $watcherLog -RedirectStandardError "$watcherLog.err" `
+                       -WindowStyle Hidden -PassThru
+    $WatcherPid = $watcherProc.Id
+    Write-Host "  File watcher on ws://localhost:3003"
+}
+
+# Start serve daemon (auto-serves Vite projects on port 9876)
+$DaemonPid = $null
+$daemonScript = @"
+import sys, os
+sys.path.insert(0, r'$DIR')
+os.chdir(r'$DIR')
+from tsunami.serve_daemon import run_daemon
+run_daemon(workspace='./workspace', port=9876)
+"@
+$tmpDaemon = Join-Path $env:TEMP "tsunami_daemon_start.py"
+$daemonScript | Set-Content $tmpDaemon -Encoding UTF8
+$daemonLog = Join-Path $env:TEMP "tsunami_daemon.log"
+$daemonProc = Start-Process -FilePath python -ArgumentList $tmpDaemon `
+                  -WorkingDirectory $DIR `
+                  -RedirectStandardOutput $daemonLog -RedirectStandardError "$daemonLog.err" `
+                  -WindowStyle Hidden -PassThru
+$DaemonPid = $daemonProc.Id
+Write-Host "  Serve daemon on http://localhost:9876"
+
 # ── Cleanup on exit ───────────────────────────────────────────────────────────
 $CleanupBlock = {
+    if ($WatcherPid) {
+        Stop-Process -Id $WatcherPid -Force -EA SilentlyContinue
+    }
+    if ($DaemonPid) {
+        Stop-Process -Id $DaemonPid -Force -EA SilentlyContinue
+    }
+    if ($BridgePid) {
+        Stop-Process -Id $BridgePid -Force -EA SilentlyContinue
+    }
     if ($ServerPid) {
         Stop-Process -Id $ServerPid -Force -EA SilentlyContinue
     }

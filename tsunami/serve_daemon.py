@@ -50,20 +50,43 @@ def find_latest_project(workspace: str = WORKSPACE) -> Path | None:
 
 
 def _kill_port(port: int):
-    """Kill whatever is listening on this port."""
-    try:
-        result = subprocess.run(
-            ["lsof", "-t", f"-i:{port}"],
-            capture_output=True, text=True, timeout=5,
-        )
-        pids = result.stdout.strip().split()
-        for pid in pids:
-            try:
-                os.kill(int(pid), signal.SIGTERM)
-            except (ProcessLookupError, ValueError):
-                pass
-    except Exception:
-        pass
+    """Kill whatever is listening on this port (cross-platform)."""
+    if sys.platform == "win32":
+        try:
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                if "LISTENING" not in line:
+                    continue
+                parts = line.split()
+                if len(parts) < 5:
+                    continue
+                local_addr = parts[1]
+                if ":" in local_addr:
+                    candidate = local_addr.rsplit(":", 1)[-1]
+                    if candidate.isdigit() and int(candidate) == port:
+                        pid = parts[-1]
+                        if pid.isdigit():
+                            subprocess.run(["taskkill", "/PID", pid, "/F"],
+                                           capture_output=True, timeout=5)
+        except Exception:
+            pass
+    else:
+        try:
+            result = subprocess.run(
+                ["lsof", "-t", f"-i:{port}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            pids = result.stdout.strip().split()
+            for pid in pids:
+                try:
+                    os.kill(int(pid), signal.SIGTERM)
+                except (ProcessLookupError, ValueError):
+                    pass
+        except Exception:
+            pass
 
 
 def _is_vite_project(project_dir: Path) -> bool:
@@ -84,17 +107,20 @@ def serve(project_dir: Path, port: int = SERVE_PORT) -> subprocess.Popen | None:
     _kill_port(port)
     time.sleep(0.3)
 
+    shell = sys.platform == "win32"
     if _is_vite_project(project_dir):
         # Install deps if needed
         if not (project_dir / "node_modules").exists():
             subprocess.run(
                 ["npm", "install", "--no-audit", "--no-fund"],
                 cwd=str(project_dir), capture_output=True, timeout=60,
+                shell=shell,
             )
         proc = subprocess.Popen(
             ["npx", "vite", "--port", str(port), "--host"],
             cwd=str(project_dir),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            shell=shell,
         )
         log.info(f"Vite dev server on :{port} for {project_dir.name}")
         return proc
@@ -141,7 +167,7 @@ def run_daemon(workspace: str = WORKSPACE, port: int = SERVE_PORT):
                         server_proc.kill()
                 server_proc = serve(latest, port)
                 if server_proc:
-                    print(f"  → http://localhost:{port}  ({latest.name})")
+                    print(f"  -> http://localhost:{port}  ({latest.name})")
 
             # Check if server is still alive
             if server_proc and server_proc.poll() is not None:
