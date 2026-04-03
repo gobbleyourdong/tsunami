@@ -5,11 +5,18 @@ interface PresenceDotProps {
 
 export default function PresenceDot({ connected, userCount }: PresenceDotProps) {
   return (
-    <span className="presence">
-      <span className={`presence-dot ${connected ? "online" : "offline"}`} />
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      fontSize: 'var(--text-xs, 0.75rem)',
+      fontWeight: 600,
+      color: connected ? 'var(--text-muted, #7a7f8e)' : 'var(--text-dim, #4a4f5e)',
+    }}>
+      <span className={`status-dot ${connected ? "online" : "offline"}`} />
       {connected
-        ? <span>{userCount ? `${userCount} online` : "connected"}</span>
-        : <span>disconnected</span>
+        ? userCount ? `${userCount} online` : "Connected"
+        : "Disconnected"
       }
     </span>
   )
