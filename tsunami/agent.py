@@ -140,10 +140,16 @@ class Agent:
         """
         msg = user_message.lower()
 
+        # Explicit "start fresh" — skip iteration detection
+        fresh_keywords = ["start fresh", "from scratch", "new project", "brand new", "start over"]
+        if any(k in msg for k in fresh_keywords):
+            return ""
+
         # Keywords that suggest iteration, not greenfield
         iteration_keywords = ["fix", "improve", "change", "update", "add", "modify",
                               "make it", "bigger", "smaller", "different", "better",
-                              "the calculator", "the dashboard", "the game", "my app"]
+                              "the calculator", "the dashboard", "the game", "my app",
+                              "broken", "not working", "white screen", "blank page"]
         is_iteration = any(k in msg for k in iteration_keywords)
 
         deliverables = Path(self.config.workspace_dir) / "deliverables"
@@ -157,7 +163,10 @@ class Agent:
 
         # Score each project by keyword overlap with the prompt
         import re
-        prompt_words = set(re.findall(r'[a-z]{3,}', msg))
+        skip_words = {"the", "this", "that", "and", "for", "with", "build", "make",
+                      "create", "app", "fix", "change", "update", "improve", "add",
+                      "want", "need", "something", "into", "instead", "please"}
+        prompt_words = set(re.findall(r'[a-z]{3,}', msg)) - skip_words
         best_match = None
         best_score = 0
 
@@ -181,6 +190,15 @@ class Agent:
         app_path = best_match / "src" / "App.tsx"
         types_path = best_match / "src" / "types.ts"
         pkg_path = best_match / "package.json"
+
+        # Check if it's a stub project (scaffolded but never built)
+        if app_path.exists():
+            app_content = app_path.read_text()
+            is_stub = "TODO" in app_content or "Loading..." in app_content or len(app_content) < 100
+            if is_stub and not is_iteration:
+                # Stub project — don't load as "existing", let pre-scaffold handle it
+                log.info(f"Iterative refinement: {best_match.name} is a stub — treating as new")
+                return ""
 
         context_parts = [
             f"[EXISTING PROJECT: {best_match.name}]",
