@@ -27,6 +27,20 @@ if (Test-Path "$DIR\.git") {
 
 # ── Command dispatch ──────────────────────────────────────────────────────────
 switch ($args[0]) {
+    { $_ -in 'kill', 'stop' } {
+        Write-Host "  Killing all Tsunami processes..."
+        foreach ($port in @(8090, 8092, 8094, 3000, 3002, 3003, 9876)) {
+            $stale = netstat -ano 2>$null | Where-Object { $_ -match ":${port}\b" } | ForEach-Object {
+                if ($_ -match '\s(\d+)\s*$') { $Matches[1] }
+            } | Where-Object { $_ -and $_ -ne '0' } | Sort-Object -Unique
+            foreach ($p in $stale) {
+                try { Stop-Process -Id ([int]$p) -Force -EA SilentlyContinue } catch {}
+            }
+        }
+        Get-Process -Name "llama-server" -EA SilentlyContinue | Stop-Process -Force -EA SilentlyContinue
+        Write-Host "  All processes killed"
+        exit 0
+    }
     'update' {
         Write-Host "  Updating Tsunami..."
         git pull --ff-only

@@ -33,6 +33,23 @@ case "${1:-}" in
     python3 -m tsunami.orchestrate "$TASK" "$WORKERS"
     exit $?
     ;;
+  kill|stop)
+    echo "  Killing all Tsunami processes..."
+    # Kill model servers
+    for port in 8090 8092 8094; do
+      lsof -ti:$port 2>/dev/null | xargs kill -9 2>/dev/null
+    done
+    # Kill web services
+    for port in 3000 3002 3003 9876; do
+      lsof -ti:$port 2>/dev/null | xargs kill -9 2>/dev/null
+    done
+    # Kill any remaining tsunami/llama processes
+    pkill -f "llama-server" 2>/dev/null
+    pkill -f "tsunami" 2>/dev/null
+    pkill -f "serve_diffusion" 2>/dev/null
+    echo "  ✓ All processes killed"
+    exit 0
+    ;;
 esac
 
 # Kill stale servers from previous runs
