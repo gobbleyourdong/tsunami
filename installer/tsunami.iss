@@ -49,8 +49,8 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "powershell.exe"; Parameters: "-Ex
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"
 
 [Run]
-; Run setup.ps1 after install — downloads models, llama-server, deps
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\setup.ps1"""; Description: "Download models and dependencies (~7GB)"; Flags: postinstall nowait shellexec; StatusMsg: "Setting up Tsunami..."
+; Run setup.ps1 after install — tell it to use the install directory for everything
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -Command ""$env:TSUNAMI_DIR='{app}'; & '{app}\setup.ps1'"""; Description: "Download models and dependencies (~7GB)"; Flags: postinstall nowait shellexec; StatusMsg: "Setting up Tsunami..."
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\models"

@@ -306,6 +306,14 @@ if (Test-Path (Join-Path $DIR ".git")) {
     Push-Location $DIR
     & git pull --ff-only 2>&1 | Out-Null
     Pop-Location
+} elseif (Test-Path (Join-Path $DIR "tsunami")) {
+    # Installed by installer — files exist but no .git. Init for future updates.
+    Write-Step "Initializing git for auto-updates..."
+    Push-Location $DIR
+    & git init 2>&1 | Out-Null
+    & git remote add origin "https://github.com/gobbleyourdong/tsunami.git" 2>&1 | Out-Null
+    & git fetch origin main --quiet 2>&1 | Out-Null
+    Pop-Location
 } else {
     Write-Step "Cloning tsunami..."
     & git clone https://github.com/gobbleyourdong/tsunami.git "$DIR"
