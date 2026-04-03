@@ -325,10 +325,10 @@ if (Test-Path (Join-Path $DIR ".git")) {
     # Installed by installer — files exist but no .git. Init for future updates.
     Write-Step "Initializing git for auto-updates..."
     Push-Location $DIR
-    & git init 2>&1 | Out-Null
+    & git init -b main 2>&1 | Out-Null
     & git remote add origin "https://github.com/gobbleyourdong/tsunami.git" 2>&1 | Out-Null
     & git fetch origin main --quiet 2>&1 | Out-Null
-    & git checkout -b main 2>&1 | Out-Null
+    & git reset --hard origin/main 2>&1 | Out-Null
     & git branch --set-upstream-to=origin/main main 2>&1 | Out-Null
     Pop-Location
 } else {

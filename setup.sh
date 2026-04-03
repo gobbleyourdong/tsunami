@@ -137,10 +137,10 @@ elif [ -d "$DIR/tsunami" ]; then
   # Installed by installer — init git for auto-updates
   echo "  → Initializing git for auto-updates..."
   cd "$DIR"
-  git init 2>/dev/null
+  git init -b main 2>/dev/null
   git remote add origin "https://github.com/gobbleyourdong/tsunami.git" 2>/dev/null
   git fetch origin main --quiet 2>/dev/null
-  git checkout -b main 2>/dev/null
+  git reset --hard origin/main 2>/dev/null
   git branch --set-upstream-to=origin/main main 2>/dev/null
 else
   echo "  → Cloning tsunami..."
