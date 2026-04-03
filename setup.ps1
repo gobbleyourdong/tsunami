@@ -328,6 +328,8 @@ if (Test-Path (Join-Path $DIR ".git")) {
     & git init 2>&1 | Out-Null
     & git remote add origin "https://github.com/gobbleyourdong/tsunami.git" 2>&1 | Out-Null
     & git fetch origin main --quiet 2>&1 | Out-Null
+    & git checkout -b main 2>&1 | Out-Null
+    & git branch --set-upstream-to=origin/main main 2>&1 | Out-Null
     Pop-Location
 } else {
     Write-Step "Cloning tsunami..."
