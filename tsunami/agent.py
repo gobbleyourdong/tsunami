@@ -694,6 +694,18 @@ class Agent:
                         "Stop researching and start building. Write code now."
                     )
 
+        # 3c0. Pre-execution validation — skip duplicate/wasteful tool calls
+        if tool_call.name == "search_web":
+            query = tool_call.arguments.get("query", "")
+            prev_queries = getattr(self, '_search_queries', set())
+            if query in prev_queries:
+                self.state.add_system_note(
+                    f"DUPLICATE SEARCH: You already searched for '{query[:60]}'. "
+                    f"Use the results you got earlier or try a different query."
+                )
+            prev_queries.add(query)
+            self._search_queries = prev_queries
+
         # 3c. Research gate — nudge research before writing code
         if tool_call.name in ("search_web", "browser_navigate"):
             self._has_researched = True
