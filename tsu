@@ -114,9 +114,33 @@ start_server(host='0.0.0.0', port=3000)
   done
 fi
 
+# Start WebSocket bridge (agent activity → UI on :3002)
+BRIDGE_PID=""
+if [ -f "$DIR/desktop/ws_bridge.py" ]; then
+  python3 "$DIR/desktop/ws_bridge.py" > /tmp/tsunami_bridge.log 2>&1 &
+  BRIDGE_PID=$!
+fi
+
+# Start file watcher (file changes → UI on :3003)
+WATCHER_PID=""
+if [ -f "$DIR/desktop/file_watcher.py" ]; then
+  python3 "$DIR/desktop/file_watcher.py" > /tmp/tsunami_watcher.log 2>&1 &
+  WATCHER_PID=$!
+fi
+
+# Start serve daemon (auto-serves latest deliverable on :9876)
+DAEMON_PID=""
+if [ -f "$DIR/tsunami/serve_daemon.py" ]; then
+  python3 -m tsunami.serve_daemon --workspace "$DIR/workspace" --port 9876 > /tmp/tsunami_daemon.log 2>&1 &
+  DAEMON_PID=$!
+fi
+
 cleanup() {
   [ -n "$SERVER_PID" ] && kill $SERVER_PID 2>/dev/null
   [ -n "$MODEL_PID" ] && kill $MODEL_PID 2>/dev/null
+  [ -n "$BRIDGE_PID" ] && kill $BRIDGE_PID 2>/dev/null
+  [ -n "$WATCHER_PID" ] && kill $WATCHER_PID 2>/dev/null
+  [ -n "$DAEMON_PID" ] && kill $DAEMON_PID 2>/dev/null
 }
 trap cleanup EXIT
 
