@@ -901,6 +901,38 @@ class Agent:
                 except Exception as e:
                     log.debug(f"Auto-scaffold skipped: {e}")
 
+        # 8a1p. Plan-based auto-swell — when plan has 3+ file writes, dispatch eddies immediately
+        if tool_call.name == "plan_update" and not result.is_error:
+            try:
+                phases = tool_call.arguments.get("phases", [])
+                # Count file write targets across all phases
+                write_targets = []
+                for phase in phases:
+                    title = str(phase.get("title", "")).lower()
+                    # Look for phases that mention writing specific files
+                    if any(w in title for w in ["write", "create", "component", "build"]):
+                        caps = phase.get("capabilities", [])
+                        if "file_write" in caps:
+                            write_targets.append(phase.get("title", ""))
+
+                # If 3+ write phases AND a project exists, fire eddies
+                if len(write_targets) >= 3:
+                    deliverables = Path(self.config.workspace_dir) / "deliverables"
+                    if deliverables.exists():
+                        projects = sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+                        for proj in projects[:1]:
+                            if proj.is_dir() and (proj / "package.json").exists():
+                                user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                                log.info(f"Plan-swell: {len(write_targets)} write phases detected, hinting swell")
+                                self.state.add_system_note(
+                                    f"SWELL OPPORTUNITY: Your plan has {len(write_targets)} components to write. "
+                                    f"Use the swell tool to write them in parallel instead of one at a time. "
+                                    f"Give each eddy: component name, what it does, types/interfaces it needs."
+                                )
+                                break
+            except Exception as e:
+                log.debug(f"Plan-swell skipped: {e}")
+
         # 8a1. Auto-swell — when App.tsx is written with imports to missing files, fire eddies
         if tool_call.name == "file_write" and not result.is_error:
             written_path = tool_call.arguments.get("path", "")
