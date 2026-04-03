@@ -63,6 +63,7 @@ import os
 import signal
 
 from .base import BaseTool, ToolResult
+from .filesystem import _normalize_workspace_like_path, _resolve_path
 
 log = logging.getLogger("tsunami.shell")
 
@@ -94,6 +95,8 @@ class ShellExec(BaseTool):
         }
 
     async def execute(self, command: str, timeout: int = 3600, workdir: str = "", **kw) -> ToolResult:
+        command = _normalize_workspace_like_path(command, self.config.workspace_dir)
+
         # Destructive command detection
         import re
         warning = _check_destructive(command)
@@ -112,21 +115,14 @@ class ShellExec(BaseTool):
             log.warning(f"Bash security warnings for '{command[:80]}': {sec_warnings}")
 
         try:
-            # Resolve workdir — default to workspace dir (not cwd)
+            # Default to workspace dir, but resolve explicit workdir through the shared resolver
             import os
             ark_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             cwd = os.path.join(ark_dir, self.config.workspace_dir) if hasattr(self, 'config') else None
             if workdir:
-                expanded = os.path.expanduser(workdir)
-                if os.path.isdir(expanded):
-                    cwd = expanded
-                else:
-                    # Try relative to ark dir
-                    ark_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                    candidate = os.path.join(ark_dir, workdir)
-                    if os.path.isdir(candidate):
-                        cwd = candidate
-                    # else: let it use default cwd
+                resolved_workdir = _resolve_path(workdir, self.config.workspace_dir)
+                if resolved_workdir.is_dir():
+                    cwd = str(resolved_workdir)
 
             proc = await asyncio.create_subprocess_shell(
                 command,

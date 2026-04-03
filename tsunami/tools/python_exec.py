@@ -15,6 +15,7 @@ import logging
 import sys
 import traceback
 from contextlib import redirect_stdout, redirect_stderr
+from pathlib import Path
 
 from .base import BaseTool, ToolResult
 
@@ -64,7 +65,6 @@ class PythonExec(BaseTool):
         # Inject useful defaults into namespace (persistent across calls)
         if "os" not in _namespace:
             import os, json, csv, re, math, datetime, collections
-            from pathlib import Path
 
             _namespace["os"] = os
             _namespace["json"] = json
@@ -76,14 +76,16 @@ class PythonExec(BaseTool):
             _namespace["Path"] = Path
             _namespace["__builtins__"] = __builtins__
 
-            # Set working directory to project root
-            ark_dir = str(Path(__file__).parent.parent.parent)
+        try:
+            import os
+
+            workspace_dir = str(Path(self.config.workspace_dir).resolve())
+            ark_dir = str(Path(workspace_dir).parent.resolve())
             os.chdir(ark_dir)
             _namespace["ARK_DIR"] = ark_dir
-            _namespace["WORKSPACE"] = os.path.join(ark_dir, "workspace")
-            _namespace["DELIVERABLES"] = os.path.join(ark_dir, "workspace", "deliverables")
+            _namespace["WORKSPACE"] = workspace_dir
+            _namespace["DELIVERABLES"] = str(Path(workspace_dir) / "deliverables")
 
-        try:
             with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
                 # Use exec for statements, eval for expressions
                 try:
