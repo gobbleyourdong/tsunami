@@ -1,4 +1,7 @@
 export { useWebSocket } from "./useWebSocket"
+export { default as ChatFeed } from "./ChatFeed"
+export { default as ChatInput } from "./ChatInput"
+export { default as PresenceDot } from "./PresenceDot"
 export { default as Modal } from "./Modal"
 export { default as ToastContainer, toast } from "./Toast"
 export { default as Badge } from "./Badge"

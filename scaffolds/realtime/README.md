@@ -1,79 +1,58 @@
-# Realtime Template
+# Realtime Scaffold
 
-React 19 + TypeScript + Vite + WebSocket server. For chat apps, live dashboards, multiplayer.
+Vite + React 19 + WebSocket server with rooms, history, and presence.
 
-## Pre-built Components
+## Quick Start
+- `npm run dev` — starts Vite + WebSocket server concurrently
+- Server: `ws://localhost:3001`
+- Frontend: `http://localhost:5173`
 
-Import from `./components`:
-- `useWebSocket({ url?, onMessage?, reconnect? })` — auto-connect, auto-reconnect, typed messages
+## Server Features (server/index.js)
+- **Rooms**: clients join rooms, messages stay within the room
+- **History**: last 100 messages per room, sent on join
+- **Presence**: live user count per room
+- **Usernames**: `set_username` message type
 
-Returns: `{ connected, send, lastMessage }`
+### Message Types (client → server)
+```json
+{"type": "message", "text": "hello"}
+{"type": "join", "room": "general"}
+{"type": "set_username", "username": "alice"}
+```
 
-Backend (server/index.js):
-- WebSocket server on port 3001
-- Auto-tracks connected clients
-- Broadcasts messages to all clients
-- Health check at GET /api/health
+### Message Types (server → client)
+```json
+{"type": "connected", "room": "lobby", "username": "user-a1b2", "history": [...], "users": 3}
+{"type": "message", "text": "hello", "username": "alice", "timestamp": 1234567890}
+{"type": "presence", "users": 3}
+{"type": "joined", "room": "general", "history": [...], "users": 2}
+```
 
-## Build Loop
+## Components (import from `./components`)
 
-1. Write `src/App.tsx` FIRST with `import "./index.css"`
-2. Use `useWebSocket` hook for real-time communication
-3. Customize `server/index.js` for your message types
-4. `npx vite build` to compile-check
-
-## Usage Example
-
+### useWebSocket
 ```tsx
-import { useWebSocket } from "./components"
-
-function Chat() {
-  const [messages, setMessages] = useState<string[]>([])
-  const { connected, send, lastMessage } = useWebSocket({
-    onMessage: (data) => {
-      if (data.type === "chat") setMessages(prev => [...prev, data.text])
-    }
-  })
-
-  return (
-    <div className="container">
-      <div>{connected ? "🟢 Connected" : "🔴 Disconnected"}</div>
-      <div className="card" style={{ height: 400, overflow: "auto" }}>
-        {messages.map((m, i) => <div key={i}>{m}</div>)}
-      </div>
-      <input onKeyDown={e => {
-        if (e.key === "Enter") {
-          send({ type: "chat", text: e.currentTarget.value })
-          e.currentTarget.value = ""
-        }
-      }} placeholder="Type a message..." />
-    </div>
-  )
-}
+const { connected, send, lastMessage } = useWebSocket({
+  url: "ws://localhost:3001",
+  onMessage: (data) => console.log(data)
+})
+send({ type: "message", text: "hello" })
 ```
 
-## Server Message Format
+### ChatFeed
+`<ChatFeed messages={messages} currentUser="alice" />`
+- Auto-scrolls, chat bubbles (mine right, theirs left), system messages
 
-```js
-// Client sends:
-{ type: "chat", text: "hello" }
+### ChatInput
+`<ChatInput onSend={text => send({type:"message", text})} />`
 
-// Server broadcasts to all:
-{ type: "chat", text: "hello" }
+### PresenceDot
+`<PresenceDot connected={connected} userCount={5} />`
 
-// Server auto-sends:
-{ type: "connected", clients: 3 }
-{ type: "clients", count: 3 }
-```
-
-## File Structure
-
-```
-src/
-  App.tsx                  ← Wire your app here
-  components/
-    useWebSocket.ts        ← WebSocket hook (ready to use)
-    index.ts
-server/
-  index.js                 ← WebSocket + Express server (customize)
-```
+## CSS Classes
+- `.chat-layout`, `.chat-sidebar`, `.chat-main` — sidebar + feed layout
+- `.chat-feed`, `.chat-bubble.mine/.theirs` — message bubbles
+- `.chat-input-bar` — input + send button
+- `.room-item`, `.room-item.active` — room list in sidebar
+- `.presence`, `.presence-dot.online/.offline` — connection indicator
+- `.live-feed`, `.live-feed-item` — for event/notification feeds
