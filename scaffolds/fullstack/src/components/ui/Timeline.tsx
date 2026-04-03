@@ -26,9 +26,9 @@ export default function Timeline({ items }: TimelineProps) {
           <div style={{
             position: 'absolute', left: -31, top: 4,
             width: 14, height: 14, borderRadius: '50%',
-            background: item.color || 'var(--accent, #34d4b0)',
+            background: item.color || 'var(--accent, #4a9eff)',
             border: '3px solid var(--bg-0, #08090d)',
-            boxShadow: `0 0 6px ${item.color || 'rgba(52,212,176,0.3)'}`,
+            boxShadow: `0 0 6px ${item.color || 'rgba(74,158,255,0.3)'}`,
           }} />
           {item.date && (
             <div style={{

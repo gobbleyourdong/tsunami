@@ -15,7 +15,7 @@
       --bg: #08090d; --bg2: #0e1014; --panel: #111318; --panel2: #191c24;
       --border: rgba(255,255,255,0.06); --border-hi: rgba(255,255,255,0.12);
       --text: #d0d2d8; --muted: #505568;
-      --accent: #34d4b0; --accent-glow: rgba(52,212,176,0.15); --accent-bright: #3ee8c0;
+      --accent: #4a9eff; --accent-glow: rgba(74,158,255,0.15); --accent-bright: #6ab4ff;
       --green: #34d4b0; --yellow: #d4a834; --red: #d44848;
       --blue: #5090d4; --purple: #8060c4; --orange: #d47834;
     }
@@ -24,14 +24,14 @@
       --bg: #16181e; --bg2: #1c1e26; --panel: #21242e; --panel2: #282c38;
       --border: rgba(255,255,255,0.08); --border-hi: rgba(255,255,255,0.14);
       --text: #d8dae0; --muted: #606578;
-      --accent: #3adcb8; --accent-glow: rgba(58,220,184,0.15); --accent-bright: #48f0cc;
+      --accent: #5aa8ff; --accent-glow: rgba(90,168,255,0.15); --accent-bright: #7abcff;
     }
     /* ── Light ──────────────────────────────────────────────────────── */
     [data-theme="light"] {
       --bg: #f4f5f7; --bg2: #ebedf0; --panel: #e2e4e8; --panel2: #d8dae0;
       --border: rgba(0,0,0,0.08); --border-hi: rgba(0,0,0,0.14);
       --text: #1a1c24; --muted: #6a6e7e;
-      --accent: #1a9a80; --accent-glow: rgba(26,154,128,0.12); --accent-bright: #18b898;
+      --accent: #2b7ad4; --accent-glow: rgba(43,122,212,0.12); --accent-bright: #3a8ee8;
       --green: #1a9a70; --red: #c83838;
     }
 
@@ -59,7 +59,7 @@
     }
     .top-bar .logo {
       font-weight: 800; font-size: 13px; letter-spacing: 3px;
-      background: linear-gradient(135deg, var(--accent), #60a0f0);
+      background: linear-gradient(135deg, var(--accent), #1a5ab8);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
     }
@@ -113,7 +113,7 @@
     }
     .chat-input input::placeholder { color: var(--muted); }
     .chat-input button {
-      background: linear-gradient(135deg, var(--accent), #28b89a);
+      background: linear-gradient(135deg, var(--accent), #3580d4);
       color: #08090d; border: none; border-radius: 8px;
       padding: 11px 18px; font-weight: 700; cursor: pointer; font-size: 15px;
       font-family: inherit;
@@ -130,7 +130,7 @@
     .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; }
     .welcome h1 {
       font-size: 38px; font-weight: 300; letter-spacing: 10px; text-transform: lowercase;
-      background: linear-gradient(135deg, var(--accent), #60a0f0, var(--accent));
+      background: linear-gradient(135deg, #4a9eff, #1a5ab8, #4a9eff);
       background-size: 200% 200%;
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text; animation: shimmer 5s ease infinite;

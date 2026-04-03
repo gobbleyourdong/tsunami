@@ -9,12 +9,12 @@
 :root {
   --hud-font: 'Rajdhani', 'Orbitron', sans-serif;
   --hud-mono: 'JetBrains Mono', monospace;
-  --hud-color: #34d4b0;
+  --hud-color: #4a9eff;
   --hud-danger: #f06060;
   --hud-warning: #f0b040;
-  --hud-glow: rgba(52, 212, 176, 0.4);
+  --hud-glow: rgba(74, 158, 255, 0.4);
   --hud-bg: rgba(8, 9, 13, 0.6);
-  --hud-border: rgba(52, 212, 176, 0.15);
+  --hud-border: rgba(74, 158, 255, 0.15);
   --duration-fast: 100ms;
   --duration-normal: 200ms;
   --duration-slow: 400ms;
@@ -99,7 +99,7 @@ canvas {
 }
 .health-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--hud-color) 0%, #28e8a0 100%);
+  background: linear-gradient(90deg, var(--hud-color) 0%, #6ab4ff 100%);
   border-radius: 3px;
   transition: width 0.4s var(--ease-out-expo);
   box-shadow: 0 0 8px var(--hud-glow);
@@ -186,13 +186,13 @@ canvas {
   font-size: clamp(36px, 8vw, 72px);
   font-weight: 700;
   letter-spacing: -0.02em;
-  text-shadow: 0 0 30px var(--hud-glow), 0 0 80px rgba(52, 212, 176, 0.15);
+  text-shadow: 0 0 30px var(--hud-glow), 0 0 80px rgba(74, 158, 255, 0.15);
   margin-bottom: 12px;
   animation: title-glow 3s ease-in-out infinite;
 }
 @keyframes title-glow {
-  0%, 100% { text-shadow: 0 0 30px var(--hud-glow), 0 0 80px rgba(52, 212, 176, 0.15); }
-  50%      { text-shadow: 0 0 40px var(--hud-glow), 0 0 100px rgba(52, 212, 176, 0.25); }
+  0%, 100% { text-shadow: 0 0 30px var(--hud-glow), 0 0 80px rgba(74, 158, 255, 0.15); }
+  50%      { text-shadow: 0 0 40px var(--hud-glow), 0 0 100px rgba(74, 158, 255, 0.25); }
 }
 
 .game-overlay-3d .subtitle {
@@ -212,7 +212,7 @@ canvas {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: linear-gradient(135deg, var(--hud-color) 0%, #28b89a 100%);
+  background: linear-gradient(135deg, var(--hud-color) 0%, #3580d4 100%);
   color: #08090d;
   border: none;
   border-radius: 8px;

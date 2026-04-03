@@ -44,8 +44,8 @@ export default function Select({ value, onChange, options, placeholder, label }:
           backgroundPosition: 'right 14px center',
         }}
         onFocus={e => {
-          e.currentTarget.style.borderColor = 'var(--accent, #34d4b0)'
-          e.currentTarget.style.boxShadow = 'inset 0 2px 4px rgba(0,0,0,0.2), 0 0 0 3px rgba(52, 212, 176, 0.12)'
+          e.currentTarget.style.borderColor = 'var(--accent, #4a9eff)'
+          e.currentTarget.style.boxShadow = 'inset 0 2px 4px rgba(0,0,0,0.2), 0 0 0 3px rgba(74, 158, 255, 0.12)'
         }}
         onBlur={e => {
           e.currentTarget.style.borderColor = 'var(--border, rgba(255,255,255,0.06))'

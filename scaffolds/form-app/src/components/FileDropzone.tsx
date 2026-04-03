@@ -81,7 +81,7 @@ export default function FileDropzone({
       ) : file ? (
         <div style={{ textAlign: 'center' }}>
           <span style={{ fontSize: 28 }}>{fileIcon(file.name)}</span>
-          <p style={{ fontWeight: 700, color: 'var(--accent, #34d4b0)', marginTop: 6 }}>{file.name}</p>
+          <p style={{ fontWeight: 700, color: 'var(--accent, #4a9eff)', marginTop: 6 }}>{file.name}</p>
           <p style={{ fontSize: 'var(--text-xs, 0.75rem)', color: 'var(--text-muted, #7a7f8e)', marginTop: 2 }}>
             {formatSize(file.size)} — Click to replace
           </p>

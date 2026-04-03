@@ -20,10 +20,10 @@ export default function Switch({ checked, onChange, label, size = "md" }: Switch
         onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onChange(!checked) } }}
         style={{
           width: w, height: h, borderRadius: h, padding: 2,
-          background: checked ? 'var(--accent, #34d4b0)' : 'var(--bg-4, #2a2f3b)',
+          background: checked ? 'var(--accent, #4a9eff)' : 'var(--bg-4, #2a2f3b)',
           transition: 'background 200ms cubic-bezier(0.16, 1, 0.3, 1)',
           cursor: 'pointer',
-          boxShadow: checked ? '0 0 8px rgba(52, 212, 176, 0.25)' : 'none',
+          boxShadow: checked ? '0 0 8px rgba(74, 158, 255, 0.25)' : 'none',
           flexShrink: 0,
         }}
       >

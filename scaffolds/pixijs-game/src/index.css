@@ -13,9 +13,9 @@
   --bg-3: #21252f;
   --text: #e2e4e9;
   --text-muted: #7a7f8e;
-  --accent: #34d4b0;
-  --accent-dim: rgba(52, 212, 176, 0.12);
-  --accent-glow: rgba(52, 212, 176, 0.3);
+  --accent: #4a9eff;
+  --accent-dim: rgba(74, 158, 255, 0.12);
+  --accent-glow: rgba(74, 158, 255, 0.3);
   --danger: #f06060;
   --success: #34d4b0;
   --warning: #f0b040;
@@ -57,7 +57,7 @@ html, body, #root {
   box-shadow:
     0 0 0 1px rgba(255,255,255,0.05),
     0 8px 32px rgba(0,0,0,0.6),
-    0 0 80px rgba(52, 212, 176, 0.04);
+    0 0 80px rgba(74, 158, 255, 0.04);
   image-rendering: pixelated; /* crisp pixels for retro games */
   image-rendering: -moz-crisp-edges;
 }
@@ -166,7 +166,7 @@ html, body, #root {
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  background: linear-gradient(135deg, var(--accent) 0%, #28b89a 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, #3580d4 100%);
   color: var(--bg-0);
   border: none;
   border-radius: var(--radius);

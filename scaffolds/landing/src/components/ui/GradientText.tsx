@@ -11,7 +11,7 @@ interface GradientTextProps {
 
 export default function GradientText({
   children,
-  from = "#34d4b0",
+  from = "#4a9eff",
   to = "#60a0f0",
   via,
   animate = false,

@@ -56,7 +56,7 @@ export default function CsvLoader({ onData }: CsvLoaderProps) {
       ) : fileName ? (
         <div style={{ textAlign: 'center' }}>
           <span style={{ fontSize: 24, display: 'block', marginBottom: 4 }}>📊</span>
-          <span style={{ fontWeight: 700, color: 'var(--accent, #34d4b0)' }}>{fileName}</span>
+          <span style={{ fontWeight: 700, color: 'var(--accent, #4a9eff)' }}>{fileName}</span>
           <span style={{
             display: 'block',
             fontSize: 'var(--text-xs, 0.75rem)',

@@ -7,7 +7,7 @@ interface ColorPickerProps {
 }
 
 const DEFAULT_PRESETS = [
-  "#f06060", "#f09040", "#f0b040", "#34d4b0", "#60a0f0",
+  "#f06060", "#f09040", "#f0b040", "#4a9eff", "#60a0f0",
   "#8060f0", "#f060a0", "#e2e4e9", "#7a7f8e", "#4a4f5e",
   "#21252f", "#08090d",
 ]
@@ -56,7 +56,7 @@ export default function ColorPicker({ value, onChange, presets = DEFAULT_PRESETS
                 style={{
                   width: 28, height: 28, borderRadius: 6, background: c, cursor: 'pointer',
                   border: c === value
-                    ? '2px solid var(--accent, #34d4b0)'
+                    ? '2px solid var(--accent, #4a9eff)'
                     : '1px solid var(--border, rgba(255,255,255,0.06))',
                   transition: 'transform 100ms',
                 }}

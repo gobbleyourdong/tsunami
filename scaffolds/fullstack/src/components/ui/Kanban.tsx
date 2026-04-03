@@ -94,8 +94,8 @@ export default function Kanban({ columns, onMove }: KanbanProps) {
                     fontSize: 'var(--text-xs, 0.75rem)',
                     fontWeight: 600,
                     borderRadius: 100,
-                    background: 'rgba(52, 212, 176, 0.12)',
-                    color: 'var(--accent, #34d4b0)',
+                    background: 'rgba(74, 158, 255, 0.12)',
+                    color: 'var(--accent, #4a9eff)',
                   }}>
                     {card.tag}
                   </span>

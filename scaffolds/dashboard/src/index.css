@@ -14,10 +14,10 @@
   --text: #e2e4e9;
   --text-muted: #7a7f8e;
   --text-dim: #4a4f5e;
-  --accent: #34d4b0;
-  --accent-hover: #2bc09e;
-  --accent-dim: rgba(52, 212, 176, 0.12);
-  --accent-glow: rgba(52, 212, 176, 0.25);
+  --accent: #4a9eff;
+  --accent-hover: #3d8fe6;
+  --accent-dim: rgba(74, 158, 255, 0.12);
+  --accent-glow: rgba(74, 158, 255, 0.25);
   --danger: #f06060;
   --success: #34d4b0;
   --warning: #f0b040;
@@ -76,7 +76,7 @@ button {
 button:hover { background: var(--bg-3); border-color: var(--border-hover); }
 button:active { transform: scale(0.98); }
 button.primary, button[type="submit"] {
-  background: linear-gradient(135deg, var(--accent) 0%, #28b89a 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, #3580d4 100%);
   color: var(--bg-0); border: none;
 }
 button.primary:hover { box-shadow: var(--shadow-md), 0 0 20px var(--accent-dim); }
