@@ -42,9 +42,11 @@ if ! check_model; then
   LLAMA=""
   for p in \
     "$(which llama-server 2>/dev/null)" \
+    "$DIR/llama-server/llama-server" \
+    "$DIR/llama.cpp/build/bin/llama-server" \
+    "$HOME/tsunami/llama-server/llama-server" \
     "$HOME/llama.cpp/build/bin/llama-server" \
-    "/usr/local/bin/llama-server" \
-    "$HOME/vscode/signet/forge/llama.cpp/build/bin/llama-server"; do
+    "/usr/local/bin/llama-server"; do
     [ -x "$p" ] && LLAMA="$p" && break
   done
 
