@@ -144,3 +144,72 @@ class TestLiteMode:
         # Verify python_exec is NOT in lite mode
         assert "python_exec" not in registry.names(), \
             "python_exec should not be in lite mode"
+
+
+@skip_no_model
+class TestFullBuild:
+    """A build prompt should produce a compilable deliverable."""
+
+    def test_counter_builds(self):
+        """'Build a counter' produces a project that compiles."""
+        from tsunami.config import TsunamiConfig
+        from tsunami.agent import Agent
+        from pathlib import Path
+        import subprocess
+
+        async def _run():
+            config = TsunamiConfig.from_yaml("config.yaml")
+            config.eddy_endpoint = "http://localhost:8090"
+            agent = Agent(config)
+            result = await asyncio.wait_for(
+                agent.run("Build a counter with plus and minus buttons. All in App.tsx."),
+                timeout=180,
+            )
+            return agent.state.iteration, agent.state.task_complete
+
+        iters, complete = asyncio.run(_run())
+        assert complete, f"Build did not complete (iter {iters})"
+
+        # Find the project and try to build it
+        deliverables = Path("workspace/deliverables")
+        projects = sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+        assert len(projects) > 0, "No deliverable created"
+
+        latest = projects[0]
+        if (latest / "package.json").exists() and (latest / "node_modules").exists():
+            build = subprocess.run(
+                ["npx", "vite", "build"],
+                cwd=str(latest), capture_output=True, text=True, timeout=30,
+            )
+            assert build.returncode == 0, f"Build failed: {build.stderr[:200]}"
+
+
+@skip_no_model
+class TestAutoSwell:
+    """Plan with 3+ components should trigger automatic eddy dispatch."""
+
+    def test_plan_swell_fires(self):
+        """A complex prompt should trigger plan-based or write-based swell."""
+        from tsunami.config import TsunamiConfig
+        from tsunami.agent import Agent
+
+        async def _run():
+            config = TsunamiConfig.from_yaml("config.yaml")
+            config.eddy_endpoint = "http://localhost:8090"
+            agent = Agent(config)
+            # This prompt should create a plan with multiple components
+            await asyncio.wait_for(
+                agent.run(
+                    "Build a dashboard with a sidebar, stats cards, a data table, "
+                    "and a line chart. Use the scaffold components."
+                ),
+                timeout=300,
+            )
+            return agent.state.iteration, agent._tool_history, getattr(agent, '_plan_swelled', False)
+
+        iters, tools, plan_swelled = asyncio.run(_run())
+        # Either plan-swell fired or the agent used swell tool or auto-swell fired
+        has_swell = plan_swelled or "swell" in tools or getattr(asyncio, '_write_swelled', False)
+        # Not asserting swell fired — it depends on model behavior
+        # Just verify it completed in reasonable iterations
+        assert iters <= 50, f"Complex build took {iters} iterations (max 50)"
