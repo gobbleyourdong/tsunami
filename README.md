@@ -2,6 +2,8 @@
 
 **an ai agent that runs on your computer. tell it what to build, it builds it.**
 
+**[see it work →](https://gobbleyourdong.github.io/tsunami/)**
+
 **Windows (installer):**
 
 Download [TsunamiSetup.exe](https://github.com/gobbleyourdong/tsunami/releases/latest) — double-click, it handles everything.
