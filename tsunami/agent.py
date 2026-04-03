@@ -25,10 +25,12 @@ from .config import TsunamiConfig
 from .cost_tracker import CostTracker
 from .git_detect import GitTracker
 from .microcompact import microcompact_if_needed
+from .semantic_dedup import dedup_messages
 from .model import LLMModel, ToolCall, create_model
 from .observer import Observer
 from .prompt import build_system_prompt
 from .session import save_session, save_session_summary, load_last_session_summary
+from .session_memory import SessionMemory
 from .state import AgentState
 from .tool_dedup import ToolDedup
 from .tool_result_storage import maybe_persist, TOOL_RESULT_CLEARED_MESSAGE
@@ -90,6 +92,9 @@ class Agent:
 
         # Continuous learning
         self.observer = Observer(config.workspace_dir)
+
+        # Session memory — running summary + facts, survives compression
+        self.session_memory = SessionMemory()
 
         # Cost tracking
         self.cost_tracker = CostTracker(session_id=self.session_id)
@@ -534,6 +539,12 @@ class Agent:
                 self.cost_tracker.save(self.config.workspace_dir)
                 return f"Aborted: {self.abort_signal.reason}"
 
+            # Incremental session memory — running summary every 10 iterations
+            if self.session_memory.should_update(self.state.iteration):
+                self.session_memory.update_summary(
+                    self.state.iteration, self.state.conversation
+                )
+
             # Time-based microcompact
             # Clears cold tool results when prompt cache has likely expired
             microcompact_if_needed(self.state)
@@ -560,6 +571,13 @@ class Agent:
             if should_compact:
                 try:
                     keep = 4 if is_lite else 8
+                    # Semantic dedup — collapse duplicates before pruning
+                    dedup_messages(self.state, keep_recent=keep)
+                    # Extract facts from messages about to be dropped
+                    compress_end = len(self.state.conversation) - keep
+                    if compress_end > 2:
+                        doomed = self.state.conversation[2:compress_end]
+                        self.session_memory.extract_facts(doomed)
                     freed = fast_prune(self.state, keep_recent=keep)
                     if needs_compression(self.state, max_tokens=compact_threshold):
                         log.info(f"Prune freed {freed} tokens, still over — full compress")
@@ -646,6 +664,14 @@ class Agent:
 
         # 1. Build messages for the LLM
         messages = self.state.to_messages()
+
+        # 1b. Inject session memory (pinned summary + facts) if available
+        mem_block = self.session_memory.to_context_block()
+        if mem_block and len(messages) >= 2:
+            # Insert after system prompt as a user message (high salience)
+            messages.insert(1, {"role": "user", "content": mem_block})
+            # Need assistant response to maintain alternation
+            messages.insert(2, {"role": "assistant", "content": "Acknowledged — session context loaded."})
 
         # 2. Call the reasoning core — get exactly one tool call
         response = await self.model.generate(

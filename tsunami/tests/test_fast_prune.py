@@ -82,15 +82,14 @@ class TestFastPrune:
         state.conversation.append(Message(
             role="tool_result",
             content=(
-                "[shell_exec] [Output too large (48.8 KB). "
-                "Full output saved to: /tmp/.tool_results/shell_exec_123.txt]\n\n"
-                "Preview:\n" + "x" * 2000
+                "[200 lines (48.8 KB) -> .context/abc123def456.txt]\n"
+                + "x\n" * 200
             ),
         ))
         state.conversation.append(Message(role="assistant", content="recent"))
         fast_prune(state, keep_recent=1)
-        # The filepath reference should survive pruning
-        pruned = [m for m in state.conversation if "shell_exec_123.txt" in m.content]
+        # The .context/ reference should survive pruning
+        pruned = [m for m in state.conversation if ".context/" in m.content]
         assert len(pruned) == 1
 
     def test_not_enough_messages_to_prune(self):
