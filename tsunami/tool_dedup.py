@@ -33,6 +33,9 @@ NO_CACHE_TOOLS = frozenset({
     "python_exec",
     "swell", "swell_analyze",
     "search_web",
+    "generate_image", "webdev_generate_assets",
+    "undertow",
+    "project_init",
 })
 
 
