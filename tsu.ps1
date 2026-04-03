@@ -116,7 +116,22 @@ if (-not (Test-ModelServer)) {
         Write-Warning "llama-server not found — skipping model server. Run setup.ps1 to install."
     } else {
         $logFile = "$env:TEMP\llama-server.log"
-        $llamaArgs = @('--host', '0.0.0.0', '--port', '8090', '--ctx-size', '16384', '--n-gpu-layers', '99')
+        # Scale context to VRAM: 9B needs ~5.3GB for weights, rest goes to KV cache
+        # 8GB GPU → 8192 ctx, 12GB → 16384, 16GB+ → 32768
+        $vramMB = 0
+        try {
+            $nvsmi = if (Get-Command "nvidia-smi" -EA SilentlyContinue) { "nvidia-smi" }
+                     elseif (Test-Path "C:\Windows\System32\nvidia-smi.exe") { "C:\Windows\System32\nvidia-smi.exe" }
+                     else { $null }
+            if ($nvsmi) {
+                $vramMB = [int](& $nvsmi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null |
+                          Select-Object -First 1).Trim()
+            }
+        } catch {}
+        $vramGB = [math]::Ceiling($vramMB / 1024)
+        $ctxSize = if ($vramGB -ge 16) { 32768 } elseif ($vramGB -ge 12) { 16384 } else { 8192 }
+
+        $llamaArgs = @('--host', '0.0.0.0', '--port', '8090', '--ctx-size', $ctxSize, '--n-gpu-layers', '99')
 
         # Model priority: 27B dense > 122B MoE > smaller text model
         $dense27   = Find-Model 'Qwen3.5-27B*.gguf'
