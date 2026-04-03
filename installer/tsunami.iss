@@ -50,7 +50,7 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 
 [Run]
 ; Run setup.ps1 after install — tell it to use the install directory for everything
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -Command ""$env:TSUNAMI_DIR='{app}'; & '{app}\setup.ps1'"""; Description: "Download models and dependencies (~7GB)"; Flags: postinstall nowait shellexec; StatusMsg: "Setting up Tsunami..."
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -Command ""$env:PATH=[Environment]::GetEnvironmentVariable('PATH','Machine')+';'+[Environment]::GetEnvironmentVariable('PATH','User'); $env:TSUNAMI_DIR='{app}'; & '{app}\setup.ps1'"""; Description: "Download models and dependencies (~7GB)"; Flags: postinstall nowait shellexec; StatusMsg: "Setting up Tsunami..."
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\models"
