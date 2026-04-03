@@ -1,52 +1,34 @@
-# Form App Template
+# Form App Scaffold
 
-React 19 + TypeScript + Vite + xlsx + papaparse. For apps with file uploads and editable data.
+Vite + React 19 + xlsx + PapaParse. File upload, spreadsheet parsing, data tables.
 
-## Pre-built Components
+## Components (import from `./components`)
 
-Import from `./components`:
-- `FileDropzone` — drag-and-drop file upload (accepts .xlsx, .xls, .csv)
-- `DataTable` — editable table with sticky headers and cell highlighting
-- `parseFile(file)` — parses xlsx/xls/csv into `{ columns, rows, sheetName }[]`
+### FileDropzone
+`<FileDropzone accept=".csv,.xlsx" onFile={file => parseFile(file).then(setSheets)} />`
+- Drag-and-drop + click, shows filename after upload
 
-## Build Loop
+### DataTable
+`<DataTable columns={cols} rows={data} editable searchable onCellEdit={...} onExport={...} />`
+- Sortable (click headers), searchable, editable cells, row count, export button
+- highlightCell prop for conditional formatting
 
-1. Write types in `src/types.ts`
-2. Import `FileDropzone`, `DataTable`, `parseFile` from `./components`
-3. Write domain logic (diff tracking, validation, transforms)
-4. Wire everything in `src/App.tsx`
-5. `npx vite build` to compile-check
+### parseFile
+`const sheets = await parseFile(file)` → `[{columns, rows, sheetName}]`
+- Parses CSV, TSV, XLS, XLSX automatically
 
-## Usage Examples
+### exportCsv
+`exportCsv(columns, rows, "mydata.csv")` — triggers browser download
 
-```tsx
-import { FileDropzone, DataTable, parseFile } from "./components"
+## CSS Classes
+- `.dropzone`, `.dropzone.active` — file upload area
+- `.table-scroll` — scrollable table with sticky headers
+- `.table-toolbar` — search + export bar above table
+- `.form-grid`, `.form-group label` — responsive form layout
+- `.form-actions` — right-aligned button row
+- `.steps`, `.step.active/.done` — wizard/stepper UI
 
-// Upload and parse
-<FileDropzone onFile={async (file) => {
-  const sheets = await parseFile(file)
-  setData(sheets[0])
-}} />
-
-// Display editable table
-<DataTable
-  columns={data.columns}
-  rows={data.rows}
-  editable={true}
-  onCellEdit={(row, key, value) => trackChange(row, key, value)}
-  highlightCell={(row, key) => hasChanged(row, key) ? "#2a1a00" : undefined}
-/>
-```
-
-## File Structure
-
-```
-src/
-  App.tsx           ← Wire your app here
-  types.ts          ← Your domain interfaces
-  components/
-    FileDropzone.tsx ← Drag-drop upload (ready to use)
-    DataTable.tsx    ← Editable table (ready to use)
-    parseFile.ts     ← xlsx/csv parser (ready to use)
-    index.ts         ← Barrel exports
-```
+## Rules
+- Don't overwrite `main.tsx`, `vite.config.ts`, or `index.css`
+- Use parseFile for all file imports — handles xlsx + csv
+- Use exportCsv for downloads — handles quoting and encoding
