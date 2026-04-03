@@ -15,7 +15,7 @@ from .state import AgentState
 
 
 def build_system_prompt(state: AgentState, workspace: str = "./workspace",
-                        skills_dir: str = "") -> str:
+                        skills_dir: str = "", lite: bool = False) -> str:
     """Build a lean system prompt. Reference material lives on disk."""
 
     env_info = _gather_environment()
@@ -37,6 +37,28 @@ def build_system_prompt(state: AgentState, workspace: str = "./workspace",
     plan_section = ""
     if state.plan:
         plan_section = f"\n\n---\n\n# Current Plan\n{state.plan.summary()}"
+
+    if lite:
+        # Lite prompt — shorter, simpler, direct. For 2B models.
+        return f"""You are Tsunami, an AI agent. You build apps.
+
+Call exactly ONE tool per response. Never respond with just text.
+
+Workspace: {workspace}
+{project_info}
+
+To build an app:
+1. project_init(name) — creates the project
+2. file_write App.tsx — write the full app, import "./index.css"
+3. shell_exec "cd <project_dir> && npx vite build" — must pass
+4. message_result — deliver when build passes
+
+CSS classes available: .container .card .flex .grid .grid-2/3 .gap-4 .text-center .text-muted .mt-4 .p-4
+
+Rules:
+- Always import hooks: import {{ useState }} from "react"
+- Use file_write for files, shell_exec for commands
+- message_result when done. Keep it short.{plan_section}"""
 
     return f"""# Identity
 You are Tsunami, an autonomous general AI agent. You understand intent, formulate plans, and execute them. Your bias is toward completion, not caution.

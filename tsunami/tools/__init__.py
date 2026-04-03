@@ -64,19 +64,34 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
 
     registry = ToolRegistry()
 
-    # Bootstrap — lean core (17 tools)
-    # vision_ground is NOT in bootstrap — loaded by auto-ground when VL model is detected
-    for cls in [FileRead, FileWrite, FileEdit,
-                MatchGlob, MatchGrep,
-                ShellExec,
-                MessageInfo, MessageAsk, MessageResult,
-                PlanUpdate,
-                SearchWeb, PythonExec, SummarizeFile, Swell, Undertow,
-                ProjectInit, GenerateImage]:
-        registry.register(cls(config))
+    # Detect lite mode: eddy and wave on same endpoint = one model doing everything
+    is_lite = config.eddy_endpoint == config.model_endpoint
 
-    # The one meta-tool — loads everything else from disk
-    registry.register(LoadToolbox(config))
+    if is_lite:
+        # Lite mode (2B): 11 tools — fewer choices = better decisions
+        # Removed: PlanUpdate (2B plans poorly), Swell (auto-dispatched),
+        # Undertow (auto-fires), SummarizeFile (wastes context),
+        # PythonExec (2B misuses for file ops), MatchGrep (use shell grep),
+        # LoadToolbox (no dynamic loading on 2B)
+        for cls in [FileRead, FileWrite, FileEdit,
+                    MatchGlob,
+                    ShellExec,
+                    MessageInfo, MessageAsk, MessageResult,
+                    SearchWeb, ProjectInit, GenerateImage]:
+            registry.register(cls(config))
+    else:
+        # Full mode (9B+): 18 tools — full capabilities
+        for cls in [FileRead, FileWrite, FileEdit,
+                    MatchGlob, MatchGrep,
+                    ShellExec,
+                    MessageInfo, MessageAsk, MessageResult,
+                    PlanUpdate,
+                    SearchWeb, PythonExec, SummarizeFile, Swell, Undertow,
+                    ProjectInit, GenerateImage]:
+            registry.register(cls(config))
+        # The meta-tool — loads everything else from disk
+        registry.register(LoadToolbox(config))
+
     set_registry(registry)
 
     return registry
