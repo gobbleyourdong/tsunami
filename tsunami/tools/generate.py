@@ -43,8 +43,14 @@ class GenerateImage(BaseTool):
             "required": ["prompt", "save_path"],
         }
 
-    async def execute(self, prompt: str, save_path: str, width: int = 1024,
+    async def execute(self, prompt: str, save_path: str = "", width: int = 1024,
                       height: int = 1024, style: str = "photo", **kw) -> ToolResult:
+        # Auto-generate save_path if model forgot it (common with 2B)
+        if not save_path:
+            import time as _time
+            save_path = f"public/images/generated_{int(_time.time())}.png"
+            log.info(f"generate_image called without save_path — defaulting to {save_path}")
+
         # Resolve path — always within workspace, strip leading /workspace
         clean = save_path.lstrip("/")
         # Strip "workspace/" prefix if the model sends absolute-looking paths
