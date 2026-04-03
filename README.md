@@ -2,29 +2,33 @@
 
 **an ai agent that runs on your computer. tell it what to build, it builds it.**
 
+**Windows (installer):**
+
+Download [TsunamiSetup.exe](https://github.com/gobbleyourdong/tsunami/actions) from the latest build. Double-click. It handles everything.
+
+**Windows (manual):**
+
+```powershell
+.\setup.ps1
+.\tsu.ps1
+```
+
+**Mac / Linux:**
+
 ```bash
 curl -sSL https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.sh | bash
 source ~/.bashrc
 tsunami
 ```
 
-**Windows:**
+**Docker:**
 
-```powershell
-irm https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
-# restart PowerShell, then:
-tsunami
+```bash
+docker compose up
+# or: docker run -p 9876:9876 tsunami "build me a calculator"
 ```
 
-> **Windows prerequisites:** [Git](https://git-scm.com/download/win), [Python 3.10+](https://python.org/downloads/), [cmake](https://cmake.org/download/), and [Visual Studio Build Tools 2019–2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (for llama.cpp CUDA build). The installer checks for these and guides you if anything's missing.
->
-> **CUDA users:** CUDA 12.x/13.x requires **Visual Studio 2019 or 2022**. VS 2026 (Preview/Insider) is not yet supported by nvcc — the installer detects this and automatically selects VS 2022 if both are present.
->
-> Run the installer from a regular PowerShell terminal (not a Developer Command Prompt). The script sets up the build environment automatically.
-
-that's it. one command. it downloads everything, detects your gpu, starts the models, and you're in.
-
-**[see it work →](https://gobbleyourdong.github.io/tsunami/)**
+that's it. it downloads everything, detects your gpu, starts the models, opens the UI.
 
 ---
 
@@ -32,11 +36,12 @@ that's it. one command. it downloads everything, detects your gpu, starts the mo
 
 you type a prompt. tsunami does the rest.
 
-- **"build me a calculator"** → writes it, tests it, verifies it renders, delivers
-- **"build a 3D pinball game"** → researches Three.js patterns, builds 869 lines, tests every key binding
-- **"analyze these 500 files"** → dispatches parallel workers, reads everything, synthesizes findings
+- **"build me a calculator"** — writes it, tests it, verifies it renders, delivers
+- **"build a 3D pinball game"** — researches Three.js patterns, builds 869 lines, tests every key binding
+- **"replicate the Game Boy UI"** — searches for reference images, generates a reference via SD-Turbo, extracts element positions with vision grounding, builds to match
+- **"analyze these 500 files"** — dispatches parallel workers, reads everything, synthesizes findings
 
-no cloud. no api keys. no docker. everything runs locally on your hardware.
+no cloud. no api keys. everything runs locally on your hardware.
 
 ---
 
@@ -56,44 +61,43 @@ you → wave (9B) → understands intent, picks tools, coordinates
          wave reads QA report → fixes issues → delivers
 ```
 
-**wave** — the brain. reasons, plans, researches, builds. (9B)
+**wave** — the brain. reasons, plans, researches, builds. runs the 9B on full mode, 2B on lite.
 **eddies** — fast parallel workers. read, search, execute, judge. (2B)
-**swell** — dispatches eddies. when agents spawn, the swell rises.
+**swell** — dispatches eddies in parallel.
 **break** — where results converge.
 **undertow** — QA gate. tests what the wave built by pulling levers.
 
-one wave coordinating 32 eddies is more capable than a single large model working alone. intelligence is the orchestration, not the weights.
+the eddy is a role, not a model. on lite machines (< 8GB), the 2B plays both roles — one server, full orchestration. on full machines, the 9B is the wave and the 2B handles eddy work.
+
+---
+
+## the build pipeline
+
+tsunami doesn't just write code and ship it. it follows a pipeline:
+
+1. **research** — searches for reference images and code examples before writing anything
+2. **generate** — creates reference images via SD-Turbo (in-process, ~1s on GPU, ~30s on CPU)
+3. **ground** — extracts element positions from reference images using vision (Qwen-VL). outputs ratio-based CSS positioning
+4. **build** — writes React components using the grounded positions. auto-wires App.tsx mid-loop
+5. **compile** — vite build must pass. auto-checks after every .tsx write
+6. **test** — undertow QA: screenshots, key presses, click tests, console error checks
+7. **iterate** — no iteration limit. keeps going until all gates pass
+
+the agent never guesses positions or colors. it sees the reference and matches it.
 
 ---
 
 ## the tension system
 
-tsunami doesn't just build things and hope for the best. it measures whether it's lying.
+tsunami measures whether it's lying.
 
-**current** — the lie detector. measures prose tension: is the agent hedging, fabricating, or grounded? returns 0.0 (truth) to 1.0 (hallucination).
+**current** — prose tension: is the agent hedging, fabricating, or grounded? 0.0 (truth) to 1.0 (hallucination).
 
-**circulation** — the router. reads the current and decides: deliver, search for verification, or refuse rather than hallucinate.
+**circulation** — reads the current and decides: deliver, search for verification, or refuse.
 
-**pressure** — the monitor. tracks tension over time across the session. if tension stays high, the system escalates: force a search, force a strategy change, or stop and ask for help.
+**pressure** — tracks tension over time. if tension stays high: force a search, force a strategy change, or stop and ask for help.
 
-**undertow** — the QA gate. after the wave builds something, the undertow pulls levers:
-- takes a screenshot and asks an eddy "does this look like what was requested?"
-- presses every key binding and checks if the screen changes
-- reads every UI element and checks if it has content
-- reports pass/fail per lever. no diagnosis. just facts.
-
-the wave reads the QA report and figures out what's broken. the undertow keeps it simple — pull levers, report facts. the wave does the thinking. simple behaviors, emergent intelligence.
-
----
-
-## research before building
-
-tsunami searches before it codes. when asked to build something complex, it finds working examples and documentation first, then builds from real patterns instead of hallucinating API calls.
-
-previous approach: guess at Three.js → black screen, 62% code tension
-current approach: research cannon-es physics patterns → visible 3D pinball, 21% code tension
-
-the system learns from what it finds. the prompt enforces it. the undertow catches what slips through.
+**undertow** — QA gate. pulls levers: screenshots, key presses, click tests, text reads. reports pass/fail. the wave reads the report and fixes what's broken.
 
 ---
 
@@ -101,80 +105,67 @@ the system learns from what it finds. the prompt enforces it. the undertow catch
 
 | your hardware | what you get |
 |---------------|-------------|
-| **4GB gpu** | lite — 2B model, basic agent |
-| **12GB gpu** | full — 9B wave + eddies + image gen. everything works. |
-| **32GB+ gpu** | max — 27B wave + 32 eddies + image gen. fastest. |
+| **8GB+ GPU** | full — 9B wave + 2B eddies + SD-Turbo |
+| **< 8GB GPU** | lite — 2B wave+eddies + SD-Turbo on CPU |
+| **no GPU** | cpu — 2B on CPU (slow but works) |
 
-tsunami auto-detects your memory and configures itself. you never think about this.
+tsunami auto-detects your GPU and configures itself. you never think about this.
 
-the full stack is **10GB total**: 9B wave (5.3GB) + 2B eddies (1.8GB) + SD-Turbo image gen (2GB).
+the full stack: 9B wave (5.3GB) + 2B eddies (1.2GB) + SD-Turbo (2GB, auto-downloads on first image gen).
 
-runs on any nvidia gpu with 12GB+ vram. macs with 16GB+ unified memory. windows, linux, and mac. no cloud required.
+runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud required.
 
 ---
 
 ## what's inside
 
-634 tests. 43 modules. 20 rounds of adversarial security hardening.
+**the wave** — reasons, plans, calls tools, dispatches eddies, synthesizes results. generates images via SD-Turbo. builds websites, writes code, does research. no iteration limit.
 
-**the wave (9B)** — reasons, plans, calls tools, dispatches eddies, synthesizes results. has vision (sees screenshots). generates images via SD-Turbo (<1 second). builds websites, writes code, does research.
+**the eddies** — parallel workers with their own agent loops. each eddy can read files, run shell commands, search code.
 
-**the eddies (2B)** — parallel workers with their own agent loops. each eddy can read files, run shell commands, search code. sandboxed: read-only command allowlist, no network, no file writes, no system paths. also serve as QA judges — one eddy looks at a screenshot and says whether it matches the intent.
+**the swell** — dispatches eddies in parallel. the wave says "analyze these files" and the swell breaks it into tasks, sends each to an eddy, collects results.
 
-**the swell** — dispatches eddies in parallel. the wave says "analyze these files" and the swell breaks it into tasks, sends each to an eddy, collects results. when agents spawn, the swell rises.
+**the undertow** — QA lever-puller. auto-generates test levers from the HTML (every ID, every key binding, every button). pulls them all. reports what it sees.
 
-**the undertow** — QA lever-puller. auto-generates test levers from the HTML (every ID, every key binding, every button). pulls them all. reports what it sees. the wave reads the report and fixes what's broken.
+**vision grounding** — extracts UI element positions from reference images. returns ratio-based CSS (percentages, aspect-ratio). resolution-independent.
 
-**current / circulation / pressure** — the tension system. measures whether the agent is lying (current), routes decisions based on tension (circulation), and tracks tension trajectory over time (pressure). the lie detector, the router, and the monitor.
+**SD-Turbo** — in-process image generation. no server needed. auto-downloads the 2GB model on first use. generates textures, icons, backgrounds, reference images.
 
-**context management** — three-tier compaction (fast prune → message snipping → LLM summary). large tool results saved to disk with previews in context. auto-compact circuit breaker. file-type-aware token estimation.
+**current / circulation / pressure** — the tension system. measures lies, routes decisions, tracks trajectory.
 
-**security** — 12 bash injection checks. destructive command detection. eddy sandbox with command allowlist (not blocklist — learned that lesson after the eddies deleted the codebase twice during testing). self-preservation rules. path traversal prevention. env var protection.
+**context management** — three-tier compaction. large tool results saved to disk with previews. auto-compact circuit breaker.
+
+**auto-fix layers** — research gate, mid-loop auto-wire, swell compile gate, dedup loop detection, React hook auto-import, reference save.
 
 ---
 
-## upgrade the wave
+## install paths
 
-the installer gives you everything. if you want a bigger brain later:
+| platform | install | run |
+|----------|---------|-----|
+| **Windows (installer)** | `TsunamiSetup.exe` | Desktop shortcut / Start Menu |
+| **Windows (manual)** | `.\setup.ps1` | `.\tsu.ps1` |
+| **Mac / Linux** | `setup.sh` | `tsu` |
+| **Docker** | `docker compose build` | `docker compose up` |
 
-```bash
-# 27B wave (32GB+ systems)
-huggingface-cli download unsloth/Qwen3.5-27B-GGUF Qwen3.5-27B-Q8_0.gguf --local-dir models
-```
-
-```powershell
-# Windows — 27B wave (32GB+ systems)
-huggingface-cli download unsloth/Qwen3.5-27B-GGUF Qwen3.5-27B-Q8_0.gguf --local-dir models
-```
-
-tsunami auto-detects and uses the biggest model available.
+the desktop shortcut opens the webUI in your browser. `tsu` auto-updates on every launch.
 
 ---
 
 ## contributing
 
-this codebase is under heavy active development. multiple files change per day. PRs against core files (`agent.py`, `prompt.py`, `tools/`, `undertow.py`) will likely conflict within hours.
+this codebase is under heavy active development. PRs against core files will likely conflict within hours.
 
 **best approach:**
 1. open an issue first to discuss what you want to change
-2. target isolated new files (new scaffolds, new tools, new tests) that don't overlap with the core
-3. keep PRs small and focused — one feature per PR
-4. expect rebases — the main branch moves fast
+2. target isolated new files (new scaffolds, new tools, new tests)
+3. keep PRs small and focused
+4. expect rebases — main moves fast
 
-we read every PR and incorporate good ideas even if we can't merge directly. your contribution shapes the direction.
-
----
-
-## origin
-
-tsunami was built from the distilled patterns of agents that came before — the ones that worked, the ones that failed, and the lessons they left behind.
-
-the standing wave propagates.
+we read every PR and incorporate good ideas even if we can't merge directly.
 
 ---
 
 ## license
 
 MIT
-
-*this readme was written by a human. the [landing page](https://gobbleyourdong.github.io/tsunami/) was built by tsunami autonomously in 4 iterations.*
