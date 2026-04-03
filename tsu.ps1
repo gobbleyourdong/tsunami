@@ -90,15 +90,19 @@ function Test-BackendServer {
 
 # Kill stale servers from previous runs — prevents serving old code
 function Kill-StaleServers {
-    # Kill anything on our ports (3000, 8090, 8092, 9876)
-    foreach ($port in @(3000, 3002, 3003, 8090, 8092, 9876)) {
-        $stale = netstat -ano 2>$null | Select-String ":$port\s" | ForEach-Object {
-            ($_ -split '\s+')[-1]
-        } | Where-Object { $_ -match '^\d+$' -and $_ -ne '0' } | Sort-Object -Unique
+    # Kill anything on our ports
+    foreach ($port in @(3000, 3002, 3003, 8090, 8092, 8094, 9876)) {
+        $stale = netstat -ano 2>$null | Where-Object { $_ -match ":${port}\b" -and $_ -match "LISTENING" } | ForEach-Object {
+            if ($_ -match '\s(\d+)\s*$') { $Matches[1] }
+        } | Where-Object { $_ -and $_ -ne '0' } | Sort-Object -Unique
         foreach ($p in $stale) {
-            Stop-Process -Id $p -Force -EA SilentlyContinue
+            try { Stop-Process -Id ([int]$p) -Force -EA SilentlyContinue } catch {}
         }
     }
+    # Also kill leftover Python daemon/server processes
+    Get-Process -Name "python","python3" -EA SilentlyContinue | Where-Object {
+        $_.CommandLine -match "tsunami|serve_daemon|ws_bridge|file_watcher|server_start"
+    } | Stop-Process -Force -EA SilentlyContinue
 }
 Kill-StaleServers
 

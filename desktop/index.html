@@ -122,6 +122,16 @@
     .proj-item:last-child { border-bottom: none; }
 
     ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+      #app { grid-template-columns: 1fr; grid-template-rows: 36px 1fr 1fr; }
+      .left { max-height: 50vh; }
+      .right { max-height: 50vh; }
+      .file-tree { width: 100px; }
+      .top-bar .hud { display: none; }
+      .projects-btn { display: none; }
+    }
   </style>
 </head>
 <body>
