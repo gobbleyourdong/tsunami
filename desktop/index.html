@@ -146,8 +146,10 @@
       <button class="theme-btn" onclick="cycleTheme()" id="theme-btn">dark</button>
       <div class="hud">
         <span id="hud-text">idle</span>
-        wave <div class="dot" id="wave-dot"></div>
-        eddy <div class="dot" id="eddy-dot"></div>
+        <span title="Model server">wave <div class="dot" id="wave-dot"></div></span>
+        <span title="Eddy workers">eddy <div class="dot" id="eddy-dot"></div></span>
+        <span title="Image generation">img <div class="dot" id="img-dot"></div></span>
+        <span title="Preview server">view <div class="dot" id="view-dot"></div></span>
       </div>
     </div>
 
@@ -333,9 +335,15 @@
       document.getElementById("wave-dot").className = "dot " + (ws?.readyState === 1 ? "on" : "off")
     }
     async function checkHealth() {
-      for (const [id, port] of [["wave-dot", 8090], ["eddy-dot", 8092]]) {
+      for (const [id, port] of [["wave-dot", 8090], ["eddy-dot", 8092], ["img-dot", 8091], ["view-dot", 9876]]) {
         try { const r = await fetch(`http://localhost:${port}/health`, {signal: AbortSignal.timeout(2000)}); document.getElementById(id).className = "dot " + (r.ok ? "on" : "off") }
-        catch { document.getElementById(id).className = "dot off" }
+        catch {
+          // 9876 serves HTML not /health — check differently
+          if (port === 9876) {
+            try { const r2 = await fetch(`http://localhost:${port}/`, {signal: AbortSignal.timeout(2000)}); document.getElementById(id).className = "dot " + (r2.ok ? "on" : "off") }
+            catch { document.getElementById(id).className = "dot off" }
+          } else { document.getElementById(id).className = "dot off" }
+        }
       }
     }
 
