@@ -890,6 +890,8 @@ class Agent:
                     f"{self._dedup_hits} times and got the same result. Try a different approach. "
                     f"If the task is done, call message_result. If stuck, modify the code and retry."
                 )
+                # Invalidate this specific cache entry so the loop can't repeat
+                self.tool_dedup.invalidate(tool_call.name)
                 self._dedup_hits = 0
             return content
         else:
