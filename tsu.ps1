@@ -134,13 +134,33 @@ if (-not (Test-ModelServer)) {
         $logFile = "$env:TEMP\llama-server.log"
         $llamaArgs = @('--host', '0.0.0.0', '--port', '8090', '--ctx-size', '16384', '--n-gpu-layers', '99')
 
-        # Model priority: 27B dense > 122B MoE > smaller text model
-        $dense27   = Find-Model 'Qwen3.5-27B*.gguf'
+        # Check VRAM — skip large models on <10GB cards
+        $vramGB = 0
+        try {
+            $nvsmi = if (Get-Command "nvidia-smi" -EA SilentlyContinue) { "nvidia-smi" }
+                     elseif (Test-Path "C:\Windows\Sysnative\nvidia-smi.exe") { "C:\Windows\Sysnative\nvidia-smi.exe" }
+                     elseif (Test-Path "C:\Windows\System32\nvidia-smi.exe") { "C:\Windows\System32\nvidia-smi.exe" }
+                     else { $null }
+            if ($nvsmi) {
+                $vramMB = [int](& $nvsmi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null |
+                          Select-Object -First 1).Trim()
+                $vramGB = [math]::Ceiling($vramMB / 1024)
+            }
+        } catch {}
+        $liteMode = $vramGB -gt 0 -and $vramGB -lt 10
+        if ($liteMode) { Write-Host "  ${vramGB}GB VRAM — lite mode (2B)" }
+
+        # Model priority: 27B > MoE > 9B > 2B (lite skips everything above 2B)
+        $dense27   = if (-not $liteMode) { Find-Model 'Qwen3.5-27B*.gguf' } else { $null }
         $mmproj27  = @('mmproj-27B*.gguf','mmproj-BF16.gguf','mmproj-F16.gguf') |
                      ForEach-Object { Find-Model $_ } | Where-Object { $_ } | Select-Object -First 1
-        $moeModel  = Find-Model '*122B*-00001-of-*.gguf'
-        $textModel = @('Qwen3*-9B*.gguf','Qwen3*-8B*.gguf','Qwen3*-2B*.gguf') |
-                     ForEach-Object { Find-Model $_ } | Where-Object { $_ } | Select-Object -First 1
+        $moeModel  = if (-not $liteMode) { Find-Model '*122B*-00001-of-*.gguf' } else { $null }
+        $textModel = if ($liteMode) {
+            Find-Model 'Qwen3*-2B*.gguf'
+        } else {
+            @('Qwen3*-9B*.gguf','Qwen3*-8B*.gguf','Qwen3*-2B*.gguf') |
+                ForEach-Object { Find-Model $_ } | Where-Object { $_ } | Select-Object -First 1
+        }
         $mmprojSmall = Find-Model 'mmproj-9B-BF16.gguf','mmproj-2B-BF16.gguf'
 
         # Windows CommandLineToArgvW strips unquoted double-quotes from JSON values
