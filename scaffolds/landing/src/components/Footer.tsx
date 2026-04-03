@@ -1,23 +1,27 @@
 interface FooterProps {
   brand?: string
   links?: { label: string; href: string }[]
+  socials?: { icon: string; href: string }[]
 }
 
-export default function Footer({ brand = "", links = [] }: FooterProps) {
+export default function Footer({ brand, links = [], socials = [] }: FooterProps) {
   return (
-    <footer style={{
-      padding: "40px 24px", textAlign: "center",
-      background: "#0a0a1a", borderTop: "1px solid #222",
-      color: "#555", fontSize: 13,
-    }}>
-      {links.length > 0 && (
-        <div style={{ display: "flex", justifyContent: "center", gap: 24, marginBottom: 16 }}>
-          {links.map(l => (
-            <a key={l.href} href={l.href} style={{ color: "#666", textDecoration: "none" }}>{l.label}</a>
-          ))}
-        </div>
-      )}
-      <p>{brand ? `© ${new Date().getFullYear()} ${brand}` : `© ${new Date().getFullYear()}`}</p>
+    <footer className="footer">
+      <div className="footer-inner">
+        {links.length > 0 && (
+          <div className="footer-links">
+            {links.map(l => <a key={l.href} href={l.href}>{l.label}</a>)}
+          </div>
+        )}
+        {socials.length > 0 && (
+          <div className="footer-socials">
+            {socials.map(s => <a key={s.href} href={s.href} target="_blank" rel="noopener">{s.icon}</a>)}
+          </div>
+        )}
+        <p className="footer-copy">
+          {brand ? `© ${new Date().getFullYear()} ${brand}` : `© ${new Date().getFullYear()}`}
+        </p>
+      </div>
     </footer>
   )
 }

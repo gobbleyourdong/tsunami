@@ -6,17 +6,15 @@ interface SectionProps {
   subtitle?: string
   children: ReactNode
   dark?: boolean
+  centered?: boolean
 }
 
-export default function Section({ id, title, subtitle, children, dark = false }: SectionProps) {
+export default function Section({ id, title, subtitle, children, dark, centered }: SectionProps) {
   return (
-    <section id={id} style={{
-      padding: "80px 24px",
-      background: dark ? "#0f0f1a" : "#111128",
-    }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        {title && <h2 style={{ fontSize: 36, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{title}</h2>}
-        {subtitle && <p style={{ fontSize: 16, color: "#888", marginBottom: 40 }}>{subtitle}</p>}
+    <section id={id} className={`section ${dark ? "section-dark" : ""}`}>
+      <div className="section-inner">
+        {title && <h2 className={`section-title ${centered ? "text-center" : ""}`}>{title}</h2>}
+        {subtitle && <p className={`section-subtitle ${centered ? "text-center" : ""}`}>{subtitle}</p>}
         {children}
       </div>
     </section>
