@@ -162,7 +162,7 @@ $CAPACITY_GB = if ($GPU -eq "cuda" -and $VRAM -gt 0) {
 }
 $CAPACITY_SRC = if ($GPU -eq "cuda" -and $VRAM -gt 0) { "VRAM" } else { "RAM" }
 
-if ($CAPACITY_GB -lt 8) {
+if ($CAPACITY_GB -lt 10) {
     $MODE  = "lite"
     $WAVE = "2B"
     Write-Host "  → ${CAPACITY_GB}GB ${CAPACITY_SRC}: lite mode (2B only)"
