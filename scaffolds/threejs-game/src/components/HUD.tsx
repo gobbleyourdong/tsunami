@@ -2,28 +2,25 @@ import { ReactNode } from "react"
 
 interface HUDProps {
   children: ReactNode
+  position?: "top" | "bottom"
 }
 
-/** 2D overlay on top of the 3D scene. For score, health, menus. */
-export default function HUD({ children }: HUDProps) {
+/** 2D overlay on top of the 3D scene. For score, health, menus.
+ *  pointer-events:none so clicks pass through to the 3D canvas. */
+export default function HUD({ children, position = "top" }: HUDProps) {
   return (
-    <div style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      padding: "16px",
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      fontFamily: "'Courier New', monospace",
-      color: "#0ff",
-      textShadow: "0 0 8px #0ff",
-      fontSize: "18px",
-      pointerEvents: "none",
-      zIndex: 10,
-    }}>
+    <div className={`hud-3d ${position === "bottom" ? "hud-bottom" : ""}`}>
       {children}
     </div>
+  )
+}
+
+/** Stat display for the HUD — label + value with neon glow */
+export function HUDStat({ label, value, color }: { label: string; value: string | number; color?: string }) {
+  return (
+    <span className="hud-stat" style={color ? { color } : undefined}>
+      <span className="hud-label">{label}</span>
+      <span className="hud-value">{value}</span>
+    </span>
   )
 }
