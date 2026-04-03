@@ -5,6 +5,7 @@ cd "$DIR"
 
 # Auto-update on launch (silent, non-blocking)
 if [ -d "$DIR/.git" ]; then
+  git branch --set-upstream-to=origin/main main 2>/dev/null
   _local=$(git rev-parse HEAD 2>/dev/null)
   git fetch origin main --quiet 2>/dev/null
   _remote=$(git rev-parse origin/main 2>/dev/null)
