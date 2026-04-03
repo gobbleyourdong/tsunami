@@ -15,7 +15,7 @@ interface SceneProps {
  *  Just drop game objects as children. */
 export default function Scene({
   children,
-  bgColor = "#1a1a2e",
+  bgColor = "#08090d",
   gravity = [0, -9.81, 0],
   debug = false,
   camera = { position: [0, 8, 12], fov: 50 },
