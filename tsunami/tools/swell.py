@@ -68,14 +68,31 @@ class Swell(BaseTool):
         import os.path
         project_root = os.path.dirname(os.path.abspath(self.config.workspace_dir))
 
+        # Try to find shared types for context
+        types_context = ""
+        for target in targets:
+            from pathlib import Path as _P
+            proj = _P(target).parent
+            while proj != proj.parent:
+                types_file = proj / "src" / "types.ts"
+                if types_file.exists():
+                    try:
+                        types_context = f"\n\nShared types (import from '../types'):\n```\n{types_file.read_text()[:1500]}\n```"
+                    except Exception:
+                        pass
+                    break
+                proj = proj.parent
+
         results = await run_swarm(
-            tasks=prompts,
+            tasks=[p + types_context for p in prompts],
             workdir=project_root,
             max_concurrent=MAX_WORKERS,
             system_prompt=(
                 "You are a TypeScript/React expert. "
-                "Call done() with ONLY the raw code. "
-                "No markdown fences. No explanation. Just code."
+                "Write a single component. Call done() with ONLY the raw TSX/TS code. "
+                "No markdown fences. No explanation. Just the code. "
+                "Import types from '../types' if provided. "
+                "Export default function ComponentName."
             ),
             write_targets=targets,
         )
