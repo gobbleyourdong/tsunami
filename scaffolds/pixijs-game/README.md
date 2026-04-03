@@ -1,60 +1,55 @@
-# 2D Game Template
+# 2D Game Scaffold
 
-React 19 + TypeScript + PixiJS 8 + Matter.js physics.
+PixiJS 8 + Matter.js physics + React. For platformers, shooters, puzzle games.
 
-## Pre-built Components
+## Components (import from `./components`)
 
-Import from `./components`:
-- `GameCanvas` — PixiJS canvas component (get the app instance via `onApp`)
-- `createRect(x, y, w, h, color)` — colored rectangle sprite
-- `createCircle(x, y, radius, color)` — circle sprite
-- `createText(content, x, y, style?)` — text display
-- `createPhysicsWorld(gravity?)` — Matter.js physics world
-- `syncSprite(sprite, body)` — sync PixiJS sprite position with physics body
-
-## Build Loop
-
-1. Write game types in `src/types.ts`
-2. Use `GameCanvas` to get the PixiJS app
-3. Create sprites with `createRect`/`createCircle`/`createText`
-4. Create physics with `createPhysicsWorld`, add bodies, sync with sprites
-5. Wire in `src/App.tsx`
-
-## Usage Example
-
+### GameCanvas
 ```tsx
-import { GameCanvas, createRect, createCircle, createPhysicsWorld, syncSprite } from "./components"
+<GameCanvas width={800} height={600} onApp={app => {
+  const player = createRect(100, 100, 32, 32, 0x00ffcc)
+  app.stage.addChild(player)
+  app.ticker.add(() => { /* game loop */ })
+}} />
+```
+Helpers: `createRect(x,y,w,h,color)`, `createCircle(x,y,r,color)`, `createText(str,x,y)`
 
-function Game() {
-  const handleApp = (app) => {
-    const physics = createPhysicsWorld({ x: 0, y: 1 })
-    
-    // Static ground
-    physics.addStatic(400, 580, 800, 20)
-    const groundSprite = createRect(0, 570, 800, 20, 0x333366)
-    app.stage.addChild(groundSprite)
+### GameHUD
+`<GameHUD score={100} level={3} lives={3} time={120} />`
+- Overlay bar with score, level, lives (hearts), timer
 
-    // Falling ball
-    const ball = physics.addCircle(400, 100, 20)
-    const ballSprite = createCircle(400, 100, 20, 0xff4488)
-    app.stage.addChild(ballSprite)
-
-    // Game loop
-    app.ticker.add(() => syncSprite(ballSprite, ball, -20, -20))
-    physics.start()
-  }
-
-  return <GameCanvas width={800} height={600} onApp={handleApp} />
-}
+### useKeyboard
+```tsx
+const keys = useKeyboard()
+// in ticker: if (isPressed(keys, "ArrowLeft")) player.x -= 5
 ```
 
-## File Structure
+### Physics (Matter.js)
+```tsx
+const physics = createPhysicsWorld({ x: 0, y: 1 })
+const ball = physics.addCircle(400, 100, 20)
+const floor = physics.addStatic(400, 580, 800, 20)
+physics.onCollision((a, b) => { /* bounce! */ })
+physics.start()
+// in ticker: syncSprite(pixiSprite, matterBody)
+```
 
+### SpriteAnimator
+```tsx
+const { sprite, update } = createAnimatedSprite(app, "sheet.png", 32, 32, 8, 24, 12)
+app.ticker.add(dt => update(dt))
 ```
-src/
-  App.tsx               ← Wire your game here
-  components/
-    GameCanvas.tsx       ← PixiJS canvas + sprite helpers (ready to use)
-    Physics2D.ts         ← Matter.js wrapper + sync (ready to use)
-    index.ts             ← Barrel exports
+
+## Game Loop Pattern
+```tsx
+<GameCanvas onApp={app => {
+  // 1. Create sprites
+  // 2. Set up physics
+  // 3. app.ticker.add(dt => { read keys → update physics → sync sprites → check collisions })
+}} />
 ```
+
+## CSS Classes
+- `.game-container` — centers canvas with shadow
+- `.game-hud` — blurred overlay bar for score/lives
+- `.game-overlay` — fullscreen game-over/start screen
