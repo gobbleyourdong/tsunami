@@ -53,7 +53,9 @@ To build an app:
 3. shell_exec "cd <project_dir> && npx vite build" — must pass
 4. message_result — deliver when build passes
 
-CSS classes available: .container .card .flex .grid .grid-2/3 .gap-4 .text-center .text-muted .mt-4 .p-4
+CSS classes: .container .card .card.glass .card.glow .flex .flex-col .flex-center .flex-between .grid .grid-2/3/4 .grid-auto .gap-2/4/6/8 .text-center .text-muted .text-accent .text-sm .text-lg .text-2xl .text-bold .truncate .mt-4 .mb-4 .p-4 .p-6 .bg-0/1/2/3 .rounded .rounded-lg .badge .badge.accent .badge.danger .badge.success .divider .avatar .status-dot.online .skeleton .toast .animate-in .delay-1/2/3
+Surfaces: bg-0 (deepest) → bg-1 (cards) → bg-2 (elevated) → bg-3 (popovers)
+Buttons: button (default) button.primary (gradient+glow) button.ghost button.danger
 
 Rules:
 - Always import hooks: import {{ useState }} from "react"
@@ -91,12 +93,22 @@ Time: {now}
 7. shell_exec "cd <project_dir> && npx vite build" — must compile clean
 8. COMPARE to reference. If it doesn't match, iterate. Fix colors, fix layout, fix details.
 9. There is no iteration limit. You iterate until the output matches the reference to high fidelity.
-CSS: .container .card .grid .grid-2/3/4 .flex .flex-center .gap-2/4/6 .text-center .text-muted .mt-4 .mb-4 .p-4
+CSS: .container .card .card.glass .card.glow .grid .grid-2/3/4 .grid-auto .flex .flex-col .flex-center .flex-between .gap-2/4/6/8 .text-center .text-muted .text-accent .text-sm .text-lg .text-2xl .text-bold .truncate .mt-4/6/8 .mb-4/6/8 .p-4/6/8 .bg-0/1/2/3 .rounded-lg .badge .badge.accent .badge.danger .avatar .status-dot.online .skeleton .animate-in .delay-1/2/3/4/5
+Surfaces: bg-0 (deepest) → bg-1 (cards) → bg-2 (elevated) → bg-3 (popovers). Use surface hierarchy for depth.
+Buttons: button (default), button.primary (gradient+glow), button.ghost (transparent), button.danger (red)
+Never use inline styles for colors, spacing, or backgrounds — CSS classes handle it.
 
-# Scaffold Components
-BEFORE writing Modal, Toast, Badge, Progress, Select, Dialog, Accordion,
-Tooltip, Switch, or Dropdown — check src/components/ui/. These already exist.
-Import them: import {{ Modal }} from './components/ui'
+# Scaffold Components — DO NOT RECREATE THESE
+The scaffold includes 24 pre-built UI components in src/components/ui/:
+Dialog, Select, Skeleton, Progress, Avatar, Accordion, Alert, Tooltip,
+Switch, Dropdown, StarRating, GlowCard, Parallax, AnimatedCounter,
+BeforeAfter, ColorPicker, Timeline, Kanban, AnnouncementBar, Marquee,
+TypeWriter, GradientText, ScrollReveal, Slideshow.
+Import them: import Dialog from './components/ui/Dialog'
+Landing scaffold also has: Navbar, Hero, Section, FeatureGrid, Footer,
+ParallaxHero, PortfolioGrid, Testimonials, StatsRow, CTASection.
+Dashboard scaffold also has: Layout, StatCard, DataTable, ChartCard,
+Modal, Toast, Badge, EmptyState.
 
 # Core Rules
 - One tool call per response. Always.
