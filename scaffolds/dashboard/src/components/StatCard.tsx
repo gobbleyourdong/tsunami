@@ -3,24 +3,22 @@ interface StatCardProps {
   value: string | number
   change?: string
   icon?: string
-  color?: string
+  trend?: "up" | "down" | "flat"
 }
 
-export default function StatCard({ label, value, change, icon, color }: StatCardProps) {
-  const isPositive = change && !change.startsWith("-")
+export default function StatCard({ label, value, change, icon, trend }: StatCardProps) {
+  const isPositive = trend === "up" || (change && !change.startsWith("-"))
 
   return (
     <div className="card stat-card">
-      <div className="flex-between">
-        <span className="text-muted text-sm" style={{ textTransform: "uppercase", letterSpacing: 1 }}>
-          {label}
-        </span>
-        {icon && <span style={{ fontSize: 20, opacity: 0.5 }}>{icon}</span>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <span className="stat-label">{label}</span>
+        {icon && <span style={{ fontSize: 20, opacity: 0.4 }}>{icon}</span>}
       </div>
-      <div className="stat-value" style={color ? { color } : undefined}>{value}</div>
+      <div className="stat-value">{value}</div>
       {change && (
-        <span className={`badge ${isPositive ? "positive" : "negative"}`}>
-          {change}
+        <span className={`stat-change ${isPositive ? 'up' : 'down'}`}>
+          {isPositive ? '↑' : '↓'} {change}
         </span>
       )}
     </div>
