@@ -38,11 +38,17 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
     def needs(*keywords):
         return any(k in all_text for k in keywords)
 
-    # 0. Chrome extension
+    # 0a. Chrome extension
     if needs("extension", "chrome", "browser extension", "addon", "manifest",
              "content script", "popup", "badge"):
         if (SCAFFOLDS_DIR / "chrome-extension").exists():
             return "chrome-extension"
+
+    # 0b. Desktop app (Electron)
+    if needs("electron", "desktop app", "native app", "desktop", "menubar",
+             "tray", "system tray", "window", "offline app"):
+        if (SCAFFOLDS_DIR / "electron-app").exists():
+            return "electron-app"
 
     # 1. 3D game/simulation
     if needs("three", "3d", "pinball", "fps", "voxel", "r3f", "rapier", "cannon"):

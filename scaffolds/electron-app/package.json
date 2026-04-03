@@ -1,0 +1,38 @@
+{
+  "name": "electron-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc -p tsconfig.electron.json",
+    "preview": "vite preview",
+    "electron:dev": "vite & sleep 2 && electron .",
+    "electron:build": "vite build && tsc -p tsconfig.electron.json && electron-builder"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "~5.7.0",
+    "vite": "^6.0.0"
+  },
+  "build": {
+    "appId": "com.myapp.desktop",
+    "productName": "My App",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  }
+}
