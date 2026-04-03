@@ -40,3 +40,5 @@ intel/
 workspace/
 *.output
 .vite/
+PLAN.md
+STATUS.md
