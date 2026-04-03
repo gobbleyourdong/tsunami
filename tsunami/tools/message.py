@@ -86,7 +86,7 @@ class MessageResult(BaseTool):
                     "default": [],
                 },
             },
-            "required": ["text"],
+            "required": [],
         }
 
     async def execute(self, text: str = "", attachments: list[str] | None = None, **kw) -> ToolResult:
