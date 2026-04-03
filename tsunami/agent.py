@@ -528,8 +528,8 @@ class Agent:
         if tool_call.name == "message_info":
             self._info_streak = getattr(self, '_info_streak', 0) + 1
             self._info_total = getattr(self, '_info_total', 0) + 1
-            # Force termination on 3 consecutive OR 6 total message_info calls
-            if self._info_streak >= 3 or self._info_total >= 6:
+            # Force termination on 2 consecutive OR 3 total message_info calls
+            if self._info_streak >= 2 or self._info_total >= 3:
                 log.info(f"Info loop detected (streak={self._info_streak}, total={self._info_total}). Forcing termination.")
                 # Silent termination — the previous message_info already displayed the answer
                 tool_call = ToolCall(
