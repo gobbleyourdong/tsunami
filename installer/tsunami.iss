@@ -32,6 +32,8 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
 OutputDir=output
+ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed=x64compatible
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
