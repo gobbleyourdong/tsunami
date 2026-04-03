@@ -55,7 +55,7 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 ; Use Sysnative to guarantee 64-bit PowerShell — sees real System32 + nvidia-smi
 ; Restore full user PATH before running setup (installer environment is stripped)
 ; Just run setup.ps1 — it handles git init internally now
-Filename: "C:\Windows\Sysnative\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoExit -Command ""$env:PATH=[Environment]::GetEnvironmentVariable('PATH','Machine')+';'+[Environment]::GetEnvironmentVariable('PATH','User'); $env:TSUNAMI_DIR='{app}'; & '{app}\setup.ps1'; Write-Host ''; Write-Host '  Press any key to close...'; $null=$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')"""; Description: "Download models and dependencies (~7GB)"; Flags: postinstall nowait shellexec; StatusMsg: "Setting up Tsunami..."
+Filename: "C:\Windows\Sysnative\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-ExecutionPolicy Bypass -Command ""$env:PATH=[Environment]::GetEnvironmentVariable('PATH','Machine')+';'+[Environment]::GetEnvironmentVariable('PATH','User'); $env:TSUNAMI_DIR='{app}'; & '{app}\setup.ps1'"""; Description: "Download models and dependencies (~7GB)"; Flags: postinstall nowait shellexec; StatusMsg: "Setting up Tsunami..."
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\models"
