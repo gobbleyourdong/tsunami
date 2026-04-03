@@ -107,18 +107,19 @@
 ## Planned 📋
 
 ### Installer & Distribution
-- [ ] One-click Windows .exe that downloads everything on first run (no setup.bat needed)
+- [x] Windows installer (Inno Setup, 64-bit, GPU detection)
+- [x] Auto-update on launch (git pull)
+- [x] Pre-built llama-server binaries (no cmake needed)
 - [ ] Mac .dmg or Homebrew formula
 - [ ] Progress bar UI for model downloads
-- [ ] Auto-update mechanism
-- [ ] Pin llama.cpp to specific tested release in setup.sh
 
 ### Framework
-- [ ] Undertow QA against live Vite dev server (not separate http.server)
-- [ ] Swell auto-dispatch from App.tsx imports (framework fires eddies, not model)
+- [x] Swell auto-dispatch (plan-swell, write-swell, research-swell, App.tsx-swell)
+- [x] Deterministic error recovery (error_fixer.py — auto-fix top 5 patterns)
+- [x] Scaffold awareness (periodic component reminder + duplicate detection)
+- [x] SPA visual validation (blank page + content match + delivery runtime gate)
+- [x] Model-aware adaptation (11 tools for 2B, simpler prompt)
 - [ ] todo.md checklist pattern (wave writes, reads each iteration)
-- [ ] Capability routing in plan phases (research → cheap model, code → 9B)
-- [ ] Three-strike error recovery with tool-specific playbooks
 - [ ] Expose tool for public URL tunneling (like ngrok)
 
 ### Scaffolds
@@ -153,33 +154,12 @@
 - [ ] Session persistence across agent restarts
 - [ ] Learning from successful builds (pattern extraction)
 
-### Methodology — SPA Visual Validation (compile ≠ renders)
-The #1 unresolved failure mode: build passes but page is blank.
-React SPAs render on the client — dist/index.html is an empty shell.
-The agent verifies compile (vite build) but has no reliable way to
-verify the output actually RENDERS in the browser.
-
-Three builds tonight had white screens despite clean compiles:
-- External dep crashed at runtime (markdown-note-taking)
-- Wrong cross-file imports tree-shook away (typing-speed-game)
-- Wrong rendering approach (canvas vs CSS) never caught (gameboy)
-
-- [ ] **Blank page detection**: After compile pass, load dev server in
-      Playwright, check that `document.body.innerText.length > 0` or
-      that the screenshot has >5% non-white pixels. Inject error if blank.
-- [ ] **Content verification**: Compare visible text on page against the
-      user's original request. "Build a calculator" → page should contain
-      numbers/buttons. Use 2B eddy to check.
-- [ ] **Screenshot diff on re-builds**: After each file edit that passes
-      compile, screenshot the page. If the screenshot is identical to
-      the previous one (nothing changed visually), the edit was likely
-      wrong — nudge the agent.
-- [ ] **External dep validation**: Before npm-installing a package the
-      agent requested, check it actually exists on npm and has >100
-      weekly downloads. Prevents phantom package crashes.
-- [ ] **Dev server health gate at delivery**: Before message_result,
-      curl the dev server. If it returns 500 or the page has JS errors,
-      block delivery (like the compile gate but for runtime).
+### Methodology — SPA Visual Validation ✅ (implemented)
+- [x] Blank page detection (Playwright pixel + text check)
+- [x] Content verification (keyword match against user request)
+- [x] Dev server health gate at delivery
+- [ ] Screenshot diff on re-builds
+- [ ] External dep validation (check npm before installing)
 
 ### Methodology — Iterative Refinement (build once, never improve)
 Every prompt creates a new project. "Build a gameboy" was run 5 times
@@ -211,35 +191,11 @@ environment. Users want to iterate, not restart.
       verify it still compiles and renders. The iteration shouldn't
       break what was working.
 
-### Methodology — Model-Aware Adaptation (2B ≠ 9B)
-The 2B and 9B get identical prompts, tools, and schemas. But the 2B:
-- Processes 2,468 tokens of tool schemas per call (15% of 16K context)
-- Chooses between 18 tools with weaker reasoning
-- Forgets imports, spams message_info, uses wrong tools
-- Needed 7 auto-fix hacks this session (hook inject, path fix, etc.)
-
-The 9B handles the same setup cleanly. The methodology issue: we're
-compensating for 2B weakness with reactive hacks instead of proactive
-adaptation.
-
-- [ ] **Lite tool set**: On 2B, expose 10 core tools instead of 18.
-      Remove swell (auto-dispatched anyway), undertow (auto-fires),
-      plan_update (2B plans poorly), summarize_file (wastes context).
-      Saves ~1000 tokens per call.
-- [ ] **Shorter prompt for 2B**: The 2B doesn't follow complex multi-
-      step instructions. Simplify: "Write code. Call message_result
-      when done. Don't explain." vs the 9B's full research-first flow.
-- [ ] **Stricter guardrails for 2B**: Lower the message_info limit
-      further (1 streak), force message_result after 10 iterations,
-      reject python_exec entirely (always misused).
-- [ ] **Phase-based tool filtering**: During research phase, show
-      only search_web + generate_image. During build phase, show only
-      file_write + file_edit + shell_exec. The 2B picks better with
-      fewer choices.
-- [ ] **Model capability detection**: At agent init, run a quick probe
-      ("respond with just OK") to measure response quality. If the
-      model can't follow simple instructions, activate lite guardrails
-      automatically. No manual lite/full mode needed.
+### Methodology — Model-Aware Adaptation ✅ (implemented)
+- [x] Lite tool set (11 tools for 2B, 18 for 9B)
+- [x] Shorter prompt for 2B (4-step flow, explicit hook reminder)
+- [ ] Phase-based tool filtering (research tools → build tools)
+- [ ] Model capability auto-detection (probe at init)
 
 ### Methodology — Agent Loop Regression Tests (8 breakages, 0 caught)
 37 test files (6,288 lines) test components in isolation. None test
@@ -267,57 +223,17 @@ These are fast (~30s each with a running model) and catch exactly
 the class of bugs that ship to users. Unit tests pass, integration
 breaks — the gap that costs the most debugging time.
 
-### Methodology — Deterministic Error Recovery (don't LLM what you can regex)
-Error handling is "inject error text, hope LLM fixes it, escalate after 3."
-No classification, no playbooks, no deterministic fixes. The 2B takes 3-5
-iterations to fix "Cannot find module './Sidebar'" when the fix is always
-"write the file" or "fix the import path."
+### Methodology — Deterministic Error Recovery ✅ (implemented)
+- [x] Error classifier + auto-fix (error_fixer.py — 5 patterns)
+- [x] npm auto-install from safe allowlist
+- [x] Import fixer (named/default mismatch)
+- [ ] Error memory within session (apply previous fix on recurrence)
 
-Common compile errors and their deterministic fixes:
-- `Cannot find module './components/X'` → create the file (or fix path)
-- `'X' is not exported` → switch default/named import
-- `Cannot find package 'X'` → npm install X
-- `'useState' is not defined` → already auto-fixed by hook injection
-
-These patterns account for ~80% of compile failures. Each wastes 2-4
-iterations when the fix is knowable without LLM reasoning.
-
-- [ ] **Error classifier**: regex-match common error patterns and inject
-      the specific fix, not just the error text. "Cannot find module
-      './components/Sidebar'" → "File doesn't exist. Write it or fix
-      the import to match an existing file: [list of existing files]."
-- [ ] **Auto-fix layer**: for the top 5 error patterns, attempt the fix
-      automatically (like auto-hook-import does for useState). If the
-      auto-fix resolves the compile error, don't even tell the agent.
-- [ ] **npm auto-install**: if compile error mentions a missing package
-      that was in the user's prompt or plan, auto-run `npm install X`.
-- [ ] **Import fixer**: when "not exported" error occurs, read the
-      target file's actual exports and rewrite the import to match.
-- [ ] **Error memory**: track which errors occurred and what fixed them
-      within the session. If the same error pattern recurs, apply the
-      previous fix immediately instead of re-reasoning.
-
-### Methodology — Scaffold Awareness (agent ignores what's available)
-Across 14 deliverables, the agent used 0 scaffold UI components.
-28 pre-built components (Modal, Toast, Progress, Accordion, etc.)
-sit unused. The agent rewrites them from scratch every time.
-
-The README is injected at project_init but compressed away by
-fast_prune before the agent starts writing code. The agent has
-no persistent memory of what the scaffold provides.
-
-- [ ] **Pin scaffold README in context**: Mark the README content
-      as "pinned" so fast_prune never drops it. It's 20-30 lines
-      and tells the agent exactly what's available.
-- [ ] **Component inventory injection**: After project_init, inject
-      a system note listing all available components with one-line
-      usage examples. Re-inject every 15 iterations.
-- [ ] **Import suggestion**: When the agent writes a component that
-      matches a scaffold component name (Modal, Toast, Badge, etc.),
-      inject "This component already exists — import from ./components/ui".
-- [ ] **Scaffold-aware prompt**: Add to system prompt: "ALWAYS check
-      src/components/ before writing a new component. Import existing
-      ones instead of rewriting."
+### Methodology — Scaffold Awareness ✅ (implemented)
+- [x] Component inventory re-injection every 10 iterations
+- [x] Duplicate component detection (writes Modal → "already exists in ui/")
+- [ ] Pin scaffold README in context (immune to compression)
+- [ ] Scaffold-aware prompt ("check components/ before writing new ones")
 
 ### Methodology — Priority-Based Context Management
 Context management is FIFO — oldest messages get pruned regardless of
