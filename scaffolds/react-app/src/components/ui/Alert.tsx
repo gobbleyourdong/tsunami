@@ -4,25 +4,51 @@ interface AlertProps {
   type?: "info" | "success" | "warning" | "error"
   title?: string
   children: ReactNode
+  onDismiss?: () => void
 }
 
-const colors = {
-  info: "var(--accent)",
-  success: "#44cc44",
-  warning: "#ffaa00",
-  error: "#ff4444",
+const config = {
+  info:    { color: 'var(--accent, #34d4b0)',  bg: 'rgba(52, 212, 176, 0.08)', border: 'rgba(52, 212, 176, 0.2)',  icon: 'ℹ' },
+  success: { color: 'var(--success, #34d4b0)', bg: 'rgba(52, 212, 176, 0.08)', border: 'rgba(52, 212, 176, 0.2)',  icon: '✓' },
+  warning: { color: 'var(--warning, #f0b040)', bg: 'rgba(240, 176, 64, 0.08)', border: 'rgba(240, 176, 64, 0.2)',  icon: '!' },
+  error:   { color: 'var(--danger, #f06060)',  bg: 'rgba(240, 96, 96, 0.08)',  border: 'rgba(240, 96, 96, 0.2)',   icon: '✕' },
 }
 
-export default function Alert({ type = "info", title, children }: AlertProps) {
-  const c = colors[type]
+export default function Alert({ type = "info", title, children, onDismiss }: AlertProps) {
+  const c = config[type]
   return (
     <div style={{
-      padding: "12px 16px", borderRadius: "var(--radius)",
-      border: `1px solid ${c}44`, background: `${c}11`,
-      borderLeft: `3px solid ${c}`,
+      display: 'flex', gap: 12, alignItems: 'flex-start',
+      padding: '14px 16px',
+      borderRadius: 'var(--radius, 10px)',
+      border: `1px solid ${c.border}`,
+      background: c.bg,
+      borderLeft: `3px solid ${c.color}`,
     }}>
-      {title && <div style={{ fontWeight: 600, marginBottom: 4, color: c }}>{title}</div>}
-      <div style={{ fontSize: 14, color: "var(--text)" }}>{children}</div>
+      <span style={{
+        width: 22, height: 22, borderRadius: '50%',
+        background: c.color, color: 'var(--bg-0, #08090d)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 12, fontWeight: 700, flexShrink: 0, marginTop: 1,
+      }}>
+        {c.icon}
+      </span>
+      <div style={{ flex: 1 }}>
+        {title && <div style={{ fontWeight: 700, marginBottom: 2, color: c.color, fontSize: 'var(--text-sm, 0.875rem)' }}>{title}</div>}
+        <div style={{ fontSize: 'var(--text-sm, 0.875rem)', color: 'var(--text, #e2e4e9)', lineHeight: 1.6 }}>{children}</div>
+      </div>
+      {onDismiss && (
+        <button
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          style={{
+            background: 'none', border: 'none', color: 'var(--text-dim, #4a4f5e)',
+            cursor: 'pointer', fontSize: 16, padding: '2px 4px', lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
+      )}
     </div>
   )
 }
