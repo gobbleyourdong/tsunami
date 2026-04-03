@@ -8,7 +8,7 @@ interface AlertProps {
 }
 
 const config = {
-  info:    { color: 'var(--accent, #34d4b0)',  bg: 'rgba(52, 212, 176, 0.08)', border: 'rgba(52, 212, 176, 0.2)',  icon: 'ℹ' },
+  info:    { color: 'var(--accent, #4a9eff)',  bg: 'rgba(74, 158, 255, 0.08)', border: 'rgba(74, 158, 255, 0.2)',  icon: 'ℹ' },
   success: { color: 'var(--success, #34d4b0)', bg: 'rgba(52, 212, 176, 0.08)', border: 'rgba(52, 212, 176, 0.2)',  icon: '✓' },
   warning: { color: 'var(--warning, #f0b040)', bg: 'rgba(240, 176, 64, 0.08)', border: 'rgba(240, 176, 64, 0.2)',  icon: '!' },
   error:   { color: 'var(--danger, #f06060)',  bg: 'rgba(240, 96, 96, 0.08)',  border: 'rgba(240, 96, 96, 0.2)',   icon: '✕' },

@@ -20,11 +20,11 @@
   --text-muted: #7a7f8e;
   --text-dim:   #4a4f5e;
 
-  /* Accent — warm teal that glows */
-  --accent:       #34d4b0;
-  --accent-hover: #2bc09e;
-  --accent-dim:   rgba(52, 212, 176, 0.12);
-  --accent-glow:  rgba(52, 212, 176, 0.25);
+  /* Accent — CLI blue */
+  --accent:       #4a9eff;
+  --accent-hover: #3d8fe6;
+  --accent-dim:   rgba(74, 158, 255, 0.12);
+  --accent-glow:  rgba(74, 158, 255, 0.25);
 
   /* Semantic */
   --danger:  #f06060;
@@ -41,7 +41,7 @@
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.15);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3);
-  --shadow-glow: 0 0 20px var(--accent-dim), 0 0 60px rgba(52, 212, 176, 0.06);
+  --shadow-glow: 0 0 20px var(--accent-dim), 0 0 60px rgba(74, 158, 255, 0.06);
 
   /* Radius */
   --radius-sm: 6px;
@@ -171,7 +171,7 @@ button:active, .btn:active {
 
 /* Primary — gradient with glow */
 button.primary, .btn-primary, button[type="submit"] {
-  background: linear-gradient(135deg, var(--accent) 0%, #28b89a 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, #3580d4 100%);
   color: var(--bg-0);
   border: none;
   box-shadow: var(--shadow-sm), 0 0 0 0 var(--accent-dim);
@@ -304,7 +304,7 @@ tr:hover { background: var(--bg-2); }
 }
 .badge.accent  { background: var(--accent-dim); color: var(--accent); }
 .badge.danger  { background: rgba(240,96,96,0.12); color: var(--danger); }
-.badge.success { background: rgba(52,212,176,0.12); color: var(--success); }
+.badge.success { background: rgba(52, 212, 176, 0.12); color: var(--success); }
 .badge.warning { background: rgba(240,176,64,0.12); color: var(--warning); }
 
 /* ── Status Dot ─────────────────────────────────────────────────────── */

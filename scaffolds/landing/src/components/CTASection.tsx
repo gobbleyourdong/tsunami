@@ -22,7 +22,7 @@ export default function CTASection({ title, subtitle, buttonLabel, buttonHref, o
         transform: 'translate(-50%, -50%)',
         width: 400,
         height: 400,
-        background: 'radial-gradient(circle, rgba(52,212,176,0.08) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(74,158,255,0.08) 0%, transparent 70%)',
         pointerEvents: 'none',
       }} />
 

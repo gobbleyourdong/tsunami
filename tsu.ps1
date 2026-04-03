@@ -29,6 +29,7 @@ if (Test-Path "$DIR\.git") {
 switch ($args[0]) {
     { $_ -in 'kill', 'stop' } {
         Write-Host "  Killing all Tsunami processes..."
+        # Kill by port
         foreach ($port in @(8090, 8092, 8094, 3000, 3002, 3003, 9876)) {
             $stale = netstat -ano 2>$null | Where-Object { $_ -match ":${port}\b" } | ForEach-Object {
                 if ($_ -match '\s(\d+)\s*$') { $Matches[1] }
@@ -37,11 +38,19 @@ switch ($args[0]) {
                 try { Stop-Process -Id ([int]$p) -Force -EA SilentlyContinue } catch {}
             }
         }
+        # Kill llama-server by name
         Get-Process -Name "llama-server" -EA SilentlyContinue | Stop-Process -Force -EA SilentlyContinue
-        # Kill orphaned Python scripts by command line match
-        Get-WmiObject Win32_Process -Filter "Name='python.exe' OR Name='python3.exe'" -EA SilentlyContinue | Where-Object {
-            $_.CommandLine -match "tsunami_daemon_start|tsunami_server_start|ws_bridge|file_watcher|serve_daemon|tsunami\.server|tsunami\.cli"
-        } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
+        # Kill ALL orphaned Python scripts by command line (Get-CimInstance works on modern Windows)
+        try {
+            Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='python3.exe'" -EA SilentlyContinue | Where-Object {
+                $_.CommandLine -match "tsunami_daemon_start|tsunami_server_start|ws_bridge|file_watcher|serve_daemon|tsunami\.server|tsunami\.cli|serve_diffusion"
+            } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
+        } catch {
+            # Fallback for older Windows without Get-CimInstance
+            Get-WmiObject Win32_Process -Filter "Name='python.exe' OR Name='python3.exe'" -EA SilentlyContinue | Where-Object {
+                $_.CommandLine -match "tsunami_daemon_start|tsunami_server_start|ws_bridge|file_watcher|serve_daemon|tsunami\.server|tsunami\.cli|serve_diffusion"
+            } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
+        }
         Write-Host "  All processes killed"
         exit 0
     }
@@ -104,9 +113,15 @@ function Kill-StaleServers {
         }
     }
     # Also kill orphaned Python daemon/server scripts (by command line)
-    Get-WmiObject Win32_Process -Filter "Name='python.exe' OR Name='python3.exe'" -EA SilentlyContinue | Where-Object {
-        $_.CommandLine -match "tsunami_daemon_start|tsunami_server_start|ws_bridge|file_watcher|serve_daemon|tsunami\.server"
-    } | Stop-Process -Force -EA SilentlyContinue
+    try {
+        Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='python3.exe'" -EA SilentlyContinue | Where-Object {
+            $_.CommandLine -match "tsunami_daemon_start|tsunami_server_start|ws_bridge|file_watcher|serve_daemon|tsunami\.server|serve_diffusion"
+        } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
+    } catch {
+        Get-WmiObject Win32_Process -Filter "Name='python.exe' OR Name='python3.exe'" -EA SilentlyContinue | Where-Object {
+            $_.CommandLine -match "tsunami_daemon_start|tsunami_server_start|ws_bridge|file_watcher|serve_daemon|tsunami\.server|serve_diffusion"
+        } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
+    }
 }
 Kill-StaleServers
 

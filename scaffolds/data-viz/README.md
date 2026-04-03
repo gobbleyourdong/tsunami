@@ -30,7 +30,7 @@ import { LineChart, Line, BarChart, Bar, AreaChart, Area,
     <XAxis dataKey="name" />
     <YAxis />
     <Tooltip />
-    <Line type="monotone" dataKey="value" stroke="#34d4b0" />
+    <Line type="monotone" dataKey="value" stroke="#4a9eff" />
   </LineChart>
 </ResponsiveContainer>
 ```

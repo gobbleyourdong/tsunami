@@ -9,9 +9,9 @@
   --text: #e2e4e9;
   --text-muted: #7a7f8e;
   --text-dim: #4a4f5e;
-  --accent: #34d4b0;
-  --accent-hover: #2bc09e;
-  --accent-dim: rgba(52, 212, 176, 0.12);
+  --accent: #4a9eff;
+  --accent-hover: #3d8fe6;
+  --accent-dim: rgba(74, 158, 255, 0.12);
   --border: rgba(255, 255, 255, 0.06);
   --border-hover: rgba(255, 255, 255, 0.12);
   --danger: #f06060;

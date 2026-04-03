@@ -81,7 +81,7 @@ export function createText(
     style: {
       fontFamily: "Rajdhani, sans-serif",
       fontSize: 24,
-      fill: 0x34d4b0,
+      fill: 0x4a9eff,
       ...style,
     },
   })
