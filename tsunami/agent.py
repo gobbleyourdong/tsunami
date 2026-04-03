@@ -1180,10 +1180,29 @@ class Agent:
                             if build.returncode != 0:
                                 errors = [l.strip() for l in build.stderr.splitlines() if "Error" in l][:3]
                                 if errors:
-                                    self.state.add_system_note(
-                                        f"COMPILE ERROR:\n" + "\n".join(f"  {e}" for e in errors)
-                                    )
-                                    log.info(f"Auto-compile: FAIL ({len(errors)} errors)")
+                                    # Try deterministic fix first — don't bother the LLM
+                                    from .error_fixer import try_auto_fix
+                                    fixed = try_auto_fix(project_dir, errors)
+                                    if fixed:
+                                        # Rebuild after auto-fix
+                                        build2 = subprocess.run(
+                                            ["npx", "vite", "build"],
+                                            cwd=str(project_dir),
+                                            capture_output=True, text=True, timeout=30,
+                                        )
+                                        if build2.returncode == 0:
+                                            log.info("Auto-compile: FIXED (deterministic recovery)")
+                                        else:
+                                            errors2 = [l.strip() for l in build2.stderr.splitlines() if "Error" in l][:3]
+                                            self.state.add_system_note(
+                                                f"COMPILE ERROR (auto-fix tried, still failing):\n" +
+                                                "\n".join(f"  {e}" for e in errors2)
+                                            )
+                                    else:
+                                        self.state.add_system_note(
+                                            f"COMPILE ERROR:\n" + "\n".join(f"  {e}" for e in errors)
+                                        )
+                                        log.info(f"Auto-compile: FAIL ({len(errors)} errors)")
                             else:
                                 log.info("Auto-compile: PASS")
                                 # Quick runtime check — load in headless browser, catch JS errors
