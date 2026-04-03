@@ -350,6 +350,17 @@ class Agent:
             self.state.iteration += 1
             iter_start = time.time()
 
+            # Safety valve — force deliver if truly lost (no writes in 50 iterations)
+            if self.state.iteration > 50:
+                has_writes = any(
+                    t in ("file_write", "file_edit", "project_init", "generate_image")
+                    for t in self._tool_history
+                )
+                if not has_writes:
+                    log.warning(f"Safety valve: {self.state.iteration} iterations with no file writes — forcing exit")
+                    self.state.task_complete = True
+                    return "Task ended — no progress detected."
+
             # Check abort signal
             if self.abort_signal.aborted:
                 log.info(f"Abort signal received: {self.abort_signal.reason}")
