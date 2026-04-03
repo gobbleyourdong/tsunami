@@ -391,20 +391,37 @@ if (Test-Path $reqFile) {
 
 # SD-Turbo image generation (~2GB model, auto-downloads on first use)
 Write-Step "Installing image generation (SD-Turbo)..."
+
+# Install torch with CUDA support if GPU detected, CPU-only otherwise
+if ($GPU -eq "cuda") {
+    Write-Step "  Installing PyTorch with CUDA support..."
+    & $PIP install -q torch --index-url https://download.pytorch.org/whl/cu128 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn "CUDA torch failed, trying cu121..."
+        & $PIP install -q torch --index-url https://download.pytorch.org/whl/cu121 2>&1 | Out-Null
+    }
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "PyTorch with CUDA"
+    } else {
+        Write-Warn "CUDA torch failed — falling back to CPU"
+        & $PIP install -q torch 2>&1 | Out-Null
+    }
+} else {
+    & $PIP install -q torch --index-url https://download.pytorch.org/whl/cpu 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { & $PIP install -q torch 2>&1 | Out-Null }
+}
+
 $pyExtraDeps = @(
     "duckduckgo-search>=7",
     "diffusers",
-    "torch",
     "transformers",
     "accelerate"
 )
 $pipResult = & $PIP install -q @pyExtraDeps 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Warn "pip install failed, retrying with --user flag..."
     & $PIP install --user -q @pyExtraDeps 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Warn "diffusers install failed -- image gen won't work"
-        Write-Warn "  $PIP install $($pyExtraDeps -join ' ')"
     }
 }
 

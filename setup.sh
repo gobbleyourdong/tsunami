@@ -169,6 +169,7 @@ _pip_install diffusers transformers accelerate || \
 python3 -c "import torch" 2>/dev/null || {
   echo "  → Installing PyTorch (this may take a while)..."
   if [ "$GPU" = "cuda" ]; then
+    _pip_install torch --index-url https://download.pytorch.org/whl/cu128 || \
     _pip_install torch --index-url https://download.pytorch.org/whl/cu121 || \
     _pip_install torch
   else
