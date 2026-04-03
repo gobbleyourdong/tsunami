@@ -1257,7 +1257,28 @@ class Agent:
                                                     )
                                                     log.info("Runtime check: BLANK PAGE")
                                                 else:
-                                                    log.info(f"Runtime check: PASS ({len(text)} chars visible)")
+                                                    # Content verification — does visible text relate to the request?
+                                                    user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                                                    if user_req and len(text) > 10:
+                                                        # Extract key words from user request
+                                                        import re as _cv_re
+                                                        req_words = set(_cv_re.findall(r'[a-z]{4,}', user_req.lower()))
+                                                        page_words = set(_cv_re.findall(r'[a-z]{4,}', text.lower()))
+                                                        skip = {"build", "make", "create", "with", "that", "this", "from",
+                                                                "should", "want", "need", "like", "using", "react", "component"}
+                                                        req_words -= skip
+                                                        overlap = req_words & page_words
+                                                        if req_words and len(overlap) == 0 and len(text) < 100:
+                                                            self.state.add_system_note(
+                                                                f"CONTENT MISMATCH: Page renders but shows '{text[:80]}' "
+                                                                f"which doesn't match the request. Expected keywords: "
+                                                                f"{', '.join(sorted(list(req_words)[:5]))}."
+                                                            )
+                                                            log.info(f"Runtime check: CONTENT MISMATCH")
+                                                        else:
+                                                            log.info(f"Runtime check: PASS ({len(text)} chars, {len(overlap)} keyword matches)")
+                                                    else:
+                                                        log.info(f"Runtime check: PASS ({len(text)} chars visible)")
                                     except Exception as e:
                                         log.debug(f"Runtime check skipped: {e}")
                 except Exception as e:
@@ -1575,6 +1596,39 @@ class Agent:
                                     log.info(f"Swell compile gate: PASS — {proj.name}")
                 except Exception as e:
                     log.debug(f"Swell compile gate skipped: {e}")
+
+            # 10a2. Runtime health gate at delivery — check page actually renders
+            if self._delivery_attempts <= 2:
+                serving = getattr(self, '_serving_project', None)
+                if serving:
+                    try:
+                        from playwright.async_api import async_playwright
+                        async with async_playwright() as pw:
+                            browser = await pw.chromium.launch(headless=True)
+                            page = await browser.new_page()
+                            js_errors = []
+                            page.on("pageerror", lambda e: js_errors.append(str(e)[:150]))
+                            await page.goto("http://localhost:9876", timeout=6000)
+                            await asyncio.sleep(1)
+                            text = await page.evaluate("document.body?.innerText?.trim() || ''")
+                            await browser.close()
+                            if js_errors:
+                                self.state.add_system_note(
+                                    f"DELIVERY BLOCKED — runtime JS errors:\n" +
+                                    "\n".join(f"  {e}" for e in js_errors[:2]) +
+                                    "\nFix these before delivering."
+                                )
+                                log.info(f"Delivery runtime gate: FAIL ({len(js_errors)} errors)")
+                                return result.content
+                            if len(text) < 5:
+                                self.state.add_system_note(
+                                    "DELIVERY BLOCKED — page is blank. Fix App.tsx rendering."
+                                )
+                                log.info("Delivery runtime gate: BLANK")
+                                return result.content
+                            log.info(f"Delivery runtime gate: PASS ({len(text)} chars)")
+                    except Exception as e:
+                        log.debug(f"Delivery runtime gate skipped: {e}")
 
             # 10b. Code tension — undertow QA gate for file deliveries
             # For React projects with a dev server, skip static HTML testing
