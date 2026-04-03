@@ -20,20 +20,44 @@ DEV_PORT = int(os.environ.get("TSUNAMI_DEV_PORT", "9876"))
 
 
 def _kill_port(port: int):
-    """Kill whatever is listening on this port."""
-    try:
-        result = subprocess.run(
-            ["lsof", "-t", f"-i:{port}"],
-            capture_output=True, text=True, timeout=5,
-        )
-        pids = result.stdout.strip().split()
-        for pid in pids:
-            try:
-                os.kill(int(pid), signal.SIGTERM)
-            except (ProcessLookupError, ValueError):
-                pass
-    except Exception:
-        pass
+    """Kill whatever is listening on this port (cross-platform)."""
+    import sys
+    if sys.platform == "win32":
+        try:
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                if "LISTENING" not in line:
+                    continue
+                parts = line.split()
+                if len(parts) < 5:
+                    continue
+                local_addr = parts[1]
+                if ":" in local_addr:
+                    candidate = local_addr.rsplit(":", 1)[-1]
+                    if candidate.isdigit() and int(candidate) == port:
+                        pid = parts[-1]
+                        if pid.isdigit():
+                            subprocess.run(["taskkill", "/PID", pid, "/F"],
+                                           capture_output=True, timeout=5)
+        except Exception:
+            pass
+    else:
+        try:
+            result = subprocess.run(
+                ["lsof", "-t", f"-i:{port}"],
+                capture_output=True, text=True, timeout=5,
+            )
+            pids = result.stdout.strip().split()
+            for pid in pids:
+                try:
+                    os.kill(int(pid), signal.SIGTERM)
+                except (ProcessLookupError, ValueError):
+                    pass
+        except Exception:
+            pass
 
 
 def _is_vite_project(project_dir: str) -> bool:
@@ -75,6 +99,8 @@ def serve_project(project_dir: str, port: int = DEV_PORT) -> str:
     import time
     time.sleep(0.5)
 
+    import sys as _sys
+    shell = _sys.platform == "win32"
     if _is_vite_project(project_dir):
         # Vite dev server — handles TSX transpilation, HMR, everything
         subprocess.Popen(
@@ -82,6 +108,7 @@ def serve_project(project_dir: str, port: int = DEV_PORT) -> str:
             cwd=project_dir,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            shell=shell,
         )
         log.info(f"Vite dev server on :{port} for {project_dir}")
         return f"http://localhost:{port}"
@@ -89,7 +116,7 @@ def serve_project(project_dir: str, port: int = DEV_PORT) -> str:
     elif _is_html_project(project_dir):
         # Static server for vanilla HTML
         subprocess.Popen(
-            ["python3", "-m", "http.server", str(port)],
+            [_sys.executable, "-m", "http.server", str(port)],
             cwd=project_dir,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
