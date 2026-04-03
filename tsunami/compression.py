@@ -113,12 +113,70 @@ def needs_compression(state: AgentState, max_tokens: int = 32000) -> bool:
     return estimate_tokens(state) > max_tokens
 
 
-def fast_prune(state: AgentState, keep_recent: int = 8) -> int:
-    """Tier 1: Fast prune — drop old tool results without LLM call.
+def _message_importance(m: Message, index: int, total: int) -> float:
+    """Score a message's importance (0.0 = disposable, 1.0 = critical).
 
-    
-    Drops verbose tool results (file_read output, shell output, match_glob lists)
-    while keeping tool calls and errors. Much faster than LLM summarization.
+    High importance: user request, plan, types/architecture, errors
+    Low importance: verbose tool results, shell output, search results
+    """
+    content = m.content
+    content_lower = content.lower()
+
+    # System + user request are always critical
+    if m.role == "system":
+        return 1.0
+    if m.role == "user":
+        return 0.9
+
+    # Errors are important — the agent needs to see what failed
+    if "ERROR" in content or "FAIL" in content or "BLOCKED" in content:
+        return 0.8
+
+    # Plan updates are architecture — high importance
+    if m.role == "assistant" and m.tool_call:
+        tc = m.tool_call.get("function", m.tool_call)
+        tool_name = tc.get("name", "")
+        if tool_name == "plan_update":
+            return 0.85
+        if tool_name == "message_result":
+            return 0.8
+        if tool_name == "file_write" and "types.ts" in str(tc.get("arguments", {})):
+            return 0.8  # types define the architecture
+        if tool_name == "file_write" and "App.tsx" in str(tc.get("arguments", {})):
+            return 0.75
+        if tool_name in ("file_write", "file_edit"):
+            return 0.6
+        if tool_name in ("search_web", "generate_image"):
+            return 0.5
+        if tool_name in ("shell_exec", "match_glob", "match_grep", "file_read"):
+            return 0.3
+
+    # Tool results — importance based on content type
+    if m.role == "tool_result":
+        if len(content) < 100:
+            return 0.4  # short results are summaries, keep them
+        if "Wrote" in content or "Edited" in content:
+            return 0.5
+        if "COMPILE ERROR" in content or "RUNTIME ERROR" in content:
+            return 0.8
+        if "AUTO-SWELL" in content or "AVAILABLE COMPONENTS" in content:
+            return 0.6
+        # Verbose output — search results, file contents, shell output
+        return 0.2
+
+    # System notes — nudges and reminders
+    if "STALL" in content or "VERIFICATION" in content:
+        return 0.3  # stale after being acted on
+
+    return 0.4  # default
+
+
+def fast_prune(state: AgentState, keep_recent: int = 8) -> int:
+    """Tier 1: Fast prune — drop LOW IMPORTANCE messages first.
+
+    Priority-based: scores each message by importance, prunes the
+    least important first regardless of age. Architecture decisions
+    survive while verbose tool results get cleared.
 
     Returns number of tokens freed.
     """
@@ -127,30 +185,39 @@ def fast_prune(state: AgentState, keep_recent: int = 8) -> int:
 
     before = estimate_tokens(state)
     prunable_end = len(state.conversation) - keep_recent
+    total = len(state.conversation)
 
-    for i in range(2, prunable_end):  # Skip system + user message
+    # Score all prunable messages
+    scored = []
+    for i in range(2, prunable_end):  # Skip system + user
         m = state.conversation[i]
         if m.role == "tool_result" and not m.tool_call:
-            content = m.content
-            # Keep errors and short results, prune verbose ones
-            if "ERROR" not in content and len(content) > 500:
-                # Preserve filepath references from persisted results
-                filepath_line = ""
-                if "Full output saved to:" in content:
-                    for line in content.split("\n"):
-                        if "saved to:" in line:
-                            filepath_line = f" | {line.strip()}"
-                            break
-                state.conversation[i] = Message(
-                    role=m.role,
-                    content=f"{TOOL_RESULT_CLEARED_MESSAGE}{filepath_line}",
-                    tool_call=m.tool_call,
-                    timestamp=m.timestamp,
-                )
+            importance = _message_importance(m, i, total)
+            scored.append((i, importance, len(m.content)))
+
+    # Sort by importance (lowest first) — prune least important first
+    scored.sort(key=lambda x: x[1])
+
+    for i, importance, content_len in scored:
+        m = state.conversation[i]
+        # Only prune messages with importance < 0.5 and content > 200 chars
+        if importance < 0.5 and content_len > 200:
+            filepath_line = ""
+            if "Full output saved to:" in m.content:
+                for line in m.content.split("\n"):
+                    if "saved to:" in line:
+                        filepath_line = f" | {line.strip()}"
+                        break
+            state.conversation[i] = Message(
+                role=m.role,
+                content=f"{TOOL_RESULT_CLEARED_MESSAGE}{filepath_line}",
+                tool_call=m.tool_call,
+                timestamp=m.timestamp,
+            )
 
     freed = before - estimate_tokens(state)
     if freed > 0:
-        log.info(f"Fast prune freed ~{freed} tokens")
+        log.info(f"Priority prune freed ~{freed} tokens")
     return freed
 
 
