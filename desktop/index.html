@@ -17,8 +17,9 @@
     }
     html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono','Cascadia Code','Fira Code','Consolas',monospace; font-size: 13px; overflow: hidden; }
 
-    /* 3-column: chat | files+code | preview */
-    #app { display: grid; grid-template-columns: 280px 1fr 1fr; grid-template-rows: 36px 1fr; height: 100vh; }
+    /* 2-column: left (chat+activity) | right (code/preview) */
+    #app { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 36px 1fr; height: 100vh; }
+    #app.preview-max { grid-template-columns: 0 1fr; }
 
     /* Top bar */
     .top-bar { grid-column: 1 / -1; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 12px; }
@@ -29,29 +30,39 @@
     .dot.on { background: var(--green); box-shadow: 0 0 4px var(--green); }
     .dot.off { background: var(--red); }
 
-    /* Col 1: Chat — just status updates from the agent */
-    .chat { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); overflow: hidden; min-height: 0; }
+    /* LEFT: Chat + Activity */
+    .left { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); overflow: hidden; min-height: 0; }
     .chat-msgs { flex: 1; overflow-y: auto; padding: 14px; min-height: 0; }
-    .msg { margin-bottom: 10px; line-height: 1.6; animation: fadeIn 0.2s; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
-    .msg.user { color: var(--accent-bright); }
-    .msg.user::before { content: "you › "; font-size: 11px; color: var(--muted); }
-    .msg.agent { padding-left: 10px; border-left: 2px solid var(--border-hi); }
-    .msg.tool { color: var(--muted); font-size: 11px; padding-left: 10px; }
-    .msg.tool::before { content: "⚙ "; }
-    .msg.error { color: var(--red); }
-    .msg.system { color: var(--muted); font-style: italic; font-size: 11px; }
+    .msg { margin-bottom: 8px; line-height: 1.5; animation: fadeIn 0.15s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; } }
+    .msg.user { color: var(--accent-bright); font-weight: 500; }
+    .msg.user::before { content: "> "; color: var(--muted); }
+    .msg.agent { padding-left: 10px; border-left: 2px solid var(--accent-glow); }
+    .msg.tool { color: var(--muted); font-size: 11px; padding-left: 10px; opacity: 0.7; }
+    .msg.error { color: var(--red); font-size: 11px; }
+    .msg.system { color: var(--green); font-size: 11px; }
     .chat-input { display: flex; padding: 8px; gap: 6px; border-top: 1px solid var(--border); background: var(--panel); }
     .chat-input input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text); font-family: inherit; font-size: 13px; outline: none; }
     .chat-input input:focus { border-color: var(--accent); }
     .chat-input input::placeholder { color: var(--muted); }
-    .chat-input button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+    .chat-input button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 10px 16px; font-weight: 600; cursor: pointer; font-size: 14px; }
     .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
     .welcome h1 { color: var(--accent-bright); font-size: 28px; font-weight: 300; letter-spacing: 5px; text-shadow: 0 0 20px var(--accent-glow); }
     .welcome p { color: var(--muted); font-size: 12px; margin-top: 4px; }
 
-    /* Col 2: Files + Code */
-    .editor { display: flex; border-right: 1px solid var(--border); overflow: hidden; }
+    /* RIGHT: Tabbed (Code | Preview) */
+    .right { display: flex; flex-direction: column; background: var(--bg); overflow: hidden; }
+    .tabs { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); min-height: 30px; align-items: center; }
+    .tab { padding: 6px 14px; cursor: pointer; color: var(--muted); font-size: 11px; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent-bright); border-bottom: 2px solid var(--accent); }
+    .tab-spacer { flex: 1; }
+    .tab-btn { padding: 4px 10px; cursor: pointer; color: var(--muted); font-size: 11px; }
+    .tab-btn:hover { color: var(--accent-bright); }
+
+    .tab-content { flex: 1; overflow: hidden; display: flex; }
+
+    /* Code view */
     .file-tree { width: 160px; background: var(--bg); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; }
     .file-tree-header { padding: 6px 8px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
     .file-item { padding: 3px 6px 3px 12px; cursor: pointer; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
@@ -62,16 +73,13 @@
     .code-area { flex: 1; overflow: auto; padding: 10px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
     .code-area .ln { color: var(--muted); display: inline-block; width: 30px; text-align: right; margin-right: 10px; user-select: none; }
 
-    /* Col 3: Preview */
-    .preview { background: var(--bg); overflow: hidden; }
-    .preview-header { padding: 6px 10px; background: var(--panel); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
-    .preview-header a { color: var(--accent); text-decoration: none; font-size: 10px; }
-    .preview iframe { width: 100%; height: calc(100% - 28px); border: none; background: #fff; }
+    /* Preview */
+    .preview-wrap { width: 100%; height: 100%; }
+    .preview-wrap iframe { width: 100%; height: 100%; border: none; background: #fff; }
 
-    /* HUD float */
-    .hud-float { position: fixed; top: 42px; right: 10px; font-size: 11px; color: var(--muted); background: var(--panel); padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border); z-index: 10; display: none; }
-    .hud-float .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; display: inline-block; margin-right: 5px; }
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    /* Maximized preview */
+    #app.preview-max .left { display: none; }
+    #app.preview-max .right { border: none; }
 
     ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   </style>
@@ -88,8 +96,8 @@
       </div>
     </div>
 
-    <!-- Col 1: Chat -->
-    <div class="chat">
+    <!-- LEFT: Chat + Activity -->
+    <div class="left">
       <div class="chat-msgs" id="chat-msgs">
         <div class="welcome"><h1>tsunami</h1><p>what do you want to build?</p></div>
       </div>
@@ -99,28 +107,25 @@
       </div>
     </div>
 
-    <!-- Col 2: Files + Code -->
-    <div class="editor">
-      <div class="file-tree">
-        <div class="file-tree-header">Files</div>
-        <div id="file-list"></div>
+    <!-- RIGHT: Tabbed Code/Preview -->
+    <div class="right">
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('code',this)">Code</div>
+        <div class="tab" onclick="showTab('preview',this)">Output</div>
+        <div class="tab-spacer"></div>
+        <div class="tab-btn" id="max-btn" onclick="toggleMax()">⤢</div>
       </div>
-      <div class="code-pane">
-        <div class="code-path" id="code-path">no file selected</div>
-        <div class="code-area" id="code-area"><span style="color:var(--muted)">select a file from the tree</span></div>
+      <div class="tab-content" id="tab-content">
+        <div class="file-tree">
+          <div class="file-tree-header">Files</div>
+          <div id="file-list"></div>
+        </div>
+        <div class="code-pane">
+          <div class="code-path" id="code-path">no file selected</div>
+          <div class="code-area" id="code-area"><span style="color:var(--muted)">select a file</span></div>
+        </div>
       </div>
     </div>
-
-    <!-- Col 3: Preview -->
-    <div class="preview">
-      <div class="preview-header">
-        Output
-        <a href="http://localhost:9876" target="_blank">↗ open</a>
-      </div>
-      <iframe src="http://localhost:9876"></iframe>
-    </div>
-
-    <div class="hud-float" id="hud-float"><span class="pulse"></span><span id="hud-action"></span></div>
   </div>
 
   <script>
@@ -128,6 +133,7 @@
     const WS_FILES = "ws://localhost:3003"
     let ws = null, fileWs = null
     let messages = [], fileList = [], codeContent = "", currentFile = ""
+    let currentTab = "code", isMaximized = false
 
     // === AGENT CONNECTION ===
     function connectAgent() {
@@ -141,7 +147,7 @@
 
     function handleMsg(d) {
       if (d.type === "tool_call") {
-        addChat("tool", toolLabel(d.name) + (d.preview ? ` ${d.preview}` : ""))
+        addChat("tool", toolLabel(d.name) + (d.preview ? ` — ${d.preview}` : ""))
         setHud(toolLabel(d.name))
         if (d.content && d.path) { codeContent = d.content; currentFile = d.path; renderCode(); renderFiles() }
       } else if (d.type === "message") {
@@ -149,7 +155,7 @@
       } else if (d.type === "error") {
         addChat("error", d.text)
       } else if (d.type === "complete") {
-        addChat("system", `done (${d.iterations} iters)`)
+        addChat("system", `done in ${d.iterations} iterations`)
         setHud("done", false)
       }
     }
@@ -181,10 +187,10 @@
       else addChat("error", "not connected")
     }
 
-    let lastChatText = ""
+    let lastText = ""
     function addChat(type, text) {
-      if (type !== "user" && text === lastChatText) return
-      lastChatText = text
+      if (type !== "user" && text === lastText) return
+      lastText = text
       messages.push({ type, text })
       const el = document.getElementById("chat-msgs")
       const w = el.querySelector(".welcome"); if (w) w.remove()
@@ -195,10 +201,41 @@
       el.scrollTop = el.scrollHeight
     }
 
-    // === CODE VIEW ===
+    // === TABS ===
+    function showTab(name, tab) {
+      currentTab = name
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"))
+      if (tab) tab.classList.add("active")
+      const c = document.getElementById("tab-content")
+      if (name === "code") {
+        c.innerHTML = `
+          <div class="file-tree"><div class="file-tree-header">Files</div><div id="file-list"></div></div>
+          <div class="code-pane">
+            <div class="code-path" id="code-path">${esc(currentFile || "no file")}</div>
+            <div class="code-area" id="code-area"></div>
+          </div>`
+        renderCode(); renderFiles()
+      } else if (name === "preview") {
+        c.innerHTML = '<div class="preview-wrap"><iframe src="http://localhost:9876"></iframe></div>'
+      }
+    }
+
+    function toggleMax() {
+      isMaximized = !isMaximized
+      document.getElementById("app").classList.toggle("preview-max", isMaximized)
+      document.getElementById("max-btn").textContent = isMaximized ? "⤡" : "⤢"
+      if (isMaximized && currentTab !== "preview") {
+        showTab("preview", document.querySelectorAll(".tab")[1])
+      }
+    }
+
+    // === CODE ===
     function renderCode() {
-      document.getElementById("code-path").textContent = currentFile || "no file"
+      if (currentTab !== "code") return
+      const path = document.getElementById("code-path")
       const area = document.getElementById("code-area")
+      if (!path || !area) return
+      path.textContent = currentFile || "no file"
       if (!codeContent) { area.innerHTML = '<span style="color:var(--muted)">select a file</span>'; return }
       area.innerHTML = codeContent.split("\n").map((line, i) =>
         `<div><span class="ln">${i + 1}</span>${esc(line)}</div>`
@@ -207,6 +244,7 @@
 
     function renderFiles() {
       const el = document.getElementById("file-list")
+      if (!el) return
       if (!fileList.length) { el.innerHTML = '<div style="padding:8px;color:var(--muted)">no files yet</div>'; return }
       const colors = { tsx: "var(--blue)", ts: "var(--green)", css: "var(--purple)", json: "var(--orange)", html: "var(--red)", js: "var(--yellow)", py: "var(--green)", md: "var(--muted)" }
       el.innerHTML = fileList.slice(0, 80).map(f => {
@@ -220,22 +258,16 @@
 
     function selectFile(path) {
       currentFile = path
-      // Request file content from file watcher
-      if (fileWs?.readyState === 1) {
-        fileWs.send(JSON.stringify({ type: "read", path }))
-      }
+      if (fileWs?.readyState === 1) fileWs.send(JSON.stringify({ type: "read", path }))
       renderFiles()
     }
 
     // === HUD ===
     function setHud(text, active = true) {
-      const el = document.getElementById("hud-float")
-      el.style.display = active ? "block" : "none"
-      document.getElementById("hud-action").textContent = text
       document.getElementById("hud-text").textContent = active ? text : "idle"
     }
     function toolLabel(n) {
-      return { file_write:"writing", file_edit:"editing", file_read:"reading", shell_exec:"running", search_web:"searching", project_init:"scaffolding", swell:"dispatching", undertow:"testing", generate_image:"generating", plan_update:"planning", message_info:"thinking", message_result:"delivering" }[n] || n.replace(/_/g," ")
+      return { file_write:"writing", file_edit:"editing", file_read:"reading", shell_exec:"running", search_web:"searching", project_init:"scaffolding", swell:"dispatching", undertow:"testing", generate_image:"generating", plan_update:"planning", message_info:"thinking", message_result:"delivering", match_glob:"finding files", match_grep:"searching code" }[n] || n.replace(/_/g," ")
     }
 
     // === HEALTH ===
