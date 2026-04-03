@@ -181,6 +181,36 @@ Three builds tonight had white screens despite clean compiles:
       curl the dev server. If it returns 500 or the page has JS errors,
       block delivery (like the compile gate but for runtime).
 
+### Methodology — Deterministic Error Recovery (don't LLM what you can regex)
+Error handling is "inject error text, hope LLM fixes it, escalate after 3."
+No classification, no playbooks, no deterministic fixes. The 2B takes 3-5
+iterations to fix "Cannot find module './Sidebar'" when the fix is always
+"write the file" or "fix the import path."
+
+Common compile errors and their deterministic fixes:
+- `Cannot find module './components/X'` → create the file (or fix path)
+- `'X' is not exported` → switch default/named import
+- `Cannot find package 'X'` → npm install X
+- `'useState' is not defined` → already auto-fixed by hook injection
+
+These patterns account for ~80% of compile failures. Each wastes 2-4
+iterations when the fix is knowable without LLM reasoning.
+
+- [ ] **Error classifier**: regex-match common error patterns and inject
+      the specific fix, not just the error text. "Cannot find module
+      './components/Sidebar'" → "File doesn't exist. Write it or fix
+      the import to match an existing file: [list of existing files]."
+- [ ] **Auto-fix layer**: for the top 5 error patterns, attempt the fix
+      automatically (like auto-hook-import does for useState). If the
+      auto-fix resolves the compile error, don't even tell the agent.
+- [ ] **npm auto-install**: if compile error mentions a missing package
+      that was in the user's prompt or plan, auto-run `npm install X`.
+- [ ] **Import fixer**: when "not exported" error occurs, read the
+      target file's actual exports and rewrite the import to match.
+- [ ] **Error memory**: track which errors occurred and what fixed them
+      within the session. If the same error pattern recurs, apply the
+      previous fix immediately instead of re-reasoning.
+
 ### Methodology — Scaffold Awareness (agent ignores what's available)
 Across 14 deliverables, the agent used 0 scaffold UI components.
 28 pre-built components (Modal, Toast, Progress, Accordion, etc.)
