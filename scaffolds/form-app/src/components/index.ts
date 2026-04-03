@@ -1,4 +1,5 @@
 export { default as FileDropzone } from "./FileDropzone"
 export { default as DataTable } from "./DataTable"
 export { parseFile } from "./parseFile"
+export { exportCsv } from "./exportCsv"
 export type { ParsedSheet } from "./parseFile"
