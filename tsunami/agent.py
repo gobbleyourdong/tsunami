@@ -1408,6 +1408,26 @@ class Agent:
                                                             log.info(f"Runtime check: PASS ({len(text)} chars, {len(overlap)} keyword matches)")
                                                     else:
                                                         log.info(f"Runtime check: PASS ({len(text)} chars visible)")
+
+                                                # Screenshot diff — detect no-op edits
+                                                try:
+                                                    import hashlib
+                                                    shot_hash = hashlib.md5(screenshot).hexdigest()
+                                                    prev_hash = getattr(self, '_last_screenshot_hash', None)
+                                                    self._last_screenshot_hash = shot_hash
+                                                    if prev_hash and shot_hash == prev_hash:
+                                                        self._noop_edits = getattr(self, '_noop_edits', 0) + 1
+                                                        if self._noop_edits >= 2:
+                                                            self.state.add_system_note(
+                                                                "NO VISUAL CHANGE: Your last 2 edits didn't change "
+                                                                "what the page looks like. The edit may not be taking "
+                                                                "effect — check imports and component wiring."
+                                                            )
+                                                            self._noop_edits = 0
+                                                    else:
+                                                        self._noop_edits = 0
+                                                except Exception:
+                                                    pass
                                     except Exception as e:
                                         log.debug(f"Runtime check skipped: {e}")
                 except Exception as e:
