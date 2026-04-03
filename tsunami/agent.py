@@ -1207,9 +1207,15 @@ class Agent:
             # Track delivery attempts — prevent infinite block loops
             self._delivery_attempts = getattr(self, '_delivery_attempts', 0) + 1
 
-            # Always evaluate tension — but only BLOCK if this is a factual claim,
-            # not a build delivery, and we haven't already blocked twice
-            can_block = self._delivery_attempts <= 5
+            # Short conversational responses (greetings, acknowledgments) skip all gates
+            is_conversational = len(result.content) < 300 and tension < 0.3
+            if is_conversational:
+                self._delivery_attempts = 0
+                self.state.task_complete = True
+                return result.content
+
+            # Only block factual claims that need verification, not build deliveries
+            can_block = self._delivery_attempts <= 3
 
             circ = Circulation()
             route = circ.route(
