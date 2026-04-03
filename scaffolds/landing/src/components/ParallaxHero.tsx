@@ -1,18 +1,15 @@
-import { useEffect, useRef, useState, ReactNode } from "react"
+import { useEffect, useState, ReactNode } from "react"
 
 interface ParallaxHeroProps {
   bgImage?: string
-  bgColor?: string
   height?: string
   children: ReactNode
   speed?: number
   overlay?: boolean
 }
 
-/** Full-screen parallax hero with optional background image and dark overlay. */
 export default function ParallaxHero({
   bgImage,
-  bgColor = "#0a0a1a",
   height = "100vh",
   children,
   speed = 0.4,
@@ -27,22 +24,24 @@ export default function ParallaxHero({
   }, [speed])
 
   return (
-    <section style={{
-      position: "relative", height, overflow: "hidden",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: bgColor,
-    }}>
+    <section className="hero" style={{ minHeight: height }}>
       {bgImage && (
-        <div style={{
-          position: "absolute", inset: 0,
-          backgroundImage: `url(${bgImage})`,
-          backgroundSize: "cover", backgroundPosition: "center",
-          transform: `translateY(${offset}px)`,
-          willChange: "transform",
-        }} />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${bgImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            transform: `translateY(${offset}px)`,
+            willChange: 'transform',
+          }}
+        />
       )}
-      {overlay && <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} />}
-      <div style={{ position: "relative", zIndex: 1, textAlign: "center", padding: 24 }}>
+      {overlay && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(8,9,13,0.6)', zIndex: 0 }} />
+      )}
+      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: 24 }}>
         {children}
       </div>
     </section>

@@ -461,6 +461,64 @@ input::placeholder { color: var(--text-dim); }
 * { scrollbar-width: thin; scrollbar-color: var(--bg-4) transparent; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* ── Mobile Hamburger ───────────────────────────────────────────────── */
+.navbar-hamburger {
+  display: none;
+  background: none !important;
+  border: none !important;
+  padding: 8px !important;
+  cursor: pointer;
+  flex-direction: column;
+  gap: 5px;
+}
+.hamburger-line {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 1px;
+  transition: all var(--duration-normal) var(--ease-out-expo);
+}
+.hamburger-line.open:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+.hamburger-line.open:nth-child(2) { opacity: 0; }
+.hamburger-line.open:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+.navbar-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 24px 20px;
+  border-top: 1px solid var(--border);
+}
+.navbar-mobile a {
+  display: block;
+  padding: 10px 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: color var(--duration-normal);
+  text-decoration: none;
+}
+.navbar-mobile a:hover { color: #fff; }
+.navbar-mobile .navbar-cta {
+  display: inline-block;
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* ── Avatar (for testimonials) ──────────────────────────────────────── */
+.avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: var(--text-xs);
+  color: var(--accent);
+  border: 2px solid var(--border);
+  overflow: hidden; flex-shrink: 0;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+
 /* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .feature-grid.grid-4 { grid-template-columns: repeat(2, 1fr); }
@@ -469,8 +527,8 @@ input::placeholder { color: var(--text-dim); }
   .feature-grid.grid-2,
   .feature-grid.grid-3,
   .feature-grid.grid-4 { grid-template-columns: 1fr; }
-  .navbar-links { gap: 16px; }
-  .navbar-links a:not(.navbar-cta) { display: none; }
+  .navbar-links { display: none; }
+  .navbar-hamburger { display: flex; }
   .hero { padding: 100px 20px 80px; }
   .section { padding: 60px 20px; }
   .gallery-grid { grid-template-columns: 1fr; }
