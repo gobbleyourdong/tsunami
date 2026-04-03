@@ -307,7 +307,6 @@ async def _execute_bee_tool(name: str, args: dict, workdir: str) -> str:
             from .tools.search import SearchWeb
             from .config import TsunamiConfig
             searcher = SearchWeb(TsunamiConfig())
-            import asyncio
             result = await searcher.execute(query=query, search_type=search_type, num_results=3)
             return result.content[:3000]
         except Exception as e:
