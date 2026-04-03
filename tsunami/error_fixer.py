@@ -157,4 +157,162 @@ def _classify_and_fix(project_dir: Path, error: str) -> str | None:
         # Can't auto-fix easily — but log it for the LLM with context
         return None
 
+    # 6. CSS module not found — file referenced but doesn't exist
+    m = re.search(r"Could not resolve ['\"]\./([\w/]+\.css)['\"]", error)
+    if m:
+        css_path = project_dir / "src" / m.group(1)
+        if not css_path.exists():
+            css_path.parent.mkdir(parents=True, exist_ok=True)
+            css_path.write_text("/* Auto-generated empty stylesheet */\n")
+            return f"created empty {css_path.name} (missing CSS)"
+        return None
+
+    # 7. JSX namespace missing — React not imported in JSX file
+    if "React" in error and "not defined" in error:
+        file_match = re.search(r"([^\s:]+\.tsx?):", error)
+        if file_match:
+            file_path = _resolve_file(project_dir, file_match.group(1))
+            if file_path and file_path.exists():
+                content = file_path.read_text()
+                if "import React" not in content:
+                    content = 'import React from "react"\n' + content
+                    file_path.write_text(content)
+                    return f"injected React import in {file_path.name}"
+        return None
+
+    # 8. Type-only import used as value
+    # "X only refers to a type, but is being used as a value here"
+    if "only refers to a type" in error:
+        # Usually needs `import type` → `import` or vice versa
+        # Log but don't auto-fix (too many edge cases)
+        return None
+
+    # 9. Missing closing tag / unclosed JSX
+    if "Unterminated JSX" in error or "Expected corresponding JSX closing tag" in error:
+        # Can't auto-fix JSX structure — but log for pattern tracking
+        return None
+
+    # 10. Module has no default export — import default from named-only module
+    m = re.search(r"does not provide an export named ['\"]default['\"]", error)
+    if not m:
+        m = re.search(r"No default export", error)
+    if m:
+        file_match = re.search(r"([^\s:]+\.tsx?):", error)
+        if file_match:
+            file_path = _resolve_file(project_dir, file_match.group(1))
+            if file_path and file_path.exists():
+                content = file_path.read_text()
+                # Find the problematic import and convert to named
+                imports = re.findall(r'import (\w+) from [\'"]([^\'"]+)[\'"]', content)
+                for name, source in imports:
+                    # Check if the source file only has named exports
+                    source_path = _resolve_import(project_dir, file_path.parent, source)
+                    if source_path and source_path.exists():
+                        source_content = source_path.read_text()
+                        if f"export default" not in source_content and f"export {{ {name}" not in source_content:
+                            # Try converting to named import
+                            old = f'import {name} from "{source}"'
+                            new = f'import {{ {name} }} from "{source}"'
+                            content = content.replace(old, new)
+                            old2 = f"import {name} from '{source}'"
+                            new2 = f"import {{ {name} }} from '{source}'"
+                            content = content.replace(old2, new2)
+                            file_path.write_text(content)
+                            return f"fixed default→named import of {name} in {file_path.name}"
+        return None
+
+    # 11. Port already in use (dev server)
+    if "EADDRINUSE" in error or "address already in use" in error.lower():
+        m = re.search(r"port[:\s]+(\d+)", error, re.I)
+        if m:
+            port = m.group(1)
+            try:
+                subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, timeout=5)
+                return f"killed process on port {port}"
+            except Exception:
+                pass
+        return None
+
+    # 12. tsconfig target too old — async/await or optional chaining fails
+    if "Top-level 'await'" in error or "Optional chaining" in error:
+        tsconfig = project_dir / "tsconfig.json"
+        if tsconfig.exists():
+            import json
+            try:
+                config = json.loads(tsconfig.read_text())
+                opts = config.get("compilerOptions", {})
+                if opts.get("target", "").lower() in ("es5", "es6", "es2015"):
+                    opts["target"] = "ES2020"
+                    config["compilerOptions"] = opts
+                    tsconfig.write_text(json.dumps(config, indent=2))
+                    return "upgraded tsconfig target to ES2020"
+            except json.JSONDecodeError:
+                pass
+        return None
+
+    # 13. Image/asset import fails — vite can't resolve
+    m = re.search(r"Could not resolve ['\"]\./([\w/.-]+\.(png|jpg|svg|gif|webp))['\"]", error)
+    if m:
+        asset_path = project_dir / "src" / m.group(1)
+        if not asset_path.exists():
+            # Create a tiny placeholder SVG
+            asset_path.parent.mkdir(parents=True, exist_ok=True)
+            if asset_path.suffix == ".svg":
+                asset_path.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#333"/></svg>')
+            else:
+                # Create a 1x1 pixel PNG
+                asset_path.write_bytes(
+                    b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01'
+                    b'\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00'
+                    b'\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00'
+                    b'\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82'
+                )
+            return f"created placeholder {asset_path.name} (missing asset)"
+        return None
+
+    # 14. Vite env variable not defined
+    if "import.meta.env" in error and "not defined" in error.lower():
+        env_file = project_dir / ".env"
+        if not env_file.exists():
+            env_file.write_text("VITE_APP_TITLE=My App\n")
+            return "created .env with placeholder"
+        return None
+
+    # 15. Index.html missing root div
+    if "Target container is not a DOM element" in error:
+        index = project_dir / "index.html"
+        if index.exists():
+            content = index.read_text()
+            if 'id="root"' not in content:
+                content = content.replace("</body>", '  <div id="root"></div>\n</body>')
+                index.write_text(content)
+                return "added root div to index.html"
+        return None
+
+    return None
+
+
+def _resolve_file(project_dir: Path, rel_path: str) -> Path | None:
+    """Resolve a file path relative to project or src dir."""
+    for base in [project_dir, project_dir / "src"]:
+        p = base / rel_path
+        if p.exists():
+            return p
+    return None
+
+
+def _resolve_import(project_dir: Path, from_dir: Path, import_path: str) -> Path | None:
+    """Resolve an import path to an actual file."""
+    if import_path.startswith("."):
+        base = from_dir / import_path
+    else:
+        return None  # node_modules — don't resolve
+    for ext in [".tsx", ".ts", ".jsx", ".js", ""]:
+        p = base.with_suffix(ext) if ext else base
+        if p.exists():
+            return p
+        # Try index file
+        idx = base / f"index{ext}" if ext else base / "index.ts"
+        if idx.exists():
+            return idx
     return None
