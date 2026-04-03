@@ -181,6 +181,36 @@ Three builds tonight had white screens despite clean compiles:
       curl the dev server. If it returns 500 or the page has JS errors,
       block delivery (like the compile gate but for runtime).
 
+### Methodology — Model-Aware Adaptation (2B ≠ 9B)
+The 2B and 9B get identical prompts, tools, and schemas. But the 2B:
+- Processes 2,468 tokens of tool schemas per call (15% of 16K context)
+- Chooses between 18 tools with weaker reasoning
+- Forgets imports, spams message_info, uses wrong tools
+- Needed 7 auto-fix hacks this session (hook inject, path fix, etc.)
+
+The 9B handles the same setup cleanly. The methodology issue: we're
+compensating for 2B weakness with reactive hacks instead of proactive
+adaptation.
+
+- [ ] **Lite tool set**: On 2B, expose 10 core tools instead of 18.
+      Remove swell (auto-dispatched anyway), undertow (auto-fires),
+      plan_update (2B plans poorly), summarize_file (wastes context).
+      Saves ~1000 tokens per call.
+- [ ] **Shorter prompt for 2B**: The 2B doesn't follow complex multi-
+      step instructions. Simplify: "Write code. Call message_result
+      when done. Don't explain." vs the 9B's full research-first flow.
+- [ ] **Stricter guardrails for 2B**: Lower the message_info limit
+      further (1 streak), force message_result after 10 iterations,
+      reject python_exec entirely (always misused).
+- [ ] **Phase-based tool filtering**: During research phase, show
+      only search_web + generate_image. During build phase, show only
+      file_write + file_edit + shell_exec. The 2B picks better with
+      fewer choices.
+- [ ] **Model capability detection**: At agent init, run a quick probe
+      ("respond with just OK") to measure response quality. If the
+      model can't follow simple instructions, activate lite guardrails
+      automatically. No manual lite/full mode needed.
+
 ### Methodology — Agent Loop Regression Tests (8 breakages, 0 caught)
 37 test files (6,288 lines) test components in isolation. None test
 the agent loop behavior. This session had 8 integration breakages —
