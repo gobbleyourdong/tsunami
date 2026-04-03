@@ -629,6 +629,65 @@ class Agent:
         if len(self._recent_tools) > 10:
             self._recent_tools = self._recent_tools[-10:]
 
+        # Write-swell: when wave writes 2+ component files sequentially,
+        # check if App.tsx references more missing components and dispatch eddies
+        _write_swelled = getattr(self, '_write_swelled', False)
+        if not _write_swelled and len(self._recent_tools) >= 2:
+            last_2 = self._recent_tools[-2:]
+            both_writes = all(t[0] == "file_write" for t in last_2)
+            both_components = both_writes and all(
+                "components/" in str(t[1].get("path", "")) for t in last_2
+            )
+            if both_components:
+                # The wave is writing components sequentially — check if more are needed
+                try:
+                    last_path = str(last_2[-1][1].get("path", ""))
+                    parts = last_path.split("deliverables/")
+                    if len(parts) > 1:
+                        project_name = parts[1].split("/")[0]
+                        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+                        app_path = project_dir / "src" / "App.tsx"
+                        comp_dir = project_dir / "src" / "components"
+                        if app_path.exists() and comp_dir.exists():
+                            import re as _ws_re
+                            app_content = app_path.read_text()
+                            imports = _ws_re.findall(r'from\s+["\']\.\/components\/(\w+)["\']', app_content)
+                            missing = [c for c in imports if not (comp_dir / f"{c}.tsx").exists()]
+                            if len(missing) >= 2:
+                                self._write_swelled = True
+                                user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                                types_ctx = ""
+                                types_path = project_dir / "src" / "types.ts"
+                                if types_path.exists():
+                                    types_ctx = f"\n\nShared types:\n```\n{types_path.read_text()[:1500]}\n```"
+
+                                tasks = []
+                                targets = []
+                                for comp in missing[:6]:
+                                    target = str(comp_dir / f"{comp}.tsx")
+                                    prompt = (
+                                        f"Write React component {comp} for: {user_req[:200]}\n"
+                                        f"Export default function {comp}. Under 80 lines.{types_ctx}"
+                                    )
+                                    tasks.append(prompt)
+                                    targets.append(target)
+
+                                log.info(f"Write-swell: {len(tasks)} missing components detected, dispatching eddies")
+                                from .eddy import run_swarm
+                                swell_results = await run_swarm(
+                                    tasks=tasks, workdir=str(project_dir),
+                                    max_concurrent=4,
+                                    system_prompt="You are a React TypeScript expert. Call done() with ONLY the raw TSX code. Export default function ComponentName.",
+                                    write_targets=targets,
+                                )
+                                written = sum(1 for r in swell_results if r.success)
+                                self.state.add_system_note(
+                                    f"WRITE-SWELL: {written}/{len(tasks)} remaining components written by eddies: "
+                                    f"{', '.join(missing[:6])}. Continue with vite build to compile-check."
+                                )
+                except Exception as e:
+                    log.debug(f"Write-swell skipped: {e}")
+
         # Check for repetition loop (same tool called 3+ times consecutively)
         # Auto-swell: when the wave is doing the same thing 3+ times, hint to use swell
         if len(self._recent_tools) >= 3:
