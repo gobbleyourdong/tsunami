@@ -47,6 +47,10 @@ case "${1:-}" in
     pkill -f "llama-server" 2>/dev/null
     pkill -f "tsunami" 2>/dev/null
     pkill -f "serve_diffusion" 2>/dev/null
+    pkill -f "tsunami_daemon_start" 2>/dev/null
+    pkill -f "tsunami_server_start" 2>/dev/null
+    pkill -f "ws_bridge" 2>/dev/null
+    pkill -f "file_watcher" 2>/dev/null
     echo "  ✓ All processes killed"
     exit 0
     ;;
