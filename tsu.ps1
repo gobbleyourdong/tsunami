@@ -150,7 +150,7 @@ if (-not (Test-ModelServer)) {
         Write-Warning "llama-server not found — skipping model server. Run setup.ps1 to install."
     } else {
         $logFile = "$env:TEMP\llama-server.log"
-        $llamaArgs = @('--host', '0.0.0.0', '--port', '8090', '--ctx-size', '16384', '--n-gpu-layers', '99')
+        $llamaArgs = @('--host', '0.0.0.0', '--port', '8090', '--ctx-size', '32768', '--n-gpu-layers', '99')
 
         # Check VRAM — skip large models on <10GB cards
         $vramGB = 0

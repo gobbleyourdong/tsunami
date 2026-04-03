@@ -85,7 +85,7 @@ if ! check_model; then
     echo "  starting 27B dense: $(basename $DENSE_27B)"
     "$LLAMA" --model "$DENSE_27B" $MMPROJ_FLAG \
       --host 0.0.0.0 --port 8090 \
-      --ctx-size 16384 --n-gpu-layers 99 -fa on \
+      --ctx-size 32768 --n-gpu-layers 99 -fa on \
       --cache-type-k bf16 --cache-type-v bf16 \
       --jinja --chat-template-kwargs '{"enable_thinking":false}' \
       > /tmp/llama-server.log 2>&1 &
@@ -94,7 +94,7 @@ if ! check_model; then
     echo "  starting 122B MoE: $(basename $MOE_MODEL)"
     "$LLAMA" --model "$MOE_MODEL" \
       --host 0.0.0.0 --port 8090 \
-      --ctx-size 16384 --n-gpu-layers 99 -fa on \
+      --ctx-size 32768 --n-gpu-layers 99 -fa on \
       --cache-type-k q8_0 --cache-type-v q8_0 \
       > /tmp/llama-server.log 2>&1 &
     MODEL_PID=$!
@@ -105,7 +105,7 @@ if ! check_model; then
     echo "  starting $(basename $TEXT_MODEL)${MMPROJ_SMALL:+ + vision}"
     "$LLAMA" --model "$TEXT_MODEL" $MMPROJ_FLAG \
       --host 0.0.0.0 --port 8090 \
-      --ctx-size 16384 --n-gpu-layers 99 -fa on \
+      --ctx-size 32768 --n-gpu-layers 99 -fa on \
       --jinja --chat-template-kwargs '{"enable_thinking":false}' \
       > /tmp/llama-server.log 2>&1 &
     MODEL_PID=$!
