@@ -64,6 +64,7 @@
     .chat-input input:focus { border-color: var(--accent); }
     .chat-input input::placeholder { color: var(--muted); }
     .chat-input button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 10px 16px; font-weight: 600; cursor: pointer; font-size: 14px; }
+    .stop-btn { background: var(--red) !important; padding: 10px 12px !important; font-size: 12px !important; }
     .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
     .welcome h1 {
       font-size: 36px; font-weight: 200; letter-spacing: 8px; text-transform: lowercase;
@@ -164,6 +165,7 @@
       <div class="chat-input">
         <input id="prompt" placeholder="build me a..." onkeydown="if(event.key==='Enter')send()" autofocus />
         <button onclick="send()">→</button>
+        <button onclick="stopAgent()" class="stop-btn" id="stop-btn" style="display:none" title="Stop current task">■</button>
       </div>
     </div>
 
@@ -209,6 +211,7 @@
       if (d.type === "tool_call") {
         addChat("tool", `${toolLabel(d.name)}(${d.preview || ""})`)
         setHud(toolLabel(d.name))
+        showStopBtn(true)
         if (d.content && d.path) { codeContent = d.content; currentFile = d.path; renderCode(); renderFiles() }
       } else if (d.type === "message") {
         addChat("agent", d.text)
@@ -217,7 +220,22 @@
       } else if (d.type === "complete") {
         addChat("system", `done in ${d.iterations} iterations`)
         setHud("done", false)
+        showStopBtn(false)
+      } else if (d.type === "status") {
+        addChat("system", d.message)
       }
+    }
+
+    function stopAgent() {
+      if (ws?.readyState === 1) {
+        ws.send(JSON.stringify({ type: "abort" }))
+        addChat("system", "stopping...")
+        showStopBtn(false)
+      }
+    }
+
+    function showStopBtn(show) {
+      document.getElementById("stop-btn").style.display = show ? "block" : "none"
     }
 
     // === FILE WATCHER ===
@@ -243,7 +261,7 @@
       if (!text) return
       addChat("user", text)
       input.value = ""
-      if (ws?.readyState === 1) { ws.send(JSON.stringify({ type: "prompt", text })); setHud("starting...") }
+      if (ws?.readyState === 1) { ws.send(JSON.stringify({ type: "prompt", text })); setHud("starting..."); showStopBtn(true) }
       else addChat("error", "not connected")
     }
 
