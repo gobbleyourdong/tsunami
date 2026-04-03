@@ -1048,8 +1048,9 @@ class Agent:
                             else:
                                 log.info("Auto-compile: PASS")
                                 # Quick runtime check — load in headless browser, catch JS errors
+                                # Check any port the dev server might be on
                                 serving = getattr(self, '_serving_project', None)
-                                if serving == project_name:
+                                if serving or (project_dir / "node_modules" / ".vite").exists():
                                     try:
                                         import asyncio as _aio
                                         from playwright.async_api import async_playwright
