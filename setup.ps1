@@ -74,10 +74,19 @@ $GPU       = "cpu"
 $VRAM      = 0
 $CUDA_ARCH = ""
 
-# Check PATH first, then the known Windows location (dual-GPU laptops often miss PATH)
+# Check PATH, then known Windows locations (dual-GPU laptops, WoW64 redirect, NVSMI folder)
 $nvidiaSmi = Get-Command "nvidia-smi" -ErrorAction SilentlyContinue
-if (-not $nvidiaSmi -and (Test-Path "C:\Windows\System32\nvidia-smi.exe")) {
-    $nvidiaSmi = Get-Item "C:\Windows\System32\nvidia-smi.exe"
+if (-not $nvidiaSmi) {
+    $nvidiaPaths = @(
+        "C:\Windows\System32\nvidia-smi.exe",
+        "C:\Windows\Sysnative\nvidia-smi.exe",
+        "$env:ProgramFiles\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
+        "${env:ProgramFiles(x86)}\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
+        "C:\Windows\SysWOW64\nvidia-smi.exe"
+    )
+    foreach ($p in $nvidiaPaths) {
+        if (Test-Path $p) { $nvidiaSmi = Get-Item $p; break }
+    }
 }
 if ($nvidiaSmi) {
     $GPU = "cuda"
