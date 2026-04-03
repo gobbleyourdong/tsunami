@@ -129,6 +129,87 @@ class Agent:
         self.active_project: str | None = None
         self.project_context: str = ""
 
+    def _detect_existing_project(self, user_message: str) -> str:
+        """Check if an existing project matches this prompt.
+
+        If found, load the project context so the agent can iterate
+        instead of building from scratch. This enables:
+        - "make the buttons bigger" → edits the existing project
+        - "add dark mode" → extends what's already built
+        - "fix the calculator" → loads and fixes
+        """
+        msg = user_message.lower()
+
+        # Keywords that suggest iteration, not greenfield
+        iteration_keywords = ["fix", "improve", "change", "update", "add", "modify",
+                              "make it", "bigger", "smaller", "different", "better",
+                              "the calculator", "the dashboard", "the game", "my app"]
+        is_iteration = any(k in msg for k in iteration_keywords)
+
+        deliverables = Path(self.config.workspace_dir) / "deliverables"
+        if not deliverables.exists():
+            return ""
+
+        # Find the best matching project
+        projects = [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")]
+        if not projects:
+            return ""
+
+        # Score each project by keyword overlap with the prompt
+        import re
+        prompt_words = set(re.findall(r'[a-z]{3,}', msg))
+        best_match = None
+        best_score = 0
+
+        for proj in projects:
+            name_words = set(re.findall(r'[a-z]{3,}', proj.name.lower()))
+            overlap = len(prompt_words & name_words)
+            if overlap > best_score:
+                best_score = overlap
+                best_match = proj
+
+        # Also check most recent project if it's an iteration request
+        if is_iteration and not best_match:
+            best_match = max(projects, key=lambda p: p.stat().st_mtime)
+            best_score = 1  # low confidence but iteration intent is clear
+
+        if not best_match or best_score < 1:
+            return ""
+
+        # Load the project context
+        self.active_project = best_match.name
+        app_path = best_match / "src" / "App.tsx"
+        types_path = best_match / "src" / "types.ts"
+        pkg_path = best_match / "package.json"
+
+        context_parts = [
+            f"[EXISTING PROJECT: {best_match.name}]",
+            f"Path: {best_match}",
+        ]
+
+        if app_path.exists():
+            content = app_path.read_text()[:1500]
+            context_parts.append(f"Current App.tsx:\n```\n{content}\n```")
+
+        if types_path.exists():
+            content = types_path.read_text()[:800]
+            context_parts.append(f"Types:\n```\n{content}\n```")
+
+        # List component files
+        comp_dir = best_match / "src" / "components"
+        if comp_dir.exists():
+            comps = [f.stem for f in comp_dir.iterdir() if f.suffix in ('.tsx', '.ts') and f.stem != 'index']
+            if comps:
+                context_parts.append(f"Components: {', '.join(sorted(comps))}")
+
+        context_parts.append(
+            "This project already exists. Use file_edit to modify existing files "
+            "instead of file_write (which overwrites). Read the current code first."
+        )
+
+        log.info(f"Iterative refinement: matched '{best_match.name}' (score={best_score})")
+        return "\n".join(context_parts)
+
     async def _pre_scaffold(self, user_message: str) -> str:
         """Hidden pre-scaffold step — detect build tasks, provision automatically.
 
@@ -341,13 +422,21 @@ class Agent:
 
         self.state.add_system(system_prompt)
 
+        # Iterative refinement — detect existing projects that match the prompt
+        existing_context = self._detect_existing_project(user_message)
+
         # Hidden pre-scaffold step — detect build tasks and provision automatically
         # The model never chooses the scaffold. The platform does.
-        scaffold_context = await self._pre_scaffold(user_message)
+        scaffold_context = ""
+        if not existing_context:
+            scaffold_context = await self._pre_scaffold(user_message)
+
+        context_parts = [user_message]
+        if existing_context:
+            context_parts.append(existing_context)
         if scaffold_context:
-            self.state.add_user(user_message + "\n\n" + scaffold_context)
-        else:
-            self.state.add_user(user_message)
+            context_parts.append(scaffold_context)
+        self.state.add_user("\n\n".join(context_parts))
 
         log.info(f"Starting agent loop: {user_message[:100]}")
         consecutive_errors = 0
