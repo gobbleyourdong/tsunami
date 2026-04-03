@@ -52,9 +52,9 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 
 [Run]
 ; Run setup.ps1 after install — tell it to use the install directory for everything
-; Use 64-bit PowerShell explicitly — 32-bit can't see nvidia-smi in System32 (WoW64 redirect)
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-ExecutionPolicy Bypass -Command ""$env:TSUNAMI_DIR='{app}'; & '{app}\setup.ps1'"""; Description: "Download models and dependencies (~7GB)"; Flags: postinstall nowait shellexec; StatusMsg: "Setting up Tsunami..."; Check: IsWin64
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -Command ""$env:TSUNAMI_DIR='{app}'; & '{app}\setup.ps1'"""; Description: "Download models and dependencies (~7GB)"; Flags: postinstall nowait shellexec; StatusMsg: "Setting up Tsunami..."; Check: not IsWin64
+; Use Sysnative to guarantee 64-bit PowerShell — sees real System32 + nvidia-smi
+; Restore full user PATH before running setup (installer environment is stripped)
+Filename: "C:\Windows\Sysnative\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-ExecutionPolicy Bypass -Command ""$env:PATH=[Environment]::GetEnvironmentVariable('PATH','Machine')+';'+[Environment]::GetEnvironmentVariable('PATH','User'); $env:TSUNAMI_DIR='{app}'; & '{app}\setup.ps1'"""; Description: "Download models and dependencies (~7GB)"; Flags: postinstall nowait shellexec; StatusMsg: "Setting up Tsunami..."
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\models"
