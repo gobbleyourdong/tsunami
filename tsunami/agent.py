@@ -107,6 +107,10 @@ class Agent:
         from .pressure import Pressure
         self._pressure = Pressure()
 
+        # Closed-loop feedback — track tool outcomes, steer decisions
+        from .feedback import FeedbackTracker
+        self._feedback = FeedbackTracker()
+
         # Stall detection — abort on no-progress loops
         self._empty_steps = 0
         self._tool_history: list[str] = []  # last N tool calls
@@ -811,6 +815,14 @@ class Agent:
             tool_call.name, tool_call.arguments, result.content,
             result.is_error, self.session_id,
         )
+
+        # Closed-loop feedback — record outcome and inject steering advice
+        made_progress = tool_call.name in ("file_write", "file_edit", "project_init", "generate_image") and not result.is_error
+        self._feedback.record(tool_call.name, not result.is_error, made_progress, str(result.content)[:100] if result.is_error else "")
+        nudge = self._feedback.get_nudge(self.state.iteration)
+        if nudge:
+            self.state.add_system_note(nudge)
+            log.info(f"Feedback nudge: {nudge[:60]}")
 
         # 8rs. Research swell — on first search, dispatch parallel research eddies
         _research_swelled = getattr(self, '_research_swelled', False)
