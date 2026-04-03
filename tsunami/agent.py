@@ -1849,6 +1849,21 @@ class Agent:
                 self._pressure.reset()
             self.state.task_complete = True
 
+            # Learn from this build — extract patterns for future sessions
+            try:
+                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                if deliverables.exists():
+                    projects = sorted(
+                        [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
+                        key=lambda p: p.stat().st_mtime, reverse=True
+                    )
+                    if projects:
+                        self.observer.learn_from_build(
+                            str(projects[0]), self.state.iteration, True, self._tool_history
+                        )
+            except Exception:
+                pass
+
             # Project history — record what prompt built this project
             try:
                 deliverables = Path(self.config.workspace_dir) / "deliverables"

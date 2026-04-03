@@ -124,6 +124,37 @@ def save_session_summary(state: AgentState, session_dir: Path, session_id: str =
     if state.plan:
         summary += f"**Plan:** {state.plan.goal}\n"
 
+    # Extract what worked — successful patterns from this session
+    successful_patterns = []
+    failed_patterns = []
+    for i, m in enumerate(state.conversation):
+        if m.role == "tool_result":
+            prev = state.conversation[i-1] if i > 0 else None
+            if prev and prev.tool_call:
+                tc = prev.tool_call.get("function", prev.tool_call)
+                tool = tc.get("name", "")
+                if "ERROR" in m.content or "FAIL" in m.content:
+                    failed_patterns.append(tool)
+                elif tool in ("file_write", "file_edit") and "Wrote" in m.content:
+                    successful_patterns.append(tool)
+
+    if successful_patterns:
+        summary += f"**What worked:** {len(successful_patterns)} successful writes\n"
+    if failed_patterns:
+        fail_counts = {}
+        for t in failed_patterns:
+            fail_counts[t] = fail_counts.get(t, 0) + 1
+        summary += f"**What failed:** {', '.join(f'{t}({c}x)' for t,c in fail_counts.items())}\n"
+
+    summary += "\n**Advice for next session:** "
+    if errors:
+        summary += "Check imports carefully — errors occurred last time. "
+    if state.task_complete:
+        summary += "Last build succeeded. Build on it or start fresh."
+    else:
+        summary += "Last build didn't complete. Consider a simpler approach."
+    summary += "\n"
+
     summary_path.write_text(summary)
     return summary_path
 

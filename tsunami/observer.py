@@ -131,6 +131,66 @@ class Observer:
         path.write_text(json.dumps(instinct, indent=2))
         log.info(f"Saved instinct: {iid} (confidence={instinct.get('confidence', 0)})")
 
+    def learn_from_build(self, project_dir: str, iterations: int, success: bool, tools_used: list[str]):
+        """Extract and save patterns from a completed build.
+
+        Called after message_result. Records what worked so future
+        builds of similar projects can skip the trial-and-error.
+        """
+        from pathlib import Path
+        proj = Path(project_dir)
+        if not proj.exists():
+            return
+
+        # What scaffold was used?
+        scaffold = "unknown"
+        pkg = proj / "package.json"
+        if pkg.exists():
+            try:
+                import json as _json
+                data = _json.loads(pkg.read_text())
+                deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+                if "three" in deps or "@react-three/fiber" in deps:
+                    scaffold = "threejs-game"
+                elif "pixi.js" in deps or "@pixi/react" in deps:
+                    scaffold = "pixijs-game"
+                elif "recharts" in deps and "express" not in deps:
+                    scaffold = "data-viz"
+                elif "express" in deps:
+                    scaffold = "fullstack"
+                elif "ws" in deps:
+                    scaffold = "realtime"
+                else:
+                    scaffold = "react-app"
+            except Exception:
+                pass
+
+        # Count file types
+        src = proj / "src"
+        tsx_count = len(list(src.rglob("*.tsx"))) if src.exists() else 0
+        css_count = len(list(src.rglob("*.css"))) if src.exists() else 0
+
+        # Tool frequency
+        tool_freq = {}
+        for t in tools_used:
+            tool_freq[t] = tool_freq.get(t, 0) + 1
+
+        pattern = {
+            "id": f"build-{proj.name}-{int(time.time())}",
+            "type": "build_pattern",
+            "project": proj.name,
+            "scaffold": scaffold,
+            "iterations": iterations,
+            "success": success,
+            "tsx_files": tsx_count,
+            "css_files": css_count,
+            "top_tools": sorted(tool_freq.items(), key=lambda x: -x[1])[:5],
+            "confidence": 0.6 if success else 0.3,
+        }
+
+        self.save_instinct(pattern)
+        log.info(f"Learned from build: {proj.name} ({scaffold}, {iterations} iters, {'success' if success else 'failed'})")
+
     async def analyze_observations(self, fast_endpoint: str = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")):
         """Use the 2B model to extract instincts from recent observations."""
         recent = self.get_recent_observations(50)
