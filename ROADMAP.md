@@ -153,6 +153,34 @@
 - [ ] Session persistence across agent restarts
 - [ ] Learning from successful builds (pattern extraction)
 
+### Methodology — SPA Visual Validation (compile ≠ renders)
+The #1 unresolved failure mode: build passes but page is blank.
+React SPAs render on the client — dist/index.html is an empty shell.
+The agent verifies compile (vite build) but has no reliable way to
+verify the output actually RENDERS in the browser.
+
+Three builds tonight had white screens despite clean compiles:
+- External dep crashed at runtime (markdown-note-taking)
+- Wrong cross-file imports tree-shook away (typing-speed-game)
+- Wrong rendering approach (canvas vs CSS) never caught (gameboy)
+
+- [ ] **Blank page detection**: After compile pass, load dev server in
+      Playwright, check that `document.body.innerText.length > 0` or
+      that the screenshot has >5% non-white pixels. Inject error if blank.
+- [ ] **Content verification**: Compare visible text on page against the
+      user's original request. "Build a calculator" → page should contain
+      numbers/buttons. Use 2B eddy to check.
+- [ ] **Screenshot diff on re-builds**: After each file edit that passes
+      compile, screenshot the page. If the screenshot is identical to
+      the previous one (nothing changed visually), the edit was likely
+      wrong — nudge the agent.
+- [ ] **External dep validation**: Before npm-installing a package the
+      agent requested, check it actually exists on npm and has >100
+      weekly downloads. Prevents phantom package crashes.
+- [ ] **Dev server health gate at delivery**: Before message_result,
+      curl the dev server. If it returns 500 or the page has JS errors,
+      block delivery (like the compile gate but for runtime).
+
 ### Methodology — Closed-Loop Feedback (highest leverage)
 The agent measures quality (tension, undertow, pressure) but none of it
 feeds back into the next tool choice. All feedback loops are one-way.
