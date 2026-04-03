@@ -1097,6 +1097,32 @@ class Agent:
                 except Exception as e:
                     log.debug(f"Auto-scaffold skipped: {e}")
 
+        # 8td. Auto-generate todo.md from plan — the checklist drives iteration
+        if tool_call.name == "plan_update" and not result.is_error:
+            try:
+                phases = tool_call.arguments.get("phases", [])
+                goal = tool_call.arguments.get("goal", "")
+                if phases:
+                    # Find the active project
+                    deliverables = Path(self.config.workspace_dir) / "deliverables"
+                    if deliverables.exists():
+                        projects = sorted(
+                            [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
+                            key=lambda p: p.stat().st_mtime, reverse=True
+                        )
+                        for proj in projects[:1]:
+                            todo_path = proj / "todo.md"
+                            lines = [f"# {goal}\n"]
+                            for phase in phases:
+                                title = phase.get("title", "")
+                                if title:
+                                    lines.append(f"- [ ] {title}")
+                            todo_path.write_text("\n".join(lines) + "\n")
+                            log.info(f"Auto-generated todo.md with {len(phases)} items")
+                            break
+            except Exception as e:
+                log.debug(f"Auto-todo skipped: {e}")
+
         # 8a1p. Plan-based auto-swell — when plan has 3+ components, dispatch eddies
         _plan_swelled = getattr(self, '_plan_swelled', False)
         if tool_call.name == "plan_update" and not result.is_error and not _plan_swelled:
@@ -1452,6 +1478,27 @@ class Agent:
             except Exception:
                 pass
 
+        # 8tc. Auto-check todo.md items when files are written
+        if tool_call.name in ("file_write", "file_edit") and not result.is_error:
+            try:
+                written_path = tool_call.arguments.get("path", "")
+                parts = written_path.split("deliverables/")
+                if len(parts) > 1:
+                    project_name = parts[1].split("/")[0]
+                    todo_path = Path(self.config.workspace_dir) / "deliverables" / project_name / "todo.md"
+                    if todo_path.exists():
+                        content = todo_path.read_text()
+                        file_name = Path(written_path).stem
+                        # Check off any todo item that mentions this file
+                        updated = content.replace(f"- [ ] ", "- [ ] ") # normalize
+                        for line in content.splitlines():
+                            if "[ ]" in line and file_name.lower() in line.lower():
+                                updated = updated.replace(line, line.replace("[ ]", "[x]"))
+                        if updated != content:
+                            todo_path.write_text(updated)
+            except Exception:
+                pass
+
         # 8sd. Scaffold duplicate detection — don't rewrite existing components
         if tool_call.name == "file_write" and not result.is_error:
             written_path = tool_call.arguments.get("path", "")
@@ -1781,6 +1828,26 @@ class Agent:
             if tension < DRIFTING:
                 self._pressure.reset()
             self.state.task_complete = True
+
+            # Project history — record what prompt built this project
+            try:
+                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                if deliverables.exists():
+                    projects = sorted(
+                        [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
+                        key=lambda p: p.stat().st_mtime, reverse=True
+                    )
+                    for proj in projects[:1]:
+                        history_path = proj / ".history.md"
+                        user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                        import datetime
+                        entry = f"- {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')} | {self.state.iteration} iters | {user_req[:100]}\n"
+                        existing = history_path.read_text() if history_path.exists() else "# Build History\n"
+                        history_path.write_text(existing + entry)
+                        break
+            except Exception:
+                pass
+
             return result.content
 
         return result.content
