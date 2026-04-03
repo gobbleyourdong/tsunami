@@ -5,4 +5,6 @@
 
 export * from './renderer'
 export * from './scene'
+export * from './animation'
 export * from './math/vec'
+export * from './math/quat'
