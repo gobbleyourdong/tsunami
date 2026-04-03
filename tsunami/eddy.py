@@ -363,11 +363,30 @@ async def run_bee(
     task = _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', task)  # strip ANSI escapes
 
     if not system_prompt:
-        system_prompt = (
-            "You are a focused worker agent. Complete the task using the tools available. "
-            "When you have the answer, call the 'done' tool with your result. "
-            "Be concise. Do not explain your process — just deliver the result."
-        )
+        # Auto-detect eddy type from task content and specialize the prompt
+        task_lower = task.lower()
+        if any(k in task_lower for k in ["search", "find", "look up", "reference", "image"]):
+            system_prompt = (
+                "You are a research specialist. Search the web, find useful results, "
+                "and call done() with your findings. Include URLs. Be concise."
+            )
+        elif any(k in task_lower for k in ["write", "component", "function", "export", "tsx", "react"]):
+            system_prompt = (
+                "You are a React TypeScript expert. Write clean, working code. "
+                "Call done() with ONLY the raw code — no markdown fences, no explanation. "
+                "Always export default. Always import hooks from 'react'."
+            )
+        elif any(k in task_lower for k in ["analyze", "read", "check", "review", "summarize"]):
+            system_prompt = (
+                "You are a code analyst. Read the files, understand the structure, "
+                "and call done() with a concise summary of your findings."
+            )
+        else:
+            system_prompt = (
+                "You are a focused worker agent. Complete the task using the tools available. "
+                "When you have the answer, call the 'done' tool with your result. "
+                "Be concise. Do not explain your process — just deliver the result."
+            )
 
     messages = [
         {"role": "system", "content": system_prompt},

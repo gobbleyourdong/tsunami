@@ -202,9 +202,23 @@ class Agent:
             if comps:
                 context_parts.append(f"Components: {', '.join(sorted(comps))}")
 
+        # Regression check — does the existing project build?
+        build_status = "unknown"
+        if (best_match / "package.json").exists() and (best_match / "node_modules").exists():
+            try:
+                import subprocess
+                build = subprocess.run(
+                    ["npx", "vite", "build"],
+                    cwd=str(best_match), capture_output=True, text=True, timeout=30,
+                )
+                build_status = "passes" if build.returncode == 0 else "FAILING"
+            except Exception:
+                pass
+
         context_parts.append(
-            "This project already exists. Use file_edit to modify existing files "
-            "instead of file_write (which overwrites). Read the current code first."
+            f"This project already exists (build: {build_status}). "
+            "Use file_edit to modify existing files instead of file_write (which overwrites). "
+            "Read the current code first. After changes, verify the build still passes."
         )
 
         log.info(f"Iterative refinement: matched '{best_match.name}' (score={best_score})")
