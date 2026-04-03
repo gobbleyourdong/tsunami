@@ -99,6 +99,36 @@ EDDY_TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "search_web",
+            "description": "Search the web for information, code examples, or images",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "search_type": {"type": "string", "description": "info, code, or image", "default": "info"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "file_list",
+            "description": "List files matching a glob pattern",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {"type": "string", "description": "Glob pattern like **/*.tsx"},
+                    "directory": {"type": "string", "description": "Where to search", "default": "."},
+                },
+                "required": ["pattern"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "done",
             "description": "Report your final answer",
             "parameters": {
@@ -266,6 +296,39 @@ async def _execute_bee_tool(name: str, args: dict, workdir: str) -> str:
             return stdout.decode(errors="replace")[:4000] or "No matches"
         except Exception as e:
             return f"Grep error: {e}"
+
+    elif name == "search_web":
+        query = args.get("query", "")
+        search_type = args.get("search_type", "info")
+        if not query:
+            return "Error: query required"
+        try:
+            # Use the same search backend as the wave
+            from .tools.search import SearchWeb
+            from .config import TsunamiConfig
+            searcher = SearchWeb(TsunamiConfig())
+            import asyncio
+            result = await searcher.execute(query=query, search_type=search_type, num_results=3)
+            return result.content[:3000]
+        except Exception as e:
+            return f"Search error: {e}"
+
+    elif name == "file_list":
+        pattern = args.get("pattern", "**/*")
+        directory = args.get("directory", workdir)
+        if not Path(directory).is_absolute():
+            directory = str(Path(workdir) / directory)
+        try:
+            if not str(Path(directory).resolve()).startswith(str(Path(workdir).resolve())):
+                return "BLOCKED: eddies can only list files within project"
+            import glob
+            files = sorted(glob.glob(str(Path(directory) / pattern), recursive=True))
+            # Filter out node_modules, .git, etc
+            files = [f for f in files if not any(skip in f for skip in
+                     ["node_modules", ".git", "__pycache__", "dist/", ".vite"])]
+            return "\n".join(files[:50]) or "No files found"
+        except Exception as e:
+            return f"Error: {e}"
 
     elif name == "done":
         return args.get("result", "")
