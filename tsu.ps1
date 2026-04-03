@@ -74,6 +74,20 @@ function Test-BackendServer {
     } catch { return $false }
 }
 
+# Kill stale servers from previous runs — prevents serving old code
+function Kill-StaleServers {
+    # Kill anything on our ports (3000, 8090, 8092, 9876)
+    foreach ($port in @(3000, 9876)) {
+        $pids = netstat -ano 2>$null | Select-String ":$port\s" | ForEach-Object {
+            ($_ -split '\s+')[-1]
+        } | Where-Object { $_ -match '^\d+$' -and $_ -ne '0' } | Sort-Object -Unique
+        foreach ($pid in $pids) {
+            Stop-Process -Id $pid -Force -EA SilentlyContinue
+        }
+    }
+}
+Kill-StaleServers
+
 function Find-LlamaServer {
     $cmd1 = Get-Command 'llama-server.exe' -EA SilentlyContinue
     $cmd2 = Get-Command 'llama-server' -EA SilentlyContinue

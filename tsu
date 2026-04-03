@@ -35,6 +35,11 @@ case "${1:-}" in
     ;;
 esac
 
+# Kill stale servers from previous runs
+for port in 3000 9876; do
+  lsof -ti:$port 2>/dev/null | xargs kill -9 2>/dev/null
+done
+
 # Check model server
 check_model() { curl -sf http://localhost:8090/health > /dev/null 2>&1; }
 
