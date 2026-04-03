@@ -1,49 +1,290 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   TSUNAMI — Three.js Game Scaffold
+   Minimal chrome, maximum immersion. Canvas fills the world.
+   HUD is a holographic overlay — readable without obscuring action.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --hud-font: 'Rajdhani', 'Orbitron', sans-serif;
+  --hud-mono: 'JetBrains Mono', monospace;
+  --hud-color: #34d4b0;
+  --hud-danger: #f06060;
+  --hud-warning: #f0b040;
+  --hud-glow: rgba(52, 212, 176, 0.4);
+  --hud-bg: rgba(8, 9, 13, 0.6);
+  --hud-border: rgba(52, 212, 176, 0.15);
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 400ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html, body, #root { height: 100%; overflow: hidden; background: #0a0a1a; }
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: #08090d;
+  cursor: crosshair;
+}
 
-/* 3D canvas fills the viewport */
-canvas { display: block; }
+/* Canvas fills viewport — no borders, no chrome */
+canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
 
-/* HUD overlay */
+/* ── HUD Overlay ────────────────────────────────────────────────────── */
 .hud-3d {
-  position: fixed; top: 0; left: 0; right: 0;
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 20px; z-index: 10; pointer-events: none;
-  font-family: 'Courier New', monospace; font-size: 16px;
-  color: #0ff; text-shadow: 0 0 8px rgba(0,255,255,0.5);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 24px;
+  z-index: 10;
+  pointer-events: none;
+  font-family: var(--hud-font);
+  color: var(--hud-color);
 }
-.hud-3d.hud-bottom { top: auto; bottom: 0; }
-.hud-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.hud-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; }
-.hud-value { font-size: 24px; font-weight: 700; }
+.hud-3d.hud-bottom {
+  top: auto;
+  bottom: 0;
+  align-items: flex-end;
+}
 
-/* Game over / menu overlay */
-.game-overlay-3d {
-  position: fixed; inset: 0; z-index: 20;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
-  font-family: 'Courier New', monospace; color: #fff;
+.hud-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-shadow: 0 0 10px var(--hud-glow), 0 2px 8px rgba(0,0,0,0.8);
 }
-.game-overlay-3d h1 { font-size: 48px; text-shadow: 0 0 20px #0ff; margin-bottom: 16px; }
-.game-overlay-3d .subtitle { color: #0ff; font-size: 20px; margin-bottom: 32px; }
-.game-overlay-3d button {
-  padding: 14px 40px; font-size: 18px; font-weight: 700;
-  background: #0ff; color: #000; border: none; border-radius: 8px;
-  cursor: pointer; pointer-events: auto; font-family: inherit;
+.hud-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  opacity: 0.5;
 }
-.game-overlay-3d button:hover { background: #0dd; transform: scale(1.05); }
+.hud-value {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 
-/* Crosshair (for FPS games) */
+/* HUD panel — for grouped stats (inventory, minimap frame) */
+.hud-panel {
+  background: var(--hud-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--hud-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  pointer-events: auto;
+}
+
+/* ── Health Bar ─────────────────────────────────────────────────────── */
+.health-bar {
+  width: 220px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.health-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--hud-color) 0%, #28e8a0 100%);
+  border-radius: 3px;
+  transition: width 0.4s var(--ease-out-expo);
+  box-shadow: 0 0 8px var(--hud-glow);
+}
+/* Danger state */
+.health-bar-fill.low {
+  background: linear-gradient(90deg, var(--hud-danger) 0%, #ff8060 100%);
+  box-shadow: 0 0 8px rgba(240, 96, 96, 0.4);
+  animation: pulse-danger 0.8s ease-in-out infinite;
+}
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Stamina / energy bar variant */
+.energy-bar { width: 180px; height: 4px; }
+.energy-bar .health-bar-fill {
+  background: linear-gradient(90deg, #60a0f0 0%, #80c0ff 100%);
+  box-shadow: 0 0 8px rgba(96, 160, 240, 0.3);
+}
+
+/* ── Crosshair ──────────────────────────────────────────────────────── */
 .crosshair {
-  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: 20px; height: 20px; z-index: 10; pointer-events: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  z-index: 15;
+  pointer-events: none;
 }
 .crosshair::before, .crosshair::after {
-  content: ''; position: absolute; background: rgba(255,255,255,0.5);
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 1px;
 }
-.crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
-.crosshair::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+.crosshair::before {
+  width: 2px;
+  height: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.crosshair::after {
+  width: 100%;
+  height: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+/* Dot crosshair variant */
+.crosshair.dot::before, .crosshair.dot::after { display: none; }
+.crosshair.dot {
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
+}
 
-/* Health bar */
-.health-bar { width: 200px; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
-.health-bar-fill { height: 100%; background: #0f0; transition: width 0.3s; border-radius: 4px; }
+/* ── Game Overlay (title, pause, game over) ─────────────────────────── */
+.game-overlay-3d {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 9, 13, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  font-family: var(--hud-font);
+  color: #fff;
+  animation: overlay-in var(--duration-slow) var(--ease-out-expo);
+}
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.game-overlay-3d h1 {
+  font-size: clamp(36px, 8vw, 72px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 30px var(--hud-glow), 0 0 80px rgba(52, 212, 176, 0.15);
+  margin-bottom: 12px;
+  animation: title-glow 3s ease-in-out infinite;
+}
+@keyframes title-glow {
+  0%, 100% { text-shadow: 0 0 30px var(--hud-glow), 0 0 80px rgba(52, 212, 176, 0.15); }
+  50%      { text-shadow: 0 0 40px var(--hud-glow), 0 0 100px rgba(52, 212, 176, 0.25); }
+}
+
+.game-overlay-3d .subtitle {
+  color: var(--hud-color);
+  font-size: clamp(16px, 3vw, 22px);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 40px;
+  opacity: 0.7;
+}
+
+.game-overlay-3d button {
+  padding: 16px 48px;
+  font-family: var(--hud-font);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--hud-color) 0%, #28b89a 100%);
+  color: #08090d;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all var(--duration-normal) var(--ease-out-expo);
+  box-shadow: 0 0 20px var(--hud-glow), 0 4px 16px rgba(0,0,0,0.4);
+}
+.game-overlay-3d button:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 0 30px var(--hud-glow), 0 8px 24px rgba(0,0,0,0.5);
+}
+.game-overlay-3d button:active {
+  transform: scale(0.97);
+}
+
+/* Score display in overlay */
+.game-overlay-3d .score {
+  font-size: clamp(24px, 5vw, 36px);
+  font-weight: 700;
+  color: var(--hud-color);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+}
+.game-overlay-3d .score-label {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 32px;
+}
+
+/* ── Damage Flash ───────────────────────────────────────────────────── */
+.damage-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(240, 60, 60, 0.3) 100%);
+  animation: flash-out 0.4s ease-out forwards;
+}
+@keyframes flash-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* ── Notification / Pickup Text ─────────────────────────────────────── */
+.game-notification {
+  position: fixed;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  pointer-events: none;
+  font-family: var(--hud-font);
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 0 10px var(--hud-glow);
+  animation: notif-rise 2s var(--ease-out-expo) forwards;
+}
+@keyframes notif-rise {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-30px); }
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hud-3d { padding: 10px 14px; }
+  .hud-value { font-size: 20px; }
+  .health-bar { width: 150px; }
+  html, body, #root { cursor: default; }
+}
