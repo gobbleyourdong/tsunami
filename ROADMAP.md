@@ -181,6 +181,36 @@ Three builds tonight had white screens despite clean compiles:
       curl the dev server. If it returns 500 or the page has JS errors,
       block delivery (like the compile gate but for runtime).
 
+### Methodology — Iterative Refinement (build once, never improve)
+Every prompt creates a new project. "Build a gameboy" was run 5 times
+this session — 5 separate projects, none improved. "Fix the blank
+page in notes app" would create a 6th project instead of fixing the
+existing one. The agent has no concept of brownfield work.
+
+The infrastructure exists (set_project, active_project) but is never
+called. This is the gap between a demo tool and a real development
+environment. Users want to iterate, not restart.
+
+- [ ] **Existing project detection**: Before project_init, check if
+      a deliverable with a similar name exists. "Build a calculator"
+      → detect calculator-resembles-graphic already exists → ask
+      "Improve existing or start fresh?"
+- [ ] **Auto-load context**: When working on an existing project,
+      read App.tsx + types.ts + package.json and inject into context.
+      The agent should know what's already built.
+- [ ] **Diff-based iteration**: "Make the buttons bigger" on an
+      existing project → read current code → file_edit (not
+      file_write) → preserve what works, change what's asked.
+- [ ] **Quality assessment on existing builds**: Before iterating,
+      screenshot the current state and inject it into context.
+      The agent sees what the user sees.
+- [ ] **Project history**: Track what prompts built each project.
+      "Build a calculator" then "add scientific functions" are
+      sequential refinements of one project, not two builds.
+- [ ] **Regression prevention**: After editing an existing project,
+      verify it still compiles and renders. The iteration shouldn't
+      break what was working.
+
 ### Methodology — Model-Aware Adaptation (2B ≠ 9B)
 The 2B and 9B get identical prompts, tools, and schemas. But the 2B:
 - Processes 2,468 tokens of tool schemas per call (15% of 16K context)
