@@ -1,93 +1,54 @@
-# Data Visualization Template
+# Data Viz Scaffold
 
-React 19 + TypeScript + Vite + recharts + d3 + papaparse. For charts, graphs, and data exploration.
+Vite + React 19 + Recharts + D3 + PapaParse. Dark theme with chart styling.
 
-## Available Libraries
+## Components (import from `./components`)
 
-- `recharts` — React chart components (LineChart, BarChart, PieChart, AreaChart, ScatterChart)
-- `d3` — low-level data visualization (scales, axes, shapes, transitions)
-- `papaparse` — CSV parsing
+### ChartCard
+`<ChartCard title="Revenue" subtitle="Last 30 days" height={300}>{chart}</ChartCard>`
+- Styled container with title bar for any chart
 
-## Build Loop
+### CsvLoader
+`<CsvLoader onData={(rows, columns) => setData(rows)} />`
+- Drag-and-drop CSV upload, parses with PapaParse
 
-1. Write `src/App.tsx` FIRST with `import "./index.css"`
-2. Import recharts components directly — they're installed
-3. Use papaparse to load CSV data
-4. For complex custom visualizations use d3 with useRef + useEffect
+### StatRow
+`<StatRow stats={[{label:"Users", value:"12.4K", change:"+12%"}]} />`
+- Row of stat cards with change indicators
 
-## recharts Examples
-
-### Line chart
+## Recharts (import from `recharts`)
 ```tsx
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
+import { LineChart, Line, BarChart, Bar, AreaChart, Area,
+         PieChart, Pie, Cell, ScatterChart, Scatter,
+         XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+         ResponsiveContainer } from 'recharts'
 
-const data = [{month:"Jan",value:40},{month:"Feb",value:55},{month:"Mar",value:70}]
-
-<ResponsiveContainer width="100%" height={300}>
+// Always wrap in ResponsiveContainer:
+<ResponsiveContainer width="100%" height="100%">
   <LineChart data={data}>
-    <XAxis dataKey="month" /><YAxis /><Tooltip />
-    <Line dataKey="value" stroke="#0ff" strokeWidth={2} />
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis dataKey="name" />
+    <YAxis />
+    <Tooltip />
+    <Line type="monotone" dataKey="value" stroke="#00cccc" />
   </LineChart>
 </ResponsiveContainer>
 ```
 
-### Bar chart
+## D3 (import from `d3`)
 ```tsx
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
-
-<ResponsiveContainer width="100%" height={300}>
-  <BarChart data={data}>
-    <XAxis dataKey="name" /><YAxis /><Tooltip />
-    <Bar dataKey="value" fill="#0ff" radius={[4,4,0,0]} />
-  </BarChart>
-</ResponsiveContainer>
+import * as d3 from 'd3'
+// Use for custom SVG visualizations, scales, transitions
 ```
 
-### Area chart
-```tsx
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
+## CSS Classes
+- `.chart-card`, `.chart-header`, `.chart-body` — chart containers
+- `.chart-grid-2`, `.chart-grid-3`, `.chart-grid-1-2`, `.chart-grid-2-1` — chart layouts
+- `.stat-row`, `.stat-item`, `.stat-value` — summary stats
+- `.csv-dropzone` — file upload area
+- Recharts dark theme applied globally (grid, text, tooltip)
 
-<ResponsiveContainer width="100%" height={300}>
-  <AreaChart data={data}>
-    <XAxis dataKey="month" /><YAxis /><Tooltip />
-    <Area dataKey="value" stroke="#0ff" fill="#0ff22" />
-  </AreaChart>
-</ResponsiveContainer>
-```
-
-### Pie chart
-```tsx
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
-
-const COLORS = ["#0ff", "#f0f", "#ff0", "#0f0"]
-
-<ResponsiveContainer width="100%" height={300}>
-  <PieChart>
-    <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}>
-      {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-    </Pie>
-  </PieChart>
-</ResponsiveContainer>
-```
-
-### Load CSV
-```tsx
-import Papa from "papaparse"
-
-const [data, setData] = useState([])
-
-function loadCSV(file: File) {
-  Papa.parse(file, {
-    header: true,
-    complete: (result) => setData(result.data)
-  })
-}
-```
-
-## File Structure
-
-```
-src/
-  App.tsx          ← Wire your visualizations here
-  components/      ← Custom chart components
-```
+## Rules
+- Always use `<ResponsiveContainer>` around recharts
+- Use ChartCard to wrap charts for consistent styling
+- Don't overwrite `main.tsx`, `vite.config.ts`, or `index.css`
