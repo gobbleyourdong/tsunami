@@ -51,8 +51,22 @@
 - [x] VRAM detection on all platforms (lite <10GB, full ≥10GB)
 - [x] Lite mode: 2B on both ports, everything still works
 - [x] SD-Turbo image gen available in all modes
+- [x] SD-Turbo in-process (no server needed, auto-downloads 2GB model)
+- [x] Vision grounding (Qwen-VL extracts element positions → layout.css)
+- [x] No iteration cap (while True, delivers when done)
+- [x] Research gate (search before writing visual projects)
+- [x] Mid-loop auto-wire (App.tsx wired when 2+ components exist)
+- [x] Runtime error check (Playwright catches JS crashes after compile pass)
+- [x] Verification stall detector (forces delivery after 8 read-only checks)
+- [x] Conversational short-circuit (greetings skip tension gate, 1 iteration)
+- [x] DDG image search curl bypass (TLS fingerprint detection workaround)
+- [x] Windows installer (Inno Setup, 64-bit, proper GPU detection)
+- [x] Persistent serve daemon (like ComfyUI on :9876)
+- [x] Eddy is a role not a model (unified endpoint, lite mode = one server)
+- [x] Auto-inject React hook imports (2B forgets useState)
+- [x] Unified WebUI (chat + files/code + preview with maximize)
 
-### Tested Apps (10/10 render)
+### Tested Apps (15 delivered)
 - [x] Calculator (10 iters)
 - [x] Quiz (34 iters)
 - [x] Excel Diff (17 iters)
@@ -63,6 +77,13 @@
 - [x] Crypto Dashboard (17 iters)
 - [x] Kanban (27 iters)
 - [x] Weather (24 iters)
+- [x] Game Boy DMG-01 CSS (72 iters, vision grounded)
+- [x] Typing Game "NEON TYPE RUSH" (13 iters)
+- [x] Storybook Encyclopedia (29 iters, SD-Turbo art)
+- [x] Picture Gallery (73 iters, 6 SD-Turbo images)
+- [x] ComfyUI Clone (15 iters, wired to SD-Turbo :8091)
+- [x] Counter (7 iters, lite mode verified)
+- [x] Pomodoro Timer (15 iters, overnight build)
 
 ---
 
@@ -131,6 +152,32 @@
 - [ ] Eddy specialization (some eddies for code, some for research)
 - [ ] Session persistence across agent restarts
 - [ ] Learning from successful builds (pattern extraction)
+
+### Methodology — Closed-Loop Feedback (highest leverage)
+The agent measures quality (tension, undertow, pressure) but none of it
+feeds back into the next tool choice. All feedback loops are one-way.
+
+- [ ] **Dynamic tool filtering**: After measuring tension on tool choice,
+      inject "avoid X, prefer Y" into the next prompt based on what worked.
+      Currently tension is measured post-hoc and discarded.
+- [ ] **Session-local learning**: Instincts are extracted post-session and
+      injected into the NEXT session. The current session can't adapt.
+      Track working memory of what worked/failed in the last 10 calls.
+- [ ] **Pre-execution validation**: Before expensive tools (search_web,
+      generate_image), ask the 2B "will this help?" (cheap probe).
+      Currently all tools are treated as equal cost.
+- [ ] **Inter-eddy communication**: Eddies in a swell batch can't see
+      each other's outputs. Shared KV store so eddy 2 can reuse what
+      eddy 1 already found.
+- [ ] **Incremental compression**: Compress every 1000 tokens gained,
+      not at the 13k-from-limit threshold. Prevents the cliff where
+      context suddenly gets destroyed.
+- [ ] **Semantic dedup in context**: When compressing, extract facts and
+      keep only the newest version. "I tried X, it failed" said twice
+      wastes tokens.
+- [ ] **Adaptive tension thresholds**: Current thresholds (0.15/0.30/0.50/0.70)
+      are fixed. Should adapt based on task type — code builds need
+      different thresholds than research queries.
 
 ---
 
