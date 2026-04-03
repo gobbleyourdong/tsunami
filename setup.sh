@@ -56,7 +56,7 @@ fi
 echo "  Memory: ${CAPACITY}GB"
 
 # --- Auto-scale (8GB threshold matches Windows) ---
-if [ "$CAPACITY" -lt 8 ] 2>/dev/null; then
+if [ "$CAPACITY" -lt 10 ] 2>/dev/null; then
   MODE="lite"
   WAVE="2B"
   echo "  → lite mode (2B only)"
