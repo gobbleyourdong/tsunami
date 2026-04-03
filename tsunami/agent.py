@@ -934,18 +934,20 @@ class Agent:
             content, is_error = cached
             self._dedup_hits = getattr(self, '_dedup_hits', 0) + 1
             log.info(f"  Dedup hit #{self._dedup_hits} for {tool_call.name} — returning cached result")
-            self.state.add_tool_result(tool_call.name, tool_call.arguments, content, is_error=is_error)
             # After 3 consecutive dedup hits, the agent is stuck in a loop
+            # Invalidate cache AND fall through to re-execute (don't return stale result)
             if self._dedup_hits >= 3:
                 self.state.add_system_note(
                     f"LOOP DETECTED: You've called {tool_call.name} with the same arguments "
                     f"{self._dedup_hits} times and got the same result. Try a different approach. "
                     f"If the task is done, call message_result. If stuck, modify the code and retry."
                 )
-                # Invalidate this specific cache entry so the loop can't repeat
-                self.tool_dedup.invalidate(tool_call.name)
+                self.tool_dedup.invalidate()  # nuke entire cache
                 self._dedup_hits = 0
-            return content
+                # Fall through to re-execute instead of returning cached result
+            else:
+                self.state.add_tool_result(tool_call.name, tool_call.arguments, content, is_error=is_error)
+                return content
         else:
             self._dedup_hits = 0  # reset on non-cached call
 

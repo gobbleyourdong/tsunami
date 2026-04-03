@@ -77,11 +77,42 @@ if ! check_model; then
     [ -x "$p" ] && LLAMA="$p" && break
   done
 
-  # Model priority: 27B dense > 122B MoE > text 8B
-  DENSE_27B=$(ls models/Qwen3.5-27B*.gguf 2>/dev/null | head -1)
+  # Detect available memory — VRAM if GPU, RAM otherwise
+  VRAM_GB=0
+  if command -v nvidia-smi &>/dev/null; then
+    VRAM_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')
+    [ -n "$VRAM_MB" ] && [ "$VRAM_MB" != "[N/A]" ] && VRAM_GB=$(( (VRAM_MB + 1023) / 1024 ))
+  fi
+  if [ "$VRAM_GB" -eq 0 ] 2>/dev/null; then
+    # No GPU or unified memory — use RAM
+    if [ "$(uname -s)" = "Darwin" ]; then
+      VRAM_GB=$(sysctl -n hw.memsize 2>/dev/null | awk '{print int($1/1073741824)}')
+    else
+      VRAM_GB=$(free -g 2>/dev/null | awk '/^Mem:/{print $2}')
+    fi
+  fi
+  VRAM_GB=${VRAM_GB:-8}
+  LITE_MODE=false
+  if [ "$VRAM_GB" -lt 10 ] 2>/dev/null; then
+    LITE_MODE=true
+    echo "  ${VRAM_GB}GB available — lite mode (2B)"
+  else
+    echo "  ${VRAM_GB}GB available — full mode"
+  fi
+
+  # Model priority: 27B > MoE > 9B > 2B (lite skips large models)
+  DENSE_27B=""
+  MOE_MODEL=""
+  if [ "$LITE_MODE" = "false" ]; then
+    DENSE_27B=$(ls models/Qwen3.5-27B*.gguf 2>/dev/null | head -1)
+    MOE_MODEL=$(ls models/*122B*-00001-of-*.gguf 2>/dev/null | head -1)
+  fi
   MMPROJ_27B=$(ls models/mmproj-27B*.gguf models/mmproj-BF16.gguf models/mmproj-F16.gguf 2>/dev/null | head -1)
-  MOE_MODEL=$(ls models/*122B*-00001-of-*.gguf 2>/dev/null | head -1)
-  TEXT_MODEL=$(ls models/Qwen3*-8B*.gguf models/Qwen3*-2B*.gguf 2>/dev/null | head -1)
+  if [ "$LITE_MODE" = "true" ]; then
+    TEXT_MODEL=$(ls models/Qwen3*-2B*.gguf 2>/dev/null | head -1)
+  else
+    TEXT_MODEL=$(ls models/Qwen3*-9B*.gguf models/Qwen3*-8B*.gguf models/Qwen3*-2B*.gguf 2>/dev/null | head -1)
+  fi
 
   if [ -n "$DENSE_27B" ] && [ -f "$LLAMA" ]; then
     MMPROJ_FLAG=""
