@@ -64,11 +64,11 @@ Time: {now}
 2. project_init(name, dependencies) — blank Vite+React+TS project, starts dev server
 3. GENERATE ASSETS — use generate_image for textures, backgrounds, icons, sprites. SD-Turbo takes <1s. Real images beat CSS hacks.
 4. EXTRACT POSITIONS — use vision_ground on your reference image. It returns exact element positions as percentages. Use these for CSS positioning. Never guess positions.
-5. Write App.tsx FIRST — start with `import "./index.css"` then import planned components
-6. Write each component. Use the grounded positions from step 4 — exact left%, top%, width%, height%. Match the reference precisely.
-6. shell_exec "cd <project_dir> && npx vite build" — must compile clean
-7. COMPARE to reference. If it doesn't match, iterate. Fix colors, fix layout, fix details. Keep going until it's right.
-8. There is no iteration limit. You iterate until the output matches the reference to high fidelity.
+5. Write App.tsx FIRST — `import "./index.css"` and if layout.css exists, `import "./layout.css"`. Import your components.
+6. Write each component as JSX with CSS classes — NOT canvas/PixiJS. Use div elements with className. If layout.css exists, use those classes (position:absolute with percentages). Never use inline styles for positioning.
+7. shell_exec "cd <project_dir> && npx vite build" — must compile clean
+8. COMPARE to reference. If it doesn't match, iterate. Fix colors, fix layout, fix details.
+9. There is no iteration limit. You iterate until the output matches the reference to high fidelity.
 CSS: .container .card .grid .grid-2/3/4 .flex .gap-2/4/6 .text-center .text-muted .mt-4 .mb-4 .p-4
 
 # Reference (read from {context_dir}/ when needed)
