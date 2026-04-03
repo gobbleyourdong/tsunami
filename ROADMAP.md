@@ -192,7 +192,7 @@
 - [x] Component inventory re-injection every 10 iterations
 - [x] Duplicate component detection (writes Modal → "already exists in ui/")
 - [x] Pin scaffold README (cached for re-injection) (immune to compression)
-- [ ] Scaffold-aware prompt ("check components/ before writing new ones")
+- [x] Scaffold-aware prompt ("check components/ before writing new ones")
 
 ### Methodology — Priority-Based Context Management
 Context management is FIFO — oldest messages get pruned regardless of
@@ -205,7 +205,7 @@ The 9B on this machine has 32K context. At ~500 tokens/iter, that's
 critical early context (architecture, types, user intent) while
 keeping recent noise (build output, grep results).
 
-- [ ] **Message importance scoring**: Tag messages with importance
+- [x] **Message importance scoring**: Tag messages with importance
       (0.0-1.0). plan_update=0.9, file_write=0.7, shell_exec "build
       succeeded"=0.1. Compress low-importance first regardless of age.
 - [ ] **Pinned messages**: System prompt + user request + plan +
@@ -229,8 +229,8 @@ keeping recent noise (build output, grep results).
 ### WebUI
 - [x] Light / medium / dark themes (toggle in top bar)
 - [x] Project history (.history.md per project) sidebar (list deliverables, click to preview)
-- [ ] File content loading (click file in tree → loads content)
-- [ ] Mobile responsive layout
+- [x] File content loading (click file in tree → loads content)
+- [x] Mobile responsive layout
 
 ### Methodology — Closed-Loop Feedback ✅ (implemented)
 - [x] FeedbackTracker (track outcomes, detect patterns, inject nudges)
