@@ -208,49 +208,17 @@ $CleanupBlock = {
     }
 }
 
-# ── Launch frontend ───────────────────────────────────────────────────────────
-# Refresh PATH in case Node was installed in this session (e.g. by setup.ps1)
-$env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
-            [System.Environment]::GetEnvironmentVariable("PATH", "User")
+# ── Open WebUI in browser ────────────────────────────────────────────────────
+$uiPath = Join-Path $DIR "desktop\index.html"
+if (Test-Path $uiPath) {
+    Start-Process "file:///$($uiPath -replace '\\','/')"
+    Write-Host "  Tsunami is running — open http://localhost:3000 or check the browser"
+    Write-Host "  Press Ctrl+C to stop"
+}
+
+# ── Keep alive + cleanup ─────────────────────────────────────────────────────
 try {
-    $npx = Get-Command npx -EA SilentlyContinue
-    $cliModules = Test-Path "$DIR\cli\node_modules"
-
-    if ($npx -and $cliModules) {
-        Set-Location "$DIR\cli"
-        & npx tsx app.jsx @($args | Select-Object -Skip 1)
-    } else {
-        # Python REPL fallback
-        Set-Location $DIR
-        $replScript = @"
-import sys, asyncio
-sys.path.insert(0, r'$DIR')
-from tsunami.agent import Agent
-from tsunami.config import TsunamiConfig
-
-async def main():
-    config = TsunamiConfig.from_yaml('config.yaml')
-    config = TsunamiConfig.from_env(config)
-    agent = Agent(config)
-    print('TSUNAMI -- type a task, press Enter. Type exit to quit.')
-    print()
-    while True:
-        try:
-            task = input('> ')
-        except (EOFError, KeyboardInterrupt):
-            break
-        if task.strip().lower() in ('exit', 'quit', 'q'):
-            break
-        if not task.strip():
-            continue
-        result = await agent.run(task)
-        print(result)
-        print()
-
-asyncio.run(main())
-"@
-        python -c $replScript
-    }
-} finally {
+    while ($true) { Start-Sleep -Seconds 1 }
+} catch { } finally {
     & $CleanupBlock
 }
