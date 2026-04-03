@@ -121,15 +121,125 @@ a:hover { text-decoration: underline; }
 .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
 .flex { display: flex; }
 .flex-col { display: flex; flex-direction: column; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1; }
+.gap-1 { gap: 4px; }
 .gap-2 { gap: 8px; }
 .gap-4 { gap: 16px; }
 .gap-6 { gap: 24px; }
+.gap-8 { gap: 32px; }
 .grid { display: grid; }
 .grid-2 { grid-template-columns: repeat(2, 1fr); }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }
 .grid-4 { grid-template-columns: repeat(4, 1fr); }
 .text-center { text-align: center; }
 .text-muted { color: var(--text-muted); }
+.text-accent { color: var(--accent); }
+.text-sm { font-size: 13px; }
+.text-lg { font-size: 20px; }
+.text-xl { font-size: 28px; }
+.text-bold { font-weight: 700; }
+.mt-2 { margin-top: 8px; }
 .mt-4 { margin-top: 16px; }
+.mt-8 { margin-top: 32px; }
+.mb-2 { margin-bottom: 8px; }
 .mb-4 { margin-bottom: 16px; }
+.mb-8 { margin-bottom: 32px; }
+.p-2 { padding: 8px; }
 .p-4 { padding: 16px; }
+.p-8 { padding: 32px; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.h-screen { min-height: 100vh; }
+.rounded { border-radius: var(--radius); }
+.overflow-hidden { overflow: hidden; }
+.overflow-auto { overflow: auto; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.cursor-pointer { cursor: pointer; }
+.opacity-50 { opacity: 0.5; }
+.transition { transition: all 0.15s; }
+
+/* Badge */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 12px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+.badge.accent { background: var(--accent); color: #000; }
+
+/* Divider */
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .container { padding: 16px; }
+}
+
+/* === DATA VIZ === */
+
+/* Chart card */
+.chart-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.chart-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.chart-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.chart-subtitle { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
+.chart-body { padding: 16px; }
+
+/* Chart grid — responsive layout for multiple charts */
+.chart-grid { display: grid; gap: 16px; }
+.chart-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.chart-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.chart-grid-1-2 { grid-template-columns: 1fr 2fr; }
+.chart-grid-2-1 { grid-template-columns: 2fr 1fr; }
+
+/* Stat row */
+.stat-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+.stat-item {
+  flex: 1; min-width: 150px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+.stat-change { font-size: 12px; font-weight: 600; }
+.stat-change.positive { color: var(--success); }
+.stat-change.negative { color: var(--danger); }
+
+/* CSV dropzone */
+.csv-dropzone {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 32px; text-align: center; cursor: pointer;
+  color: var(--text-muted); transition: all 0.2s;
+  margin-bottom: 24px;
+}
+.csv-dropzone:hover, .csv-dropzone.active {
+  border-color: var(--accent); color: var(--accent);
+  background: rgba(0,204,204,0.05);
+}
+
+/* Recharts dark theme overrides */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line { stroke: var(--border); }
+.recharts-text { fill: var(--text-muted) !important; font-size: 11px; }
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--bg-card) !important; border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+}
+.recharts-legend-item-text { color: var(--text-muted) !important; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .chart-grid-2, .chart-grid-3, .chart-grid-1-2, .chart-grid-2-1 { grid-template-columns: 1fr; }
+  .stat-row { flex-direction: column; }
+}

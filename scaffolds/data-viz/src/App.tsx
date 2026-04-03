@@ -1,4 +1,4 @@
-import "./index.css"
+// TODO: Replace with your data visualization
 export default function App() {
-  return <div className="container"><h1>Data viz not built yet</h1><p className="text-muted">recharts + d3 + papaparse ready.</p></div>
+  return <div>Loading...</div>
 }
