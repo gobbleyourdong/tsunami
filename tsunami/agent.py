@@ -519,6 +519,8 @@ class Agent:
                 "built successfully", "all required elements", "ready to use",
                 "ready to deliver", "build succeeded", "all components created",
                 "compiled without errors", "compiled successfully",
+                "hello", "hi!", "how can i help", "what would you like",
+                "ready to help", "i can help", "let me know",
             ])
             if is_final:
                 log.info("Auto-promoting message_info → message_result (looks like final answer)")
