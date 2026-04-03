@@ -260,7 +260,19 @@ class Agent:
                 "Read the current code first. After changes, verify the build still passes."
             )
 
-        log.info(f"Iterative refinement: matched '{best_match.name}' (score={best_score})")
+        # Detect transformation intent — "change X to Y", "make it into", "convert"
+        transform_keywords = ["change", "convert", "transform", "turn it into",
+                              "make it", "switch to", "replace with", "instead"]
+        is_transform = any(k in msg for k in transform_keywords)
+        if is_transform:
+            context_parts.append(
+                "\nIMPORTANT: The user wants to TRANSFORM this project. "
+                "You MUST rewrite the code to match the new request. "
+                "Do NOT say 'no changes needed' — the current code is for the OLD purpose. "
+                "Rewrite App.tsx and components to match what the user is asking for NOW."
+            )
+
+        log.info(f"Iterative refinement: matched '{best_match.name}' (score={best_score}, transform={is_transform})")
         return "\n".join(context_parts)
 
     async def _pre_scaffold(self, user_message: str) -> str:
