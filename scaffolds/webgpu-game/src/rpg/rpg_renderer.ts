@@ -6,6 +6,8 @@
 import type { WorldMap, TileType } from './world'
 import type { RPGPlayer } from './rpg_player'
 import type { NPCDef } from './world'
+import type { CombatSystem } from './combat'
+import type { QuestSystem } from './quests'
 
 const TILE_SPRITES: Record<TileType, string> = {
   grass: '/sprites/texture/tile_grass/tile_grass_best.png',
@@ -77,7 +79,7 @@ export class RPGRenderer {
     return this.getSprite(path)
   }
 
-  render(dt: number, map: WorldMap, player: RPGPlayer, activeDialog: string[] | null, dialogIndex: number): void {
+  render(dt: number, map: WorldMap, player: RPGPlayer, activeDialog: string[] | null, dialogIndex: number, combat?: CombatSystem, quests?: QuestSystem): void {
     this.time += dt
     const ctx = this.ctx
     const ts = map.tileSize
@@ -153,6 +155,18 @@ export class RPGRenderer {
           const nx = npc.x * ts, ny = npc.y * ts
           const img = this.getCharSprite(npc.sprite)
           const size = ts * 1.4
+
+          // Hit flash effect (white overlay)
+          const enemyState = combat?.getEnemyState(npc.id)
+          if (enemyState?.hitFlash && enemyState.hitFlash > 0) {
+            ctx.globalAlpha = 0.5 + enemyState.hitFlash * 3
+            ctx.fillStyle = '#ffffff'
+            ctx.beginPath()
+            ctx.arc(nx + ts / 2, ny + ts / 2, ts * 0.5, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.globalAlpha = 1
+          }
+
           if (img) {
             ctx.drawImage(img, nx - (size - ts) / 2, ny - (size - ts), size, size)
           } else {
@@ -160,6 +174,21 @@ export class RPGRenderer {
             ctx.beginPath()
             ctx.arc(nx + ts / 2, ny + ts / 2, ts * 0.35, 0, Math.PI * 2)
             ctx.fill()
+          }
+
+          // Enemy HP bar
+          if (npc.hostile && enemyState && !enemyState.dead) {
+            const hpPct = enemyState.health.healthPercent
+            if (hpPct < 1) {
+              const barW = ts * 1.2
+              const barH = 3
+              const barX = nx + ts / 2 - barW / 2
+              const barY = ny - 6
+              ctx.fillStyle = '#333'
+              ctx.fillRect(barX, barY, barW, barH)
+              ctx.fillStyle = hpPct > 0.5 ? '#44cc44' : hpPct > 0.25 ? '#cccc44' : '#cc4444'
+              ctx.fillRect(barX, barY, barW * hpPct, barH)
+            }
           }
 
           // Name label (non-hostile only)
@@ -171,6 +200,34 @@ export class RPGRenderer {
           }
         },
       })
+    }
+
+    // Loot drops (bobbing items on ground)
+    if (combat) {
+      for (const drop of combat.worldDrops) {
+        renderables.push({
+          y: drop.y,
+          draw: () => {
+            const dx = drop.x * ts, dy = drop.y * ts
+            const bob = Math.sin(this.time * 4 + drop.x * 3) * 2
+            ctx.fillStyle = '#ffcc00'
+            ctx.globalAlpha = 0.6 + 0.3 * Math.sin(this.time * 3)
+            ctx.shadowColor = '#ffcc00'
+            ctx.shadowBlur = 6
+            ctx.beginPath()
+            ctx.arc(dx + ts / 2, dy + ts / 2 + bob, 4, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.shadowBlur = 0
+            ctx.globalAlpha = 1
+            // Label
+            ctx.fillStyle = '#ffcc00'
+            ctx.font = '8px monospace'
+            ctx.textAlign = 'center'
+            ctx.fillText(drop.name, dx + ts / 2, dy - 2 + bob)
+            ctx.textAlign = 'left'
+          },
+        })
+      }
     }
 
     // Player
@@ -221,6 +278,39 @@ export class RPGRenderer {
     ctx.textAlign = 'center'
     ctx.fillText(map.name, window.innerWidth / 2, 22)
     ctx.textAlign = 'left'
+
+    // Quest tracker (top-right)
+    if (quests) {
+      const active = quests.getActive()
+      let qy = 16
+      for (const q of active) {
+        ctx.fillStyle = '#ffcc00'
+        ctx.font = '11px monospace'
+        ctx.textAlign = 'right'
+        ctx.fillText(q.name, window.innerWidth - 16, qy)
+        qy += 14
+        for (const obj of q.objectives) {
+          const done = obj.current >= obj.required
+          ctx.fillStyle = done ? '#44cc44' : '#aaaaaa'
+          ctx.font = '10px monospace'
+          ctx.fillText(
+            `${done ? '✓' : '○'} ${obj.description.replace(/\(\d+\/\d+\)/, `(${obj.current}/${obj.required})`)}`,
+            window.innerWidth - 16, qy
+          )
+          qy += 12
+        }
+        qy += 4
+      }
+      ctx.textAlign = 'left'
+    }
+
+    // Inventory count
+    const itemCount = player.inventory.usedSlots
+    if (itemCount > 0) {
+      ctx.fillStyle = '#888'
+      ctx.font = '10px monospace'
+      ctx.fillText(`Items: ${itemCount}/${player.inventory.maxSlots}`, 12, 38)
+    }
 
     // Interaction prompt
     const npc = player.findNearbyNPC(map)
