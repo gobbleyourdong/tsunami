@@ -66,8 +66,13 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
         if (SCAFFOLDS_DIR / "pixijs-game").exists():
             return "pixijs-game"
 
-    # 3. Any game (default to 2D)
-    if needs("game"):
+    # 3. Any game that needs canvas/physics (default to 2D)
+    # Exclude quiz/trivia/card/typing/word games — those are React apps
+    react_game_words = {"quiz", "trivia", "card", "typing", "word", "memory",
+                        "flashcard", "crossword", "sudoku", "hangman", "riddle",
+                        "scoreboard", "leaderboard", "question", "poll", "survey"}
+    is_react_game = any(w in all_text for w in react_game_words)
+    if needs("game") and not is_react_game:
         if (SCAFFOLDS_DIR / "pixijs-game").exists():
             return "pixijs-game"
 
