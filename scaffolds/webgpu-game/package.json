@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "test": "vitest run --reporter=verbose",
+    "test:smoke": "tsx tests/smoke.ts"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.69",

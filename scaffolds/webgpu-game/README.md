@@ -1,58 +1,69 @@
 # WebGPU Game Scaffold
 
-Custom game engine (Tsunami Engine) — WebGPU native, zero dependencies.
+Zero-dependency game engine + playable demo (Sigma Arena).
 
-## Engine API
-
-```ts
-import { Game } from 'tsunami-engine'
-
-const game = new Game({ mode: '3d' })
-const level = game.scene('level1')
-level.spawn('player', { mesh: 'capsule', position: [0,1,0], controller: 'fps' })
-level.ground(50, 'grid')
-level.light('directional', { direction: [1,-1,0.5] })
-game.start()
-```
-
-## Engine Modules
-
-| Module | What | Key Classes |
-|--------|------|-------------|
-| `renderer` | WebGPU init, shaders, pipelines, camera | `GPU`, `Camera`, `FrameLoop`, `Shader` |
-| `scene` | Scene graph, GLTF, materials, instancing | `SceneNode`, `GLTFLoader`, `Material` |
-| `physics` | Custom solver, GJK/EPA, rigidbodies | `PhysicsWorld`, `RigidBody`, `Sphere/Box/Capsule` |
-| `animation` | Skeleton, clips, state machine, IK | `Skeleton`, `AnimationClip`, `AnimationStateMachine` |
-| `ai` | FSM, behavior trees, NavMesh A* | `FSM`, `BehaviorTree`, `NavMesh` |
-| `audio` | Web Audio API, spatial, pooling | `AudioEngine`, `Sound`, `SpatialAudio` |
-| `input` | Keyboard, gamepad, touch, combos | `KeyboardInput`, `GamepadInput`, `ActionMap` |
-| `vfx` | GPU particles, shader graph, post-fx | `GPUParticleSystem`, `ShaderGraph`, `PostProcess` |
-| `flow` | Scenes, menus, dialog, tutorial | `SceneManager`, `Menu`, `Dialog`, `Tutorial` |
-| `systems` | Health, inventory, save, score | `HealthSystem`, `Inventory`, `Checkpoint`, `Score` |
-| `game` | Top-level orchestrator | `Game`, `SceneBuilder` |
-
-## Spawn Options
-
-```ts
-level.spawn('name', {
-  mesh: 'box' | 'sphere' | 'capsule' | 'plane',
-  position: [x, y, z],
-  rotation: [rx, ry, rz],
-  scale: [sx, sy, sz] | number,
-  material: string,
-  controller: 'fps' | 'orbit' | 'topdown',
-  ai: 'patrol' | 'chase' | 'flee',
-  patrol: [[x,y,z], [x,y,z], ...],
-  mass: number,         // 0 = static
-  isStatic: boolean,
-  trigger: string,      // collision callback name
-  properties: {},       // custom data
-})
-```
-
-## Development
+## Quick Start
 ```bash
 npm install
-npm run dev     # Vite dev server
-npm run build   # Production build
+npm run dev     # http://localhost:5174
+npm run build   # 35KB gzipped production build
+```
+
+## Demo Game: Sigma Arena
+Top-down arena shooter — 10 waves + boss fight. WASD to move, mouse to aim
+(auto-aim with keyboard only), Space to shoot, Escape to pause.
+
+## Engine Imports
+```ts
+import { Camera, FrameLoop } from '@engine/renderer'
+import { SceneNode, Scene } from '@engine/scene'
+import { PhysicsWorld, RigidBody, SphereShape } from '@engine/physics'
+import { Skeleton, AnimationClip, AnimationStateMachine } from '@engine/animation'
+import { FiniteStateMachine, NavMesh, Sequence, Action } from '@engine/ai'
+import { AudioEngine } from '@engine/audio'
+import { KeyboardInput, ActionMap, GamepadInput } from '@engine/input'
+import { compileShaderGraph, NoiseNode, GradientNode } from '@engine/vfx'
+import { SceneManager, MenuSystem, DialogSystem, DifficultyManager } from '@engine/flow'
+import { HealthSystem, Inventory, ScoreSystem, CheckpointSystem } from '@engine/systems'
+import { Game, SceneBuilder } from '@engine/game'
+```
+
+## Engine Modules (45 source files, 256 unit tests)
+
+| Module | Files | What |
+|--------|-------|------|
+| `renderer/` | 8 | WebGPU init, WGSL shaders, buffers, pipelines, textures, camera, frame loop, geometry |
+| `scene/` | 7 | Node tree, GLTF 2.0 loader, PBR materials, mesh, instancing, frustum culling |
+| `animation/` | 6 | Skeleton, clips, state machine, IK (two-bone + FABRIK), GPU skinning, root motion |
+| `physics/` | 8 | Collision shapes, spatial hash broadphase, GJK/EPA, rigidbody, solver, raycasting, character controller |
+| `vfx/` | 4 | Shader graph compiler (15 node types), WGSL noise lib, GPU particles, post-processing |
+| `ai/` | 3 | FSM, behavior tree (Sequence/Selector/etc), NavMesh A* pathfinding |
+| `systems/` | 4 | Health/damage, inventory, checkpoint/save, score/combo |
+| `audio/` | 1 | Web Audio API, spatial HRTF, mixer, music crossfade |
+| `input/` | 5 | Keyboard, gamepad, touch, pointer lock, action map, combos |
+| `flow/` | 6 | Scene manager, menus, dialog, tutorial, difficulty curve, game flow |
+| `game/` | 2 | Game API, scene builder |
+| `math/` | 2 | Vec3/Mat4/Quat, column-major, zero deps |
+
+## Game Structure
+```
+src/
+  main.ts           — game entry, scene wiring, boot
+  game/
+    state.ts        — shared GameState type
+    player.ts       — WASD + mouse aim + auto-aim + shooting
+    enemies.ts      — 4 types (rusher/shooter/tank/boss) with behavior trees
+    projectiles.ts  — spawn, move, collide, despawn + hit callbacks
+    waves.ts        — 10-wave spawner with difficulty S-curve
+    pickups.ts      — health/speed/rapidfire/shield drops
+    renderer.ts     — Canvas 2D renderer (WebGPU upgrade path ready)
+    hud.ts          — HTML overlay (HP, score, combo, wave, screens)
+    audio.ts        — Procedural SFX via oscillators (zero audio files)
+```
+
+## Tests
+```bash
+npx tsx tests/smoke.ts       # Playwright: title → tutorial → arena → pause
+npx tsx tests/death.ts       # Playwright: play → die → game over
+npx tsx tests/full_loop.ts   # Playwright: play → die → retry → play again
 ```
