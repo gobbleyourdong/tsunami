@@ -144,6 +144,14 @@ sceneManager.add({
       }
     }
 
+    // Victory on all waves cleared
+    waves.onAllWavesComplete = () => {
+      state.gameOver = true
+      setTimeout(() => {
+        sceneManager.goto('victory', { type: 'fade', duration: 600 })
+      }, 1500)
+    }
+
     // Start wave 1
     waves.startNextWave()
 
@@ -184,6 +192,20 @@ sceneManager.add({
     state.phase = 'gameover'
     renderer?.clear()
     hud?.showGameOver(state.score.score, state.wave, state.score.maxCombo)
+  },
+  update(dt) {
+    if (keyboard.justPressed('Enter') || keyboard.justPressed('Space')) {
+      sceneManager.goto('title', { type: 'fade', duration: 400 })
+    }
+  },
+})
+
+sceneManager.add({
+  name: 'victory',
+  enter() {
+    state.phase = 'gameover'
+    renderer?.clear()
+    hud?.showVictory(state.score.score, state.score.maxCombo)
   },
   update(dt) {
     if (keyboard.justPressed('Enter') || keyboard.justPressed('Space')) {

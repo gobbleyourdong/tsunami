@@ -9,7 +9,7 @@ import type { GameState } from './state'
 import type { PlayerController } from './player'
 import type { ProjectileManager } from './projectiles'
 
-export type EnemyType = 'rusher' | 'shooter' | 'tank'
+export type EnemyType = 'rusher' | 'shooter' | 'tank' | 'boss'
 
 export interface Enemy {
   id: number
@@ -36,6 +36,7 @@ const ENEMY_DEFS: Record<EnemyType, { health: number; speed: number; damage: num
   rusher:  { health: 30, speed: 4.5, damage: 15, radius: 0.35 },
   shooter: { health: 40, speed: 2.5, damage: 10, radius: 0.4 },
   tank:    { health: 120, speed: 1.5, damage: 25, radius: 0.6 },
+  boss:    { health: 500, speed: 2.0, damage: 20, radius: 1.0 },
 }
 
 export class EnemyManager {
@@ -87,16 +88,46 @@ export class EnemyManager {
       // Move toward target based on AI decision
       this.moveEnemy(enemy, dt, player)
 
-      // Shooting (shooter type)
-      if (enemy.type === 'shooter') {
+      // Ranged attacks
+      if (enemy.type === 'shooter' || enemy.type === 'boss') {
         enemy.shootCooldown -= dt
         const dist = this.distToPlayer(enemy, player)
-        if (dist < 8 && dist > 2 && enemy.shootCooldown <= 0) {
+        if (enemy.type === 'shooter' && dist < 8 && dist > 2 && enemy.shootCooldown <= 0) {
           enemy.shootCooldown = 1.5 / this.state.difficulty.get('spawnRateMul')
           const dx = player.x - enemy.x
           const dy = player.y - enemy.y
           const d = Math.sqrt(dx * dx + dy * dy) || 1
-          projectiles.spawn(enemy.x, enemy.y, (dx / d) * 8, (dy / d) * 8, 'enemy', enemy.damage)
+          projectiles.spawn(enemy.x, enemy.y, (dx / d) * 6, (dy / d) * 6, 'enemy', enemy.damage)
+        }
+        // Boss: multi-pattern attacks based on HP phase
+        if (enemy.type === 'boss' && enemy.shootCooldown <= 0) {
+          const hpPct = enemy.health / enemy.maxHealth
+          if (hpPct > 0.5) {
+            // Phase 1: ring of 8 projectiles
+            enemy.shootCooldown = 1.2
+            for (let a = 0; a < 8; a++) {
+              const angle = (Math.PI * 2 * a) / 8
+              projectiles.spawn(enemy.x, enemy.y, Math.cos(angle) * 5, Math.sin(angle) * 5, 'enemy', enemy.damage)
+            }
+          } else if (hpPct > 0.25) {
+            // Phase 2: aimed triple shot
+            enemy.shootCooldown = 0.8
+            const dx = player.x - enemy.x
+            const dy = player.y - enemy.y
+            const d = Math.sqrt(dx * dx + dy * dy) || 1
+            for (let s = -1; s <= 1; s++) {
+              const spread = s * 0.2
+              projectiles.spawn(enemy.x, enemy.y,
+                (dx / d) * 7 + spread * (dy / d),
+                (dy / d) * 7 - spread * (dx / d),
+                'enemy', enemy.damage)
+            }
+          } else {
+            // Phase 3: fast spiral
+            enemy.shootCooldown = 0.15
+            const t = performance.now() / 200
+            projectiles.spawn(enemy.x, enemy.y, Math.cos(t) * 6, Math.sin(t) * 6, 'enemy', enemy.damage * 0.5)
+          }
         }
       }
 
