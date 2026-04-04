@@ -26,8 +26,8 @@ const WAVE_DEFS: WaveDefinition[] = [
   { enemies: [{ type: 'rusher', count: 6 }, { type: 'tank', count: 2 }, { type: 'shooter', count: 3 }], spawnDelay: 0.2 },
   { enemies: [{ type: 'tank', count: 3 }, { type: 'shooter', count: 5 }, { type: 'rusher', count: 4 }], spawnDelay: 0.15 },
 
-  // Wave 10: Boss wave
-  { enemies: [{ type: 'tank', count: 1 }, { type: 'rusher', count: 8 }, { type: 'shooter', count: 6 }], spawnDelay: 0.1 },
+  // Wave 10: BOSS + minions
+  { enemies: [{ type: 'boss', count: 1 }, { type: 'rusher', count: 4 }, { type: 'shooter', count: 3 }], spawnDelay: 0.3 },
 ]
 
 export class WaveManager {

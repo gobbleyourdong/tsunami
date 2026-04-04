@@ -16,7 +16,7 @@ const GRID_COLOR = '#1a1a2e'
 const WALL_COLOR = '#4a9eff'
 const PLAYER_COLOR = '#00ff88'
 const PLAYER_AIM_COLOR = '#00ff8844'
-const ENEMY_COLORS = { rusher: '#ff4444', shooter: '#ff8800', tank: '#cc44ff' }
+const ENEMY_COLORS: Record<string, string> = { rusher: '#ff4444', shooter: '#ff8800', tank: '#cc44ff', boss: '#ff0066' }
 const PROJ_PLAYER_COLOR = '#00ffcc'
 const PROJ_ENEMY_COLOR = '#ff6644'
 
@@ -267,12 +267,39 @@ export class ArenaRenderer {
       return
     }
 
-    const color = ENEMY_COLORS[enemy.type]
+    const color = ENEMY_COLORS[enemy.type] ?? '#ff4444'
+
+    // Boss: outer pulsing ring + phase glow
+    if (enemy.type === 'boss') {
+      const hpPct = enemy.health / enemy.maxHealth
+      const phase = hpPct > 0.5 ? 1 : hpPct > 0.25 ? 2 : 3
+      const phaseColor = phase === 1 ? '#ff0066' : phase === 2 ? '#ff4400' : '#ff0000'
+      const pulse = 0.6 + 0.4 * Math.sin(this.time * 3 * phase)
+
+      // Outer danger ring
+      ctx.beginPath()
+      ctx.arc(ex, ey, r + 8 * pulse, 0, Math.PI * 2)
+      ctx.strokeStyle = phaseColor
+      ctx.lineWidth = 2
+      ctx.globalAlpha = pulse * 0.6
+      ctx.stroke()
+      ctx.globalAlpha = 1
+
+      // Inner ring
+      ctx.beginPath()
+      ctx.arc(ex, ey, r + 3, 0, Math.PI * 2)
+      ctx.strokeStyle = phaseColor
+      ctx.lineWidth = 1.5
+      ctx.shadowColor = phaseColor
+      ctx.shadowBlur = 12
+      ctx.stroke()
+      ctx.shadowBlur = 0
+    }
 
     // Body
     ctx.beginPath()
-    if (enemy.type === 'tank') {
-      // Square-ish for tanks
+    if (enemy.type === 'tank' || enemy.type === 'boss') {
+      // Square-ish for tanks and boss
       ctx.rect(ex - r, ey - r, r * 2, r * 2)
     } else {
       ctx.arc(ex, ey, r, 0, Math.PI * 2)

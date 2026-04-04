@@ -125,6 +125,30 @@ export class HUD {
     }
   }
 
+  showVictory(score: number, maxCombo: number): void {
+    this.clear()
+    Object.assign(this.root.style, { textAlign: 'center', paddingTop: '22vh' })
+
+    this.root.appendChild(el('div', {
+      fontSize: '48px', fontWeight: 'bold', color: '#00ff88',
+      textShadow: '0 0 30px #00ff8844',
+    }, 'VICTORY'))
+    this.root.appendChild(el('div', {
+      marginTop: '15px', color: '#ffcc00', fontSize: '22px',
+    }, 'Arena Cleared!'))
+    this.root.appendChild(el('div', {
+      marginTop: '30px', color: '#fff', fontSize: '20px',
+    }, `Final Score: ${score.toLocaleString()}`))
+    this.root.appendChild(el('div', {
+      marginTop: '10px', color: '#aaa', fontSize: '16px',
+    }, `Max Combo: ${maxCombo}x | All 10 Waves Survived`))
+    const prompt = el('div', {
+      marginTop: '40px', color: '#4a9eff', fontSize: '18px',
+    }, 'Press ENTER to Play Again')
+    prompt.style.animation = 'pulse 1.5s infinite'
+    this.root.appendChild(prompt)
+  }
+
   showGameOver(score: number, wave: number, maxCombo: number): void {
     this.clear()
     Object.assign(this.root.style, { textAlign: 'center', paddingTop: '25vh' })
