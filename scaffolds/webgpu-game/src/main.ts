@@ -23,6 +23,7 @@ import { PickupManager } from './game/pickups'
 import { ArenaRenderer } from './game/renderer'
 import { HUD } from './game/hud'
 import { ProceduralAudio } from './game/audio'
+import { ProceduralMusic } from './game/music'
 import type { GameState } from './game/state'
 
 // --- Game State ---
@@ -64,6 +65,7 @@ let waves: WaveManager | null = null
 let renderer: ArenaRenderer | null = null
 let hud: HUD | null = null
 let audio: ProceduralAudio | null = null
+let bgMusic: ProceduralMusic | null = null
 let tutorial: TutorialSystem | null = null
 
 // --- Scenes ---
@@ -74,6 +76,7 @@ sceneManager.add({
     state.phase = 'title'
     renderer?.clear()
     hud?.showTitle(state.score.highScore)
+    bgMusic?.crossfadeTo('title', 1)
   },
   update(dt) {
     if (keyboard.justPressed('Enter') || keyboard.justPressed('Space')) {
@@ -167,6 +170,7 @@ sceneManager.add({
 
     hud?.showArena()
     audio?.playMusic()
+    bgMusic?.crossfadeTo('combat', 1.5)
   },
   update(dt) {
     if (state.paused || state.gameOver) return
@@ -192,6 +196,7 @@ sceneManager.add({
     state.phase = 'gameover'
     renderer?.clear()
     hud?.showGameOver(state.score.score, state.wave, state.score.maxCombo)
+    bgMusic?.crossfadeTo('gameover', 1)
   },
   update(dt) {
     if (keyboard.justPressed('Enter') || keyboard.justPressed('Space')) {
@@ -228,6 +233,7 @@ async function boot() {
   renderer = new ArenaRenderer(canvas)
   hud = new HUD(document.getElementById('hud')!)
   audio = new ProceduralAudio()
+  bgMusic = new ProceduralMusic()
 
   await sceneManager.goto('title')
 

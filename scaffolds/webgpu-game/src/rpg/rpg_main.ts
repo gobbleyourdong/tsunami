@@ -8,6 +8,7 @@ import { createVillageMap, createForestMap, WorldMap } from './world'
 import { RPGPlayer } from './rpg_player'
 import { RPGRenderer } from './rpg_renderer'
 import { CombatSystem } from './combat'
+import { ProceduralMusic } from '../game/music'
 import { QuestSystem } from './quests'
 import { GameSynth } from '../game/synth'
 
@@ -62,6 +63,7 @@ export async function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): Prom
   const combat = new CombatSystem()
   const quests = new QuestSystem()
   const synth = new GameSynth()
+  const music = new ProceduralMusic()
 
   combat.initFromMap(startMap)
 
@@ -106,6 +108,9 @@ export async function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): Prom
       if (keyboard.justPressed('Enter') || keyboard.justPressed('Space')) {
         started = true
         clearHUD(hud)
+        // Start music based on starting map
+        const mapMusic: Record<string, string> = { village: 'village', forest: 'forest', custom: 'village' }
+        music.play(mapMusic[startMapName] ?? 'village')
       }
       keyboard.update()
       renderer.render(dt, state.currentMap, state.player, null, 0, combat, quests)
@@ -127,6 +132,9 @@ export async function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): Prom
         const newMap = state.maps.get(targetName)
         if (newMap) {
           state.currentMap = newMap
+          // Crossfade music to match new map
+          const mapMusic: Record<string, string> = { village: 'village', forest: 'forest' }
+          music.crossfadeTo(mapMusic[targetName] ?? 'dungeon', 1.5)
           player.x = spawnX
           player.y = spawnY
           player.targetX = spawnX
