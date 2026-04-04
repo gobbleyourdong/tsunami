@@ -129,32 +129,46 @@ def generate_variations(
 
 # ── Post-Processing ───────────────────────────────────────────────
 
-def remove_background(img: Image.Image, method: str = "threshold", threshold: int = 30) -> Image.Image:
-    """Remove background — threshold (for solid bg) or chroma (for green screen)."""
+def remove_background(img: Image.Image, method: str = "floodfill", threshold: int = 35) -> Image.Image:
+    """Remove background via edge flood-fill (robust against character colors matching corners)."""
     arr = np.array(img.convert("RGBA"))
+    h, w = arr.shape[:2]
+    rgb = arr[:,:,:3].astype(float)
 
     if method == "chroma":
-        # Remove green (#00FF00 ± tolerance)
         r, g, b = arr[:,:,0], arr[:,:,1], arr[:,:,2]
         mask = (g > 200) & (r < 100) & (b < 100)
         arr[mask, 3] = 0
-    elif method == "threshold":
-        # Remove near-white or most common bg color
-        rgb = arr[:,:,:3]
-        # Find most common edge color (likely background)
-        edges = np.concatenate([rgb[0,:], rgb[-1,:], rgb[:,0], rgb[:,-1]])
-        bg_color = np.median(edges, axis=0).astype(np.uint8)
-        dist = np.sqrt(np.sum((rgb.astype(float) - bg_color.astype(float))**2, axis=2))
-        mask = dist < threshold
-        arr[mask, 3] = 0
-    elif method == "corners":
-        # Sample corners, remove similar colors
-        h, w = arr.shape[:2]
-        corners = [arr[0,0,:3], arr[0,w-1,:3], arr[h-1,0,:3], arr[h-1,w-1,:3]]
-        bg_color = np.median(corners, axis=0).astype(float)
-        rgb = arr[:,:,:3].astype(float)
+    elif method == "floodfill":
+        # Flood-fill from all edge pixels — removes any connected background
+        # regardless of color, as long as it touches the image border
+        from scipy import ndimage
+
+        # Sample edge pixels to find bg color
+        edge_pixels = np.concatenate([rgb[0,:], rgb[-1,:], rgb[:,0], rgb[:,-1]])
+        bg_color = np.median(edge_pixels, axis=0)
+
+        # Color distance from bg
         dist = np.sqrt(np.sum((rgb - bg_color)**2, axis=2))
-        arr[dist < 40, 3] = 0
+        bg_mask = dist < threshold
+
+        # Flood-fill: only keep bg pixels connected to edges
+        labeled, n_labels = ndimage.label(bg_mask)
+        edge_labels = set()
+        edge_labels.update(labeled[0, :].tolist())
+        edge_labels.update(labeled[-1, :].tolist())
+        edge_labels.update(labeled[:, 0].tolist())
+        edge_labels.update(labeled[:, -1].tolist())
+        edge_labels.discard(0)  # 0 = not bg
+
+        flood_mask = np.isin(labeled, list(edge_labels))
+        arr[flood_mask, 3] = 0
+    else:
+        # Simple threshold fallback
+        edge_pixels = np.concatenate([rgb[0,:], rgb[-1,:], rgb[:,0], rgb[:,-1]])
+        bg_color = np.median(edge_pixels, axis=0)
+        dist = np.sqrt(np.sum((rgb - bg_color)**2, axis=2))
+        arr[dist < threshold, 3] = 0
 
     return Image.fromarray(arr)
 
@@ -184,6 +198,35 @@ def pixel_snap(img: Image.Image, target_size: tuple[int, int] = (64, 64)) -> Ima
         img = img.convert("RGBA")
 
     return img.resize(target_size, Image.Resampling.NEAREST)
+
+
+def isolate_largest_object(img: Image.Image) -> Image.Image:
+    """Keep only the largest connected opaque region — discards extra characters/objects."""
+    from scipy import ndimage
+
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+
+    arr = np.array(img)
+    alpha = arr[:,:,3]
+    opaque = alpha > 128
+
+    if not np.any(opaque):
+        return img
+
+    labeled, n_labels = ndimage.label(opaque)
+    if n_labels <= 1:
+        return img  # already single object
+
+    # Find largest component
+    sizes = ndimage.sum(opaque, labeled, range(1, n_labels + 1))
+    largest_label = np.argmax(sizes) + 1
+
+    # Zero out everything except largest
+    mask = labeled != largest_label
+    arr[mask, 3] = 0
+
+    return Image.fromarray(arr)
 
 
 def trim_transparent(img: Image.Image, padding: int = 1) -> Image.Image:
@@ -316,23 +359,27 @@ def run_pipeline(
         print("[2/5] Skipping bg removal (texture mode)")
         transparent = [img.convert("RGBA") for img in images]
     else:
-        print("[2/5] Removing backgrounds...")
+        print("[2/6] Removing backgrounds...")
         transparent = []
         for img in images:
-            t = remove_background(img, method=bg_method, threshold=30)
+            t = remove_background(img, method="floodfill", threshold=35)
             transparent.append(t)
 
-    # 3. Trim + normalize (skip trim for textures)
+        # 2b. Isolate largest object (discard extra characters/items)
+        print("[3/6] Isolating largest object per image...")
+        transparent = [isolate_largest_object(t) for t in transparent]
+
+    # 4. Trim + normalize (skip trim for textures)
     if category == "texture":
-        print("[3/5] Skipping trim (texture mode)")
+        print("[4/6] Skipping trim (texture mode)")
         normalized = transparent
     else:
-        print("[3/5] Trimming + normalizing...")
+        print("[4/6] Trimming + normalizing...")
         trimmed = [trim_transparent(t) for t in transparent]
         normalized = [normalize_height(t, target_size[1]) for t in trimmed]
 
-    # 4. Pixel snap + quantize
-    print("[4/5] Pixel snapping + palette quantization...")
+    # 5. Pixel snap + quantize
+    print("[5/6] Pixel snapping + palette quantization...")
     final = []
     for img in normalized:
         snapped = pixel_snap(img, target_size)
@@ -344,10 +391,10 @@ def run_pipeline(
     sprite_dir.mkdir(parents=True, exist_ok=True)
     for i, img in enumerate(final):
         img.save(sprite_dir / f"{name}_{i}.png")
-    print(f"[4/5] Saved {len(final)} sprites to {sprite_dir}")
+    print(f"[5/6] Saved {len(final)} sprites to {sprite_dir}")
 
     # 5. Assemble spritesheet
-    print("[5/5] Assembling spritesheet...")
+    print("[6/6] Assembling spritesheet...")
     sheet, metadata = assemble_spritesheet(final, columns=len(final))
     sheet.save(sprite_dir / f"{name}_sheet.png")
 
@@ -360,7 +407,7 @@ def run_pipeline(
     with open(sprite_dir / f"{name}_meta.json", "w") as f:
         json.dump(metadata, f, indent=2)
 
-    print(f"[5/5] Spritesheet: {sprite_dir / f'{name}_sheet.png'}")
+    print(f"[6/6] Spritesheet: {sprite_dir / f'{name}_sheet.png'}")
     print(f"[pipeline] Done: {name}\n")
 
     return metadata
