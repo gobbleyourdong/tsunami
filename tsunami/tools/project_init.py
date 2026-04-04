@@ -154,10 +154,12 @@ class ProjectInit(BaseTool):
         project_dir = ws / "deliverables" / name
 
         if (project_dir / "package.json").exists():
-            return ToolResult(
-                f"Project '{name}' exists at {project_dir}. "
-                f"Write your components in {project_dir}/src/"
-            )
+            # Auto-suffix to avoid overwriting existing projects
+            import time
+            suffix = str(int(time.time()))[-4:]
+            name = f"{name}-{suffix}"
+            project_dir = ws / "deliverables" / name
+            log.info(f"Project name collision — using '{name}' instead")
 
         try:
             scaffold_name = _pick_scaffold(name, dependencies)

@@ -540,9 +540,13 @@ class Agent:
 
             # Early scaffold nudge — if by iter 8 no scaffold, push hard
             if self.state.iteration == 8 and "project_init" not in self._tool_history:
+                # Generate a unique name hint from the user request
+                user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                name_hint = "-".join(user_req.lower().split()[:4]).replace(",", "").replace("—", "")[:30]
                 self.state.add_system_note(
                     "CRITICAL: You are 8 iterations in and haven't scaffolded a project yet. "
-                    "Call project_init NOW with an appropriate scaffold. Stop reading/searching. BUILD."
+                    f"Call project_init NOW with name='{name_hint}'. "
+                    "Do NOT write files to an existing project. Create a NEW project. BUILD."
                 )
                 log.warning("Early scaffold nudge: 8 iters without project_init")
 
