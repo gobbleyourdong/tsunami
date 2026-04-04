@@ -289,6 +289,45 @@ def _classify_and_fix(project_dir: Path, error: str) -> str | None:
                 return "added root div to index.html"
         return None
 
+    # 16. @engine path alias not resolved — missing vite alias config
+    if "@engine" in error and "Could not resolve" in error:
+        vite_config = project_dir / "vite.config.ts"
+        if vite_config.exists():
+            content = vite_config.read_text()
+            if "@engine" not in content:
+                # Inject the alias
+                content = content.replace(
+                    "export default defineConfig({",
+                    "import path from 'path'\n\nexport default defineConfig({\n"
+                    "  resolve: {\n    alias: {\n"
+                    "      '@engine': path.resolve(__dirname, '../../engine/src'),\n"
+                    "    },\n  },"
+                )
+                vite_config.write_text(content)
+                return "added @engine alias to vite.config.ts"
+        return None
+
+    # 17. WebGPU not available — navigator.gpu undefined
+    if "navigator.gpu" in error and ("undefined" in error.lower() or "null" in error.lower()):
+        # Can't fix WebGPU availability, but inject a helpful error
+        return None
+
+    # 18. Canvas element not found
+    m = re.search(r"getElementById\(['\"](\w+)['\"]\).*null", error)
+    if m:
+        element_id = m.group(1)
+        index = project_dir / "index.html"
+        if index.exists():
+            content = index.read_text()
+            if f'id="{element_id}"' not in content:
+                content = content.replace(
+                    "</body>",
+                    f'  <canvas id="{element_id}" style="width:100vw;height:100vh;display:block"></canvas>\n</body>'
+                )
+                index.write_text(content)
+                return f"added <canvas id='{element_id}'> to index.html"
+        return None
+
     return None
 
 
