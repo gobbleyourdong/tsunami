@@ -57,10 +57,11 @@ def get_pipeline():
 
 STYLE_PREFIXES = {
     "character": "single pixel art game character sprite, one character only, clean silhouette, "
-                 "centered, full body head to feet, solid white background, no ground, no shadow, "
-                 "no other characters, no props on ground, sharp pixels, 16-bit style, ",
+                 "centered, full body head to feet, solid magenta background, bright magenta #FF00FF background, "
+                 "no ground, no shadow, no other characters, no props on ground, sharp pixels, 16-bit style, ",
     "object":    "single pixel art game item sprite, one item only, centered, clean edges, "
-                 "solid white background, no shadow, no other objects, sharp pixels, 16-bit style, ",
+                 "solid magenta background, bright magenta #FF00FF background, "
+                 "no shadow, no other objects, sharp pixels, 16-bit style, ",
     "texture":   "pixel art seamless tileable texture, top-down view, "
                  "game asset, repeating pattern, sharp pixels, 16-bit style, ",
 }
@@ -129,42 +130,68 @@ def generate_variations(
 
 # ── Post-Processing ───────────────────────────────────────────────
 
-def remove_background(img: Image.Image, method: str = "floodfill", threshold: int = 35) -> Image.Image:
-    """Remove background via edge flood-fill (robust against character colors matching corners)."""
+def remove_background(img: Image.Image, method: str = "sigmatrade", threshold: int = 120) -> Image.Image:
+    """Remove background — sigmatrade method (smooth alpha + decontamination + erosion).
+
+    Ported from sigmatrade logo-gen pipeline. Generates against magenta (#FF00FF)
+    then removes via color-distance keying with smooth alpha ramp and color
+    decontamination on semi-transparent edge pixels.
+    """
+    from scipy.ndimage import binary_erosion, label as ndlabel
     arr = np.array(img.convert("RGBA"))
     h, w = arr.shape[:2]
-    rgb = arr[:,:,:3].astype(float)
+    rgb = arr[:,:,:3].astype(np.float64)
 
-    if method == "chroma":
-        r, g, b = arr[:,:,0], arr[:,:,1], arr[:,:,2]
-        mask = (g > 200) & (r < 100) & (b < 100)
-        arr[mask, 3] = 0
-    elif method == "floodfill":
-        # Flood-fill from all edge pixels — removes any connected background
-        # regardless of color, as long as it touches the image border
-        from scipy import ndimage
-
-        # Sample edge pixels to find bg color
-        edge_pixels = np.concatenate([rgb[0,:], rgb[-1,:], rgb[:,0], rgb[:,-1]])
+    if method == "sigmatrade":
+        # Sample bg color from edges (works for any bg color — magenta, white, green)
+        edge_pixels = np.concatenate([rgb[0,:], rgb[-1,:], rgb[:,0], rgb[:,-1]]).reshape(-1, 3)
         bg_color = np.median(edge_pixels, axis=0)
 
-        # Color distance from bg
+        # Euclidean distance from bg
+        dist = np.sqrt(np.sum((rgb - bg_color)**2, axis=2))
+
+        # Smooth alpha ramp (not binary — gives anti-aliased edges)
+        inner = threshold * 0.4
+        alpha = np.clip((dist - inner) / (threshold - inner), 0.0, 1.0) * 255.0
+        alpha = alpha.astype(np.uint8)
+
+        # Color decontamination — remove bg tint from semi-transparent edge pixels
+        alpha_f = alpha.astype(np.float64) / 255.0
+        semitrans = (alpha_f > 0.01) & (alpha_f < 0.99)
+        if semitrans.any():
+            for c in range(3):
+                ch = rgb[:,:,c].copy()
+                bg_c = bg_color[c]
+                fg = (ch[semitrans] - bg_c * (1.0 - alpha_f[semitrans])) / np.maximum(alpha_f[semitrans], 0.01)
+                ch[semitrans] = np.clip(fg, 0, 255)
+                rgb[:,:,c] = ch
+
+        # Erode 1px to kill fringe
+        binary_mask = alpha > 128
+        eroded = binary_erosion(binary_mask, iterations=1)
+        alpha[~eroded] = 0
+
+        arr[:,:,:3] = rgb.astype(np.uint8)
+        arr[:,:,3] = alpha
+
+    elif method == "floodfill":
+        # Flood-fill from edges (previous method, kept as fallback)
+        edge_pixels = np.concatenate([rgb[0,:], rgb[-1,:], rgb[:,0], rgb[:,-1]])
+        bg_color = np.median(edge_pixels, axis=0)
         dist = np.sqrt(np.sum((rgb - bg_color)**2, axis=2))
         bg_mask = dist < threshold
 
-        # Flood-fill: only keep bg pixels connected to edges
-        labeled, n_labels = ndimage.label(bg_mask)
+        labeled, n_labels = ndlabel(bg_mask)
         edge_labels = set()
-        edge_labels.update(labeled[0, :].tolist())
-        edge_labels.update(labeled[-1, :].tolist())
-        edge_labels.update(labeled[:, 0].tolist())
-        edge_labels.update(labeled[:, -1].tolist())
-        edge_labels.discard(0)  # 0 = not bg
+        edge_labels.update(labeled[0,:].tolist())
+        edge_labels.update(labeled[-1,:].tolist())
+        edge_labels.update(labeled[:,0].tolist())
+        edge_labels.update(labeled[:,-1].tolist())
+        edge_labels.discard(0)
 
         flood_mask = np.isin(labeled, list(edge_labels))
         arr[flood_mask, 3] = 0
     else:
-        # Simple threshold fallback
         edge_pixels = np.concatenate([rgb[0,:], rgb[-1,:], rgb[:,0], rgb[:,-1]])
         bg_color = np.median(edge_pixels, axis=0)
         dist = np.sqrt(np.sum((rgb - bg_color)**2, axis=2))
@@ -441,7 +468,7 @@ def run_pipeline(
         print("[2/6] Removing backgrounds...")
         transparent = []
         for img in images:
-            t = remove_background(img, method="floodfill", threshold=35)
+            t = remove_background(img, method="sigmatrade", threshold=120)
             transparent.append(t)
 
         # 2b. Isolate largest object (discard extra characters/items)
