@@ -107,7 +107,7 @@ def main():
     # Check GPU
     if torch.cuda.is_available():
         log.info(f"GPU: {torch.cuda.get_device_name(0)}")
-        log.info(f"VRAM: {torch.cuda.get_device_properties(0).total_mem / 1e9:.1f}GB")
+        log.info(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f}GB")
     else:
         log.warning("No GPU detected — training will be slow")
 
@@ -144,31 +144,33 @@ def main():
     dataset = Dataset.from_list(formatted)
 
     # Training arguments
-    training_args = TrainingArguments(
+    # Training config
+    from trl import SFTConfig
+    total_steps = (len(dataset) // (args.batch_size * args.grad_accum)) * args.epochs
+    warmup_steps = max(1, int(total_steps * 0.05))
+    sft_config = SFTConfig(
         output_dir=args.output,
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=args.grad_accum,
         learning_rate=args.lr,
         lr_scheduler_type="cosine",
-        warmup_ratio=0.05,
+        warmup_steps=warmup_steps,
         bf16=True,
         logging_steps=10,
         save_strategy="epoch",
         report_to="none",
         max_grad_norm=0.3,
-        optim="adamw_8bit",
+        optim="adamw_torch",
         weight_decay=0.01,
+        max_length=args.max_seq_len,
+        dataset_text_field="text",
     )
-
-    # Trainer
     trainer = SFTTrainer(
         model=model,
-        args=training_args,
+        args=sft_config,
         train_dataset=dataset,
-        tokenizer=tokenizer,
-        max_seq_length=args.max_seq_len,
-        dataset_text_field="text",
+        processing_class=tokenizer,
     )
 
     # Train
