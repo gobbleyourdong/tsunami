@@ -85,9 +85,16 @@ def ternary_quantize_tensor(
     normalized = grouped / scales
 
     # Ternary round: {-1, 0, +1}
+    # BitNet b1.58 approach: use RoundClip with absmean scaling
+    # round(clip(W/scale, -1, 1)) where scale = absmean
+    # This means: values > 0.5 → +1, < -0.5 → -1, between → 0
+    # But we use a LOWER threshold for better coverage
     ternary = torch.zeros_like(normalized, dtype=torch.int8)
-    ternary[normalized > threshold] = 1
-    ternary[normalized < -threshold] = -1
+    # Adaptive threshold: use 1/3 of absmean-normalized range
+    # This gives ~33% each of {-1, 0, +1} instead of 70% zeros
+    adaptive_threshold = 1.0 / 3.0
+    ternary[normalized > adaptive_threshold] = 1
+    ternary[normalized < -adaptive_threshold] = -1
 
     # Compute quantization error for gasket mask
     reconstructed = ternary.float() * scales
