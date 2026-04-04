@@ -1,0 +1,47 @@
+{
+  "frame_count": 4,
+  "columns": 4,
+  "rows": 1,
+  "frame_width": 32,
+  "frame_height": 32,
+  "sheet_width": 128,
+  "sheet_height": 32,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 1,
+      "x": 32,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 2,
+      "x": 64,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 3,
+      "x": 96,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    }
+  ],
+  "prompt": "red health potion in glass bottle with cork, glowing liquid",
+  "category": "object",
+  "name": "potion_v2",
+  "target_size": [
+    32,
+    32
+  ],
+  "palette_colors": 8
+}
