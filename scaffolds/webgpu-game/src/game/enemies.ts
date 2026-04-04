@@ -100,10 +100,14 @@ export class EnemyManager {
         }
       }
 
-      // Melee collision with player
+      // Melee collision with player — burst damage on contact
       const dist = this.distToPlayer(enemy, player)
       if (dist < enemy.radius + player.radius) {
-        player.takeDamage(enemy.damage * dt * 2, enemy.x, enemy.y)
+        enemy.shootCooldown -= dt
+        if (enemy.shootCooldown <= 0) {
+          player.takeDamage(enemy.damage, enemy.x, enemy.y)
+          enemy.shootCooldown = enemy.type === 'rusher' ? 0.4 : enemy.type === 'tank' ? 0.6 : 0.8
+        }
       }
 
       // Arena bounds
