@@ -1,0 +1,87 @@
+{
+  "frame_count": 4,
+  "columns": 4,
+  "rows": 1,
+  "frame_width": 48,
+  "frame_height": 48,
+  "sheet_width": 192,
+  "sheet_height": 48,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    },
+    {
+      "index": 1,
+      "x": 48,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    },
+    {
+      "index": 2,
+      "x": 96,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    },
+    {
+      "index": 3,
+      "x": 144,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    }
+  ],
+  "prompt": "gray wolf monster, snarling, side view, aggressive stance",
+  "category": "character",
+  "name": "rpg_wolf",
+  "target_size": [
+    48,
+    48
+  ],
+  "palette_colors": 10,
+  "scores": [
+    {
+      "index": 0,
+      "score": 0.678,
+      "coverage": 0.461,
+      "center_offset": 0.089,
+      "fragments": 5,
+      "unique_colors": 6,
+      "final": 0.678
+    },
+    {
+      "index": 3,
+      "score": 0.632,
+      "coverage": 0.231,
+      "center_offset": 0.096,
+      "fragments": 41,
+      "unique_colors": 6,
+      "final": 0.632
+    },
+    {
+      "index": 1,
+      "score": 0.602,
+      "coverage": 0.332,
+      "center_offset": 0.214,
+      "fragments": 47,
+      "unique_colors": 6,
+      "final": 0.602
+    },
+    {
+      "index": 2,
+      "score": 0.523,
+      "coverage": 0.135,
+      "center_offset": 0.121,
+      "fragments": 86,
+      "unique_colors": 3,
+      "final": 0.523
+    }
+  ],
+  "best_index": 0,
+  "best_score": 0.678
+}
