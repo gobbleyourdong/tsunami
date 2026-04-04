@@ -7,11 +7,15 @@ import { KeyboardInput } from '@engine/input/keyboard'
 import { createVillageMap, createForestMap, WorldMap } from './world'
 import { RPGPlayer } from './rpg_player'
 import { RPGRenderer } from './rpg_renderer'
+import { CombatSystem } from './combat'
+import { QuestSystem } from './quests'
 
 export interface RPGState {
   currentMap: WorldMap
   maps: Map<string, WorldMap>
   player: RPGPlayer
+  combat: CombatSystem
+  quests: QuestSystem
   activeDialog: string[] | null
   dialogIndex: number
   dialogSpeaker: string
@@ -30,10 +34,23 @@ export function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): void {
   const startMap = maps.get('village')!
   const player = new RPGPlayer(keyboard, startMap.playerStart[0], startMap.playerStart[1])
 
+  const combat = new CombatSystem()
+  const quests = new QuestSystem()
+
+  combat.initFromMap(startMap)
+
+  // Wire combat events to quest system
+  combat.onKill = (id, x, y) => {
+    const npc = startMap.npcs.find(n => n.id === id) ?? maps.get('forest')?.npcs.find(n => n.id === id)
+    if (npc) quests.notifyKill(npc.sprite)
+  }
+
   const state: RPGState = {
     currentMap: startMap,
     maps,
     player,
+    combat,
+    quests,
     activeDialog: null,
     dialogIndex: 0,
     dialogSpeaker: '',
@@ -58,7 +75,7 @@ export function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): void {
         clearHUD(hud)
       }
       keyboard.update()
-      renderer.render(dt, state.currentMap, state.player, null, 0)
+      renderer.render(dt, state.currentMap, state.player, null, 0, combat, quests)
       requestAnimationFrame(tick)
       return
     }
@@ -82,29 +99,43 @@ export function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): void {
           player.targetX = spawnX
           player.targetY = spawnY
           player.moving = false
+          combat.initFromMap(newMap)
+          quests.notifyReach(targetName)
         }
+      }
+
+      // Combat update
+      combat.update(dt, state.currentMap, player)
+
+      // Loot pickup → quest notify
+      for (const drop of combat.worldDrops) {
+        // Check if player just picked it up (distance check happens in combat.update)
       }
 
       // Interact (E key)
       if (keyboard.justPressed('KeyE')) {
         const npc = player.findNearbyNPC(state.currentMap)
-        if (npc && !npc.hostile && npc.dialog && npc.dialog.length > 0) {
-          state.activeDialog = npc.dialog
-          state.dialogIndex = 0
-          state.dialogSpeaker = npc.name
-          state.gamePhase = 'dialog'
+        if (npc && !npc.hostile) {
+          // Quest dialog takes priority over default NPC dialog
+          const questDialog = quests.getQuestDialog(npc.id)
+          const dialog = questDialog ?? (npc.dialog && npc.dialog.length > 0 ? npc.dialog : null)
+          if (dialog) {
+            // Accept quest if inactive
+            quests.acceptQuest(npc.id)
+            // Try turn-in if complete
+            quests.turnInQuest(npc.id, player)
+
+            state.activeDialog = dialog
+            state.dialogIndex = 0
+            state.dialogSpeaker = npc.name
+            state.gamePhase = 'dialog'
+          }
         }
       }
 
-      // Attack (Space)
+      // Attack (Space) — uses combat system with HP, knockback, loot
       if (keyboard.justPressed('Space')) {
-        const npc = player.findNearbyNPC(state.currentMap)
-        if (npc && npc.hostile && player.canAttack()) {
-          const dmg = player.attack()
-          // Remove hostile NPC (simple kill — no HP tracking on NPCs yet)
-          const idx = state.currentMap.npcs.indexOf(npc)
-          if (idx >= 0) state.currentMap.npcs.splice(idx, 1)
-        }
+        combat.playerAttack(player, state.currentMap)
       }
 
       // NPC patrol movement
@@ -143,7 +174,7 @@ export function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): void {
     }
 
     // --- Render ---
-    renderer.render(dt, state.currentMap, state.player, state.activeDialog, state.dialogIndex)
+    renderer.render(dt, state.currentMap, state.player, state.activeDialog, state.dialogIndex, combat, quests)
 
     // Pause overlay
     if (state.gamePhase === 'paused') {
