@@ -1,0 +1,47 @@
+{
+  "frame_count": 4,
+  "columns": 4,
+  "rows": 1,
+  "frame_width": 64,
+  "frame_height": 64,
+  "sheet_width": 256,
+  "sheet_height": 64,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 1,
+      "x": 64,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 2,
+      "x": 128,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 3,
+      "x": 192,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    }
+  ],
+  "prompt": "warrior hero with blue cape and silver armor, standing pose, facing right",
+  "category": "character",
+  "name": "hero",
+  "target_size": [
+    64,
+    64
+  ],
+  "palette_colors": 16
+}
