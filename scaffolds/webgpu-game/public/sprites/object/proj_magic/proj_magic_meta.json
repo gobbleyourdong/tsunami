@@ -1,0 +1,87 @@
+{
+  "frame_count": 4,
+  "columns": 4,
+  "rows": 1,
+  "frame_width": 16,
+  "frame_height": 16,
+  "sheet_width": 64,
+  "sheet_height": 16,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "index": 1,
+      "x": 16,
+      "y": 0,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "index": 2,
+      "x": 32,
+      "y": 0,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "index": 3,
+      "x": 48,
+      "y": 0,
+      "width": 16,
+      "height": 16
+    }
+  ],
+  "prompt": "glowing blue magic orb, sparkles, bright",
+  "category": "object",
+  "name": "proj_magic",
+  "target_size": [
+    16,
+    16
+  ],
+  "palette_colors": 6,
+  "scores": [
+    {
+      "index": 3,
+      "score": 0.887,
+      "coverage": 0.754,
+      "center_offset": 0.052,
+      "fragments": 1,
+      "unique_colors": 6,
+      "final": 0.887
+    },
+    {
+      "index": 2,
+      "score": 0.878,
+      "coverage": 0.684,
+      "center_offset": 0.089,
+      "fragments": 1,
+      "unique_colors": 6,
+      "final": 0.878
+    },
+    {
+      "index": 0,
+      "score": 0.873,
+      "coverage": 0.816,
+      "center_offset": 0.107,
+      "fragments": 1,
+      "unique_colors": 6,
+      "final": 0.873
+    },
+    {
+      "index": 1,
+      "score": 0.634,
+      "coverage": 1.0,
+      "center_offset": 0.062,
+      "fragments": 1,
+      "unique_colors": 6,
+      "final": 0.634
+    }
+  ],
+  "best_index": 3,
+  "best_score": 0.887
+}

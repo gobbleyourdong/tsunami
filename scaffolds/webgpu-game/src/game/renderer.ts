@@ -37,6 +37,11 @@ export class ArenaRenderer {
   private particles: FXParticle[] = []
   screenShake = 0
 
+  // Sprite atlas — loaded images keyed by name
+  private sprites = new Map<string, HTMLImageElement>()
+  private spritesLoading = false
+  spritesReady = false
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
     const ctx = canvas.getContext('2d')
@@ -44,6 +49,78 @@ export class ArenaRenderer {
     this.ctx = ctx
     this.resize()
     window.addEventListener('resize', () => this.resize())
+    this.loadSprites()
+  }
+
+  /** Load all game sprites from public/sprites/. Fallback to shapes if any fail. */
+  private loadSprites(): void {
+    this.spritesLoading = true
+    const manifest: Record<string, string> = {
+      // Characters
+      'player':    '/sprites/character/player_warrior/player_warrior_best.png',
+      'rusher':    '/sprites/character/enemy_goblin/enemy_goblin_best.png',
+      'shooter':   '/sprites/character/enemy_bat/enemy_bat_best.png',
+      'tank':      '/sprites/character/enemy_ghost/enemy_ghost_best.png',
+      'boss':      '/sprites/character/boss_dragon/boss_dragon_best.png',
+      // Objects
+      'proj_player': '/sprites/object/proj_fireball/proj_fireball_best.png',
+      'proj_enemy':  '/sprites/object/proj_magic/proj_magic_best.png',
+      'pickup_health':    '/sprites/object/item_potion_red/item_potion_red_best.png',
+      'pickup_speed':     '/sprites/object/item_potion_blue/item_potion_blue_best.png',
+      'pickup_rapidfire': '/sprites/object/item_gem/item_gem_best.png',
+      'pickup_shield':    '/sprites/object/item_shield/item_shield_best.png',
+      // Backgrounds
+      'bg_sky':       '/sprites/texture/bg_sky/bg_sky_best.png',
+      'bg_mountains': '/sprites/texture/bg_mountains/bg_mountains_best.png',
+      'bg_city':      '/sprites/texture/bg_city/bg_city_best.png',
+      // UI
+      'ui_heart': '/sprites/object/ui_heart/ui_heart_best.png',
+    }
+
+    let loaded = 0
+    const total = Object.keys(manifest).length
+
+    for (const [name, path] of Object.entries(manifest)) {
+      const img = new Image()
+      img.onload = () => {
+        this.sprites.set(name, img)
+        loaded++
+        if (loaded >= total) {
+          this.spritesReady = true
+          this.spritesLoading = false
+          console.log(`[renderer] ${loaded} sprites loaded`)
+        }
+      }
+      img.onerror = () => {
+        loaded++
+        console.warn(`[renderer] Failed to load sprite: ${name} (${path})`)
+        if (loaded >= total) {
+          this.spritesReady = true
+          this.spritesLoading = false
+        }
+      }
+      img.src = path
+    }
+  }
+
+  /** Draw a sprite centered at screen position. Falls back to circle if not loaded. */
+  private drawSprite(name: string, sx: number, sy: number, size: number, fallbackColor: string): void {
+    const ctx = this.ctx
+    const sprite = this.sprites.get(name)
+    if (sprite) {
+      const hw = size / 2
+      // Maintain aspect ratio
+      const aspect = sprite.width / sprite.height
+      const drawW = aspect >= 1 ? size : size * aspect
+      const drawH = aspect >= 1 ? size / aspect : size
+      ctx.drawImage(sprite, sx - drawW / 2, sy - drawH / 2, drawW, drawH)
+    } else {
+      // Fallback: colored circle
+      ctx.beginPath()
+      ctx.arc(sx, sy, size / 2, 0, Math.PI * 2)
+      ctx.fillStyle = fallbackColor
+      ctx.fill()
+    }
   }
 
   /** Clear canvas to black (for non-arena scenes). */
@@ -140,6 +217,11 @@ export class ArenaRenderer {
     ctx.fillStyle = BG_COLOR
     ctx.fillRect(-10, -10, window.innerWidth + 20, window.innerHeight + 20)
 
+    // Parallax background layers (behind grid)
+    this.drawParallaxLayer('bg_sky', 0.02, 0)       // slowest, furthest back
+    this.drawParallaxLayer('bg_mountains', 0.05, 0.6) // mid layer
+    this.drawParallaxLayer('bg_city', 0.1, 0.75)     // closest bg layer
+
     // Grid
     this.drawGrid()
 
@@ -180,6 +262,32 @@ export class ArenaRenderer {
     }
 
     ctx.restore()
+  }
+
+  /** Draw a tiling parallax background layer. */
+  private drawParallaxLayer(spriteName: string, scrollSpeed: number, yPosition: number): void {
+    const sprite = this.sprites.get(spriteName)
+    if (!sprite) return
+
+    const ctx = this.ctx
+    const w = window.innerWidth
+    const h = window.innerHeight
+
+    // Scale sprite to fill width while maintaining aspect
+    const spriteAspect = sprite.width / sprite.height
+    const drawH = h * 0.3  // each layer is ~30% of screen height
+    const drawW = drawH * spriteAspect
+
+    // Scroll based on time
+    const offset = (this.time * scrollSpeed * w) % drawW
+    const y = h * yPosition
+
+    ctx.globalAlpha = 0.6
+    // Tile horizontally
+    for (let x = -offset; x < w + drawW; x += drawW) {
+      ctx.drawImage(sprite, x, y, drawW, drawH)
+    }
+    ctx.globalAlpha = 1
   }
 
   private drawGrid(): void {
@@ -228,11 +336,9 @@ export class ArenaRenderer {
       ctx.stroke()
     }
 
-    // Body
-    ctx.beginPath()
-    ctx.arc(px, py, r, 0, Math.PI * 2)
-    ctx.fillStyle = player.speedBoostTimer > 0 ? '#44aaff' : PLAYER_COLOR
-    ctx.fill()
+    // Body — sprite or fallback circle
+    const spriteSize = r * 3.5  // sprite is bigger than collision radius
+    this.drawSprite('player', px, py, spriteSize, player.speedBoostTimer > 0 ? '#44aaff' : PLAYER_COLOR)
 
     // Aim line
     const aimLen = 25
@@ -242,14 +348,6 @@ export class ArenaRenderer {
     ctx.strokeStyle = PLAYER_AIM_COLOR
     ctx.lineWidth = 2
     ctx.stroke()
-
-    // Rapid fire indicator
-    if (player.rapidFireTimer > 0) {
-      ctx.beginPath()
-      ctx.arc(px, py, r * 0.4, 0, Math.PI * 2)
-      ctx.fillStyle = '#ffcc00'
-      ctx.fill()
-    }
   }
 
   private drawEnemy(enemy: Enemy): void {
@@ -296,23 +394,16 @@ export class ArenaRenderer {
       ctx.shadowBlur = 0
     }
 
-    // Body
-    ctx.beginPath()
-    if (enemy.type === 'tank' || enemy.type === 'boss') {
-      // Square-ish for tanks and boss
-      ctx.rect(ex - r, ey - r, r * 2, r * 2)
-    } else {
-      ctx.arc(ex, ey, r, 0, Math.PI * 2)
-    }
-    ctx.fillStyle = color
-    ctx.fill()
+    // Body — sprite by enemy type
+    const spriteSize = r * 3.5
+    this.drawSprite(enemy.type, ex, ey, spriteSize, color)
 
     // Health bar (if damaged)
     if (enemy.health < enemy.maxHealth) {
       const barW = r * 2.5
       const barH = 3
       const barX = ex - barW / 2
-      const barY = ey - r - 8
+      const barY = ey - r - spriteSize * 0.5 - 4
       ctx.fillStyle = '#333'
       ctx.fillRect(barX, barY, barW, barH)
       ctx.fillStyle = color
@@ -343,13 +434,20 @@ export class ArenaRenderer {
       ctx.stroke()
     }
 
-    // Bullet head (glowing)
-    ctx.beginPath()
-    ctx.arc(px, py, r, 0, Math.PI * 2)
-    ctx.fillStyle = color
+    // Bullet head — sprite or glowing circle
+    const spriteName = proj.owner === 'player' ? 'proj_player' : 'proj_enemy'
+    const spriteSize = Math.max(r * 3, 8)
+    this.drawSprite(spriteName, px, py, spriteSize, color)
+
+    // Glow behind sprite
     ctx.shadowColor = color
-    ctx.shadowBlur = 8
+    ctx.shadowBlur = 6
+    ctx.beginPath()
+    ctx.arc(px, py, r * 0.5, 0, Math.PI * 2)
+    ctx.fillStyle = color
+    ctx.globalAlpha = 0.3
     ctx.fill()
+    ctx.globalAlpha = 1
     ctx.shadowBlur = 0
   }
 
@@ -359,17 +457,13 @@ export class ArenaRenderer {
     const [px, py] = this.toScreen(pickup.x, pickup.y)
     const r = pickup.radius * this.scale
 
-    // Pulsing glow
+    // Pickup sprite with bob + pulse
     const pulse = 0.7 + 0.3 * Math.sin(this.time * 4 + pickup.bobPhase)
-    ctx.beginPath()
-    ctx.arc(px, py + bob, r, 0, Math.PI * 2)
-    ctx.fillStyle = PICKUP_COLORS[pickup.type]
+    const spriteName = `pickup_${pickup.type}`
+    const spriteSize = r * 3
     ctx.globalAlpha = pulse
-    ctx.shadowColor = PICKUP_COLORS[pickup.type]
-    ctx.shadowBlur = 10
-    ctx.fill()
+    this.drawSprite(spriteName, px, py + bob, spriteSize, PICKUP_COLORS[pickup.type])
     ctx.globalAlpha = 1
-    ctx.shadowBlur = 0
 
     // Blink when about to expire
     if (pickup.lifetime < 3 && Math.sin(this.time * 10) > 0) {

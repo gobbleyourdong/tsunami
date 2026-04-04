@@ -1,0 +1,65 @@
+{
+  "frame_count": 3,
+  "columns": 3,
+  "rows": 1,
+  "frame_width": 256,
+  "frame_height": 128,
+  "sheet_width": 768,
+  "sheet_height": 128,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 256,
+      "height": 128
+    },
+    {
+      "index": 1,
+      "x": 256,
+      "y": 0,
+      "width": 256,
+      "height": 128
+    },
+    {
+      "index": 2,
+      "x": 512,
+      "y": 0,
+      "width": 256,
+      "height": 128
+    }
+  ],
+  "prompt": "dark blue night sky with stars and nebula clouds, horizontal seamless",
+  "category": "texture",
+  "name": "bg_sky",
+  "target_size": [
+    256,
+    128
+  ],
+  "palette_colors": 16,
+  "scores": [
+    {
+      "index": 0,
+      "score": 0.95,
+      "coverage": 1.0,
+      "unique_colors": 16,
+      "final": 0.95
+    },
+    {
+      "index": 1,
+      "score": 0.95,
+      "coverage": 1.0,
+      "unique_colors": 16,
+      "final": 0.95
+    },
+    {
+      "index": 2,
+      "score": 0.95,
+      "coverage": 1.0,
+      "unique_colors": 16,
+      "final": 0.95
+    }
+  ],
+  "best_index": 0,
+  "best_score": 0.95
+}
