@@ -6,6 +6,7 @@ import { KeyboardInput } from '@engine/input/keyboard'
 import { ActionMap } from '@engine/input/action_map'
 import type { GameState } from './state'
 import type { ProjectileManager } from './projectiles'
+import type { EnemyManager } from './enemies'
 
 export class PlayerController {
   x = 0
@@ -45,7 +46,7 @@ export class PlayerController {
     })
   }
 
-  update(dt: number, projectiles: ProjectileManager): void {
+  update(dt: number, projectiles: ProjectileManager, enemies?: EnemyManager): void {
     if (this.state.playerHealth.isDead) return
 
     // Movement
@@ -77,11 +78,24 @@ export class PlayerController {
     this.x = Math.max(-bound, Math.min(bound, this.x))
     this.y = Math.max(-bound, Math.min(bound, this.y))
 
-    // Aim: mouse if moved, otherwise aim in movement direction
+    // Aim priority: mouse > nearest enemy (auto-aim) > movement direction
     if (this.mouseX !== 0 || this.mouseY !== 0) {
       const cx = window.innerWidth / 2
       const cy = window.innerHeight / 2
       this.aimAngle = Math.atan2(this.mouseY - cy, this.mouseX - cx)
+    } else if (enemies && enemies.aliveCount > 0) {
+      // Auto-aim at nearest enemy
+      let nearest = Infinity
+      for (const e of enemies.enemies) {
+        if (e.dead) continue
+        const edx = e.x - this.x
+        const edy = e.y - this.y
+        const d = edx * edx + edy * edy
+        if (d < nearest) {
+          nearest = d
+          this.aimAngle = Math.atan2(edy, edx)
+        }
+      }
     } else if (dx !== 0 || dy !== 0) {
       this.aimAngle = Math.atan2(dy, dx)
     }
@@ -91,12 +105,12 @@ export class PlayerController {
     const rate = this.rapidFireTimer > 0 ? this.shootRate / 3 : this.shootRate
     if (this.keyboard.isDown('Space') && this.shootCooldown <= 0) {
       this.shootCooldown = rate
-      const speed = 15
+      const speed = 12
       projectiles.spawn(
         this.x, this.y,
         Math.cos(this.aimAngle) * speed,
         Math.sin(this.aimAngle) * speed,
-        'player', 10
+        'player', 15
       )
     }
 

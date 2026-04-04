@@ -19,6 +19,7 @@ export interface Projectile {
 
 export class ProjectileManager {
   projectiles: Projectile[] = []
+  onHit?: (x: number, y: number, killed: boolean) => void
 
   spawn(x: number, y: number, vx: number, vy: number, owner: 'player' | 'enemy', damage: number): void {
     this.projectiles.push({
@@ -58,8 +59,8 @@ export class ProjectileManager {
           const dist = Math.sqrt(dx * dx + dy * dy)
           if (dist < p.radius + enemy.radius) {
             const killed = enemies.damageEnemy(enemy, p.damage)
+            this.onHit?.(enemy.x, enemy.y, killed)
             if (killed) {
-              // Random pickup drop (30% chance)
               if (Math.random() < 0.3) {
                 pickups.spawnRandom(enemy.x, enemy.y)
               }
