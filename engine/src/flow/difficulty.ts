@@ -35,8 +35,8 @@ export class DifficultyManager {
   private hardParams: DifficultyParams
 
   constructor(easy?: Partial<DifficultyParams>, hard?: Partial<DifficultyParams>) {
-    this.easyParams = { ...DEFAULT_EASY, ...easy }
-    this.hardParams = { ...DEFAULT_HARD, ...hard }
+    this.easyParams = { ...DEFAULT_EASY, ...(easy as DifficultyParams) }
+    this.hardParams = { ...DEFAULT_HARD, ...(hard as DifficultyParams) }
   }
 
   /** Set progression 0-1. */
