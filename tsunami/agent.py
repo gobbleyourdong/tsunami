@@ -538,6 +538,25 @@ class Agent:
             self.state.iteration += 1
             iter_start = time.time()
 
+            # Early scaffold nudge — if by iter 8 no scaffold, push hard
+            if self.state.iteration == 8 and "project_init" not in self._tool_history:
+                self.state.add_system_note(
+                    "CRITICAL: You are 8 iterations in and haven't scaffolded a project yet. "
+                    "Call project_init NOW with an appropriate scaffold. Stop reading/searching. BUILD."
+                )
+                log.warning("Early scaffold nudge: 8 iters without project_init")
+
+            # Stronger build nudge at iter 15
+            if self.state.iteration == 15:
+                writes = sum(1 for t in self._tool_history if t in ("file_write", "file_edit"))
+                if writes == 0:
+                    self.state.add_system_note(
+                        "WARNING: 15 iterations with ZERO file writes. You MUST start writing code "
+                        "immediately. Call project_init if you haven't, then file_write. "
+                        "Do NOT read, search, or plan any further."
+                    )
+                    log.warning("Build nudge: 15 iters with 0 writes")
+
             # Safety valve — force deliver if truly lost
             if self.state.iteration > 30:
                 # Check RECENT writes (last 20 tools), not all-time
