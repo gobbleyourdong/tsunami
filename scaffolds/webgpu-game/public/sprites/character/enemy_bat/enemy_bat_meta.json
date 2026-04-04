@@ -1,0 +1,119 @@
+{
+  "frame_count": 6,
+  "columns": 6,
+  "rows": 1,
+  "frame_width": 48,
+  "frame_height": 48,
+  "sheet_width": 288,
+  "sheet_height": 48,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    },
+    {
+      "index": 1,
+      "x": 48,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    },
+    {
+      "index": 2,
+      "x": 96,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    },
+    {
+      "index": 3,
+      "x": 144,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    },
+    {
+      "index": 4,
+      "x": 192,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    },
+    {
+      "index": 5,
+      "x": 240,
+      "y": 0,
+      "width": 48,
+      "height": 48
+    }
+  ],
+  "prompt": "dark purple bat with spread wings, flying, glowing red eyes",
+  "category": "character",
+  "name": "enemy_bat",
+  "target_size": [
+    48,
+    48
+  ],
+  "palette_colors": 10,
+  "scores": [
+    {
+      "index": 1,
+      "score": 0.853,
+      "coverage": 0.608,
+      "center_offset": 0.088,
+      "fragments": 2,
+      "unique_colors": 10,
+      "final": 0.853
+    },
+    {
+      "index": 4,
+      "score": 0.816,
+      "coverage": 0.575,
+      "center_offset": 0.068,
+      "fragments": 3,
+      "unique_colors": 10,
+      "final": 0.816
+    },
+    {
+      "index": 2,
+      "score": 0.802,
+      "coverage": 0.791,
+      "center_offset": 0.042,
+      "fragments": 4,
+      "unique_colors": 10,
+      "final": 0.802
+    },
+    {
+      "index": 0,
+      "score": 0.8,
+      "coverage": 0.51,
+      "center_offset": 0.199,
+      "fragments": 2,
+      "unique_colors": 9,
+      "final": 0.8
+    },
+    {
+      "index": 3,
+      "score": 0.762,
+      "coverage": 0.989,
+      "center_offset": 0.023,
+      "fragments": 1,
+      "unique_colors": 10,
+      "final": 0.762
+    },
+    {
+      "index": 5,
+      "score": 0.71,
+      "coverage": 0.459,
+      "center_offset": 0.159,
+      "fragments": 5,
+      "unique_colors": 8,
+      "final": 0.71
+    }
+  ],
+  "best_index": 1,
+  "best_score": 0.853
+}

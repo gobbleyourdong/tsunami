@@ -1,0 +1,119 @@
+{
+  "frame_count": 6,
+  "columns": 6,
+  "rows": 1,
+  "frame_width": 32,
+  "frame_height": 32,
+  "sheet_width": 192,
+  "sheet_height": 32,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 1,
+      "x": 32,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 2,
+      "x": 64,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 3,
+      "x": 96,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 4,
+      "x": 128,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 5,
+      "x": 160,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    }
+  ],
+  "prompt": "steel sword with blue gem in pommel, diagonal orientation",
+  "category": "object",
+  "name": "item_sword",
+  "target_size": [
+    32,
+    32
+  ],
+  "palette_colors": 8,
+  "scores": [
+    {
+      "index": 1,
+      "score": 0.932,
+      "coverage": 0.803,
+      "center_offset": 0.072,
+      "fragments": 1,
+      "unique_colors": 8,
+      "final": 0.932
+    },
+    {
+      "index": 0,
+      "score": 0.929,
+      "coverage": 0.76,
+      "center_offset": 0.083,
+      "fragments": 1,
+      "unique_colors": 8,
+      "final": 0.929
+    },
+    {
+      "index": 4,
+      "score": 0.901,
+      "coverage": 0.476,
+      "center_offset": 0.197,
+      "fragments": 1,
+      "unique_colors": 8,
+      "final": 0.901
+    },
+    {
+      "index": 5,
+      "score": 0.729,
+      "coverage": 0.492,
+      "center_offset": 0.217,
+      "fragments": 3,
+      "unique_colors": 8,
+      "final": 0.729
+    },
+    {
+      "index": 3,
+      "score": 0.694,
+      "coverage": 0.999,
+      "center_offset": 0.032,
+      "fragments": 1,
+      "unique_colors": 8,
+      "final": 0.694
+    },
+    {
+      "index": 2,
+      "score": 0.692,
+      "coverage": 1.0,
+      "center_offset": 0.031,
+      "fragments": 1,
+      "unique_colors": 8,
+      "final": 0.692
+    }
+  ],
+  "best_index": 1,
+  "best_score": 0.932
+}
