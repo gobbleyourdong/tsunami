@@ -1,0 +1,119 @@
+{
+  "frame_count": 6,
+  "columns": 6,
+  "rows": 1,
+  "frame_width": 64,
+  "frame_height": 64,
+  "sheet_width": 384,
+  "sheet_height": 64,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 1,
+      "x": 64,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 2,
+      "x": 128,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 3,
+      "x": 192,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 4,
+      "x": 256,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 5,
+      "x": 320,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    }
+  ],
+  "prompt": "fire mage wizard with staff, red robes, casting spell, facing right",
+  "category": "character",
+  "name": "fire_mage",
+  "target_size": [
+    64,
+    64
+  ],
+  "palette_colors": 16,
+  "scores": [
+    {
+      "index": 2,
+      "score": 0.963,
+      "coverage": 0.602,
+      "center_offset": 0.15,
+      "fragments": 1,
+      "unique_colors": 16,
+      "final": 0.963
+    },
+    {
+      "index": 3,
+      "score": 0.943,
+      "coverage": 0.421,
+      "center_offset": 0.227,
+      "fragments": 1,
+      "unique_colors": 16,
+      "final": 0.943
+    },
+    {
+      "index": 1,
+      "score": 0.93,
+      "coverage": 0.471,
+      "center_offset": 0.28,
+      "fragments": 1,
+      "unique_colors": 15,
+      "final": 0.93
+    },
+    {
+      "index": 0,
+      "score": 0.838,
+      "coverage": 0.386,
+      "center_offset": 0.149,
+      "fragments": 2,
+      "unique_colors": 16,
+      "final": 0.838
+    },
+    {
+      "index": 5,
+      "score": 0.802,
+      "coverage": 0.557,
+      "center_offset": 0.041,
+      "fragments": 4,
+      "unique_colors": 16,
+      "final": 0.802
+    },
+    {
+      "index": 4,
+      "score": 0.764,
+      "coverage": 0.84,
+      "center_offset": 0.086,
+      "fragments": 7,
+      "unique_colors": 16,
+      "final": 0.764
+    }
+  ],
+  "best_index": 2,
+  "best_score": 0.963
+}
