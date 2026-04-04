@@ -563,6 +563,25 @@ class Agent:
                 )
                 log.warning("Early scaffold nudge: 8 iters without project_init")
 
+            # FORCED scaffold gate at iter 10 — not a nudge, an actual tool call
+            if self.state.iteration == 10 and "project_init" not in self._tool_history:
+                user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else "app"
+                name_hint = "-".join(user_req.lower().split()[:4]).replace(",", "").replace("—", "").replace(".", "")[:30]
+                log.warning(f"FORCED scaffold gate: calling project_init('{name_hint}') for the agent")
+                try:
+                    tool = self.registry.get("project_init")
+                    if tool:
+                        from .tools.project_init import _pick_scaffold
+                        scaffold = _pick_scaffold(user_req, [])
+                        result = await tool.execute(name=name_hint, dependencies=[])
+                        self.state.add_tool_result("project_init", {"name": name_hint}, result.content)
+                        self._tool_history.append("project_init")
+                        self.state.add_system_note(
+                            f"System auto-scaffolded '{name_hint}'. Now write your App.tsx and components. BUILD."
+                        )
+                except Exception as e:
+                    log.warning(f"Forced scaffold failed: {e}")
+
             # Stronger build nudge at iter 15
             if self.state.iteration == 15:
                 writes = sum(1 for t in self._tool_history if t in ("file_write", "file_edit"))
