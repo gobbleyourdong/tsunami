@@ -77,10 +77,14 @@ export class PlayerController {
     this.x = Math.max(-bound, Math.min(bound, this.x))
     this.y = Math.max(-bound, Math.min(bound, this.y))
 
-    // Aim toward mouse (approximate: center of screen = player position)
-    const cx = window.innerWidth / 2
-    const cy = window.innerHeight / 2
-    this.aimAngle = Math.atan2(this.mouseY - cy, this.mouseX - cx)
+    // Aim: mouse if moved, otherwise aim in movement direction
+    if (this.mouseX !== 0 || this.mouseY !== 0) {
+      const cx = window.innerWidth / 2
+      const cy = window.innerHeight / 2
+      this.aimAngle = Math.atan2(this.mouseY - cy, this.mouseX - cx)
+    } else if (dx !== 0 || dy !== 0) {
+      this.aimAngle = Math.atan2(dy, dx)
+    }
 
     // Shooting
     this.shootCooldown -= dt
