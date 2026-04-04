@@ -24,6 +24,8 @@ from .compression import compress_context, needs_compression, fast_prune
 from .config import TsunamiConfig
 from .cost_tracker import CostTracker
 from .dynamic_tool_filter import DynamicToolFilter
+from .loop_guard import LoopGuard
+from .task_decomposer import decompose, is_complex_prompt
 from .git_detect import GitTracker
 from .microcompact import microcompact_if_needed
 from .semantic_dedup import dedup_messages
@@ -99,6 +101,9 @@ class Agent:
 
         # Dynamic tool filter — steer tool selection based on effectiveness
         self.tool_filter = DynamicToolFilter()
+
+        # Loop guard — detect and break stall patterns
+        self.loop_guard = LoopGuard()
 
         # Cost tracking
         self.cost_tracker = CostTracker(session_id=self.session_id)
@@ -524,7 +529,15 @@ class Agent:
         if not existing_context:
             scaffold_context = await self._pre_scaffold(user_message)
 
-        context_parts = [user_message]
+        # Task decomposition — break complex multi-domain prompts into phases
+        effective_message = user_message
+        if not existing_context and is_complex_prompt(user_message):
+            dag = decompose(user_message)
+            if dag.is_complex:
+                effective_message = dag.to_phased_prompt()
+                log.info(f"Decomposed complex prompt into {len(dag.tasks)} phases")
+
+        context_parts = [effective_message]
         if existing_context:
             context_parts.append(existing_context)
         if scaffold_context:
@@ -1094,8 +1107,20 @@ class Agent:
             result.is_error, self.session_id,
         )
 
-        # Closed-loop feedback — record outcome and inject steering advice
+        # Loop guard — detect and break stall patterns
         made_progress = tool_call.name in ("file_write", "file_edit", "project_init", "generate_image") and not result.is_error
+        self.loop_guard.record(tool_call.name, tool_call.arguments, made_progress)
+        loop_check = self.loop_guard.check()
+        if loop_check.detected:
+            log.warning(f"Loop detected ({loop_check.loop_type}): {loop_check.description}")
+            if loop_check.forced_action:
+                self.state.add_system_note(
+                    f"LOOP DETECTED: {loop_check.description}. "
+                    f"You MUST call {loop_check.forced_action} on your next turn. "
+                    f"Do NOT repeat {tool_call.name}."
+                )
+
+        # Closed-loop feedback — record outcome and inject steering advice
         self._feedback.record(tool_call.name, not result.is_error, made_progress, str(result.content)[:100] if result.is_error else "")
         nudge = self._feedback.get_nudge(self.state.iteration)
         if nudge:
