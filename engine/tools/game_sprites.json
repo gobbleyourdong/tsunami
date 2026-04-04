@@ -1,0 +1,66 @@
+[
+  {
+    "name": "hero",
+    "category": "character",
+    "prompt": "warrior hero with blue cape and silver armor, standing pose, facing right",
+    "variations": 4,
+    "target_size": [64, 64],
+    "colors": 16
+  },
+  {
+    "name": "skeleton",
+    "category": "character",
+    "prompt": "skeleton warrior enemy with rusty sword, standing pose, facing left",
+    "variations": 4,
+    "target_size": [64, 64],
+    "colors": 12
+  },
+  {
+    "name": "slime",
+    "category": "character",
+    "prompt": "green slime monster, round body, cute angry face, bouncing pose",
+    "variations": 4,
+    "target_size": [48, 48],
+    "colors": 8
+  },
+  {
+    "name": "health_potion",
+    "category": "object",
+    "prompt": "health potion bottle, red liquid, glass flask with cork stopper",
+    "variations": 4,
+    "target_size": [32, 32],
+    "colors": 8
+  },
+  {
+    "name": "coin",
+    "category": "object",
+    "prompt": "gold coin, shiny, simple design with star emblem",
+    "variations": 4,
+    "target_size": [24, 24],
+    "colors": 6
+  },
+  {
+    "name": "sword",
+    "category": "object",
+    "prompt": "steel longsword with golden crossguard, vertical orientation",
+    "variations": 4,
+    "target_size": [32, 48],
+    "colors": 8
+  },
+  {
+    "name": "grass_tile",
+    "category": "texture",
+    "prompt": "green grass with small flowers and dirt patches",
+    "variations": 2,
+    "target_size": [64, 64],
+    "colors": 12
+  },
+  {
+    "name": "stone_tile",
+    "category": "texture",
+    "prompt": "gray cobblestone floor, medieval dungeon",
+    "variations": 2,
+    "target_size": [64, 64],
+    "colors": 8
+  }
+]

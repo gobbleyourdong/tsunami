@@ -1,0 +1,33 @@
+{
+  "frame_count": 2,
+  "columns": 2,
+  "rows": 1,
+  "frame_width": 64,
+  "frame_height": 64,
+  "sheet_width": 128,
+  "sheet_height": 64,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 1,
+      "x": 64,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    }
+  ],
+  "prompt": "green grass with small flowers and dirt patches",
+  "category": "texture",
+  "name": "grass_tile",
+  "target_size": [
+    64,
+    64
+  ],
+  "palette_colors": 12
+}
