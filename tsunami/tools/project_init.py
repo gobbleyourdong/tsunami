@@ -50,7 +50,13 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
         if (SCAFFOLDS_DIR / "electron-app").exists():
             return "electron-app"
 
-    # 1. 3D game/simulation
+    # 0c. WebGPU game (custom engine — advanced physics, AI, ECS)
+    if needs("webgpu", "custom engine", "ecs", "gpu particle", "shader graph",
+             "behavior tree", "navmesh", "skeleton", "ik", "gpu skinning"):
+        if (SCAFFOLDS_DIR / "webgpu-game").exists():
+            return "webgpu-game"
+
+    # 1. 3D game/simulation (Three.js — declarative, React-based)
     if needs("three", "3d", "pinball", "fps", "voxel", "r3f", "rapier", "cannon"):
         if (SCAFFOLDS_DIR / "threejs-game").exists():
             return "threejs-game"
