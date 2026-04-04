@@ -53,6 +53,15 @@ class TestHardeningBuilds:
     def test_drawing_app(self):
         assert _check_exists("drawing-canvas-brush")
 
+    def test_timesheet(self):
+        assert _check_exists("timesheet-clock-out")
+
+    def test_countdown_timer(self):
+        assert _check_exists("countdown-timer-flip")
+
+    def test_standup_board(self):
+        assert _check_exists("team-standup-board")
+
 
 class TestBuildQuality:
     """Passing builds have dist/ and src/App.tsx."""
