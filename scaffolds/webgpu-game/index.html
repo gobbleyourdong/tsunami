@@ -9,11 +9,14 @@
       body { background: #000; overflow: hidden; }
       canvas { display: block; width: 100vw; height: 100vh; }
       #hud {
-        position: fixed; top: 0; left: 0; right: 0;
-        padding: 12px 20px; color: #e2e8f0;
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        color: #e2e8f0;
         font-family: 'JetBrains Mono', monospace; font-size: 14px;
-        background: linear-gradient(rgba(0,0,0,0.6), transparent);
         pointer-events: none; z-index: 10;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
       }
     </style>
   </head>
