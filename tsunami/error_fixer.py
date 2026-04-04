@@ -92,17 +92,18 @@ def _classify_and_fix(project_dir: Path, error: str) -> str | None:
                 # Add named re-export
                 content += f"\nexport {{ default as {export_name} }} from './{resolved.stem}'\n"
                 # Actually, fix the importing file instead
-                # Find who imports this
+                # Find who imports this — match by component name in import path
                 src_dir = project_dir / "src"
+                stem = resolved.stem  # e.g. "Dialog"
                 for tsx in src_dir.rglob("*.tsx"):
                     tsx_content = tsx.read_text()
                     bad_import = f"{{ {export_name} }}"
-                    if bad_import in tsx_content and file_path.replace(".tsx", "") in tsx_content:
+                    # Match any import path ending with the component name
+                    if bad_import in tsx_content and (f"/{stem}" in tsx_content or f"'{stem}" in tsx_content):
                         fixed = tsx_content.replace(
                             f"{{ {export_name} }}",
                             export_name
                         )
-                        # Also fix "from" to not use braces
                         tsx.write_text(fixed)
                         return f"fixed named→default import of {export_name} in {tsx.name}"
         return None
