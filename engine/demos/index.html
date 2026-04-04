@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tsunami Engine — Phase 1 Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0f; color: #ccc; font-family: monospace; overflow: hidden; }
+    canvas { width: 100vw; height: 100vh; display: block; }
+    #stats {
+      position: fixed; top: 12px; left: 12px;
+      background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 4px;
+      font-size: 13px; line-height: 1.6; z-index: 10;
+    }
+    #error {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #1a0000; border: 1px solid #660000; padding: 24px; border-radius: 8px;
+      max-width: 500px; display: none; text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="stats"></div>
+  <div id="error"></div>
+  <script type="module" src="./phase1.ts"></script>
+</body>
+</html>
