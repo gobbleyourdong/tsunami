@@ -1,0 +1,27 @@
+[
+  {"name": "player_warrior", "category": "character", "prompt": "warrior with sword and shield, blue armor, standing idle, facing right", "variations": 6, "target_size": [64, 64], "colors": 16},
+  {"name": "player_mage", "category": "character", "prompt": "mage with wooden staff, purple robes and hat, standing idle, facing right", "variations": 6, "target_size": [64, 64], "colors": 16},
+  {"name": "player_archer", "category": "character", "prompt": "archer with bow, green hood and cloak, standing idle, facing right", "variations": 6, "target_size": [64, 64], "colors": 16},
+
+  {"name": "enemy_goblin", "category": "character", "prompt": "small goblin with dagger, green skin, leather armor, aggressive pose", "variations": 6, "target_size": [48, 48], "colors": 12},
+  {"name": "enemy_bat", "category": "character", "prompt": "dark purple bat with spread wings, flying, glowing red eyes", "variations": 6, "target_size": [48, 48], "colors": 10},
+  {"name": "enemy_ghost", "category": "character", "prompt": "white translucent ghost, floating, spooky face, wispy tail", "variations": 6, "target_size": [48, 48], "colors": 8},
+
+  {"name": "boss_dragon", "category": "character", "prompt": "red dragon head and upper body, wings spread, breathing fire, large and menacing", "variations": 6, "target_size": [96, 96], "colors": 16},
+
+  {"name": "item_sword", "category": "object", "prompt": "steel sword with blue gem in pommel, diagonal orientation", "variations": 6, "target_size": [32, 32], "colors": 8},
+  {"name": "item_shield", "category": "object", "prompt": "round metal shield with star emblem, front view", "variations": 6, "target_size": [32, 32], "colors": 8},
+  {"name": "item_potion_red", "category": "object", "prompt": "red health potion in round glass flask with cork", "variations": 6, "target_size": [24, 24], "colors": 8},
+  {"name": "item_potion_blue", "category": "object", "prompt": "blue mana potion in round glass flask with cork", "variations": 6, "target_size": [24, 24], "colors": 8},
+  {"name": "item_key", "category": "object", "prompt": "ornate golden key with skull design", "variations": 6, "target_size": [24, 24], "colors": 6},
+  {"name": "item_chest", "category": "object", "prompt": "wooden treasure chest with gold trim, closed, front view", "variations": 6, "target_size": [32, 32], "colors": 10},
+  {"name": "item_coin", "category": "object", "prompt": "shiny gold coin with crown emblem, slight 3d angle", "variations": 6, "target_size": [16, 16], "colors": 6},
+  {"name": "item_gem", "category": "object", "prompt": "glowing red ruby gemstone, faceted, sparkling", "variations": 6, "target_size": [16, 16], "colors": 6},
+
+  {"name": "tile_grass", "category": "texture", "prompt": "green grass with small wildflowers and dirt patches", "variations": 4, "target_size": [32, 32], "colors": 12},
+  {"name": "tile_stone", "category": "texture", "prompt": "gray cobblestone dungeon floor, cracked", "variations": 4, "target_size": [32, 32], "colors": 8},
+  {"name": "tile_water", "category": "texture", "prompt": "blue water surface with small ripples, top down view", "variations": 4, "target_size": [32, 32], "colors": 8},
+  {"name": "tile_sand", "category": "texture", "prompt": "tan desert sand with small pebbles, top down view", "variations": 4, "target_size": [32, 32], "colors": 8},
+  {"name": "tile_lava", "category": "texture", "prompt": "glowing orange lava with dark crust cracks, top down view", "variations": 4, "target_size": [32, 32], "colors": 10},
+  {"name": "tile_wood", "category": "texture", "prompt": "brown wooden floor planks, top down view", "variations": 4, "target_size": [32, 32], "colors": 8}
+]

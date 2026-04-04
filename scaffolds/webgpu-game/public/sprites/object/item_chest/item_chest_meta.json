@@ -1,0 +1,119 @@
+{
+  "frame_count": 6,
+  "columns": 6,
+  "rows": 1,
+  "frame_width": 32,
+  "frame_height": 32,
+  "sheet_width": 192,
+  "sheet_height": 32,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 1,
+      "x": 32,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 2,
+      "x": 64,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 3,
+      "x": 96,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 4,
+      "x": 128,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "index": 5,
+      "x": 160,
+      "y": 0,
+      "width": 32,
+      "height": 32
+    }
+  ],
+  "prompt": "wooden treasure chest with gold trim, closed, front view",
+  "category": "object",
+  "name": "item_chest",
+  "target_size": [
+    32,
+    32
+  ],
+  "palette_colors": 10,
+  "scores": [
+    {
+      "index": 4,
+      "score": 0.96,
+      "coverage": 0.821,
+      "center_offset": 0.162,
+      "fragments": 1,
+      "unique_colors": 10,
+      "final": 0.96
+    },
+    {
+      "index": 2,
+      "score": 0.893,
+      "coverage": 0.91,
+      "center_offset": 0.025,
+      "fragments": 1,
+      "unique_colors": 10,
+      "final": 0.893
+    },
+    {
+      "index": 0,
+      "score": 0.867,
+      "coverage": 0.924,
+      "center_offset": 0.038,
+      "fragments": 1,
+      "unique_colors": 10,
+      "final": 0.867
+    },
+    {
+      "index": 5,
+      "score": 0.835,
+      "coverage": 0.946,
+      "center_offset": 0.02,
+      "fragments": 1,
+      "unique_colors": 10,
+      "final": 0.835
+    },
+    {
+      "index": 3,
+      "score": 0.778,
+      "coverage": 0.979,
+      "center_offset": 0.031,
+      "fragments": 1,
+      "unique_colors": 10,
+      "final": 0.778
+    },
+    {
+      "index": 1,
+      "score": 0.742,
+      "coverage": 1.0,
+      "center_offset": 0.031,
+      "fragments": 1,
+      "unique_colors": 10,
+      "final": 0.742
+    }
+  ],
+  "best_index": 4,
+  "best_score": 0.96
+}

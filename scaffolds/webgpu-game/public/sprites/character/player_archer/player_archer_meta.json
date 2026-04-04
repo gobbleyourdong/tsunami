@@ -1,0 +1,119 @@
+{
+  "frame_count": 6,
+  "columns": 6,
+  "rows": 1,
+  "frame_width": 64,
+  "frame_height": 64,
+  "sheet_width": 384,
+  "sheet_height": 64,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 1,
+      "x": 64,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 2,
+      "x": 128,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 3,
+      "x": 192,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 4,
+      "x": 256,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 5,
+      "x": 320,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    }
+  ],
+  "prompt": "archer with bow, green hood and cloak, standing idle, facing right",
+  "category": "character",
+  "name": "player_archer",
+  "target_size": [
+    64,
+    64
+  ],
+  "palette_colors": 16,
+  "scores": [
+    {
+      "index": 0,
+      "score": 0.981,
+      "coverage": 0.408,
+      "center_offset": 0.078,
+      "fragments": 1,
+      "unique_colors": 16,
+      "final": 0.981
+    },
+    {
+      "index": 3,
+      "score": 0.969,
+      "coverage": 0.542,
+      "center_offset": 0.123,
+      "fragments": 1,
+      "unique_colors": 15,
+      "final": 0.969
+    },
+    {
+      "index": 1,
+      "score": 0.969,
+      "coverage": 0.513,
+      "center_offset": 0.124,
+      "fragments": 1,
+      "unique_colors": 16,
+      "final": 0.969
+    },
+    {
+      "index": 4,
+      "score": 0.836,
+      "coverage": 0.503,
+      "center_offset": 0.155,
+      "fragments": 2,
+      "unique_colors": 16,
+      "final": 0.836
+    },
+    {
+      "index": 2,
+      "score": 0.735,
+      "coverage": 0.522,
+      "center_offset": 0.184,
+      "fragments": 8,
+      "unique_colors": 16,
+      "final": 0.735
+    },
+    {
+      "index": 5,
+      "score": 0.731,
+      "coverage": 0.455,
+      "center_offset": 0.244,
+      "fragments": 6,
+      "unique_colors": 16,
+      "final": 0.731
+    }
+  ],
+  "best_index": 0,
+  "best_score": 0.981
+}
