@@ -56,6 +56,7 @@
     <button onclick="importMap()">Import JSON</button>
     <button onclick="clearMap()">Clear</button>
     <button onclick="generateFromPrompt()">Generate from Text</button>
+    <button onclick="playMap()" style="background:#1a5a1a;border-color:#2a8a2a">Play Map</button>
     <span class="info" id="status">24x18 | Tool: grass</span>
   </div>
 
@@ -322,6 +323,16 @@
 
       render()
       document.getElementById('status').textContent = `Generated: ${desc.substring(0, 30)}`
+    }
+
+    window.playMap = () => {
+      const map = {
+        name: 'Editor Map', width: W, height: H, tileSize: 32,
+        layers: { ground }, props, npcs, playerStart, exits,
+      }
+      // Store in sessionStorage and open RPG with flag
+      sessionStorage.setItem('editorMap', JSON.stringify(map))
+      window.open('/rpg.html?map=editor', '_blank')
     }
 
     // Initial render

@@ -9,6 +9,7 @@ import { RPGPlayer } from './rpg_player'
 import { RPGRenderer } from './rpg_renderer'
 import { CombatSystem } from './combat'
 import { QuestSystem } from './quests'
+import { GameSynth } from '../game/synth'
 
 export interface RPGState {
   currentMap: WorldMap
@@ -22,27 +23,59 @@ export interface RPGState {
   gamePhase: 'explore' | 'dialog' | 'combat' | 'paused'
 }
 
-export function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): void {
+export async function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): Promise<void> {
   const keyboard = new KeyboardInput()
   keyboard.bind()
 
-  // Load maps
+  // Load maps — check URL for custom map: rpg.html?map=/maps/custom.json
   const maps = new Map<string, WorldMap>()
   maps.set('village', createVillageMap())
   maps.set('forest', createForestMap())
 
-  const startMap = maps.get('village')!
+  // Load custom map: ?map=editor (sessionStorage) or ?map=/path/to/map.json (fetch)
+  const urlParams = new URLSearchParams(window.location.search)
+  const customMapParam = urlParams.get('map')
+  if (customMapParam === 'editor') {
+    // Load from editor via sessionStorage
+    const editorData = sessionStorage.getItem('editorMap')
+    if (editorData) {
+      try {
+        maps.set('custom', JSON.parse(editorData) as WorldMap)
+      } catch (e) {
+        console.warn('[rpg] Failed to parse editor map:', e)
+      }
+    }
+  } else if (customMapParam) {
+    // Load from URL
+    try {
+      const resp = await fetch(customMapParam)
+      maps.set('custom', await resp.json() as WorldMap)
+    } catch (e) {
+      console.warn('[rpg] Failed to load custom map:', customMapParam, e)
+    }
+  }
+
+  const startMapName = customMapParam ? 'custom' : 'village'
+  const startMap = maps.get(startMapName)!
   const player = new RPGPlayer(keyboard, startMap.playerStart[0], startMap.playerStart[1])
 
   const combat = new CombatSystem()
   const quests = new QuestSystem()
+  const synth = new GameSynth()
 
   combat.initFromMap(startMap)
 
-  // Wire combat events to quest system
+  // Wire combat events to quest + audio
+  combat.onHit = (id, dmg) => {
+    synth.play('swordHit', { intensity: Math.min(dmg / 20, 1) })
+  }
   combat.onKill = (id, x, y) => {
+    synth.play('explosion', { intensity: 0.6 })
     const npc = startMap.npcs.find(n => n.id === id) ?? maps.get('forest')?.npcs.find(n => n.id === id)
     if (npc) quests.notifyKill(npc.sprite)
+  }
+  combat.onPlayerHit = (dmg) => {
+    synth.play('playerHurt')
   }
 
   const state: RPGState = {
@@ -135,6 +168,7 @@ export function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): void {
 
       // Attack (Space) — uses combat system with HP, knockback, loot
       if (keyboard.justPressed('Space')) {
+        synth.play('swordSlash')
         combat.playerAttack(player, state.currentMap)
       }
 
