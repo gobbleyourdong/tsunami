@@ -130,6 +130,18 @@ sceneManager.add({
       }, 1000)
     }
 
+    // Wire projectile hit effects
+    projectiles.onHit = (x, y, killed) => {
+      if (killed) {
+        renderer?.spawnExplosion(x, y, '#ff8844', 15)
+        renderer!.screenShake = 0.3
+        audio?.playExplosion()
+      } else {
+        renderer?.spawnSparks(x, y, 4)
+        audio?.playHit()
+      }
+    }
+
     // Start wave 1
     waves.startNextWave()
 
@@ -149,7 +161,7 @@ sceneManager.add({
   update(dt) {
     if (state.paused || state.gameOver) return
 
-    player?.update(dt, projectiles!)
+    player?.update(dt, projectiles!, enemies!)
     enemies?.update(dt, player!, projectiles!)
     projectiles?.update(dt, enemies!, player!, pickups!)
     pickups?.update(dt, player!)

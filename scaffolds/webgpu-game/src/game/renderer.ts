@@ -20,6 +20,13 @@ const ENEMY_COLORS = { rusher: '#ff4444', shooter: '#ff8800', tank: '#cc44ff' }
 const PROJ_PLAYER_COLOR = '#00ffcc'
 const PROJ_ENEMY_COLOR = '#ff6644'
 
+interface FXParticle {
+  x: number; y: number
+  vx: number; vy: number
+  life: number; maxLife: number
+  size: number; color: string
+}
+
 export class ArenaRenderer {
   private ctx: CanvasRenderingContext2D
   private canvas: HTMLCanvasElement
@@ -27,6 +34,8 @@ export class ArenaRenderer {
   private centerX = 0
   private centerY = 0
   private time = 0
+  private particles: FXParticle[] = []
+  screenShake = 0
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -55,6 +64,40 @@ export class ArenaRenderer {
     ]
   }
 
+  /** Spawn explosion particles at world position. */
+  spawnExplosion(wx: number, wy: number, color: string, count = 12): void {
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5
+      const speed = 40 + Math.random() * 60
+      this.particles.push({
+        x: wx, y: wy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0.3 + Math.random() * 0.2,
+        maxLife: 0.5,
+        size: 2 + Math.random() * 3,
+        color,
+      })
+    }
+  }
+
+  /** Spawn hit sparks (smaller, fewer). */
+  spawnSparks(wx: number, wy: number, count = 5): void {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const speed = 30 + Math.random() * 40
+      this.particles.push({
+        x: wx, y: wy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0.15 + Math.random() * 0.1,
+        maxLife: 0.25,
+        size: 1.5 + Math.random() * 1.5,
+        color: '#ffffff',
+      })
+    }
+  }
+
   render(
     dt: number,
     player: PlayerController,
@@ -65,9 +108,31 @@ export class ArenaRenderer {
     this.time += dt
     const ctx = this.ctx
 
+    // Update particles
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i]
+      p.x += p.vx * dt
+      p.y += p.vy * dt
+      p.vx *= 0.95; p.vy *= 0.95
+      p.life -= dt
+      if (p.life <= 0) this.particles.splice(i, 1)
+    }
+
+    // Screen shake
+    let shakeX = 0, shakeY = 0
+    if (this.screenShake > 0) {
+      shakeX = (Math.random() - 0.5) * this.screenShake * 8
+      shakeY = (Math.random() - 0.5) * this.screenShake * 8
+      this.screenShake *= 0.9
+      if (this.screenShake < 0.01) this.screenShake = 0
+    }
+
+    ctx.save()
+    ctx.translate(shakeX, shakeY)
+
     // Clear
     ctx.fillStyle = BG_COLOR
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight)
+    ctx.fillRect(-10, -10, window.innerWidth + 20, window.innerHeight + 20)
 
     // Grid
     this.drawGrid()
@@ -92,6 +157,23 @@ export class ArenaRenderer {
 
     // Player
     this.drawPlayer(player)
+
+    // FX particles
+    for (const p of this.particles) {
+      const [sx, sy] = this.toScreen(p.x, p.y)
+      const alpha = p.life / p.maxLife
+      ctx.beginPath()
+      ctx.arc(sx, sy, p.size * alpha, 0, Math.PI * 2)
+      ctx.fillStyle = p.color
+      ctx.globalAlpha = alpha
+      ctx.shadowColor = p.color
+      ctx.shadowBlur = 4
+      ctx.fill()
+      ctx.shadowBlur = 0
+      ctx.globalAlpha = 1
+    }
+
+    ctx.restore()
   }
 
   private drawGrid(): void {
@@ -208,15 +290,32 @@ export class ArenaRenderer {
   private drawProjectile(proj: Projectile): void {
     const ctx = this.ctx
     const [px, py] = this.toScreen(proj.x, proj.y)
-    const r = proj.radius * this.scale
+    const r = Math.max(proj.radius * this.scale, 3)
+    const color = proj.owner === 'player' ? PROJ_PLAYER_COLOR : PROJ_ENEMY_COLOR
 
+    // Trail line (velocity direction, fading)
+    const speed = Math.sqrt(proj.vx * proj.vx + proj.vy * proj.vy)
+    if (speed > 0) {
+      const trailLen = 8
+      const nx = -proj.vx / speed
+      const ny = -proj.vy / speed
+      const gradient = ctx.createLinearGradient(px, py, px + nx * trailLen, py + ny * trailLen)
+      gradient.addColorStop(0, color)
+      gradient.addColorStop(1, 'transparent')
+      ctx.beginPath()
+      ctx.moveTo(px, py)
+      ctx.lineTo(px + nx * trailLen, py + ny * trailLen)
+      ctx.strokeStyle = gradient
+      ctx.lineWidth = r * 1.5
+      ctx.stroke()
+    }
+
+    // Bullet head (glowing)
     ctx.beginPath()
-    ctx.arc(px, py, Math.max(r, 2), 0, Math.PI * 2)
-    ctx.fillStyle = proj.owner === 'player' ? PROJ_PLAYER_COLOR : PROJ_ENEMY_COLOR
-
-    // Glow
-    ctx.shadowColor = ctx.fillStyle
-    ctx.shadowBlur = 6
+    ctx.arc(px, py, r, 0, Math.PI * 2)
+    ctx.fillStyle = color
+    ctx.shadowColor = color
+    ctx.shadowBlur = 8
     ctx.fill()
     ctx.shadowBlur = 0
   }
