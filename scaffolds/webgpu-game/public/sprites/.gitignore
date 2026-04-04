@@ -1,2 +1,10 @@
-# Sprite pipeline raw generations (512x512, regenerate with sprite_pipeline.py)
+# Sprite pipeline artifacts — only _best.png and _meta.json are committed
+# Regenerate all with: python engine/tools/sprite_pipeline.py batch engine/tools/rpg_asset_pack.json
 raw/
+*_0.png
+*_1.png
+*_2.png
+*_3.png
+*_4.png
+*_5.png
+*_sheet.png

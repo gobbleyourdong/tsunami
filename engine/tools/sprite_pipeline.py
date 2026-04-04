@@ -31,10 +31,40 @@ OUTPUT_DIR = Path(__file__).parent.parent.parent / "scaffolds" / "webgpu-game" /
 
 # ── Model Management ──────────────────────────────────────────────
 
+MODEL_CONFIGS = {
+    "sd-turbo": {
+        "repo": "stabilityai/sd-turbo",
+        "steps": 4, "guidance": 0.0,
+        "dtype": "float16", "variant": "fp16",
+    },
+    "sd-1.5": {
+        "repo": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+        "steps": 20, "guidance": 7.5,
+        "dtype": "float16", "variant": "fp16",
+    },
+    # Future backends — implement generate_image_api() when keys available:
+    # "gemini": { "api": "google", "model": "gemini-2.0-flash" },
+    # "fal-nano": { "api": "fal", "model": "fal-ai/nano-banana-2" },
+    # "gpt-image": { "api": "openai", "model": "gpt-image-1.5" },
+}
+
+_active_model = "sd-turbo"
 _pipe = None
 
+
+def set_model(name: str) -> None:
+    """Switch generation backend. Call before any generation."""
+    global _active_model, _pipe
+    if name not in MODEL_CONFIGS:
+        raise ValueError(f"Unknown model '{name}'. Available: {', '.join(MODEL_CONFIGS.keys())}")
+    if name != _active_model:
+        _pipe = None
+    _active_model = name
+    print(f"[sprite] Model: {name}")
+
+
 def get_pipeline():
-    """Lazy-load SD Turbo pipeline (keeps GPU memory free until needed)."""
+    """Lazy-load the active diffusion pipeline."""
     global _pipe
     if _pipe is not None:
         return _pipe
@@ -42,15 +72,22 @@ def get_pipeline():
     import torch
     from diffusers import AutoPipelineForText2Image
 
-    print("[sprite] Loading SD Turbo...")
-    _pipe = AutoPipelineForText2Image.from_pretrained(
-        "stabilityai/sd-turbo",
-        torch_dtype=torch.float16,
-        variant="fp16",
-    )
+    config = MODEL_CONFIGS[_active_model]
+    if "api" in config:
+        raise NotImplementedError(f"API backend '{config['api']}' — add key + implement generate_image_api()")
+
+    print(f"[sprite] Loading {_active_model} ({config['repo']})...")
+    kwargs = {"torch_dtype": getattr(torch, config["dtype"])}
+    if config.get("variant"):
+        kwargs["variant"] = config["variant"]
+    _pipe = AutoPipelineForText2Image.from_pretrained(config["repo"], **kwargs)
     _pipe = _pipe.to("cuda")
-    print("[sprite] SD Turbo ready on GPU")
+    print(f"[sprite] {_active_model} ready")
     return _pipe
+
+
+def get_model_config() -> dict:
+    return MODEL_CONFIGS[_active_model]
 
 
 # ── Generation ────────────────────────────────────────────────────
@@ -79,16 +116,22 @@ def generate_image(
     category: str = "character",
     width: int = 512,
     height: int = 512,
-    steps: int = 4,
-    guidance: float = 0.0,  # SD Turbo uses guidance_scale=0
+    steps: int = -1,       # -1 = use model default
+    guidance: float = -1,  # -1 = use model default
     seed: int = -1,
 ) -> Image.Image:
-    """Generate a single image with SD Turbo."""
+    """Generate a single image with the active model backend."""
     import torch
 
     pipe = get_pipeline()
+    config = get_model_config()
 
-    # Prepend style prefix
+    # Use model defaults if not overridden
+    if steps < 0:
+        steps = config["steps"]
+    if guidance < 0:
+        guidance = config["guidance"]
+
     styled_prompt = STYLE_PREFIXES.get(category, "") + prompt
 
     generator = None
@@ -564,18 +607,25 @@ def run_batch(batch_file: str):
 # ── CLI ───────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Sprite generation pipeline")
+    parser = argparse.ArgumentParser(
+        description="Sprite generation pipeline — SD Turbo + post-processing",
+        epilog="Models: " + ", ".join(MODEL_CONFIGS.keys()),
+    )
     parser.add_argument("category", choices=["character", "object", "texture", "batch"],
                         help="Asset category or 'batch' for JSON file")
     parser.add_argument("prompt", help="Text prompt or batch JSON file path")
+    parser.add_argument("--model", "-m", default="sd-turbo", choices=list(MODEL_CONFIGS.keys()),
+                        help="Generation model backend (default: sd-turbo)")
     parser.add_argument("--name", default="sprite", help="Output name prefix")
     parser.add_argument("--variations", "-n", type=int, default=4)
     parser.add_argument("--size", type=int, default=64, help="Target sprite size (square)")
     parser.add_argument("--colors", type=int, default=16, help="Palette color count")
-    parser.add_argument("--steps", type=int, default=4, help="Diffusion steps (1-4)")
+    parser.add_argument("--steps", type=int, default=-1, help="Diffusion steps (-1 = model default)")
     parser.add_argument("--gen-size", type=int, default=512, help="Generation resolution")
-    parser.add_argument("--bg", choices=["corners", "threshold", "chroma"], default="corners")
+    parser.add_argument("--bg", choices=["sigmatrade", "floodfill", "chroma"], default="sigmatrade")
     args = parser.parse_args()
+
+    set_model(args.model)
 
     if args.category == "batch":
         run_batch(args.prompt)
