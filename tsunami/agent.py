@@ -1087,6 +1087,15 @@ class Agent:
             self.state.add_system_note(tool_guidance)
             log.info(f"Tool guidance: {tool_guidance[:60]}")
 
+        # Phase-based transition nudges — catch stalls early
+        from .phase_filter import generate_phase_note
+        phase_note = generate_phase_note(
+            self.tool_filter.detect_phase(), self._tool_history
+        )
+        if phase_note:
+            self.state.add_system_note(phase_note)
+            log.info(f"Phase note: {phase_note[:60]}")
+
         # 8rs. Research swell — on first search, dispatch parallel research eddies
         _research_swelled = getattr(self, '_research_swelled', False)
         if tool_call.name == "search_web" and not result.is_error and not _research_swelled:
