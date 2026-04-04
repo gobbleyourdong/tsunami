@@ -249,8 +249,12 @@ def phase_b_train_student(model_path: str, output_dir: str, args):
         input_ids = saved["input_ids"]
         attention_mask = saved["attention_mask"]
 
-        # Student forward
-        student_out = student(input_ids=input_ids, attention_mask=attention_mask)
+        # Student forward (mm_token_type_ids=0 for text-only, required by Gemma 4)
+        mm_token_type_ids = torch.zeros_like(input_ids)
+        student_out = student(
+            input_ids=input_ids, attention_mask=attention_mask,
+            mm_token_type_ids=mm_token_type_ids,
+        )
         student_logits = student_out.logits
 
         # KL divergence loss
