@@ -1,0 +1,87 @@
+{
+  "frame_count": 4,
+  "columns": 4,
+  "rows": 1,
+  "frame_width": 64,
+  "frame_height": 64,
+  "sheet_width": 256,
+  "sheet_height": 64,
+  "frames": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 1,
+      "x": 64,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 2,
+      "x": 128,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "index": 3,
+      "x": 192,
+      "y": 0,
+      "width": 64,
+      "height": 64
+    }
+  ],
+  "prompt": "town guard with spear and helmet, plate armor, standing at attention",
+  "category": "character",
+  "name": "npc_guard",
+  "target_size": [
+    64,
+    64
+  ],
+  "palette_colors": 14,
+  "scores": [
+    {
+      "index": 3,
+      "score": 0.747,
+      "coverage": 0.383,
+      "center_offset": 0.243,
+      "fragments": 3,
+      "unique_colors": 9,
+      "final": 0.747
+    },
+    {
+      "index": 1,
+      "score": 0.744,
+      "coverage": 0.403,
+      "center_offset": 0.074,
+      "fragments": 4,
+      "unique_colors": 8,
+      "final": 0.744
+    },
+    {
+      "index": 0,
+      "score": 0.724,
+      "coverage": 0.357,
+      "center_offset": 0.038,
+      "fragments": 30,
+      "unique_colors": 9,
+      "final": 0.724
+    },
+    {
+      "index": 2,
+      "score": 0.712,
+      "coverage": 0.446,
+      "center_offset": 0.098,
+      "fragments": 22,
+      "unique_colors": 9,
+      "final": 0.712
+    }
+  ],
+  "best_index": 3,
+  "best_score": 0.747
+}
