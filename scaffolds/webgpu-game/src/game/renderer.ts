@@ -46,6 +46,12 @@ export class ArenaRenderer {
     window.addEventListener('resize', () => this.resize())
   }
 
+  /** Clear canvas to black (for non-arena scenes). */
+  clear(): void {
+    this.ctx.fillStyle = '#0a0a12'
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+  }
+
   private resize(): void {
     const dpr = window.devicePixelRatio || 1
     this.canvas.width = window.innerWidth * dpr
