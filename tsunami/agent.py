@@ -1649,6 +1649,26 @@ class Agent:
                                     f"Don't rewrite these — import them."
                                 )
                                 log.info(f"Scaffold awareness: {len(ui_components)} UI components available")
+                        # Engine awareness — inject API reference for webgpu-game projects
+                        elif (proj / "node_modules" / "tsunami-engine").exists() or \
+                             "tsunami-engine" in (proj / "package.json").read_text() if (proj / "package.json").exists() else False:
+                            self.state.add_system_note(
+                                "ENGINE API (import from 'tsunami-engine'):\n"
+                                "Game({mode:'2d'|'3d'}) — top-level orchestrator\n"
+                                "game.scene(name) — returns SceneBuilder\n"
+                                "level.spawn(name, {mesh,position,controller,ai,mass,...})\n"
+                                "level.camera(pos,target,fov) | level.light(type,opts) | level.ground(size,mat)\n"
+                                "Meshes: box|sphere|capsule|plane\n"
+                                "Controllers: fps|orbit|topdown\n"
+                                "AI: patrol|chase|flee (or BehaviorTree/FSM)\n"
+                                "Physics: PhysicsWorld, RigidBody, Sphere/Box/Capsule shapes, raycast\n"
+                                "Audio: AudioEngine.load()/play(), SpatialAudio\n"
+                                "Input: KeyboardInput, GamepadInput, ActionMap, ComboDetector\n"
+                                "VFX: GPUParticleSystem, ShaderGraph, PostProcess\n"
+                                "Flow: SceneManager, Menu, Dialog, Tutorial, Difficulty\n"
+                                "Systems: HealthSystem, Inventory, Checkpoint, Score"
+                            )
+                            log.info("Engine awareness: injected tsunami-engine API reference")
                         break
             except Exception:
                 pass
