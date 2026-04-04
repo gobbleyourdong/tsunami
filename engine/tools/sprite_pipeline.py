@@ -192,6 +192,85 @@ def quantize_palette(img: Image.Image, n_colors: int = 16) -> Image.Image:
     return Image.fromarray(result_arr)
 
 
+def score_sprite(img: Image.Image, category: str = "character") -> tuple[float, dict]:
+    """Score a sprite's quality. Returns (score 0-1, reasons dict).
+
+    Checks:
+    - Coverage: how much of the frame is filled (not too small, not cropped)
+    - Centering: subject should be roughly centered
+    - Opacity: enough opaque pixels (not mostly transparent)
+    - Fragmentation: single solid blob, not scattered dots
+    - Color diversity: enough distinct colors (not monochrome)
+    """
+    from scipy import ndimage
+
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+
+    arr = np.array(img)
+    h, w = arr.shape[:2]
+    alpha = arr[:, :, 3]
+    opaque = alpha > 128
+    total_px = h * w
+    opaque_count = np.sum(opaque)
+
+    reasons = {}
+    scores = []
+
+    # 1. Coverage: opaque area should be 15-85% of frame
+    coverage = opaque_count / total_px
+    if category == "texture":
+        coverage_score = min(coverage / 0.9, 1.0)  # textures should fill the frame
+    else:
+        if coverage < 0.05:
+            coverage_score = 0.0
+        elif coverage < 0.15:
+            coverage_score = coverage / 0.15
+        elif coverage > 0.85:
+            coverage_score = max(0, 1.0 - (coverage - 0.85) / 0.15)
+        else:
+            coverage_score = 1.0
+    reasons["coverage"] = round(coverage, 3)
+    scores.append(coverage_score)
+
+    # 2. Centering: center of mass should be near frame center
+    if opaque_count > 0 and category != "texture":
+        com = ndimage.center_of_mass(opaque)
+        cx_off = abs(com[1] / w - 0.5) * 2  # 0=centered, 1=edge
+        cy_off = abs(com[0] / h - 0.5) * 2
+        center_score = 1.0 - max(cx_off, cy_off)
+        reasons["center_offset"] = round(max(cx_off, cy_off), 3)
+    else:
+        center_score = 1.0 if category == "texture" else 0.0
+    scores.append(center_score)
+
+    # 3. Fragmentation: how many disconnected blobs? Fewer is better.
+    if opaque_count > 0 and category != "texture":
+        labeled, n_labels = ndimage.label(opaque)
+        frag_score = 1.0 / max(n_labels, 1)  # 1 blob = 1.0, 5 blobs = 0.2
+        reasons["fragments"] = n_labels
+    else:
+        frag_score = 1.0
+    scores.append(frag_score)
+
+    # 4. Color diversity
+    if opaque_count > 10:
+        opaque_pixels = arr[opaque][:, :3]
+        unique_colors = len(np.unique(opaque_pixels.reshape(-1, 3), axis=0))
+        if category == "texture":
+            diversity_score = min(unique_colors / 20, 1.0)
+        else:
+            diversity_score = min(unique_colors / 10, 1.0)
+        reasons["unique_colors"] = unique_colors
+    else:
+        diversity_score = 0.0
+    scores.append(diversity_score)
+
+    final_score = sum(scores) / len(scores)
+    reasons["final"] = round(final_score, 3)
+    return final_score, reasons
+
+
 def pixel_snap(img: Image.Image, target_size: tuple[int, int] = (64, 64)) -> Image.Image:
     """Downscale to target pixel art size using nearest-neighbor."""
     if img.mode != "RGBA":
@@ -386,16 +465,33 @@ def run_pipeline(
         quantized = quantize_palette(snapped, n_colors)
         final.append(quantized)
 
-    # Save individual sprites
+    # Score all sprites and rank
+    print("[6/7] Scoring sprites...")
+    scored = []
+    for i, img in enumerate(final):
+        score, reasons = score_sprite(img, category)
+        scored.append((i, score, reasons, img))
+        status = "GOOD" if score > 0.6 else "FAIR" if score > 0.35 else "POOR"
+        print(f"  [{i}] {status} score={score:.3f}  coverage={reasons.get('coverage', '?')} "
+              f"frags={reasons.get('fragments', '?')} colors={reasons.get('unique_colors', '?')}")
+
+    # Sort by score descending
+    scored.sort(key=lambda x: x[1], reverse=True)
+    best_idx, best_score, _, best_img = scored[0]
+    print(f"  Best: [{best_idx}] score={best_score:.3f}")
+
+    # Save all sprites + mark best
     sprite_dir = out / name
     sprite_dir.mkdir(parents=True, exist_ok=True)
     for i, img in enumerate(final):
         img.save(sprite_dir / f"{name}_{i}.png")
-    print(f"[5/6] Saved {len(final)} sprites to {sprite_dir}")
+    best_img.save(sprite_dir / f"{name}_best.png")
+    print(f"[6/7] Saved {len(final)} sprites + best to {sprite_dir}")
 
-    # 5. Assemble spritesheet
-    print("[6/6] Assembling spritesheet...")
-    sheet, metadata = assemble_spritesheet(final, columns=len(final))
+    # 7. Assemble spritesheet (best first, then rest by score)
+    print("[7/7] Assembling spritesheet...")
+    sorted_images = [s[3] for s in scored]
+    sheet, metadata = assemble_spritesheet(sorted_images, columns=len(sorted_images))
     sheet.save(sprite_dir / f"{name}_sheet.png")
 
     metadata["prompt"] = prompt
@@ -403,6 +499,9 @@ def run_pipeline(
     metadata["name"] = name
     metadata["target_size"] = list(target_size)
     metadata["palette_colors"] = n_colors
+    metadata["scores"] = [{"index": s[0], "score": round(s[1], 3), **s[2]} for s in scored]
+    metadata["best_index"] = best_idx
+    metadata["best_score"] = round(best_score, 3)
 
     with open(sprite_dir / f"{name}_meta.json", "w") as f:
         json.dump(metadata, f, indent=2)
