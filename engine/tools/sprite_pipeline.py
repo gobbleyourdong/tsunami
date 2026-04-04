@@ -243,6 +243,17 @@ def remove_background(img: Image.Image, method: str = "sigmatrade", threshold: i
     return Image.fromarray(arr)
 
 
+def center_crop_object(img: Image.Image, crop_ratio: float = 0.55) -> Image.Image:
+    """Crop to center region — grabs the main centered object, discards edge clutter.
+    Use for 'object' category where SD generates grids/collections but we want one item."""
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+    w, h = img.size
+    margin_x = int(w * (1 - crop_ratio) / 2)
+    margin_y = int(h * (1 - crop_ratio) / 2)
+    return img.crop((margin_x, margin_y, w - margin_x, h - margin_y))
+
+
 def quantize_palette(img: Image.Image, n_colors: int = 16) -> Image.Image:
     """Reduce to N colors using median cut quantization."""
     if img.mode != "RGBA":
@@ -508,14 +519,19 @@ def run_pipeline(
         print("[2/5] Skipping bg removal (texture mode)")
         transparent = [img.convert("RGBA") for img in images]
     else:
-        print("[2/6] Removing backgrounds...")
+        # For objects: center-crop first to grab the main item before bg removal
+        if category == "object":
+            print("[2/7] Center-cropping objects...")
+            images = [center_crop_object(img, 0.55) for img in images]
+
+        print("[3/7] Removing backgrounds...")
         transparent = []
         for img in images:
             t = remove_background(img, method="sigmatrade", threshold=120)
             transparent.append(t)
 
-        # 2b. Isolate largest object (discard extra characters/items)
-        print("[3/6] Isolating largest object per image...")
+        # Isolate largest connected region
+        print("[4/7] Isolating largest object per image...")
         transparent = [isolate_largest_object(t) for t in transparent]
 
     # 4. Trim + normalize (skip trim for textures)
