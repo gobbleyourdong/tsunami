@@ -1,0 +1,197 @@
+/**
+ * RPG Main — 2.5D top-down RPG with tile maps, NPC dialog, and combat.
+ * Entry point: import and call rpgBoot(canvas, hud)
+ */
+
+import { KeyboardInput } from '@engine/input/keyboard'
+import { createVillageMap, createForestMap, WorldMap } from './world'
+import { RPGPlayer } from './rpg_player'
+import { RPGRenderer } from './rpg_renderer'
+
+export interface RPGState {
+  currentMap: WorldMap
+  maps: Map<string, WorldMap>
+  player: RPGPlayer
+  activeDialog: string[] | null
+  dialogIndex: number
+  dialogSpeaker: string
+  gamePhase: 'explore' | 'dialog' | 'combat' | 'paused'
+}
+
+export function rpgBoot(canvas: HTMLCanvasElement, hud: HTMLElement): void {
+  const keyboard = new KeyboardInput()
+  keyboard.bind()
+
+  // Load maps
+  const maps = new Map<string, WorldMap>()
+  maps.set('village', createVillageMap())
+  maps.set('forest', createForestMap())
+
+  const startMap = maps.get('village')!
+  const player = new RPGPlayer(keyboard, startMap.playerStart[0], startMap.playerStart[1])
+
+  const state: RPGState = {
+    currentMap: startMap,
+    maps,
+    player,
+    activeDialog: null,
+    dialogIndex: 0,
+    dialogSpeaker: '',
+    gamePhase: 'explore',
+  }
+
+  const renderer = new RPGRenderer(canvas)
+
+  // Show RPG title
+  showRPGTitle(hud)
+
+  let started = false
+  let lastTime = performance.now()
+
+  function tick(now: number) {
+    const dt = Math.min((now - lastTime) / 1000, 0.1)
+    lastTime = now
+
+    if (!started) {
+      if (keyboard.justPressed('Enter') || keyboard.justPressed('Space')) {
+        started = true
+        clearHUD(hud)
+      }
+      keyboard.update()
+      renderer.render(dt, state.currentMap, state.player, null, 0)
+      requestAnimationFrame(tick)
+      return
+    }
+
+    // --- Update ---
+    if (state.gamePhase === 'explore') {
+      player.update(dt, state.currentMap)
+
+      // Check for map exit
+      if (player.interactTarget?.id === '__exit__') {
+        const targetName = player.interactTarget.name
+        const spawnX = player.interactTarget.x
+        const spawnY = player.interactTarget.y
+        player.interactTarget = null
+
+        const newMap = state.maps.get(targetName)
+        if (newMap) {
+          state.currentMap = newMap
+          player.x = spawnX
+          player.y = spawnY
+          player.targetX = spawnX
+          player.targetY = spawnY
+          player.moving = false
+        }
+      }
+
+      // Interact (E key)
+      if (keyboard.justPressed('KeyE')) {
+        const npc = player.findNearbyNPC(state.currentMap)
+        if (npc && !npc.hostile && npc.dialog && npc.dialog.length > 0) {
+          state.activeDialog = npc.dialog
+          state.dialogIndex = 0
+          state.dialogSpeaker = npc.name
+          state.gamePhase = 'dialog'
+        }
+      }
+
+      // Attack (Space)
+      if (keyboard.justPressed('Space')) {
+        const npc = player.findNearbyNPC(state.currentMap)
+        if (npc && npc.hostile && player.canAttack()) {
+          const dmg = player.attack()
+          // Remove hostile NPC (simple kill — no HP tracking on NPCs yet)
+          const idx = state.currentMap.npcs.indexOf(npc)
+          if (idx >= 0) state.currentMap.npcs.splice(idx, 1)
+        }
+      }
+
+      // NPC patrol movement
+      for (const npc of state.currentMap.npcs) {
+        if (npc.patrol && npc.patrol.length > 0) {
+          // Simple patrol: move toward next waypoint
+          const wp = npc.patrol[0]
+          const dx = wp[0] - npc.x
+          const dy = wp[1] - npc.y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < 0.1) {
+            npc.patrol.push(npc.patrol.shift()!) // cycle waypoints
+          } else {
+            const speed = 1.5 * dt
+            npc.x += (dx / dist) * speed
+            npc.y += (dy / dist) * speed
+          }
+        }
+      }
+
+    } else if (state.gamePhase === 'dialog') {
+      if (keyboard.justPressed('KeyE') || keyboard.justPressed('Space') || keyboard.justPressed('Enter')) {
+        state.dialogIndex++
+        if (state.dialogIndex >= (state.activeDialog?.length ?? 0)) {
+          state.activeDialog = null
+          state.dialogIndex = 0
+          state.gamePhase = 'explore'
+        }
+      }
+    }
+
+    // Pause
+    if (keyboard.justPressed('Escape')) {
+      if (state.gamePhase === 'paused') state.gamePhase = 'explore'
+      else if (state.gamePhase === 'explore') state.gamePhase = 'paused'
+    }
+
+    // --- Render ---
+    renderer.render(dt, state.currentMap, state.player, state.activeDialog, state.dialogIndex)
+
+    // Pause overlay
+    if (state.gamePhase === 'paused') {
+      const ctx = canvas.getContext('2d')!
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'
+      ctx.fillRect(0, 0, window.innerWidth, window.innerHeight)
+      ctx.fillStyle = '#fff'
+      ctx.font = '24px monospace'
+      ctx.textAlign = 'center'
+      ctx.fillText('PAUSED', window.innerWidth / 2, window.innerHeight / 2)
+      ctx.font = '14px monospace'
+      ctx.fillText('Press ESC to resume', window.innerWidth / 2, window.innerHeight / 2 + 30)
+      ctx.textAlign = 'left'
+    }
+
+    keyboard.update()
+    requestAnimationFrame(tick)
+  }
+
+  requestAnimationFrame(tick)
+}
+
+function showRPGTitle(hud: HTMLElement): void {
+  while (hud.firstChild) hud.removeChild(hud.firstChild)
+  Object.assign(hud.style, { textAlign: 'center', paddingTop: '25vh' })
+
+  const title = document.createElement('div')
+  title.style.cssText = 'font-size:42px;font-weight:bold;color:#ffcc00;text-shadow:0 0 20px #ffcc0044'
+  title.textContent = 'OAKVALE'
+  hud.appendChild(title)
+
+  const sub = document.createElement('div')
+  sub.style.cssText = 'margin-top:10px;color:#aaa;font-size:16px'
+  sub.textContent = 'A 2.5D Sprite RPG'
+  hud.appendChild(sub)
+
+  const prompt = document.createElement('div')
+  prompt.style.cssText = 'margin-top:40px;color:#4a9eff;font-size:16px'
+  prompt.textContent = 'Press ENTER to Begin'
+  hud.appendChild(prompt)
+
+  const controls = document.createElement('div')
+  controls.style.cssText = 'margin-top:30px;color:#666;font-size:12px;line-height:1.8'
+  controls.textContent = 'WASD: Move | E: Interact | Space: Attack | ESC: Pause'
+  hud.appendChild(controls)
+}
+
+function clearHUD(hud: HTMLElement): void {
+  while (hud.firstChild) hud.removeChild(hud.firstChild)
+  Object.assign(hud.style, { textAlign: '', paddingTop: '' })
+}
