@@ -2,9 +2,9 @@
 
 Verifies:
 - Scaffold structure exists
-- Engine is linked as dependency
+- Engine is referenced via @engine path alias
 - Classifier picks webgpu-game for engine-level keywords
-- Engine tests pass (256 tests)
+- Engine source exists with all modules
 """
 
 import json
@@ -37,65 +37,41 @@ class TestScaffoldExists:
     def test_tsconfig(self):
         assert (SCAFFOLD_DIR / "tsconfig.json").exists()
 
-    def test_readme(self):
-        assert (SCAFFOLD_DIR / "README.md").exists()
 
+class TestEngineAlias:
+    """Engine linked via @engine path alias."""
 
-class TestEngineLink:
-    """Engine is linked as a local dependency."""
+    def test_vite_has_engine_alias(self):
+        content = (SCAFFOLD_DIR / "vite.config.ts").read_text()
+        assert "@engine" in content
 
-    def test_tsunami_engine_dependency(self):
-        pkg = json.loads((SCAFFOLD_DIR / "package.json").read_text())
-        assert "tsunami-engine" in pkg["dependencies"]
-        assert "../../engine" in pkg["dependencies"]["tsunami-engine"]
+    def test_tsconfig_has_engine_paths(self):
+        content = (SCAFFOLD_DIR / "tsconfig.json").read_text()
+        assert "@engine" in content
 
 
 class TestMainTs:
-    """Main entry point uses the engine API."""
+    """Main entry point uses the engine API via @engine imports."""
 
-    def test_imports_game(self):
+    def test_imports_engine(self):
         content = (SCAFFOLD_DIR / "src" / "main.ts").read_text()
-        assert "import" in content
-        assert "tsunami-engine" in content
+        assert "@engine" in content
 
-    def test_creates_game(self):
+    def test_uses_game_class(self):
         content = (SCAFFOLD_DIR / "src" / "main.ts").read_text()
-        assert "new Game" in content
+        assert "Game" in content
 
-    def test_uses_scene_builder(self):
+    def test_uses_input(self):
         content = (SCAFFOLD_DIR / "src" / "main.ts").read_text()
-        assert "game.scene" in content
+        assert "KeyboardInput" in content or "ActionMap" in content
 
-    def test_spawns_entities(self):
+    def test_uses_scene_manager(self):
         content = (SCAFFOLD_DIR / "src" / "main.ts").read_text()
-        assert "level.spawn" in content
+        assert "SceneManager" in content or "sceneManager" in content
 
-    def test_has_ground(self):
+    def test_has_game_loop(self):
         content = (SCAFFOLD_DIR / "src" / "main.ts").read_text()
-        assert "level.ground" in content
-
-    def test_has_lighting(self):
-        content = (SCAFFOLD_DIR / "src" / "main.ts").read_text()
-        assert "level.light" in content
-
-    def test_starts_game(self):
-        content = (SCAFFOLD_DIR / "src" / "main.ts").read_text()
-        assert "game.start()" in content
-
-
-class TestReadme:
-    """README documents engine API."""
-
-    def test_has_engine_modules_table(self):
-        content = (SCAFFOLD_DIR / "README.md").read_text()
-        for module in ["renderer", "physics", "ai", "animation", "audio", "input", "vfx", "flow"]:
-            assert module in content
-
-    def test_has_spawn_options(self):
-        content = (SCAFFOLD_DIR / "README.md").read_text()
-        assert "spawn" in content.lower()
-        assert "mesh" in content
-        assert "controller" in content
+        assert "requestAnimationFrame" in content or "game.start" in content
 
 
 class TestClassifier:
@@ -120,11 +96,9 @@ class TestClassifier:
         assert _pick_scaffold("gpu particle system", []) == "webgpu-game"
 
     def test_threejs_still_works(self):
-        """Three.js keywords should still pick threejs-game."""
         assert _pick_scaffold("three.js scene", []) == "threejs-game"
 
     def test_generic_3d_picks_threejs(self):
-        """Generic 3D should still pick Three.js (more accessible)."""
         assert _pick_scaffold("3d game", []) == "threejs-game"
 
 

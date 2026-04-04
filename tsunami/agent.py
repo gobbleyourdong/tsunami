@@ -379,6 +379,25 @@ class Agent:
                 app_path.write_text(auto_app)
                 log.info(f"Auto-wired {project_dir.name}/App.tsx with {len(components)} components")
 
+    def _is_engine_project(self, proj_dir: Path) -> bool:
+        """Check if a project uses the Tsunami Engine (webgpu-game scaffold)."""
+        try:
+            pkg = proj_dir / "package.json"
+            if pkg.exists():
+                content = pkg.read_text()
+                if "tsunami-engine" in content or "@engine" in content:
+                    return True
+            # Check for @engine imports in source
+            vite_config = proj_dir / "vite.config.ts"
+            if vite_config.exists() and "@engine" in vite_config.read_text():
+                return True
+            tsconfig = proj_dir / "tsconfig.json"
+            if tsconfig.exists() and "@engine" in tsconfig.read_text():
+                return True
+        except Exception:
+            pass
+        return False
+
     def _inject_todo(self):
         """Inject todo.md into context if it exists in any active deliverable.
 
@@ -1650,8 +1669,7 @@ class Agent:
                                 )
                                 log.info(f"Scaffold awareness: {len(ui_components)} UI components available")
                         # Engine awareness — inject API reference for webgpu-game projects
-                        elif (proj / "node_modules" / "tsunami-engine").exists() or \
-                             "tsunami-engine" in (proj / "package.json").read_text() if (proj / "package.json").exists() else False:
+                        elif self._is_engine_project(proj):
                             self.state.add_system_note(
                                 "ENGINE API (import from 'tsunami-engine'):\n"
                                 "Game({mode:'2d'|'3d'}) — top-level orchestrator\n"
