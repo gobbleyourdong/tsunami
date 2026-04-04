@@ -72,6 +72,7 @@ sceneManager.add({
   name: 'title',
   enter() {
     state.phase = 'title'
+    renderer?.clear()
     hud?.showTitle(state.score.highScore)
   },
   update(dt) {
@@ -85,6 +86,7 @@ sceneManager.add({
   name: 'tutorial',
   enter() {
     state.phase = 'tutorial'
+    renderer?.clear()
     tutorial = new TutorialSystem()
     tutorial.onComplete = () => {
       sceneManager.goto('arena', { type: 'fade', duration: 400 })
@@ -180,6 +182,7 @@ sceneManager.add({
   name: 'gameover',
   enter() {
     state.phase = 'gameover'
+    renderer?.clear()
     hud?.showGameOver(state.score.score, state.wave, state.score.maxCombo)
   },
   update(dt) {
