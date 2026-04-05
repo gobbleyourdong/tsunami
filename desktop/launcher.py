@@ -372,26 +372,19 @@ def main():
         urllib.request.urlretrieve(url, dest)
         print(f"  ✓ {name}")
 
-    # Always need 2B
-    if not eddy_model:
-        dest = str(MODELS_DIR / "Qwen3.5-2B-Q4_K_M.gguf")
-        dl("https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf", dest)
+    # One model: Gemma 4 E4B — orchestrator + builder + eddy, all roles
+    model_name = "gemma-4-E4B-it-Q4_K_M.gguf"
+    model_url = "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
+    if not wave_model and not eddy_model:
+        dest = str(MODELS_DIR / model_name)
+        dl(model_url, dest)
+        wave_model = dest
         eddy_model = dest
 
-    # 9B only in full mode
-    if mode == "full" and not wave_model:
-        dest = str(MODELS_DIR / "Qwen3.5-9B-Q4_K_M.gguf")
-        dl("https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf", dest)
-        wave_model = dest
-
-    # Start servers
-    if mode == "full" and wave_model:
-        start_server("wave (9B)", 8090, wave_model, ctx_size=32768)
-        start_server("eddy (2B)", 8092, eddy_model, ctx_size=16384, parallel=4)
-    else:
-        # Lite: 2B plays both roles — one server, one model
-        start_server("wave+eddy (2B)", 8090, eddy_model, ctx_size=16384, parallel=2)
-        # Point eddy at the wave — no second server needed
+    # One server, all roles — scale instances by VRAM
+    n_parallel = 4 if mode == "full" else 2
+    start_server("tsunami (E4B)", 8090, wave_model, ctx_size=16384, parallel=n_parallel)
+    # All endpoints point to the same server
         os.environ["TSUNAMI_EDDY_ENDPOINT"] = "http://localhost:8090"
 
     # Always try image gen — even lite mode gets it
