@@ -244,7 +244,14 @@ class OpenAICompatModel(LLMModel):
             func = tc["function"]
             args = func.get("arguments", "{}")
             if isinstance(args, str):
-                args = json.loads(args)
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    log.warning(f"Failed to parse tool args JSON: {args[:200]}")
+                    args = {}
+            # Handle Gemma 4 sometimes nesting args under "arguments"
+            if isinstance(args, dict) and "arguments" in args and len(args) == 1:
+                args = args["arguments"]
             tool_call = ToolCall(name=func["name"], arguments=args)
 
         return LLMResponse(content=content, tool_call=tool_call, raw=data)
