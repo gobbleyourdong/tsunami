@@ -364,9 +364,23 @@ class Agent:
             is_stub = "TODO" in app_content or "not built yet" in app_content or (
                 len(app_content) < 200 and "import" not in app_content.lower()
             )
+            # Only wire project-specific components, not scaffold UI library
+            scaffold_components = {
+                'Badge', 'Modal', 'Toast', 'Tabs', 'Dialog', 'Select',
+                'Skeleton', 'Progress', 'Avatar', 'Accordion', 'Alert',
+                'Tooltip', 'Switch', 'Dropdown', 'StarRating', 'GlowCard',
+                'Parallax', 'AnimatedCounter', 'BeforeAfter', 'ColorPicker',
+                'Timeline', 'Kanban', 'AnnouncementBar', 'Marquee',
+                'TypeWriter', 'GradientText', 'ScrollReveal', 'Slideshow',
+                'RichTextEditor', 'FileManager', 'CommandPalette', 'Calendar',
+                'MapView', 'NotificationCenter', 'AudioPlayer', 'VideoPlayer',
+            }
             components = [
                 f.stem for f in comp_dir.iterdir()
-                if f.suffix in ('.tsx', '.ts') and f.stem not in ('index', 'types')
+                if f.suffix in ('.tsx', '.ts')
+                and f.stem not in ('index', 'types')
+                and f.stem not in scaffold_components
+                and not (comp_dir / 'ui' / f.name).exists()  # skip if also in ui/
             ]
             if is_stub and components:
                 imports = "\n".join(f'import {c} from "./components/{c}"' for c in sorted(components))
