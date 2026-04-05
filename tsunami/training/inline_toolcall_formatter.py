@@ -25,7 +25,8 @@ from .pair_generator import BuilderPair, OrchestratorPair
 log = logging.getLogger("tsunami.training.inline_toolcall_formatter")
 
 # The inline format the model will learn
-TOOL_CALL_FORMAT = '<tool>{name}</tool>\n<args>{args}</args>'
+# Use triple-pipe delimiters — can't appear in any valid code
+TOOL_CALL_FORMAT = '|||TOOL:{name}|||{args}|||END|||'
 
 
 def format_tool_call_inline(name: str, arguments: dict) -> str:
@@ -40,7 +41,7 @@ def parse_tool_call_inline(text: str) -> tuple[str, dict] | None:
     Returns (name, arguments) or None if no tool call found.
     """
     import re
-    match = re.search(r'<tool>(.*?)</tool>\s*<args>(.*?)</args>', text, re.DOTALL)
+    match = re.search(r'\|\|\|TOOL:(.*?)\|\|\|(.*?)\|\|\|END\|\|\|', text, re.DOTALL)
     if not match:
         return None
     name = match.group(1).strip()
@@ -65,7 +66,7 @@ def trace_to_inline_conversation(trace: SessionTrace) -> list[dict]:
         "content": (
             "You are Tsunami, an autonomous app builder. "
             "When you need to use a tool, output it as:\n"
-            "<tool>tool_name</tool>\n<args>{\"key\": \"value\"}</args>\n\n"
+            '|||TOOL:tool_name|||{"key": "value"}|||END|||\n\n'
             "Available tools: project_init, file_write, file_edit, file_read, "
             "shell_exec, message_result, message_info\n\n"
             "Rules:\n"
@@ -154,7 +155,7 @@ def generate_inline_pairs_from_builders(builder_pairs: list[BuilderPair]) -> lis
                 "from": "system",
                 "value": (
                     "You are Tsunami. Use inline tool calls:\n"
-                    "<tool>tool_name</tool>\n<args>{...}</args>\n\n"
+                    '|||TOOL:tool_name|||{...}|||END|||\n\n'
                     "Write complete code. No stubs. No explanations."
                 ),
             },
