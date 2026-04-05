@@ -377,13 +377,13 @@ def main():
     # <8GB: E2B (3.1GB model, 5GB for KV cache)
     if not wave_model and not eddy_model:
         if mode == "full":
-            model_name = "gemma-4-E4B-it-Q4_K_M-nothink.gguf"
-            model_url = "https://huggingface.co/gobbleyourdong/tsunami-models/resolve/main/gemma-4-E4B-it-Q4_K_M-nothink.gguf"
+            model_name = "gemma-4-E4B-it-Q4_K_M.gguf"
+            model_url = "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
             ctx_size = 16384
             n_parallel = 4
         else:
-            model_name = "gemma-4-E2B-it-Q4_K_M-nothink.gguf"
-            model_url = "https://huggingface.co/gobbleyourdong/tsunami-models/resolve/main/gemma-4-E2B-it-Q4_K_M-nothink.gguf"
+            model_name = "gemma-4-E2B-it-Q4_K_M.gguf"
+            model_url = "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
             ctx_size = 8192
             n_parallel = 2
 

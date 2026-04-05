@@ -292,13 +292,13 @@ download() {
 
 # Scale model by VRAM
 if [ "$MODE" = "full" ]; then
-  download "gobbleyourdong/tsunami-models" "gemma-4-E4B-it-Q4_K_M-nothink.gguf"
+  download "unsloth/gemma-4-E4B-it-GGUF" "gemma-4-E4B-it-Q4_K_M.gguf"
   echo ""
-  echo "  Model: Gemma 4 E4B (5GB) — full mode, thinking disabled"
+  echo "  Model: Gemma 4 E4B (5GB) — full mode"
 else
-  download "gobbleyourdong/tsunami-models" "gemma-4-E2B-it-Q4_K_M-nothink.gguf"
+  download "unsloth/gemma-4-E2B-it-GGUF" "gemma-4-E2B-it-Q4_K_M.gguf"
   echo ""
-  echo "  Model: Gemma 4 E2B (3.1GB) — degraded mode, thinking disabled"
+  echo "  Model: Gemma 4 E2B (3.1GB) — degraded mode"
 fi
 
 # --- Shell alias ---
