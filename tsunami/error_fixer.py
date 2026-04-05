@@ -329,6 +329,17 @@ def _classify_and_fix(project_dir: Path, error: str) -> str | None:
                 return f"added <canvas id='{element_id}'> to index.html"
         return None
 
+    # 19. Escaped newlines in source files (Gemma 4 writes \\n instead of real newlines)
+    if "Unexpected" in error or "not valid" in error:
+        src_dir = project_dir / "src"
+        if src_dir.exists():
+            for tsx in src_dir.rglob("*.tsx"):
+                content = tsx.read_text()
+                if "\\n" in content and content.count("\\n") > 5:
+                    fixed = content.replace("\\n", "\n").replace("\\t", "\t")
+                    tsx.write_text(fixed)
+                    return f"fixed escaped newlines in {tsx.name}"
+
     return None
 
 

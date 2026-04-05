@@ -607,6 +607,42 @@ class Agent:
                     )
                     log.warning("Build nudge: 15 iters with 0 writes")
 
+            # FORCED CODE WRITE at iter 25 — bypass the agent, ask model directly
+            if self.state.iteration == 25:
+                writes = sum(1 for t in self._tool_history if t in ("file_write", "file_edit"))
+                if writes <= 1:  # only scaffold stub written
+                    log.warning("FORCED code write: 25 iters with <=1 writes — generating App.tsx directly")
+                    try:
+                        user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                        # Find the project dir
+                        deliverables = Path(self.config.workspace_dir) / "deliverables"
+                        if deliverables.exists():
+                            projects = sorted(
+                                [d for d in deliverables.iterdir() if d.is_dir()],
+                                key=lambda p: p.stat().st_mtime, reverse=True,
+                            )
+                            if projects:
+                                app_path = projects[0] / "src" / "App.tsx"
+                                # Direct generation — single prompt, no agent loop
+                                gen_resp = await self.model.generate(messages=[
+                                    {"role": "system", "content": "You are a React TypeScript expert. Write ONLY code, no explanations. Include all imports. Use the design system CSS variables (--bg-primary, --bg-secondary, --text-primary, --accent, --border, --radius-md)."},
+                                    {"role": "user", "content": f"Write a complete App.tsx for: {user_req[:500]}. Single file, all logic inline. Export default function App."},
+                                ])
+                                if gen_resp.content and len(gen_resp.content) > 100:
+                                    # Extract code from markdown fences if present
+                                    import re
+                                    code = gen_resp.content
+                                    match = re.search(r'```(?:tsx?|typescript|javascript)?\n(.*?)```', code, re.DOTALL)
+                                    if match:
+                                        code = match.group(1)
+                                    code = f'import "./index.css"\n{code.strip()}\n'
+                                    app_path.write_text(code)
+                                    self.state.add_tool_result("file_write", {"path": str(app_path)}, f"Wrote {app_path.name} ({len(code)} chars) [FORCED]")
+                                    self._tool_history.append("file_write")
+                                    log.info(f"Forced App.tsx write: {len(code)} chars")
+                    except Exception as e:
+                        log.warning(f"Forced code write failed: {e}")
+
             # Safety valve — force deliver if truly lost
             if self.state.iteration > 30:
                 # Check RECENT writes (last 20 tools), not all-time
