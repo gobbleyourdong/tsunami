@@ -92,56 +92,28 @@ if ! check_model; then
     fi
   fi
   VRAM_GB=${VRAM_GB:-8}
-  LITE_MODE=false
-  if [ "$VRAM_GB" -lt 10 ] 2>/dev/null; then
-    LITE_MODE=true
-    echo "  ${VRAM_GB}GB available — lite mode (2B)"
+  DEGRADED=false
+  if [ "$VRAM_GB" -lt 8 ] 2>/dev/null; then
+    DEGRADED=true
+    echo "  ${VRAM_GB}GB available — degraded mode (reduced context)"
   else
     echo "  ${VRAM_GB}GB available — full mode"
   fi
 
-  # Model priority: 27B > MoE > 9B > 2B (lite skips large models)
-  DENSE_27B=""
-  MOE_MODEL=""
-  if [ "$LITE_MODE" = "false" ]; then
-    DENSE_27B=$(ls models/Qwen3.5-27B*.gguf 2>/dev/null | head -1)
-    MOE_MODEL=$(ls models/*122B*-00001-of-*.gguf 2>/dev/null | head -1)
-  fi
-  MMPROJ_27B=$(ls models/mmproj-27B*.gguf models/mmproj-BF16.gguf models/mmproj-F16.gguf 2>/dev/null | head -1)
-  if [ "$LITE_MODE" = "true" ]; then
-    TEXT_MODEL=$(ls models/Qwen3*-2B*.gguf 2>/dev/null | head -1)
-  else
-    TEXT_MODEL=$(ls models/Qwen3*-9B*.gguf models/Qwen3*-8B*.gguf models/Qwen3*-2B*.gguf 2>/dev/null | head -1)
+  # Model: Gemma 4 E4B (single model for all roles)
+  GEMMA_MODEL=$(ls models/gemma-4-E4B*.gguf 2>/dev/null | head -1)
+  # Fallback: any .gguf model
+  if [ -z "$GEMMA_MODEL" ]; then
+    GEMMA_MODEL=$(ls models/gemma*.gguf models/Qwen*.gguf 2>/dev/null | head -1)
   fi
 
-  if [ -n "$DENSE_27B" ] && [ -f "$LLAMA" ]; then
-    MMPROJ_FLAG=""
-    [ -n "$MMPROJ_27B" ] && MMPROJ_FLAG="--mmproj $MMPROJ_27B"
-    echo "  starting 27B dense: $(basename $DENSE_27B)"
-    "$LLAMA" --model "$DENSE_27B" $MMPROJ_FLAG \
+  if [ -n "$GEMMA_MODEL" ] && [ -f "$LLAMA" ]; then
+    CTX_SIZE=16384
+    [ "$DEGRADED" = "true" ] && CTX_SIZE=8192
+    echo "  starting $(basename $GEMMA_MODEL)"
+    "$LLAMA" --model "$GEMMA_MODEL" \
       --host 0.0.0.0 --port 8090 \
-      --ctx-size 32768 --n-gpu-layers 99 -fa on \
-      --cache-type-k bf16 --cache-type-v bf16 \
-      --jinja --chat-template-kwargs '{"enable_thinking":false}' \
-      > /tmp/llama-server.log 2>&1 &
-    MODEL_PID=$!
-  elif [ -n "$MOE_MODEL" ] && [ -f "$LLAMA" ]; then
-    echo "  starting 122B MoE: $(basename $MOE_MODEL)"
-    "$LLAMA" --model "$MOE_MODEL" \
-      --host 0.0.0.0 --port 8090 \
-      --ctx-size 32768 --n-gpu-layers 99 -fa on \
-      --cache-type-k q8_0 --cache-type-v q8_0 \
-      > /tmp/llama-server.log 2>&1 &
-    MODEL_PID=$!
-  elif [ -n "$TEXT_MODEL" ] && [ -f "$LLAMA" ]; then
-    MMPROJ_SMALL=$(ls models/mmproj-2B-BF16.gguf 2>/dev/null | head -1)
-    MMPROJ_FLAG=""
-    [ -n "$MMPROJ_SMALL" ] && MMPROJ_FLAG="--mmproj $MMPROJ_SMALL"
-    echo "  starting $(basename $TEXT_MODEL)${MMPROJ_SMALL:+ + vision}"
-    "$LLAMA" --model "$TEXT_MODEL" $MMPROJ_FLAG \
-      --host 0.0.0.0 --port 8090 \
-      --ctx-size 32768 --n-gpu-layers 99 -fa on \
-      --jinja --chat-template-kwargs '{"enable_thinking":false}' \
+      --ctx-size $CTX_SIZE --parallel 2 --n-gpu-layers 99 -fa on \
       > /tmp/llama-server.log 2>&1 &
     MODEL_PID=$!
   fi

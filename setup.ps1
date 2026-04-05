@@ -151,8 +151,7 @@ Write-Host "  RAM: ${RAM}GB"
 # ---------------------------------------------------------------------------
 # Capacity / mode selection — use VRAM when available, RAM as fallback
 # ---------------------------------------------------------------------------
-$MODE  = "full"
-$WAVE = "9B"
+$MODE = "full"
 
 # Use VRAM for GPU machines, RAM only for CPU-only
 $CAPACITY_GB = if ($GPU -eq "cuda" -and $VRAM -gt 0) {
@@ -162,14 +161,12 @@ $CAPACITY_GB = if ($GPU -eq "cuda" -and $VRAM -gt 0) {
 }
 $CAPACITY_SRC = if ($GPU -eq "cuda" -and $VRAM -gt 0) { "VRAM" } else { "RAM" }
 
-if ($CAPACITY_GB -lt 10) {
-    $MODE  = "lite"
-    $WAVE = "2B"
-    Write-Host "  → ${CAPACITY_GB}GB ${CAPACITY_SRC}: lite mode (2B only)"
+if ($CAPACITY_GB -lt 8) {
+    $MODE = "degraded"
+    Write-Host "  → ${CAPACITY_GB}GB ${CAPACITY_SRC}: degraded mode (Gemma 4 E4B at reduced context)"
 } else {
-    $MODE  = "full"
-    $WAVE = "9B"
-    Write-Host "  → ${CAPACITY_GB}GB ${CAPACITY_SRC}: full mode (9B wave + 2B eddies)"
+    $MODE = "full"
+    Write-Host "  → ${CAPACITY_GB}GB ${CAPACITY_SRC}: full mode (Gemma 4 E4B, 5GB)"
 }
 
 # ---------------------------------------------------------------------------
@@ -587,31 +584,14 @@ if (-not (Get-Command "curl.exe" -ErrorAction SilentlyContinue)) {
 
     Write-Host ""
 
-    # --- Always download 2B eddy model ---
-    Write-Host "  Downloading eddy model (1.2GB)..."
-    Get-Model "unsloth/Qwen3.5-2B-GGUF" "Qwen3.5-2B-Q4_K_M.gguf"
-    Get-Model "unsloth/Qwen3.5-2B-GGUF" "mmproj-BF16.gguf"
-    $mmproj = Join-Path $MODELS_DIR "mmproj-BF16.gguf"
-    $mmproj2B = Join-Path $MODELS_DIR "mmproj-2B-BF16.gguf"
-    if ((Test-Path $mmproj) -and -not (Test-Path $mmproj2B)) {
-        Move-Item $mmproj $mmproj2B
-    }
-
-    # --- Wave model based on available VRAM/RAM ---
-    if ($WAVE -eq "9B") {
-        Write-Host "  Downloading wave model (5.3GB)..."
-        Get-Model "unsloth/Qwen3.5-9B-GGUF" "Qwen3.5-9B-Q4_K_M.gguf"
-        Get-Model "unsloth/Qwen3.5-9B-GGUF" "mmproj-BF16.gguf"
-        $mmproj9B = Join-Path $MODELS_DIR "mmproj-9B-BF16.gguf"
-        if ((Test-Path $mmproj) -and -not (Test-Path $mmproj9B)) {
-            Move-Item $mmproj $mmproj9B
-        }
-    }
+    # --- Gemma 4 E4B (single model for all roles — 5GB) ---
+    Write-Host "  Downloading Gemma 4 E4B model (5GB)..."
+    Get-Model "unsloth/gemma-4-E4B-it-GGUF" "gemma-4-E4B-it-Q4_K_M.gguf"
 
     # SD-Turbo (~2GB) auto-downloads on first image generation via diffusers
     Write-Host ""
-    Write-Ok "Models installed: $WAVE wave + 2B eddies + SD-Turbo (downloads on first use)"
-    Write-Host "  Tsunami auto-detects and scales on startup."
+    Write-Ok "Model installed: Gemma 4 E4B (5GB) + SD-Turbo (downloads on first use)"
+    Write-Host "  One model for wave + eddies + watcher. Scale parallel instances by VRAM."
 }
 
 # ---------------------------------------------------------------------------
@@ -735,7 +715,7 @@ Write-Host "  ${BOLD}║  Or directly: cd $DIR${RST}"
 Write-Host "  ${BOLD}║              .\tsu.ps1                      ║${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
 $gpuLabel = if ($GPU -eq "cuda") { "NVIDIA" } else { "CPU (no GPU detected)" }
-Write-Host "  ${BOLD}║  $gpuLabel  |  ${CAPACITY_SRC}: ${CAPACITY_GB}GB  |  Wave: $WAVE${RST}"
+Write-Host "  ${BOLD}║  $gpuLabel  |  ${CAPACITY_SRC}: ${CAPACITY_GB}GB  |  Gemma 4 E4B${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
 Write-Host "  ${BOLD}╚════════════════════════════════════════════╝${RST}"
 Write-Host ""

@@ -189,11 +189,15 @@ def phase_b_train_student(model_path: str, output_dir: str, args):
         Path(output_dir) / "tokenizer", trust_remote_code=True
     )
 
-    log.info("Loading student (bf16)...")
+    log.info("Loading student (bf16, GPU)...")
     student = AutoModelForCausalLM.from_pretrained(
         model_path, dtype=torch.bfloat16,
-        device_map="cpu", trust_remote_code=True,
+        device_map="auto", trust_remote_code=True,
     )
+    # Gradient checkpointing — trades compute for memory (~40% less VRAM)
+    if hasattr(student, 'gradient_checkpointing_enable'):
+        student.gradient_checkpointing_enable()
+        log.info("Gradient checkpointing enabled")
 
     # Wrap linear layers with ternary STE
     wrapped = 0
@@ -245,9 +249,10 @@ def phase_b_train_student(model_path: str, output_dir: str, args):
         logit_file = logit_files[batch_idx % len(logit_files)]
         batch_idx += 1
         saved = torch.load(logit_file, map_location="cpu", weights_only=False)
-        teacher_logits = saved["logits"]
-        input_ids = saved["input_ids"]
-        attention_mask = saved["attention_mask"]
+        device = next(student.parameters()).device
+        teacher_logits = saved["logits"].to(device)
+        input_ids = saved["input_ids"].to(device)
+        attention_mask = saved["attention_mask"].to(device)
 
         # Student forward (mm_token_type_ids=0 for text-only, required by Gemma 4)
         mm_token_type_ids = torch.zeros_like(input_ids)

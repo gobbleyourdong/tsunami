@@ -10,8 +10,7 @@ services:
     build: .
     ports:
       - "9876:9876"   # Dev server (see your builds here)
-      - "8090:8090"   # Wave LLM API
-      - "8092:8092"   # Eddy LLM API
+      - "8090:8090"   # Gemma 4 E4B LLM API (all roles)
       - "3002:3002"   # WebSocket bridge
     volumes:
       - tsunami-workspace:/app/workspace

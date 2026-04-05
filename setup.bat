@@ -222,45 +222,28 @@ if %VRAM_MB% GTR 0 (
 )
 
 set "MODE=full"
-if %VRAM_GB% LSS 10 (
-    set "MODE=lite"
-    echo   [!] Under 10GB available - lite mode ^(2B only, 1.2GB download^)
+if %VRAM_GB% LSS 8 (
+    set "MODE=degraded"
+    echo   [!] Under 8GB available - degraded mode ^(Gemma 4 E4B at reduced context^)
 ) else (
-    echo   [OK] Full mode ^(9B wave + 2B eddies, 6.5GB download^)
+    echo   [OK] Full mode ^(Gemma 4 E4B, 5GB download^)
 )
 
 if not exist "%MODELS_DIR%" mkdir "%MODELS_DIR%" >nul 2>&1
 
-if not exist "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" (
-    echo   [..] Downloading 2B model - 1.2GB...
-    curl -fL --progress-bar -o "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf"
-    >>"%LOG_FILE%" 2>&1 curl -I -L "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf"
+if not exist "%MODELS_DIR%\gemma-4-E4B-it-Q4_K_M.gguf" (
+    echo   [..] Downloading Gemma 4 E4B model - 5GB...
+    curl -fL --progress-bar -o "%MODELS_DIR%\gemma-4-E4B-it-Q4_K_M.gguf" "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
+    >>"%LOG_FILE%" 2>&1 curl -I -L "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
     if errorlevel 1 (
-        echo   [X] 2B model download failed
+        echo   [X] Gemma 4 E4B model download failed
         echo       Log: %LOG_FILE%
         pause
         exit /b 1
     )
-    echo   [OK] 2B model
+    echo   [OK] Gemma 4 E4B model
 ) else (
-    echo   [OK] 2B model already downloaded
-)
-
-if /I "%MODE%"=="full" (
-    if not exist "%MODELS_DIR%\Qwen3.5-9B-Q4_K_M.gguf" (
-        echo   [..] Downloading 9B model - 5.3GB ^(this takes a few minutes^)...
-        curl -fL --progress-bar -o "%MODELS_DIR%\Qwen3.5-9B-Q4_K_M.gguf" "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf"
-        >>"%LOG_FILE%" 2>&1 curl -I -L "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf"
-        if errorlevel 1 (
-            echo   [X] 9B model download failed
-            echo       Log: %LOG_FILE%
-            pause
-            exit /b 1
-        )
-        echo   [OK] 9B model
-    ) else (
-        echo   [OK] 9B model already downloaded
-    )
+    echo   [OK] Gemma 4 E4B model already downloaded
 )
 
 echo @echo off > "%TSUNAMI_DIR%\start.bat"
@@ -268,13 +251,7 @@ echo setlocal EnableExtensions EnableDelayedExpansion >> "%TSUNAMI_DIR%\start.ba
 echo title Tsunami >> "%TSUNAMI_DIR%\start.bat"
 echo color 0B >> "%TSUNAMI_DIR%\start.bat"
 echo echo Starting Tsunami... >> "%TSUNAMI_DIR%\start.bat"
-if /I "%MODE%"=="full" (
-    echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-9B-Q4_K_M.gguf" --port 8090 --ctx-size 32768 --parallel 1 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
-    echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8092 --ctx-size 16384 --parallel 4 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
-) else (
-    echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\Qwen3.5-2B-Q4_K_M.gguf" --port 8090 --ctx-size 16384 --parallel 1 --n-gpu-layers 99 --jinja --chat-template-kwargs "{\"enable_thinking\":false}" >> "%TSUNAMI_DIR%\start.bat"
-    echo echo   Lite mode - 2B only >> "%TSUNAMI_DIR%\start.bat"
-)
+echo start "" "%LLAMA_DIR%\llama-server.exe" -m "%MODELS_DIR%\gemma-4-E4B-it-Q4_K_M.gguf" --port 8090 --ctx-size 16384 --parallel 2 --n-gpu-layers 99 >> "%TSUNAMI_DIR%\start.bat"
 echo timeout /t 5 /nobreak ^>nul >> "%TSUNAMI_DIR%\start.bat"
 echo cd /d "%TSUNAMI_DIR%" >> "%TSUNAMI_DIR%\start.bat"
 echo start "" python desktop\ws_bridge.py >> "%TSUNAMI_DIR%\start.bat"

@@ -8,6 +8,8 @@
 # With GPU (NVIDIA):
 #   docker run --gpus all -p 9876:9876 -p 8090:8090 tsunami "build me a game"
 #
+# Model: Gemma 4 E4B Q4_K_M (5GB) — single model for all roles
+#
 # Persist builds across runs:
 #   docker run -v tsunami-workspace:/app/workspace -p 9876:9876 tsunami "build tetris"
 
@@ -39,20 +41,17 @@ RUN python3 -m pip install --break-system-packages --no-cache-dir \
 # --- Copy source ---
 COPY . /app/
 
-# --- Download models at build time (cached in image layer) ---
+# --- Download model at build time (cached in image layer) ---
 RUN mkdir -p /app/models \
-    && echo "Downloading 2B eddy model..." \
-    && curl -fSL -o /app/models/Qwen3.5-2B-Q4_K_M.gguf \
-       "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf" \
-    && echo "Downloading 9B wave model..." \
-    && curl -fSL -o /app/models/Qwen3.5-9B-Q4_K_M.gguf \
-       "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf"
+    && echo "Downloading Gemma 4 E4B model (5GB)..." \
+    && curl -fSL -o /app/models/gemma-4-E4B-it-Q4_K_M.gguf \
+       "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
 
 # --- Workspace volume ---
 RUN mkdir -p /app/workspace/deliverables
 
-# Ports: wave(8090) eddy(8092) serve(9876) ws-bridge(3002)
-EXPOSE 8090 8092 9876 3002
+# Ports: llm(8090) serve(9876) ws-bridge(3002)
+EXPOSE 8090 9876 3002
 
 # --- Entrypoint: start everything and run the task ---
 COPY docker-entrypoint.sh /docker-entrypoint.sh
