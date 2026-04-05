@@ -207,6 +207,9 @@ class OpenAICompatModel(LLMModel):
             "max_tokens": self.max_tokens,
             "top_p": self.top_p,
             "presence_penalty": self.presence_penalty,
+            # Disable thinking for faster inference — our framework handles planning
+            "thinking": {"type": "disabled"},
+            "thinking_budget_tokens": 0,
         }
         if tools:
             payload["tools"] = self._convert_tools(tools)
