@@ -178,20 +178,20 @@ class TestDockerfile:
     """exec.Dockerfile exists and is valid."""
 
     def test_dockerfile_exists(self):
-        dockerfile = os.path.join(os.path.dirname(__file__), "..", "..", "exec.Dockerfile")
+        dockerfile = os.path.join(os.path.dirname(__file__), "..", "..", "docker", "exec.Dockerfile")
         assert os.path.exists(dockerfile)
 
     def test_dockerfile_has_node(self):
-        dockerfile = os.path.join(os.path.dirname(__file__), "..", "..", "exec.Dockerfile")
+        dockerfile = os.path.join(os.path.dirname(__file__), "..", "..", "docker", "exec.Dockerfile")
         content = open(dockerfile).read()
         assert "node" in content.lower()
 
     def test_dockerfile_has_python(self):
-        dockerfile = os.path.join(os.path.dirname(__file__), "..", "..", "exec.Dockerfile")
+        dockerfile = os.path.join(os.path.dirname(__file__), "..", "..", "docker", "exec.Dockerfile")
         content = open(dockerfile).read()
         assert "python" in content.lower()
 
     def test_dockerfile_has_non_root_user(self):
-        dockerfile = os.path.join(os.path.dirname(__file__), "..", "..", "exec.Dockerfile")
+        dockerfile = os.path.join(os.path.dirname(__file__), "..", "..", "docker", "exec.Dockerfile")
         content = open(dockerfile).read()
         assert "useradd" in content or "USER" in content

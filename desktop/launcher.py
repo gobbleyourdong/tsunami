@@ -372,18 +372,31 @@ def main():
         urllib.request.urlretrieve(url, dest)
         print(f"  ✓ {name}")
 
-    # One model: Gemma 4 E4B — orchestrator + builder + eddy, all roles
-    model_name = "gemma-4-E4B-it-Q4_K_M.gguf"
-    model_url = "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
+    # Gemma 4 — scale model by VRAM
+    # 8GB+: E4B (5GB model, 3GB for KV cache)
+    # <8GB: E2B (3.1GB model, 5GB for KV cache)
     if not wave_model and not eddy_model:
+        if mode == "full":
+            model_name = "gemma-4-E4B-it-Q4_K_M.gguf"
+            model_url = "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
+            ctx_size = 16384
+            n_parallel = 4
+        else:
+            model_name = "gemma-4-E2B-it-Q4_K_M.gguf"
+            model_url = "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
+            ctx_size = 8192
+            n_parallel = 2
+
         dest = str(MODELS_DIR / model_name)
         dl(model_url, dest)
         wave_model = dest
         eddy_model = dest
 
     # One server, all roles — scale instances by VRAM
-    n_parallel = 4 if mode == "full" else 2
-    start_server("tsunami (E4B)", 8090, wave_model, ctx_size=16384, parallel=n_parallel)
+    # Use no-think template for consistent fast inference
+    template_path = str(Path(__file__).parent.parent / "tsunami" / "gemma4_no_think.jinja")
+    extra_args = f"--chat-template-file {template_path}" if Path(template_path).exists() else ""
+    start_server(f"tsunami ({model_name[:10]})", 8090, wave_model, ctx_size=ctx_size, parallel=n_parallel, extra_args=extra_args)
     # All endpoints point to the same server
         os.environ["TSUNAMI_EDDY_ENDPOINT"] = "http://localhost:8090"
 
