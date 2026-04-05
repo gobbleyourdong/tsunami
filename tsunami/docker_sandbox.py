@@ -25,7 +25,7 @@ import subprocess
 log = logging.getLogger("tsunami.docker_sandbox")
 
 SANDBOX_IMAGE = "tsunami-sandbox"
-DOCKERFILE_PATH = os.path.join(os.path.dirname(__file__), "..", "exec.Dockerfile")
+DOCKERFILE_PATH = os.path.join(os.path.dirname(__file__), "..", "docker", "exec.Dockerfile")
 
 
 def is_docker_available() -> bool:

@@ -58,10 +58,10 @@ echo "  Memory: ${CAPACITY}GB"
 # --- Auto-scale (8GB threshold) ---
 if [ "$CAPACITY" -lt 8 ] 2>/dev/null; then
   MODE="degraded"
-  echo "  → degraded mode (<8GB — Gemma 4 E4B at reduced context, slow)"
+  echo "  → degraded mode (<8GB — Gemma 4 E2B, 3.1GB)"
 else
   MODE="full"
-  echo "  → full mode (Gemma 4 E4B, 5GB)"
+  echo "  → full mode (8GB+ — Gemma 4 E4B, 5GB)"
 fi
 
 # --- Check dependencies ---
@@ -290,11 +290,16 @@ download() {
   fi
 }
 
-# Gemma 4 E4B (single model for all roles — 5GB)
-download "unsloth/gemma-4-E4B-it-GGUF" "gemma-4-E4B-it-Q4_K_M.gguf"
-
-echo ""
-echo "  Model: Gemma 4 E4B (5GB) — wave + eddies + watcher"
+# Scale model by VRAM
+if [ "$MODE" = "full" ]; then
+  download "unsloth/gemma-4-E4B-it-GGUF" "gemma-4-E4B-it-Q4_K_M.gguf"
+  echo ""
+  echo "  Model: Gemma 4 E4B (5GB) — full mode"
+else
+  download "unsloth/gemma-4-E2B-it-GGUF" "gemma-4-E2B-it-Q4_K_M.gguf"
+  echo ""
+  echo "  Model: Gemma 4 E2B (3.1GB) — degraded mode"
+fi
 
 # --- Shell alias ---
 echo ""
