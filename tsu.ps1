@@ -184,44 +184,22 @@ if (-not (Test-ModelServer)) {
                 $vramGB = [math]::Ceiling($vramMB / 1024)
             }
         } catch {}
-        $liteMode = $vramGB -gt 0 -and $vramGB -lt 10
-        if ($liteMode) { Write-Host "  ${vramGB}GB VRAM — lite mode (2B)" }
+        $degraded = $vramGB -gt 0 -and $vramGB -lt 8
+        if ($degraded) { Write-Host "  ${vramGB}GB VRAM — degraded mode (reduced context)" }
 
-        # Model priority: 27B > MoE > 9B > 2B (lite skips everything above 2B)
-        $dense27   = if (-not $liteMode) { Find-Model 'Qwen3.5-27B*.gguf' } else { $null }
-        $mmproj27  = @('mmproj-27B*.gguf','mmproj-BF16.gguf','mmproj-F16.gguf') |
-                     ForEach-Object { Find-Model $_ } | Where-Object { $_ } | Select-Object -First 1
-        $moeModel  = if (-not $liteMode) { Find-Model '*122B*-00001-of-*.gguf' } else { $null }
-        $textModel = if ($liteMode) {
-            Find-Model 'Qwen3*-2B*.gguf'
-        } else {
-            @('Qwen3*-9B*.gguf','Qwen3*-8B*.gguf','Qwen3*-2B*.gguf') |
+        # Model: Gemma 4 E4B (single model for all roles)
+        $gemmaModel = Find-Model 'gemma-4-E4B*.gguf'
+        # Fallback: check for any .gguf model
+        if (-not $gemmaModel) {
+            $gemmaModel = @('gemma*.gguf','Qwen*.gguf') |
                 ForEach-Object { Find-Model $_ } | Where-Object { $_ } | Select-Object -First 1
         }
-        $mmprojSmall = Find-Model 'mmproj-9B-BF16.gguf','mmproj-2B-BF16.gguf'
 
-        # Windows CommandLineToArgvW strips unquoted double-quotes from JSON values
-        # e.g. {"enable_thinking":false} → {enable_thinking:false} (keys unquoted)
-        # Proper Windows escaping: wrap in quotes and escape inner quotes with backslash
-        # '"{\"enable_thinking\":false}"' → command line: "{\"enable_thinking\":false}"
-        # → CommandLineToArgvW result: {"enable_thinking":false}  ✓
-        $noThinkingArg = '"{\"enable_thinking\":false}"'
-
-        if ($dense27) {
+        if ($gemmaModel) {
             Write-Host "  Loading model..."
-            $modelArgs = @('--model', $dense27) + $llamaArgs + @('-fa', 'on',
-                '--cache-type-k', 'bf16', '--cache-type-v', 'bf16',
-                '--jinja', '--chat-template-kwargs', $noThinkingArg)
-            if ($mmproj27) { $modelArgs += @('--mmproj', $mmproj27) }
-        } elseif ($moeModel) {
-            Write-Host "  Loading model..."
-            $modelArgs = @('--model', $moeModel) + $llamaArgs + @('-fa', 'on',
-                '--cache-type-k', 'q8_0', '--cache-type-v', 'q8_0')
-        } elseif ($textModel) {
-            Write-Host "  Loading model..."
-            $modelArgs = @('--model', $textModel) + $llamaArgs + @('-fa', 'on',
-                '--jinja', '--chat-template-kwargs', $noThinkingArg)
-            if ($mmprojSmall) { $modelArgs += @('--mmproj', $mmprojSmall) }
+            $ctxSize = if ($degraded) { '8192' } else { '16384' }
+            $modelArgs = @('--model', $gemmaModel) + $llamaArgs + @('-fa', 'on',
+                '--ctx-size', $ctxSize, '--parallel', '2')
         } else {
             Write-Warning "No .gguf model found in $DIR\models — run setup.ps1 to download models."
             $modelArgs = $null

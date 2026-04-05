@@ -50,11 +50,11 @@ no cloud. no api keys. everything runs locally on your hardware.
 ## how it works
 
 ```
-you → wave (9B) → understands intent, picks tools, coordinates
+you → wave → understands intent, picks tools, coordinates
                      ↓
                swell dispatches parallel workers
                      ↓
-         eddy 1  eddy 2  eddy 3  eddy 4  (2B workers)
+         eddy 1  eddy 2  eddy 3  eddy 4  (parallel instances)
                      ↓
                break collects results
                      ↓
@@ -63,13 +63,13 @@ you → wave (9B) → understands intent, picks tools, coordinates
          wave reads QA report → fixes issues → delivers
 ```
 
-**wave** — the brain. reasons, plans, researches, builds. runs the 9B on full mode, 2B on lite.
-**eddies** — fast parallel workers. read, search, execute, judge. (2B)
+one model does everything: **Gemma 4 E4B** (5GB). native tool calling, built-in thinking, multimodal vision. wave, eddies, and watcher all run on the same server. scale parallel instances by VRAM.
+
+**wave** — the brain. reasons, plans, researches, builds.
+**eddies** — fast parallel workers. read, search, execute, judge.
 **swell** — dispatches eddies in parallel.
 **break** — where results converge.
 **undertow** — QA gate. tests what the wave built by pulling levers.
-
-the eddy is a role, not a model. on lite machines (< 8GB), the 2B plays both roles — one server, full orchestration. on full machines, the 9B is the wave and the 2B handles eddy work.
 
 ---
 
@@ -79,7 +79,7 @@ tsunami doesn't just write code and ship it. it follows a pipeline:
 
 1. **research** — searches for reference images and code examples before writing anything
 2. **generate** — creates reference images via SD-Turbo (in-process, ~1s on GPU, ~30s on CPU)
-3. **ground** — extracts element positions from reference images using vision (Qwen-VL). outputs ratio-based CSS positioning
+3. **ground** — extracts element positions from reference images using vision (Gemma 4 E4B multimodal). outputs ratio-based CSS positioning
 4. **build** — writes React components using the grounded positions. auto-wires App.tsx mid-loop
 5. **compile** — vite build must pass. auto-checks after every .tsx write
 6. **test** — undertow QA: screenshots, key presses, click tests, console error checks
@@ -107,19 +107,21 @@ tsunami measures whether it's lying.
 
 | your hardware | what you get |
 |---------------|-------------|
-| **8GB+ GPU** | full — 9B wave + 2B eddies + SD-Turbo |
-| **< 8GB GPU** | lite — 2B wave+eddies + SD-Turbo on CPU |
-| **no GPU** | cpu — 2B on CPU (slow but works) |
+| **8GB+ GPU** | full — Gemma 4 E4B + SD-Turbo |
+| **< 8GB GPU** | degraded — Gemma 4 E4B at reduced context + SD-Turbo on CPU |
+| **no GPU** | cpu — Gemma 4 E4B on CPU (slow but works) |
 
 tsunami auto-detects your GPU and configures itself. you never think about this.
 
-the full stack: 9B wave (5.3GB) + 2B eddies (1.2GB) + SD-Turbo (2GB, auto-downloads on first image gen).
+one model: Gemma 4 E4B Q4_K_M (5GB) + SD-Turbo (2GB, auto-downloads on first image gen). 128K native context, 16K server window. native tool calling, built-in thinking, multimodal vision.
 
 runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud required.
 
 ---
 
 ## what's inside
+
+**Gemma 4 E4B** — the single model powering everything. 5GB Q4_K_M quantization. native tool calling, built-in thinking, multimodal vision. one server on port 8090 handles wave, eddy, and watcher roles.
 
 **the wave** — reasons, plans, calls tools, dispatches eddies, synthesizes results. generates images via SD-Turbo. builds websites, writes code, does research. no iteration limit.
 

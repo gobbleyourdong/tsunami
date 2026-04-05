@@ -55,15 +55,13 @@ fi
 
 echo "  Memory: ${CAPACITY}GB"
 
-# --- Auto-scale (8GB threshold matches Windows) ---
-if [ "$CAPACITY" -lt 10 ] 2>/dev/null; then
-  MODE="lite"
-  WAVE="2B"
-  echo "  → lite mode (2B only)"
+# --- Auto-scale (8GB threshold) ---
+if [ "$CAPACITY" -lt 8 ] 2>/dev/null; then
+  MODE="degraded"
+  echo "  → degraded mode (<8GB — Gemma 4 E4B at reduced context, slow)"
 else
   MODE="full"
-  WAVE="9B"
-  echo "  → full mode (9B wave + 2B eddies)"
+  echo "  → full mode (Gemma 4 E4B, 5GB)"
 fi
 
 # --- Check dependencies ---
@@ -292,16 +290,11 @@ download() {
   fi
 }
 
-# 2B eddy (always)
-download "unsloth/Qwen3.5-2B-GGUF" "Qwen3.5-2B-Q4_K_M.gguf"
-
-# 9B wave (full mode only)
-if [ "$WAVE" = "9B" ]; then
-  download "unsloth/Qwen3.5-9B-GGUF" "Qwen3.5-9B-Q4_K_M.gguf"
-fi
+# Gemma 4 E4B (single model for all roles — 5GB)
+download "unsloth/gemma-4-E4B-it-GGUF" "gemma-4-E4B-it-Q4_K_M.gguf"
 
 echo ""
-echo "  Models: $WAVE wave + 2B eddies"
+echo "  Model: Gemma 4 E4B (5GB) — wave + eddies + watcher"
 
 # --- Shell alias ---
 echo ""
@@ -349,6 +342,6 @@ echo "  ║                                        ║"
 echo "  ║  source ~/${SHELL_RC##*/}              ║"
 echo "  ║  tsunami                               ║"
 echo "  ║                                        ║"
-echo "  ║  $GPU_LABEL | ${CAPACITY}GB | $WAVE wave          ║"
+echo "  ║  $GPU_LABEL | ${CAPACITY}GB | Gemma 4 E4B       ║"
 echo "  ╚════════════════════════════════════════╝"
 echo ""

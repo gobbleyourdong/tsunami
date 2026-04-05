@@ -5,7 +5,7 @@ Terminal-style desktop app with split panes. No coding required.
 ## How it works
 
 1. Double-click `Tsunami.exe` (or `python launcher.py`)
-2. Servers start automatically (9B wave + 2B eddies)
+2. Server starts automatically (Gemma 4 E4B on port 8090)
 3. Native window opens with a terminal-style prompt
 4. Type what you want to build
 5. Watch it happen

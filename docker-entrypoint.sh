@@ -1,74 +1,39 @@
 #!/bin/bash
 # TSUNAMI Docker Entrypoint
-# Starts llama-server(s), then runs the agent task or interactive mode.
+# Starts llama-server with Gemma 4 E4B, then runs the agent task or interactive mode.
 set -e
 
 MODELS_DIR="/app/models"
-WAVE_MODEL="$MODELS_DIR/Qwen3.5-9B-Q4_K_M.gguf"
-EDDY_MODEL="$MODELS_DIR/Qwen3.5-2B-Q4_K_M.gguf"
+MODEL="$MODELS_DIR/gemma-4-E4B-it-Q4_K_M.gguf"
 
-# Auto-detect memory and pick mode
-TOTAL_RAM=$(free -g 2>/dev/null | awk '/^Mem:/{print $2}' || echo 8)
-if [ "$TOTAL_RAM" -lt 6 ] || [ ! -f "$WAVE_MODEL" ]; then
-    MODE="lite"
-    WAVE_MODEL="$EDDY_MODEL"
-    echo "  → lite mode (2B only, ${TOTAL_RAM}GB RAM)"
-else
-    MODE="full"
-    echo "  → full mode (9B wave + 2B eddies, ${TOTAL_RAM}GB RAM)"
+if [ ! -f "$MODEL" ]; then
+    echo "  ✗ Model not found: $MODEL"
+    echo "    Run: curl -fSL -o $MODEL https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
+    exit 1
 fi
 
-# Start wave model (port 8090)
-echo "  Starting wave model..."
+# Start Gemma 4 E4B server (single model for all roles — port 8090)
+echo "  Starting Gemma 4 E4B server..."
 llama-server \
-    --model "$WAVE_MODEL" \
+    --model "$MODEL" \
     --port 8090 \
     --host 0.0.0.0 \
-    --ctx-size 32768 \
-    --parallel 1 \
+    --ctx-size 16384 \
+    --parallel 2 \
     --threads $(nproc) \
     --no-mmap \
-    > /tmp/wave.log 2>&1 &
-WAVE_PID=$!
+    > /tmp/llm.log 2>&1 &
+LLM_PID=$!
 
-# Start eddy model (port 8092) — only in full mode
-if [ "$MODE" = "full" ]; then
-    echo "  Starting eddy model..."
-    llama-server \
-        --model "$EDDY_MODEL" \
-        --port 8092 \
-        --host 0.0.0.0 \
-        --ctx-size 16384 \
-        --parallel 4 \
-        --threads $(( $(nproc) / 2 )) \
-        --no-mmap \
-        > /tmp/eddy.log 2>&1 &
-    EDDY_PID=$!
-else
-    # Lite mode: one model, one server — eddy points at wave
-    export TSUNAMI_EDDY_ENDPOINT="http://localhost:8090"
-    EDDY_PID=""
-fi
-
-# Wait for models to load
-echo "  Waiting for models to load..."
+# Wait for model to load
+echo "  Waiting for model to load..."
 for i in $(seq 1 120); do
     if curl -s http://localhost:8090/health > /dev/null 2>&1; then
-        echo "  ✓ Wave ready"
+        echo "  ✓ Gemma 4 E4B ready (port 8090)"
         break
     fi
     sleep 1
 done
-
-if [ "$MODE" = "full" ]; then
-    for i in $(seq 1 60); do
-        if curl -s http://localhost:8092/health > /dev/null 2>&1; then
-            echo "  ✓ Eddy ready"
-            break
-        fi
-        sleep 1
-    done
-fi
 
 # Start the serve daemon in background (persistent like ComfyUI)
 python3 -m tsunami.serve_daemon --workspace /app/workspace --port 9876 &
