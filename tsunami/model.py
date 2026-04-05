@@ -207,7 +207,6 @@ class OpenAICompatModel(LLMModel):
             "max_tokens": self.max_tokens,
             "top_p": self.top_p,
             "presence_penalty": self.presence_penalty,
-            "thinking": {"type": "disabled"},  # Gemma 4: skip chain-of-thought (requires patched llama-server)
         }
         if tools:
             payload["tools"] = self._convert_tools(tools)
