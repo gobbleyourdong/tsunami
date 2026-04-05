@@ -29,7 +29,7 @@ MODELS_DIR = TSUNAMI_DIR / "models"
 UI_PATH = SCRIPT_DIR / "index.html"
 
 # Pinned release — matches the battle-tested setup.bat
-LLAMA_TAG = "b8628"
+LLAMA_TAG = "b8665"  # Gemma 4 support (text + vision + MoE)
 LLAMA_ORG = "ggml-org"  # NOT ggerganov — releases moved
 
 processes = []
