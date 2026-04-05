@@ -624,14 +624,30 @@ class Agent:
                             if projects:
                                 app_path = projects[0] / "src" / "App.tsx"
                                 # Direct generation — single prompt, no agent loop
-                                gen_resp = await self.model.generate(messages=[
-                                    {"role": "system", "content": "You are a React TypeScript expert. Write ONLY code, no explanations. Include all imports. Use the design system CSS variables (--bg-primary, --bg-secondary, --text-primary, --accent, --border, --radius-md)."},
-                                    {"role": "user", "content": f"Write a complete App.tsx for: {user_req[:500]}. Single file, all logic inline. Export default function App."},
-                                ])
-                                if gen_resp.content and len(gen_resp.content) > 100:
+                                # Direct API call — bypass model layer to get raw response with reasoning
+                                import httpx
+                                async with httpx.AsyncClient(timeout=120) as client:
+                                    raw_resp = await client.post(
+                                        f"{self.config.model_endpoint}/v1/chat/completions",
+                                        json={
+                                            "messages": [
+                                                {"role": "system", "content": "Write ONLY TypeScript React code. No explanations. Include all imports. Use CSS vars: --bg-primary, --bg-secondary, --text-primary, --accent, --border."},
+                                                {"role": "user", "content": f"Write App.tsx for: {user_req[:500]}. Single file, all logic inline. export default function App."},
+                                            ],
+                                            "max_tokens": 4096,
+                                            "temperature": 0.3,
+                                        },
+                                    )
+                                gen_data = raw_resp.json()
+                                gen_msg = gen_data.get("choices", [{}])[0].get("message", {})
+                                gen_content = gen_msg.get("content", "")
+                                # If content is empty, try reasoning_content (Gemma 4 thinking mode)
+                                if not gen_content or len(gen_content) < 100:
+                                    gen_content = gen_msg.get("reasoning_content", "")
+                                if gen_content and len(gen_content) > 100:
                                     # Extract code from markdown fences if present
                                     import re
-                                    code = gen_resp.content
+                                    code = gen_content
                                     match = re.search(r'```(?:tsx?|typescript|javascript)?\n(.*?)```', code, re.DOTALL)
                                     if match:
                                         code = match.group(1)
