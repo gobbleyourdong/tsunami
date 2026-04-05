@@ -3,7 +3,7 @@
 
 # --- Wave (primary reasoning model) ---
 model_backend: api
-model_name: "Gemma4-E4B"
+model_name: "gemma-4-e2b-tsunami"
 model_endpoint: "http://localhost:8095"
 temperature: 0.7
 max_tokens: 8192
