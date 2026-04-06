@@ -1,36 +1,39 @@
 #!/usr/bin/env python3
-"""E2B LoRA fine-tune — THE THWOMP CONFIG (Google's QLoRA recipe).
+"""E4B LoRA fine-tune — THWOMP CONFIG for 8x RTX PRO 6000 Blackwell (1.5TB VRAM).
 
-Based on: https://ai.google.dev/gemma/docs/core/huggingface_vision_finetune_qlora
-Key: AutoModelForImageTextToText + bnb_4bit_quant_storage=bf16 handles vision layers.
+Same dataset + hyperparams as E2B. FSDP across 8 GPUs.
+With 1.5TB we can go full bf16 at 8192 seq length, no QLoRA needed.
 
-Same config for E4B — change BASE_MODEL only.
+Launch:
+  accelerate launch --num_processes 8 training/train_e4b_v3.py
+
+Or single GPU (fits in 188GB easily):
+  python -u training/train_e4b_v3.py
 """
-import json, logging, torch
+import json, logging, torch, os
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("train")
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from transformers import DataCollatorForLanguageModeling
+from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForLanguageModeling
 from peft import LoraConfig, get_peft_model
 from trl import SFTTrainer, SFTConfig
 from datasets import Dataset
 
 # ==========================================
-# CONFIG — the meta crusher
+# CONFIG — identical to E2B except model + seq length
 # ==========================================
-BASE_MODEL = "models/gemma-4-e2b-it"
+BASE_MODEL = "google/gemma-4-e4b-it"     # download from HF (or local path)
 DATA_PATH = "workspace/training_data/e4b_toolcall_train_v2.jsonl"
-OUTPUT_DIR = "models/gemma-4-e2b-toolcall-v3"
-RUN_NAME = "e2b_v3_thwomp"
+OUTPUT_DIR = "models/gemma-4-e4b-toolcall-v3"
+RUN_NAME = "e4b_v3_thwomp"
 
 NUM_EPOCHS = 3
-BATCH_SIZE = 1
-GRAD_ACCUM = 2        # effective batch = 2
+BATCH_SIZE = 4          # 1.5TB — go big
+GRAD_ACCUM = 4          # effective batch = 16
 LR = 5e-5
-MAX_LENGTH = 4096     # bf16 full weights, proven stable at ~60GB on GB10
-LORA_R = 32
-LORA_ALPHA = 64
+MAX_LENGTH = 32768      # covers 100% of examples, zero truncation
+LORA_R = 64
+LORA_ALPHA = 128
 LORA_DROPOUT = 0.0
 MAX_GRAD_NORM = 0.3
 WARMUP_STEPS = 20
@@ -50,18 +53,21 @@ with open(DATA_PATH) as f:
 log.info(f"Loaded {len(data)} examples from {DATA_PATH}")
 
 # ==========================================
-# LOAD MODEL — Google's QLoRA recipe
+# LOAD MODEL
 # ==========================================
 log.info(f"Loading {BASE_MODEL} bf16...")
-
 model = AutoModelForCausalLM.from_pretrained(
-    BASE_MODEL, dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
+    BASE_MODEL,
+    dtype=torch.bfloat16,
+    device_map="auto",
+    trust_remote_code=True,
 )
 tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
 # Unwrap ClippableLinear (Gemma 4 quirk)
+log.info("Unwrapping ClippableLinear...")
 unwrapped = 0
 for name, module in list(model.named_modules()):
     if type(module).__name__ == "Gemma4ClippableLinear" and hasattr(module, "linear"):
@@ -73,8 +79,10 @@ for name, module in list(model.named_modules()):
 log.info(f"Unwrapped {unwrapped} ClippableLinear layers")
 
 # ==========================================
-# LoRA — Google's recommended config
+# GRADIENT CHECKPOINTING + LoRA
 # ==========================================
+model.gradient_checkpointing_enable()
+
 lora_config = LoraConfig(
     r=LORA_R,
     lora_alpha=LORA_ALPHA,
@@ -84,8 +92,6 @@ lora_config = LoraConfig(
     bias="none",
     task_type="CAUSAL_LM",
 )
-
-model.gradient_checkpointing_enable()
 model = get_peft_model(model, lora_config)
 
 trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -109,18 +115,19 @@ class ResponseOnlyCollator(DataCollatorForLanguageModeling):
         batch = super().__call__(features, return_tensors=return_tensors)
 
         for i in range(len(batch["labels"])):
-            labels = batch["labels"][i].tolist()
-            input_ids = batch["input_ids"][i].tolist()
-            masked = [IGNORE_INDEX] * len(labels)
+            input_ids = batch["input_ids"][i]
+            labels = batch["labels"][i].clone()
+            masked = torch.full_like(labels, IGNORE_INDEX)
 
+            input_list = input_ids.tolist()
             in_response = False
             j = 0
-            while j < len(input_ids):
-                if input_ids[j:j+len(_resp_ids)] == _resp_ids:
+            while j < len(input_list):
+                if input_list[j:j+len(_resp_ids)] == _resp_ids:
                     in_response = True
                     j += len(_resp_ids)
                     continue
-                if input_ids[j:j+len(_inst_ids)] == _inst_ids:
+                if input_list[j:j+len(_inst_ids)] == _inst_ids:
                     in_response = False
                     j += len(_inst_ids)
                     continue
@@ -128,7 +135,7 @@ class ResponseOnlyCollator(DataCollatorForLanguageModeling):
                     masked[j] = labels[j]
                 j += 1
 
-            batch["labels"][i] = torch.tensor(masked, dtype=batch["labels"][i].dtype)
+            batch["labels"][i] = masked
 
         return batch
 
@@ -158,7 +165,7 @@ sft_config = SFTConfig(
     save_steps=SAVE_STEPS,
     report_to="none",
     max_grad_norm=MAX_GRAD_NORM,
-    optim="adamw_torch",
+    optim="adamw_torch_fused",
     weight_decay=0.01,
     max_length=MAX_LENGTH,
     dataset_text_field="text",
@@ -175,10 +182,11 @@ trainer = SFTTrainer(
     data_collator=collator,
 )
 
-log.info(f"=== THWOMP CONFIG (Google QLoRA) ===")
+log.info(f"=== E4B THWOMP ===")
+log.info(f"Model: {BASE_MODEL}")
 log.info(f"Epochs: {NUM_EPOCHS}, LR: {LR}, LoRA r={LORA_R}, max_len={MAX_LENGTH}")
 log.info(f"Effective batch: {BATCH_SIZE * GRAD_ACCUM}, optimizer: adamw_torch_fused")
-log.info(f"4-bit NF4 QLoRA, response-only masking, constant LR")
+log.info(f"Response-only masking, bf16, gradient checkpointing")
 log.info(f"Save every {SAVE_STEPS} steps → {OUTPUT_DIR}")
 
 trainer_stats = trainer.train()
