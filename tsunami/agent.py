@@ -2018,27 +2018,30 @@ class Agent:
             # Track delivery attempts — prevent infinite block loops
             self._delivery_attempts = getattr(self, '_delivery_attempts', 0) + 1
 
-            # Code-write gate: check if App.tsx has real code, not just scaffold placeholder.
+            # Code-write gate: check if ANY .tsx file in the project has real code.
+            # Checks App.tsx AND component files — writing to DigitalClock.tsx counts.
             if self._project_init_called and self._delivery_attempts <= 2:
-                # Check actual file content
-                app_is_placeholder = True
+                has_real_code = False
                 deliverables = Path(self.config.workspace_dir) / "deliverables"
                 if deliverables.exists():
                     for d in sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
-                        app_file = d / "src" / "App.tsx"
-                        if app_file.exists():
-                            content = app_file.read_text()
-                            if len(content) > 200 and "Loading..." not in content:
-                                app_is_placeholder = False
-                            break
-                if app_is_placeholder:
-                    log.warning("Early completion blocked: no code written after project_init")
+                        src = d / "src"
+                        if src.exists():
+                            for tsx in src.rglob("*.tsx"):
+                                content = tsx.read_text()
+                                if len(content) > 200 and "Loading..." not in content:
+                                    has_real_code = True
+                                    break
+                        # Also check if build succeeded (dist/ exists = code was written and compiled)
+                        if (d / "dist" / "index.html").exists():
+                            has_real_code = True
+                        break
+                if not has_real_code:
+                    log.warning("Early completion blocked: no real code in project")
                     self.state.add_system_note(
-                        "BLOCKED: You scaffolded a project but haven't written any code. "
-                        "Call file_write to write src/App.tsx with your implementation. "
-                        "Do NOT deliver until you've written actual code."
+                        "BLOCKED: No code written yet. Write src/App.tsx first."
                     )
-                    self._delivery_attempts -= 1  # don't count this against the limit
+                    self._delivery_attempts -= 1
                     return "Write code before delivering."
 
             # Short conversational responses (greetings, acknowledgments) skip all gates

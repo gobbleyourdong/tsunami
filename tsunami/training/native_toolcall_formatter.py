@@ -121,6 +121,16 @@ TOOL_SCHEMAS = {
             'required': ['text'],
         },
     },
+    'message_chat': {
+        'description': 'Respond to a conversational message and end the interaction. Use for anything that is NOT a build request: greetings, questions, thanks, identity questions.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'text': {'type': 'STRING', 'description': 'Your conversational response'},
+            },
+            'required': ['text'],
+        },
+    },
     'message_result': {
         'description': 'Deliver final outcome and end the task.',
         'parameters': {
@@ -307,6 +317,216 @@ TOOL_SCHEMAS = {
                 'image_path': {'type': 'STRING', 'description': 'Path to image'},
             },
             'required': ['image_path'],
+        },
+    },
+    # --- Shell extended ---
+    'shell_view': {
+        'description': 'Check output and status of a background process.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'session_id': {'type': 'STRING', 'description': 'Session ID from shell_exec'},
+            },
+            'required': ['session_id'],
+        },
+    },
+    'shell_send': {
+        'description': 'Send input to a running background process.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'input_text': {'type': 'STRING', 'description': 'Text to send to stdin'},
+                'session_id': {'type': 'STRING', 'description': 'Session ID'},
+            },
+            'required': ['session_id', 'input_text'],
+        },
+    },
+    'shell_wait': {
+        'description': 'Wait for a background process to complete.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'session_id': {'type': 'STRING', 'description': 'Session ID'},
+                'timeout': {'type': 'INTEGER', 'description': 'Max seconds to wait'},
+            },
+            'required': ['session_id'],
+        },
+    },
+    'shell_kill': {
+        'description': 'Terminate a background process.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'force': {'type': 'BOOLEAN', 'description': 'Use SIGKILL instead of SIGTERM'},
+                'session_id': {'type': 'STRING', 'description': 'Session ID'},
+            },
+            'required': ['session_id'],
+        },
+    },
+    # --- Browser ---
+    'browser_navigate': {
+        'description': 'Navigate to a URL.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'url': {'type': 'STRING', 'description': 'URL to navigate to'},
+                'wait_for': {'type': 'STRING', 'description': 'CSS selector to wait for'},
+            },
+            'required': ['url'],
+        },
+    },
+    'browser_view': {
+        'description': 'See current page state — URL, title, content, interactive elements.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {},
+            'required': [],
+        },
+    },
+    'browser_click': {
+        'description': 'Click an interactive element by index.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'index': {'type': 'INTEGER', 'description': 'Element index from browser_view'},
+            },
+            'required': ['index'],
+        },
+    },
+    'browser_input': {
+        'description': 'Type text into a form field by index.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'index': {'type': 'INTEGER', 'description': 'Element index'},
+                'press_enter': {'type': 'BOOLEAN', 'description': 'Press Enter after typing'},
+                'text': {'type': 'STRING', 'description': 'Text to type'},
+            },
+            'required': ['index', 'text'],
+        },
+    },
+    'browser_scroll': {
+        'description': 'Scroll the page up or down.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'amount': {'type': 'INTEGER', 'description': 'Pixels to scroll'},
+                'direction': {'type': 'STRING', 'description': 'up or down'},
+            },
+            'required': [],
+        },
+    },
+    'browser_find': {
+        'description': 'Search for text on the current page.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'keyword': {'type': 'STRING', 'description': 'Text to search for'},
+            },
+            'required': ['keyword'],
+        },
+    },
+    'browser_console': {
+        'description': 'Execute JavaScript in the page.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'script': {'type': 'STRING', 'description': 'JavaScript code to execute'},
+            },
+            'required': ['script'],
+        },
+    },
+    'browser_fill_form': {
+        'description': 'Complete multiple form fields at once.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'fields': {'type': 'ARRAY', 'description': 'List of {index, value} pairs',
+                           'items': {'type': 'OBJECT'}},
+            },
+            'required': ['fields'],
+        },
+    },
+    'browser_press_key': {
+        'description': 'Simulate a keyboard press.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'key': {'type': 'STRING', 'description': 'Key to press (Enter, Tab, Escape, etc.)'},
+            },
+            'required': ['key'],
+        },
+    },
+    'browser_save_image': {
+        'description': 'Download an image from the current page.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'save_path': {'type': 'STRING', 'description': 'Local path to save'},
+                'url': {'type': 'STRING', 'description': 'Image URL or screenshot'},
+            },
+            'required': ['save_path'],
+        },
+    },
+    # --- Swell extended ---
+    'swell_analyze': {
+        'description': 'Analyze all files in a directory using parallel workers.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'directory': {'type': 'STRING', 'description': 'Directory to analyze'},
+                'pattern': {'type': 'STRING', 'description': 'File glob pattern'},
+                'question': {'type': 'STRING', 'description': 'What to extract from each file'},
+            },
+            'required': ['directory', 'question'],
+        },
+    },
+    'swell_build': {
+        'description': 'Build multi-component app using parallel workers. Returns code for you to assemble.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'components': {'type': 'ARRAY', 'description': 'List of {name, spec, language} objects',
+                               'items': {'type': 'OBJECT'}},
+                'context': {'type': 'STRING', 'description': 'Shared context for all workers'},
+            },
+            'required': ['components'],
+        },
+    },
+    # --- Parallel ---
+    'map_parallel': {
+        'description': 'Run a shell command on multiple items in parallel.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'command_template': {'type': 'STRING', 'description': 'Command with {item} placeholder'},
+                'items': {'type': 'ARRAY', 'description': 'Items to process',
+                          'items': {'type': 'STRING'}},
+                'max_concurrent': {'type': 'INTEGER', 'description': 'Max parallel tasks'},
+            },
+            'required': ['command_template', 'items'],
+        },
+    },
+    # --- Subtask ---
+    'subtask_create': {
+        'description': 'Break a complex task into numbered subtasks.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'subtasks': {'type': 'ARRAY', 'description': 'List of subtask descriptions',
+                             'items': {'type': 'STRING'}},
+            },
+            'required': ['subtasks'],
+        },
+    },
+    'subtask_done': {
+        'description': 'Mark a subtask as complete by ID.',
+        'parameters': {
+            'type': 'OBJECT',
+            'properties': {
+                'id': {'type': 'INTEGER', 'description': 'Subtask ID to mark done'},
+            },
+            'required': ['id'],
         },
     },
 }

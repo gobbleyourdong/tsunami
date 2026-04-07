@@ -35,52 +35,97 @@ log = logging.getLogger("eval")
 # ---------------------------------------------------------------------------
 
 EVAL_PROMPTS = [
-    # --- TRIVIAL (should be 1-2 tool calls) ---
-    {"id": "T1", "level": "trivial", "prompt": "What's 2+2?",
+    # --- TRIVIAL (should be 1-3 tool calls) ---
+    # Greetings
+    {"id": "T01", "level": "trivial", "prompt": "What's 2+2?",
      "expect_tool": "message_result", "expect_steps": 2},
-    {"id": "T2", "level": "trivial", "prompt": "Say hello",
-     "expect_tool": "message_info", "expect_steps": 2},
-    {"id": "T3", "level": "trivial", "prompt": "What day is it?",
+    {"id": "T02", "level": "trivial", "prompt": "Say hello",
      "expect_tool": "message_result", "expect_steps": 2},
+    {"id": "T03", "level": "trivial", "prompt": "What day is it?",
+     "expect_tool": "search_web", "expect_steps": 3},
+    # Conversational
+    {"id": "T04", "level": "trivial", "prompt": "Who are you?",
+     "expect_tool": "message_result", "expect_steps": 2},
+    {"id": "T05", "level": "trivial", "prompt": "Thanks, that's all",
+     "expect_tool": "message_result", "expect_steps": 2},
+    {"id": "T06", "level": "trivial", "prompt": "What can you build?",
+     "expect_tool": "message_result", "expect_steps": 2},
+    # Search-needed
+    {"id": "T07", "level": "trivial", "prompt": "What's the population of Japan?",
+     "expect_tool": "search_web", "expect_steps": 3},
+    {"id": "T08", "level": "trivial", "prompt": "What's bitcoin trading at?",
+     "expect_tool": "search_web", "expect_steps": 3},
 
-    # --- EASY (scaffold + single file) ---
-    {"id": "E1", "level": "easy", "prompt": "Build a counter app with increment and decrement buttons",
+    # --- EASY (scaffold + single file, 2-8 steps) ---
+    {"id": "E01", "level": "easy", "prompt": "Build a counter app with increment and decrement buttons",
      "expect_tool": "project_init", "expect_steps": 8},
-    {"id": "E2", "level": "easy", "prompt": "Build a hello world page with a centered heading",
+    {"id": "E02", "level": "easy", "prompt": "Build a hello world page with a centered heading",
      "expect_tool": "project_init", "expect_steps": 6},
-    {"id": "E3", "level": "easy", "prompt": "Build a random quote generator",
+    {"id": "E03", "level": "easy", "prompt": "Build a random quote generator",
      "expect_tool": "project_init", "expect_steps": 8},
-    {"id": "E4", "level": "easy", "prompt": "Build a tip calculator",
+    {"id": "E04", "level": "easy", "prompt": "Build a tip calculator",
+     "expect_tool": "project_init", "expect_steps": 8},
+    {"id": "E05", "level": "easy", "prompt": "Build a BMI calculator with height and weight inputs",
+     "expect_tool": "project_init", "expect_steps": 8},
+    {"id": "E06", "level": "easy", "prompt": "Build a color palette generator that shows 5 random colors with hex codes",
+     "expect_tool": "project_init", "expect_steps": 8},
+    {"id": "E07", "level": "easy", "prompt": "Build a digital clock that shows the current time",
+     "expect_tool": "project_init", "expect_steps": 8},
+    {"id": "E08", "level": "easy", "prompt": "Build a password generator with length slider and copy button",
      "expect_tool": "project_init", "expect_steps": 8},
 
-    # --- MEDIUM (multi-component, some logic) ---
-    {"id": "M1", "level": "medium", "prompt": "Build a todo app with add, delete, and mark complete",
+    # --- MEDIUM (multi-component, some logic, 4-15 steps) ---
+    {"id": "M01", "level": "medium", "prompt": "Build a todo app with add, delete, and mark complete",
      "expect_tool": "project_init", "expect_steps": 15},
-    {"id": "M2", "level": "medium", "prompt": "Build a pomodoro timer with start, pause, and reset",
+    {"id": "M02", "level": "medium", "prompt": "Build a pomodoro timer with start, pause, and reset",
      "expect_tool": "project_init", "expect_steps": 15},
-    {"id": "M3", "level": "medium", "prompt": "Build a weather dashboard that shows a 5-day forecast with fake data",
+    {"id": "M03", "level": "medium", "prompt": "Build a weather dashboard that shows a 5-day forecast with fake data",
      "expect_tool": "project_init", "expect_steps": 15},
-    {"id": "M4", "level": "medium", "prompt": "Build a markdown previewer with a split editor and live preview",
+    {"id": "M04", "level": "medium", "prompt": "Build a markdown previewer with a split editor and live preview",
+     "expect_tool": "project_init", "expect_steps": 15},
+    {"id": "M05", "level": "medium", "prompt": "Build a flashcard study app with flip animation and card deck management",
+     "expect_tool": "project_init", "expect_steps": 15},
+    {"id": "M06", "level": "medium", "prompt": "Build a recipe book app where you can add recipes with ingredients, steps, and a search filter",
+     "expect_tool": "project_init", "expect_steps": 15},
+    {"id": "M07", "level": "medium", "prompt": "Build an expense tracker with categories, a bar chart summary, and localStorage persistence",
+     "expect_tool": "project_init", "expect_steps": 15},
+    {"id": "M08", "level": "medium", "prompt": "Build a quiz app with 10 multiple choice questions, a score counter, and a results screen",
      "expect_tool": "project_init", "expect_steps": 15},
 
-    # --- HARD (multi-file, complex logic, error-prone) ---
-    {"id": "H1", "level": "hard", "prompt": "Build a kanban board with 3 columns and drag-and-drop cards",
+    # --- HARD (multi-file, complex logic, 4-25 steps) ---
+    {"id": "H01", "level": "hard", "prompt": "Build a kanban board with 3 columns and drag-and-drop cards",
      "expect_tool": "project_init", "expect_steps": 25},
-    {"id": "H2", "level": "hard", "prompt": "Build a typing speed test game with WPM tracking and a countdown timer",
+    {"id": "H02", "level": "hard", "prompt": "Build a typing speed test game with WPM tracking and a countdown timer",
      "expect_tool": "project_init", "expect_steps": 25},
-    {"id": "H3", "level": "hard", "prompt": "Build a crypto portfolio dashboard with pie chart, line chart, and a data table showing 10 coins with price, change, holdings",
+    {"id": "H03", "level": "hard", "prompt": "Build a crypto portfolio dashboard with pie chart, line chart, and a data table showing 10 coins with price, change, holdings",
      "expect_tool": "project_init", "expect_steps": 25},
-    {"id": "H4", "level": "hard", "prompt": "Build a file manager with a tree view sidebar, breadcrumb nav, and a grid/list toggle for the main area",
+    {"id": "H04", "level": "hard", "prompt": "Build a file manager with a tree view sidebar, breadcrumb nav, and a grid/list toggle for the main area",
      "expect_tool": "project_init", "expect_steps": 30},
+    {"id": "H05", "level": "hard", "prompt": "Build a drawing app with brush, eraser, color picker, line width, undo/redo, and PNG export",
+     "expect_tool": "project_init", "expect_steps": 25},
+    {"id": "H06", "level": "hard", "prompt": "Build a multi-step form wizard with validation, progress bar, back/next buttons, and a review page",
+     "expect_tool": "project_init", "expect_steps": 25},
+    {"id": "H07", "level": "hard", "prompt": "Build a Spotify-style music player UI with playlist sidebar, album art, progress bar, and play/pause/skip controls",
+     "expect_tool": "project_init", "expect_steps": 25},
+    {"id": "H08", "level": "hard", "prompt": "Build a snake game with arrow key controls, score tracking, speed increase, and game over screen",
+     "expect_tool": "project_init", "expect_steps": 25},
 
-    # --- EXTREME (multi-component, 3D, or fullstack) ---
-    {"id": "X1", "level": "extreme", "prompt": "Build a 3D solar system with orbiting planets using Three.js. Include Mercury through Neptune with relative sizes and orbit speeds.",
+    # --- EXTREME (multi-component, 3D, fullstack, or novel) ---
+    {"id": "X01", "level": "extreme", "prompt": "Build a 3D solar system with orbiting planets using Three.js. Include Mercury through Neptune with relative sizes and orbit speeds.",
      "expect_tool": "project_init", "expect_steps": 35},
-    {"id": "X2", "level": "extreme", "prompt": "Build a real-time chat app with WebSocket server, message history, typing indicators, and user avatars",
+    {"id": "X02", "level": "extreme", "prompt": "Build a real-time chat app with WebSocket server, message history, typing indicators, and user avatars",
      "expect_tool": "project_init", "expect_steps": 35},
-    {"id": "X3", "level": "extreme", "prompt": "Build a code editor with syntax highlighting, line numbers, a file tree sidebar, and a terminal panel at the bottom",
+    {"id": "X03", "level": "extreme", "prompt": "Build a code editor with syntax highlighting, line numbers, a file tree sidebar, and a terminal panel at the bottom",
      "expect_tool": "project_init", "expect_steps": 35},
-    {"id": "X4", "level": "extreme", "prompt": "Build a music visualizer that uses the Web Audio API to show a real-time frequency spectrum, waveform, and beat detection with pulsing background",
+    {"id": "X04", "level": "extreme", "prompt": "Build a music visualizer that uses the Web Audio API to show a real-time frequency spectrum, waveform, and beat detection with pulsing background",
+     "expect_tool": "project_init", "expect_steps": 35},
+    {"id": "X05", "level": "extreme", "prompt": "Build a spreadsheet app with cell editing, formulas (SUM, AVERAGE, COUNT), column resize, and CSV export",
+     "expect_tool": "project_init", "expect_steps": 35},
+    {"id": "X06", "level": "extreme", "prompt": "Build a full e-commerce store with product grid, cart, checkout form, and order confirmation page using fake product data",
+     "expect_tool": "project_init", "expect_steps": 35},
+    {"id": "X07", "level": "extreme", "prompt": "Build a pixel art editor with a 32x32 canvas grid, color palette, brush/fill/erase tools, undo/redo, and PNG export",
+     "expect_tool": "project_init", "expect_steps": 35},
+    {"id": "X08", "level": "extreme", "prompt": "Build a project management dashboard with Gantt chart, task table with status/assignee/dates, and a team workload sidebar",
      "expect_tool": "project_init", "expect_steps": 35},
 ]
 
@@ -99,6 +144,7 @@ TOOL_SCHEMAS = [
     {"type": "function", "function": {"name": "project_init", "description": "Create a project from the scaffold library.", "parameters": {"type": "object", "properties": {"name": {"type": "string", "description": "Project name"}}, "required": ["name"]}}},
     {"type": "function", "function": {"name": "generate_image", "description": "Generate an image from a text description.", "parameters": {"type": "object", "properties": {"prompt": {"type": "string", "description": "Text description"}, "save_path": {"type": "string", "description": "Path to save image"}}, "required": ["prompt", "save_path"]}}},
     {"type": "function", "function": {"name": "load_toolbox", "description": "Load tools on demand. Available: browser, webdev, generate, services, parallel, management", "parameters": {"type": "object", "properties": {"toolbox": {"type": "string", "description": "Toolbox to load"}}}}},
+    {"type": "function", "function": {"name": "message_chat", "description": "Talk to the user. For conversation (greetings, questions, thanks): set done=true to end. For status updates during builds: set done=false to continue.", "parameters": {"type": "object", "properties": {"text": {"type": "string", "description": "Message to the user"}, "done": {"type": "boolean", "description": "true=end task, false=keep working", "default": True}}, "required": ["text"]}}},
 ]
 
 SYSTEM_PROMPT = (
@@ -108,6 +154,8 @@ SYSTEM_PROMPT = (
 )
 
 VALID_TOOLS = {s["function"]["name"] for s in TOOL_SCHEMAS}
+# Tools that end the task
+TERMINAL_TOOLS = {"message_result", "message_chat"}
 
 
 # ---------------------------------------------------------------------------
@@ -275,6 +323,7 @@ FAKE_TOOL_RESULTS = {
     "shell_exec": "[shell_exec] $ {command}\nvite v6.3.1 building for production...\n✓ 15 modules transformed.\ndist/index.html    0.46 kB │ gzip: 0.30 kB\ndist/assets/index-DiwrgTda.css   1.42 kB │ gzip: 0.73 kB\ndist/assets/index-DVoHNO1Y.js  143.36 kB │ gzip: 46.09 kB\n✓ built in 540ms",
     "message_info": "[message_info] Message delivered.",
     "message_result": "[message_result] {text}",
+    "message_chat": "[message_chat] {text}",
     "message_ask": "[message_ask] (user says: yes, continue)",
     "search_web": "[search_web] Results for '{query}':\n1. Example result - https://example.com\n2. Another result - https://example.com/2",
     "plan_update": "[plan_update] Plan updated.",
@@ -338,8 +387,12 @@ async def eval_build(endpoint: str, prompts: list[dict], max_iters: int = 50) ->
                 result.iterations += 1
 
                 # Check for delivery
-                if name == "message_result":
-                    result.delivered = True
+                if name in TERMINAL_TOOLS:
+                    # message_chat with done=false is a status update, not delivery
+                    if name == "message_chat" and not args.get("done", True):
+                        pass  # keep going
+                    else:
+                        result.delivered = True
                     result.wall_clock_s = time.monotonic() - t0
                     break
 

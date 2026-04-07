@@ -51,7 +51,7 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
     from .filesystem import FileRead, FileWrite, FileEdit, FileAppend
     from .match import MatchGlob, MatchGrep
     from .shell import ShellExec, ShellView
-    from .message import MessageInfo, MessageAsk, MessageResult
+    from .message import MessageInfo, MessageAsk, MessageResult, MessageChat
     from .plan import PlanUpdate, PlanAdvance
     from .search import SearchWeb
     from .python_exec import PythonExec
@@ -76,15 +76,15 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
         for cls in [FileRead, FileWrite, FileEdit,
                     MatchGlob,
                     ShellExec,
-                    MessageInfo, MessageAsk, MessageResult,
+                    MessageInfo, MessageAsk, MessageResult, MessageChat,
                     SearchWeb, ProjectInit, GenerateImage]:
             registry.register(cls(config))
     else:
-        # Full mode (9B+): 18 tools — full capabilities
+        # Full mode (9B+): 19 tools — full capabilities
         for cls in [FileRead, FileWrite, FileEdit,
                     MatchGlob, MatchGrep,
                     ShellExec,
-                    MessageInfo, MessageAsk, MessageResult,
+                    MessageInfo, MessageAsk, MessageResult, MessageChat,
                     PlanUpdate,
                     SearchWeb, PythonExec, SummarizeFile, Swell, Undertow,
                     ProjectInit, GenerateImage]:
