@@ -565,114 +565,81 @@ class Agent:
             self.state.iteration += 1
             iter_start = time.time()
 
-            # Early scaffold nudge — if by iter 8 no scaffold, push hard
-            if self.state.iteration == 8 and "project_init" not in self._tool_history:
-                # Generate a unique name hint from the user request
-                user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
-                name_hint = "-".join(user_req.lower().split()[:4]).replace(",", "").replace("—", "")[:30]
-                self.state.add_system_note(
-                    "CRITICAL: You are 8 iterations in and haven't scaffolded a project yet. "
-                    f"Call project_init NOW with name='{name_hint}'. "
-                    "Do NOT write files to an existing project. Create a NEW project. BUILD."
-                )
-                log.warning("Early scaffold nudge: 8 iters without project_init")
-
-            # FORCED scaffold gate at iter 10 — not a nudge, an actual tool call
-            if self.state.iteration == 10 and "project_init" not in self._tool_history:
-                user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else "app"
-                name_hint = "-".join(user_req.lower().split()[:4]).replace(",", "").replace("—", "").replace(".", "")[:30]
-                log.warning(f"FORCED scaffold gate: calling project_init('{name_hint}') for the agent")
-                try:
-                    tool = self.registry.get("project_init")
-                    if tool:
-                        from .tools.project_init import _pick_scaffold
-                        scaffold = _pick_scaffold(user_req, [])
-                        result = await tool.execute(name=name_hint, dependencies=[])
-                        self.state.add_tool_result("project_init", {"name": name_hint}, result.content)
+            # Detect pre-scaffold at iter 1 — mark project_init as done
+            if self.state.iteration == 1 and not self._project_init_called:
+                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                if deliverables.exists():
+                    projects = [d for d in deliverables.iterdir() if d.is_dir() and (d / "package.json").exists()]
+                    if projects:
+                        self._project_init_called = True
                         self._tool_history.append("project_init")
-                        self.state.add_system_note(
-                            f"System auto-scaffolded '{name_hint}'. Now write your App.tsx and components. BUILD."
-                        )
-                except Exception as e:
-                    log.warning(f"Forced scaffold failed: {e}")
+                        project = sorted(projects, key=lambda p: p.stat().st_mtime, reverse=True)[0]
+                        log.info(f"Pre-scaffold detected: {project.name}")
 
-            # Stronger build nudge at iter 15
-            if self.state.iteration == 15:
+            # (removed iter 2 auto-scaffold — pre-scaffold at line 544 handles this)
+            if False and self.state.iteration == 2 and "project_init" not in self._tool_history:
+                user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                build_keywords = ["build", "create", "make", "app", "game", "dashboard", "website",
+                                  "calculator", "counter", "timer", "todo", "chat", "editor",
+                                  "landing", "store", "tracker", "manager", "player", "viewer"]
+                is_build = any(k in user_req.lower() for k in build_keywords)
+                if is_build:
+                    name_hint = "-".join(user_req.lower().split()[:5]).replace(",", "").replace("—", "").replace(".", "")[:30]
+                    log.info(f"Auto-scaffold at iter 2: build task detected, calling project_init('{name_hint}')")
+                    try:
+                        # Check if model already wrote App.tsx — preserve it
+                        saved_app = None
+                        deliverables = Path(self.config.workspace_dir) / "deliverables"
+                        for d in deliverables.iterdir() if deliverables.exists() else []:
+                            app_file = d / "src" / "App.tsx"
+                            if app_file.exists() and app_file.stat().st_size > 100:
+                                saved_app = (app_file, app_file.read_text())
+                                break
+
+                        tool = self.registry.get("project_init")
+                        if tool:
+                            result = await tool.execute(name=name_hint, dependencies=[])
+                            self.state.add_tool_result("project_init", {"name": name_hint}, result.content)
+                            self._tool_history.append("project_init")
+                            self._project_init_called = True
+
+                            # Restore model's App.tsx if scaffold overwrote it
+                            if saved_app:
+                                target = deliverables / name_hint / "src" / "App.tsx"
+                                if target.exists():
+                                    target.write_text(saved_app[1])
+                                    log.info(f"Auto-scaffold: restored model's App.tsx ({len(saved_app[1])} chars)")
+
+                            project_dir = f"workspace/deliverables/{name_hint}"
+                            self.state.add_system_note(
+                                f"Project scaffolded at {project_dir}/\n"
+                                f"To build: shell_exec with command=\"cd {project_dir} && npx vite build\"\n"
+                                f"To deliver: message_result when build passes."
+                            )
+                    except Exception as e:
+                        log.debug(f"Auto-scaffold at iter 2 failed: {e}")
+
+            # Nudge at iter 10 — if no code written yet, push
+            if self.state.iteration == 10:
                 writes = sum(1 for t in self._tool_history if t in ("file_write", "file_edit"))
                 if writes == 0:
                     self.state.add_system_note(
-                        "WARNING: 15 iterations with ZERO file writes. You MUST start writing code "
-                        "immediately. Call project_init if you haven't, then file_write. "
-                        "Do NOT read, search, or plan any further."
+                        "Pressure building. 10 iterations, zero writes. Write App.tsx NOW."
                     )
-                    log.warning("Build nudge: 15 iters with 0 writes")
+                    log.warning("Build nudge: 10 iters with 0 writes")
 
-            # FORCED CODE WRITE at iter 25 — bypass the agent, ask model directly
-            if self.state.iteration == 25:
-                writes = sum(1 for t in self._tool_history if t in ("file_write", "file_edit"))
-                if writes <= 1:  # only scaffold stub written
-                    log.warning("FORCED code write: 25 iters with <=1 writes — generating App.tsx directly")
-                    try:
-                        user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
-                        # Find the project dir
-                        deliverables = Path(self.config.workspace_dir) / "deliverables"
-                        if deliverables.exists():
-                            projects = sorted(
-                                [d for d in deliverables.iterdir() if d.is_dir()],
-                                key=lambda p: p.stat().st_mtime, reverse=True,
-                            )
-                            if projects:
-                                app_path = projects[0] / "src" / "App.tsx"
-                                # Direct generation — single prompt, no agent loop
-                                # Direct API call — bypass model layer to get raw response with reasoning
-                                import httpx
-                                async with httpx.AsyncClient(timeout=120) as client:
-                                    raw_resp = await client.post(
-                                        f"{self.config.model_endpoint}/v1/chat/completions",
-                                        json={
-                                            "messages": [
-                                                {"role": "system", "content": "Write ONLY TypeScript React code. No explanations. Include all imports. Use CSS vars: --bg-primary, --bg-secondary, --text-primary, --accent, --border."},
-                                                {"role": "user", "content": f"Write App.tsx for: {user_req[:500]}. Single file, all logic inline. export default function App."},
-                                            ],
-                                            "max_tokens": 4096,
-                                            "temperature": 0.3,
-                                        },
-                                    )
-                                gen_data = raw_resp.json()
-                                gen_msg = gen_data.get("choices", [{}])[0].get("message", {})
-                                gen_content = gen_msg.get("content", "")
-                                # If content is empty, try reasoning_content (Gemma 4 thinking mode)
-                                if not gen_content or len(gen_content) < 100:
-                                    gen_content = gen_msg.get("reasoning_content", "")
-                                if gen_content and len(gen_content) > 100:
-                                    # Extract code from markdown fences if present
-                                    import re
-                                    code = gen_content
-                                    match = re.search(r'```(?:tsx?|typescript|javascript)?\n(.*?)```', code, re.DOTALL)
-                                    if match:
-                                        code = match.group(1)
-                                    code = f'import "./index.css"\n{code.strip()}\n'
-                                    app_path.write_text(code)
-                                    self.state.add_tool_result("file_write", {"path": str(app_path)}, f"Wrote {app_path.name} ({len(code)} chars) [FORCED]")
-                                    self._tool_history.append("file_write")
-                                    log.info(f"Forced App.tsx write: {len(code)} chars")
-                    except Exception as e:
-                        log.warning(f"Forced code write failed: {e}")
-
-            # Safety valve — force deliver if truly lost
+            # Safety valve — hard cap at 60 iterations
             if self.state.iteration > 30:
-                # Check RECENT writes (last 20 tools), not all-time
                 recent = self._tool_history[-20:] if len(self._tool_history) > 20 else self._tool_history
                 recent_writes = sum(1 for t in recent if t in ("file_write", "file_edit", "project_init"))
-                if recent_writes == 0 and self.state.iteration > 50:
+                if recent_writes == 0:
                     log.warning(f"Safety valve: {self.state.iteration} iters, 0 writes in last 20 — forcing exit")
                     self.state.task_complete = True
                     return "Task ended — no progress detected."
-                # Hard cap — nothing should ever run more than 200 iterations
-                if self.state.iteration > 200:
-                    log.warning(f"Hard cap: {self.state.iteration} iterations — forcing exit")
-                    self.state.task_complete = True
-                    return f"Task ended after {self.state.iteration} iterations."
+            if self.state.iteration > 60:
+                log.warning(f"Hard cap: {self.state.iteration} iterations — forcing exit")
+                self.state.task_complete = True
+                return f"Task ended after {self.state.iteration} iterations."
 
             # Check abort signal
             if self.abort_signal.aborted:
@@ -863,34 +830,23 @@ class Agent:
         # Reset empty step counter on successful tool call
         self._empty_steps = 0
 
-        # Auto-promote message_info → message_result when it looks like a final answer
-        if tool_call.name == "message_info":
-            text = tool_call.arguments.get("text", "").lower()
-            is_final = any(kw in text for kw in [
-                "identified", "conclusion", "summary of findings", "failure point",
-                "complete", "results:", "answer:", "the wall", "analysis complete",
-                "built successfully", "all required elements", "ready to use",
-                "ready to deliver", "build succeeded", "all components created",
-                "compiled without errors", "compiled successfully",
-                "hello", "hi!", "how can i help", "what would you like",
-                "ready to help", "i can help", "let me know",
-            ])
-            if is_final:
-                log.info("Auto-promoting message_info → message_result (looks like final answer)")
-                tool_call = ToolCall(name="message_result", arguments=tool_call.arguments)
+        # message_chat with done=true terminates the task
+        if tool_call.name == "message_chat":
+            done = tool_call.arguments.get("done", True)
+            if done:
+                log.info("message_chat (done=true) → ending task")
+                tool_call = ToolCall(name="message_result", arguments={"text": tool_call.arguments.get("text", "")})
+            else:
+                log.info("message_chat (done=false) → status update, continuing")
 
-        # Detect repetition loop: if model keeps calling message_info
+        # message_info loop detection — safety net for untrained patterns
+        # The trained model should use message_chat instead, but if it falls
+        # back to message_info, catch loops and force termination.
         if tool_call.name == "message_info":
             self._info_streak = getattr(self, '_info_streak', 0) + 1
-            self._info_total = getattr(self, '_info_total', 0) + 1
-            # Force termination on 2 consecutive OR 3 total message_info calls
-            if self._info_streak >= 2 or self._info_total >= 3:
-                log.info(f"Info loop detected (streak={self._info_streak}, total={self._info_total}). Forcing termination.")
-                # Silent termination — the previous message_info already displayed the answer
-                tool_call = ToolCall(
-                    name="message_result",
-                    arguments={"text": ""},  # empty — don't repeat
-                )
+            if self._info_streak >= 3:
+                log.info(f"Info loop detected ({self._info_streak} consecutive). Forcing delivery.")
+                tool_call = ToolCall(name="message_result", arguments=tool_call.arguments)
                 self._info_streak = 0
         else:
             self._info_streak = 0
@@ -1066,10 +1022,24 @@ class Agent:
                         "already have and start building. Call file_write or project_init next."
                     )
                 elif repeated_tool == "shell_exec":
-                    self.state.add_system_note(
-                        f"You've run shell_exec 3 times in a row. If the build is failing, "
-                        f"read the error and fix the code. If it's passing, call message_result."
-                    )
+                    # Check if the last shell results contain compile errors
+                    last_results = [
+                        e.content for e in self.state.conversation[-6:]
+                        if e.role == "tool_result" and ("Error" in e.content or "error" in e.content)
+                    ]
+                    if last_results:
+                        error_sample = last_results[-1][:500]
+                        self.state.add_system_note(
+                            f"STOP running shell_exec. The build is failing. You MUST fix the code.\n"
+                            f"Use file_read to see the current code, then file_edit to fix the errors.\n"
+                            f"DO NOT call shell_exec again until you've edited the file.\n"
+                            f"Last error:\n{error_sample}"
+                        )
+                    else:
+                        self.state.add_system_note(
+                            f"You've run shell_exec 3 times in a row. If the build is failing, "
+                            f"read the error and fix the code. If it's passing, call message_result."
+                        )
                 else:
                     self.state.add_system_note(
                         f"You're calling {repeated_tool} repeatedly. Try a different approach. "
@@ -1114,6 +1084,21 @@ class Agent:
                 "PRESSURE ELEVATED: Consider using search_web to ground your next action."
             )
 
+        # Auto-fix missing path for file_write/file_edit — infer from active project
+        if tool_call.name in ("file_write", "file_edit") and "path" not in tool_call.arguments:
+            if self._project_init_called and "content" in tool_call.arguments:
+                # Find the active project
+                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                if deliverables.exists():
+                    projects = sorted(
+                        [d for d in deliverables.iterdir() if d.is_dir()],
+                        key=lambda p: p.stat().st_mtime, reverse=True
+                    )
+                    if projects:
+                        inferred_path = f"workspace/deliverables/{projects[0].name}/src/App.tsx"
+                        tool_call.arguments["path"] = inferred_path
+                        log.info(f"Auto-fixed missing path: {inferred_path}")
+
         # Input validation
         validation_error = tool.validate_input(**tool_call.arguments)
         if validation_error:
@@ -1144,6 +1129,32 @@ class Agent:
                 return content
         else:
             self._dedup_hits = 0  # reset on non-cached call
+
+        # Hard block: after 3 consecutive shell_exec, refuse and force code fix
+        if tool_call.name == "shell_exec":
+            recent_3 = self._tool_history[-3:] if len(self._tool_history) >= 3 else []
+            if recent_3 == ["shell_exec", "shell_exec", "shell_exec"]:
+                # Find the active project's App.tsx to tell model what to read
+                app_path = "src/App.tsx"
+                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                if deliverables.exists():
+                    projects = sorted(
+                        [d for d in deliverables.iterdir() if d.is_dir()],
+                        key=lambda p: p.stat().st_mtime, reverse=True
+                    )
+                    if projects:
+                        app_path = f"workspace/deliverables/{projects[0].name}/src/App.tsx"
+
+                block_msg = (
+                    f"BLOCKED: shell_exec called 4 times in a row. The build is failing. "
+                    f"Step 1: Call file_read with path=\"{app_path}\" to see your code. "
+                    f"Step 2: Call file_edit to fix the syntax errors. "
+                    f"Step 3: Then call shell_exec to rebuild. "
+                    f"Do NOT call shell_exec or message_ask. Call file_read NOW."
+                )
+                log.warning("Hard shell_exec block: 3 consecutive, forcing code fix")
+                self.state.add_tool_result(tool_call.name, tool_call.arguments, block_msg, is_error=True)
+                return block_msg
 
         try:
             result = await tool.execute(**tool_call.arguments)
@@ -2007,9 +2018,32 @@ class Agent:
             # Track delivery attempts — prevent infinite block loops
             self._delivery_attempts = getattr(self, '_delivery_attempts', 0) + 1
 
+            # Code-write gate: check if App.tsx has real code, not just scaffold placeholder.
+            if self._project_init_called and self._delivery_attempts <= 2:
+                # Check actual file content
+                app_is_placeholder = True
+                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                if deliverables.exists():
+                    for d in sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+                        app_file = d / "src" / "App.tsx"
+                        if app_file.exists():
+                            content = app_file.read_text()
+                            if len(content) > 200 and "Loading..." not in content:
+                                app_is_placeholder = False
+                            break
+                if app_is_placeholder:
+                    log.warning("Early completion blocked: no code written after project_init")
+                    self.state.add_system_note(
+                        "BLOCKED: You scaffolded a project but haven't written any code. "
+                        "Call file_write to write src/App.tsx with your implementation. "
+                        "Do NOT deliver until you've written actual code."
+                    )
+                    self._delivery_attempts -= 1  # don't count this against the limit
+                    return "Write code before delivering."
+
             # Short conversational responses (greetings, acknowledgments) skip all gates
             is_conversational = len(result.content) < 300 and tension < 0.3
-            if is_conversational:
+            if is_conversational and not self._project_init_called:
                 self._delivery_attempts = 0
                 self.state.task_complete = True
                 return result.content

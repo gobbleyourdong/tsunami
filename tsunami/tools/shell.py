@@ -129,19 +129,42 @@ class ShellExec(BaseTool):
         if sec_warnings:
             log.warning(f"Bash security warnings for '{command[:80]}': {sec_warnings}")
 
+        # Fix common path errors from the model
+        # Model trained on Docker where /workspace was the root — rewrite to correct paths
+        import os
+        # ark dir is 3 levels up from tsunami/tools/shell.py
+        tools_dir = os.path.dirname(os.path.abspath(__file__))
+        tsunami_dir = os.path.dirname(tools_dir)
+        ark_dir_local = os.path.dirname(tsunami_dir)
+        workspace_abs = os.path.normpath(os.path.join(ark_dir_local, self.config.workspace_dir if hasattr(self, 'config') else 'workspace'))
+        if '/workspace/' in command:
+            command = command.replace('/workspace/', f'{workspace_abs}/')
+            log.info(f"Path fix: /workspace/ → {workspace_abs}/")
+        elif 'cd workspace/' in command:
+            command = command.replace('cd workspace/', f'cd {workspace_abs}/', 1)
+            log.info(f"Path fix: cd workspace/ → cd {workspace_abs}/")
+
+        # Fix hallucinated brackets, quotes, and noise in paths
+        import re
+        command = re.sub(r'\[project[^\]]*\]?', '', command)  # [project...] with or without closing
+        command = re.sub(r'\[[^\]]*\]', '', command)  # any [bracket] content
+        command = re.sub(r"\-'[^']*'?", '', command)  # -'garbage' suffixes
+
+        # Fix npm run dev → npx vite build (scaffold doesn't have dev script)
+        if 'npm run dev' in command:
+            command = command.replace('npm run dev', 'npx vite build')
+            log.info("Command fix: npm run dev → npx vite build")
+
         try:
             # Resolve workdir — default to workspace dir (not cwd)
-            import os
-            ark_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            cwd = os.path.join(ark_dir, self.config.workspace_dir) if hasattr(self, 'config') else None
+            cwd = os.path.join(ark_dir_local, self.config.workspace_dir) if hasattr(self, 'config') else None
             if workdir:
                 expanded = os.path.expanduser(workdir)
                 if os.path.isdir(expanded):
                     cwd = expanded
                 else:
                     # Try relative to ark dir
-                    ark_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                    candidate = os.path.join(ark_dir, workdir)
+                    candidate = os.path.join(ark_dir_local, workdir)
                     if os.path.isdir(candidate):
                         cwd = candidate
                     # else: let it use default cwd

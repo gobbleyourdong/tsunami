@@ -64,10 +64,47 @@ class MessageAsk(BaseTool):
         if _input_callback:
             response = await _input_callback(text)
         else:
-            # Fallback: read from stdin
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(None, lambda: input("\n> "))
+            try:
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(None, lambda: input("\n> "))
+            except EOFError:
+                # Non-interactive mode — don't block, tell model to figure it out
+                return ToolResult(
+                    "No user available. You are running autonomously. "
+                    "Do NOT ask for help. Use file_read to examine your code, "
+                    "file_edit to fix errors, and shell_exec to verify. "
+                    "Make your best judgment and continue building."
+                )
         return ToolResult(f"User response: {response}")
+
+
+class MessageChat(BaseTool):
+    name = "message_chat"
+    description = (
+        "Talk to the user. Keep it SHORT — one sentence max. "
+        "done=true ends the task (conversation). done=false continues (status update). "
+        "Use for: greetings, questions, progress updates, snag reports. Not walls of text."
+    )
+
+    def parameters_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "text": {"type": "string", "description": "Message to the user"},
+                "done": {"type": "boolean", "description": "true = end the task (conversation), false = keep working (status update)", "default": True},
+            },
+            "required": ["text"],
+        }
+
+    async def execute(self, text: str = "", done: bool = True, **kw) -> ToolResult:
+        global _last_displayed
+        if text:
+            clean = text.encode("ascii", errors="ignore").decode("ascii")
+            prefix = "\033[36m>\033[0m" if not done else ""
+            print(f"\n  {prefix} {clean}" if prefix else f"\n  {clean}")
+        _last_displayed = text
+        # The agent loop checks the done flag to decide whether to terminate
+        return ToolResult(text, is_error=False)
 
 
 class MessageResult(BaseTool):
