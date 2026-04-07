@@ -22,7 +22,7 @@ workspace_dir: "./workspace"
 skills_dir: "./skills"
 
 # --- Behavior ---
-max_iterations: 200
+max_iterations: 50
 tool_timeout: 120
 error_escalation_threshold: 3
 watcher_interval: 5
