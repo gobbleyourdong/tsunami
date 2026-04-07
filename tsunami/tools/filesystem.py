@@ -76,6 +76,17 @@ def _resolve_path(path: str, workspace_dir: str) -> Path:
     if path_clean.startswith(ws_name + "/"):
         path_clean = path_clean[len(ws_name) + 1:]
 
+    # If path starts with src/ or components/, resolve inside the most recent project
+    if path_clean.startswith(("src/", "components/", "public/")):
+        deliverables = Path(workspace_dir) / "deliverables"
+        if deliverables.exists():
+            projects = sorted(
+                [d for d in deliverables.iterdir() if d.is_dir() and (d / "package.json").exists()],
+                key=lambda p: p.stat().st_mtime, reverse=True
+            )
+            if projects:
+                return (projects[0] / path_clean).resolve()
+
     # Resolve relative to workspace dir
     return (Path(workspace_dir) / path_clean).resolve()
 
@@ -256,7 +267,15 @@ class FileEdit(BaseTool):
                     p.write_text(new_content)
                     return ToolResult(f"Edited {p}: replaced 1 occurrence (quote-normalized match)")
 
-                return ToolResult(f"Text not found in {path}. Make sure old_text matches exactly (check whitespace and quotes).", is_error=True)
+                # Show the model what's actually in the file so it can fix the find string
+                preview_lines = content.splitlines()[:30]
+                preview = "\n".join(f"  {i+1}: {l}" for i, l in enumerate(preview_lines))
+                return ToolResult(
+                    f"Text not found in {path}. Your find string doesn't match.\n"
+                    f"TIP: Use file_write to rewrite the entire file instead of file_edit.\n"
+                    f"Current file (first 30 lines):\n{preview}",
+                    is_error=True
+                )
             if count > 1:
                 return ToolResult(
                     f"Ambiguous: '{old_text[:60]}...' found {count} times. Provide more context.",
