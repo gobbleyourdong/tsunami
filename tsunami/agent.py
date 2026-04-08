@@ -1092,8 +1092,8 @@ class Agent:
 
         # Auto-fix missing path for file_write/file_edit — infer from active project
         if tool_call.name in ("file_write", "file_edit") and "path" not in tool_call.arguments:
-            if self._project_init_called and "content" in tool_call.arguments:
-                # Find the active project
+            if "content" in tool_call.arguments:
+                # Find the active project (works for both init and pre-scaffold)
                 deliverables = Path(self.config.workspace_dir) / "deliverables"
                 if deliverables.exists():
                     projects = sorted(
@@ -1101,7 +1101,7 @@ class Agent:
                         key=lambda p: p.stat().st_mtime, reverse=True
                     )
                     if projects:
-                        inferred_path = f"workspace/deliverables/{projects[0].name}/src/App.tsx"
+                        inferred_path = f"deliverables/{projects[0].name}/src/App.tsx"
                         tool_call.arguments["path"] = inferred_path
                         log.info(f"Auto-fixed missing path: {inferred_path}")
 
