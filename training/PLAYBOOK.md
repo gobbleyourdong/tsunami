@@ -236,17 +236,19 @@ print(f"{'ALL CLEAN' if errors == 0 else f'{errors} ERRORS'} -- {len(examples)} 
 | v5r | 98% | 92% | 17% | 70% | 0% | v5 data + matched prompts |
 | v5r+M2 | -- | -- | -- | -- | 0% | Tool blocking, model switches loops |
 
-Best per layer: L1=100%(v8), L2=100%(v5,v8+sp), L3=50%(v6/v7), L4=70%(v5r), L5=22%(v3/v5)
+Best per layer: L1=100%(v8), L2=100%(v5,v8+sp), L3=33%(v9), L4=70%(v5r), L5=56%(v5r+Node22)
+
+**Champion model: v5r** (v5 data, 3 epochs, matched prompts): L1=98%, L2=92%, L3=17%, L4=70%, L5=56%
 
 ### Key Findings:
-1. System prompt alignment (M3) gave free L2+1 and L4+2
-2. Collapsing file_read sequences (v6) broke L5 -- model needs read-first pattern
-3. Synthetic examples help L3 but dilute L5 if too many
-4. v5 data is the best L5 performer -- minimal changes from v3
-5. M1 (training data) is exhausted at 512 examples for L5
-6. M2 (tool blocking) doesn't work -- model switches which tool it loops
-7. L5 gap: 0/9 builds recover from first build error. The reef pattern fails in practice.
-8. The 4B model CAN write code and CAN call shell_exec. It CANNOT self-regulate multi-turn sequences.
+1. **NODE VERSION WAS THE L5 BLOCKER** -- RunPod had Node v12, Vite needs 18+. Installing Node 22 took L5 from 0% to 56%. Always check infrastructure before blaming the model.
+2. System prompt alignment (M3) gave free L2+1 and L4+2
+3. v5 data is sacred -- ANY synthetic additions (v6-v9) degrade L5. The model learned something fragile from v5's exact distribution.
+4. Collapsing file_read sequences (v6) broke L5 -- model needs read-first pattern
+5. More epochs (6 vs 3) improved training accuracy 76%->89% but didn't help eval scores
+6. M2 tool blocking doesn't work -- model switches which tool it loops on
+7. L5 remaining failures: 2/3 are "missing path param" (model omits path in file_write), 1/3 is timeout
+8. The 4B model CAN write code and CAN compile. It sometimes forgets the path argument.
 
 ## The Pipeline
 
