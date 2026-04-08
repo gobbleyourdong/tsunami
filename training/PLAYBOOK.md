@@ -223,20 +223,30 @@ print(f"{'ALL CLEAN' if errors == 0 else f'{errors} ERRORS'} -- {len(examples)} 
 
 ## Current Baselines
 
-### v4 (epoch 0.86, mid-training):
-| Layer | Score |
-|-------|-------|
-| L1 Format | 39/40 (98%) |
-| L2 Scaffold | 11/12 (92%) |
-| L3 Recovery | 1/6 (17%) |
-| L4 Hack-free | 5/10 (50%) |
-| L5 Integration | TBD |
+### All Versions (2026-04-08):
 
-### v3 (pre-v4, final):
-| Layer | Score |
-|-------|-------|
-| L1 Format | 39/40 (98%) |
-| L5 Integration | 5/23 (22%) -- 17/18 fails were wrong paths |
+| Version | L1 | L2 | L3 | L4 | L5 | Notes |
+|---------|----|----|----|----|-----|-------|
+| v3 | 98% | -- | -- | -- | 22% | Original, wrong paths |
+| v5 | 95% | 100% | 17% | 60% | 22% | Path fix, best L5 |
+| v6 | 98% | 92% | 50% | 50% | 0% | Collapsed reads, broke L5 |
+| v7 | 98% | 92% | 50% | 50% | 0% | Synthetic L3/L4 |
+| v8 | 100% | 92% | 33% | 40% | 0% | Long pipeline examples |
+| v8+sp | 95% | 100% | 33% | 60% | 0% | Matched system prompts |
+| v5r | 98% | 92% | 17% | 70% | 0% | v5 data + matched prompts |
+| v5r+M2 | -- | -- | -- | -- | 0% | Tool blocking, model switches loops |
+
+Best per layer: L1=100%(v8), L2=100%(v5,v8+sp), L3=50%(v6/v7), L4=70%(v5r), L5=22%(v3/v5)
+
+### Key Findings:
+1. System prompt alignment (M3) gave free L2+1 and L4+2
+2. Collapsing file_read sequences (v6) broke L5 -- model needs read-first pattern
+3. Synthetic examples help L3 but dilute L5 if too many
+4. v5 data is the best L5 performer -- minimal changes from v3
+5. M1 (training data) is exhausted at 512 examples for L5
+6. M2 (tool blocking) doesn't work -- model switches which tool it loops
+7. L5 gap: 0/9 builds recover from first build error. The reef pattern fails in practice.
+8. The 4B model CAN write code and CAN call shell_exec. It CANNOT self-regulate multi-turn sequences.
 
 ## The Pipeline
 
