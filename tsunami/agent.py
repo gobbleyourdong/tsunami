@@ -785,9 +785,15 @@ class Agent:
             messages.insert(2, {"role": "assistant", "content": "Acknowledged — session context loaded."})
 
         # 2. Call the reasoning core — get exactly one tool call
+        # Filter out looping tools so the model physically cannot repeat
+        blocked = self.loop_guard.blocked_tools
+        schemas = self.registry.schemas()
+        if blocked:
+            schemas = [s for s in schemas if s.get("function", {}).get("name") not in blocked]
+            log.info(f"Loop guard: blocked {blocked} from tool list")
         response = await self.model.generate(
             messages=messages,
-            tools=self.registry.schemas(),
+            tools=schemas,
         )
 
         # 2b. Track LLM usage + cost

@@ -17,9 +17,9 @@ from dataclasses import dataclass
 
 log = logging.getLogger("tsunami.loop_guard")
 
-HARD_LOOP_THRESHOLD = 3    # identical (tool, args_hash) repeated
-SOFT_LOOP_THRESHOLD = 5    # same tool_name repeated
-PROGRESS_WINDOW = 8        # iterations without progress
+HARD_LOOP_THRESHOLD = 2    # identical (tool, args_hash) repeated
+SOFT_LOOP_THRESHOLD = 3    # same tool_name repeated
+PROGRESS_WINDOW = 6        # iterations without progress
 
 
 @dataclass
@@ -93,21 +93,44 @@ class LoopGuard:
         return LoopDetection(detected=False)
 
     def _suggest_break_action(self, stuck_tool: str) -> str:
-        """Suggest which tool to force based on what we're stuck on."""
-        read_tools = {"file_read", "match_grep", "match_glob", "file_list"}
-        search_tools = {"search_web", "browser_navigate"}
+        """Suggest the next PIPELINE step based on what we're stuck on.
 
-        if stuck_tool in read_tools or stuck_tool in search_tools:
-            # Stuck reading/searching → force building
-            return "project_init"
-        elif stuck_tool == "shell_exec":
-            # Stuck running commands → force writing code
+        Pipeline: project_init -> file_write -> shell_exec(build) -> undertow -> message_result
+        Reef:     shell_exec(error) -> file_read -> file_write -> shell_exec
+        """
+        if stuck_tool == "shell_exec":
+            return "file_read"
+        elif stuck_tool == "file_read":
             return "file_write"
         elif stuck_tool == "file_write":
-            # Stuck writing the same file → force build check
             return "shell_exec"
+        elif stuck_tool in ("message_result", "message_chat", "message_info"):
+            if "shell_exec" not in self.tool_names:
+                return "shell_exec"
+            return "message_result"
+        elif stuck_tool == "project_init":
+            return "file_write"
+        elif stuck_tool in ("match_grep", "match_glob", "search_web"):
+            return "file_write"
         else:
-            return "project_init"
+            return "file_write"
+
+    @property
+    def blocked_tools(self) -> set[str]:
+        """Tools to temporarily remove when loop detected.
+
+        The model still decides what to do -- it just cannot
+        repeat the tool it is stuck on.
+        """
+        if len(self.tool_names) < SOFT_LOOP_THRESHOLD:
+            return set()
+        recent = self.tool_names[-SOFT_LOOP_THRESHOLD:]
+        if len(set(recent)) == 1:
+            tool = recent[0]
+            if tool in ("message_result", "message_chat"):
+                return set()
+            return {tool}
+        return set()
 
     def reset(self):
         """Reset after a successful delivery."""
