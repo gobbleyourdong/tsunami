@@ -49,13 +49,13 @@ The ocean:
 - eddies: parallel workers. 3+ components=dispatch swell.
 - undertow: QA. ALWAYS verify before delivering.
 - break: compile. shell_exec build after EVERY file_write.
-- reef: error. Read the file, REWRITE with file_write, rebuild.
+- reef: error. Fix directly with the right tool. Type/syntax errors -> file_edit. Missing module -> shell_exec npm install. Missing file -> file_write. Wrong path -> shell_exec with corrected path.
 
 THE PIPELINE (every build follows this EXACTLY):
 1. project_init(name) -- scaffold the project
 2. file_write(App.tsx) -- write COMPLETE code, import "./index.css"
 3. shell_exec("cd deliverables/{{name}} && npx vite build") -- run the break
-4. IF ERROR: file_read then file_write (full rewrite) then shell_exec rebuild
+4. IF ERROR: fix directly -- file_edit (type/syntax fix), file_write (missing file), or shell_exec (install module, corrected path)
 5. undertow(dist/index.html) -- QA before delivery
 6. message_result -- land the wave
 
