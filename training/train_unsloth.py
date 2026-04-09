@@ -67,6 +67,12 @@ trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
 total = sum(p.numel() for p in model.parameters())
 log.info(f"Trainable: {trainable:,} / {total:,} ({100*trainable/total:.2f}%)")
 
+# Unsloth returns a Processor for multimodal models — extract the tokenizer
+if hasattr(tokenizer, 'tokenizer'):
+    processor = tokenizer
+    tokenizer = processor.tokenizer
+    log.info("Extracted tokenizer from Gemma4Processor")
+
 # ==========================================
 # LOAD DATA
 # ==========================================
@@ -82,28 +88,51 @@ from datasets import Dataset
 dataset = Dataset.from_list(data)
 
 # ==========================================
-# RESPONSE-ONLY MASKING
+# RESPONSE-ONLY MASKING (custom collator, works with any TRL version)
 # ==========================================
-# Gemma 4 native turn markers
 INSTRUCTION_MARKER = "<|turn>user\n"
 RESPONSE_MARKER = "<|turn>model\n"
 
-from trl import SFTTrainer, SFTConfig, DataCollatorForCompletionOnlyLM
+import torch
+from transformers import DataCollatorForLanguageModeling
 
 _resp_ids = tokenizer.encode(RESPONSE_MARKER, add_special_tokens=False)
 _inst_ids = tokenizer.encode(INSTRUCTION_MARKER, add_special_tokens=False)
+IGNORE_INDEX = -100
 
-collator = DataCollatorForCompletionOnlyLM(
-    response_template=_resp_ids,
-    instruction_template=_inst_ids,
-    tokenizer=tokenizer,
-    mlm=False,
-)
+class ResponseOnlyCollator(DataCollatorForLanguageModeling):
+    def __call__(self, features, return_tensors=None):
+        batch = super().__call__(features, return_tensors=return_tensors)
+        for i in range(len(batch["labels"])):
+            input_ids = batch["input_ids"][i]
+            labels = batch["labels"][i]
+            masked = torch.full_like(labels, IGNORE_INDEX)
+            input_list = input_ids.tolist()
+            in_response = False
+            j = 0
+            while j < len(input_list):
+                if input_list[j:j+len(_resp_ids)] == _resp_ids:
+                    in_response = True
+                    j += len(_resp_ids)
+                    continue
+                if input_list[j:j+len(_inst_ids)] == _inst_ids:
+                    in_response = False
+                    j += len(_inst_ids)
+                    continue
+                if in_response and labels[j] != IGNORE_INDEX:
+                    masked[j] = labels[j]
+                j += 1
+            batch["labels"][i] = masked
+        return batch
+
+collator = ResponseOnlyCollator(tokenizer=tokenizer, mlm=False)
 log.info(f"Response-only masking on <|turn>model tokens")
 
 # ==========================================
 # TRAINING
 # ==========================================
+from trl import SFTTrainer, SFTConfig
+
 sft_config = SFTConfig(
     output_dir=args.output,
     run_name=args.run_name,
