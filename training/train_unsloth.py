@@ -89,15 +89,23 @@ dataset = Dataset.from_list(data)
 
 # ==========================================
 # RESPONSE-ONLY MASKING (custom collator, works with any TRL version)
+# v69+: handles <|turn>user, <|turn>tool, <|turn>system as instruction
+# markers (everything that's NOT <|turn>model). v14-v21 only handled
+# <|turn>user — this fix is required for the native chat template format
+# where tool responses use <|turn>tool\n role.
 # ==========================================
-INSTRUCTION_MARKER = "<|turn>user\n"
 RESPONSE_MARKER = "<|turn>model\n"
+INSTRUCTION_MARKERS = [
+    "<|turn>user\n",
+    "<|turn>tool\n",
+    "<|turn>system\n",
+]
 
 import torch
 from transformers import DataCollatorForLanguageModeling
 
 _resp_ids = tokenizer.encode(RESPONSE_MARKER, add_special_tokens=False)
-_inst_ids = tokenizer.encode(INSTRUCTION_MARKER, add_special_tokens=False)
+_inst_ids_list = [tokenizer.encode(m, add_special_tokens=False) for m in INSTRUCTION_MARKERS]
 IGNORE_INDEX = -100
 
 class ResponseOnlyCollator(DataCollatorForLanguageModeling):
@@ -111,13 +119,20 @@ class ResponseOnlyCollator(DataCollatorForLanguageModeling):
             in_response = False
             j = 0
             while j < len(input_list):
+                # Start response on <|turn>model
                 if input_list[j:j+len(_resp_ids)] == _resp_ids:
                     in_response = True
                     j += len(_resp_ids)
                     continue
-                if input_list[j:j+len(_inst_ids)] == _inst_ids:
-                    in_response = False
-                    j += len(_inst_ids)
+                # End response on any non-model turn marker
+                hit = False
+                for inst_ids in _inst_ids_list:
+                    if input_list[j:j+len(inst_ids)] == inst_ids:
+                        in_response = False
+                        j += len(inst_ids)
+                        hit = True
+                        break
+                if hit:
                     continue
                 if in_response and labels[j] != IGNORE_INDEX:
                     masked[j] = labels[j]
@@ -126,7 +141,7 @@ class ResponseOnlyCollator(DataCollatorForLanguageModeling):
         return batch
 
 collator = ResponseOnlyCollator(tokenizer=tokenizer, mlm=False)
-log.info(f"Response-only masking on <|turn>model tokens")
+log.info(f"Response-only masking on <|turn>model tokens (instruction markers: user, tool, system)")
 
 # ==========================================
 # TRAINING
