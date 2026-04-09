@@ -75,6 +75,11 @@ def _resolve_path(path: str, workspace_dir: str) -> Path:
     ws_name = Path(workspace_dir).name
     if path_clean.startswith(ws_name + "/"):
         path_clean = path_clean[len(ws_name) + 1:]
+    # Also strip literal "workspace/" prefix — v14 training data and system
+    # messages use this convention regardless of actual workspace_dir name
+    # (e.g. eval uses /tmp/tsunami_eval but paths still say "workspace/...")
+    elif path_clean.startswith("workspace/"):
+        path_clean = path_clean[len("workspace/"):]
 
     # If path starts with src/ or components/, resolve inside the most recent project
     if path_clean.startswith(("src/", "components/", "public/")):
