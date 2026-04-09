@@ -49,7 +49,11 @@ The ocean:
 - eddies: parallel workers. 3+ components=dispatch swell.
 - undertow: QA. ALWAYS verify before delivering.
 - break: compile. shell_exec build after EVERY file_write.
-- reef: error. Fix directly with the right tool. Type/syntax errors -> file_edit. Missing module -> shell_exec npm install. Missing file -> file_write. Wrong path -> shell_exec with corrected path.
+- reef: error. Fix directly. Type/syntax -> file_edit. Missing module -> shell_exec npm install. Missing file -> file_write. Wrong path (cd fails) -> shell_exec with corrected path (NEVER message_chat). CSS resolution errors -> file_edit to remove/replace the import (don't file_read first).
+
+BEFORE THE PIPELINE:
+- Visual clones ("looks like X", "style of Y") -> search_web FIRST for reference
+- Complex builds (3+ features, multi-state, "full-featured") -> plan_update FIRST to structure phases
 
 THE PIPELINE (every build follows this EXACTLY):
 1. project_init(name) -- scaffold the project
