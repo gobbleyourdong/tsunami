@@ -10,6 +10,16 @@ from pathlib import Path
 
 from .base import BaseTool, ToolResult
 
+# Active project path from phase machine — set by agent.py after phase transitions.
+# Used by _resolve_path to deterministically resolve bare paths like "src/App.tsx".
+_active_project: str | None = None
+
+
+def set_active_project(project_path: str | None):
+    """Called by agent.py when phase machine detects the active project."""
+    global _active_project
+    _active_project = project_path
+
 
 def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
     """Check if a write path is safe. Returns error message or None if OK."""
@@ -53,19 +63,35 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
     return None
 
 
-def _resolve_path(path: str, workspace_dir: str) -> Path:
+def _resolve_path(path: str, workspace_dir: str, active_project: str | None = None) -> Path:
     """Resolve a file path to an absolute path inside the workspace.
 
-    Handles all the weird ways the 9B writes paths:
+    Handles all the weird ways the model writes paths:
     - ./workspace/deliverables/x/file.tsx
     - workspace/deliverables/x/file.tsx
+    - /workspace/deliverables/x/file.tsx  (absolute — Docker training artifact)
     - deliverables/x/file.tsx
-    - /absolute/path/to/file.tsx
+    - src/App.tsx  (bare — resolves to active project)
+
+    active_project: known project path from phase machine (e.g. "workspace/deliverables/calc")
     """
+    import re
+
+    # Clean hallucinated fragments: [project], [proje...], -'garbage'
+    path = re.sub(r'\[project[^\]]*\]?', '', path)
+    path = re.sub(r'\[[^\]]*\]', '', path)
+    path = re.sub(r"\-'[^']*'?", '', path)
+    # Clean trailing hyphens left after bracket removal (e.g. "calc-[project]/" → "calc-/")
+    path = re.sub(r'-+/', '/', path)
+    path = path.strip().rstrip("/")
+
     p = Path(path)
 
-    # Already absolute — use as-is
-    if p.is_absolute() or path.startswith("~"):
+    # Absolute /workspace/ paths — Docker training artifact, rewrite to relative
+    if path.startswith("/workspace/"):
+        path = path[len("/workspace/"):]
+        p = Path(path)
+    elif p.is_absolute() or path.startswith("~"):
         return p.expanduser().resolve()
 
     # Strip leading ./ if present
@@ -77,12 +103,19 @@ def _resolve_path(path: str, workspace_dir: str) -> Path:
         path_clean = path_clean[len(ws_name) + 1:]
     # Also strip literal "workspace/" prefix — v14 training data and system
     # messages use this convention regardless of actual workspace_dir name
-    # (e.g. eval uses /tmp/tsunami_eval but paths still say "workspace/...")
     elif path_clean.startswith("workspace/"):
         path_clean = path_clean[len("workspace/"):]
 
-    # If path starts with src/ or components/, resolve inside the most recent project
+    # If path starts with src/ or components/, resolve inside the KNOWN active project
     if path_clean.startswith(("src/", "components/", "public/")):
+        # Prefer phase machine's active project (deterministic) over mtime (unstable)
+        if active_project:
+            project_dir = Path(workspace_dir) / active_project.replace("workspace/", "", 1) \
+                if active_project.startswith("workspace/") else Path(workspace_dir) / active_project
+            if project_dir.exists():
+                return (project_dir / path_clean).resolve()
+
+        # Fallback: most recent project by mtime
         deliverables = Path(workspace_dir) / "deliverables"
         if deliverables.exists():
             projects = sorted(
@@ -123,7 +156,7 @@ class FileRead(BaseTool):
 
     async def execute(self, path: str, offset: int = 0, limit: int = 500, **kw) -> ToolResult:
         try:
-            p = _resolve_path(path, self.config.workspace_dir)
+            p = _resolve_path(path, self.config.workspace_dir, _active_project)
             if not p.exists():
                 return ToolResult(f"File not found: {path}", is_error=True)
             if not p.is_file():
@@ -188,7 +221,7 @@ class FileWrite(BaseTool):
 
     async def execute(self, path: str, content: str, **kw) -> ToolResult:
         try:
-            p = _resolve_path(path, self.config.workspace_dir)
+            p = _resolve_path(path, self.config.workspace_dir, _active_project)
             err = _is_safe_write(p, self.config.workspace_dir)
             if err:
                 return ToolResult(err, is_error=True)
@@ -241,7 +274,7 @@ class FileEdit(BaseTool):
 
     async def execute(self, path: str, old_text: str, new_text: str, **kw) -> ToolResult:
         try:
-            p = _resolve_path(path, self.config.workspace_dir)
+            p = _resolve_path(path, self.config.workspace_dir, _active_project)
             err = _is_safe_write(p, self.config.workspace_dir)
             if err:
                 return ToolResult(err, is_error=True)
@@ -310,7 +343,7 @@ class FileAppend(BaseTool):
 
     async def execute(self, path: str = "", content: str = "", **kw) -> ToolResult:
         try:
-            p = _resolve_path(path, self.config.workspace_dir)
+            p = _resolve_path(path, self.config.workspace_dir, _active_project)
             err = _is_safe_write(p, self.config.workspace_dir)
             if err:
                 return ToolResult(err, is_error=True)

@@ -120,7 +120,7 @@ def generate_phase_note(phase: str, tool_history: list[str]) -> str | None:
 
     Returns None if no transition guidance is needed.
     """
-    if len(tool_history) < 5:
+    if len(tool_history) < 2:
         return None
 
     recent = tool_history[-10:]
@@ -133,7 +133,7 @@ def generate_phase_note(phase: str, tool_history: list[str]) -> str | None:
 
     if phase == "BUILD":
         writes = sum(1 for t in recent if t in ("file_write", "file_edit"))
-        if writes >= 5 and "shell_exec" not in recent[-3:]:
+        if writes >= 2 and "shell_exec" not in recent[-3:]:
             return "[PHASE] You've written several files. Run a build check (shell_exec) to verify."
 
     if phase == "VERIFY":

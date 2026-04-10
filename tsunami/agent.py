@@ -39,6 +39,7 @@ from .tool_dedup import ToolDedup
 from .tool_result_storage import maybe_persist, TOOL_RESULT_CLEARED_MESSAGE
 from .tools import ToolRegistry, build_registry
 from .tools.plan import set_agent_state
+from .tools.filesystem import set_active_project
 from .watcher import Watcher
 
 log = logging.getLogger("tsunami.agent")
@@ -120,6 +121,10 @@ class Agent:
         # Tension monitoring (current/circulation/pressure)
         from .pressure import Pressure
         self._pressure = Pressure()
+
+        # Phase state machine — enforced forward progress
+        from .phase_machine import PhaseMachine
+        self.phase_machine = PhaseMachine()
 
         # Closed-loop feedback — track tool outcomes, steer decisions
         from .feedback import FeedbackTracker
@@ -565,9 +570,9 @@ class Agent:
             self.state.iteration += 1
             iter_start = time.time()
 
-            # Delivery deadline — if build passed 10+ iterations ago, force delivery
+            # Delivery deadline — if build passed 3+ iterations ago, force delivery
             build_passed_at = getattr(self, '_build_passed_at', None)
-            if build_passed_at and (self.state.iteration - build_passed_at) >= 10:
+            if build_passed_at and (self.state.iteration - build_passed_at) >= 3:
                 log.info(f"Safety valve: {self.state.iteration - build_passed_at} iters since build passed — forcing delivery")
                 # Find the project and deliver properly
                 deliverables = Path(self.config.workspace_dir) / "deliverables"
@@ -592,6 +597,9 @@ class Agent:
                         self._project_init_called = True
                         self._tool_history.append("project_init")
                         project = sorted(projects, key=lambda p: p.stat().st_mtime, reverse=True)[0]
+                        project_path = f"workspace/deliverables/{project.name}"
+                        self.phase_machine.skip_scaffold(project_path)
+                        set_active_project(project_path)
                         log.info(f"Pre-scaffold detected: {project.name}")
 
             # (removed iter 2 auto-scaffold — pre-scaffold at line 544 handles this)
@@ -1152,6 +1160,19 @@ class Agent:
         else:
             self._dedup_hits = 0  # reset on non-cached call
 
+        # Post-build shell_exec block — build already passed, stop rebuilding and deliver
+        if tool_call.name == "shell_exec" and hasattr(self, '_build_passed_at'):
+            cmd = tool_call.arguments.get("command", "")
+            is_build_cmd = any(k in cmd for k in ("vite build", "npm run build", "npx vite"))
+            if is_build_cmd:
+                log.warning("Post-build shell_exec block: build already passed, forcing delivery")
+                self.state.add_tool_result(
+                    tool_call.name, tool_call.arguments,
+                    "BUILD ALREADY PASSED. Do NOT rebuild. Call message_result NOW to deliver the app.",
+                    is_error=True,
+                )
+                return "BUILD ALREADY PASSED. Call message_result to deliver."
+
         # Hard block: after 3 consecutive shell_exec, refuse and force code fix
         if tool_call.name == "shell_exec":
             recent_3 = self._tool_history[-3:] if len(self._tool_history) >= 3 else []
@@ -1177,6 +1198,14 @@ class Agent:
                 log.warning("Hard shell_exec block: 3 consecutive, forcing code fix")
                 self.state.add_tool_result(tool_call.name, tool_call.arguments, block_msg, is_error=True)
                 return block_msg
+
+        # Phase gate — block premature delivery structurally
+        allowed, gate_reason = self.phase_machine.gate(tool_call.name)
+        if not allowed:
+            log.warning(f"Phase gate blocked {tool_call.name}: {gate_reason}")
+            self.state.add_system_note(gate_reason)
+            self.state.add_tool_result(tool_call.name, tool_call.arguments, gate_reason, is_error=True)
+            return gate_reason
 
         try:
             result = await tool.execute(**tool_call.arguments)
@@ -1253,7 +1282,21 @@ class Agent:
             self.state.add_system_note(tool_guidance)
             log.info(f"Tool guidance: {tool_guidance[:60]}")
 
-        # Phase-based transition nudges — catch stalls early
+        # Phase state machine — record tool call and check transitions
+        self.phase_machine.record(
+            tool_call.name, tool_call.arguments,
+            result.content[:1000] if result.content else "",
+            result.is_error,
+        )
+        # Propagate active project to filesystem path resolver
+        if self.phase_machine.project_path:
+            set_active_project(self.phase_machine.project_path)
+        phase_ctx = self.phase_machine.context_note()
+        if phase_ctx:
+            self.state.add_system_note(phase_ctx)
+            log.info(f"Phase machine: {phase_ctx[:60]}")
+
+        # Phase-based transition nudges (legacy — kept for validation)
         from .phase_filter import generate_phase_note
         phase_note = generate_phase_note(
             self.tool_filter.detect_phase(), self._tool_history
@@ -1613,7 +1656,8 @@ class Agent:
         # 8z. Detect successful vite build from shell_exec
         if tool_call.name == "shell_exec" and not result.is_error:
             cmd = tool_call.arguments.get("command", "")
-            if "vite build" in cmd and "built in" in result.content.lower():
+            is_build_cmd = any(k in cmd for k in ("vite build", "npm run build", "npx vite"))
+            if is_build_cmd and "built in" in result.content.lower():
                 if not hasattr(self, '_build_passed_at'):
                     self._build_passed_at = self.state.iteration
                     log.info("Build passed (shell_exec). Deliver now.")
@@ -1800,6 +1844,24 @@ class Agent:
                                         log.debug(f"Runtime check skipped: {e}")
                 except Exception as e:
                     log.debug(f"Auto-compile skipped: {e}")
+
+        # 8b2. Write-streak nudge — after 4+ consecutive writes with no build, push to compile
+        if tool_call.name in ("file_write", "file_edit") and not hasattr(self, '_build_passed_at'):
+            recent = self._tool_history[-4:] if len(self._tool_history) >= 4 else []
+            if len(recent) >= 4 and all(t in ("file_write", "file_edit") for t in recent):
+                # Find the active project
+                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                if deliverables.exists():
+                    projects = sorted(
+                        [d for d in deliverables.iterdir() if d.is_dir() and (d / "package.json").exists()],
+                        key=lambda p: p.stat().st_mtime, reverse=True
+                    )
+                    if projects:
+                        self.state.add_system_note(
+                            f"You've written 4+ files without building. Run: "
+                            f"shell_exec with command=\"cd {projects[0]} && npx vite build\" to check compilation."
+                        )
+                        log.info("Write-streak nudge: 4+ writes without build")
 
         # 8c. Auto-undertow — run QA immediately after writing HTML
         if tool_call.name in ("file_write", "file_edit") and not result.is_error:
