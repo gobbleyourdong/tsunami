@@ -565,6 +565,13 @@ class Agent:
             self.state.iteration += 1
             iter_start = time.time()
 
+            # Delivery deadline — if build passed 10+ iterations ago, force delivery
+            build_passed_at = getattr(self, '_build_passed_at', None)
+            if build_passed_at and (self.state.iteration - build_passed_at) >= 10:
+                log.info(f"Safety valve: {self.state.iteration - build_passed_at} iters since build passed — forcing exit")
+                self.state.task_complete = True
+                break
+
             # Detect pre-scaffold at iter 1 — mark project_init as done
             if self.state.iteration == 1 and not self._project_init_called:
                 deliverables = Path(self.config.workspace_dir) / "deliverables"
@@ -857,16 +864,16 @@ class Agent:
         self._tool_history.append(tool_call.name)
         if len(self._tool_history) > 10:
             self._tool_history = self._tool_history[-10:]
-        # If last 8 calls are all read-only tools → stalled
-        if len(self._tool_history) >= 8:
-            recent = self._tool_history[-8:]
+        # If last 4 calls are all read-only tools → stalled
+        if len(self._tool_history) >= 4:
+            recent = self._tool_history[-4:]
             read_only = {"message_info", "search_web", "file_read", "match_glob",
                          "match_grep", "summarize_file", "shell_exec", "undertow"}
             no_writes = all(t in read_only for t in recent)
             if no_writes:
                 # Check if build already passed — verification stall
                 has_delivered = any(t == "message_info" for t in self._tool_history[-15:])
-                if has_delivered and self.state.iteration > 20:
+                if has_delivered and self.state.iteration > 5:
                     log.warning("Verification stall: build looks done, forcing delivery")
                     self.state.add_system_note(
                         "VERIFICATION STALL: You've been checking the build for 8+ calls "
@@ -1665,6 +1672,13 @@ class Agent:
                                         log.info(f"Auto-compile: FAIL ({len(errors)} errors)")
                             else:
                                 log.info("Auto-compile: PASS")
+                                # Track when build first passed for delivery deadline
+                                if not hasattr(self, '_build_passed_at'):
+                                    self._build_passed_at = self.state.iteration
+                                    self.state.add_system_note(
+                                        "BUILD PASSED. The app compiled successfully. "
+                                        "Call message_result to deliver the finished app."
+                                    )
                                 # Quick runtime check — load in headless browser, catch JS errors
                                 # Check any port the dev server might be on
                                 serving = getattr(self, '_serving_project', None)
