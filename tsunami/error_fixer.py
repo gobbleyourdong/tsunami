@@ -28,9 +28,11 @@ def try_auto_fix(project_dir: Path, errors: list[str]) -> bool:
     Also checks error memory — if we've seen this error before and
     know what fixed it, apply the same fix immediately.
 
-    Returns True if a fix was applied (caller should rebuild).
+    Fixes ALL matching errors in one pass (not just the first).
+    Returns True if any fix was applied (caller should rebuild).
     Returns False if no fix was possible (fall through to LLM).
     """
+    any_fixed = False
     for error in errors:
         # Check error memory first
         for pattern, fix_desc in _error_memory.items():
@@ -44,8 +46,8 @@ def try_auto_fix(project_dir: Path, errors: list[str]) -> bool:
             key = error[:80].strip()
             _error_memory[key] = fix
             log.info(f"Auto-fix applied: {fix}")
-            return True
-    return False
+            any_fixed = True
+    return any_fixed
 
 
 def _classify_and_fix(project_dir: Path, error: str) -> str | None:
@@ -55,9 +57,33 @@ def _classify_and_fix(project_dir: Path, error: str) -> str | None:
     # "Cannot resolve entry module" or "Could not resolve './components/Sidebar'"
     m = re.search(r"Could not resolve ['\"]\./(components/\w+)['\"]", error)
     if not m:
-        m = re.search(r"Could not resolve ['\"]\.\./(components/\w+)['\"]", error)
+        m = re.search(r"Could not resolve ['\"]\.\./(components/[\w/]+)['\"]", error)
+    if not m:
+        # Broader: "../components/ui/Button" or "../components/ui"
+        m = re.search(r'Could not resolve [\'"]\.\./(components/[^"\']+)[\'"]', error)
     if m:
         comp_path = m.group(1)
+        is_dotdot = "../" + comp_path in error
+
+        # If ../ path: check if ./ equivalent exists — rewrite ALL ../components → ./components
+        # in one pass (Vite only reports the first error, but we fix them all preemptively)
+        if is_dotdot:
+            for ext in [".tsx", ".ts", ".jsx", ".js", ""]:
+                correct_path = project_dir / "src" / (comp_path + ext)
+                if correct_path.exists():
+                    src_dir = project_dir / "src"
+                    fixed_count = 0
+                    for tsx in src_dir.rglob("*.tsx"):
+                        content = tsx.read_text()
+                        # Replace ALL ../components references, not just the one in the error
+                        if '"../components/' in content or "'../components/" in content:
+                            content = content.replace("../components/", "./components/")
+                            tsx.write_text(content)
+                            fixed_count += 1
+                    if fixed_count:
+                        return f"rewrote ../components/ → ./components/ in {fixed_count} file(s)"
+                    return None
+
         # Check if import is missing the file
         for ext in [".tsx", ".ts", ".jsx", ".js"]:
             full_path = project_dir / "src" / (comp_path + ext)
