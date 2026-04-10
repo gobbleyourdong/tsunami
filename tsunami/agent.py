@@ -588,19 +588,18 @@ class Agent:
                 self.state.task_complete = True
                 break
 
-            # Detect pre-scaffold at iter 1 — mark project_init as done
+            # Detect pre-scaffold at iter 1 — only if the user is iterating on an existing project.
+            # For fresh builds, _pre_scaffold already ran before the loop. Don't grab a random
+            # existing project — that causes the "breakout edits markdown editor" bug.
             if self.state.iteration == 1 and not self._project_init_called:
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
-                if deliverables.exists():
-                    projects = [d for d in deliverables.iterdir() if d.is_dir() and (d / "package.json").exists()]
-                    if projects:
-                        self._project_init_called = True
-                        self._tool_history.append("project_init")
-                        project = sorted(projects, key=lambda p: p.stat().st_mtime, reverse=True)[0]
-                        project_path = f"workspace/deliverables/{project.name}"
-                        self.phase_machine.skip_scaffold(project_path)
-                        set_active_project(project_path)
-                        log.info(f"Pre-scaffold detected: {project.name}")
+                if self.active_project:
+                    # _detect_existing_project found a match — use it
+                    self._project_init_called = True
+                    self._tool_history.append("project_init")
+                    project_path = f"workspace/deliverables/{Path(self.active_project).name}"
+                    self.phase_machine.skip_scaffold(project_path)
+                    set_active_project(project_path)
+                    log.info(f"Pre-scaffold detected: {self.active_project}")
 
             # (removed iter 2 auto-scaffold — pre-scaffold at line 544 handles this)
             if False and self.state.iteration == 2 and "project_init" not in self._tool_history:
