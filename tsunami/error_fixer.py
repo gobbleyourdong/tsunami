@@ -55,7 +55,7 @@ def _classify_and_fix(project_dir: Path, error: str) -> str | None:
 
     # 1. Missing module — file doesn't exist
     # "Cannot resolve entry module" or "Could not resolve './components/Sidebar'"
-    m = re.search(r"Could not resolve ['\"]\./(components/\w+)['\"]", error)
+    m = re.search(r"Could not resolve ['\"]\./(components/[\w/]+)['\"]", error)
     if not m:
         m = re.search(r"Could not resolve ['\"]\.\./(components/[\w/]+)['\"]", error)
     if not m:
