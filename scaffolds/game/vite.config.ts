@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 import path from 'path'
 import { existsSync } from 'fs'
 
@@ -10,11 +11,11 @@ function findEngine(): string {
     if (existsSync(path.join(candidate, 'index.ts'))) return candidate
     dir = path.dirname(dir)
   }
-  // Fallback: relative to scaffold location (works when building from scaffolds/)
   return path.resolve(__dirname, '../../engine/src')
 }
 
 export default defineConfig({
+  plugins: [react()],
   resolve: {
     alias: {
       '@engine': findEngine(),

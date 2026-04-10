@@ -21,7 +21,7 @@ log = logging.getLogger("tsunami.tools.project_init")
 SCAFFOLDS_DIR = Path(__file__).parent.parent.parent / "scaffolds"
 
 
-def _pick_scaffold(name: str, dependencies: list[str]) -> str:
+def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
     """Pick scaffold by analyzing what the project REQUIRES.
 
     Requirement analysis, not keyword matching:
@@ -31,9 +31,11 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
     4. Data visualization (charts, dashboards)
     5. Presentation (landing, portfolio)
     6. Default to minimal
+
+    prompt: the original user message (broader context than the derived name)
     """
     deps_lower = {d.lower() for d in dependencies}
-    all_text = name.lower() + " " + " ".join(deps_lower)
+    all_text = name.lower() + " " + " ".join(deps_lower) + " " + prompt.lower()
 
     def needs(*keywords):
         return any(k in all_text for k in keywords)
@@ -127,7 +129,7 @@ class ProjectInit(BaseTool):
             "required": ["name"],
         }
 
-    async def execute(self, name: str, dependencies: list = None, **kw) -> ToolResult:
+    async def execute(self, name: str, dependencies: list = None, prompt: str = "", **kw) -> ToolResult:
         dependencies = dependencies or []
 
         ws = Path(self.config.workspace_dir)
@@ -142,7 +144,7 @@ class ProjectInit(BaseTool):
             log.info(f"Project name collision — using '{name}' instead")
 
         try:
-            scaffold_name = _pick_scaffold(name, dependencies)
+            scaffold_name = _pick_scaffold(name, dependencies, prompt)
 
             if scaffold_name:
                 scaffold_dir = SCAFFOLDS_DIR / scaffold_name

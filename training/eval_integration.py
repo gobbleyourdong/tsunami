@@ -154,7 +154,10 @@ async def run_agent_build(endpoint: str, prompt: str, timeout: int = 180,
         # Check what happened
         deliverables = ws / "deliverables"
         if deliverables.exists():
-            projects = list(deliverables.iterdir())
+            projects = sorted(
+                [d for d in deliverables.iterdir() if d.is_dir() and (d / "package.json").exists()],
+                key=lambda p: p.stat().st_mtime, reverse=True,
+            )
             if projects:
                 result.scaffolded = True
                 project = projects[0]

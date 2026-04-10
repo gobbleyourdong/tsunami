@@ -340,7 +340,7 @@ class Agent:
         try:
             from .tools.project_init import ProjectInit
             init_tool = ProjectInit(self.config)
-            result = await init_tool.execute(name=project_name)
+            result = await init_tool.execute(name=project_name, prompt=user_message)
             if not result.is_error:
                 log.info(f"Pre-scaffold: provisioned '{project_name}'")
                 return f"\n[Project '{project_name}' has been scaffolded at {project_dir}. " \
