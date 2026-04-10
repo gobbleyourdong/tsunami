@@ -50,31 +50,11 @@ def _pick_scaffold(name: str, dependencies: list[str]) -> str:
         if (SCAFFOLDS_DIR / "electron-app").exists():
             return "electron-app"
 
-    # 0c. WebGPU game (custom engine — advanced physics, AI, ECS)
-    if needs("webgpu", "custom engine", "ecs", "gpu particle", "shader graph",
-             "behavior tree", "navmesh", "skeleton", "ik", "gpu skinning"):
-        if (SCAFFOLDS_DIR / "webgpu-game").exists():
-            return "webgpu-game"
-
-    # 1. 3D game/simulation (Three.js — declarative, React-based)
-    if needs("three", "3d", "pinball", "fps", "voxel", "r3f", "rapier", "cannon"):
-        if (SCAFFOLDS_DIR / "threejs-game").exists():
-            return "threejs-game"
-
-    # 2. 2D game
-    if needs("pixi", "2d", "sprite", "platformer", "arcade", "tetris", "snake", "pong", "matter"):
-        if (SCAFFOLDS_DIR / "pixijs-game").exists():
-            return "pixijs-game"
-
-    # 3. Any game that needs canvas/physics (default to 2D)
-    # Exclude quiz/trivia/card/typing/word games — those are React apps
-    react_game_words = {"quiz", "trivia", "card", "typing", "word", "memory",
-                        "flashcard", "crossword", "sudoku", "hangman", "riddle",
-                        "scoreboard", "leaderboard", "question", "poll", "survey"}
-    is_react_game = any(w in all_text for w in react_game_words)
-    if needs("game") and not is_react_game:
-        if (SCAFFOLDS_DIR / "pixijs-game").exists():
-            return "pixijs-game"
+    # 1. Game — unified scaffold with Tsunami Engine (WebGPU, 2D/3D, physics, AI)
+    # The model decides 2d vs 3d via Game({ mode: '2d' | '3d' }) in main.ts.
+    # No keyword matching for game subgenres — the model knows the engine.
+    if needs("game") and (SCAFFOLDS_DIR / "game").exists():
+        return "game"
 
     # 4. Needs realtime (chat, live, multiplayer, notifications)
     if needs("chat", "realtime", "live", "multiplayer", "websocket", "socket",

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: #0a0a1a; overflow: hidden; font-family: 'JetBrains Mono', monospace; }
+      canvas { display: block; width: 100vw; height: 100vh; }
+      #hud {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        color: #e2e8f0; font-size: 14px;
+        pointer-events: none; z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud"></div>
+    <canvas id="game"></canvas>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

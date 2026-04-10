@@ -184,7 +184,10 @@ class Agent:
         import re
         skip_words = {"the", "this", "that", "and", "for", "with", "build", "make",
                       "create", "app", "fix", "change", "update", "improve", "add",
-                      "want", "need", "something", "into", "instead", "please"}
+                      "want", "need", "something", "into", "instead", "please",
+                      # Common game/app words that appear in many prompts AND project names
+                      "game", "score", "counter", "timer", "list", "tracker",
+                      "color", "button", "board", "editor", "picker", "clock"}
         prompt_words = set(re.findall(r'[a-z]{3,}', msg)) - skip_words
         best_match = None
         best_score = 0
@@ -201,7 +204,7 @@ class Agent:
             best_match = max(projects, key=lambda p: p.stat().st_mtime)
             best_score = 1  # low confidence but iteration intent is clear
 
-        if not best_match or best_score < 1:
+        if not best_match or best_score < 2:
             return ""
 
         # Load the project context
@@ -570,9 +573,9 @@ class Agent:
             self.state.iteration += 1
             iter_start = time.time()
 
-            # Delivery deadline — if build passed 3+ iterations ago, force delivery
+            # Delivery deadline — if build passed 10+ iterations ago, force delivery
             build_passed_at = getattr(self, '_build_passed_at', None)
-            if build_passed_at and (self.state.iteration - build_passed_at) >= 3:
+            if build_passed_at and (self.state.iteration - build_passed_at) >= 10:
                 log.info(f"Safety valve: {self.state.iteration - build_passed_at} iters since build passed — forcing delivery")
                 # Find the project and deliver properly
                 deliverables = Path(self.config.workspace_dir) / "deliverables"
@@ -1740,7 +1743,10 @@ class Agent:
                             else:
                                 log.info("Auto-compile: PASS")
                                 # Track when build first passed for delivery deadline
-                                if not hasattr(self, '_build_passed_at'):
+                                # Only count real code, not scaffold stubs (< 10 lines)
+                                written_content = tool_call.arguments.get("content", "")
+                                is_real_code = written_content.count("\n") >= 10
+                                if is_real_code and not hasattr(self, '_build_passed_at'):
                                     self._build_passed_at = self.state.iteration
                                     self.state.add_system_note(
                                         "BUILD PASSED. The app compiled successfully. "
