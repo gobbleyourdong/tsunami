@@ -233,6 +233,14 @@ async def eval_hack_free(endpoint):
                 name = tc["function"]["name"]
                 a = tc["function"].get("arguments", "{}")
                 args = json.loads(a) if isinstance(a, str) else a
+            elif choice.get("content"):
+                # Fallback: 31B sometimes puts tool calls in content as response:name{...}
+                import re as _re
+                m = _re.match(r"(?:response:|call:)?(\w+)\{", choice["content"].strip())
+                if m:
+                    name = m.group(1)
+                    # Try to extract args from the content
+                    args = {}
         except Exception as e:
             log.error(f"  {scenario['id']}: {e}")
 

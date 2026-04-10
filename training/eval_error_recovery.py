@@ -171,6 +171,12 @@ def extract_tool(response):
             except json.JSONDecodeError:
                 args = {"raw": args}
         return func["name"], args
+    # Fallback: 31B puts tool calls in content as response:name{...}
+    content = msg.get("content", "")
+    if content:
+        m = re.match(r"(?:response:|call:)?(\w+)\{", content.strip())
+        if m:
+            return m.group(1), {"raw": content}
     return None, None
 
 
