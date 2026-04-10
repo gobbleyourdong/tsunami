@@ -23,9 +23,9 @@ from datasets import Dataset
 # CONFIG — identical to E2B except model + seq length
 # ==========================================
 BASE_MODEL = "google/gemma-4-e4b-it"     # download from HF (or local path)
-DATA_PATH = "workspace/training_data/e4b_toolcall_train_v14.jsonl"
-OUTPUT_DIR = "models/gemma-4-e4b-toolcall-v14"
-RUN_NAME = "e4b_v3_thwomp"
+DATA_PATH = "workspace/training_data/e4b_toolcall_train_v69.jsonl"
+OUTPUT_DIR = "models/gemma-4-e4b-toolcall-v69"
+RUN_NAME = "e4b_v3_v69"
 
 NUM_EPOCHS = 3
 BATCH_SIZE = 1          # 1.5TB — go big

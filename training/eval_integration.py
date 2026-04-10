@@ -98,7 +98,7 @@ async def run_agent_build(endpoint: str, prompt: str, timeout: int = 180,
             eddy_endpoint=endpoint,
             workspace_dir=str(ws),
             max_iterations=60,
-            temperature=0.3,
+            temperature=0.1,
         )
 
         agent = Agent(config)

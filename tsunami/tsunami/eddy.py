@@ -1,0 +1,669 @@
+"""Eddy — a lightweight agent worker powered by the 2B model.
+
+A eddy is a mini agent loop: it receives a task, has access to tools
+(file_read, shell_exec, match_grep, etc.), and runs autonomously
+until it completes or hits a turn limit.
+
+Unlike the wave (27B full agent), eddies are:
+- Fast (~100 tok/s on 2B)
+- Cheap (small context, no vision)
+- Disposable (no session persistence)
+- Parallel (multiple eddies run simultaneously)
+
+The wave dispatches eddies for:
+- Reading/analyzing multiple files
+- Running independent shell commands
+- Searching across a codebase
+- Any batch of homogeneous tasks
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import re
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import httpx
+
+log = logging.getLogger("tsunami.eddy")
+
+EDDY_ENDPOINT = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")
+MAX_TURNS = 10  # safety cap per eddy
+EDDY_TIMEOUT = 30  # seconds per LLM call
+
+
+@dataclass
+class BeeResult:
+    """Result from a eddy's work."""
+    task: str
+    success: bool
+    output: str
+    tool_calls: int = 0
+    turns: int = 0
+    elapsed_ms: float = 0
+    error: str = ""
+
+
+# Tools available to eddies (subset of wave's tools)
+EDDY_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "file_read",
+            "description": "Read a file's content",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File path"},
+                    "offset": {"type": "integer", "description": "Start line", "default": 0},
+                    "limit": {"type": "integer", "description": "Max lines", "default": 200},
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "shell_exec",
+            "description": "Run a shell command",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Command to run"},
+                },
+                "required": ["command"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "match_grep",
+            "description": "Search file contents by regex",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {"type": "string", "description": "Regex pattern"},
+                    "directory": {"type": "string", "description": "Where to search", "default": "."},
+                },
+                "required": ["pattern"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_web",
+            "description": "Search the web for information, code examples, or images",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "search_type": {"type": "string", "description": "info, code, or image", "default": "info"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "file_list",
+            "description": "List files matching a glob pattern",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {"type": "string", "description": "Glob pattern like **/*.tsx"},
+                    "directory": {"type": "string", "description": "Where to search", "default": "."},
+                },
+                "required": ["pattern"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "done",
+            "description": "Report your final answer",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "result": {"type": "string", "description": "Your findings/answer"},
+                },
+                "required": ["result"],
+            },
+        },
+    },
+]
+
+
+async def _execute_bee_tool(name: str, args: dict, workdir: str) -> str:
+    """Execute a tool on behalf of a eddy. Runs locally (not via LLM)."""
+    if name == "file_read":
+        path = args.get("path", "")
+        if not path or not isinstance(path, str):
+            return "Error: path parameter required (string)"
+        if len(path) > 500:
+            return "Error: path too long (max 500 chars)"
+        # Block sensitive files
+        basename = Path(path).name.lower()
+        sensitive = {'.env', '.env.local', '.env.production', '.env.development',
+                     '.netrc', '.npmrc', '.pypirc', 'credentials', 'credentials.json',
+                     'id_rsa', 'id_ed25519', 'id_ecdsa', '.htpasswd', 'shadow',
+                     'token', 'token.json', '.git-credentials'}
+        if basename in sensitive or basename.startswith('.env'):
+            return f"BLOCKED: eddies cannot read sensitive files ({basename})"
+        p = Path(path) if Path(path).is_absolute() else Path(workdir) / path
+        # Sandbox: eddies can only read within workdir
+        try:
+            resolved = str(p.resolve())
+            if not resolved.startswith(str(Path(workdir).resolve())):
+                return f"BLOCKED: eddies can only read files within the project directory"
+        except (OSError, ValueError):
+            return f"Error: invalid path {path}"
+        if not p.exists():
+            return f"File not found: {path}"
+        # Binary detection — check first 512 bytes for null bytes
+        try:
+            with open(p, "rb") as f:
+                head = f.read(512)
+            if b"\x00" in head:
+                size_kb = p.stat().st_size / 1024
+                return f"BLOCKED: binary file ({size_kb:.0f} KB), cannot read as text: {path}"
+        except OSError:
+            pass
+        # Size gate — skip huge files
+        try:
+            file_size = p.stat().st_size
+        except OSError:
+            return f"Cannot access: {path}"
+        if file_size > 256 * 1024:
+            return f"File too large ({file_size // 1024} KB). Use offset/limit or grep instead."
+        try:
+            text = p.read_text(errors="replace")
+        except (OSError, PermissionError) as e:
+            return f"Cannot read {path}: {e}"
+        lines = text.splitlines()
+        offset = args.get("offset", 0)
+        limit = args.get("limit", 200)
+        selected = lines[offset:offset + limit]
+        return "\n".join(selected)[:4000]
+
+    elif name == "shell_exec":
+        cmd = args.get("command", "")
+        if not cmd or not isinstance(cmd, str):
+            return "Error: command parameter required (string)"
+        if len(cmd) > 2000:
+            return "Error: command too long (max 2000 chars)"
+        # ALLOWLIST — eddies can ONLY run these commands
+        # Round 12 lesson: blocklists fail. A jailbreak ran 'rm -rf tsunami/'
+        # and deleted the entire codebase. Allowlist is the only safe model.
+        import re, shlex
+        # ALLOWLIST: pure read-only commands ONLY
+        # Round 14 lesson: awk has system(), find has -exec/-delete,
+        # xargs can exec arbitrary commands. All removed.
+        ALLOWED_COMMANDS = frozenset({
+            'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'egrep', 'fgrep', 'pwd',
+            'sort', 'uniq', 'cut', 'tr', 'diff', 'comm',
+            'file', 'stat', 'du', 'df', 'basename', 'dirname', 'realpath',
+            'git', 'echo', 'seq',
+            'tac', 'rev', 'nl', 'paste', 'column', 'md5sum',
+            'sha256sum', 'hexdump', 'strings',
+        })
+        # Git sub-commands allowed (read-only)
+        ALLOWED_GIT = frozenset({
+            'log', 'status', 'diff', 'show', 'branch', 'tag',
+            'blame', 'shortlog', 'rev-parse', 'ls-files', 'ls-tree',
+        })
+        # Block shell metacharacters that enable code execution or path escape
+        # Subshells $() and backticks execute before we can check
+        # Tilde ~ expands to home dir, $VAR expands env vars — both bypass path checks
+        if re.search(r'\$\(|`|;\s*\w|&&|#', cmd):
+            return "BLOCKED: eddies cannot use subshells, command chaining, or comments"
+        if re.search(r'~[/\s]|~$', cmd):
+            return "BLOCKED: eddies cannot use tilde expansion (home directory access)"
+        if re.search(r'\$[A-Z_]', cmd):
+            return "BLOCKED: eddies cannot use environment variables in commands"
+        # Block output redirects
+        if re.search(r'>\s*[^&]|>>', cmd):
+            return "BLOCKED: eddies cannot redirect output to files"
+        # Block absolute paths outside workdir (data leakage prevention)
+        # Allow /dev/null only
+        abs_paths = re.findall(r'(?<!\w)/(?:etc|proc|home|root|tmp|var|sys|boot|opt|usr|mnt|srv|run)\b', cmd)
+        if abs_paths:
+            return f"BLOCKED: eddies cannot access system paths ({abs_paths[0]})"
+        # Extract the first command in each pipeline segment
+        segments = re.split(r'\s*\|\s*', cmd)
+        for seg in segments:
+            seg = seg.strip()
+            if not seg:
+                continue
+            first_word = re.split(r'\s+', seg)[0]
+            if first_word not in ALLOWED_COMMANDS:
+                return f"BLOCKED: '{first_word}' is not in the eddy allowlist. Allowed: ls, cat, head, tail, wc, grep, sort, git, etc."
+            # Git sub-command check
+            if first_word == 'git':
+                parts = re.split(r'\s+', seg)
+                sub = parts[1] if len(parts) > 1 else ''
+                if sub and sub not in ALLOWED_GIT:
+                    return f"BLOCKED: 'git {sub}' is not allowed for eddies. Allowed: git log/status/diff/show/branch/blame"
+        try:
+            proc = await asyncio.create_subprocess_shell(
+                cmd, stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE, cwd=workdir,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15)
+            out = stdout.decode(errors="replace")[:4000]
+            if stderr:
+                out += f"\n[stderr] {stderr.decode(errors='replace')[:1000]}"
+            return out
+        except asyncio.TimeoutError:
+            return "Command timed out after 30s"
+        except Exception as e:
+            return f"Error: {e}"
+
+    elif name == "match_grep":
+        pattern = args.get("pattern", "")
+        if not pattern or not isinstance(pattern, str):
+            return "Error: pattern parameter required (string)"
+        if len(pattern) > 500:
+            return "Error: pattern too long (max 500 chars)"
+        directory = args.get("directory", workdir)
+        if not Path(directory).is_absolute():
+            directory = str(Path(workdir) / directory)
+        # Sandbox: grep restricted to workdir
+        try:
+            if not str(Path(directory).resolve()).startswith(str(Path(workdir).resolve())):
+                return "BLOCKED: eddies can only search within the project directory"
+        except (OSError, ValueError):
+            return "Error: invalid directory"
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "grep", "-rn", "--include=*.py", "--include=*.ts",
+                "--include=*.js", "--include=*.md",
+                "--exclude-dir=node_modules", "--exclude-dir=.git",
+                "--exclude-dir=__pycache__", "--exclude-dir=models",
+                pattern, directory,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
+            return stdout.decode(errors="replace")[:4000] or "No matches"
+        except Exception as e:
+            return f"Grep error: {e}"
+
+    elif name == "search_web":
+        query = args.get("query", "")
+        search_type = args.get("search_type", "info")
+        if not query:
+            return "Error: query required"
+        try:
+            # Use the same search backend as the wave
+            from .tools.search import SearchWeb
+            from .config import TsunamiConfig
+            searcher = SearchWeb(TsunamiConfig())
+            result = await searcher.execute(query=query, search_type=search_type, num_results=3)
+            return result.content[:3000]
+        except Exception as e:
+            return f"Search error: {e}"
+
+    elif name == "file_list":
+        pattern = args.get("pattern", "**/*")
+        directory = args.get("directory", workdir)
+        if not Path(directory).is_absolute():
+            directory = str(Path(workdir) / directory)
+        try:
+            if not str(Path(directory).resolve()).startswith(str(Path(workdir).resolve())):
+                return "BLOCKED: eddies can only list files within project"
+            import glob
+            files = sorted(glob.glob(str(Path(directory) / pattern), recursive=True))
+            # Filter out node_modules, .git, etc
+            files = [f for f in files if not any(skip in f for skip in
+                     ["node_modules", ".git", "__pycache__", "dist/", ".vite"])]
+            return "\n".join(files[:50]) or "No files found"
+        except Exception as e:
+            return f"Error: {e}"
+
+    elif name == "done":
+        return args.get("result", "")
+
+    return f"Unknown tool: {name}"
+
+
+async def run_bee(
+    task: str,
+    workdir: str = ".",
+    endpoint: str = EDDY_ENDPOINT,
+    max_turns: int = MAX_TURNS,
+    system_prompt: str = "",
+) -> BeeResult:
+    """Run a single eddy agent loop.
+
+    The eddy gets a task, can use tools, and runs until it calls
+    'done' or hits the turn limit.
+    """
+    start = time.time()
+
+    # Guard: empty or whitespace-only tasks fail fast
+    if not task or not task.strip():
+        return BeeResult(
+            task=task or "", success=False, output="",
+            error="Empty task", elapsed_ms=0,
+        )
+
+    # Sanitize control characters from task (null bytes, ANSI escapes)
+    import re as _re
+    task = _re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', task)
+    task = _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', task)  # strip ANSI escapes
+
+    if not system_prompt:
+        # Auto-detect eddy type from task content and specialize the prompt
+        task_lower = task.lower()
+        if any(k in task_lower for k in ["search", "find", "look up", "reference", "image"]):
+            system_prompt = (
+                "You are a research specialist. Search the web, find useful results, "
+                "and call done() with your findings. Include URLs. Be concise."
+            )
+        elif any(k in task_lower for k in ["write", "component", "function", "export", "tsx", "react"]):
+            system_prompt = (
+                "You are a React TypeScript expert. Write clean, working code. "
+                "Call done() with ONLY the raw code — no markdown fences, no explanation. "
+                "Always export default. Always import hooks from 'react'."
+            )
+        elif any(k in task_lower for k in ["analyze", "read", "check", "review", "summarize"]):
+            system_prompt = (
+                "You are a code analyst. Read the files, understand the structure, "
+                "and call done() with a concise summary of your findings."
+            )
+        else:
+            system_prompt = (
+                "You are a focused worker agent. Complete the task using the tools available. "
+                "When you have the answer, call the 'done' tool with your result. "
+                "Be concise. Do not explain your process — just deliver the result."
+            )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": task},
+    ]
+
+    tool_calls = 0
+    turns = 0
+
+    async with httpx.AsyncClient(timeout=EDDY_TIMEOUT) as client:
+        for turn in range(max_turns):
+            turns = turn + 1
+
+            try:
+                resp = await client.post(
+                    f"{endpoint}/v1/chat/completions",
+                    json={
+                        "model": "qwen",
+                        "messages": messages,
+                        "tools": EDDY_TOOLS,
+                        "tool_choice": "auto",
+                        "max_tokens": 1024,
+                        "temperature": 0.3,
+                    },
+                    headers={"Authorization": "Bearer not-needed"},
+                )
+
+                if resp.status_code != 200:
+                    return BeeResult(
+                        task=task, success=False, output="",
+                        error=f"HTTP {resp.status_code}",
+                        turns=turns, elapsed_ms=(time.time() - start) * 1000,
+                    )
+
+                data = resp.json()
+                choice = data["choices"][0]
+                msg = choice["message"]
+
+                # Check for tool calls
+                if msg.get("tool_calls"):
+                    tc = msg["tool_calls"][0]
+                    func = tc["function"]
+                    name = func["name"]
+                    raw_args = func.get("arguments", "{}")
+                    if isinstance(raw_args, dict):
+                        args = raw_args
+                    elif isinstance(raw_args, str):
+                        try:
+                            args = json.loads(raw_args)
+                        except json.JSONDecodeError:
+                            args = {}
+                    else:
+                        args = {}
+
+                    tool_calls += 1
+
+                    # Done tool = terminate
+                    if name == "done":
+                        return BeeResult(
+                            task=task, success=True,
+                            output=args.get("result", ""),
+                            tool_calls=tool_calls, turns=turns,
+                            elapsed_ms=(time.time() - start) * 1000,
+                        )
+
+                    # Execute tool
+                    result = await _execute_bee_tool(name, args, workdir)
+
+                    # Add to conversation
+                    messages.append({"role": "assistant", "content": msg.get("content", ""), "tool_calls": msg["tool_calls"]})
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": result,
+                    })
+
+                else:
+                    # Text response — treat as final answer
+                    content = msg.get("content", "").strip()
+                    if content:
+                        return BeeResult(
+                            task=task, success=True, output=content,
+                            tool_calls=tool_calls, turns=turns,
+                            elapsed_ms=(time.time() - start) * 1000,
+                        )
+
+            except httpx.TimeoutException:
+                return BeeResult(
+                    task=task, success=False, output="",
+                    error="Timeout", turns=turns,
+                    elapsed_ms=(time.time() - start) * 1000,
+                )
+            except Exception as e:
+                return BeeResult(
+                    task=task, success=False, output="",
+                    error=str(e)[:200], turns=turns,
+                    elapsed_ms=(time.time() - start) * 1000,
+                )
+
+    return BeeResult(
+        task=task, success=False, output="",
+        error=f"Hit turn limit ({max_turns})",
+        turns=turns, tool_calls=tool_calls,
+        elapsed_ms=(time.time() - start) * 1000,
+    )
+
+
+def _validate_eddy_code(content: str, target: str) -> bool:
+    """Quick validation of eddy-produced code before writing.
+
+    Catches obvious garbage: empty, too short, no export, markdown prose.
+    Returns True if code looks valid enough to write.
+    """
+    if not content or len(content) < 30:
+        return False  # too short to be real code
+
+    # Must have an export (default or named)
+    if target.endswith((".tsx", ".ts")):
+        has_export = "export" in content
+        if not has_export:
+            return False
+
+    # Reject if it's mostly prose (markdown, explanations)
+    lines = content.strip().splitlines()
+    code_lines = [l for l in lines if l.strip() and not l.strip().startswith(("#", "//", "/*", "*", "```"))]
+    if len(code_lines) < 3:
+        return False
+
+    # Reject if it starts with markdown header or explanation
+    first_line = content.strip().splitlines()[0].strip()
+    if first_line.startswith(("Here", "This", "The ", "I ", "Below", "Sure", "Let me")):
+        return False
+
+    return True
+
+
+async def run_swarm(
+    tasks: list[str],
+    workdir: str = ".",
+    max_concurrent: int = 4,
+    endpoint: str = EDDY_ENDPOINT,
+    system_prompt: str = "",
+    write_targets: list[str] | None = None,
+) -> list[BeeResult]:
+    """Run multiple eddies in parallel with concurrency control.
+
+    The wave calls this to dispatch work to the break.
+
+    If write_targets is provided, each eddy's 'done' output gets
+    written to the corresponding file path. The eddy doesn't need
+    file_write — it just produces the content, the swarm writes it.
+    This is the MoE pattern: each eddy is an expert that outputs
+    to its assigned attention head (file).
+    """
+    from .eddy_communication import SharedSwellContext
+
+    sem = asyncio.Semaphore(max_concurrent)
+    start = time.time()
+
+    # Load shared context from prior eddies
+    shared = SharedSwellContext(workdir)
+    shared.load()
+    prior_findings = shared.to_prompt_injection()
+
+    async def _run(task: str, eddy_id: str) -> BeeResult:
+        async with sem:
+            # Inject prior findings into eddy's system prompt
+            full_prompt = system_prompt
+            if prior_findings:
+                full_prompt = f"{system_prompt}\n\n{prior_findings}" if system_prompt else prior_findings
+            result = await run_bee(task, workdir, endpoint, system_prompt=full_prompt)
+            # Record finding for next eddy
+            finding = shared.extract_finding_from_result(eddy_id, task, result.output, result.success)
+            shared.add_finding(finding)
+            return result
+
+    results = await asyncio.gather(*[_run(t, f"eddy_{i}") for i, t in enumerate(tasks)])
+    elapsed = (time.time() - start) * 1000
+
+    # Write outputs to target files if provided
+    if write_targets:
+        # Find project root (for compile checking)
+        project_root = ""
+        for t in write_targets:
+            if t:
+                # Walk up to find package.json
+                d = Path(t).parent
+                for _ in range(5):
+                    if (d / "package.json").exists():
+                        project_root = str(d)
+                        break
+                    d = d.parent
+                break
+
+        for result, target in zip(results, write_targets):
+            if result.success and target and result.output.strip():
+                try:
+                    tp = Path(target)
+                    tp.parent.mkdir(parents=True, exist_ok=True)
+                    # Extract code from markdown fences if present
+                    content = result.output.strip()
+                    import re as _re
+                    code_match = _re.search(r'```(?:tsx?|typescript|javascript)?\n(.*?)```', content, _re.DOTALL)
+                    if code_match:
+                        content = code_match.group(1).strip()
+                    # Fix double-escaped newlines
+                    if "\n" not in content and "\\n" in content:
+                        content = content.replace("\\n", "\n").replace("\\t", "\t")
+
+                    # Quality gate — validate eddy output before writing
+                    is_valid = _validate_eddy_code(content, target)
+                    if not is_valid:
+                        log.warning(f"Eddy output failed validation for {tp.name} — skipped")
+                        result.success = False
+                        result.error = "validation_failed"
+                        continue
+
+                    tp.write_text(content)
+                    log.info(f"Wrote eddy output to {target} ({len(content)} chars)")
+                except Exception as e:
+                    log.warning(f"Failed to write eddy output to {target}: {e}")
+
+        # Compile check — run vite build to catch type errors
+        if project_root and Path(project_root, "package.json").exists():
+            try:
+                import subprocess as _sp
+                build = _sp.run(
+                    ["npx", "vite", "build"],
+                    cwd=project_root, capture_output=True, text=True, timeout=30,
+                )
+                if build.returncode == 0:
+                    log.info("Swell compile check: PASS")
+                else:
+                    # Extract error lines
+                    errors = [
+                        l for l in build.stderr.splitlines()
+                        if "error" in l.lower() or "Error" in l
+                    ][:5]
+                    log.warning(f"Swell compile check: FAIL — {'; '.join(errors)}")
+            except Exception as e:
+                log.debug(f"Compile check skipped: {e}")
+
+    # Cleanup shared context after swell batch completes
+    shared.cleanup()
+
+    succeeded = sum(1 for r in results if r.success)
+    total_tool_calls = sum(r.tool_calls for r in results)
+    log.info(
+        f"Swell complete: {succeeded}/{len(results)} succeeded, "
+        f"{total_tool_calls} tool calls, {elapsed:.0f}ms"
+    )
+
+    return list(results)
+
+
+def _sanitize_bee_output(text: str) -> str:
+    """Sanitize eddy output before sending to wave.
+
+    Prevents: tool call injection, control chars, excessive size.
+    """
+    import re as _re
+    # Strip control characters (null, ANSI escapes, etc.)
+    text = _re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+    text = _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
+    # Defang JSON that looks like tool calls (prevent wave misparse)
+    text = text.replace('"name":', '"_name":')
+    text = text.replace('"arguments":', '"_arguments":')
+    return text
+
+
+def format_swarm_results(results: list[BeeResult]) -> str:
+    """Format swell results for the wave to consume."""
+    lines = [f"swell: {len(results)} eddies dispatched"]
+    for i, r in enumerate(results):
+        status = "ok" if r.success else "FAIL"
+        lines.append(f"\n[eddy {i}] {status} ({r.turns} turns, {r.tool_calls} tools, {r.elapsed_ms:.0f}ms)")
+        if r.output:
+            lines.append(_sanitize_bee_output(r.output[:500]))
+        if r.error:
+            lines.append(f"  error: {r.error}")
+    return "\n".join(lines)
