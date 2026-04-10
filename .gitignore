@@ -32,6 +32,9 @@ Thumbs.db
 
 # Claude
 .claude/
+CLAUDE.md
+SCRATCHPAD.md
+**/SCRATCHPAD.md
 
 # Misc
 *.log
