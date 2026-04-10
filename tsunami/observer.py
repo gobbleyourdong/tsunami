@@ -150,10 +150,8 @@ class Observer:
                 import json as _json
                 data = _json.loads(pkg.read_text())
                 deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
-                if "three" in deps or "@react-three/fiber" in deps:
-                    scaffold = "threejs-game"
-                elif "pixi.js" in deps or "@pixi/react" in deps:
-                    scaffold = "pixijs-game"
+                if "@engine" in pkg.read_text() or "@webgpu/types" in deps:
+                    scaffold = "game"
                 elif "recharts" in deps and "express" not in deps:
                     scaffold = "data-viz"
                 elif "express" in deps:

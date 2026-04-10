@@ -407,7 +407,7 @@ class Agent:
                 log.info(f"Auto-wired {project_dir.name}/App.tsx with {len(components)} components")
 
     def _is_engine_project(self, proj_dir: Path) -> bool:
-        """Check if a project uses the Tsunami Engine (webgpu-game scaffold)."""
+        """Check if a project uses the Tsunami Engine (game scaffold)."""
         try:
             pkg = proj_dir / "package.json"
             if pkg.exists():
@@ -1930,10 +1930,10 @@ class Agent:
                                     f"Don't rewrite these — import them."
                                 )
                                 log.info(f"Scaffold awareness: {len(ui_components)} UI components available")
-                        # Engine awareness — inject API reference for webgpu-game projects
+                        # Engine awareness — inject API reference for game scaffold projects
                         elif self._is_engine_project(proj):
                             self.state.add_system_note(
-                                "ENGINE API (import from 'tsunami-engine'):\n"
+                                "ENGINE API (import from '@engine/...'):\n"
                                 "Game({mode:'2d'|'3d'}) — top-level orchestrator\n"
                                 "game.scene(name) — returns SceneBuilder\n"
                                 "level.spawn(name, {mesh,position,controller,ai,mass,...})\n"

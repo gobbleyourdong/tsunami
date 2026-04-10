@@ -173,7 +173,7 @@ def decompose(prompt: str) -> TaskDAG:
         "calendar": "Add calendar/date components and scheduling UI.",
         "interactive": "Add drag-and-drop, sortable, or interactive board features.",
         "api_external": "Add external data display (use mock/simulated data, not real APIs).",
-        "3d": "Add 3D scene setup with Three.js (camera, lighting, objects).",
+        "3d": "Add 3D scene setup (camera, lighting, objects).",
         "physics": "Add physics simulation (collision, gravity, forces).",
     }
 

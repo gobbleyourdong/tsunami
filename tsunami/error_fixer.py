@@ -152,9 +152,8 @@ def _classify_and_fix(project_dir: Path, error: str) -> str | None:
         pkg = m.group(1)
         # Only auto-install known-safe packages
         safe_packages = {
-            "recharts", "d3", "papaparse", "xlsx", "matter-js",
-            "three", "@react-three/fiber", "@react-three/drei", "@react-three/rapier",
-            "pixi.js", "@pixi/react", "express", "better-sqlite3", "cors", "ws",
+            "recharts", "d3", "papaparse", "xlsx",
+            "express", "better-sqlite3", "cors", "ws",
             "framer-motion", "zustand", "react-router-dom", "react-icons",
             "date-fns", "lodash", "axios", "uuid",
         }

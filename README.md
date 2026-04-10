@@ -39,7 +39,7 @@ that's it. it downloads everything, detects your gpu, starts the models, opens t
 you type a prompt. tsunami does the rest.
 
 - **"build me a calculator"** — writes it, tests it, verifies it renders, delivers
-- **"build a 3D pinball game"** — researches Three.js patterns, builds 869 lines, tests every key binding
+- **"build a 3D pinball game"** — uses the Tsunami Engine (WebGPU), builds 869 lines, tests every key binding
 - **"replicate the Game Boy UI"** — searches for reference images, generates a reference via SD-Turbo, extracts element positions with vision grounding, builds to match
 - **"analyze these 500 files"** — dispatches parallel workers, reads everything, synthesizes findings
 

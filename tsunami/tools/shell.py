@@ -102,11 +102,10 @@ class ShellExec(BaseTool):
             # Known-good packages pass through; unknown ones get a warning
             known_good = {
                 "react", "react-dom", "recharts", "d3", "papaparse", "xlsx",
-                "matter-js", "three", "pixi.js", "express", "better-sqlite3",
+                "express", "better-sqlite3",
                 "cors", "ws", "framer-motion", "zustand", "react-router-dom",
                 "react-icons", "date-fns", "lodash", "axios", "uuid",
-                "@react-three/fiber", "@react-three/drei", "@react-three/rapier",
-                "@pixi/react", "tailwindcss", "postcss", "autoprefixer",
+                "tailwindcss", "postcss", "autoprefixer",
                 "@uiw/react-md-editor", "marked", "highlight.js",
                 "chart.js", "react-chartjs-2", "socket.io-client",
             }

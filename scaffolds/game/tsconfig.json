@@ -16,5 +16,5 @@
       "@engine": ["../../engine/src/index.ts"]
     }
   },
-  "include": ["src", "../../engine/src"]
+  "include": ["src"]
 }

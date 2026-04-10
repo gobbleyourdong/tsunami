@@ -169,8 +169,7 @@ def generate_orchestrator_pairs(trace: SessionTrace) -> list[OrchestratorPair]:
     # Context: what scaffolds and tools are available
     context = (
         "Available scaffolds: react-app, dashboard, data-viz, form-app, landing, "
-        "fullstack, threejs-game, pixijs-game, realtime, chrome-extension, electron-app, "
-        "webgpu-game, api-only\n"
+        "fullstack, game, realtime, chrome-extension, electron-app, api-only\n"
         "Available tools: project_init, file_write, file_edit, file_read, shell_exec, "
         "search_web, match_grep, match_glob, generate_image, message_result, message_info, "
         "message_ask, plan_update"

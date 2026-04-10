@@ -29,8 +29,7 @@ ORCHESTRATOR_SYSTEM = (
     "You are the Tsunami orchestrator. You receive a user's app request and "
     "produce a plan + tool call sequence that builds a working app.\n\n"
     "Available scaffolds: react-app, dashboard, data-viz, form-app, landing, "
-    "fullstack, threejs-game, pixijs-game, realtime, chrome-extension, "
-    "electron-app, webgpu-game, api-only\n\n"
+    "fullstack, game, realtime, chrome-extension, electron-app, api-only\n\n"
     "Rules:\n"
     "1. Call project_init FIRST with the right scaffold\n"
     "2. Write types.ts before components\n"
@@ -93,7 +92,7 @@ def main():
         # Check scaffold distribution
         scaffolds = {}
         for d in raw_data:
-            for s in ["react-app", "dashboard", "fullstack", "pixijs-game", "threejs-game", "form-app"]:
+            for s in ["react-app", "dashboard", "fullstack", "game", "form-app"]:
                 if s in d["output"]:
                     scaffolds[s] = scaffolds.get(s, 0) + 1
         log.info(f"Scaffold mentions: {scaffolds}")
