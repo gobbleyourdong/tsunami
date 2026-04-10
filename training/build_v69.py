@@ -93,8 +93,8 @@ TOOLS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "content": {"description": "Full file content", "type": "STRING"},
                 "path": {"description": "Path to write to", "type": "STRING"},
+                "content": {"description": "Full file content", "type": "STRING"},
             },
             "required": ["path", "content"],
         },
