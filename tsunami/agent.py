@@ -1690,12 +1690,20 @@ class Agent:
         # 8b. Auto compile check — run vite build after writing .tsx/.ts
         if tool_call.name in ("file_write", "file_edit") and not result.is_error:
             written_path = tool_call.arguments.get("path", "")
-            if "deliverables/" in written_path and written_path.endswith((".tsx", ".ts")):
+            is_tsx = written_path.endswith((".tsx", ".ts"))
+            has_project_prefix = "deliverables/" in written_path
+            # Also trigger on short paths (e.g. "src/App.tsx") when phase_machine knows the project
+            has_active_project = bool(self.phase_machine.project_path) and is_tsx and not has_project_prefix
+            if (has_project_prefix or has_active_project) and is_tsx:
                 try:
                     import re as _re
-                    parts = written_path.split("deliverables/")
-                    if len(parts) > 1:
-                        project_name = parts[1].split("/")[0]
+                    if has_project_prefix:
+                        parts = written_path.split("deliverables/")
+                        project_name = parts[1].split("/")[0] if len(parts) > 1 else None
+                    else:
+                        # Infer from phase_machine — e.g. "workspace/deliverables/my-app" → "my-app"
+                        project_name = self.phase_machine.project_path.split("/")[-1] if self.phase_machine.project_path else None
+                    if project_name:
                         project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
                         if (project_dir / "package.json").exists() and (project_dir / "node_modules").exists():
                             import subprocess
