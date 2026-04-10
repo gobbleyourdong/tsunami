@@ -88,6 +88,18 @@ class PhaseMachine:
                     .format(project=self.project_path.split("/")[-1] if self.project_path else "PROJECT")
                 )
 
+        # Block message_chat stalls during build tasks.
+        # After writing code, the only forward move is building — not chatting.
+        # This kills the IH03 failure mode: 7 writes → chat loop → timeout.
+        if tool_name == "message_chat" and self.phase == Phase.WRITE and self.files_written > 0:
+            return False, (
+                "PHASE GATE: Code written but not compiled. "
+                "Run the build: shell_exec with command "
+                "'cd workspace/deliverables/{project} && npx vite build'. "
+                "Do NOT chat — build first."
+                .format(project=self.project_path.split("/")[-1] if self.project_path else "PROJECT")
+            )
+
         return True, ""
 
     def record(self, tool_name: str, args: dict, result_content: str, is_error: bool):

@@ -75,8 +75,8 @@ def _classify_and_fix(project_dir: Path, error: str) -> str | None:
         )
         return f"created stub {stub_path.name} (missing component)"
 
-    # 2. Named vs default export mismatch
-    # "'X' is not exported by 'src/components/Y.tsx'"
+    # 2. Named vs default export mismatch / missing export from barrel file
+    # "'X' is not exported by 'src/components/Y.tsx'" or "'X' is not exported by 'src/components/ui/index.ts'"
     m = re.search(r"['\"](\w+)['\"] is not exported by ['\"]([^'\"]+)['\"]", error)
     if m:
         export_name = m.group(1)
@@ -87,18 +87,29 @@ def _classify_and_fix(project_dir: Path, error: str) -> str | None:
             resolved = project_dir / "src" / file_path
         if resolved.exists():
             content = resolved.read_text()
-            # Check if it has default export but import uses named
+
+            # Case A: barrel file (index.ts) missing the export — create stub component + add to barrel
+            if resolved.name.startswith("index.") and f"as {export_name}" not in content:
+                comp_dir = resolved.parent
+                comp_file = comp_dir / f"{export_name}.tsx"
+                if not comp_file.exists():
+                    comp_file.write_text(
+                        f'export default function {export_name}({{ children, className, ...props }}: '
+                        f'{{ children?: React.ReactNode; className?: string; [key: string]: any }}) {{\n'
+                        f'  return <div className={{className}} {{...props}}>{{children}}</div>\n'
+                        f'}}\n'
+                    )
+                # Add export to barrel
+                resolved.write_text(content.rstrip() + f'\nexport {{ default as {export_name} }} from "./{export_name}"\n')
+                return f"created {export_name}.tsx stub + added to {resolved.name}"
+
+            # Case B: default export exists but import uses named — fix the import
             if f"export default" in content and f"export {{ {export_name}" not in content:
-                # Add named re-export
-                content += f"\nexport {{ default as {export_name} }} from './{resolved.stem}'\n"
-                # Actually, fix the importing file instead
-                # Find who imports this — match by component name in import path
                 src_dir = project_dir / "src"
-                stem = resolved.stem  # e.g. "Dialog"
+                stem = resolved.stem
                 for tsx in src_dir.rglob("*.tsx"):
                     tsx_content = tsx.read_text()
                     bad_import = f"{{ {export_name} }}"
-                    # Match any import path ending with the component name
                     if bad_import in tsx_content and (f"/{stem}" in tsx_content or f"'{stem}" in tsx_content):
                         fixed = tsx_content.replace(
                             f"{{ {export_name} }}",

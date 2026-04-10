@@ -72,7 +72,7 @@ Workspace: {workspace}
 
 CSS: .container .card .card.glass .flex .flex-col .flex-center .grid .grid-2/3/4 .gap-2/4/6/8 .text-center .text-muted .text-accent .p-4 .p-6 .bg-0/1/2/3 .rounded .badge .divider .animate-in
 
-Components: import from "./components/ui" (NOT "../components/ui/button" or other subpaths). Available: Button, Card, Badge, Dialog, Select, Progress, Avatar, Switch, Tooltip, Dropdown, Accordion, Alert, Skeleton.
+Components: import from "./components/ui" (NOT "../components/ui/button" or other subpaths). Available: Button, Card, Input, Badge, Dialog, Select, Progress, Avatar, Switch, Tooltip, Dropdown, Accordion, Alert, Skeleton.
 
 NEVER skip the break. NEVER deliver without building. One tool call per response. Be brief.{plan_section}"""
 

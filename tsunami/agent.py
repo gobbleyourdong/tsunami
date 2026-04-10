@@ -1177,16 +1177,9 @@ class Agent:
         if tool_call.name == "shell_exec":
             recent_3 = self._tool_history[-3:] if len(self._tool_history) >= 3 else []
             if recent_3 == ["shell_exec", "shell_exec", "shell_exec"]:
-                # Find the active project's App.tsx to tell model what to read
-                app_path = "src/App.tsx"
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
-                if deliverables.exists():
-                    projects = sorted(
-                        [d for d in deliverables.iterdir() if d.is_dir()],
-                        key=lambda p: p.stat().st_mtime, reverse=True
-                    )
-                    if projects:
-                        app_path = f"workspace/deliverables/{projects[0].name}/src/App.tsx"
+                # Use phase machine's active project (deterministic) over mtime scan
+                app_path = f"{self.phase_machine.project_path}/src/App.tsx" \
+                    if self.phase_machine.project_path else "src/App.tsx"
 
                 block_msg = (
                     f"BLOCKED: shell_exec called 4 times in a row. The build is failing. "
