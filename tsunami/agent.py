@@ -568,7 +568,18 @@ class Agent:
             # Delivery deadline — if build passed 10+ iterations ago, force delivery
             build_passed_at = getattr(self, '_build_passed_at', None)
             if build_passed_at and (self.state.iteration - build_passed_at) >= 10:
-                log.info(f"Safety valve: {self.state.iteration - build_passed_at} iters since build passed — forcing exit")
+                log.info(f"Safety valve: {self.state.iteration - build_passed_at} iters since build passed — forcing delivery")
+                # Find the project and deliver properly
+                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                projects = sorted(
+                    [d for d in deliverables.iterdir() if d.is_dir() and (d / "package.json").exists()],
+                    key=lambda p: p.stat().st_mtime, reverse=True
+                ) if deliverables.exists() else []
+                if projects:
+                    dist = projects[0] / "dist" / "index.html"
+                    msg = f"Built {projects[0].name}. App compiled and ready."
+                    if dist.exists():
+                        msg += f" Dist at {dist}."
                 self.state.task_complete = True
                 break
 
@@ -1598,6 +1609,18 @@ class Agent:
                             )
                 except Exception as e:
                     log.debug(f"Auto-swell skipped: {e}")
+
+        # 8z. Detect successful vite build from shell_exec
+        if tool_call.name == "shell_exec" and not result.is_error:
+            cmd = tool_call.arguments.get("command", "")
+            if "vite build" in cmd and "built in" in result.content.lower():
+                if not hasattr(self, '_build_passed_at'):
+                    self._build_passed_at = self.state.iteration
+                    log.info("Build passed (shell_exec). Deliver now.")
+                    self.state.add_system_note(
+                        "BUILD PASSED. The app compiled successfully via shell_exec. "
+                        "Call message_result to deliver the finished app."
+                    )
 
         # 8a. Auto-serve — start dev server ONCE, Vite HMR handles the rest
         if tool_call.name in ("file_write", "file_edit", "shell_exec") and not result.is_error:
