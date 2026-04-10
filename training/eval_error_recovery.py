@@ -20,6 +20,7 @@ import argparse
 import asyncio
 import json
 import logging
+import re
 import time
 
 import httpx

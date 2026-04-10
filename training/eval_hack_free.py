@@ -234,13 +234,42 @@ async def eval_hack_free(endpoint):
                 a = tc["function"].get("arguments", "{}")
                 args = json.loads(a) if isinstance(a, str) else a
             elif choice.get("content"):
-                # Fallback: 31B sometimes puts tool calls in content as response:name{...}
-                import re as _re
-                m = _re.match(r"(?:response:|call:)?(\w+)\{", choice["content"].strip())
-                if m:
-                    name = m.group(1)
-                    # Try to extract args from the content
-                    args = {}
+                # Fallback: 31B sometimes puts tool calls in content instead of tool_calls
+                content = choice["content"].strip()
+                # Strategy 1: JSON with "name" field (most robust)
+                idx = content.find('"name"')
+                if idx != -1:
+                    start = content.rfind('{', 0, idx)
+                    if start != -1:
+                        for end in range(start + 10, len(content) + 1):
+                            if content[end - 1] != '}':
+                                continue
+                            try:
+                                obj = json.loads(content[start:end])
+                                if isinstance(obj, dict) and "name" in obj:
+                                    name = obj["name"]
+                                    a = obj.get("arguments", {})
+                                    args = json.loads(a) if isinstance(a, str) else (a if isinstance(a, dict) else {})
+                                    break
+                            except (json.JSONDecodeError, TypeError):
+                                continue
+                # Strategy 2: response:tool_name{...} prefix format
+                if name is None:
+                    import re as _re
+                    m = _re.match(r"(?:response:|call:)?(\w+)\{", content)
+                    if m:
+                        name = m.group(1)
+                        # Try to parse the {...} as JSON for args
+                        brace_start = content.find('{')
+                        if brace_start != -1:
+                            for end in range(brace_start + 2, len(content) + 1):
+                                if content[end - 1] != '}':
+                                    continue
+                                try:
+                                    args = json.loads(content[brace_start:end])
+                                    break
+                                except json.JSONDecodeError:
+                                    continue
         except Exception as e:
             log.error(f"  {scenario['id']}: {e}")
 

@@ -159,6 +159,12 @@ class OllamaModel(LLMModel):
                 arguments=func.get("arguments", {}),
             )
 
+        # Fallback: some models (e.g. 31B) emit tool calls as text in content
+        if tool_call is None and content:
+            tool_call = CompletionModel._extract_tool_call(content)
+            if tool_call:
+                log.info(f"Extracted text-mode tool call from content: {tool_call.name}")
+
         return LLMResponse(content=content, tool_call=tool_call, raw=data)
 
 
@@ -253,6 +259,12 @@ class OpenAICompatModel(LLMModel):
             if isinstance(args, dict) and "arguments" in args and len(args) == 1:
                 args = args["arguments"]
             tool_call = ToolCall(name=func["name"], arguments=args)
+
+        # Fallback: some models (e.g. 31B) emit tool calls as text in content
+        if tool_call is None and content:
+            tool_call = CompletionModel._extract_tool_call(content)
+            if tool_call:
+                log.info(f"Extracted text-mode tool call from content: {tool_call.name}")
 
         return LLMResponse(content=content, tool_call=tool_call, raw=data)
 
