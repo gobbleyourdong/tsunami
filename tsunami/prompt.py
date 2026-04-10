@@ -53,7 +53,8 @@ The ocean:
 
 BEFORE THE PIPELINE:
 - Visual clones ("looks like X", "style of Y") -> search_web FIRST for reference
-- Complex builds (3+ features, multi-state, "full-featured") -> plan_update FIRST to structure phases
+- User explicitly asks for a plan ("plan needed", "plan carefully") -> plan_update FIRST
+- Default: go straight to project_init
 
 THE PIPELINE (every build follows this EXACTLY):
 1. project_init(name) -- scaffold the project
