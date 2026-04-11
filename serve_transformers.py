@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Serve Tsunami model via transformers — text + vision support.
+"""Serve Tsunami model via transformers — text + vision + image generation.
 
-Usage (inside nvcr.io/nvidia/pytorch container):
-  python3 serve_transformers.py --model models/gemma-4-e4b-tsunami-v81r-merged --port 8090
+Usage:
+  python3 serve_transformers.py --model google/gemma-4-e4b-it --port 8090
+  python3 serve_transformers.py --model google/gemma-4-e4b-it --image-model black-forest-labs/FLUX.2-klein-4B --port 8090
 
-Provides OpenAI-compatible /v1/chat/completions endpoint.
-Supports both text-only and multimodal (image) requests.
+Provides OpenAI-compatible endpoints:
+  POST /v1/chat/completions    — text + vision (language model)
+  POST /v1/images/generate     — image generation (FLUX Klein)
+  POST /v1/adapter             — hot-swap LoRA adapters
+  GET  /health                 — health check
 """
 import argparse
 import base64
@@ -28,6 +32,9 @@ log = logging.getLogger("serve")
 app = FastAPI()
 model = None
 processor = None
+image_pipe = None
+image_model_id = None
+_low_vram = False  # if True, swap language/image models to save memory
 
 class ChatRequest(BaseModel):
     model: str = "tsunami"
@@ -400,8 +407,109 @@ async def chat_completions(req: ChatRequest):
     }
 
 
+class ImageRequest(BaseModel):
+    prompt: str
+    width: int = 1024
+    height: int = 1024
+    steps: int = 4
+    guidance_scale: float = 1.0
+
+
+def _load_image_model():
+    """Load FLUX Klein on first use. On low-VRAM, offload language model first."""
+    global image_pipe, model
+    if image_pipe is not None:
+        return image_pipe
+
+    if not image_model_id:
+        return None
+
+    if _low_vram and model is not None:
+        log.info("Low VRAM: offloading language model to CPU for image generation")
+        model.to("cpu")
+        torch.cuda.empty_cache()
+
+    log.info(f"Loading image model: {image_model_id}")
+    try:
+        from diffusers import FluxPipeline
+        image_pipe = FluxPipeline.from_pretrained(
+            image_model_id,
+            torch_dtype=torch.bfloat16,
+            trust_remote_code=True,
+        )
+        image_pipe.to("cuda")
+        log.info("Image model loaded")
+    except Exception as e:
+        log.error(f"Failed to load image model: {e}")
+        # Try FP8 quantized fallback
+        try:
+            image_pipe = FluxPipeline.from_pretrained(
+                image_model_id,
+                torch_dtype=torch.float8_e4m3fn,
+                trust_remote_code=True,
+            )
+            image_pipe.to("cuda")
+            log.info("Image model loaded (FP8 fallback)")
+        except Exception as e2:
+            log.error(f"FP8 fallback also failed: {e2}")
+            return None
+    return image_pipe
+
+
+def _restore_language_model():
+    """After image generation on low-VRAM, move language model back to GPU."""
+    global image_pipe, model
+    if _low_vram and model is not None:
+        log.info("Low VRAM: offloading image model, restoring language model to GPU")
+        if image_pipe is not None:
+            image_pipe.to("cpu")
+            torch.cuda.empty_cache()
+        model.to("cuda:0")
+
+
+@app.post("/v1/images/generate")
+async def generate_image(req: ImageRequest):
+    pipe = _load_image_model()
+    if pipe is None:
+        return {"error": "No image model configured. Start with --image-model"}
+
+    start = time.time()
+    try:
+        result = pipe(
+            prompt=req.prompt,
+            width=req.width,
+            height=req.height,
+            num_inference_steps=req.steps,
+            guidance_scale=req.guidance_scale,
+        )
+        image = result.images[0]
+
+        # Convert to base64 PNG
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode()
+
+        elapsed = time.time() - start
+        log.info(f"Image generated in {elapsed:.1f}s ({req.width}x{req.height}, {req.steps} steps)")
+
+        # Restore language model if needed
+        _restore_language_model()
+
+        return {
+            "created": int(time.time()),
+            "data": [{
+                "b64_json": b64,
+                "revised_prompt": req.prompt,
+            }],
+            "timing": {"elapsed_s": round(elapsed, 2)},
+        }
+    except Exception as e:
+        _restore_language_model()
+        return {"error": str(e)}
+
+
 def main():
-    global model, processor
+    global model, processor, image_model_id, _low_vram
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="google/gemma-4-e4b-it", help="Base model (HF name or path)")
@@ -411,7 +519,12 @@ def main():
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--load-in-8bit", action="store_true", help="8-bit quantization via bitsandbytes")
     parser.add_argument("--load-in-4bit", action="store_true", help="4-bit quantization via bitsandbytes")
+    parser.add_argument("--image-model", default=None, help="Image generation model (e.g. black-forest-labs/FLUX.2-klein-4B)")
+    parser.add_argument("--low-vram", action="store_true", help="Swap language/image models to save VRAM (for <16GB GPUs)")
     args = parser.parse_args()
+
+    image_model_id = args.image_model
+    _low_vram = args.low_vram
 
     import os
 
