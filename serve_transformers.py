@@ -43,6 +43,38 @@ class ChatRequest(BaseModel):
 def health():
     return {"status": "ok"}
 
+class AdapterRequest(BaseModel):
+    name: str  # adapter name or "none" to disable
+
+@app.post("/v1/adapter")
+async def swap_adapter(req: AdapterRequest):
+    """Hot-swap LoRA adapter. 'none' disables all adapters (chat mode)."""
+    try:
+        if req.name == "none":
+            if hasattr(model, 'disable_adapter_layers'):
+                model.disable_adapter_layers()
+                return {"status": "ok", "adapter": "none", "mode": "chat"}
+            return {"status": "ok", "adapter": "none", "note": "no adapter was loaded"}
+        elif hasattr(model, 'set_adapter'):
+            model.set_adapter(req.name)
+            return {"status": "ok", "adapter": req.name}
+        elif hasattr(model, 'load_adapter'):
+            model.load_adapter(req.name, adapter_name=req.name)
+            model.set_adapter(req.name)
+            return {"status": "ok", "adapter": req.name, "loaded_from_disk": True}
+        else:
+            return {"status": "error", "message": "model does not support adapters"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/v1/adapter/enable")
+async def enable_adapter():
+    """Re-enable adapter layers after disable."""
+    if hasattr(model, 'enable_adapter_layers'):
+        model.enable_adapter_layers()
+        return {"status": "ok", "mode": "adapter"}
+    return {"status": "error", "message": "no adapter support"}
+
 import re
 
 def _parse_gemma_args(args_str: str) -> dict:
@@ -372,7 +404,9 @@ def main():
     global model, processor
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="models/gemma-4-e4b-tsunami-v80-merged")
+    parser.add_argument("--model", default="google/gemma-4-e4b-it", help="Base model (HF name or path)")
+    parser.add_argument("--adapter", default=None, help="LoRA adapter path (load on top of base)")
+    parser.add_argument("--adapters-dir", default=None, help="Directory of adapters to preload (each subdir with adapter_config.json)")
     parser.add_argument("--port", type=int, default=8090)
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--load-in-8bit", action="store_true", help="8-bit quantization via bitsandbytes")
@@ -409,8 +443,50 @@ def main():
         log.info("Loading in 4-bit quantization")
     processor = AutoProcessor.from_pretrained(args.model, trust_remote_code=True)
     model = AutoModelForImageTextToText.from_pretrained(args.model, **load_kwargs)
-    log.info(f"Loaded on {model.device}. Starting server on port {args.port}...")
+    log.info(f"Base model loaded on {model.device}")
 
+    # Load LoRA adapter(s)
+    if args.adapter or args.adapters_dir:
+        from peft import PeftModel
+
+        if args.adapter:
+            # Single adapter from --adapter
+            model = PeftModel.from_pretrained(model, args.adapter, adapter_name="default")
+            log.info(f"Adapter loaded: {args.adapter} (name='default')")
+
+        if args.adapters_dir:
+            # Load all adapters from subdirectories
+            adapters_path = Path(args.adapters_dir)
+            loaded = []
+            for d in sorted(adapters_path.iterdir()):
+                if d.is_dir() and (d / "adapter_config.json").exists():
+                    name = d.name
+                    if name == "default" or (args.adapter and str(d) == args.adapter):
+                        continue  # skip if already loaded
+                    try:
+                        if not hasattr(model, 'load_adapter'):
+                            # First adapter — wrap with PeftModel
+                            model = PeftModel.from_pretrained(model, str(d), adapter_name=name)
+                        else:
+                            model.load_adapter(str(d), adapter_name=name)
+                        loaded.append(name)
+                    except Exception as e:
+                        log.warning(f"Failed to load adapter {name}: {e}")
+            if loaded:
+                log.info(f"Adapters loaded from {args.adapters_dir}: {loaded}")
+
+            # Set the first adapter as active (or default if loaded via --adapter)
+            if args.adapter and hasattr(model, 'set_adapter'):
+                model.set_adapter("default")
+            elif loaded and hasattr(model, 'set_adapter'):
+                model.set_adapter(loaded[0])
+
+    # List available adapters
+    if hasattr(model, 'peft_config'):
+        log.info(f"Available adapters: {list(model.peft_config.keys())}")
+        log.info("Swap via POST /v1/adapter {{\"name\": \"<adapter_name>\"}} or 'none' for base chat")
+
+    log.info(f"Starting server on port {args.port}...")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
 
