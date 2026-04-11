@@ -286,6 +286,9 @@ async def chat_completions(req: ChatRequest):
     prompt_len = inputs["input_ids"].shape[1]
 
     # Generate
+    # Stop generation at first tool call close tag — prevents 500+ token runaway
+    stop_ids = processor.tokenizer.encode("<tool_call|>", add_special_tokens=False)
+
     with torch.no_grad():
         output = model.generate(
             **inputs,
@@ -295,6 +298,7 @@ async def chat_completions(req: ChatRequest):
             top_p=req.top_p,
             top_k=req.top_k,
             do_sample=req.temperature > 0,
+            eos_token_id=[processor.tokenizer.eos_token_id] + stop_ids,
         )
 
     # Decode response
@@ -379,10 +383,20 @@ def main():
     parser.add_argument("--load-in-4bit", action="store_true", help="4-bit quantization via bitsandbytes")
     args = parser.parse_args()
 
+    # DGX Spark has unified memory (CPU+GPU share 128GB LPDDR5X).
+    # Expand CUDA allocator to use the full pool — default is too conservative.
+    import os
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+    if torch.cuda.is_available():
+        try:
+            torch.cuda.set_per_process_memory_fraction(0.95)
+        except Exception:
+            pass  # not supported on all builds
+
     log.info(f"Loading {args.model}...")
     load_kwargs = dict(
         torch_dtype=torch.bfloat16,
-        device_map="auto",
+        device_map="cuda:0",  # Spark unified memory — no CPU/GPU split needed
         trust_remote_code=True,
     )
     if args.load_in_8bit:
