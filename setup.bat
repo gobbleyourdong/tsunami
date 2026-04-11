@@ -27,7 +27,7 @@ call :log "Tsunami setup started"
 
 echo.
 echo   ========================================
-echo    TSUNAMI - Autonomous AI Agent
+echo    tsunami — the tide rises
 echo    One-Click Windows Setup
 echo   ========================================
 echo.

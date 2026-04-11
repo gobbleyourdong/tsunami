@@ -5,7 +5,7 @@ set +e
 
 echo "
   ╔════════════════════════════════════╗
-  ║  TSUNAMI — Autonomous Execution   ║
+  ║  tsunami — the tide rises          ║
   ║   Local AI Agent, Zero Cloud      ║
   ╚════════════════════════════════════╝
 "

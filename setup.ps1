@@ -63,7 +63,7 @@ function Write-Step  { param([string]$msg) Write-Host "  ${CYN}→${RST} $msg" }
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Host "  ${BOLD}╔════════════════════════════════════╗${RST}"
-Write-Host "  ${BOLD}║  TSUNAMI — Autonomous Execution   ║${RST}"
+Write-Host "  ${BOLD}║  tsunami — the tide rises          ║${RST}"
 Write-Host "  ${BOLD}║   Local AI Agent, Zero Cloud      ║${RST}"
 Write-Host "  ${BOLD}╚════════════════════════════════════╝${RST}"
 Write-Host ""

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TSUNAMI — Autonomous Execution Agent
+tsunami — the tide rises
 
 Usage:
     python run.py                              # Interactive mode

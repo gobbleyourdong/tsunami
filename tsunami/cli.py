@@ -48,7 +48,7 @@ BANNER = """
  ▌ ▚▄ ▌ ▌▌▌▌▙▄▌▌▘▌▐
  ▌ ▖ ▌▌ ▌▌▝▌▌ ▌▌ ▌▐
  ▘ ▝▀ ▝▀ ▘ ▘▘ ▘▘ ▘▀▘
- \033[1;38;2;74;158;255mAutonomous Execution Agent\033[0m
+ \033[1;38;2;74;158;255mthe tide rises\033[0m
 """
 
 
@@ -56,7 +56,7 @@ def main():
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="TSUNAMI — Autonomous Agent")
+    parser = argparse.ArgumentParser(description="tsunami — the tide rises")
     parser.add_argument("--config", type=str, default="config.yaml", help="Config file path")
     parser.add_argument("--task", type=str, default=None, help="Single task to execute")
     parser.add_argument("--model", type=str, default=None, help="Model name override")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TSUNAMI — Autonomous Execution Agent
+tsunami — the tide rises
 
 Usage:
     tsunami                # Interactive REPL (default)
@@ -25,7 +25,7 @@ BANNER = """\033[1m
  ▌ ▚▄ ▌ ▌▌▌▌▙▄▌▌▘▌▐
  ▌ ▖ ▌▌ ▌▌▝▌▌ ▌▌ ▌▐
  ▘ ▝▀ ▝▀ ▘ ▘▘ ▘▘ ▘▀▘\033[0m
-\033[1;38;2;74;158;255m Autonomous Execution Agent\033[0m
+\033[1;38;2;74;158;255m the tide rises\033[0m
 """
 
 DIM = "\033[2m"
@@ -43,37 +43,29 @@ def check_model_server(endpoint):
 
 
 def start_model_server(config):
+    """Start serve_transformers.py with the first HF model dir found."""
     models_dir = os.path.join(SCRIPT_DIR, "models")
-    if not os.path.exists(models_dir):
-        return None
-    ggufs = [f for f in os.listdir(models_dir) if f.endswith(".gguf")]
-    if not ggufs:
+    serve_script = os.path.join(SCRIPT_DIR, "serve_transformers.py")
+    if not os.path.exists(models_dir) or not os.path.exists(serve_script):
         return None
 
-    import shutil
-    exe = "llama-server.exe" if sys.platform == "win32" else "llama-server"
-    candidates = [
-        shutil.which(exe) or "",
-        os.path.expanduser(f"~/llama.cpp/build/bin/Release/{exe}"),
-        os.path.expanduser(f"~/llama.cpp/build/bin/{exe}"),
-        f"/usr/local/bin/{exe}",
-    ]
-    for p in candidates:
-        if os.path.exists(p):
-            llama_bin = p
+    # Find first HF model directory (has config.json)
+    model_dir = None
+    for d in sorted(os.listdir(models_dir)):
+        full = os.path.join(models_dir, d)
+        if os.path.isdir(full) and os.path.exists(os.path.join(full, "config.json")):
+            model_dir = full
             break
-    else:
+    if not model_dir:
         return None
 
     port = config.model_endpoint.split(":")[-1].rstrip("/")
-    print(f"  {DIM}starting model: {ggufs[0]}{RST}")
+    print(f"  {DIM}starting model: {os.path.basename(model_dir)}{RST}")
     proc = subprocess.Popen(
-        [llama_bin, "--model", os.path.join(models_dir, ggufs[0]),
-         "--host", "0.0.0.0", "--port", port,
-         "--ctx-size", "32768", "--n-gpu-layers", "99", "--threads", "8"],
+        [sys.executable, serve_script, "--model", model_dir, "--port", port],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    for _ in range(30):
+    for _ in range(120):
         time.sleep(1)
         if check_model_server(config.model_endpoint):
             return proc
@@ -125,7 +117,7 @@ def patch_agent(agent):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="TSUNAMI")
+    parser = argparse.ArgumentParser(description="tsunami — the tide rises")
     parser.add_argument("--task", type=str, help="Run single task and exit")
     parser.add_argument("--web", action="store_true", help="Web UI")
     parser.add_argument("--port", type=int, default=3000)
@@ -143,11 +135,7 @@ def main():
     config = TsunamiConfig.from_env(config)
 
     if args.model:
-        parts = args.model.split(":", 1)
-        if len(parts) == 2:
-            config.model_backend, config.model_name = parts
-        else:
-            config.model_name = parts[0]
+        config.model_name = args.model
     if args.endpoint:
         config.model_endpoint = args.endpoint
 
