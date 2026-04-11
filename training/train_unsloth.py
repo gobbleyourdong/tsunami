@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Block FlashAttention before any import (head dim 256 not supported on GB10)
+import sys as _sys
+_sys.modules["flash_attn"] = type(_sys)("flash_attn")
+_sys.modules["flash_attn.flash_attn_interface"] = type(_sys)("flash_attn.flash_attn_interface")
+
 """Gemma 4 E4B training with Unsloth — faster, less VRAM, direct GGUF export.
 
 Based on Unsloth's Gemma 4 recommendations:
