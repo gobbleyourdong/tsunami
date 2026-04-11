@@ -38,8 +38,12 @@ switch ($args[0]) {
                 try { Stop-Process -Id ([int]$p) -Force -EA SilentlyContinue } catch {}
             }
         }
-        # Kill llama-server by name
-        Get-Process -Name "llama-server" -EA SilentlyContinue | Stop-Process -Force -EA SilentlyContinue
+        # Kill serve_transformers by command line
+        try {
+            Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='python3.exe'" -EA SilentlyContinue | Where-Object {
+                $_.CommandLine -match "serve_transformers"
+            } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }
+        } catch {}
         # Kill ALL orphaned Python scripts by command line (Get-CimInstance works on modern Windows)
         try {
             Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='python3.exe'" -EA SilentlyContinue | Where-Object {
@@ -125,36 +129,18 @@ function Kill-StaleServers {
 }
 Kill-StaleServers
 
-function Find-LlamaServer {
-    $cmd1 = Get-Command 'llama-server.exe' -EA SilentlyContinue
-    $cmd2 = Get-Command 'llama-server' -EA SilentlyContinue
-    $candidates = @(
-        $(if ($cmd1) { $cmd1.Source }),
-        $(if ($cmd2) { $cmd2.Source }),
-        "$DIR\llama-server\llama-server.exe",
-        "$DIR\llama.cpp\llama-server.exe",
-        "$DIR\llama.cpp\build\bin\Release\llama-server.exe",
-        "$DIR\llama.cpp\build\bin\llama-server.exe",
-        "$env:USERPROFILE\tsunami\llama-server\llama-server.exe",
-        "$env:USERPROFILE\tsunami\llama.cpp\llama-server.exe",
-        "$env:USERPROFILE\tsunami\llama.cpp\build\bin\Release\llama-server.exe"
-    )
-    foreach ($p in $candidates) {
-        if ($p -and (Test-Path $p)) { return $p }
-    }
-    return $null
-}
-
-function Find-Model([string]$pattern) {
-    # Check multiple locations — installer vs setup.ps1 vs setup.bat
+function Find-ModelDir {
+    # Find a merged HuggingFace model directory (has config.json)
     $searchDirs = @(
         "$DIR\models",
         "$env:USERPROFILE\tsunami\models",
         "$DIR\..\models"
     )
     foreach ($d in $searchDirs) {
-        $found = Get-ChildItem -Path $d -EA SilentlyContinue |
-                 Where-Object { $_.Name -like $pattern } |
+        if (-not (Test-Path $d)) { continue }
+        $found = Get-ChildItem -Path $d -Directory -EA SilentlyContinue |
+                 Where-Object { Test-Path (Join-Path $_.FullName "config.json") } |
+                 Sort-Object LastWriteTime -Descending |
                  Select-Object -First 1
         if ($found) { return $found.FullName }
     }
@@ -164,64 +150,30 @@ function Find-Model([string]$pattern) {
 # ── Start model server if not running ─────────────────────────────────────────
 $ModelPid = $null
 if (-not (Test-ModelServer)) {
-    $llama = Find-LlamaServer
-    if (-not $llama) {
-        Write-Warning "llama-server not found — skipping model server. Run setup.ps1 to install."
+    $serveScript = Join-Path $DIR "serve_transformers.py"
+    $modelDir = Find-ModelDir
+    if (-not $modelDir) {
+        Write-Warning "No model found — place merged HuggingFace weights in $DIR\models\"
+    } elseif (-not (Test-Path $serveScript)) {
+        Write-Warning "serve_transformers.py not found"
     } else {
-        $logFile = "$env:TEMP\llama-server.log"
-        $llamaArgs = @('--host', '0.0.0.0', '--port', '8090', '--ctx-size', '32768', '--n-gpu-layers', '99')
+        Write-Host "  Loading model: $(Split-Path $modelDir -Leaf)..."
+        $logFile = "$env:TEMP\tsunami_model.log"
+        $modelArgs = @($serveScript, '--model', $modelDir, '--port', '8090')
+        $proc = Start-Process -FilePath python -ArgumentList $modelArgs `
+                    -RedirectStandardOutput $logFile -RedirectStandardError "$logFile.err" `
+                    -WindowStyle Hidden -PassThru
+        $ModelPid = $proc.Id
 
-        # Check VRAM — skip large models on <10GB cards
-        $vramGB = 0
-        try {
-            $nvsmi = if (Get-Command "nvidia-smi" -EA SilentlyContinue) { "nvidia-smi" }
-                     elseif (Test-Path "C:\Windows\Sysnative\nvidia-smi.exe") { "C:\Windows\Sysnative\nvidia-smi.exe" }
-                     elseif (Test-Path "C:\Windows\System32\nvidia-smi.exe") { "C:\Windows\System32\nvidia-smi.exe" }
-                     else { $null }
-            if ($nvsmi) {
-                $vramMB = [int](& $nvsmi --query-gpu=memory.total --format=csv,noheader,nounits 2>$null |
-                          Select-Object -First 1).Trim()
-                $vramGB = [math]::Ceiling($vramMB / 1024)
-            }
-        } catch {}
-        $degraded = $vramGB -gt 0 -and $vramGB -lt 8
-        if ($degraded) { Write-Host "  ${vramGB}GB VRAM — degraded mode (reduced context)" }
-
-        # Model: Gemma 4 E4B (single model for all roles)
-        $gemmaModel = Find-Model 'gemma-4-E4B*.gguf'
-        # Fallback: check for any .gguf model
-        if (-not $gemmaModel) {
-            $gemmaModel = @('gemma*.gguf','Qwen*.gguf') |
-                ForEach-Object { Find-Model $_ } | Where-Object { $_ } | Select-Object -First 1
+        $serverUp = $false
+        for ($i = 0; $i -lt 120; $i++) {
+            if (Test-ModelServer) { $serverUp = $true; break }
+            Start-Sleep -Seconds 1
         }
-
-        if ($gemmaModel) {
-            Write-Host "  Loading model..."
-            $ctxSize = if ($degraded) { '8192' } else { '16384' }
-            $modelArgs = @('--model', $gemmaModel) + $llamaArgs + @('-fa', 'on',
-                '--ctx-size', $ctxSize, '--parallel', '2')
+        if ($serverUp) {
+            Write-Host "  Ready"
         } else {
-            Write-Warning "No .gguf model found in $DIR\models — run setup.ps1 to download models."
-            $modelArgs = $null
-        }
-
-        if ($modelArgs) {
-            $proc = Start-Process -FilePath $llama -ArgumentList $modelArgs `
-                        -RedirectStandardOutput $logFile -RedirectStandardError "$logFile.err" `
-                        -WindowStyle Hidden -PassThru
-            $ModelPid = $proc.Id
-
-            Write-Host "  Starting up..."
-            $serverUp = $false
-            for ($i = 0; $i -lt 120; $i++) {
-                if (Test-ModelServer) { $serverUp = $true; break }
-                Start-Sleep -Seconds 1
-            }
-            if ($serverUp) {
-                Write-Host "  Ready"
-            } else {
-                Write-Warning "Startup failed — check $logFile.err"
-            }
+            Write-Warning "Startup failed — check $logFile.err"
         }
     }
 }

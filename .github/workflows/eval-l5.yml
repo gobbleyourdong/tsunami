@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       endpoint:
-        description: 'llama-server endpoint'
+        description: 'Model server endpoint'
         required: true
         default: 'http://localhost:8090'
       timeout:
@@ -27,7 +27,7 @@ jobs:
       - name: Install deps
         run: pip install httpx pyyaml --quiet 2>/dev/null || true
 
-      - name: Check llama-server health
+      - name: Check model server health
         run: curl -sf "$EVAL_ENDPOINT/health" || (echo "Server not running" && exit 1)
 
       - name: Run L1-L4 quick eval

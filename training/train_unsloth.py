@@ -11,9 +11,6 @@ Based on Unsloth's Gemma 4 recommendations:
 Usage:
   # Train + merge to HF weights (for serve_transformers.py):
   python -u training/train_unsloth.py --merge --data workspace/training_data/e4b_toolcall_train_v80.jsonl --epochs 10 --grad-accum 4
-
-  # Train + GGUF export (legacy):
-  python -u training/train_unsloth.py --gguf q4_k_m --data workspace/training_data/e4b_toolcall_train_v80.jsonl
 """
 import argparse
 import json
@@ -38,7 +35,7 @@ parser.add_argument("--base-model", default="google/gemma-4-e4b-it", help="Base 
 parser.add_argument("--max-len", type=int, default=16384)
 parser.add_argument("--batch", type=int, default=1)
 parser.add_argument("--grad-accum", type=int, default=16)
-parser.add_argument("--gguf", default=None, help="GGUF quantization method (skip if not set)")
+parser.add_argument("--gguf", default=None, help="(deprecated, ignored)")
 parser.add_argument("--merge", action="store_true", help="Merge LoRA into base and save full HF weights")
 parser.add_argument("--load-in-4bit", action="store_true", help="Load base model in 4-bit (for large models like 31B)")
 parser.add_argument("--run-name", default="tsunami_unsloth")
@@ -221,16 +218,5 @@ if args.merge:
         log.warning(f"Could not save processor: {e} — copy from base model manually")
     log.info(f"Done! Merged HF weights at {merged_dir}/")
 
-# Optional GGUF export
-if args.gguf:
-    gguf_dir = args.output + "-gguf"
-    log.info(f"Exporting GGUF ({args.gguf}) to {gguf_dir}...")
-    model.save_pretrained_gguf(
-        gguf_dir,
-        tokenizer,
-        quantization_method=args.gguf,
-    )
-    log.info(f"Done! GGUF at {gguf_dir}/")
-
-if not args.merge and not args.gguf:
-    log.info("Done! LoRA adapter saved. Use --merge for HF weights or --gguf for GGUF.")
+if not args.merge:
+    log.info("Done! LoRA adapter saved. Use --merge for HF weights.")

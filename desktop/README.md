@@ -4,8 +4,8 @@ Terminal-style desktop app with split panes. No coding required.
 
 ## How it works
 
-1. Double-click `Tsunami.exe` (or `python launcher.py`)
-2. Server starts automatically (Gemma 4 E4B on port 8090)
+1. Run `python launcher.py`
+2. Model server starts automatically (serve_transformers.py on port 8090)
 3. Native window opens with a terminal-style prompt
 4. Type what you want to build
 5. Watch it happen
@@ -17,18 +17,7 @@ Terminal-style desktop app with split panes. No coding required.
 - Each pane is an independent agent session
 - Run multiple builds in parallel
 
-## Building the .exe (Windows)
-
-```bash
-pip install pyinstaller pywebview websockets
-python build_exe.py
-```
-
-Produces `dist/Tsunami.exe`. Users also need:
-- `models/` folder with the .gguf model files
-- `llama-server.exe` (from llama.cpp build)
-
-## Running without .exe
+## Running
 
 ```bash
 # Mac/Linux
@@ -42,8 +31,7 @@ python launcher.py
 ## Architecture
 
 ```
-launcher.py    → starts llama-server + ws_bridge, opens UI
+launcher.py    → starts serve_transformers.py + ws_bridge, opens UI
 ws_bridge.py   → WebSocket server, connects UI to agent
 index.html     → terminal-style UI with split panes
-build_exe.py   → PyInstaller spec for Windows .exe
 ```

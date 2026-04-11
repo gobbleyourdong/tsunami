@@ -48,7 +48,7 @@
 - [x] setup.sh (Mac/Linux one-liner)
 - [x] setup.bat (Windows, battle-tested with CUDA detection)
 - [x] setup.ps1 (PowerShell, from PR #6)
-- [x] Desktop launcher (auto-downloads llama-server + models)
+- [x] Desktop launcher (auto-starts serve_transformers.py + models)
 - [x] IDE-style desktop UI (VS Code layout, live preview, terminal)
 - [x] GitHub Actions builds Windows .exe automatically
 - [x] v0.1.0 release published
@@ -114,7 +114,7 @@
 ### Installer & Distribution
 - [x] Windows installer (Inno Setup, 64-bit, GPU detection)
 - [x] Auto-update on launch (git pull)
-- [x] Pre-built llama-server binaries (no cmake needed)
+- [x] Pure transformers serving (no external binaries needed)
 - [ ] Mac .dmg or Homebrew formula
 - [ ] Progress bar UI for model downloads
 

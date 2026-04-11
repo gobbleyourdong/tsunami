@@ -3,8 +3,8 @@
 Tracks input/output tokens per model, calculates USD cost,
 formats summaries, and persists session costs to disk.
 
-For local models (llama-server, Ollama), cost is $0 but token
-tracking is still useful for understanding context burn rate.
+For local models, cost is $0 but token tracking is still useful
+for understanding context burn rate.
 """
 
 from __future__ import annotations

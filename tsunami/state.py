@@ -125,9 +125,7 @@ class AgentState:
         """Convert conversation to the format expected by LLM APIs.
 
         Uses a simple, universally compatible format: tool calls and results
-        are inlined as text in assistant/user messages. This avoids the
-        strict OpenAI tool_call format that breaks across backends
-        (llama-server, Ollama, vLLM all parse it differently).
+        are inlined as text in assistant/user messages.
 
         The model sees the full history of what it did and what happened.
         """

@@ -286,9 +286,6 @@ async def chat_completions(req: ChatRequest):
     prompt_len = inputs["input_ids"].shape[1]
 
     # Generate
-    # Stop generation at first tool call close tag — prevents 500+ token runaway
-    stop_ids = processor.tokenizer.encode("<tool_call|>", add_special_tokens=False)
-
     with torch.no_grad():
         output = model.generate(
             **inputs,
@@ -298,7 +295,6 @@ async def chat_completions(req: ChatRequest):
             top_p=req.top_p,
             top_k=req.top_k,
             do_sample=req.temperature > 0,
-            eos_token_id=[processor.tokenizer.eos_token_id] + stop_ids,
         )
 
     # Decode response

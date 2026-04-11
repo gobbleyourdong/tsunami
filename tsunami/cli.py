@@ -59,7 +59,7 @@ def main():
     parser = argparse.ArgumentParser(description="TSUNAMI — Autonomous Agent")
     parser.add_argument("--config", type=str, default="config.yaml", help="Config file path")
     parser.add_argument("--task", type=str, default=None, help="Single task to execute")
-    parser.add_argument("--model", type=str, default=None, help="Model override (e.g. ollama:qwen2.5:72b)")
+    parser.add_argument("--model", type=str, default=None, help="Model name override")
     parser.add_argument("--endpoint", type=str, default=None, help="Model endpoint override")
     parser.add_argument("--watcher", action="store_true", help="Enable the Watcher")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
@@ -81,11 +81,7 @@ def main():
     config = TsunamiConfig.from_env(config)
 
     if args.model:
-        parts = args.model.split(":", 1)
-        if len(parts) == 2:
-            config.model_backend, config.model_name = parts
-        else:
-            config.model_name = parts[0]
+        config.model_name = args.model
 
     if args.endpoint:
         config.model_endpoint = args.endpoint

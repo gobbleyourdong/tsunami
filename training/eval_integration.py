@@ -2,7 +2,7 @@
 """Integration eval — runs REAL agent builds, not fake tool results.
 
 Unlike eval_toolcall.py (format test with fake responses), this runs
-the actual Tsunami agent loop against a real llama-server, real file
+the actual Tsunami agent loop against a real model server, real file
 system, real npm builds. Measures what actually matters:
 
   1. Does it scaffold?

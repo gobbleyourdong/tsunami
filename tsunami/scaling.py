@@ -140,24 +140,19 @@ def get_available_memory_gb() -> float:
 
 
 def detect_queen_model(models_dir: str) -> str:
-    """Detect which wave model is available."""
+    """Detect which wave model is available (HuggingFace format)."""
     from pathlib import Path
     models = Path(models_dir)
-    if (models / "Qwen3.5-27B-Q8_0.gguf").exists():
-        return "27b"
-    if (models / "Qwen3.5-9B-Q4_K_M.gguf").exists():
-        return "9b"
-    if (models / "Qwen3.5-2B-Q4_K_M.gguf").exists():
-        return "2b"
-    # Check for any GGUF
-    ggufs = sorted(models.glob("*.gguf"), key=lambda f: f.stat().st_size, reverse=True)
-    if ggufs:
-        size_gb = ggufs[0].stat().st_size / (1024 ** 3)
-        if size_gb > 20:
-            return "27b"
-        elif size_gb > 3:
-            return "9b"
-        return "2b"
+    # Find directories with config.json (HF merged weights)
+    for d in sorted(models.iterdir() if models.exists() else [], key=lambda p: p.stat().st_mtime, reverse=True):
+        if d.is_dir() and (d / "config.json").exists():
+            # Estimate size from directory
+            size_gb = sum(f.stat().st_size for f in d.rglob("*") if f.is_file()) / (1024 ** 3)
+            if size_gb > 20:
+                return "27b"
+            elif size_gb > 3:
+                return "9b"
+            return "2b"
     return "none"
 
 

@@ -11,10 +11,10 @@ import yaml
 
 @dataclass
 class TsunamiConfig:
-    # --- Model (primary reasoning core) ---
-    model_backend: str = "ollama"  # "ollama", "vllm", "api"
-    model_name: str = "qwen2.5:72b"
-    model_endpoint: str = "http://localhost:11434"
+    # --- Model (serve_transformers.py) ---
+    model_backend: str = "api"
+    model_name: str = "tsunami"
+    model_endpoint: str = "http://localhost:8090"
     api_key: str | None = None
     temperature: float = 0.7
     top_p: float = 0.8
@@ -22,13 +22,13 @@ class TsunamiConfig:
     presence_penalty: float = 1.5
     max_tokens: int = 2048
 
-    # --- Eddy (fast workers — same model on lite, 2B on full) ---
-    eddy_endpoint: str = "http://localhost:8092"
+    # --- Eddy (fast workers — same endpoint) ---
+    eddy_endpoint: str = "http://localhost:8090"
 
-    # --- Watcher (self-evaluation, lighter model) ---
+    # --- Watcher (self-evaluation) ---
     watcher_enabled: bool = False
-    watcher_model: str = "qwen2.5:7b"
-    watcher_endpoint: str = "http://localhost:11434"
+    watcher_model: str = "tsunami"
+    watcher_endpoint: str = "http://localhost:8090"
 
     # --- Paths ---
     workspace_dir: str = "./workspace"

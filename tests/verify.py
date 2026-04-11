@@ -32,7 +32,7 @@ from tsunami.prompt import build_system_prompt
 def test_imports():
     """Test 1: All modules import cleanly."""
     from tsunami import __version__
-    from tsunami.model import OllamaModel, OpenAICompatModel, create_model
+    from tsunami.model import TsunamiModel, create_model
     from tsunami.tools.base import BaseTool, ToolResult
     from tsunami.tools.filesystem import FileRead, FileWrite, FileEdit, FileAppend
     from tsunami.tools.match import MatchGlob, MatchGrep

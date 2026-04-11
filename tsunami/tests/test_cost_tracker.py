@@ -64,7 +64,7 @@ class TestGetPricing:
         assert p["input"] == 3.0
 
     def test_unknown_defaults_to_local(self):
-        p = _get_pricing("llama-3-70b")
+        p = _get_pricing("tsunami-local")
         assert p["input"] == 0.0
         assert p["output"] == 0.0
 

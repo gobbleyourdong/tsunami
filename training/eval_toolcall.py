@@ -7,11 +7,8 @@ Tests three levels:
   3. BUILD   — can the model scaffold + write + compile a real app?
 
 Usage:
-  # Point at a running llama-server with the fine-tuned model
-  python training/eval_toolcall.py --endpoint http://localhost:8095
-
-  # Or specify a GGUF to auto-launch
-  python training/eval_toolcall.py --model models/gemma-4-e2b-tsunami-Q4_K_M.gguf
+  # Point at a running serve_transformers.py with the fine-tuned model
+  python training/eval_toolcall.py --endpoint http://localhost:8090
 """
 
 import argparse
@@ -222,7 +219,7 @@ class BuildResult:
 
 async def call_model(endpoint: str, messages: list[dict], tools: list[dict],
                      max_tokens: int = 4096) -> dict:
-    """Single inference call to llama-server /v1/chat/completions."""
+    """Single inference call to /v1/chat/completions."""
     payload = {
         "model": "eval",
         "messages": messages,
@@ -580,7 +577,7 @@ def save_results(format_results: list[EvalResult], build_results: list[BuildResu
 async def main():
     parser = argparse.ArgumentParser(description="Eval harness for Tsunami tool call models")
     parser.add_argument("--endpoint", default="http://localhost:8095",
-                        help="llama-server endpoint")
+                        help="Model server endpoint")
     parser.add_argument("--level", choices=["format", "build", "both"], default="both",
                         help="Which eval to run")
     parser.add_argument("--filter", default=None,

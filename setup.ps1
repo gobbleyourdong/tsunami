@@ -6,7 +6,6 @@
 #
 # Requirements: PowerShell 5.1+ or PowerShell 7+
 #               Windows 10 / Windows Server 2019 or later
-#               Visual Studio Build Tools (for llama.cpp)
 #               curl.exe (built-in on Windows 10 1803+)
 
 # Don't stop on every error — we handle failures gracefully (mirrors `set +e` in bash)
@@ -74,7 +73,6 @@ Write-Host ""
 # ---------------------------------------------------------------------------
 $DIR        = if ($env:TSUNAMI_DIR) { $env:TSUNAMI_DIR } else { Join-Path $env:USERPROFILE "tsunami" }
 $MODELS_DIR = Join-Path $DIR "models"
-$LLAMA_DIR  = Join-Path $DIR "llama-server"
 
 # ---------------------------------------------------------------------------
 # GPU detection
@@ -276,10 +274,7 @@ if (Get-Command "cl.exe" -ErrorAction SilentlyContinue) {
     $hasBuildTools = $true
     Write-Ok "MSBuild (C++ build tools)"
 } else {
-    Write-Warn "C++ build tools not found in PATH"
-    Write-Warn "  llama.cpp requires Visual Studio Build Tools"
-    Write-Warn "  Install: winget install Microsoft.VisualStudio.2022.BuildTools"
-    Write-Warn "  OR open a 'Developer Command Prompt for VS' and re-run this script"
+    Write-Warn "C++ build tools not found in PATH (optional)"
 }
 
 # Node.js — install via winget if missing
@@ -448,170 +443,44 @@ if ((Get-Command "node" -ErrorAction SilentlyContinue) -and (Test-Path $CLI_DIR)
 }
 
 # ---------------------------------------------------------------------------
-# Download pre-built llama-server (pinned b8628 from ggml-org)
-# Much faster than building from source — no cmake, no MSVC needed.
-# Falls back to source build if download fails.
+# Install model server dependencies (transformers + torch)
 # ---------------------------------------------------------------------------
-$LLAMA_RELEASE = "b8628"
-$LLAMA_CPU_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cpu-x64.zip"
+Write-Step "Installing model server dependencies (transformers, torch)..."
+& $PYTHON -m pip install -q transformers accelerate 2>&1 | Out-Null
 
-# Detect CUDA version for matching binaries
-$LLAMA_MAIN_URL = ""
-$LLAMA_DLL_URL  = ""
+# Install PyTorch with CUDA if available
 if ($GPU -eq "cuda") {
-    try {
-        $cudaVer = (& $nvsmi 2>$null | Select-String "CUDA Version:" |
-                    ForEach-Object { $_.Line -replace '.*CUDA Version:\s*', '' -replace '\s.*', '' }).Trim()
-        $cudaMajor = ($cudaVer -split '\.')[0]
-
-        if ($cudaMajor -ge 13) {
-            $LLAMA_MAIN_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cuda-13.1-x64.zip"
-            $LLAMA_DLL_URL  = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/cudart-llama-bin-win-cuda-13.1-x64.zip"
-            Write-Ok "CUDA $cudaVer `(using 13.1 binaries`)"
-        } elseif ($cudaMajor -eq 12) {
-            $LLAMA_MAIN_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cuda-12.4-x64.zip"
-            $LLAMA_DLL_URL  = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/cudart-llama-bin-win-cuda-12.4-x64.zip"
-            Write-Ok "CUDA $cudaVer `(using 12.4 binaries`)"
-        }
-    } catch {
-        Write-Warn "Could not parse CUDA version — using CPU build"
+    Write-Step "Installing PyTorch with CUDA support..."
+    & $PYTHON -m pip install -q torch --index-url https://download.pytorch.org/whl/cu128 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        & $PYTHON -m pip install -q torch --index-url https://download.pytorch.org/whl/cu121 2>&1 | Out-Null
     }
-}
-
-$llamaExe = Join-Path $LLAMA_DIR "llama-server.exe"
-# Also check legacy cmake build paths
-$LLAMA_BIN_MSBUILD = Join-Path $LLAMA_DIR "build\bin\Release\llama-server.exe"
-$LLAMA_BIN_NINJA   = Join-Path $LLAMA_DIR "build\bin\llama-server.exe"
-
-function Get-LlamaBin {
-    if (Test-Path $llamaExe)           { return $llamaExe }
-    if (Test-Path $LLAMA_BIN_MSBUILD)  { return $LLAMA_BIN_MSBUILD }
-    if (Test-Path $LLAMA_BIN_NINJA)    { return $LLAMA_BIN_NINJA }
-    return $null
-}
-
-$existingBin = Get-LlamaBin
-if ($existingBin) {
-    Write-Ok "llama-server already installed `($existingBin`)"
 } else {
-    if (-not (Test-Path $LLAMA_DIR)) {
-        New-Item -ItemType Directory -Force -Path $LLAMA_DIR | Out-Null
-    }
-
-    $downloadUrl = if ($LLAMA_MAIN_URL) { $LLAMA_MAIN_URL } else { $LLAMA_CPU_URL }
-    $variant = if ($LLAMA_MAIN_URL) { "CUDA" } else { "CPU" }
-
-    Write-Step "Downloading llama-server `($variant, pinned $LLAMA_RELEASE`)..."
-    $zipPath = Join-Path $LLAMA_DIR "llama-server.zip"
-    & curl.exe -fSL --progress-bar -o "$zipPath" "$downloadUrl"
-
-    if ($LASTEXITCODE -ne 0 -and $LLAMA_MAIN_URL) {
-        Write-Warn "CUDA download failed — falling back to CPU"
-        & curl.exe -fSL --progress-bar -o "$zipPath" "$LLAMA_CPU_URL"
-    }
-
-    if (Test-Path $zipPath) {
-        Write-Step "Extracting..."
-        Expand-Archive -Force -Path $zipPath -DestinationPath $LLAMA_DIR
-        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-
-        # Download CUDA runtime DLLs alongside if needed
-        if ($LLAMA_DLL_URL) {
-            Write-Step "Downloading CUDA runtime DLLs..."
-            $dllZip = Join-Path $LLAMA_DIR "cudart.zip"
-            & curl.exe -fSL --progress-bar -o "$dllZip" "$LLAMA_DLL_URL"
-            if (Test-Path $dllZip) {
-                Expand-Archive -Force -Path $dllZip -DestinationPath $LLAMA_DIR
-                Remove-Item $dllZip -Force -ErrorAction SilentlyContinue
-                Write-Ok "CUDA DLLs installed"
-            } else {
-                Write-Warn "CUDA DLL download failed — GPU may not work"
-            }
-        }
-
-        # Find llama-server.exe (may be in a subdirectory after extraction)
-        $found = Get-ChildItem -Path $LLAMA_DIR -Recurse -Filter "llama-server.exe" |
-                 Select-Object -First 1
-        if ($found) {
-            # Move to root of LLAMA_DIR if nested
-            if ($found.DirectoryName -ne $LLAMA_DIR) {
-                Get-ChildItem -Path $found.DirectoryName -File | Move-Item -Destination $LLAMA_DIR -Force -ErrorAction SilentlyContinue
-            }
-            Write-Ok "llama-server installed `($variant`)"
-        } else {
-            Write-Fail "llama-server.exe not found after extraction"
-        }
-    } else {
-        Write-Fail "Download failed — check internet connection"
-    }
+    Write-Step "Installing PyTorch (CPU)..."
+    & $PYTHON -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu 2>&1 | Out-Null
 }
+
+# SD-Turbo image generation
+Write-Step "Installing SD-Turbo image generation..."
+& $PYTHON -m pip install -q diffusers 2>&1 | Out-Null
+Write-Ok "Model server dependencies installed"
 
 # ---------------------------------------------------------------------------
-# Download models
+# Model weights
 # ---------------------------------------------------------------------------
 New-Item -ItemType Directory -Force -Path $MODELS_DIR | Out-Null
-
-# Confirm curl is available (built-in on Windows 10 1803+)
-if (-not (Get-Command "curl.exe" -ErrorAction SilentlyContinue)) {
-    Write-Fail "curl.exe not found — cannot download models automatically"
-    Write-Warn "  Please download models manually from https://huggingface.co/unsloth"
-    Write-Warn "  and place them in: $MODELS_DIR"
-} else {
-
-    function Get-Model {
-        param(
-            [string]$Repo,
-            [string]$File
-        )
-        $dest = Join-Path $MODELS_DIR $File
-        if (Test-Path $dest) {
-            $sizeMB = [math]::Round((Get-Item $dest).Length / 1MB, 0)
-            Write-Ok "$File `(${sizeMB}MB`)"
-            return
-        }
-        Write-Step "Downloading $File..."
-        $url = "https://huggingface.co/$Repo/resolve/main/$File"
-        # Use curl with progress bar; --location follows redirects (HuggingFace uses them)
-        & curl.exe -fSL --progress-bar -o "$dest" "$url"
-        if ((Test-Path $dest) -and (Get-Item $dest).Length -gt 1000) {
-            $sizeMB = [math]::Round((Get-Item $dest).Length / 1MB, 0)
-            Write-Ok "$File `(${sizeMB}MB`)"
-        } else {
-            Write-Fail "Download failed: $File"
-            if (Test-Path $dest) { Remove-Item $dest -Force }
-        }
-    }
-
-    Write-Host ""
-
-    # --- Gemma 4 E4B (single model for all roles — 5GB) ---
-    Write-Host "  Downloading Gemma 4 E4B model (5GB)..."
-    Get-Model "unsloth/gemma-4-E4B-it-GGUF" "gemma-4-E4B-it-Q4_K_M.gguf"
-
-    # SD-Turbo (~2GB) auto-downloads on first image generation via diffusers
-    Write-Host ""
-    Write-Ok "Model installed: Gemma 4 E4B (5GB) + SD-Turbo (downloads on first use)"
-    Write-Host "  One model for wave + eddies + watcher. Scale parallel instances by VRAM."
-}
+Write-Host ""
+Write-Host "  Place merged HuggingFace model weights in: $MODELS_DIR\<model-name>\"
+Write-Host "  The model directory should contain config.json + model files."
+Write-Host "  SD-Turbo (~2GB) auto-downloads on first image generation via diffusers."
 
 # ---------------------------------------------------------------------------
 # Create global command
 # ---------------------------------------------------------------------------
 Write-Host ""
 
-# 1. Add llama.cpp build/bin to the user PATH (persistent)
-$llamaBinDir = Join-Path $LLAMA_DIR "build\bin"
+# 1. Add $DIR to user PATH so `tsu` is accessible from anywhere
 $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
-if ($userPath -notlike "*$llamaBinDir*") {
-    [Environment]::SetEnvironmentVariable(
-        "PATH",
-        "$userPath;$llamaBinDir",
-        "User"
-    )
-    Write-Ok "Added llama.cpp binaries to user PATH"
-}
-
-# 2. Add $DIR to user PATH so `tsu` is accessible from anywhere
 if ($userPath -notlike "*$DIR*") {
     $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
     [Environment]::SetEnvironmentVariable(
@@ -647,14 +516,13 @@ if ($profileContent -match "function tsunami\s*\{[^}]*`"$([regex]::Escape($tsuPs
     $lines = $profileContent -split "`n"
     $lines = $lines | Where-Object { $_ -notmatch '(Set-Alias.*tsunami|function tsunami)' }
     $cleaned = ($lines -join "`n").TrimEnd()
-    $newContent = $cleaned + "`n`n# Tsunami AI Agent`n$psAlias`n`$env:PATH += `";$llamaBinDir`"`n"
+    $newContent = $cleaned + "`n`n# Tsunami AI Agent`n$psAlias`n"
     [System.IO.File]::WriteAllText($profilePath, $newContent)
     Write-Ok "Updated 'tsunami' entry in PowerShell profile"
 } else {
     Add-Content -Path $profilePath -Value ""
     Add-Content -Path $profilePath -Value "# Tsunami AI Agent"
     Add-Content -Path $profilePath -Value $psAlias
-    Add-Content -Path $profilePath -Value "`$env:PATH += `";$llamaBinDir`""
     Write-Ok "Added 'tsunami' to PowerShell profile `($profilePath`)"
 }
 
@@ -688,14 +556,15 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # ---------------------------------------------------------------------------
-# List downloaded model files
+# List model directories
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Host "  Models:"
 if (Test-Path $MODELS_DIR) {
-    Get-ChildItem -Path $MODELS_DIR -Filter "*.gguf" -File | ForEach-Object {
-        $sizeMB = [math]::Round($_.Length / 1MB, 0)
-        Write-Ok "$($_.Name) `(${sizeMB}MB`)"
+    Get-ChildItem -Path $MODELS_DIR -Directory | Where-Object {
+        Test-Path (Join-Path $_.FullName "config.json")
+    } | ForEach-Object {
+        Write-Ok "$($_.Name)"
     }
 }
 
@@ -715,7 +584,7 @@ Write-Host "  ${BOLD}║  Or directly: cd $DIR${RST}"
 Write-Host "  ${BOLD}║              .\tsu.ps1                      ║${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
 $gpuLabel = if ($GPU -eq "cuda") { "NVIDIA" } else { "CPU (no GPU detected)" }
-Write-Host "  ${BOLD}║  $gpuLabel  |  ${CAPACITY_SRC}: ${CAPACITY_GB}GB  |  Gemma 4 E4B${RST}"
+Write-Host "  ${BOLD}║  $gpuLabel  |  ${CAPACITY_SRC}: ${CAPACITY_GB}GB  |  transformers${RST}"
 Write-Host "  ${BOLD}║                                            ║${RST}"
 Write-Host "  ${BOLD}╚════════════════════════════════════════════╝${RST}"
 Write-Host ""
