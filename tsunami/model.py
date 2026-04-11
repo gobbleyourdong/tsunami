@@ -253,8 +253,22 @@ class OpenAICompatModel(LLMModel):
                 try:
                     args = json.loads(args)
                 except json.JSONDecodeError:
-                    log.warning(f"Failed to parse tool args JSON: {args[:200]}")
-                    args = {}
+                    # Try to recover path + content from malformed JSON
+                    # Common failure: unescaped newlines/quotes in file content
+                    import re as _re
+                    path_m = _re.search(r'"path"\s*:\s*"([^"]+)"', args)
+                    content_m = _re.search(r'"content"\s*:\s*"(.*)', args, _re.DOTALL)
+                    if path_m and content_m:
+                        raw_content = content_m.group(1)
+                        # Strip trailing incomplete JSON (dangling ", } etc)
+                        raw_content = raw_content.rstrip().rstrip('}"').rstrip()
+                        # Unescape what we can
+                        raw_content = raw_content.replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
+                        args = {"path": path_m.group(1), "content": raw_content}
+                        log.info(f"Recovered malformed JSON args: path={path_m.group(1)} content_len={len(raw_content)}")
+                    else:
+                        log.warning(f"Failed to parse tool args JSON: {args[:200]}")
+                        args = {}
             # Handle Gemma 4 sometimes nesting args under "arguments"
             if isinstance(args, dict) and "arguments" in args and len(args) == 1:
                 args = args["arguments"]
