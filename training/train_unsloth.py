@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
-# Block FlashAttention before any import (head dim 256 not supported on GB10)
-import sys as _sys
-_sys.modules["flash_attn"] = type(_sys)("flash_attn")
-_sys.modules["flash_attn.flash_attn_interface"] = type(_sys)("flash_attn.flash_attn_interface")
 
-"""Gemma 4 E4B training with Unsloth — faster, less VRAM, direct GGUF export.
+"""Gemma 4 E4B training with Unsloth — faster, less VRAM.
 
 Based on Unsloth's Gemma 4 recommendations:
 - LoRA r=8 (not 64) — fewer params, faster
 - LR 2e-4 (not 5e-5) — Unsloth recommended
 - adamw_8bit optimizer — less VRAM
 - gradient_checkpointing="unsloth" — their optimization
-- Direct GGUF export — no manual merge/convert/quantize
 
 Usage:
-  python -u training/train_unsloth.py
-  python -u training/train_unsloth.py --data workspace/training_data/e4b_toolcall_train_v14.jsonl
-  python -u training/train_unsloth.py --output models/my_model --epochs 3
+  # Train + merge to HF weights (for serve_transformers.py):
+  python -u training/train_unsloth.py --merge --data workspace/training_data/e4b_toolcall_train_v80.jsonl --epochs 10 --grad-accum 4
+
+  # Train + GGUF export (legacy):
+  python -u training/train_unsloth.py --gguf q4_k_m --data workspace/training_data/e4b_toolcall_train_v80.jsonl
 """
 import argparse
 import json
@@ -38,7 +35,8 @@ parser.add_argument("--lora-r", type=int, default=8)
 parser.add_argument("--max-len", type=int, default=16384)
 parser.add_argument("--batch", type=int, default=1)
 parser.add_argument("--grad-accum", type=int, default=16)
-parser.add_argument("--gguf", default="q4_k_m", help="GGUF quantization method")
+parser.add_argument("--gguf", default=None, help="GGUF quantization method (skip if not set)")
+parser.add_argument("--merge", action="store_true", help="Merge LoRA into base and save full HF weights")
 parser.add_argument("--run-name", default="tsunami_unsloth")
 args = parser.parse_args()
 
@@ -193,19 +191,41 @@ stats = trainer.train()
 log.info(f"Train loss: {stats.training_loss:.4f}")
 
 # ==========================================
-# SAVE + GGUF EXPORT
+# SAVE
 # ==========================================
 log.info(f"Saving LoRA adapter to {args.output}...")
 trainer.save_model(args.output)
 tokenizer.save_pretrained(args.output)
 
-# Direct GGUF export — skips manual merge/convert/quantize
-gguf_dir = args.output + "-gguf"
-log.info(f"Exporting GGUF ({args.gguf}) to {gguf_dir}...")
-model.save_pretrained_gguf(
-    gguf_dir,
-    tokenizer,
-    quantization_method=args.gguf,
-)
+# Merge LoRA into base model and save full HF weights
+if args.merge:
+    merged_dir = args.output + "-merged"
+    log.info(f"Merging LoRA into base model → {merged_dir}...")
+    model.save_pretrained_merged(
+        merged_dir,
+        tokenizer,
+        save_method="merged_16bit",
+    )
+    # Also save the processor (needed for vision inference with AutoProcessor)
+    try:
+        from transformers import AutoProcessor
+        proc = AutoProcessor.from_pretrained("google/gemma-4-e4b-it", trust_remote_code=True)
+        proc.save_pretrained(merged_dir)
+        log.info(f"Saved processor to {merged_dir}")
+    except Exception as e:
+        log.warning(f"Could not save processor: {e} — copy from base model manually")
+    log.info(f"Done! Merged HF weights at {merged_dir}/")
 
-log.info(f"Done! GGUF at {gguf_dir}/")
+# Optional GGUF export
+if args.gguf:
+    gguf_dir = args.output + "-gguf"
+    log.info(f"Exporting GGUF ({args.gguf}) to {gguf_dir}...")
+    model.save_pretrained_gguf(
+        gguf_dir,
+        tokenizer,
+        quantization_method=args.gguf,
+    )
+    log.info(f"Done! GGUF at {gguf_dir}/")
+
+if not args.merge and not args.gguf:
+    log.info("Done! LoRA adapter saved. Use --merge for HF weights or --gguf for GGUF.")

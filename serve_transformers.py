@@ -47,11 +47,17 @@ def health():
 async def chat_completions(req: ChatRequest):
     start = time.time()
 
-    # Extract images from messages
+    # Normalize messages — processor expects list content for multimodal
+    messages = []
     images = []
     for msg in req.messages:
-        if isinstance(msg.get("content"), list):
-            for part in msg["content"]:
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            # Text-only: wrap in list format for processor
+            messages.append({"role": msg["role"], "content": [{"type": "text", "text": content}]})
+        elif isinstance(content, list):
+            parts = []
+            for part in content:
                 if part.get("type") == "image_url":
                     url = part["image_url"]["url"]
                     if url.startswith("data:"):
@@ -59,10 +65,16 @@ async def chat_completions(req: ChatRequest):
                         from PIL import Image
                         img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
                         images.append(img)
+                        parts.append({"type": "image", "image": img})
+                else:
+                    parts.append(part)
+            messages.append({"role": msg["role"], "content": parts})
+        else:
+            messages.append(msg)
 
     # Apply chat template
     inputs = processor.apply_chat_template(
-        req.messages,
+        messages,
         tools=req.tools if req.tools else None,
         add_generation_prompt=True,
         tokenize=True,
@@ -143,7 +155,7 @@ def main():
     global model, processor
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="models/gemma-4-e4b-tsunami-v81r-merged")
+    parser.add_argument("--model", default="models/gemma-4-e4b-tsunami-v80-merged")
     parser.add_argument("--port", type=int, default=8090)
     parser.add_argument("--host", default="0.0.0.0")
     args = parser.parse_args()
@@ -152,7 +164,7 @@ def main():
     processor = AutoProcessor.from_pretrained(args.model, trust_remote_code=True)
     model = AutoModelForImageTextToText.from_pretrained(
         args.model,
-        dtype=torch.bfloat16,
+        torch_dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True,
     )
