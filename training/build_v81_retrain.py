@@ -29,7 +29,7 @@ print(f"Loading: {MODEL}")
 tokenizer = AutoTokenizer.from_pretrained(MODEL, trust_remote_code=True)
 
 # Verify SYSTEM_TEXT has all triggers
-assert "Components:" in SYSTEM_TEXT, "Missing component guide"
+assert "Components" in SYSTEM_TEXT and "components/ui" in SYSTEM_TEXT, "Missing component guide"
 assert "CSS resolution" in SYSTEM_TEXT, "Missing CSS trigger"
 assert "Visual clones" in SYSTEM_TEXT, "Missing visual trigger"
 assert "NEVER message_chat" in SYSTEM_TEXT, "Missing path trigger"
