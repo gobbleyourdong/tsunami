@@ -40,6 +40,7 @@ parser.add_argument("--batch", type=int, default=1)
 parser.add_argument("--grad-accum", type=int, default=16)
 parser.add_argument("--gguf", default=None, help="GGUF quantization method (skip if not set)")
 parser.add_argument("--merge", action="store_true", help="Merge LoRA into base and save full HF weights")
+parser.add_argument("--load-in-4bit", action="store_true", help="Load base model in 4-bit (for large models like 31B)")
 parser.add_argument("--run-name", default="tsunami_unsloth")
 args = parser.parse_args()
 
@@ -54,7 +55,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=args.base_model,
     max_seq_length=args.max_len,
     dtype=None,  # auto-detect
-    load_in_4bit=False,  # full precision for training quality
+    load_in_4bit=args.load_in_4bit,
 )
 
 log.info("Applying LoRA...")

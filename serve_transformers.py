@@ -303,6 +303,10 @@ async def chat_completions(req: ChatRequest):
 
     # Parse tool calls from native format
     log.info(f"RAW OUTPUT: {text!r}")
+
+    # Strip Gemma 31B "thought channel" prefix (appears before tool calls in multi-turn)
+    text = re.sub(r'<\|channel>thought\n<channel\|>', '', text)
+
     tool_calls = None
     content = text
 
@@ -371,16 +375,30 @@ def main():
     parser.add_argument("--model", default="models/gemma-4-e4b-tsunami-v80-merged")
     parser.add_argument("--port", type=int, default=8090)
     parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--load-in-8bit", action="store_true", help="8-bit quantization via bitsandbytes")
+    parser.add_argument("--load-in-4bit", action="store_true", help="4-bit quantization via bitsandbytes")
     args = parser.parse_args()
 
     log.info(f"Loading {args.model}...")
-    processor = AutoProcessor.from_pretrained(args.model, trust_remote_code=True)
-    model = AutoModelForImageTextToText.from_pretrained(
-        args.model,
+    load_kwargs = dict(
         torch_dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True,
     )
+    if args.load_in_8bit:
+        from transformers import BitsAndBytesConfig
+        load_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
+        del load_kwargs["torch_dtype"]  # quantization handles dtype
+        log.info("Loading in 8-bit quantization")
+    elif args.load_in_4bit:
+        from transformers import BitsAndBytesConfig
+        load_kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16
+        )
+        del load_kwargs["torch_dtype"]
+        log.info("Loading in 4-bit quantization")
+    processor = AutoProcessor.from_pretrained(args.model, trust_remote_code=True)
+    model = AutoModelForImageTextToText.from_pretrained(args.model, **load_kwargs)
     log.info(f"Loaded on {model.device}. Starting server on port {args.port}...")
 
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
