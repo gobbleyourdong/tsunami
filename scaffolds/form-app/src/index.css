@@ -1,11 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg-0: #08090d;
-  --bg-1: #111318;
-  --bg-2: #191c24;
-  --bg-3: #21252f;
-  --bg-4: #2a2f3b;
+  --bg-0: #0a0c12;
+  --bg-1: #151820;
+  --bg-2: #1e222c;
+  --bg-3: #282d3a;
+  --bg-4: #333948;
   --text: #e2e4e9;
   --text-muted: #7a7f8e;
   --text-dim: #4a4f5e;

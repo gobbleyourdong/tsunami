@@ -9,11 +9,11 @@
 /* ── Design Tokens ──────────────────────────────────────────────────── */
 :root {
   /* Surface hierarchy — each layer gains luminance */
-  --bg-0: #08090d;
-  --bg-1: #111318;
-  --bg-2: #191c24;
-  --bg-3: #21252f;
-  --bg-4: #2a2f3b;
+  --bg-0: #0a0c12;
+  --bg-1: #151820;
+  --bg-2: #1e222c;
+  --bg-3: #282d3a;
+  --bg-4: #333948;
 
   /* Text on dark */
   --text:       #e2e4e9;
@@ -33,7 +33,7 @@
   --info:    #60a0f0;
 
   /* Borders */
-  --border:       rgba(255, 255, 255, 0.06);
+  --border:       rgba(255, 255, 255, 0.10);
   --border-hover: rgba(255, 255, 255, 0.12);
   --border-focus: var(--accent);
 
