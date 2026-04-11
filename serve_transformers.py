@@ -519,11 +519,15 @@ def main():
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--load-in-8bit", action="store_true", help="8-bit quantization via bitsandbytes")
     parser.add_argument("--load-in-4bit", action="store_true", help="4-bit quantization via bitsandbytes")
-    parser.add_argument("--image-model", default=None, help="Image generation model (e.g. black-forest-labs/FLUX.2-klein-4B)")
+    parser.add_argument("--image-model", default="Tongyi-MAI/Z-Image-Turbo",
+                        help="Image generation model. Options: "
+                             "Tongyi-MAI/Z-Image-Turbo (default, best text rendering), "
+                             "black-forest-labs/FLUX.2-klein-4B (faster, smaller). "
+                             "Set to 'none' to disable image generation.")
     parser.add_argument("--low-vram", action="store_true", help="Swap language/image models to save VRAM (for <16GB GPUs)")
     args = parser.parse_args()
 
-    image_model_id = args.image_model
+    image_model_id = args.image_model if args.image_model != "none" else None
     _low_vram = args.low_vram
 
     import os
