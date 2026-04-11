@@ -1,4 +1,19 @@
 #!/usr/bin/env python3
+# MUST be first: stub out optional TRL deps before any import touches them
+import types as _t, sys as _s, importlib.abc as _ia
+_STUB_PKGS = {'mergekit', 'llm_blender', 'weave'}
+class _S(_t.ModuleType):
+    def __getattr__(s, n): return _S(f"{s.__name__}.{n}")
+    def __call__(s, *a, **k): return None
+    def __bool__(s): return False
+    def __iter__(s): return iter([])
+class _F(_ia.MetaPathFinder):
+    def find_module(s, fn, p=None): return s if fn.split('.')[0] in _STUB_PKGS else None
+    def load_module(s, fn):
+        if fn in _s.modules: return _s.modules[fn]
+        m = _S(fn); m.__path__=[f"/tmp/s/{fn}"]; m.__file__=f"<s:{fn}>"; m.__loader__=s; m.__package__=fn
+        _s.modules[fn] = m; return m
+_s.meta_path.insert(0, _F())
 """DPO training for Tsunami E4B — teach contrastive tool-call boundaries.
 
 DPO teaches "do A, NOT B" by training on (prompt, chosen, rejected) triples.
@@ -51,7 +66,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=args.base_model,
     max_seq_length=args.max_len,
     dtype=None,
-    load_in_4bit=False,
+    load_in_4bit=True,  # 4-bit for DPO — needs room for ref model forward passes
 )
 
 log.info("Applying LoRA for DPO...")
@@ -71,11 +86,11 @@ trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
 total = sum(p.numel() for p in model.parameters())
 log.info(f"Trainable: {trainable:,} / {total:,} ({100*trainable/total:.2f}%)")
 
-# Extract tokenizer from processor if needed
+# Extract tokenizer from processor if needed — keep both for DPO
+processor_or_tokenizer = tokenizer  # save original (processor) for DPO
 if hasattr(tokenizer, 'tokenizer'):
-    processor = tokenizer
-    tokenizer = processor.tokenizer
-    log.info("Extracted tokenizer from Gemma4Processor")
+    tokenizer = processor_or_tokenizer.tokenizer
+    log.info("Extracted tokenizer from Gemma4Processor (keeping processor for DPO)")
 
 # ==========================================
 # LOAD DPO DATA
@@ -86,6 +101,9 @@ with open(args.data) as f:
         ex = json.loads(line)
         assert "prompt" in ex and "chosen" in ex and "rejected" in ex, \
             f"DPO data must have prompt/chosen/rejected fields: {list(ex.keys())}"
+        # Add empty images field — TRL expects this for multimodal models
+        if "images" not in ex:
+            ex["images"] = []
         data.append(ex)
 
 log.info(f"Loaded {len(data)} DPO pairs from {args.data}")
@@ -96,13 +114,8 @@ dataset = Dataset.from_list(data)
 # ==========================================
 # DPO TRAINING
 # ==========================================
-# Patch: TRL 0.24 imports mergekit/llm_blender/weave in callback chain.
-# These optional deps conflict with our container. Use a meta-path finder
-# that intercepts any import of these packages and returns stubs.
-import types
-import sys
-import importlib.abc
-import importlib.machinery
+# Stub out optional TRL deps that conflict with our container (Python 3.12 find_spec API)
+import types, sys, importlib.abc, importlib.machinery
 
 _STUB_PKGS = {'mergekit', 'llm_blender', 'weave'}
 
@@ -113,25 +126,22 @@ class _Stub(types.ModuleType):
         return None
     def __bool__(self):
         return False
-    def __iter__(self):
-        return iter([])
 
 class _StubFinder(importlib.abc.MetaPathFinder):
-    def find_module(self, fullname, path=None):
-        top = fullname.split('.')[0]
-        if top in _STUB_PKGS:
-            return self
+    def find_spec(self, fullname, path, target=None):
+        if fullname.split('.')[0] in _STUB_PKGS:
+            return importlib.machinery.ModuleSpec(fullname, _StubLoader(), is_package=True)
         return None
-    def load_module(self, fullname):
-        if fullname in sys.modules:
-            return sys.modules[fullname]
-        m = _Stub(fullname)
-        m.__path__ = [f"/tmp/stub/{fullname}"]
-        m.__file__ = f"<stub:{fullname}>"
-        m.__loader__ = self
-        m.__package__ = fullname
-        sys.modules[fullname] = m
+
+class _StubLoader(importlib.abc.Loader):
+    def create_module(self, spec):
+        m = _Stub(spec.name)
+        m.__path__ = [f"/tmp/stub/{spec.name}"]
+        m.__file__ = f"<stub:{spec.name}>"
+        m.__package__ = spec.name
         return m
+    def exec_module(self, module):
+        pass
 
 sys.meta_path.insert(0, _StubFinder())
 
@@ -157,15 +167,22 @@ dpo_config = DPOConfig(
     max_prompt_length=args.max_len - 512,
 )
 
-# Monkey-patch: TRL DPOTrainer expects warnings_issued on the model
+# Monkey-patches for TRL DPOTrainer compatibility
 if not hasattr(model, 'warnings_issued'):
     model.warnings_issued = {}
+# DPOTrainer traverses .tokenizer chain — make it self-referential
+if not hasattr(tokenizer, 'tokenizer'):
+    tokenizer.tokenizer = tokenizer
+# Hide multimodal config — DPO is text-only, don't trigger vision pipeline
+if hasattr(model.config, 'model_type'):
+    model.config._real_model_type = model.config.model_type
+    model.config.model_type = "gemma2"  # TRL won't detect as multimodal
 
 trainer = DPOTrainer(
     model=model,
     args=dpo_config,
     train_dataset=dataset,
-    processing_class=tokenizer,
+    processing_class=tokenizer,  # plain tokenizer with self-ref .tokenizer
 )
 
 log.info(f"=== DPO TRAINING ===")
