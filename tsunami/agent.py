@@ -304,9 +304,18 @@ class Agent:
         provision the project BEFORE the model starts. The model wakes up
         inside a ready project with a README.
         """
-        msg = user_message.lower()
+        msg = user_message.lower().strip()
 
-        # Detect build tasks
+        # Skip questions — "what can you build?" is not a build request
+        question_starts = ("what", "how", "why", "when", "where", "who", "which",
+                           "can you", "could you", "do you", "does", "is ", "are ",
+                           "tell me", "explain", "describe", "list", "show me")
+        if any(msg.startswith(q) for q in question_starts):
+            return ""
+        if msg.rstrip("?!. ").endswith("?") or msg.endswith("?"):
+            return ""
+
+        # Detect build tasks — imperative commands only
         build_keywords = ["build", "create", "make", "develop", "design",
                           "app", "game", "website", "dashboard", "tool",
                           "tracker", "page", "editor", "viewer"]

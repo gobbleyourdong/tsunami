@@ -21,18 +21,44 @@ const BANNER_LINES = [
 ];
 
 const TOOL_LABELS = {
-  file_read: 'Read', file_write: 'Write', file_edit: 'Edit',
-  file_append: 'Append', file_view: 'View', match_glob: 'Search',
-  match_grep: 'Grep', shell_exec: 'Run', shell_view: 'Check',
-  shell_kill: 'Kill', search_web: 'Search web',
-  browser_navigate: 'Navigate', plan_update: 'Plan',
-  plan_advance: 'Advance plan',
+  file_read: 'reading', file_write: 'writing', file_edit: 'editing',
+  file_append: 'appending', file_view: 'viewing', match_glob: 'searching',
+  match_grep: 'grepping', shell_exec: 'running', shell_view: 'checking',
+  shell_kill: 'killing', search_web: 'searching web',
+  browser_navigate: 'navigating', browser_view: 'viewing page',
+  plan_update: 'planning', plan_advance: 'advancing plan',
+  project_init: 'scaffolding', undertow: 'QA testing',
+  generate_image: 'generating image', swell_build: 'dispatching eddies',
+  message_chat: 'thinking', message_info: 'thinking',
+  message_result: 'delivering', message_ask: 'asking',
 };
+
+function shortPath(p) {
+  if (!p) return '';
+  const s = String(p);
+  // Show just filename or last path segment
+  const parts = s.replace(/\\/g, '/').split('/');
+  return parts[parts.length - 1] || s.slice(0, 30);
+}
 
 function toolLabel(name, args) {
   const base = TOOL_LABELS[name] || name.replace(/_/g, ' ');
-  const detail = args?.command || args?.path || args?.query || args?.pattern || args?.url || '';
-  return detail ? `${base}(${String(detail).slice(0, 50)})` : base;
+  if (name === 'shell_exec') {
+    const cmd = String(args?.command || '').trim();
+    // Show just the meaningful part: last command after && or ;
+    const last = cmd.split(/&&|;/).pop().trim();
+    const short = last.length > 40 ? last.slice(0, 40) + '…' : last;
+    return short ? `${base} ${short}` : base;
+  }
+  if (name === 'undertow') {
+    const levers = args?.levers;
+    if (Array.isArray(levers) && levers.length > 0) {
+      return `QA: ${levers.map(l => l.action || '?').join(', ')}`;
+    }
+    return 'QA testing';
+  }
+  const detail = args?.path || args?.query || args?.pattern || args?.url || args?.name || '';
+  return detail ? `${base} ${shortPath(detail)}` : base;
 }
 
 function timeAgo(start) {
@@ -63,7 +89,15 @@ function App({ serverUrl, singleTask }) {
   const [startTime, setStartTime] = useState(null);
   const [currentAction, setCurrentAction] = useState(null);
   const [attachedFiles, setAttachedFiles] = useState([]);
+  const [, setTick] = useState(0);
   const wsRef = useRef(null);
+
+  // Tick every second while running so the timer updates
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [running]);
 
   useEffect(() => {
     const ws = new WebSocket(serverUrl);

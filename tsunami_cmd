@@ -49,13 +49,15 @@ def start_model_server(config):
     if not os.path.exists(models_dir) or not os.path.exists(serve_script):
         return None
 
-    # Find first HF model directory (has config.json)
+    # Find HF model directory — prefer most recently modified (latest champion)
     model_dir = None
-    for d in sorted(os.listdir(models_dir)):
+    candidates = []
+    for d in os.listdir(models_dir):
         full = os.path.join(models_dir, d)
         if os.path.isdir(full) and os.path.exists(os.path.join(full, "config.json")):
-            model_dir = full
-            break
+            candidates.append(full)
+    if candidates:
+        model_dir = max(candidates, key=lambda p: os.path.getmtime(p))
     if not model_dir:
         return None
 
@@ -74,26 +76,40 @@ def start_model_server(config):
 
 # ── Tool action labels ──
 TOOL_LABELS = {
-    "file_read": "Read {path}", "file_write": "Write {path}",
-    "file_edit": "Edit {path}", "file_append": "Append {path}",
-    "file_view": "View {path}", "match_glob": "Search {pattern}",
-    "match_grep": "Grep {pattern}", "shell_exec": "Run {command}",
-    "shell_view": "Check {session_id}", "shell_kill": "Kill {session_id}",
-    "search_web": "Search: {query}", "browser_navigate": "Open {url}",
-    "browser_view": "View page", "plan_update": "Planning",
-    "plan_advance": "Advancing plan",
+    "file_read": "reading", "file_write": "writing", "file_edit": "editing",
+    "file_append": "appending", "file_view": "viewing", "match_glob": "searching",
+    "match_grep": "grepping", "shell_exec": "running", "shell_view": "checking",
+    "shell_kill": "killing", "search_web": "searching web",
+    "browser_navigate": "navigating", "browser_view": "viewing page",
+    "plan_update": "planning", "plan_advance": "advancing plan",
+    "project_init": "scaffolding", "undertow": "QA testing",
+    "generate_image": "generating image", "swell_build": "dispatching eddies",
+    "message_chat": "thinking", "message_info": "thinking",
+    "message_result": "delivering", "message_ask": "asking",
 }
 
 
+def _short_path(p):
+    """Just the filename, not the whole path."""
+    return str(p).replace("\\", "/").rsplit("/", 1)[-1][:40] if p else ""
+
+
 def action_label(name, args):
-    t = TOOL_LABELS.get(name)
-    if t:
-        try:
-            sa = {k: (str(v)[:40] + "…" if len(str(v)) > 40 else str(v)) for k, v in args.items()}
-            return t.format(**sa)
-        except (KeyError, IndexError):
-            pass
-    return name.replace("_", " ")
+    base = TOOL_LABELS.get(name, name.replace("_", " "))
+    if name == "shell_exec":
+        cmd = str(args.get("command", "")).strip()
+        # Show just the last command after && or ;
+        last = cmd.split("&&")[-1].split(";")[-1].strip()
+        short = (last[:40] + "…") if len(last) > 40 else last
+        return f"{base} {short}" if short else base
+    if name == "undertow":
+        levers = args.get("levers", [])
+        if isinstance(levers, list) and levers:
+            actions = [l.get("action", "?") if isinstance(l, dict) else "?" for l in levers]
+            return f"QA: {', '.join(actions)}"
+        return "QA testing"
+    detail = args.get("path") or args.get("query") or args.get("pattern") or args.get("name") or ""
+    return f"{base} {_short_path(detail)}" if detail else base
 
 
 def patch_agent(agent):
@@ -126,9 +142,13 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.WARNING,
-        format="%(asctime)s %(name)s %(message)s", datefmt="%H:%M:%S")
+    if args.verbose:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(asctime)s %(name)s %(message)s", datefmt="%H:%M:%S")
+    else:
+        # Silence all logging in user-facing mode — no internal state leakage
+        logging.basicConfig(level=logging.CRITICAL + 1)
 
     from tsunami.config import TsunamiConfig
     config = TsunamiConfig.from_yaml(os.path.join(SCRIPT_DIR, "config.yaml"))

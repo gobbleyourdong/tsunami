@@ -413,20 +413,25 @@ def main():
     parser.add_argument("--load-in-4bit", action="store_true", help="4-bit quantization via bitsandbytes")
     args = parser.parse_args()
 
-    # DGX Spark has unified memory (CPU+GPU share 128GB LPDDR5X).
-    # Expand CUDA allocator to use the full pool — default is too conservative.
     import os
-    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
+    # Auto-detect device: CUDA > MPS > CPU
     if torch.cuda.is_available():
+        device_map = "cuda:0"
+        os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
         try:
             torch.cuda.set_per_process_memory_fraction(0.95)
         except Exception:
-            pass  # not supported on all builds
+            pass
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device_map = "mps"
+    else:
+        device_map = "cpu"
 
-    log.info(f"Loading {args.model}...")
+    log.info(f"Loading {args.model} on {device_map}...")
     load_kwargs = dict(
-        torch_dtype=torch.bfloat16,
-        device_map="cuda:0",  # Spark unified memory — no CPU/GPU split needed
+        torch_dtype=torch.bfloat16 if device_map != "cpu" else torch.float32,
+        device_map=device_map,
         trust_remote_code=True,
     )
     if args.load_in_8bit:
@@ -450,9 +455,10 @@ def main():
         from peft import PeftModel
 
         if args.adapter:
-            # Single adapter from --adapter
-            model = PeftModel.from_pretrained(model, args.adapter, adapter_name="default")
-            log.info(f"Adapter loaded: {args.adapter} (name='default')")
+            # Single adapter from --adapter — name from directory
+            adapter_name = Path(args.adapter).name
+            model = PeftModel.from_pretrained(model, args.adapter, adapter_name=adapter_name)
+            log.info(f"Adapter loaded: {args.adapter} (name='{adapter_name}')")
 
         if args.adapters_dir:
             # Load all adapters from subdirectories
@@ -475,9 +481,9 @@ def main():
             if loaded:
                 log.info(f"Adapters loaded from {args.adapters_dir}: {loaded}")
 
-            # Set the first adapter as active (or default if loaded via --adapter)
+            # Set the --adapter as active if provided
             if args.adapter and hasattr(model, 'set_adapter'):
-                model.set_adapter("default")
+                model.set_adapter(Path(args.adapter).name)
             elif loaded and hasattr(model, 'set_adapter'):
                 model.set_adapter(loaded[0])
 
