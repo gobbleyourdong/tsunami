@@ -1,3 +1,6 @@
+# Sigma Method (private — maps include noise, but the method stays local)
+.sigma/
+
 # Python
 __pycache__/
 *.pyc

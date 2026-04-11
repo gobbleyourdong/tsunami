@@ -32,6 +32,9 @@ parser.add_argument("--output", default="models/gemma-4-e4b-tsunami-unsloth")
 parser.add_argument("--epochs", type=int, default=3)
 parser.add_argument("--lr", type=float, default=2e-4)
 parser.add_argument("--lora-r", type=int, default=8)
+parser.add_argument("--lora-alpha", type=int, default=None, help="LoRA alpha (default: 2*r)")
+parser.add_argument("--lora-dropout", type=float, default=0.0, help="LoRA dropout (try 0.05)")
+parser.add_argument("--base-model", default="google/gemma-4-e4b-it", help="Base model path or HF name")
 parser.add_argument("--max-len", type=int, default=16384)
 parser.add_argument("--batch", type=int, default=1)
 parser.add_argument("--grad-accum", type=int, default=16)
@@ -45,9 +48,10 @@ args = parser.parse_args()
 # ==========================================
 from unsloth import FastLanguageModel
 
-log.info(f"Loading Gemma 4 E4B with Unsloth (LoRA r={args.lora_r})...")
+lora_alpha = args.lora_alpha if args.lora_alpha else args.lora_r * 2
+log.info(f"Loading {args.base_model} with Unsloth (LoRA r={args.lora_r}, alpha={lora_alpha}, dropout={args.lora_dropout})...")
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name="google/gemma-4-e4b-it",
+    model_name=args.base_model,
     max_seq_length=args.max_len,
     dtype=None,  # auto-detect
     load_in_4bit=False,  # full precision for training quality
@@ -57,8 +61,8 @@ log.info("Applying LoRA...")
 model = FastLanguageModel.get_peft_model(
     model,
     r=args.lora_r,
-    lora_alpha=args.lora_r,  # match r per Unsloth recommendation
-    lora_dropout=0,
+    lora_alpha=lora_alpha,
+    lora_dropout=args.lora_dropout,
     bias="none",
     target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
                      "gate_proj", "up_proj", "down_proj"],
@@ -182,7 +186,7 @@ trainer = SFTTrainer(
 
 log.info(f"=== UNSLOTH TRAINING ===")
 log.info(f"Data: {args.data} ({len(data)} examples)")
-log.info(f"Epochs: {args.epochs}, LR: {args.lr}, LoRA r={args.lora_r}")
+log.info(f"Epochs: {args.epochs}, LR: {args.lr}, LoRA r={args.lora_r}, alpha={lora_alpha}, dropout={args.lora_dropout}")
 log.info(f"Effective batch: {args.batch * args.grad_accum}")
 log.info(f"Optimizer: adamw_8bit, max_len: {args.max_len}")
 log.info(f"Output: {args.output}")
