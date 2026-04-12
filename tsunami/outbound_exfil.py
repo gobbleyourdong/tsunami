@@ -30,6 +30,7 @@ Pure function, no torch / no tool imports — unit-testable stand-alone.
 
 from __future__ import annotations
 
+import base64
 import re
 
 
@@ -199,6 +200,71 @@ def _fold_string_concats(content: str) -> str:
     return cur
 
 
+_BASE64_URL_RE = re.compile(
+    r'\batob\s*\(\s*[\'"]([A-Za-z0-9+/=]{12,})[\'"]\s*\)'
+)
+_BASE64_DECL_RE = re.compile(
+    r'(?:const|let|var)\s+(\w+)\s*=\s*[\'"]([A-Za-z0-9+/=]{12,})[\'"]'
+)
+
+
+def _is_external_url_string(s: str) -> bool:
+    """True if `s` (stripped) starts with `(https?:)?//` + an external host."""
+    s = s.strip()
+    m = re.match(r'(?:https?:)?//([^\s/\'"]+)', s)
+    return bool(m and _is_external(_host_of(m.group(1))))
+
+
+def _scan_base64_urls(content: str) -> list[str]:
+    """QA-3 Fire 114 variant (b): `atob("aHR0cHM6Ly9ldmlsLnRlc3QvZXZpbA==")`.
+    Attacker base64-encodes the URL so no literal `https://` appears in
+    source; at runtime `atob` decodes back. Regex scans miss it. Decode
+    inline atob calls; if the result is an external URL, flag it.
+
+    Also handles the one-level-indirection shape:
+      `const b64 = "aHR0...=="; const url = atob(b64);`
+    — scan const/let/var declarations whose VALUE is a base64 string that
+    decodes to an external URL.
+    """
+    out = []
+
+    # Inline atob("..."): decode and check.
+    for m in _BASE64_URL_RE.finditer(content):
+        try:
+            decoded = base64.b64decode(m.group(1), validate=True).decode(
+                "utf-8", errors="replace"
+            )
+        except (ValueError, base64.binascii.Error):
+            continue
+        if _is_external_url_string(decoded):
+            # Extract host for the error message.
+            host_m = re.match(
+                r'(?:https?:)?//([^\s/\'"]+)', decoded.strip()
+            )
+            host = _host_of(host_m.group(1)) if host_m else "unknown"
+            out.append(f"atob-decoded URL → {host}")
+
+    # Declared base64 constant (only if there's also an atob call in the
+    # same file — otherwise it's just data, not a URL-decode).
+    if not re.search(r'\batob\s*\(', content):
+        return out
+    for m in _BASE64_DECL_RE.finditer(content):
+        try:
+            decoded = base64.b64decode(m.group(2), validate=True).decode(
+                "utf-8", errors="replace"
+            )
+        except (ValueError, base64.binascii.Error):
+            continue
+        if _is_external_url_string(decoded):
+            host_m = re.match(
+                r'(?:https?:)?//([^\s/\'"]+)', decoded.strip()
+            )
+            host = _host_of(host_m.group(1)) if host_m else "unknown"
+            out.append(f"atob-decoded URL via {m.group(1)} → {host}")
+
+    return out
+
+
 def _scan_split_url_declarations(content: str) -> list[str]:
     """Fire 114: direct detection of the split-URL pattern regardless of
     constant-folding. Find pairs of adjacent const/let/var declarations
@@ -255,6 +321,8 @@ def check_outbound_exfil(content: str, filename: str) -> str | None:
     # fold nor the main scans catch it. Explicit detector for adjacent
     # declarations whose values concatenate to an external URL.
     offenders.extend(_scan_split_url_declarations(content))
+    # Fire 114 variant (b): `atob("aHR0...")` base64 obfuscation.
+    offenders.extend(_scan_base64_urls(content))
 
     if not offenders:
         return None
