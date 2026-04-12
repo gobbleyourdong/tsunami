@@ -90,20 +90,29 @@ class FeedbackTracker:
                 "missing imports / type errors."
             )
 
-        # Pattern: build-loop without source progress. QA-2 iter 11+12 both showed
-        # the agent doing shell_exec (vite build) + undertow + file_read in a cycle
-        # with no intervening file_write/file_edit, then exiting without ever
-        # calling message_result. Re-running the build against unchanged source
-        # produces the same output — the fix has to be in App.tsx.
-        build_cmds = sum(1 for n in recent_names if n in ("shell_exec", "undertow"))
-        if build_cmds >= 4 and writes == 0:
+        # Pattern: build-loop without source progress. QA-2 iter 11+12+14 all showed
+        # the agent doing shell_exec (vite build) + undertow in a cycle with no
+        # intervening file_write/file_edit, then exiting without ever calling
+        # message_result. Re-running the build against unchanged source produces
+        # the same output — the fix has to be in App.tsx.
+        #
+        # We count the CONSECUTIVE build/QA streak since the last write (any file
+        # edit in the window breaks the streak), not a whole-window count —
+        # iter 14's `file_write, shell×5` defeated the prior whole-window check
+        # (writes=1 ≠ 0) even though the agent was clearly stuck on rebuilds.
+        streak = 0
+        for name in reversed(self.outcomes[-8:]):
+            if name.name in ("file_write", "file_edit"):
+                break  # last write ends the streak
+            if name.name in ("shell_exec", "undertow"):
+                streak += 1
+        if streak >= 3:
             return (
-                "FEEDBACK: You've run 4+ builds / QA checks with no file_write or "
-                "file_edit in between. The output won't change until you edit the "
-                "source — re-running vite build against the same App.tsx produces "
-                "the same result. Open App.tsx, fix the issue in the code, THEN "
-                "rebuild. If the deliverable looks complete to you, call "
-                "message_result so the content gates can review it."
+                f"FEEDBACK: You've run {streak} builds / QA checks in a row since "
+                f"your last file_write or file_edit. Re-running won't change the "
+                f"output — the fix has to be in App.tsx (or another source file). "
+                f"Edit the source now, or call message_result so the content gates "
+                f"can review what's on disk."
             )
 
         return None
