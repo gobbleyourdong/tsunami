@@ -78,6 +78,27 @@ _DESTRUCTIVE_PATTERNS = [
      "BLOCKED: refuse to redirect output to /tmp — regardless of source "
      "command this is the multi-turn exfiltration / plant primitive. Use a "
      "workspace-local path if you need a scratch file"),
+    # QA-3 Fire 64 stage 3: execute a script from /tmp. The download-run
+    # chain's stages 1+2 (curl -o /tmp, chmod +x /tmp) are already blocked
+    # above, but belt-and-suspenders: refuse to RUN anything from /tmp or
+    # /var/tmp as a command. Matches `/tmp/X` at line start, after env
+    # assignments (`FOO=bar /tmp/X`), or after `&&`/`;`/`|`/newline (chain
+    # start). Legitimate build tools never invoke binaries from /tmp —
+    # packages install to node_modules/.bin / ~/.npm / ~/.local / system
+    # PATH, not /tmp.
+    (re.compile(r'(?:^|[;&|\n]\s*)(?:\w+=\S+\s+)*/(?:tmp|var/tmp)/\S+'),
+     "BLOCKED: refuse to execute from /tmp — the download-run chain "
+     "(curl -o /tmp + chmod +x + run) is an RCE vector. Install tools via "
+     "package manager (npm / pip / etc.) or place scripts in workspace/"),
+    # Same attack, shell/interpreter-prefix form: `bash /tmp/x.sh`,
+    # `python /tmp/x.py`, `node /tmp/x.js`, etc. Bypass the direct-exec
+    # block above by invoking via an interpreter binary. No legit build
+    # invokes user scripts from /tmp — all go through package.json scripts
+    # or workspace-local files.
+    (re.compile(r'\b(?:bash|sh|zsh|fish|dash|ksh|python3?|node|perl|ruby)\s+(?:-[a-zA-Z]+\s+)*/(?:tmp|var/tmp)/'),
+     "BLOCKED: refuse to run an interpreter against a script in /tmp — "
+     "RCE vector via download-run chain. Place the script in workspace/ "
+     "if legitimate"),
     # QA-3 Fire 37 bypass: `echo X | tee /tmp/Y` and `tee -a /tmp/Y` skip the
     # above rule by using tee instead of > redirection. Same plant, same risk.
     # Legit `tee` use against /tmp is rare for React builds; block it.

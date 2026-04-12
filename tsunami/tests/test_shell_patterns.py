@@ -484,4 +484,69 @@ def test_2gt_redirect_to_tmp_blocks():
     r = _check_destructive("npm run build 2> /tmp/err.log")
     assert r is not None
     assert r.startswith("BLOCKED")
+
+
+# --- QA-3 Fire 64 stage 3: execute-from-/tmp hardening ----------------------
+
+
+def test_fire64_direct_exec_from_tmp_blocks():
+    """Fire 64 stage 3: `/tmp/qa3_bun_installer.sh` — bare exec."""
+    r = _check_destructive("/tmp/qa3_bun_installer.sh")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_env_prefix_exec_from_tmp_blocks():
+    """Env-var assignment prefix bypasses naive ^-anchored patterns."""
+    r = _check_destructive("FOO=bar /tmp/evil")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_chain_exec_from_tmp_blocks():
+    """Exec-from-/tmp after `&&` / `;` — chain bypasses line-start anchor."""
+    r = _check_destructive("npm install && /tmp/install.sh")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_var_tmp_exec_blocks():
+    r = _check_destructive("/var/tmp/evil")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_interpreter_tmp_script_blocks():
+    """Bypass: `bash /tmp/x.sh` / `python /tmp/x.py` / `node /tmp/x.js`."""
+    for c in (
+        "bash /tmp/install.sh",
+        "python3 /tmp/evil.py",
+        "python /tmp/evil.py",
+        "node /tmp/x.js",
+        "perl -w /tmp/x.pl",
+        "ruby /tmp/x.rb",
+        "sh /var/tmp/x.sh",
+        "zsh /tmp/x",
+    ):
+        r = _check_destructive(c)
+        assert r is not None, f"should BLOCK: {c}"
+        assert r.startswith("BLOCKED"), f"should BLOCK: {c}"
+
+
+def test_tmp_as_argument_not_command_passes():
+    """Regression: /tmp appearing as an argument to a read tool is benign."""
+    # `ls /tmp` / `cat /tmp/hello.txt` — /tmp is an argument to a read tool,
+    # not being executed. Already covered by the config's existing rules.
+    # The new rule must NOT false-positive these.
+    assert _check_destructive("ls /tmp") is None
+    assert _check_destructive("cat /tmp/hello.txt") is None
+    assert _check_destructive("stat /tmp/foo") is None
+
+
+def test_legit_interpreter_against_workspace_passes():
+    """Regression: running scripts from workspace/ or via package.json OK."""
+    assert _check_destructive("bash workspace/build.sh") is None
+    assert _check_destructive("python3 tests.py") is None
+    assert _check_destructive("node scripts/build.js") is None
+    assert _check_destructive("npm run build") is None
     assert _check_destructive("rm -rf ~/.ssh").startswith("BLOCKED")
