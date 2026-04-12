@@ -45,11 +45,21 @@
     },
     {
       "type": "SFT",
-      "adapter": "chrome-ext-v1",
-      "data": "workspace/training_data/chrome_ext_combined_v1.jsonl",
+      "adapter": "chrome-ext-v2",
+      "data": "workspace/training_data/chrome_ext_combined_v2.jsonl",
       "output": "models/gemma-4-e4b-tsunami-chrome-ext-v1",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4",
-      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/chrome_ext_combined_v1.jsonl --output models/gemma-4-e4b-tsunami-chrome-ext-v1 --epochs 3 --lora-r 16 --lr 2e-4"
+      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/chrome_ext_combined_v2.jsonl --output models/gemma-4-e4b-tsunami-chrome-ext-v1 --epochs 3 --lora-r 16 --lr 2e-4"
+    },
+    {
+      "type": "DPO",
+      "adapter": "chrome-ext-v1",
+      "base_model": "models/gemma-4-e4b-tsunami-chrome-ext-v1-merged",
+      "data": "workspace/training_data/chrome_ext_dpo_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-chrome-ext-v2",
+      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
+      "prerequisite": "Train chrome-ext-v1 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-chrome-ext-v1 --output models/gemma-4-e4b-tsunami-chrome-ext-v1-merged",
+      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-chrome-ext-v1-merged --data workspace/training_data/chrome_ext_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-chrome-ext-v2 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     },
     {
       "type": "DPO",
@@ -62,5 +72,5 @@
       "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-gamedev-v4-merged --data workspace/training_data/gamedev_dpo_combined_v1.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v5 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     }
   ],
-  "notes": "Fire 6 (2026-04-12): gamedev DPO v2 added 12 pairs (GX01 multiplayer degrade, GX02 3D degrade, GR routing). Combined: gamedev_dpo_combined_v1.jsonl=33 pairs. v5 SFT=51 examples. security eval harness. build DPO=73 pairs (combined_v3). chrome-ext=8 SFT examples."
+  "notes": "Fire 7 (2026-04-12): chrome-ext SFT v3 added 4 examples (commands, contextMenus, downloads, reading-mode) -> combined_v2=12 examples. chrome-ext DPO v1 added 15 pairs (CEF01-05). chrome-ext pipeline now: SFT->merge->DPO. Fire 6: gamedev DPO 33 pairs, v5 SFT 51 ex, security eval, build DPO 73 pairs."
 }
