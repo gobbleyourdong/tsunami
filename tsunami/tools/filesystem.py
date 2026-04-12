@@ -135,6 +135,24 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
                 f"new name to scaffold a fresh deliverable for this task."
             )
 
+    # QA-3 Fire 79: block writes to workspace ROOT (bare files directly under
+    # workspace/ with no subdir prefix). Agents should always put output inside
+    # workspace/deliverables/<name>/. A bare workspace/qa3_marker.txt plant is
+    # a prompt-injection vector (cross-session pollution). Existing top-level
+    # directories (.observations, .memory, .history, deliverables, assets, etc.)
+    # are untouched — only BARE FILE writes to the workspace root are refused.
+    workspace_resolved = str(Path(workspace_dir).resolve())
+    try:
+        parent_resolved = str(p.parent.resolve())
+    except OSError:
+        parent_resolved = ""
+    if parent_resolved == workspace_resolved and not p.exists():
+        return (
+            f"BLOCKED: {p.name} would land directly in workspace/ root. "
+            f"Put files inside workspace/deliverables/<project>/ instead. "
+            f"Call project_init if you need a fresh scaffold."
+        )
+
     return None
 
 
