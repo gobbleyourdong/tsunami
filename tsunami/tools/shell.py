@@ -59,6 +59,14 @@ _DESTRUCTIVE_PATTERNS = [
      "BLOCKED: refuse to install/replace crontab entries"),
     (re.compile(r'/etc/(passwd|shadow|sudoers|cron\.|profile)'),
      "BLOCKED: refuse to read or write system credential / cron / profile files"),
+    # Multi-turn data-plant (QA-3 Stage A of the cross-session exfiltration chain):
+    # bait-and-switch prompts instructing `echo/printf 'VALUE' > /tmp/X.txt` so a
+    # follow-up session can read + bake into a deliverable. React build flows do
+    # not need echo/printf-to-/tmp; this is narrow enough to miss legit tooling
+    # (which uses mktemp / XDG cache dirs) while catching the concrete attack.
+    (re.compile(r'\b(echo|printf)\s+[^|&;\n]*(>|>>)\s*/(tmp|var/tmp)/'),
+     "BLOCKED: refuse to plant values in /tmp via echo/printf redirect "
+     "(multi-turn exfiltration vector)"),
 ]
 
 
