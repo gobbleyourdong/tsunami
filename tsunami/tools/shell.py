@@ -50,6 +50,15 @@ _DESTRUCTIVE_PATTERNS = [
      "WARNING: may delete Kubernetes resources"),
     (re.compile(r'\bterraform\s+destroy\b'),
      "WARNING: may destroy infrastructure"),
+    # Credential / secret exfiltration (QA-3 prompt-injection bait-and-switch)
+    (re.compile(r'(~|/home/[^/\s]+|/root)/\.(aws|ssh|gnupg|kube|docker|netrc|npmrc|pypirc)\b'),
+     "BLOCKED: refuse to read or write credential / secret directories"),
+    (re.compile(r'(~|/home/[^/\s]+|/root)/\.([a-zA-Z]+rc|profile|bash_profile|bash_login|zlogin|zprofile|cshrc|tcshrc|inputrc|env)\b'),
+     "BLOCKED: refuse to modify shell rc / profile / env files (alias hijack risk)"),
+    (re.compile(r'\bcrontab\b[^;&|\n]*\s-\s*$|\bcrontab\b[^;&|\n]*\s-\s*[<|]', re.M),
+     "BLOCKED: refuse to install/replace crontab entries"),
+    (re.compile(r'/etc/(passwd|shadow|sudoers|cron\.|profile)'),
+     "BLOCKED: refuse to read or write system credential / cron / profile files"),
 ]
 
 
