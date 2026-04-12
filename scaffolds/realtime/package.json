@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"node --watch server/index.js\"",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "server": "node server/index.js"
   },
   "dependencies": {

@@ -6,10 +6,10 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsc -p tsconfig.electron.json",
+    "build": "tsc --noEmit && vite build && tsc -p tsconfig.electron.json",
     "preview": "vite preview",
     "electron:dev": "vite & sleep 2 && electron .",
-    "electron:build": "vite build && tsc -p tsconfig.electron.json && electron-builder"
+    "electron:build": "tsc --noEmit && vite build && tsc -p tsconfig.electron.json && electron-builder"
   },
   "dependencies": {
     "react": "^19.0.0",

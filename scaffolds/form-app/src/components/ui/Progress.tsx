@@ -4,14 +4,15 @@ interface ProgressProps {
   height?: number
   showLabel?: boolean
   variant?: "default" | "striped"
+  className?: string
 }
 
-export default function Progress({ value, color, height = 6, showLabel = false, variant = "default" }: ProgressProps) {
+export default function Progress({ value, color, height = 6, showLabel = false, variant = "default", className }: ProgressProps) {
   const clamped = Math.max(0, Math.min(100, value))
   const bg = color || 'var(--accent, #4a9eff)'
 
   return (
-    <div style={{ width: '100%' }}>
+    <div className={className} style={{ width: '100%' }}>
       <div style={{
         background: 'var(--bg-2, #191c24)',
         borderRadius: height,

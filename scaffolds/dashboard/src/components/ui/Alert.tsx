@@ -5,6 +5,7 @@ interface AlertProps {
   title?: string
   children: ReactNode
   onDismiss?: () => void
+  className?: string
 }
 
 const config = {
@@ -14,10 +15,10 @@ const config = {
   error:   { color: 'var(--danger, #f06060)',  bg: 'rgba(240, 96, 96, 0.08)',  border: 'rgba(240, 96, 96, 0.2)',   icon: '✕' },
 }
 
-export default function Alert({ type = "info", title, children, onDismiss }: AlertProps) {
+export default function Alert({ type = "info", title, children, onDismiss, className }: AlertProps) {
   const c = config[type]
   return (
-    <div style={{
+    <div className={className} style={{
       display: 'flex', gap: 12, alignItems: 'flex-start',
       padding: '14px 16px',
       borderRadius: 'var(--radius, 10px)',

@@ -3,17 +3,18 @@ interface AvatarProps {
   name?: string
   size?: number
   color?: string
+  className?: string
 }
 
-export default function Avatar({ src, name = "?", size = 40, color = "var(--accent)" }: AvatarProps) {
+export default function Avatar({ src, name = "?", size = 40, color = "var(--accent)", className }: AvatarProps) {
   const initials = name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)
 
   if (src) {
-    return <img src={src} alt={name} style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover" }} />
+    return <img src={src} alt={name} className={className} style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover" }} />
   }
 
   return (
-    <div style={{
+    <div className={className} style={{
       width: size, height: size, borderRadius: "50%",
       background: `${color}33`, color, display: "flex",
       alignItems: "center", justifyContent: "center",
