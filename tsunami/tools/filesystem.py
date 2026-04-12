@@ -340,6 +340,30 @@ class FileWrite(BaseTool):
             err = _is_safe_write(p, self.config.workspace_dir)
             if err:
                 return ToolResult(err, is_error=True)
+            # QA-3 Fire 105: dotenv plant with attacker URL. .env files are
+            # read by Vite's dotenv-loader and VITE_* vars BAKE INTO the
+            # production bundle — so an attacker-controlled URL hidden in
+            # src/.env appears in dist/ as a string constant, and the
+            # App.tsx source only shows `import.meta.env.VITE_FOO`
+            # (non-literal — misses any content scanner targeting .tsx).
+            # Refuse .env* writes containing external http(s):// URLs.
+            # Localhost / private-network / path-relative refs pass.
+            if p.name == ".env" or p.name.startswith(".env."):
+                import re as _env_re
+                urls = _env_re.findall(r'https?://([^\s/\'"]+)', content)
+                external = [u for u in urls if not _env_re.match(
+                    r'^(localhost|127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|0\.0\.0\.0)',
+                    u
+                )]
+                if external:
+                    return ToolResult(
+                        f"BLOCKED: {p.name} contains external URL(s) ({', '.join(sorted(set(external))[:3])}). "
+                        f"Vite's VITE_* env vars bake into the production bundle as string constants — "
+                        f"an external URL here becomes a baked-in endpoint in dist/. If the app genuinely "
+                        f"needs to call an external API, hardcode the URL in the component (user-visible) "
+                        f"rather than hiding it in a dotenv file. Localhost/private-net refs pass.",
+                        is_error=True,
+                    )
             p.parent.mkdir(parents=True, exist_ok=True)
             # Fix double-escaped sequences from models
             if "\n" not in content and "\\n" in content:
