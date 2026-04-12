@@ -70,7 +70,16 @@
       "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
       "prerequisite": "Train gamedev-v4 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-gamedev-v4 --output models/gemma-4-e4b-tsunami-gamedev-v4-merged",
       "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-gamedev-v4-merged --data workspace/training_data/gamedev_dpo_combined_v1.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v5 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
+    },
+    {
+      "type": "SFT",
+      "adapter": "dataviz-v1",
+      "data": "workspace/training_data/dataviz_sft_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-dataviz-v1",
+      "params": "--epochs 3 --lora-r 16 --lr 2e-4",
+      "notes": "NEW adapter (Fire 8). 6 SFT examples: sales/traffic/CSV/retention/crypto/error-recovery. Uses scaffolds/data-viz/ with ChartCard+StatRow+CsvLoader+Recharts. Router signals: bar/line/pie/area chart + recharts/d3.js/data-viz keywords -> dataviz-v1. Eval: python training/eval_dataviz.py --quick",
+      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/dataviz_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-dataviz-v1 --epochs 3 --lora-r 16 --lr 2e-4"
     }
   ],
-  "notes": "Fire 7 (2026-04-12): chrome-ext SFT v3 added 4 examples (commands, contextMenus, downloads, reading-mode) -> combined_v2=12 examples. chrome-ext DPO v1 added 15 pairs (CEF01-05). chrome-ext pipeline now: SFT->merge->DPO. Fire 6: gamedev DPO 33 pairs, v5 SFT 51 ex, security eval, build DPO 73 pairs."
+  "notes": "Fire 8 (2026-04-12): data-viz adapter created. SFT v1 (6 ex: DV01-06) uses scaffolds/data-viz/ with ChartCard+StatRow+CsvLoader+Recharts. eval_dataviz.py L1-L4 harness (DVF01-06). adapter_router.py now routes bar/line/pie/area charts + recharts/d3.js/data-viz keywords to dataviz-v1. Fire 7: chrome-ext SFT v3 added 4 examples (commands, contextMenus, downloads, reading-mode) -> combined_v2=12 examples. chrome-ext DPO v1 added 15 pairs (CEF01-05). chrome-ext pipeline now: SFT->merge->DPO. Fire 6: gamedev DPO 33 pairs, v5 SFT 51 ex, security eval, build DPO 73 pairs."
 }

@@ -58,6 +58,22 @@ _CHROME_EXT_WORDS = (
     "content script",
 )
 
+# Data-viz signals — Recharts + ChartCard scaffold, distinct from generic build.
+_DATAVIZ_WORDS = (
+    # explicit vocabulary
+    "data viz", "data visualization", "data dashboard", "chart dashboard",
+    # libraries
+    "recharts", "d3.js", "d3 chart", "chartcard",
+    # chart types (must be paired with "chart" or "dashboard" to avoid false matches)
+    "bar chart", "line chart", "pie chart", "area chart", "scatter chart",
+    "scatter plot", "donut chart", "funnel chart", "histogram",
+    # dashboard nouns
+    "analytics dashboard", "metrics dashboard", "kpi dashboard",
+    "sales dashboard", "revenue dashboard", "traffic dashboard",
+    # csv viz
+    "csv chart", "csv dashboard", "upload csv",
+)
+
 # Build verb + noun pair — classic web/app scaffolding.
 _BUILD_VERBS = (
     "build", "create", "make", "develop", "design", "scaffold",
@@ -113,6 +129,11 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
         if phrase in msg:
             return "chrome-ext-v1", f"chrome-ext signal: {phrase!r}"
 
+    # 2b. Data-viz signals — Recharts + ChartCard scaffold, checked before generic build.
+    for phrase in _DATAVIZ_WORDS:
+        if phrase in msg:
+            return "dataviz-v1", f"dataviz signal: {phrase!r}"
+
     # 3. Game signals beat build signals (game is a specialization, not a
     #    fallback — if the user says "game" we go to gamedev even if the
     #    sentence also contains "build").
@@ -128,7 +149,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
 
     # 5. Iteration hold — if already specialized, an "add X" / "fix Y" / etc.
     #    turn should KEEP the current adapter, not drop back to chat.
-    if current in ("gamedev", "build-v89", "chrome-ext-v1"):
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1"):
         for verb in _ITERATION_VERBS:
             if verb in msg:
                 return current, f"iteration-hold: matched {verb.strip()!r}"
@@ -136,7 +157,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
     # 6. No specialization signal. If we were already specialized and the
     #    user's turn is short/conversational, still hold (don't flip-flop
     #    on marginal signals like "looks good, thanks").
-    if current in ("gamedev", "build-v89", "chrome-ext-v1") and len(msg.split()) < 20:
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1") and len(msg.split()) < 20:
         return current, "short conversational turn — hold specialized adapter"
 
     # 6. Default: chat.
