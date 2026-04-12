@@ -199,13 +199,18 @@ class Observer:
         errors = [o for o in recent if o.get("error")]
         successes = [o for o in recent if not o.get("error")]
 
-        # Build analysis prompt
+        # Build analysis prompt. QA-3 Fire 41 noted observations.jsonl captures
+        # tool-call inputs verbatim, including refused ones — so attacker content
+        # planted via chat-template injection ends up here. Escape role tokens
+        # before feeding to the 2B extractor: prevents observation content from
+        # being interpreted as role boundaries in the extractor's tokenizer.
+        from .chat_template_safety import escape_role_tokens as _esc
         obs_text = ""
         for o in recent[-30:]:
             status = "FAILED" if o.get("error") else "OK"
-            obs_text += f"[{status}] {o['tool']}: {o.get('input', '')[:200]}\n"
+            obs_text += f"[{status}] {o['tool']}: {_esc(o.get('input', ''))[:200]}\n"
             if o.get("error"):
-                obs_text += f"  Error: {o.get('output', '')[:200]}\n"
+                obs_text += f"  Error: {_esc(o.get('output', ''))[:200]}\n"
 
         prompt = f"""Analyze these tool call observations and extract 1-3 learned patterns.
 
