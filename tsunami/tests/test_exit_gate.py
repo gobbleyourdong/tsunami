@@ -484,6 +484,102 @@ def test_all_task_complete_returns_call_exit_gate():
     )
 
 
+def test_stub_comment_phrases_block_fire85_drum_machine():
+    """QA-1 Fire 85 exact repro: drum machine with console.log playback and
+    a `// Mock audio context ... for Phase 1 compilation` comment. 846f5e8's
+    comment-strip means Phase-1 doesn't fire; _STUB_COMMENT_PHRASES needs to
+    catch 'mock audio' in raw content so this fake-functionality doesn't ship."""
+    app = """import { useState } from 'react'
+
+// Mock audio context and sample loading for Phase 1 compilation.
+// In a real scenario, we'd load 808 samples here.
+const playSound = (type: 'kick' | 'snare' | 'hihat' | 'clap') => {
+  console.log(`Playing ${type} sound...`);
+  // Placeholder for Tsunami Engine audio call
+};
+
+export default function App() {
+  const [hit, setHit] = useState<string | null>(null)
+  const pads = ['kick', 'snare', 'hihat', 'clap'] as const
+  return (
+    <div>
+      <h1>Drum Machine</h1>
+      <div className="flex gap-4">
+        {pads.map(p => (
+          <button key={p} onClick={() => { playSound(p); setHit(p) }}>
+            {p}
+          </button>
+        ))}
+      </div>
+      {hit && <p>Last hit: {hit}</p>}
+    </div>
+  )
+}
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "drum-machine-game", app)
+        fs_state.set_session_task_prompt("build a drum machine game with kick snare hihat clap pads")
+        agent = _make_agent(tmp)
+        suffix = agent._exit_gate_suffix()
+        assert "REFUSED" in suffix
+        # Should mention one of the stub-comment phrases
+        assert any(kw in suffix.lower() for kw in ("mock audio", "would load", "placeholder for", "in a real scenario"))
+
+
+def test_stub_comment_phrase_would_load():
+    app = """import { useState } from 'react'
+
+function loadSamples() {
+  // In a real scenario, we would load actual audio files from /samples.
+  return []
+}
+
+export default function App() {
+  const [c, setC] = useState(0)
+  return (
+    <div>
+      <h1>Counter</h1>
+      <p>Load count: {c}</p>
+      <button onClick={() => { loadSamples(); setC(c + 1) }}>Load</button>
+    </div>
+  )
+}
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "counter-load", app)
+        fs_state.set_session_task_prompt("counter load simulator")
+        agent = _make_agent(tmp)
+        suffix = agent._exit_gate_suffix()
+        assert "REFUSED" in suffix
+
+
+def test_stub_comment_phrases_do_not_false_positive_on_real_code():
+    """No stub-comment phrases in comments or strings — real working code should pass."""
+    app = """import { useState } from 'react'
+
+// Compute the running average of the last N samples
+const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(xs.length, 1)
+
+export default function App() {
+  const [nums, setNums] = useState<number[]>([])
+  return (
+    <div>
+      <h1>Rolling Average</h1>
+      <p>Mean: {avg(nums).toFixed(2)}</p>
+      <button onClick={() => setNums([...nums, Math.random() * 100])}>Add</button>
+      <button onClick={() => setNums([])}>Clear</button>
+    </div>
+  )
+}
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "rolling-avg", app)
+        fs_state.set_session_task_prompt("rolling average calculator with add clear")
+        agent = _make_agent(tmp)
+        suffix = agent._exit_gate_suffix()
+        assert suffix == "", f"real code should pass, got: {suffix!r}"
+
+
 def test_marker_phrase_still_blocks_in_rendered_text():
     """User-visible `<p>Phase 1 complete!</p>` SHOULD still REFUSE —
     that's authorial intent in prose, not a comment."""

@@ -35,6 +35,33 @@ _PLACEHOLDER_PHRASES = (
     "coming soon",
 )
 
+# QA-1 Fire 85 — "stub-comment" phrases that are strong enough stubbing
+# signals that they block EVEN IF they appear inside a code comment. The
+# default marker-phrase scan strips comments first (846f5e8 — protects iter-23
+# "// Phase 1: basic layout" false-positive), but these phrases are almost
+# never present in comments of real working code. If the agent writes
+# "Mock audio context and sample loading for Phase 1 compilation" in a
+# comment, the function below it is a stub — ship-blocking.
+# Chosen narrowly to avoid false-positives on legitimate mocking in tests
+# or pattern descriptions. "mock audio/video" is specific; "mock " alone
+# would false-match test files.
+_STUB_COMMENT_PHRASES = (
+    "mock audio",
+    "mock video",
+    "would load",            # "In a real scenario, we'd load 808 samples here" (Fire 85)
+    "would call",
+    "in a real scenario",
+    "stub implementation",
+    "for now we'll",
+    "for now, we",
+    "simplified for",        # "simplified for compilation"
+    "simulate the ",         # "simulate the structure" (Fire 81 self-incrimination)
+)
+# NB: "placeholder for " was considered but dropped — too broad. It matches
+# legit JSX layout annotations like `{/* Placeholder for Stats */}` in
+# working apps (iter-23 false-positive pattern). The other phrases are
+# specific enough to stub-context that the false-positive rate is low.
+
 # Any `Phase N` marker (with N ≥ 1, word-boundary) is a deferred-work signal.
 # Regex is the right shape here — substring "phase 1" would false-match inside
 # "Phase 10" etc. (QA-1 Fire 41 follow-up).
@@ -119,6 +146,20 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
             return (
                 f"REFUSED: {target.name}/src/App.tsx still contains placeholder text "
                 f"({phrase!r}). Replace it with the real implementation before delivering."
+            )
+    # QA-1 Fire 85 stub-comment scan — runs against RAW content (not comment-
+    # stripped) because these phrases are signature stubs even when they appear
+    # in code comments like `// Mock audio context and sample loading`. The
+    # comment-stripping for _PLACEHOLDER_PHRASES was specifically to protect
+    # iter-23's "// Phase 1: Basic layout" false-positive (legit code), but
+    # these phrases have far lower false-positive rate.
+    for phrase in _STUB_COMMENT_PHRASES:
+        if phrase in lower:
+            return (
+                f"REFUSED: {target.name}/src/App.tsx contains stub-comment text "
+                f"({phrase!r}). The function it annotates is almost certainly a "
+                f"stub that prints or no-ops instead of implementing the real "
+                f"behavior. Write the actual implementation."
             )
     # `Phase N` marker (any N) in rendered text is a deferred-work signal.
     # Single regex covers Phase 1..N — QA-1 Fire 41 caught that the old
