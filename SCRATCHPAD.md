@@ -6799,3 +6799,53 @@ python training/train_dpo.py \
 3. **Builder SFT v93** — drag-and-drop (HTML5 DnD API or @dnd-kit); sortable lists
 4. **form-app-v1 adapter** — FileDropzone + parseFile + DataTable + exportCsv (multi-step forms + CSV/XLSX processing)
 5. **dashboard-v1 adapter** — Layout + StatCard + ChartCard + DataTable (admin/management apps)
+
+---
+
+## Fire 31 — Gamedev SFT v9 (2026-04-12)
+
+### What was built
+4 new SFT examples targeting advanced gamedev patterns not covered in v1-v8.
+
+### Examples
+1. **v9_ecs_zombie** — ECS (Entity-Component-System) zombie survival:
+   - `entity.ts`: EntityManager with `create/destroy/add/get/has/query()`
+   - `components.ts`: typed component interfaces + `C` constant map
+   - `systems.ts`: `moveSystem/aiSystem/collisionSystem/spawnSystem/renderSystem` (pure functions)
+   - `main.ts`: game loop wires systems together; wave spawning
+   - Pattern: always plan ECS as 4 files, systems are pure functions over EntityManager
+
+2. **v9_save_platformer** — localStorage save/load:
+   - `saveState.ts`: `saveGame/loadGame/hasSave/deleteSave` with typed `SaveData` interface
+   - Key: dedicated save module, not inline localStorage calls in game loop
+   - Press P to save; state persists across page reloads
+
+3. **v9_proc_dungeon** — Procedural BSP dungeon:
+   - `dungeon.ts`: BSP split → leaf rooms → carveRoom + carveCorridor (L-shaped)
+   - `main.ts`: fog of war (torch radius), camera centering, minimap bottom-right
+   - Press R for a new dungeon
+
+4. **v9_menu_breakout** — Full game flow in a single main.ts:
+   - `type Scene = 'menu' | 'game' | 'pause' | 'gameover'`
+   - Scene dispatch in the main `loop()` function
+   - localStorage high score persistence
+   - Polished: gradient paddle, glowing ball, rounded bricks with highlight
+
+### Combined data
+`gamedev_combined_v7full.jsonl` = v8 (4 examples) + v9 (4 examples) = **8 total**
+
+### Train command
+```bash
+python training/train_unsloth.py \
+  --model google/gemma-4-e4b-it \
+  --data workspace/training_data/gamedev_combined_v7full.jsonl \
+  --output models/gemma-4-e4b-tsunami-gamedev-v5 \
+  --epochs 3 --lora-r 16 --lr 2e-4
+```
+Use existing DPO combined_v2 (48 pairs) after SFT.
+
+### What's next (Fire 32 candidates)
+1. **Builder SFT v93** — drag-and-drop (HTML5 DnD API + sortable kanban); infinite scroll (IntersectionObserver)
+2. **ai-app SFT v2** — RAG pattern: upload text → chunk → embed → semantic search → cite sources
+3. **Gamedev DPO v6** — cover ECS faults (monolithic main.ts instead of ECS, missing systems.ts) + save faults (inline localStorage vs saveState.ts module)
+4. **form-app SFT v2** — multi-step wizard form (3-step registration with validation per step)
