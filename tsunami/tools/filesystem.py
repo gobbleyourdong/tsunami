@@ -341,6 +341,20 @@ class FileWrite(BaseTool):
             err = _is_safe_write(p, self.config.workspace_dir)
             if err:
                 return ToolResult(err, is_error=True)
+            # QA-3 Fire 118: decode unicode escapes (`\uXXXX → char`) BEFORE
+            # content gates fire. The decoder was previously a post-gate
+            # "helpful" normalization for models double-escaping characters
+            # like `÷` (U+00F7), but its placement let attackers emit
+            # `"\u0068ttps://..."` to evade the `https://` literal match in
+            # check_outbound_exfil — the gate approved, then the decoder
+            # rewrote `\u0068` to `h` on disk. Moving the decode here makes
+            # gates see what ACTUALLY lands on disk.
+            import re as _u_re
+            content = _u_re.sub(
+                r'\\u([0-9a-fA-F]{4})',
+                lambda m: chr(int(m.group(1), 16)),
+                content,
+            )
             # QA-3 Fire 105 / Fire 109: config-file plant with attacker URL.
             # Multiple file shapes bake external URLs into build- or runtime
             # behavior where an App.tsx content scan would miss them:
@@ -398,14 +412,8 @@ class FileWrite(BaseTool):
                     hook_list = ", ".join(sorted(hooks_used))
                     content = f'import {{ {hook_list} }} from "react"\n' + content
 
-            # Fix unicode escapes (\\u00f7 → ÷) — models double-escape these
-            if "\\u00" in content or "\\u2" in content:
-                import re
-                content = re.sub(
-                    r'\\u([0-9a-fA-F]{4})',
-                    lambda m: chr(int(m.group(1), 16)),
-                    content,
-                )
+            # NOTE: unicode-escape decode moved above the gates (Fire 118)
+            # so on-disk content matches what gates saw.
             p.write_text(content)
             lines = content.count("\n") + 1
             return ToolResult(f"Wrote {lines} lines to {p}")

