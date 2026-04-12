@@ -154,6 +154,10 @@ class ProjectInit(BaseTool):
             project_dir = ws / "deliverables" / name
             log.info(f"Project name collision — using '{name}' instead")
 
+        # Register the dir so filesystem tools allow writes here this session.
+        from .filesystem import register_session_project
+        register_session_project(name)
+
         try:
             scaffold_name = _pick_scaffold(name, dependencies, prompt)
 

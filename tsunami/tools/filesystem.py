@@ -14,11 +14,21 @@ from .base import BaseTool, ToolResult
 # Used by _resolve_path to deterministically resolve bare paths like "src/App.tsx".
 _active_project: str | None = None
 
+# Deliverable directory NAMES (not full paths) that ProjectInit created in this
+# Python process. Used by _is_safe_write to refuse silent overwrites of prior
+# sessions' deliverables — see QA-3's REAL-TIME DESTRUCTION CONFIRMED bug.
+_session_created_projects: set[str] = set()
+
 
 def set_active_project(project_path: str | None):
     """Called by agent.py when phase machine detects the active project."""
     global _active_project
     _active_project = project_path
+
+
+def register_session_project(name: str):
+    """Called by ProjectInit when it creates a fresh deliverable dir."""
+    _session_created_projects.add(name)
 
 
 def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
@@ -59,6 +69,27 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
     if resolved.startswith(str(Path(workspace_dir) / "deliverables")):
         if filename in scaffold_files and p.exists():
             return f"BLOCKED: {p.name} is scaffold infrastructure — don't overwrite it. Write your code in App.tsx and src/components/."
+
+    # Refuse silent overwrites of prior-session deliverables. Triggered by QA-3's
+    # REAL-TIME DESTRUCTION case: agent skipped project_init, picked an existing
+    # similar-name deliverable, and clobbered its App.tsx with the new task's code.
+    deliv_root = Path(workspace_dir) / "deliverables"
+    try:
+        rel = p.resolve().relative_to(deliv_root.resolve())
+    except (ValueError, OSError):
+        rel = None
+    if rel is not None and rel.parts:
+        project_name = rel.parts[0]
+        if (
+            project_name not in _session_created_projects
+            and p.exists()
+            and p.stat().st_size > 200
+        ):
+            return (
+                f"BLOCKED: {project_name} was not created in this session — refusing to "
+                f"overwrite {p.name} ({p.stat().st_size} bytes). Call project_init with a "
+                f"new name to scaffold a fresh deliverable for this task."
+            )
 
     return None
 
