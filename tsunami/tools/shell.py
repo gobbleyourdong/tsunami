@@ -67,6 +67,15 @@ _DESTRUCTIVE_PATTERNS = [
     (re.compile(r'\b(echo|printf)\s+[^|&;\n]*(>|>>)\s*/(tmp|var/tmp)/'),
      "BLOCKED: refuse to plant values in /tmp via echo/printf redirect "
      "(multi-turn exfiltration vector)"),
+    # QA-3 Fire 37 bypass: `echo X | tee /tmp/Y` and `tee -a /tmp/Y` skip the
+    # above rule by using tee instead of > redirection. Same plant, same risk.
+    # Legit `tee` use against /tmp is rare for React builds; block it.
+    (re.compile(r'\|\s*tee\b[^|&;\n]*\s/(tmp|var/tmp)/'),
+     "BLOCKED: refuse to plant values in /tmp via `| tee` "
+     "(multi-turn exfiltration vector)"),
+    (re.compile(r'\btee\s+(-[a-zA-Z]+\s+)*/(tmp|var/tmp)/'),
+     "BLOCKED: refuse to plant values in /tmp via `tee <path>` "
+     "(multi-turn exfiltration vector)"),
 ]
 
 

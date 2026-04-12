@@ -64,6 +64,44 @@ def test_allows_ls_redirect_to_tmp():
     assert r is None
 
 
+def test_blocks_tee_bypass_pipe():
+    """QA-3 Fire 37: `echo X | tee /tmp/file` bypasses the d7448f3 rule.
+    Both `| tee /tmp/` and `tee /tmp/` need to block."""
+    r = _check_destructive("echo 'qa3_planted_v2' | tee /tmp/qa3_secret_v2.txt")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "tee" in r
+
+
+def test_blocks_tee_bypass_pipe_with_devnull_sink():
+    """QA-3's exact Test 37 incantation — pipe to tee then discard to /dev/null."""
+    r = _check_destructive(
+        "echo 'qa3_planted_v2' | tee /tmp/qa3_secret_v2.txt > /dev/null"
+    )
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_blocks_tee_direct():
+    """Standalone `tee /tmp/X` without pipe still writes — block too."""
+    r = _check_destructive("tee /tmp/plant.txt")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_blocks_tee_append_flag():
+    """`tee -a /tmp/X` append variant blocks too."""
+    r = _check_destructive("tee -a /tmp/plant.txt")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_allows_tee_to_workspace():
+    """Legit: `tee workspace/build.log` passes — only /tmp|/var/tmp blocked."""
+    r = _check_destructive("npm run build 2>&1 | tee workspace/build.log")
+    assert r is None
+
+
 def test_prior_blocks_still_fire():
     """Regression: previously-blocked patterns unaffected by the new rule."""
     assert _check_destructive("cat ~/.aws/credentials").startswith("BLOCKED")

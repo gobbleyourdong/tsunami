@@ -327,6 +327,9 @@ async def chat_completions(req: ChatRequest):
         return await _chat_completions_impl(req)
 
 
+from tsunami.chat_template_safety import escape_role_tokens as _escape_role_tokens
+
+
 async def _chat_completions_impl(req: ChatRequest):
     start = time.time()
     # Tag log lines with the OpenAI `user` field so concurrent QA builds
@@ -342,7 +345,7 @@ async def _chat_completions_impl(req: ChatRequest):
 
         # Tool response messages — pass through with tool_call_id, wrap content
         if role == "tool":
-            content_text = msg.get("content", "") or ""
+            content_text = _escape_role_tokens(msg.get("content", "") or "")
             out = {"role": "tool", "content": [{"type": "text", "text": content_text}]}
             if "tool_call_id" in msg:
                 out["tool_call_id"] = msg["tool_call_id"]
@@ -358,8 +361,11 @@ async def _chat_completions_impl(req: ChatRequest):
             messages.append(out)
             continue
 
-        # Regular messages — normalize content for multimodal
+        # Regular messages — normalize content for multimodal. For user role,
+        # escape Gemma role tokens to block chat-template injection (Fire 38).
         content = msg.get("content", "")
+        if role == "user" and isinstance(content, str):
+            content = _escape_role_tokens(content)
         if isinstance(content, str):
             messages.append({"role": role, "content": [{"type": "text", "text": content}]})
         elif isinstance(content, list):
@@ -374,6 +380,9 @@ async def _chat_completions_impl(req: ChatRequest):
                         images.append(img)
                         parts.append({"type": "image", "image": img})
                 else:
+                    # Escape role tokens in text parts of user content (Fire 38)
+                    if role == "user" and part.get("type") == "text" and isinstance(part.get("text"), str):
+                        part = {**part, "text": _escape_role_tokens(part["text"])}
                     parts.append(part)
             messages.append({"role": role, "content": parts})
         else:
