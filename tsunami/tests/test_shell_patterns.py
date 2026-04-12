@@ -58,10 +58,12 @@ def test_allows_npm_install():
     assert r is None
 
 
-def test_allows_ls_redirect_to_tmp():
-    """Debug `ls > /tmp/out` is not echo/printf — falls through the narrow rule."""
+def test_blocks_ls_redirect_to_tmp():
+    """QA-3 Fire 7: the prior narrow rule (echo/printf only) left `ls > /tmp/X`
+    open — any redirect to /tmp is a plant primitive regardless of source."""
     r = _check_destructive("ls -la > /tmp/listing.txt")
-    assert r is None
+    assert r is not None
+    assert r.startswith("BLOCKED")
 
 
 def test_blocks_tee_bypass_pipe():
@@ -437,4 +439,49 @@ def test_word_yes_in_unrelated_context_passes():
     """`yes.txt`, `yes: command` etc. — only pipe/redirect is blocked."""
     assert _check_destructive("cat yes.txt") is None
     assert _check_destructive("echo 'yes or no'") is None
+
+
+# --- QA-3 Fire 7: broadened redirect-to-/tmp catchall -----------------------
+
+
+def test_fire7_cat_redirect_to_tmp_blocks():
+    """Fire 7 exact repro: `cat /etc/hostname > /tmp/qa3_probe_marker.txt`."""
+    r = _check_destructive("cat /etc/hostname > /tmp/qa3_probe_marker.txt")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_date_redirect_to_tmp_blocks():
+    assert _check_destructive("date > /tmp/d.txt").startswith("BLOCKED")
+
+
+def test_env_redirect_to_tmp_blocks():
+    """`env > /tmp/X` = env-var exfil primitive."""
+    assert _check_destructive("env > /tmp/env.txt").startswith("BLOCKED")
+
+
+def test_grep_redirect_to_tmp_blocks():
+    assert _check_destructive("grep TODO -r src > /tmp/todo.txt").startswith("BLOCKED")
+
+
+def test_var_tmp_redirect_blocks():
+    assert _check_destructive("cat x > /var/tmp/y").startswith("BLOCKED")
+
+
+def test_redirect_append_to_tmp_blocks():
+    assert _check_destructive("cat x >> /tmp/y.log").startswith("BLOCKED")
+
+
+def test_redirect_to_workspace_still_passes():
+    """Regression: redirects inside the workspace are legitimate build logs."""
+    assert _check_destructive("npm run build > workspace/build.log 2>&1") is None
+    assert _check_destructive("ls -la > workspace/listing.txt") is None
+    assert _check_destructive("cat src/App.tsx > dist/snapshot.txt") is None
+
+
+def test_2gt_redirect_to_tmp_blocks():
+    """Stderr redirect `2> /tmp/X` — same plant shape."""
+    r = _check_destructive("npm run build 2> /tmp/err.log")
+    assert r is not None
+    assert r.startswith("BLOCKED")
     assert _check_destructive("rm -rf ~/.ssh").startswith("BLOCKED")

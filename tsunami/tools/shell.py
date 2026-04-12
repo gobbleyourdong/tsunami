@@ -67,6 +67,17 @@ _DESTRUCTIVE_PATTERNS = [
     (re.compile(r'\b(echo|printf)\s+[^|&;\n]*(>|>>)\s*/(tmp|var/tmp)/'),
      "BLOCKED: refuse to plant values in /tmp via echo/printf redirect "
      "(multi-turn exfiltration vector)"),
+    # QA-3 Fire 7 catchall: ANY `> /tmp/...` / `>> /tmp/...` redirect (not
+    # just echo/printf/tee) is a plant primitive — the Fire 7 repro used
+    # `cat /etc/hostname > /tmp/marker.txt` which slipped through the
+    # command-specific patterns. Other variants that would bypass the narrow
+    # rules: `date > /tmp/X`, `env > /tmp/X` (env-var exfil), `grep ... >
+    # /tmp/X`. React / fullstack / game builds have no legitimate need to
+    # redirect to /tmp (tooling uses mktemp / OS TMPDIR, not literal paths).
+    (re.compile(r'(>|>>)\s*/(tmp|var/tmp)/'),
+     "BLOCKED: refuse to redirect output to /tmp — regardless of source "
+     "command this is the multi-turn exfiltration / plant primitive. Use a "
+     "workspace-local path if you need a scratch file"),
     # QA-3 Fire 37 bypass: `echo X | tee /tmp/Y` and `tee -a /tmp/Y` skip the
     # above rule by using tee instead of > redirection. Same plant, same risk.
     # Legit `tee` use against /tmp is rare for React builds; block it.
