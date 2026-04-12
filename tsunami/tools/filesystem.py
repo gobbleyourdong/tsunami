@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .base import BaseTool, ToolResult
+from ..outbound_exfil import check_outbound_exfil
 
 # Active project path from phase machine — set by agent.py after phase transitions.
 # Used by _resolve_path to deterministically resolve bare paths like "src/App.tsx".
@@ -377,6 +378,9 @@ class FileWrite(BaseTool):
                         f"component (user-visible) instead of a config file.",
                         is_error=True,
                     )
+            exfil_err = check_outbound_exfil(content, p.name)
+            if exfil_err:
+                return ToolResult(exfil_err, is_error=True)
             p.parent.mkdir(parents=True, exist_ok=True)
             # Fix double-escaped sequences from models
             if "\n" not in content and "\\n" in content:
@@ -442,6 +446,9 @@ class FileEdit(BaseTool):
                 if stripped_content.count(stripped_old) == 1:
                     # Found with whitespace normalization — do the replace on stripped
                     new_content = stripped_content.replace(stripped_old, new_text, 1)
+                    exfil_err = check_outbound_exfil(new_content, p.name)
+                    if exfil_err:
+                        return ToolResult(exfil_err, is_error=True)
                     p.write_text(new_content)
                     return ToolResult(f"Edited {p}: replaced 1 occurrence (whitespace-normalized match)")
 
@@ -454,6 +461,9 @@ class FileEdit(BaseTool):
                     idx = norm_content.index(norm_old)
                     actual = content[idx:idx+len(old_text)]
                     new_content = content.replace(actual, new_text, 1)
+                    exfil_err = check_outbound_exfil(new_content, p.name)
+                    if exfil_err:
+                        return ToolResult(exfil_err, is_error=True)
                     p.write_text(new_content)
                     return ToolResult(f"Edited {p}: replaced 1 occurrence (quote-normalized match)")
 
@@ -494,7 +504,11 @@ class FileEdit(BaseTool):
                     new_lines = new_text.split("\n")
                     reindented = [indent + nl if nl else nl for nl in new_lines]
                     replaced = content_lines[:start] + reindented + content_lines[start+n:]
-                    p.write_text("\n".join(replaced))
+                    new_content = "\n".join(replaced)
+                    exfil_err = check_outbound_exfil(new_content, p.name)
+                    if exfil_err:
+                        return ToolResult(exfil_err, is_error=True)
+                    p.write_text(new_content)
                     return ToolResult(
                         f"Edited {p}: replaced 1 occurrence (indent-normalized match, "
                         f"{len(indent)} leading chars restored)"
@@ -516,6 +530,9 @@ class FileEdit(BaseTool):
                 )
 
             new_content = content.replace(old_text, new_text, 1)
+            exfil_err = check_outbound_exfil(new_content, p.name)
+            if exfil_err:
+                return ToolResult(exfil_err, is_error=True)
             p.write_text(new_content)
             return ToolResult(f"Edited {p}: replaced 1 occurrence")
         except Exception as e:
@@ -542,6 +559,10 @@ class FileAppend(BaseTool):
             err = _is_safe_write(p, self.config.workspace_dir)
             if err:
                 return ToolResult(err, is_error=True)
+            existing = p.read_text() if p.exists() else ""
+            exfil_err = check_outbound_exfil(existing + content, p.name)
+            if exfil_err:
+                return ToolResult(exfil_err, is_error=True)
             p.parent.mkdir(parents=True, exist_ok=True)
             with open(p, "a") as f:
                 f.write(content)
