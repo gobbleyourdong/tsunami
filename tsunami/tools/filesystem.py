@@ -19,6 +19,13 @@ _active_project: str | None = None
 # sessions' deliverables — see QA-3's REAL-TIME DESTRUCTION CONFIRMED bug.
 _session_created_projects: set[str] = set()
 
+# Name of the most recent deliverable this session (last ProjectInit). Used by
+# _resolve_path as a high-priority fallback when the agent writes to a bare
+# `src/...` path — beats the mtime heuristic which can pick a stale project.
+# See QA-3 Test 18b MEDIUM: `file_write path="src/App.tsx"` dropped because
+# active_project was None and mtime resolved to the wrong deliverable.
+_session_last_project: str | None = None
+
 # Original task prompt for this session, captured by agent.run on entry.
 # Used by message_result's gate to verify deliverable content is on-topic
 # (catches QA-2's cross-task context leakage where a prior task's content
@@ -34,7 +41,9 @@ def set_active_project(project_path: str | None):
 
 def register_session_project(name: str):
     """Called by ProjectInit when it creates a fresh deliverable dir."""
+    global _session_last_project
     _session_created_projects.add(name)
+    _session_last_project = name
 
 
 def _extract_post_pivot(text: str) -> str:
@@ -178,6 +187,15 @@ def _resolve_path(path: str, workspace_dir: str, active_project: str | None = No
         if active_project:
             project_dir = Path(workspace_dir) / active_project.replace("workspace/", "", 1) \
                 if active_project.startswith("workspace/") else Path(workspace_dir) / active_project
+            if project_dir.exists():
+                return (project_dir / path_clean).resolve()
+
+        # Second: the most recent deliverable ProjectInit created THIS session.
+        # More reliable than mtime — mtime can be bumped by concurrent QA builds
+        # touching other deliverables (QA-3 Test 18b MEDIUM: relative-path write
+        # landed in the wrong deliverable because mtime resolved elsewhere).
+        if _session_last_project:
+            project_dir = Path(workspace_dir) / "deliverables" / _session_last_project
             if project_dir.exists():
                 return (project_dir / path_clean).resolve()
 
