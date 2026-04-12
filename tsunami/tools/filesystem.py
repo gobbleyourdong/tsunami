@@ -37,10 +37,33 @@ def register_session_project(name: str):
     _session_created_projects.add(name)
 
 
+def _extract_post_pivot(text: str) -> str:
+    """If the prompt contains a revision marker ('scratch that', 'scrap that',
+    'actually no'), return only the text AFTER the last marker — that's the
+    user's real intent. Otherwise return the original prompt unchanged.
+    Used so the delivery gate compares against the post-pivot spec, not the
+    pre-pivot spec the user already retracted (QA-3 Test 10 scratch-that HIGH).
+    """
+    import re as _re
+    lowered = text.lower()
+    # Find the latest match end among the supported markers.
+    best_end = -1
+    for marker in (r'\bscratch that\b', r'\bscrap that\b', r'\bactually\s*,?\s*no\b'):
+        for m in _re.finditer(marker, lowered):
+            if m.end() > best_end:
+                best_end = m.end()
+    if best_end == -1:
+        return text
+    # Skip trailing punctuation / connector after the marker so we land on real content.
+    tail = text[best_end:]
+    tail = _re.sub(r'^[\s,.;:—–\-]+(?:just\s+|instead[\s,.;:—–\-]*)?', '', tail)
+    return tail if len(tail) >= 15 else text  # fall back if post-pivot is too short
+
+
 def set_session_task_prompt(text: str):
     """Called by agent.run on entry to record the task prompt for delivery checks."""
     global _session_task_prompt
-    _session_task_prompt = text
+    _session_task_prompt = _extract_post_pivot(text)
 
 
 def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
