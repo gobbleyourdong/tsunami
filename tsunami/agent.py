@@ -163,6 +163,16 @@ class Agent:
         """
         msg = user_message.lower()
 
+        # QA-3 Fire 102: explicit `save to workspace/deliverables/<name>` is a
+        # FRESH-BUILD directive — user is naming the target dir. Don't let the
+        # keyword-overlap heuristic below override that by matching some other
+        # existing project. Skip detection entirely when the prompt names a
+        # specific path; pre_scaffold (or the model's own project_init) will
+        # create/use that dir.
+        import re as _re
+        if _re.search(r'deliverables/[a-z0-9_-]+', msg):
+            return ""
+
         # Explicit "start fresh" — skip iteration detection
         fresh_keywords = ["start fresh", "from scratch", "new project", "brand new", "start over"]
         if any(k in msg for k in fresh_keywords):
