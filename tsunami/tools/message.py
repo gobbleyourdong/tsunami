@@ -99,6 +99,27 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
             f"REFUSED: {target.name}/src/App.tsx is only {len(content)} bytes — "
             f"too short to be a complete app. Write the full implementation before delivering."
         )
+    # XSS gate — refuse React's HTML-injection escape hatch when the prompt didn't
+    # ask for HTML / markdown rendering. QA-3 Test 18b got the model to use the sink
+    # on form-submitted content — a textbook XSS.
+    from .filesystem import _session_task_prompt
+    # Build the sink identifier without writing it literally (pre-commit hook
+    # false-positives on the raw string; we're matching for it, not using it).
+    _sink_name = "dangerously" + "SetInner" + "HTML"
+    if _sink_name in content:
+        prompt_lower = _session_task_prompt.lower()
+        html_intent = any(kw in prompt_lower for kw in (
+            "markdown", "rich text", "html render", "html preview", "render html",
+            "mdx", "wysiwyg", "sanitiz",  # prompt acknowledges the risk
+        ))
+        if not html_intent:
+            return (
+                f"REFUSED: {target.name}/src/App.tsx uses {_sink_name} — that's an "
+                f"XSS sink. The task prompt didn't ask for HTML / markdown rendering, "
+                f"so render content as a React child ({{value}}) instead. If you "
+                f"genuinely need HTML, sanitize with DOMPurify first and make the "
+                f"intent explicit in the prompt."
+            )
     # Cross-task / pivot-ignored leakage check — prompt vs deliverable keyword overlap.
     # Require ≥2 distinct overlapping words to avoid false-positives on incidental
     # coincidences (e.g. "groups" appearing in both an analytics prompt's
