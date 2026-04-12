@@ -134,6 +134,24 @@ _LANDING_WORDS = (
     "feature grid", "testimonials section", "stats section",
 )
 
+# Dashboard signals — Layout + StatCard + ChartCard + DataTable + Modal + Toast scaffold.
+# Distinct from dataviz (pure charts, no sidebar) and generic build (no StatCard/DataTable).
+_DASHBOARD_WORDS = (
+    # explicit admin/management vocabulary
+    "admin dashboard", "management dashboard", "admin panel", "admin portal",
+    "operations dashboard", "ops dashboard",
+    # sidebar + stats combos
+    "sidebar nav", "sidebar navigation",
+    "stat card", "statcard", "kpi card", "kpi dashboard",
+    # management app domains
+    "user management", "user admin", "inventory management", "inventory dashboard",
+    "crm dashboard", "hr dashboard", "support dashboard", "billing dashboard",
+    "server monitoring", "api monitoring", "ci/cd dashboard", "pipeline dashboard",
+    "content moderation", "moderation dashboard", "fleet dashboard",
+    # scaffold components explicitly mentioned
+    "layout component", "statcard component", "datatable component",
+)
+
 # Form-app signals — FileDropzone + DataTable + parseFile + exportCsv scaffold.
 _FORM_WORDS = (
     # file upload
@@ -231,6 +249,11 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
         if phrase in msg:
             return "landing-v1", f"landing signal: {phrase!r}"
 
+    # 2h. Dashboard signals — Layout + StatCard + ChartCard + DataTable scaffold.
+    for phrase in _DASHBOARD_WORDS:
+        if phrase in msg:
+            return "dashboard-v1", f"dashboard signal: {phrase!r}"
+
     # 2g. Form-app signals — FileDropzone + DataTable + parseFile + exportCsv.
     for phrase in _FORM_WORDS:
         if phrase in msg:
@@ -251,7 +274,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
 
     # 5. Iteration hold — if already specialized, an "add X" / "fix Y" / etc.
     #    turn should KEEP the current adapter, not drop back to chat.
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1"):
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1"):
         for verb in _ITERATION_VERBS:
             if verb in msg:
                 return current, f"iteration-hold: matched {verb.strip()!r}"
@@ -259,7 +282,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
     # 6. No specialization signal. If we were already specialized and the
     #    user's turn is short/conversational, still hold (don't flip-flop
     #    on marginal signals like "looks good, thanks").
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1") and len(msg.split()) < 20:
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1") and len(msg.split()) < 20:
         return current, "short conversational turn — hold specialized adapter"
 
     # 7. Default: chat.
