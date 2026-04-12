@@ -45,6 +45,17 @@ _GAME_WORDS = (
     "wasd ", "keyboard controls", "gamepad",
 )
 
+# Electron / desktop signals — main.ts + preload.ts + useIPC hook pipeline.
+_ELECTRON_WORDS = (
+    "electron app", "electron desktop",
+    "desktop app", "desktop application", "native app", "native desktop",
+    "system tray", "tray app", "menubar app", "menu bar app",
+    "native file dialog", "open file dialog", "native dialog",
+    "desktop markdown editor", "desktop notes", "desktop text editor",
+    "desktop file browser", "desktop image viewer", "desktop file viewer",
+    "ipcrenderer", "ipcmain", "contextbridge",
+)
+
 # Chrome extension signals — distinct pipeline (3-file: popup + bg + content).
 _CHROME_EXT_WORDS = (
     "chrome extension",
@@ -173,27 +184,32 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
         if phrase in msg:
             return "none", f"revert signal: {phrase!r}"
 
-    # 2. Chrome extension signals — distinct 3-file scaffold, checked before game/build.
+    # 2. Electron desktop signals — main.ts + preload.ts + useIPC; checked first (most specific).
+    for phrase in _ELECTRON_WORDS:
+        if phrase in msg:
+            return "electron-v1", f"electron signal: {phrase!r}"
+
+    # 2a. Chrome extension signals — distinct 3-file scaffold, checked before game/build.
     for phrase in _CHROME_EXT_WORDS:
         if phrase in msg:
             return "chrome-ext-v1", f"chrome-ext signal: {phrase!r}"
 
-    # 2a. Realtime signals — WebSocket + rooms; strongest real-time signal.
+    # 2c. Realtime signals — WebSocket + rooms; strongest real-time signal.
     for phrase in _REALTIME_WORDS:
         if phrase in msg:
             return "realtime-v1", f"realtime signal: {phrase!r}"
 
-    # 2b. Fullstack signals — Express + SQLite + useApi two-file pipeline.
+    # 2d. Fullstack signals — Express + SQLite + useApi two-file pipeline.
     for phrase in _FULLSTACK_WORDS:
         if phrase in msg:
             return "fullstack-v1", f"fullstack signal: {phrase!r}"
 
-    # 2c. Data-viz signals — Recharts + ChartCard scaffold, checked before generic build.
+    # 2e. Data-viz signals — Recharts + ChartCard scaffold, checked before generic build.
     for phrase in _DATAVIZ_WORDS:
         if phrase in msg:
             return "dataviz-v1", f"dataviz signal: {phrase!r}"
 
-    # 2d. Form-app signals — FileDropzone + DataTable + parseFile + exportCsv.
+    # 2f. Form-app signals — FileDropzone + DataTable + parseFile + exportCsv.
     for phrase in _FORM_WORDS:
         if phrase in msg:
             return "form-app-v1", f"form-app signal: {phrase!r}"
@@ -213,7 +229,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
 
     # 5. Iteration hold — if already specialized, an "add X" / "fix Y" / etc.
     #    turn should KEEP the current adapter, not drop back to chat.
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1"):
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1"):
         for verb in _ITERATION_VERBS:
             if verb in msg:
                 return current, f"iteration-hold: matched {verb.strip()!r}"
@@ -221,8 +237,8 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
     # 6. No specialization signal. If we were already specialized and the
     #    user's turn is short/conversational, still hold (don't flip-flop
     #    on marginal signals like "looks good, thanks").
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1") and len(msg.split()) < 20:
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1") and len(msg.split()) < 20:
         return current, "short conversational turn — hold specialized adapter"
 
-    # 6. Default: chat.
+    # 7. Default: chat.
     return "none", "chat mode (no specialization signal)"
