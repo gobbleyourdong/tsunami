@@ -117,11 +117,10 @@ def _short_path(p):
 def action_label(name, args):
     base = TOOL_LABELS.get(name, name.replace("_", " "))
     if name == "shell_exec":
-        cmd = str(args.get("command", "")).strip()
-        # Show just the last command after && or ;
-        last = cmd.split("&&")[-1].split(";")[-1].strip()
-        short = (last[:40] + "…") if len(last) > 40 else last
-        return f"{base} {short}" if short else base
+        # Show the full command (no truncation) so the user can audit what ran —
+        # truncation hid prompt-injection attempts (e.g. `cat /etc/hostname > /tmp/...`).
+        cmd = str(args.get("command", "")).strip().replace("\n", " ⏎ ")
+        return f"{base} {cmd}" if cmd else base
     if name == "undertow":
         levers = args.get("levers", [])
         if isinstance(levers, list) and levers:
@@ -185,13 +184,17 @@ def main():
     if not check_model_server(config.model_endpoint):
         model_proc = start_model_server(config)
         if not model_proc:
-            print(f"  {RED}no model at {config.model_endpoint}{RST}")
+            print(f"  {RED}no model at {config.model_endpoint} — aborting{RST}")
+            sys.exit(1)
     else:
         print(f"  {DIM}{config.model_endpoint}{RST}")
     print()
 
     # ── Single task ──
-    if args.task:
+    if args.task is not None:
+        if not args.task.strip():
+            print(f"  {RED}--task requires a non-empty string{RST}")
+            sys.exit(2)
         from tsunami.agent import Agent
         agent = Agent(config)
         patch_agent(agent)
