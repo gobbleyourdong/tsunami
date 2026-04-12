@@ -117,9 +117,20 @@
       "data": "workspace/training_data/realtime_sft_v1.jsonl",
       "output": "models/gemma-4-e4b-tsunami-realtime-v1",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4",
-      "notes": "NEW adapter (Fire 9). 6 SFT examples RT01-06: multi-room chat, live polls, error-recovery, typing-chat, collab-todos, conversational. Uses scaffolds/realtime/ (ws lib + useWebSocket + ChatFeed + ChatInput + PresenceDot). Server: WS rooms+history+presence. Router: websocket/realtime/live-chat/collaborative -> realtime-v1. Eval: python training/eval_realtime.py --quick (TODO next fire).",
+      "notes": "6 SFT examples RT01-06: multi-room chat, live polls, error-recovery, typing-chat, collab-todos, conversational. Uses scaffolds/realtime/ (ws lib + useWebSocket + ChatFeed + ChatInput + PresenceDot). Server: WS rooms+history+presence. Router: websocket/realtime/live-chat/collaborative -> realtime-v1. Eval: python training/eval_realtime.py --quick",
       "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/realtime_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-realtime-v1 --epochs 3 --lora-r 16 --lr 2e-4"
+    },
+    {
+      "type": "DPO",
+      "adapter": "realtime-v1",
+      "base_model": "models/gemma-4-e4b-tsunami-realtime-v1-merged",
+      "data": "workspace/training_data/realtime_dpo_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-realtime-v2",
+      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
+      "prerequisite": "Train realtime-v1 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-realtime-v1 --output models/gemma-4-e4b-tsunami-realtime-v1-merged",
+      "notes": "18 DPO pairs RTF01-RTF06: realtime template param, server-first, useWebSocket not fetch, undertow, ws library not socket.io, no-main.tsx",
+      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-realtime-v1-merged --data workspace/training_data/realtime_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-realtime-v2 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     }
   ],
-  "notes": "Fire 9 (2026-04-12): eval_fullstack.py + fullstack DPO v1 (18 pairs FSF01-06). realtime NEW adapter SFT v1 (6ex RT01-06). adapter_router: realtime-v1 at step 2a (websocket/live-chat/collaborative). Fire 8: data-viz SFT+DPO, fullstack SFT. Fire 7: chrome-ext. Fire 6: gamedev DPO+SFT. Fire 5: build DPO 73pairs."
+  "notes": "Fire 10 (2026-04-12): eval_realtime.py (L1-L4 RTT/RTS/RTER/RTF). realtime DPO v1 (18 pairs RTF01-06: template, server-first, useWebSocket, undertow, ws-not-socketio, no-main.tsx). Fire 9 (2026-04-12): eval_fullstack.py + fullstack DPO v1 (18 pairs FSF01-06). realtime NEW adapter SFT v1 (6ex RT01-06). adapter_router: realtime-v1 at step 2a (websocket/live-chat/collaborative). Fire 8: data-viz SFT+DPO, fullstack SFT. Fire 7: chrome-ext. Fire 6: gamedev DPO+SFT. Fire 5: build DPO 73pairs."
 }
