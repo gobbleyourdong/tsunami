@@ -73,15 +73,27 @@ class VisionGround(BaseTool):
         if not image_b64:
             return ToolResult(f"Failed to encode image: {p}", is_error=True)
 
-        # Try dedicated VL endpoint first, then fall back to eddy
-        for endpoint in [VL_ENDPOINT, os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")]:
+        # Try dedicated VL endpoint first, then eddy, then the main tsunami
+        # endpoint (Gemma-4 is multimodal — same pattern as undertow's
+        # _vlm_describe_screenshot). Every reasonable deployment has at least
+        # the main endpoint up, so this should always have a fallback.
+        fallbacks = [
+            VL_ENDPOINT,
+            os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092"),
+            os.environ.get("TSUNAMI_MODEL_ENDPOINT", "http://localhost:8090"),
+        ]
+        # Dedupe while preserving order
+        seen = set()
+        ordered = [e for e in fallbacks if not (e in seen or seen.add(e))]
+        for endpoint in ordered:
             result = await _ground_elements(endpoint, image_b64, elements, str(p))
             if result:
                 return ToolResult(result)
 
         return ToolResult(
             "Vision grounding unavailable — no VL model endpoint responding. "
-            "Start a vision model on port 8094 or use the eddy endpoint with mmproj.",
+            "Start a vision model on port 8094, or ensure the main tsunami "
+            "endpoint is reachable (multimodal Gemma-4 handles grounding).",
             is_error=True,
         )
 
@@ -111,7 +123,9 @@ async def _ground_elements(endpoint: str, image_b64: str, elements: list[str], i
     )
 
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
+        # 180s — under concurrent QA load the gpu_sem queue can delay
+        # multimodal calls 2-3 min. Same reasoning as undertow's VLM path.
+        async with httpx.AsyncClient(timeout=180) as client:
             # Health check
             try:
                 resp = await client.get(f"{endpoint}/health")
@@ -188,7 +202,8 @@ async def _ground_elements(endpoint: str, image_b64: str, elements: list[str], i
             return "\n".join(lines)
 
     except Exception as e:
-        log.warning(f"Vision grounding failed on {endpoint}: {e}")
+        # httpx.ReadTimeout sometimes stringifies as empty — include type name.
+        log.warning(f"Vision grounding failed on {endpoint}: {type(e).__name__}: {e or '(no message)'}")
         return None
 
 
