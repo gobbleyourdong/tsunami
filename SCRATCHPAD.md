@@ -54,6 +54,25 @@ Use these if the current focus is producing repeat findings or empty fires. Swit
 
 ## ACTIVE BUGS (programmer: fix these)
 
+## [qa-solo Playtest] Bug: `dashboard/` deliverable regression — Phase-2 placeholder shipped, chart missing, self-404 icon refs, dead button
+  Repro: served `workspace/deliverables/dashboard/dist` (mtime Apr 12 13:21) on port 7391, loaded in headless Chromium via Playwright.
+  Findings:
+    - Title: "Dashboard" (generic).
+    - bodyText (417 chars): includes literal `"Sales Trend (Chart Placeholder)"` + `"Line Chart will go here in Phase 2"`. Phase-N marker + "placeholder" text shipped to end user.
+    - No chart rendered: `document.querySelector('canvas, svg')` = false. Dashboard intent but no data-viz.
+    - Self-404 requests: `/icon-home`, `/icon-users`, `/icon-reports` — agent wrote `<img src>` for icons not in deliverable. 4 × browser 404 errors in console.
+    - Only 1 button present ("+ New Report"); click produces ZERO body change (delta=0). Dead handler.
+  Priority: MEDIUM — deliverable was shipped (has dist/, build passed) but semantically broken. Matches Fires 117-121 pattern (compiles but doesn't work).
+  Root cause: Message-result delivery gate's Phase-N marker check (message.py:41) likely only scans App.tsx source comments, not RENDERED JSX text. "Chart Placeholder" + "Phase 2" appear as UI text (not // comments) — if comment-strip preprocessor drops comments before scan, UI-visible Phase markers pass through.
+  Category: scaffold / delivery-gate / playtest
+  Notes:
+    - Joins Fire 90 pattern (Phase marker in rendered UI) — programmer may have added JSX-text checks for `Phase N` but not for `"Chart Placeholder"` / `"will go here"` / similar hedge phrases.
+    - Fix sketch: expand delivery-gate to scan BODY TEXT of dist/index.html rendered output (via the existing undertow screenshot + VLM description), or add static JSX-text check for `"placeholder"`, `"will go here"`, `"coming soon"`, `"Phase \d+"`.
+    - Icon 404s suggest scaffold's `<img src="icon-X">` convention isn't wired — static check of every img src against files on disk at build time would catch all 3.
+    - Dead "+ New Report" button: no handler means button onClick is {} or empty arrow; interactive-but-dead pattern.
+
+
+
 ## [QA-1 Playtest] Bug: `dashboard/` deliverable SHIPPED — renders but every interactive element is dead (Playtest Fire 117)
   Deliverable: `workspace/deliverables/dashboard/` (built at 13:21 today, dist/ present).
   Reproduction: `cd dist && python3 -m http.server 8765`, navigate to http://localhost:8765/
@@ -1491,6 +1510,7 @@ Use these if the current focus is producing repeat findings or empty fires. Swit
 NOTE for QA-2: the line 174 (20:00:03) file_edit was BALANCED and would have parsed before this fix — its on-disk no-op may be a separate downstream issue (e.g. file_edit old_text mismatch, or the agent's run was SIGTERM'd before the call hit disk). Worth a fresh repro now that the parser is more forgiving.
 
 ### Programmer status log
+- 2026-04-12 15:55 — qa-solo — axis 1 (playtest) — dashboard/dist Playwright scan: Phase-2 "Chart Placeholder" + "Line Chart will go here in Phase 2" in rendered body text, 3× self-404 icon refs (/icon-home, /icon-users, /icon-reports), 1 dead button. MEDIUM bug filed.
 - 2026-04-11: /loop armed (10m). No bugs to fix. Waiting on QA-1/QA-2/QA-3 to populate ACTIVE BUGS. Will not make speculative changes to tsunami/ code without a reported bug.
 - 2026-04-11 19:27 — no bugs, idle
 - 2026-04-11 19:35 — QA-2 added 3 new bugs (context leakage, wrong scaffold, undertow-ignored) and confirmed 2/2 frequency on QA-1's placeholder-delivery bug. Ready to prioritize.
@@ -7030,3 +7050,57 @@ python training/train_dpo.py \
 2. **Builder SFT v94** — virtual scrolling (react-window or manual); Web Worker for CPU-heavy tasks
 3. **New adapter: image-gen-v1** — Stable Diffusion / Replicate API; streaming image generation with progress
 4. **form-app SFT v2** — multi-step wizard: progress bar, per-step validation, back/next navigation
+
+---
+
+## Fire 34 — AI-App SFT v2: RAG, Multi-Model, PDF (2026-04-12)
+
+### What was built
+4 new SFT examples for the ai-app-v1 adapter, expanding beyond basic chat.
+
+### Examples (`ai_app_sft_v2.jsonl` — 10 total)
+1. **rag01_doc_qa** — Server-side RAG pipeline:
+   - `multer` receives uploaded `.txt` → `chunkText(400 words, 50 overlap)`
+   - `buildVocab` + `embed` = TF-IDF frequency vectors
+   - `cosine(qEmbed, chunkEmbed)` for top-K retrieval
+   - Context injected as `[Source N, chunk M]:\n...` prefix in system message
+   - LLM instructed to cite sources; streaming via SSE
+
+2. **rag02_model_selector** — Multi-model routing:
+   - Single `/api/chat` endpoint detects model by prefix: `gpt*` → OpenAI, `claude*` → Anthropic, `gemini*` → Google
+   - Each provider has different auth headers and SSE response format
+   - Frontend model pills with provider colors; attribution badge on assistant bubbles
+   - All three env vars: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`
+
+3. **rag03_error_recovery** — Missing npm dep:
+   - `pdf-parse` imported but not in package.json → clear module error
+   - Fix: `file_edit(package.json, add "pdf-parse": "latest")` → `npm install` → `npm run build`
+   - Pattern: module-not-found errors → file_edit package.json directly, no reading needed
+
+4. **rag04_conversational** — KB panel follow-up:
+   - Simple chatbot → "add Knowledge Base panel"
+   - Server: `file_edit` to destructure `context`, inject as system message
+   - Frontend: `file_edit` chain (5 edits): add state, pass to fetch, add toggle button, add textarea panel
+   - Server-first-order preserved across conversation turns
+
+### Key RAG invariants taught
+- Chunking on server (not frontend) — file size + compute
+- TF-IDF is adequate for demos; mention `text-embedding-3-small` for prod
+- Always cite sources (`[Source N]`) when using RAG context
+- Multi-model: same SSE protocol, different auth headers per provider
+- Error recovery: module-not-found → file_edit package.json + npm install
+
+### Train command
+```bash
+python training/train_unsloth.py \
+  --model google/gemma-4-e4b-it \
+  --data workspace/training_data/ai_app_sft_v2.jsonl \
+  --output models/gemma-4-e4b-tsunami-ai-app-v2 \
+  --epochs 3 --lora-r 16 --lr 2e-4
+```
+
+### What's next (Fire 35 candidates)
+1. **Builder SFT v94** — virtual scrolling (windowing); Web Worker for CPU tasks; canvas drawing tools
+2. **New adapter: image-gen-v1** — Replicate API / fal.ai; streaming image generation progress
+3. **Form-app SFT v2** — multi-step wizard (progress bar + per-step validation + back/next)
+4. **Auth-app SFT v2** — OAuth provider (GitHub/Google sign-in) + role-based access control
