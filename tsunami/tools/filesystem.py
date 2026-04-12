@@ -27,6 +27,15 @@ _session_created_projects: set[str] = set()
 # active_project was None and mtime resolved to the wrong deliverable.
 _session_last_project: str | None = None
 
+# QA-1 Playtest Fire 119: deliverables can ship with Phase-N in rendered text
+# because the message_result gate targeted the wrong project (mtime fallback
+# picked a neighbour when _session_last_project was None — e.g. if agent
+# wrote App.tsx without a preceding project_init). Track the deliverable that
+# received the LAST successful file_write / file_edit / file_append as a
+# second fallback — most reliable signal that "this is the project being
+# actively worked on right now".
+_last_written_deliverable: str | None = None
+
 # Original task prompt for this session, captured by agent.run on entry.
 # Used by message_result's gate to verify deliverable content is on-topic
 # (catches QA-2's cross-task context leakage where a prior task's content
@@ -45,6 +54,29 @@ def register_session_project(name: str):
     global _session_last_project
     _session_created_projects.add(name)
     _session_last_project = name
+
+
+def _note_write_to_deliverable(resolved_path: Path, workspace_dir: str):
+    """Record the deliverable that received a successful write. The gate
+    uses this as a third fallback when _active_project + _session_last_project
+    are both None (QA-1 Playtest Fire 119 root cause)."""
+    global _last_written_deliverable
+    try:
+        deliv_root = Path(workspace_dir).resolve() / "deliverables"
+        rel = resolved_path.relative_to(deliv_root)
+        # Top-level component is the deliverable name.
+        parts = rel.parts
+        if parts and not parts[0].startswith("."):
+            _last_written_deliverable = parts[0]
+    except (ValueError, OSError):
+        pass
+
+
+def get_effective_target_project() -> str | None:
+    """Return the best-guess name of the deliverable the gate should check.
+    Priority: _session_last_project (most intent) → _last_written_deliverable
+    (most recent write). mtime-fallback stays in the gate itself."""
+    return _session_last_project or _last_written_deliverable
 
 
 def _extract_post_pivot(text: str) -> str:
@@ -415,6 +447,7 @@ class FileWrite(BaseTool):
             # NOTE: unicode-escape decode moved above the gates (Fire 118)
             # so on-disk content matches what gates saw.
             p.write_text(content)
+            _note_write_to_deliverable(p, self.config.workspace_dir)
             lines = content.count("\n") + 1
             return ToolResult(f"Wrote {lines} lines to {p}")
         except Exception as e:
@@ -458,6 +491,7 @@ class FileEdit(BaseTool):
                     if exfil_err:
                         return ToolResult(exfil_err, is_error=True)
                     p.write_text(new_content)
+                    _note_write_to_deliverable(p, self.config.workspace_dir)
                     return ToolResult(f"Edited {p}: replaced 1 occurrence (whitespace-normalized match)")
 
                 # Try with curly quote normalization
@@ -473,6 +507,7 @@ class FileEdit(BaseTool):
                     if exfil_err:
                         return ToolResult(exfil_err, is_error=True)
                     p.write_text(new_content)
+                    _note_write_to_deliverable(p, self.config.workspace_dir)
                     return ToolResult(f"Edited {p}: replaced 1 occurrence (quote-normalized match)")
 
                 # Indent-normalized fuzzy match — QA-3 Test 32: agent emits old_text
@@ -517,6 +552,7 @@ class FileEdit(BaseTool):
                     if exfil_err:
                         return ToolResult(exfil_err, is_error=True)
                     p.write_text(new_content)
+                    _note_write_to_deliverable(p, self.config.workspace_dir)
                     return ToolResult(
                         f"Edited {p}: replaced 1 occurrence (indent-normalized match, "
                         f"{len(indent)} leading chars restored)"
@@ -542,6 +578,7 @@ class FileEdit(BaseTool):
             if exfil_err:
                 return ToolResult(exfil_err, is_error=True)
             p.write_text(new_content)
+            _note_write_to_deliverable(p, self.config.workspace_dir)
             return ToolResult(f"Edited {p}: replaced 1 occurrence")
         except Exception as e:
             return ToolResult(f"Error editing {path}: {e}", is_error=True)
@@ -574,6 +611,7 @@ class FileAppend(BaseTool):
             p.parent.mkdir(parents=True, exist_ok=True)
             with open(p, "a") as f:
                 f.write(content)
+            _note_write_to_deliverable(p, self.config.workspace_dir)
             return ToolResult(f"Appended {len(content)} chars to {p}")
         except Exception as e:
             return ToolResult(f"Error appending to {path}: {e}", is_error=True)

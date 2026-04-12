@@ -120,9 +120,10 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
     # above ours, causing the gate to refuse the WRONG project (QA-2 iter 16 HIGH:
     # agent got a REFUSED message naming another QA's `number-counter-...`).
     target = None
-    from .filesystem import _session_last_project
-    if _session_last_project:
-        candidate = deliv_root / _session_last_project
+    from .filesystem import get_effective_target_project
+    effective = get_effective_target_project()
+    if effective:
+        candidate = deliv_root / effective
         if candidate.is_dir() and (candidate / "package.json").exists():
             target = candidate
     if target is None:
