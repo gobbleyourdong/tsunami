@@ -99,6 +99,30 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
             f"REFUSED: {target.name}/src/App.tsx is only {len(content)} bytes — "
             f"too short to be a complete app. Write the full implementation before delivering."
         )
+    # Static-skeleton gate — QA-2 iter 12 found an app that passed every other check
+    # (37 lines, no marker phrases, >300 bytes) but rendered hardcoded `>0</` literals
+    # for stats and had `useState` imported but never called. Looks like a real React
+    # app; will not actually do anything. Two narrow signals:
+    #   (a) useState imported but no useState() call — dead giveaway the agent
+    #       shipped a static skeleton where state was intended.
+    #   (b) Prompt names something dynamic (count / stat / timer / score / etc.) AND
+    #       deliverable has literal `>0<` rendered AND no useState call — stats that
+    #       will never move.
+    # Handle both `import { useState } from 'react'` and `import React, { useState } from 'react'`.
+    _imports_useState = any(
+        "useState" in line and "react" in line.lower()
+        for line in content.splitlines()
+        if line.lstrip().startswith("import")
+    )
+    _calls_useState = bool(re.search(r"\buseState\s*\(", content))
+    if _imports_useState and not _calls_useState:
+        return (
+            f"REFUSED: {target.name}/src/App.tsx imports useState from 'react' but "
+            f"never calls it. The UI has no state — any interactive behavior (counters, "
+            f"form inputs, toggles) won't work. Call useState() and wire event handlers, "
+            f"or remove the unused import and justify a purely static page."
+        )
+
     # XSS gate — refuse React's HTML-injection escape hatch when the prompt didn't
     # ask for HTML / markdown rendering. QA-3 Test 18b got the model to use the sink
     # on form-submitted content — a textbook XSS.
