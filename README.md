@@ -40,7 +40,7 @@ you type a prompt. tsunami does the rest.
 
 - **"build me a calculator"** — writes it, tests it, verifies it renders, delivers
 - **"build a 3D pinball game"** — uses the Tsunami Engine (WebGPU), builds 869 lines, tests every key binding
-- **"replicate the Game Boy UI"** — searches for reference images, generates a reference via SD-Turbo, extracts element positions with vision grounding, builds to match
+- **"replicate the Game Boy UI"** — searches for reference images, generates a reference via Z-Image-Turbo, extracts element positions with vision grounding, builds to match
 - **"analyze these 500 files"** — dispatches parallel workers, reads everything, synthesizes findings
 
 no cloud. no api keys. everything runs locally on your hardware.
@@ -63,7 +63,7 @@ you → wave → understands intent, picks tools, coordinates
          wave reads QA report → fixes issues → delivers
 ```
 
-one model does everything: **Gemma 4 E4B** (5GB). native tool calling, built-in thinking, multimodal vision. wave, eddies, and watcher all run on the same server. scale parallel instances by VRAM.
+one language model does everything: **Gemma 4 E4B** (bf16, ~10GB). native tool calling, built-in thinking, multimodal vision. wave, eddies, and watcher all run on the same server. scale parallel instances by VRAM.
 
 **wave** — the brain. reasons, plans, researches, builds.
 **eddies** — fast parallel workers. read, search, execute, judge.
@@ -78,7 +78,7 @@ one model does everything: **Gemma 4 E4B** (5GB). native tool calling, built-in 
 tsunami doesn't just write code and ship it. it follows a pipeline:
 
 1. **research** — searches for reference images and code examples before writing anything
-2. **generate** — creates reference images via SD-Turbo (in-process, ~1s on GPU, ~30s on CPU)
+2. **generate** — creates reference images via Z-Image-Turbo (in-process, no separate server)
 3. **ground** — extracts element positions from reference images using vision (Gemma 4 E4B multimodal). outputs ratio-based CSS positioning
 4. **build** — writes React components using the grounded positions. auto-wires App.tsx mid-loop
 5. **compile** — vite build must pass. auto-checks after every .tsx write
@@ -107,13 +107,15 @@ tsunami measures whether it's lying.
 
 | your hardware | what you get |
 |---------------|-------------|
-| **8GB+ GPU** | full — Gemma 4 E4B + SD-Turbo |
-| **< 8GB GPU** | degraded — Gemma 4 E4B at reduced context + SD-Turbo on CPU |
+| **16GB+ GPU** | full — Gemma 4 E4B (bf16) + Z-Image-Turbo |
+| **8–16GB GPU** | `--low-vram` mode (swaps language/image models) or `--load-in-8bit` |
+| **< 8GB GPU** | `--load-in-4bit` + image gen off (`--image-model none`) |
 | **no GPU** | cpu — Gemma 4 E4B on CPU (slow but works) |
 
 tsunami auto-detects your GPU and configures itself. you never think about this.
 
-one model: Gemma 4 E4B Q4_K_M (5GB) + SD-Turbo (2GB, auto-downloads on first image gen). 128K native context, 16K server window. native tool calling, built-in thinking, multimodal vision.
+one language model: **Gemma 4 E4B** (bf16, ~10GB) — 128K native context, native tool calling, built-in thinking, multimodal vision.
+one image model: **Z-Image-Turbo** (~6GB, auto-downloads on first use). swap to `FLUX.2-klein-4B` for a smaller/faster option, or `none` to disable.
 
 runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud required.
 
@@ -121,9 +123,9 @@ runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud re
 
 ## what's inside
 
-**Gemma 4 E4B** — the single model powering everything. 5GB Q4_K_M quantization. native tool calling, built-in thinking, multimodal vision. one server on port 8090 handles wave, eddy, and watcher roles.
+**Gemma 4 E4B** — the single language model powering everything. bf16 (~10GB) by default; `--load-in-8bit` and `--load-in-4bit` flags available for smaller GPUs. native tool calling, built-in thinking, multimodal vision. one server on port 8090 handles wave, eddy, and watcher roles.
 
-**the wave** — reasons, plans, calls tools, dispatches eddies, synthesizes results. generates images via SD-Turbo. builds websites, writes code, does research. no iteration limit.
+**the wave** — reasons, plans, calls tools, dispatches eddies, synthesizes results. generates images via Z-Image-Turbo. builds websites, writes code, does research. no iteration limit.
 
 **the eddies** — parallel workers with their own agent loops. each eddy can read files, run shell commands, search code.
 
@@ -133,7 +135,7 @@ runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud re
 
 **vision grounding** — extracts UI element positions from reference images. returns ratio-based CSS (percentages, aspect-ratio). resolution-independent.
 
-**SD-Turbo** — in-process image generation. no server needed. auto-downloads the 2GB model on first use. generates textures, icons, backgrounds, reference images.
+**Z-Image-Turbo** — in-process image generation. no server needed. ~6GB, auto-downloads on first use. best text rendering for UI mockups. swap to `FLUX.2-klein-4B` (smaller, faster) via the `--image-model` flag. generates textures, icons, backgrounds, reference images.
 
 **current / circulation / pressure** — the tension system. measures lies, routes decisions, tracks trajectory.
 
