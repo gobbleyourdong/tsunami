@@ -84,7 +84,13 @@ def start_model_server(config):
     for _ in range(120):
         time.sleep(1)
         if check_model_server(config.model_endpoint):
+            if proc and proc.poll() is not None:  # ours died, but something else is answering
+                proc.wait()
+                return None
             return proc
+        if proc and proc.poll() is not None:  # child died (bind probe rejected); reap, then keep
+            proc.wait()                        # polling — the existing server holding the port may recover
+            proc = None
     return proc
 
 
