@@ -569,11 +569,22 @@ class Agent:
         from .tools.filesystem import set_session_task_prompt
         set_session_task_prompt(user_message)
 
+        # Iterative refinement — detect matching existing project FIRST so the
+        # system prompt can hide the bare project list on fresh builds. QA-1
+        # Fire 25 traced the wrong-deliverable pathology to that list: on a
+        # fresh prompt the model saw recent deliverables and was pulled toward
+        # modifying one instead of creating a new dir. When there IS a match,
+        # the relevant context is loaded separately as active_project below,
+        # so the list isn't needed either way.
+        existing_context = self._detect_existing_project(user_message)
+        is_fresh_build = not existing_context
+
         # Build system prompt — lite mode gets a shorter, simpler prompt
         is_lite = self.config.eddy_endpoint == self.config.model_endpoint
         system_prompt = build_system_prompt(
             self.state, self.config.workspace_dir, self.config.skills_dir,
             lite=is_lite,
+            hide_existing_projects=is_fresh_build,
         )
 
         # Inject project context if active
@@ -601,8 +612,8 @@ class Agent:
 
         self.state.add_system(system_prompt)
 
-        # Iterative refinement — detect existing projects that match the prompt
-        existing_context = self._detect_existing_project(user_message)
+        # (existing_context was computed above so build_system_prompt could
+        # decide whether to hide the project list — no need to recompute.)
 
         # Hidden pre-scaffold step — detect build tasks and provision automatically
         # The model never chooses the scaffold. The platform does.

@@ -15,8 +15,18 @@ from .state import AgentState
 
 
 def build_system_prompt(state: AgentState, workspace: str = "./workspace",
-                        skills_dir: str = "", lite: bool = False) -> str:
-    """Build a lean system prompt. Reference material lives on disk."""
+                        skills_dir: str = "", lite: bool = False,
+                        hide_existing_projects: bool = False) -> str:
+    """Build a lean system prompt. Reference material lives on disk.
+
+    hide_existing_projects: when True, omit the "Existing projects (...)" line.
+    QA-1 Fire 25 traced the cross-task context bleed to this list — on fresh
+    prompts the model saw `hello-world-button` etc. in context and was pulled
+    toward modifying that project instead of building new. Agent passes True
+    when `_detect_existing_project` found no match (i.e., fresh build). When
+    iterating on a specific project, the relevant context is already loaded
+    via the separate active_project injection, so the bare list isn't needed.
+    """
 
     env_info = _gather_environment()
     context_dir = str(Path(__file__).parent / "context")
@@ -25,7 +35,7 @@ def build_system_prompt(state: AgentState, workspace: str = "./workspace",
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     projects = []
     deliverables = Path(workspace) / "deliverables"
-    if deliverables.exists():
+    if deliverables.exists() and not hide_existing_projects:
         projects = sorted([d.name for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")])
 
     project_info = ""
