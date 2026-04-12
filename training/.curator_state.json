@@ -97,9 +97,20 @@
       "data": "workspace/training_data/fullstack_sft_v1.jsonl",
       "output": "models/gemma-4-e4b-tsunami-fullstack-v1",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4",
-      "notes": "NEW adapter (Fire 8 cont). 6 SFT examples using scaffolds/fullstack/ (Express+SQLite+useApi). Pipeline: project_init(template='fullstack') -> server/index.js -> src/App.tsx -> build -> undertow -> deliver. NEVER raw fetch — use useApi hook. FS01 todo, FS02 notes, FS03 expense, FS04 bookmarks, FS05 error-recovery, FS06 conversational. Router: sqlite/express/database-backend keywords -> fullstack-v1. Eval: python training/eval_fullstack.py --quick (not yet written)",
+      "notes": "NEW adapter (Fire 8 cont). 6 SFT examples using scaffolds/fullstack/ (Express+SQLite+useApi). Eval: python training/eval_fullstack.py --quick",
       "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/fullstack_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-fullstack-v1 --epochs 3 --lora-r 16 --lr 2e-4"
+    },
+    {
+      "type": "DPO",
+      "adapter": "fullstack-v1",
+      "base_model": "models/gemma-4-e4b-tsunami-fullstack-v1-merged",
+      "data": "workspace/training_data/fullstack_dpo_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-fullstack-v2",
+      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
+      "prerequisite": "Train fullstack-v1 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-fullstack-v1 --output models/gemma-4-e4b-tsunami-fullstack-v1-merged",
+      "notes": "18 DPO pairs targeting FSF01-FSF06: template param, server-first, useApi-not-fetch, undertow, no-main.tsx, crudRoutes pattern",
+      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-fullstack-v1-merged --data workspace/training_data/fullstack_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-fullstack-v2 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     }
   ],
-  "notes": "Fire 8 (2026-04-12): data-viz adapter + DPO (SFT 6ex + DPO 18pairs, DVF01-06). fullstack NEW adapter (SFT 6ex, FS01-06: Express+SQLite+useApi). adapter_router.py: fullstack-v1 + dataviz-v1 signals. Earlier: chrome-ext SFT v3 (12ex) + DPO v1 (15pairs), gamedev DPO 33pairs, v5 SFT 51ex, security eval, build DPO 73pairs."
+  "notes": "Fire 9 (2026-04-12): eval_fullstack.py L1-L4 harness (FSF01-06). fullstack DPO v1 (18 pairs). Fire 8: data-viz adapter SFT+DPO (6ex+18pairs), fullstack SFT (6ex). adapter_router: dataviz-v1+fullstack-v1 routing. Earlier fires: chrome-ext (12ex+15pairs), gamedev (51ex+33pairs), security (27ex), build DPO (73pairs)."
 }
