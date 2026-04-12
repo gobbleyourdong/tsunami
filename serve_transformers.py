@@ -161,11 +161,31 @@ def _parse_gemma_args(args_str: str) -> dict:
         else:
             continue
 
+        # Skip whitespace before the value (model sometimes emits `key: "..."` with a space)
+        while i < n and args_str[i] in (' ', '\t'):
+            i += 1
+
         # Parse value based on what follows
         if args_str[i:i+5] == '<|"|>':
             # String value
             val, i = _read_string(args_str, i)
             args[key] = val
+        elif i < n and args_str[i] == '"':
+            # JSON-style string — model mixes formats (e.g. `path: "..."` next to Gemma keys)
+            i += 1
+            val_start = i
+            buf = []
+            while i < n and args_str[i] != '"':
+                if args_str[i] == '\\' and i + 1 < n:
+                    nxt = args_str[i + 1]
+                    buf.append({'n': '\n', 't': '\t', 'r': '\r', '"': '"', '\\': '\\', '/': '/'}.get(nxt, nxt))
+                    i += 2
+                else:
+                    buf.append(args_str[i])
+                    i += 1
+            args[key] = ''.join(buf)
+            if i < n:
+                i += 1  # consume closing "
         elif args_str[i] == '[':
             # Array value
             val, i = _read_array(args_str, i)
@@ -376,11 +396,70 @@ async def chat_completions(req: ChatRequest):
     tool_calls = None
     content = text
 
-    # Check for tool call tokens: <|tool_call>call:name{args}<tool_call|>
-    # Model may use JSON double-brace {{...}} OR Gemma native {key:<|"|>val<|"|>}
-    tc_matches = re.findall(
-        r'<\|tool_call>call:(\w+)(\{\{.+?\}\}|\{.+?\})<tool_call\|>', text, re.DOTALL
-    )
+    # Find tool calls: <|tool_call>call:NAME{ARGS}(<tool_call|>|<|tool_response>)
+    # The previous regex `\{.+?\}` was non-greedy and terminated at the FIRST `}` —
+    # but `{` and `}` appear inside JSX strings (e.g. `{prevTime - 100}`), so any
+    # file_edit / file_write call carrying TSX code was silently dropped.
+    # Use a brace-counter that respects Gemma `<|"|>...<|"|>` and JSON `"..."` strings.
+    tc_matches = []
+    _scan = 0
+    while True:
+        _m = re.search(r'<\|tool_call>call:(\w+)\s*', text[_scan:])
+        if not _m:
+            break
+        _name = _m.group(1)
+        _arg_start = _scan + _m.end()
+        if _arg_start >= len(text) or text[_arg_start] != '{':
+            _scan = _arg_start
+            continue
+        # Walk braces, skipping over string contents
+        _depth = 0
+        _i = _arg_start
+        _ok = False
+        while _i < len(text):
+            if text[_i:_i+5] == '<|"|>':  # Gemma string open
+                _i += 5
+                while _i < len(text) and text[_i:_i+5] != '<|"|>':
+                    _i += 1
+                if _i + 5 > len(text):
+                    break
+                _i += 5
+                continue
+            _c = text[_i]
+            if _c == '"':  # JSON string
+                _i += 1
+                while _i < len(text) and text[_i] != '"':
+                    if text[_i] == '\\' and _i + 1 < len(text):
+                        _i += 2
+                    else:
+                        _i += 1
+                _i += 1
+                continue
+            if _c == '{':
+                _depth += 1
+            elif _c == '}':
+                _depth -= 1
+                if _depth == 0:
+                    _arg_end = _i + 1
+                    _ok = True
+                    break
+            _i += 1
+        if not _ok:
+            _scan = _arg_start + 1
+            continue
+        # Accept either canonical close or the model's <|tool_response> drift
+        _rest = text[_arg_end:_arg_end + 20]
+        if _rest.startswith('<tool_call|>'):
+            _term_len = 12
+        elif _rest.startswith('<|tool_response>') or _rest.startswith('<|tool_response|>'):
+            _term_len = 0  # don't consume — let the response block parse separately
+            log.warning(f"Tool call {_name} closed with <|tool_response> (drift); accepting")
+        else:
+            _scan = _arg_end
+            continue
+        tc_matches.append((_name, text[_arg_start:_arg_end]))
+        _scan = _arg_end + _term_len
+
     if tc_matches:
         tool_calls = []
         for name, args_raw in tc_matches:
