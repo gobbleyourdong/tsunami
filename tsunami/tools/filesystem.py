@@ -389,6 +389,49 @@ class FileEdit(BaseTool):
                     p.write_text(new_content)
                     return ToolResult(f"Edited {p}: replaced 1 occurrence (quote-normalized match)")
 
+                # Indent-normalized fuzzy match — QA-3 Test 32: agent emits old_text
+                # at column 0 but on-disk has consistent leading indent (e.g. 10-space
+                # JSX indentation). Without this, the placeholder-fix recovery loop
+                # silently fails and the agent's retry goes nowhere. Match line-by-line
+                # on lstripped text; re-indent new_text with the same prefix we found.
+                old_lines = old_text.split("\n")
+                content_lines = content.split("\n")
+                old_stripped = [l.lstrip() for l in old_lines]
+                n = len(old_lines)
+                indent_matches: list[tuple[int, str]] = []
+                for i in range(0, len(content_lines) - n + 1):
+                    window = content_lines[i:i+n]
+                    indent: str | None = None
+                    ok = True
+                    for cl, ol_stripped in zip(window, old_stripped):
+                        # Empty old-line matches any (possibly indented) blank line
+                        if not ol_stripped:
+                            if cl.strip():
+                                ok = False
+                                break
+                            continue
+                        if cl.lstrip() != ol_stripped:
+                            ok = False
+                            break
+                        cur = cl[:len(cl) - len(cl.lstrip())]
+                        if indent is None:
+                            indent = cur
+                        elif cur != indent:
+                            ok = False
+                            break
+                    if ok and indent is not None:
+                        indent_matches.append((i, indent))
+                if len(indent_matches) == 1:
+                    start, indent = indent_matches[0]
+                    new_lines = new_text.split("\n")
+                    reindented = [indent + nl if nl else nl for nl in new_lines]
+                    replaced = content_lines[:start] + reindented + content_lines[start+n:]
+                    p.write_text("\n".join(replaced))
+                    return ToolResult(
+                        f"Edited {p}: replaced 1 occurrence (indent-normalized match, "
+                        f"{len(indent)} leading chars restored)"
+                    )
+
                 # Show the model what's actually in the file so it can fix the find string
                 preview_lines = content.splitlines()[:30]
                 preview = "\n".join(f"  {i+1}: {l}" for i, l in enumerate(preview_lines))
