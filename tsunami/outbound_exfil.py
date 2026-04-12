@@ -37,6 +37,14 @@ _PRIVATE_HOST_RE = re.compile(
     r'^(localhost|127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|0\.0\.0\.0)'
 )
 
+# URL scheme pattern — match http:, https:, ws:, wss:, OR protocol-relative
+# `//host`. QA-3 Fire 113 pointed out protocol-relative URLs (`//1.2.3.4/x`)
+# bypassed the original `https?://` literal because browsers fill in the
+# scheme from the host page at request time — a schemeless URL is still an
+# outbound call. Optional scheme prefix; `//` is mandatory.
+_URL_SCHEME = r'(?:https?:|wss?:)?//'
+_URL_SCHEME_HTTP = r'(?:https?:)?//'  # for img src (no ws flavor)
+
 
 def _is_external(host: str) -> bool:
     return not _PRIVATE_HOST_RE.match(host)
@@ -64,7 +72,7 @@ def _host_of(url_match_group: str) -> str:
 def _scan_sendbeacon(content: str) -> list[str]:
     out = []
     for m in re.finditer(
-        r'\bsendBeacon\s*\(\s*[\'"`]https?://([^\'"`/\s]+)',
+        rf'\bsendBeacon\s*\(\s*[\'"`]{_URL_SCHEME_HTTP}([^\'"`/\s]+)',
         content,
     ):
         host = _host_of(m.group(1))
@@ -94,7 +102,7 @@ def _scan_hidden_pixel(content: str) -> list[str]:
 
         # Direct inline src.
         direct = re.search(
-            r'src=[\'"`]https?://([^\'"`\s/>]+)',
+            rf'src=[\'"`]{_URL_SCHEME_HTTP}([^\'"`\s/>]+)',
             tag,
             re.IGNORECASE,
         )
@@ -104,9 +112,9 @@ def _scan_hidden_pixel(content: str) -> list[str]:
                 out.append(f"hidden <img> → {host}")
                 continue
 
-        # JSX template literal src={`https://.../${...}`}.
+        # JSX template literal src={`https://.../${...}`} or schemeless `//...`.
         tpl = re.search(
-            r'src=\{`https?://([^`/$\s]+)',
+            rf'src=\{{`{_URL_SCHEME_HTTP}([^`/$\s]+)',
             tag,
             re.IGNORECASE,
         )
@@ -123,23 +131,13 @@ def _scan_hidden_pixel(content: str) -> list[str]:
         if var_ref:
             var = var_ref.group(1)
             for decl in re.finditer(
-                rf'(?:const|let|var)\s+{re.escape(var)}\s*=\s*[`\'"]https?://([^\'"`/${{\s]+)',
+                rf'(?:const|let|var)\s+{re.escape(var)}\s*=\s*[`\'"]{_URL_SCHEME_HTTP}([^\'"`/${{\s]+)',
                 content,
             ):
                 host = _host_of(decl.group(1))
                 if _is_external(host):
                     out.append(f"hidden <img> via {var} → {host}")
                     break
-            else:
-                # Concat form: `var = 'https://...' + x`
-                concat = re.search(
-                    rf'(?:const|let|var)\s+{re.escape(var)}\s*=\s*[`\'"]https?://([^\'"`/${{\s]+)',
-                    content,
-                )
-                if concat:
-                    host = _host_of(concat.group(1))
-                    if _is_external(host):
-                        out.append(f"hidden <img> via {var} → {host}")
 
     return out
 
@@ -151,11 +149,11 @@ def _scan_network_with_state(content: str) -> list[str]:
     """
     out = []
     for m in re.finditer(
-        r'\b(?:fetch|new\s+WebSocket|new\s+EventSource)\s*\(\s*[\'"`]'
-        r'(https?|wss?)://([^\'"`\s/]+)',
+        rf'\b(?:fetch|new\s+WebSocket|new\s+EventSource)\s*\(\s*[\'"`]'
+        rf'{_URL_SCHEME}([^\'"`\s/]+)',
         content,
     ):
-        host = _host_of(m.group(2))
+        host = _host_of(m.group(1))
         if not _is_external(host):
             continue
         start = max(0, m.start() - 300)

