@@ -114,3 +114,59 @@ def test_disable_attr_missing_returns_unsupported_for_none():
     status, new_current = apply_adapter_swap(m, "none", "adapter-A")
     assert status == "unsupported"
     assert new_current == "adapter-A"
+
+
+# --- Graceful fallback for unloaded adapters --------------------------------
+
+
+def test_fallback_when_requested_adapter_not_in_peft_config():
+    """Router picked chrome-ext-v1 but server only has build-v89 + gamedev
+    loaded. Without fallback, set_adapter would raise ValueError and leave
+    the agent running on stale state. Fallback disables to base instead."""
+    m = _FakeModel()
+    m.peft_config = {"build-v89": object(), "gamedev": object()}
+    status, new_current = apply_adapter_swap(m, "chrome-ext-v1", "gamedev")
+    assert status == "fallback→none"
+    assert new_current == "none"
+    # disable_adapter_layers was called; set_adapter NOT called for unloaded name
+    calls = [c[0] for c in m.calls]
+    assert "disable_adapter_layers" in calls
+    assert "set_adapter" not in calls
+
+
+def test_no_fallback_when_peft_config_missing():
+    """Model without `peft_config` attr (not a PeftModel) — skip the availability
+    check and let the try/except path handle whatever happens."""
+    m = _FakeModel()
+    # No peft_config set
+    status, new_current = apply_adapter_swap(m, "adapter-X", None)
+    assert status == "swapped→adapter-X"
+    assert new_current == "adapter-X"
+
+
+def test_no_fallback_when_peft_config_empty():
+    """Empty peft_config dict — same as missing (no known adapters to compare)."""
+    m = _FakeModel()
+    m.peft_config = {}
+    # Can't validate availability → proceed to set_adapter (may raise, caught below)
+    status, new_current = apply_adapter_swap(m, "adapter-X", None)
+    assert status == "swapped→adapter-X"
+
+
+def test_requested_adapter_in_peft_config_proceeds_normally():
+    """When the adapter IS loaded, we take the normal set_adapter path."""
+    m = _FakeModel()
+    m.peft_config = {"build-v89": object(), "gamedev": object()}
+    status, new_current = apply_adapter_swap(m, "build-v89", None)
+    assert status == "swapped→build-v89"
+    assert new_current == "build-v89"
+
+
+def test_none_never_falls_back():
+    """Requesting 'none' always goes to disable_adapter_layers regardless of
+    peft_config content."""
+    m = _FakeModel()
+    m.peft_config = {"build-v89": object()}
+    status, new_current = apply_adapter_swap(m, "none", "build-v89")
+    assert status == "swapped→none"
+    assert new_current == "none"

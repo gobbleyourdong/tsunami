@@ -137,3 +137,81 @@ def test_verb_without_noun_stays_chat():
 def test_noun_without_verb_stays_chat():
     adapter, _ = pick_adapter("dashboards are really hard", current="")
     assert adapter == "none"
+
+
+# --- Chrome-extension adapter category --------------------------------------
+
+
+def test_chrome_extension_phrase_routes_to_chrome_ext():
+    """Explicit 'chrome extension' should route to chrome-ext-v1."""
+    adapter, reason = pick_adapter("build a chrome extension for tab management", current="")
+    assert adapter == "chrome-ext-v1"
+    assert "chrome" in reason.lower()
+
+
+def test_browser_extension_phrase_routes_to_chrome_ext():
+    adapter, _ = pick_adapter("create a browser extension popup", current="")
+    assert adapter == "chrome-ext-v1"
+
+
+def test_manifest_json_hint_routes_to_chrome_ext():
+    """A prompt mentioning `manifest.json` (MV3 signature) routes correctly
+    even without the literal 'chrome extension' phrase."""
+    adapter, _ = pick_adapter("make a thing with manifest.json v3 and popup", current="")
+    assert adapter == "chrome-ext-v1"
+
+
+def test_chrome_tabs_api_hint_routes_to_chrome_ext():
+    adapter, _ = pick_adapter("build an extension using chrome.tabs API", current="")
+    assert adapter == "chrome-ext-v1"
+
+
+def test_content_script_hint_routes_to_chrome_ext():
+    adapter, _ = pick_adapter("need a content script that injects a sidebar", current="")
+    assert adapter == "chrome-ext-v1"
+
+
+def test_chrome_ext_beats_game_signal():
+    """chrome-ext is checked BEFORE game — 'chrome extension that plays a game'
+    should route to chrome-ext-v1, not gamedev."""
+    adapter, _ = pick_adapter(
+        "build a chrome extension that plays a game in the popup", current=""
+    )
+    assert adapter == "chrome-ext-v1"
+
+
+def test_chrome_ext_beats_build_pair():
+    """Also wins over plain 'build X app' — chrome-ext is first in check order."""
+    adapter, _ = pick_adapter("create a chrome extension app for notes", current="")
+    assert adapter == "chrome-ext-v1"
+
+
+def test_iteration_on_chrome_ext_holds():
+    """Follow-up 'add dark mode' while on chrome-ext-v1 holds the adapter."""
+    adapter, _ = pick_adapter("add dark mode to the popup", current="chrome-ext-v1")
+    assert adapter == "chrome-ext-v1"
+
+
+def test_short_turn_on_chrome_ext_holds():
+    adapter, _ = pick_adapter("looks good, thanks", current="chrome-ext-v1")
+    assert adapter == "chrome-ext-v1"
+
+
+def test_revert_from_chrome_ext_to_chat():
+    adapter, _ = pick_adapter("nevermind, forget about that", current="chrome-ext-v1")
+    assert adapter == "none"
+
+
+def test_chat_start_to_chrome_ext_to_chrome_iteration():
+    """End-to-end: start in chat, pivot to chrome-ext, iterate."""
+    current = "none"
+    current, _ = pick_adapter("hi", current=current)
+    assert current == "none"
+    current, _ = pick_adapter(
+        "let's build a chrome extension for reading time tracking", current=current
+    )
+    assert current == "chrome-ext-v1"
+    current, _ = pick_adapter("add a badge counter in the toolbar", current=current)
+    assert current == "chrome-ext-v1"
+    current, _ = pick_adapter("now pivot to a 2D platformer game instead", current=current)
+    assert current == "gamedev"
