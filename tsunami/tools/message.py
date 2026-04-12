@@ -160,6 +160,21 @@ class MessageChat(BaseTool):
 
     async def execute(self, text: str = "", done: bool = True, **kw) -> ToolResult:
         global _last_displayed
+        # Refuse done=true when no work has been done — the model uses message_chat
+        # as a forbidden message_ask channel ("What would you like me to do?" then
+        # done:true), violating the system prompt's "bias toward completion".
+        # Catches QA-3's emoji-only and similar-no-deliverable repros.
+        if done:
+            from .filesystem import _session_created_projects
+            if not _session_created_projects:
+                return ToolResult(
+                    "REFUSED: cannot end the task before doing any work. "
+                    "Your bias is toward completion, not caution — make a "
+                    "best-effort interpretation of the prompt, call project_init "
+                    "with a sensible name, and start building. NEVER use message_chat "
+                    "to ask the user clarifying questions; you are autonomous.",
+                    is_error=True,
+                )
         if text:
             clean = text.encode("ascii", errors="ignore").decode("ascii")
             prefix = "\033[36m>\033[0m" if not done else ""
