@@ -323,6 +323,42 @@ export default function App() {
         assert "useState" in suffix
 
 
+def test_exit_gate_prints_refused_to_stdout(capsys):
+    """QA-1 Fire 36: the suffix must also be PRINTED so QA / CI grepping
+    stdout for REFUSED can find it (nothing downstream prints the return
+    string of agent.run otherwise)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "placeholder-app", _PLACEHOLDER_APP_TSX)
+        agent = _make_agent(tmp)
+        suffix = agent._exit_gate_suffix()
+        assert "REFUSED" in suffix
+        captured = capsys.readouterr()
+        assert "REFUSED" in captured.out
+
+
+def test_exit_gate_dedups_print(capsys):
+    """Calling the gate twice in a row for the same error must not print twice —
+    common when the task_complete return follows a safety-valve return."""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "placeholder-app", _PLACEHOLDER_APP_TSX)
+        agent = _make_agent(tmp)
+        agent._exit_gate_suffix()
+        agent._exit_gate_suffix()
+        captured = capsys.readouterr()
+        # Only one REFUSED block printed, even though called twice
+        assert captured.out.count("REFUSED") == 1
+
+
+def test_exit_gate_passing_case_prints_nothing(capsys):
+    """When the deliverable passes, nothing should be printed."""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "counter-app", _REAL_APP_TSX)
+        agent = _make_agent(tmp)
+        agent._exit_gate_suffix()
+        captured = capsys.readouterr()
+        assert "REFUSED" not in captured.out
+
+
 def test_all_task_complete_returns_call_exit_gate():
     """QA-1 Fire 33: the delivery-deadline safety valve reaches the normal
     task_complete return without ever entering message_result's gate.

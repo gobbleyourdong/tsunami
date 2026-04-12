@@ -529,13 +529,27 @@ class Agent:
         on every exit path, so users and QA scripts can see the deliverable
         is broken instead of treating a 4-line placeholder as complete.
 
+        Fire 36 follow-up: the suffix is appended to agent.run's return
+        string but nothing downstream ever PRINTS that string — so QA
+        grep'ing stdout for "REFUSED" never found it. Print the banner
+        directly from this helper, in addition to returning it, so the
+        REFUSED reason is visible wherever agent.run is driven from (CLI,
+        tests, web UI, anything). `_last_gate_printed` de-dupes against
+        the common case where two exit paths fire back-to-back (e.g. the
+        task_complete return after message_result already printed it).
+
         Returns "" when the gate passes (or no React deliverable exists),
         otherwise "\\n<REFUSED ...>" to append to the exit message.
         """
         try:
             from .tools.message import _check_deliverable_complete
             err = _check_deliverable_complete(self.config.workspace_dir)
-            return f"\n{err}" if err else ""
+            if not err:
+                return ""
+            if getattr(self, "_last_gate_printed", None) != err:
+                print(f"\n  {err}", flush=True)
+                self._last_gate_printed = err
+            return f"\n{err}"
         except Exception as e:
             log.debug(f"Exit-gate check failed: {e}")
             return ""
