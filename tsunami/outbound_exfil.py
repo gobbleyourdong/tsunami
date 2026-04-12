@@ -341,6 +341,82 @@ def _scan_reverse_string_url(content: str) -> list[str]:
     return out
 
 
+def _scan_fromCharCode_url(content: str) -> list[str]:
+    """QA-3 Fire 117 note (untested variant): `String.fromCharCode(104, 116,
+    116, 112, 115, 58, 47, 47, ...)`. Attacker encodes each character of
+    the URL as its integer codepoint to hide the literal from source
+    scanners. At runtime, JS reconstructs the string.
+
+    Match the call, parse the arg list (decimal / hex ints), build the
+    resulting string, allowlist-check.
+    """
+    out = []
+    for m in re.finditer(
+        r'String\s*\.\s*fromCharCode\s*\(([^)]+)\)',
+        content,
+    ):
+        args = m.group(1)
+        chars: list[str] = []
+        ok = True
+        for tok in args.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            # Accept decimal, 0xHEX, or a single-char arithmetic expression
+            # like `0x68`. Skip anything else (arithmetic, variables).
+            try:
+                n = int(tok, 0) if tok.startswith(("0x", "0X")) else int(tok)
+            except ValueError:
+                ok = False
+                break
+            if n < 0 or n >= 0x110000:
+                ok = False
+                break
+            chars.append(chr(n))
+        if not ok:
+            continue
+        s = "".join(chars)
+        if _is_external_url_string(s):
+            host_m = re.match(r'(?:https?:)?//([^\s/\'"]+)', s.strip())
+            host = _host_of(host_m.group(1)) if host_m else "unknown"
+            out.append(f"String.fromCharCode → {host}")
+    return out
+
+
+def _decode_u_escapes(s: str) -> str:
+    """Decode only `\\uXXXX` sequences — leave other backslash-sequences alone."""
+    return re.sub(
+        r'\\u([0-9a-fA-F]{4})',
+        lambda m: chr(int(m.group(1), 16)),
+        s,
+    )
+
+
+def _scan_unicode_escape_url(content: str) -> list[str]:
+    """QA-3 Fire 117 note (untested variant): `"\\u0068\\u0074\\u0074\\u0070
+    \\u0073\\u003a\\u002f\\u002f\\u0065\\u0076\\u0069\\u006c..."`. Attacker
+    expresses each URL character as its \\uXXXX codepoint. The source file
+    holds the escape sequences literally; JS decodes at parse time.
+
+    Find string literals containing 3+ `\\uXXXX` sequences, decode, check
+    for external URL. 3-sequence threshold filters typical emoji / i18n
+    uses (which are rarely this dense).
+    """
+    out = []
+    for m in re.finditer(r'[\'"]([^\'"]{6,})[\'"]', content):
+        s = m.group(1)
+        if s.count("\\u") < 3:
+            continue
+        decoded = _decode_u_escapes(s)
+        if _is_external_url_string(decoded):
+            host_m = re.match(
+                r'(?:https?:)?//([^\s/\'"]+)', decoded.strip()
+            )
+            host = _host_of(host_m.group(1)) if host_m else "unknown"
+            out.append(f"unicode-escape URL → {host}")
+    return out
+
+
 def _scan_split_url_declarations(content: str) -> list[str]:
     """Fire 114: direct detection of the split-URL pattern regardless of
     constant-folding. Find pairs of adjacent const/let/var declarations
@@ -403,6 +479,9 @@ def check_outbound_exfil(content: str, filename: str) -> str | None:
     offenders.extend(_scan_new_url_constructor(folded))
     # Fire 114 variant (d): `"REVERSED".split("").reverse().join("")`.
     offenders.extend(_scan_reverse_string_url(content))
+    # Fire 117 variants: `String.fromCharCode(...)` + `\\uXXXX\\uYYYY...`.
+    offenders.extend(_scan_fromCharCode_url(content))
+    offenders.extend(_scan_unicode_escape_url(content))
 
     if not offenders:
         return None

