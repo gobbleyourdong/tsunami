@@ -107,15 +107,14 @@ tsunami measures whether it's lying.
 
 | tier | hardware | language model | image model |
 |------|----------|----------------|-------------|
-| **god** | 24GB+ GPU (5090 / A6000 / A100) | Gemma 4 E4B bf16 | Z-Image-Turbo + FLUX.2-klein-4B preloaded |
-| **S** | 16GB+ GPU (4080 / 4090 / 3090) | Gemma 4 E4B bf16 | Z-Image-Turbo (~6GB, default) |
+| **S** | 16GB+ GPU (4080 / 4090 / 3090 / 5090) | Gemma 4 E4B bf16 | Z-Image-Turbo (~6GB, default) |
 | **mid** | 8–16GB GPU | `--load-in-8bit` Gemma 4 E4B | `--image-model black-forest-labs/FLUX.2-klein-4B` (~4B, smaller) |
 | **shit** | <8GB GPU / no GPU | `--load-in-4bit` or CPU | `--image-model stabilityai/sd-turbo` (~2GB legacy) or `none` |
 
 tsunami auto-detects your GPU and configures itself. you never think about this.
 
 one language model across every tier: **Gemma 4 E4B** — 128K native context, native tool calling, built-in thinking, multimodal vision.
-image model swaps with the tier: **Z-Image-Turbo** (god/S, best text rendering) → **FLUX.2-klein-4B** (mid, smaller) → **SD-Turbo** (shit, legacy 2GB).
+image model swaps with the tier: **Z-Image-Turbo** (S, best text rendering) → **FLUX.2-klein-4B** (mid, smaller) → **SD-Turbo** (shit, legacy 2GB).
 
 runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud required.
 
