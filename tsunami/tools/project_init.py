@@ -69,6 +69,14 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
     if needs("game") and (SCAFFOLDS_DIR / "game").exists():
         return "game"
 
+    # 3a. AI-powered app (chatbot, LLM interface, streaming chat proxy)
+    if needs("ai chatbot", "chatbot app", "ai chat", "llm app", "llm chat",
+             "openai api", "anthropic api", "claude api", "gpt api",
+             "streaming chat", "usechat", "ai assistant app", "ai powered app",
+             "chat with gpt", "chat with claude", "build a chatbot"):
+        if (SCAFFOLDS_DIR / "ai-app").exists():
+            return "ai-app"
+
     # 4. Needs realtime (chat, live, multiplayer, notifications)
     if needs("chat", "realtime", "live", "multiplayer", "websocket", "socket",
              "notification", "collab", "sync"):
@@ -142,7 +150,7 @@ class ProjectInit(BaseTool):
                         "Explicit scaffold override — bypasses auto-detection. "
                         "Options: 'react-app', 'dashboard', 'data-viz', 'landing', "
                         "'form-app', 'fullstack', 'realtime', 'electron-app', "
-                        "'chrome-extension', 'game', 'api-only'. Omit to auto-detect from name."
+                        "'chrome-extension', 'game', 'api-only', 'ai-app'. Omit to auto-detect from name."
                     ),
                 },
                 "dependencies": {
@@ -173,6 +181,10 @@ class ProjectInit(BaseTool):
         "gamedev":          "game",
         "api-only":         "api-only",
         "api":              "api-only",
+        "ai-app":           "ai-app",
+        "ai":               "ai-app",
+        "aiapp":            "ai-app",
+        "chatbot":          "ai-app",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:

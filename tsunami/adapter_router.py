@@ -120,6 +120,33 @@ _API_WORDS = (
     "openapi", "swagger", "api schema",
 )
 
+# AI-app signals — React + Express SSE proxy; streaming LLM chat, no database.
+# Checked AFTER api-only so "build an AI chatbot API (no frontend)" goes api-only.
+# "chatbot" alone is checked as part of a phrase to avoid "build a customer support tool"
+# (which has no AI framing) landing here.
+_AI_APP_WORDS = (
+    # explicit chatbot / AI chat UIs
+    "ai chatbot", "ai chat app", "ai chat application",
+    "chatbot app", "chatbot interface", "chatbot ui",
+    "build a chatbot", "build an ai chat", "build an ai assistant",
+    # AI API vocabulary
+    "openai api", "anthropic api", "claude api",
+    "gpt-4 app", "gpt4 app", "gpt api", "openai streaming",
+    "llm app", "llm chat", "llm interface", "llm powered",
+    # streaming patterns
+    "streaming chat", "streaming responses", "sse chat", "sse streaming",
+    "ai streaming", "stream from openai", "stream from claude",
+    # SDK / hook vocabulary
+    "vercel ai sdk", "ai sdk", "usechat hook", "usechat(",
+    # common AI assistant app types
+    "writing assistant app", "coding assistant app", "ai tutor app",
+    "ai advisor", "ai coach app", "ai powered chat",
+    # explicit AI app framing
+    "ai powered app", "powered by openai", "powered by claude",
+    "build with openai", "build with claude", "build with gpt",
+    "chat with gpt", "chat with claude", "chat with ai",
+)
+
 # Data-viz signals — Recharts + ChartCard scaffold, distinct from generic build.
 _DATAVIZ_WORDS = (
     # explicit vocabulary
@@ -248,6 +275,13 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
         if phrase in msg:
             return "chrome-ext-v1", f"chrome-ext signal: {phrase!r}"
 
+    # 2b2. AI-app signals — React + Express SSE proxy; streaming LLM chat.
+    # Checked BEFORE realtime so "chat app powered by Claude API" doesn't get caught
+    # by the realtime "chat app" keyword. AI API vocabulary is unambiguous.
+    for phrase in _AI_APP_WORDS:
+        if phrase in msg:
+            return "ai-app-v1", f"ai-app signal: {phrase!r}"
+
     # 2c. Realtime signals — WebSocket + rooms; strongest real-time signal.
     for phrase in _REALTIME_WORDS:
         if phrase in msg:
@@ -298,7 +332,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
 
     # 5. Iteration hold — if already specialized, an "add X" / "fix Y" / etc.
     #    turn should KEEP the current adapter, not drop back to chat.
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1", "api-only-v1"):
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1", "api-only-v1", "ai-app-v1"):
         for verb in _ITERATION_VERBS:
             if verb in msg:
                 return current, f"iteration-hold: matched {verb.strip()!r}"
@@ -306,7 +340,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
     # 6. No specialization signal. If we were already specialized and the
     #    user's turn is short/conversational, still hold (don't flip-flop
     #    on marginal signals like "looks good, thanks").
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1", "api-only-v1") and len(msg.split()) < 20:
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1", "api-only-v1", "ai-app-v1") and len(msg.split()) < 20:
         return current, "short conversational turn — hold specialized adapter"
 
     # 7. Default: chat.
