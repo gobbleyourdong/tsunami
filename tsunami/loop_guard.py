@@ -1,12 +1,17 @@
-"""Loop guard — detect and break agent stall patterns.
+"""Loop guard — detect agent stall patterns.
 
 Three detection layers (from AgentPatterns.tech):
 1. Hard loop: identical tool + args repeated 3x
 2. Soft loop: same tool type repeated 5x (even with different args)
 3. Semantic loop: no forward progress for N iterations
 
-When a loop is detected, the guard returns a forced action that
-overrides the model's next tool choice.
+When a loop is detected, the guard returns a `suggested_action` (a tool
+name) that the caller injects into the state as a system note — the model
+is strongly steered toward it but NOT forced. A real hard override would
+require intercepting the next _step before the model runs; the current
+nudge-only approach leaves the model in control and is sufficient for
+the cases observed in practice (QA-2 iter 11/12 build-loop was addressed
+at the feedback-tracker layer instead — see tsunami/feedback.py).
 """
 
 from __future__ import annotations
@@ -28,7 +33,11 @@ class LoopDetection:
     detected: bool = False
     loop_type: str = ""  # "hard", "soft", "progress"
     description: str = ""
-    forced_action: str = ""  # tool name to force, or "" for nudge only
+    forced_action: str = ""  # tool name suggested to the agent via system note;
+                             # "" if no specific alternative is suggested. Named
+                             # `forced_action` for historical reasons — the
+                             # current consumer nudges via state.add_system_note,
+                             # it does NOT intercept the model's next choice.
 
 
 def _fingerprint(tool_name: str, args: dict) -> str:
