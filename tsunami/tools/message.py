@@ -284,6 +284,33 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
                     f"infographic with a 'Chart Placeholder' label."
                 )
 
+    # QA-1 Playtest Fire 119 + Fire 117 dead-interactivity:
+    # analytics-dashboard-charts shipped with 3 `<a href="#">` tabs —
+    # Overview / Reports / Settings — none with any onClick, so clicks
+    # produced zero navigation. "Cosmetic nav" — decoration that looks
+    # interactive. Detect: 2+ `<a href="#">` (or `<a href="">`) tags
+    # without an `onClick` handler in the same tag. Single dead `<a>`
+    # is often a legit "scroll to top" convention; 2+ is a signature
+    # of the agent copy-pasting a nav bar without wiring it.
+    anchor_tags = re.findall(
+        r'<a\b[^>]*\bhref=[\'"]#?[\'"][^>]*>',
+        content,
+        re.IGNORECASE | re.DOTALL,
+    )
+    dead_anchors = [
+        t for t in anchor_tags
+        if "onclick" not in t.lower()
+    ]
+    if len(dead_anchors) >= 2:
+        return (
+            f"REFUSED: {target.name}/src/App.tsx has {len(dead_anchors)} "
+            f"`<a href=\"#\">` tags with no onClick handler — looks like "
+            f"navigation but does nothing. Wire each one to an onClick "
+            f"that updates state / routes / scrolls, or change the "
+            f"elements to buttons / spans if they're not actually "
+            f"interactive."
+        )
+
     # QA-1 Playtest Fires 117 / 119 / qa-solo dashboard regression:
     # agents wrote `<img src="/icon-home">` etc. for sprites they never
     # created. Every page load produces a browser 404 on the icon. Static
