@@ -130,7 +130,27 @@
       "prerequisite": "Train realtime-v1 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-realtime-v1 --output models/gemma-4-e4b-tsunami-realtime-v1-merged",
       "notes": "18 DPO pairs RTF01-RTF06: realtime template param, server-first, useWebSocket not fetch, undertow, ws library not socket.io, no-main.tsx",
       "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-realtime-v1-merged --data workspace/training_data/realtime_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-realtime-v2 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
+    },
+    {
+      "type": "SFT",
+      "adapter": "formapp-v1",
+      "data": "workspace/training_data/formapp_sft_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-formapp-v1",
+      "params": "--epochs 3 --lora-r 16 --lr 2e-4",
+      "notes": "6 SFT examples FA01-06: CSV explorer, multi-step wizard, XLSX analyzer, data-entry+table, error-recovery (fetch->parseFile), conversational. Uses scaffolds/form-app/ (FileDropzone+DataTable+parseFile+exportCsv). Router: file-upload/dropzone/xlsx-viewer/multi-step-form -> form-app-v1. Eval: python training/eval_formapp.py --quick",
+      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/formapp_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-formapp-v1 --epochs 3 --lora-r 16 --lr 2e-4"
+    },
+    {
+      "type": "DPO",
+      "adapter": "formapp-v1",
+      "base_model": "models/gemma-4-e4b-tsunami-formapp-v1-merged",
+      "data": "workspace/training_data/formapp_dpo_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-formapp-v2",
+      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
+      "prerequisite": "Train formapp-v1 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-formapp-v1 --output models/gemma-4-e4b-tsunami-formapp-v1-merged",
+      "notes": "18 DPO pairs FAF01-FAF06: form-app template, parseFile not fetch, DataTable not raw table, exportCsv not Blob, undertow, no-main.tsx",
+      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-formapp-v1-merged --data workspace/training_data/formapp_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-formapp-v2 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     }
   ],
-  "notes": "Fire 10 (2026-04-12): eval_realtime.py (L1-L4 RTT/RTS/RTER/RTF). realtime DPO v1 (18 pairs RTF01-06: template, server-first, useWebSocket, undertow, ws-not-socketio, no-main.tsx). Fire 9 (2026-04-12): eval_fullstack.py + fullstack DPO v1 (18 pairs FSF01-06). realtime NEW adapter SFT v1 (6ex RT01-06). adapter_router: realtime-v1 at step 2a (websocket/live-chat/collaborative). Fire 8: data-viz SFT+DPO, fullstack SFT. Fire 7: chrome-ext. Fire 6: gamedev DPO+SFT. Fire 5: build DPO 73pairs."
+  "notes": "Fire 11 (2026-04-12): form-app NEW adapter — SFT v1 (6ex FA01-06) + eval + DPO v1 (18 pairs FAF01-06). adapter_router: form-app-v1 at step 2d (file-upload/dropzone/xlsx/multi-step-form). Router fix: removed 'upload csv' from dataviz (now routes to form-app). Fire 10: eval_realtime + realtime DPO v1. Fire 9: eval_fullstack + fullstack DPO + realtime SFT. Fire 8: data-viz SFT+DPO, fullstack SFT. Fire 7: chrome-ext. Fire 6: gamedev DPO+SFT. Fire 5: build DPO 73pairs."
 }
