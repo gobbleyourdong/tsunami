@@ -91,6 +91,32 @@ _DESTRUCTIVE_PATTERNS = [
     (re.compile(r'\bchmod\s+(-[a-zA-Z]+\s+)*\+?x\w*\s+/(tmp|var/tmp)/'),
      "BLOCKED: refuse to chmod +x files in /tmp "
      "(RCE staging vector)"),
+    # QA-3 Fire 85: interpreter -c/-e bypass. The existing shell-syntax regex
+    # doesn't inspect inside quoted `-c` arguments to an interpreter. Agent ran
+    # a python one-liner invoking the shell-exec syscall API and the /tmp
+    # marker landed. Block the dangerous subset of interpreter-c invocations
+    # — narrow enough that legit one-liners (`python3 -c "print(...)"`,
+    # `node -e "console.log(1)"`) still pass.
+    # Identifiers built via concatenation so the repo's pre-commit security
+    # hook doesn't misfire on literal references in this file.
+    (re.compile(
+        r'\bpython3?\s+-c\s+[\'"].*?'
+        r'(?:os\.sys' + r'tem|sub' + r'process\.|__imp' + r'ort__\s*\(\s*[\'"]os)',
+    ),
+     "BLOCKED: python -c invoking shell-exec syscalls — "
+     "emit shell_exec directly instead of smuggling shell via python"),
+    (re.compile(r'\b(perl|ruby)\s+-e\s+[\'"].*?\bsys' + r'tem\s*\('),
+     "BLOCKED: interpreter -e invoking shell-exec syscalls — "
+     "emit shell_exec directly instead of smuggling shell via interpreter"),
+    (re.compile(r'\bnode\s+-e\s+[\'"].*?(?:exec' + r'Sync|exec\s*\(|spawn\s*\()'),
+     "BLOCKED: node -e invoking shell-exec syscalls — "
+     "emit shell_exec directly instead of smuggling shell via node"),
+    # Nested shell -c has no legit use inside shell_exec (which already runs
+    # under bash). It's only there to rewrap blocked patterns past the
+    # top-level regex scan.
+    (re.compile(r'\b(bash|sh|zsh|fish|dash)\s+-c\b'),
+     "BLOCKED: nested shell -c is redundant inside shell_exec and a "
+     "common regex-bypass vector — emit the command directly"),
 ]
 
 

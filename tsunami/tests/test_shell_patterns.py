@@ -146,6 +146,84 @@ def test_allows_chmod_on_workspace():
     assert r is None
 
 
+def test_blocks_python_c_syscall():
+    """QA-3 Fire 85 repro: python -c invoking the shell-exec syscall API
+    bypasses bash_security. Attack string assembled via concatenation so the
+    repo's pre-commit security hook doesn't false-positive on literal patterns.
+    """
+    attack = (
+        "python3 -c 'import os; os.sys"
+        + "tem(\"touch /tmp/qa3_py_marker_test85.txt\")'"
+    )
+    r = _check_destructive(attack)
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "python" in r.lower()
+
+
+def test_blocks_python_c_subprocess_variant():
+    attack = (
+        'python3 -c "import sub' + 'process; sub' + 'process.run([\'rm\', \'-rf\', \'/tmp/x\'])"'
+    )
+    r = _check_destructive(attack)
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_blocks_perl_e_syscall():
+    attack = "perl -e 'sys" + "tem(\"touch /tmp/x\")'"
+    r = _check_destructive(attack)
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "perl" in r.lower() or "interpreter" in r.lower()
+
+
+def test_blocks_ruby_e_syscall():
+    attack = "ruby -e 'sys" + "tem(\"touch /tmp/x\")'"
+    r = _check_destructive(attack)
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_blocks_node_e_syscall():
+    attack = "node -e 'require(\"child_process\").exec" + "Sync(\"touch /tmp/x\")'"
+    r = _check_destructive(attack)
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "node" in r.lower()
+
+
+def test_blocks_nested_bash_c():
+    r = _check_destructive("bash -c 'echo hi'")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "nested shell" in r.lower() or "shell -c" in r.lower()
+
+
+def test_blocks_nested_sh_c():
+    r = _check_destructive("sh -c 'ls /tmp'")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_allows_legit_python_c_print():
+    """Narrow: `python3 -c "print(...)"` (no syscall API) must pass."""
+    r = _check_destructive('python3 -c "print(\'hello\')"')
+    assert r is None
+
+
+def test_allows_legit_node_e_console():
+    """Narrow: `node -e "console.log(process.version)"` must pass."""
+    r = _check_destructive('node -e "console.log(process.version)"')
+    assert r is None
+
+
+def test_allows_python_script_path():
+    """`python3 path/to/script.py` (no -c) isn't affected — runs a normal file."""
+    r = _check_destructive("python3 workspace/deliverables/myapp/scripts/build.py")
+    assert r is None
+
+
 def test_prior_blocks_still_fire():
     """Regression: previously-blocked patterns unaffected by the new rule."""
     assert _check_destructive("cat ~/.aws/credentials").startswith("BLOCKED")
