@@ -2002,8 +2002,16 @@ class Agent:
                     "Save your findings/progress to a file NOW before context is lost."
                 )
 
-        # 8sc. Scaffold awareness — remind agent what components are available
-        if self.state.iteration > 0 and self.state.iteration % 10 == 0:
+        # 8sc. Scaffold awareness — remind agent what components are available.
+        # QA-1 Fire 81: engine awareness MUST fire at iter 1, before the agent
+        # writes App.tsx (typically iter 2-3). Without this, by the time the
+        # iter%10==0 trigger fires (iter 10), App.tsx is already written with
+        # React Three Fiber or CSS transforms instead of the Tsunami Engine.
+        # UI-components awareness stays on the iter%10 schedule (not time-
+        # critical — model can import components any time).
+        _early = self.state.iteration == 1
+        _periodic = self.state.iteration > 0 and self.state.iteration % 10 == 0
+        if _early or _periodic:
             try:
                 deliverables = Path(self.config.workspace_dir) / "deliverables"
                 if deliverables.exists():
@@ -2015,21 +2023,10 @@ class Agent:
                         readme = proj / "README.md"
                         ui_dir = proj / "src" / "components" / "ui"
                         comp_dir = proj / "src" / "components"
-                        if readme.exists() and ui_dir.exists():
-                            # List available UI components
-                            ui_components = [f.stem for f in ui_dir.iterdir()
-                                           if f.suffix in ('.tsx', '.ts') and f.stem != 'index']
-                            if ui_components:
-                                self.state.add_system_note(
-                                    f"AVAILABLE COMPONENTS (import from './components/ui'):\n"
-                                    f"{', '.join(sorted(ui_components))}\n"
-                                    f"Don't rewrite these — import them."
-                                )
-                                log.info(f"Scaffold awareness: {len(ui_components)} UI components available")
-                        # Engine awareness — inject API reference for game scaffold projects
-                        elif self._is_engine_project(proj):
+                        # Engine awareness — fire at iter 1 AND periodically thereafter
+                        if self._is_engine_project(proj):
                             self.state.add_system_note(
-                                "ENGINE API (import from '@engine/...'):\n"
+                                "ENGINE API (import from '@engine/...') — USE THIS, NOT react-three-fiber:\n"
                                 "Game({mode:'2d'|'3d'}) — top-level orchestrator\n"
                                 "game.scene(name) — returns SceneBuilder\n"
                                 "level.spawn(name, {mesh,position,controller,ai,mass,...})\n"
@@ -2042,9 +2039,23 @@ class Agent:
                                 "Input: KeyboardInput, GamepadInput, ActionMap, ComboDetector\n"
                                 "VFX: GPUParticleSystem, ShaderGraph, PostProcess\n"
                                 "Flow: SceneManager, Menu, Dialog, Tutorial, Difficulty\n"
-                                "Systems: HealthSystem, Inventory, Checkpoint, Score"
+                                "Systems: HealthSystem, Inventory, Checkpoint, Score\n"
+                                "Write to src/main.ts (NOT App.tsx) using @engine/ imports. "
+                                "DO NOT npm install @react-three/fiber — the engine is already "
+                                "aliased and on disk."
                             )
-                            log.info("Engine awareness: injected tsunami-engine API reference")
+                            log.info(f"Engine awareness: injected tsunami-engine API reference (iter {self.state.iteration})")
+                        # UI-components awareness — periodic only; not time-critical
+                        elif _periodic and readme.exists() and ui_dir.exists():
+                            ui_components = [f.stem for f in ui_dir.iterdir()
+                                           if f.suffix in ('.tsx', '.ts') and f.stem != 'index']
+                            if ui_components:
+                                self.state.add_system_note(
+                                    f"AVAILABLE COMPONENTS (import from './components/ui'):\n"
+                                    f"{', '.join(sorted(ui_components))}\n"
+                                    f"Don't rewrite these — import them."
+                                )
+                                log.info(f"Scaffold awareness: {len(ui_components)} UI components available")
                         break
             except Exception:
                 pass
