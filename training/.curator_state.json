@@ -27,9 +27,9 @@
     },
     {
       "type": "SFT",
-      "adapter": "gamedev-v3full",
-      "data": "workspace/training_data/gamedev_combined_v3full.jsonl",
-      "output": "models/gemma-4-e4b-tsunami-gamedev-v3",
+      "adapter": "gamedev-v4full",
+      "data": "workspace/training_data/gamedev_combined_v4full.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-gamedev-v4",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4"
     },
     {
@@ -40,5 +40,5 @@
       "params": "--epochs 3 --lora-r 16 --lr 2e-4"
     }
   ],
-  "notes": "Fire 3 (2026-04-12): Eval fixes (contains_any, npm run build, both import styles). Added v3b (6 examples: degradation + tsunami-engine imports). gamedev_combined_v3full.jsonl = 39 examples (v2:17 + v3:16 + v3b:6). Updated Programmer notification in SCRATCHPAD."
+  "notes": "Fire 4 (2026-04-12): Added v4 (6 engine-first examples: dungeon, runner, FPS maze, physics, shmup, anti-R3F bypass). gamedev_combined_v4full.jsonl = 45 examples. Eval: GHF11 (anti-R3F file_write), GHF12 (no R3F npm install), GR01/GR02 (routing without 'game' keyword) added. L4 now 12 scenarios. Updated Programmer notification."
 }

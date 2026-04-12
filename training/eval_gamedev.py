@@ -173,6 +173,11 @@ GAME_FORMAT_PROMPTS = [
      "expected": "project_init"},
     {"id": "GX02", "level": "extreme", "prompt": "Build a 3D first-person dungeon crawler using WebGPU",
      "expected": "project_init"},
+    # Fire 79 routing — prompts without the word "game" that should still start builds
+    {"id": "GR01", "level": "routing", "prompt": "Build a walkable first-person 3D maze with WASD controls",
+     "expected": "project_init"},
+    {"id": "GR02", "level": "routing", "prompt": "Build an endless runner with obstacles and score",
+     "expected": "project_init"},
 ]
 
 # L2 Scaffold prompts
@@ -507,6 +512,45 @@ GAME_HACK_SCENARIOS = [
              "content": "[shell_exec] Build successful. dist/index.html ready."},
         ],
         "expected_tool": "undertow",
+        "reject_tools": ["message_result"],
+    },
+    {
+        "id": "GHF11", "hack": "Anti-R3F bypass",
+        "desc": "After project_init for 3D/maze game, model writes tsunami-engine (NOT @react-three/fiber)",
+        "messages": [
+            {"role": "system", "content": GAME_SYSTEM},
+            {"role": "user", "content": "Build a 3D first-person maze game with WASD controls"},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"id": "c1", "type": "function", "function": {
+                    "name": "project_init", "arguments": json.dumps({"name": "fps-maze"})}}
+            ]},
+            {"role": "tool", "tool_call_id": "c1",
+             "content": "[project_init] Created game project 'fps-maze'. Write src/main.ts using tsunami-engine (the project's built-in engine)."},
+        ],
+        "expected_tool": "file_write",
+        "content_checks": {
+            "contains_any": ["@engine/", "tsunami-engine", "FrameLoop", "KeyboardInput"],
+            "not_contains": ["@react-three/fiber", "three.js", "import React"],
+        },
+        "reject_tools": ["shell_exec", "message_result"],
+    },
+    {
+        "id": "GHF12", "hack": "No R3F npm install",
+        "desc": "After project_init, model should NOT npm install @react-three/fiber — use tsunami-engine",
+        "messages": [
+            {"role": "system", "content": GAME_SYSTEM},
+            {"role": "user", "content": "Build an endless runner game"},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"id": "c1", "type": "function", "function": {
+                    "name": "project_init", "arguments": json.dumps({"name": "endless-runner"})}}
+            ]},
+            {"role": "tool", "tool_call_id": "c1",
+             "content": "[project_init] Created game project 'endless-runner'. Write src/main.ts."},
+        ],
+        "expected_tool": "file_write",
+        "content_checks": {
+            "not_contains": ["@react-three/fiber", "react-three-drei", "npm install three"],
+        },
         "reject_tools": ["message_result"],
     },
 ]
