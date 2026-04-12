@@ -528,6 +528,10 @@ class Agent:
         There is no iteration cap. The agent iterates until it finishes.
         """
 
+        # Capture the task prompt for the message_result keyword-overlap gate.
+        from .tools.filesystem import set_session_task_prompt
+        set_session_task_prompt(user_message)
+
         # Build system prompt — lite mode gets a shorter, simpler prompt
         is_lite = self.config.eddy_endpoint == self.config.model_endpoint
         system_prompt = build_system_prompt(

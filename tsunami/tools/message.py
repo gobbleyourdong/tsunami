@@ -8,6 +8,7 @@ wastes the user's time.
 from __future__ import annotations
 
 import asyncio
+import re
 import sys
 from pathlib import Path
 
@@ -35,15 +36,41 @@ _PLACEHOLDER_PHRASES = (
     "coming soon",
 )
 
+# Stop-words excluded from prompt/deliverable keyword overlap. Chosen narrowly to
+# leave domain-specific nouns (chart, dashboard, regex, etc.) intact.
+_STOPWORDS = {
+    'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
+    'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+    'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can',
+    'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it',
+    'we', 'they', 'me', 'my', 'your', 'his', 'her', 'its', 'our', 'their',
+    'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from',
+    'about', 'into', 'through', 'before', 'after', 'above', 'below',
+    'as', 'so', 'if', 'when', 'where', 'how', 'what', 'who', 'which',
+    'build', 'make', 'create', 'add', 'use', 'using', 'app', 'page',
+    'instead', 'actually', 'scratch', 'wait', 'just', 'now', 'then',
+    'also', 'one', 'two', 'three', 'all', 'any', 'each', 'some',
+    'more', 'less', 'very', 'much', 'many', 'good', 'bad', 'new', 'old',
+    'theme', 'dark', 'light', 'simple', 'basic', 'web', 'react', 'website',
+    'tool', 'tools', 'project', 'show', 'display', 'tsx', 'ts', 'css',
+    'src', 'index', 'main', 'export', 'import', 'function', 'return',
+    'component', 'div', 'span', 'class', 'className', 'props', 'state',
+}
+
+
+def _significant_words(text: str) -> set[str]:
+    """Lowercased ≥3-letter word set, minus stopwords."""
+    return {w for w in re.findall(r"[a-zA-Z]{3,}", text.lower()) if w not in _STOPWORDS}
+
 
 def _check_deliverable_complete(workspace_dir: str) -> str | None:
-    """Return error message if the latest deliverable looks like a placeholder.
-    Returns None if deliverable is OK to ship (or if there's no React deliverable to check).
+    """Return error message if the latest deliverable looks like a placeholder
+    OR has no keyword overlap with the task prompt. Returns None if OK to ship
+    (or if there's no React deliverable to check).
     """
     deliv_root = Path(workspace_dir) / "deliverables"
     if not deliv_root.is_dir():
         return None
-    # Pick the deliverable touched most recently — that's the current task's output.
     candidates = [d for d in deliv_root.iterdir() if d.is_dir() and (d / "package.json").exists()]
     if not candidates:
         return None
@@ -72,6 +99,33 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
             f"REFUSED: {target.name}/src/App.tsx is only {len(content)} bytes — "
             f"too short to be a complete app. Write the full implementation before delivering."
         )
+    # Cross-task / pivot-ignored leakage check — prompt vs deliverable keyword overlap.
+    # Require ≥2 distinct overlapping words to avoid false-positives on incidental
+    # coincidences (e.g. "groups" appearing in both an analytics prompt's
+    # "age groups" and a regex tester's "Capture Groups").
+    from .filesystem import _session_task_prompt
+    prompt_words = _significant_words(_session_task_prompt)
+    if len(prompt_words) >= 5:
+        # Combine App.tsx + the deliverable's package.json (catches "use recharts" → recharts in deps)
+        deliv_text = content
+        pkg = target / "package.json"
+        if pkg.exists():
+            try:
+                deliv_text += "\n" + pkg.read_text()
+            except OSError:
+                pass
+        deliv_words = _significant_words(deliv_text)
+        overlap = prompt_words & deliv_words
+        if len(overlap) < 2:
+            sample = ", ".join(sorted(prompt_words)[:6])
+            matched = ", ".join(sorted(overlap)) if overlap else "none"
+            return (
+                f"REFUSED: {target.name}/src/App.tsx barely matches the task prompt "
+                f"(overlap: {matched}; expected words like: {sample}). The deliverable "
+                f"doesn't appear to be about the requested task — likely cross-task "
+                f"content leakage or pivot miss. Re-read the prompt and rewrite "
+                f"App.tsx on-topic before delivering."
+            )
     return None
 
 

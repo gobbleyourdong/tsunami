@@ -19,6 +19,12 @@ _active_project: str | None = None
 # sessions' deliverables — see QA-3's REAL-TIME DESTRUCTION CONFIRMED bug.
 _session_created_projects: set[str] = set()
 
+# Original task prompt for this session, captured by agent.run on entry.
+# Used by message_result's gate to verify deliverable content is on-topic
+# (catches QA-2's cross-task context leakage where a prior task's content
+# bled into a new prompt's deliverable).
+_session_task_prompt: str = ""
+
 
 def set_active_project(project_path: str | None):
     """Called by agent.py when phase machine detects the active project."""
@@ -29,6 +35,12 @@ def set_active_project(project_path: str | None):
 def register_session_project(name: str):
     """Called by ProjectInit when it creates a fresh deliverable dir."""
     _session_created_projects.add(name)
+
+
+def set_session_task_prompt(text: str):
+    """Called by agent.run on entry to record the task prompt for delivery checks."""
+    global _session_task_prompt
+    _session_task_prompt = text
 
 
 def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
