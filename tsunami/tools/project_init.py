@@ -77,6 +77,13 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "ai-app").exists():
             return "ai-app"
 
+    # 3b. Auth app (JWT login + protected routes + per-user data)
+    if needs("with login", "with auth", "user accounts", "user login",
+             "login page", "register page", "jwt auth", "protected route",
+             "saas app", "per-user", "user registration", "sign in", "sign up"):
+        if (SCAFFOLDS_DIR / "auth-app").exists():
+            return "auth-app"
+
     # 4. Needs realtime (chat, live, multiplayer, notifications)
     if needs("chat", "realtime", "live", "multiplayer", "websocket", "socket",
              "notification", "collab", "sync"):
@@ -150,7 +157,7 @@ class ProjectInit(BaseTool):
                         "Explicit scaffold override — bypasses auto-detection. "
                         "Options: 'react-app', 'dashboard', 'data-viz', 'landing', "
                         "'form-app', 'fullstack', 'realtime', 'electron-app', "
-                        "'chrome-extension', 'game', 'api-only', 'ai-app'. Omit to auto-detect from name."
+                        "'chrome-extension', 'game', 'api-only', 'ai-app', 'auth-app'. Omit to auto-detect from name."
                     ),
                 },
                 "dependencies": {
@@ -185,6 +192,9 @@ class ProjectInit(BaseTool):
         "ai":               "ai-app",
         "aiapp":            "ai-app",
         "chatbot":          "ai-app",
+        "auth-app":         "auth-app",
+        "auth":             "auth-app",
+        "authapp":          "auth-app",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:

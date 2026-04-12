@@ -85,6 +85,23 @@ _REALTIME_WORDS = (
     "real-time sync",
 )
 
+# Auth-app signals — React + Express + SQLite + JWT; login/register + protected routes.
+# Checked BEFORE fullstack so "notes app with user accounts" goes auth-app, not fullstack.
+_AUTH_WORDS = (
+    # explicit auth vocabulary
+    "with user accounts", "with users accounts", "with login", "with auth",
+    "with authentication", "with register", "with sign up", "with sign-up",
+    "user login", "user registration", "user signup", "user sign up",
+    "login page", "register page", "signup page",
+    "jwt auth", "jwt token", "jwt authentication", "json web token",
+    "protected routes", "auth protected", "require login", "behind login",
+    "multi-user app", "per-user data", "user-specific data",
+    # SaaS / membership vocabulary
+    "saas app", "saas platform", "saas product",
+    "members only", "members area",
+    "password login", "email and password",
+)
+
 # Fullstack signals — Express + SQLite + useApi; distinct two-file pipeline.
 _FULLSTACK_WORDS = (
     # explicit
@@ -287,6 +304,12 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
         if phrase in msg:
             return "realtime-v1", f"realtime signal: {phrase!r}"
 
+    # 2c2. Auth-app signals — JWT login + protected routes + per-user data.
+    # Checked BEFORE fullstack so "notes app with user accounts" goes auth-app.
+    for phrase in _AUTH_WORDS:
+        if phrase in msg:
+            return "auth-app-v1", f"auth-app signal: {phrase!r}"
+
     # 2d. Fullstack signals — Express + SQLite + useApi two-file pipeline.
     for phrase in _FULLSTACK_WORDS:
         if phrase in msg:
@@ -332,7 +355,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
 
     # 5. Iteration hold — if already specialized, an "add X" / "fix Y" / etc.
     #    turn should KEEP the current adapter, not drop back to chat.
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1", "api-only-v1", "ai-app-v1"):
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1", "api-only-v1", "ai-app-v1", "auth-app-v1"):
         for verb in _ITERATION_VERBS:
             if verb in msg:
                 return current, f"iteration-hold: matched {verb.strip()!r}"
@@ -340,7 +363,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
     # 6. No specialization signal. If we were already specialized and the
     #    user's turn is short/conversational, still hold (don't flip-flop
     #    on marginal signals like "looks good, thanks").
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1", "api-only-v1", "ai-app-v1") and len(msg.split()) < 20:
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1", "api-only-v1", "ai-app-v1", "auth-app-v1") and len(msg.split()) < 20:
         return current, "short conversational turn — hold specialized adapter"
 
     # 7. Default: chat.
