@@ -204,6 +204,43 @@ def _extract_tool_call(text: str):
                 return ToolCall(name=obj["name"], arguments=args if isinstance(args, dict) else {})
         except json.JSONDecodeError:
             continue
+
+    # Recovery: model truncated the JSON before closing all braces (common when
+    # <turn|> token fires mid-emission). Count outstanding opens and try appending closes.
+    candidate = text[start:]
+    opens = closes = 0
+    in_str = esc = False
+    for c in candidate:
+        if esc:
+            esc = False
+            continue
+        if in_str:
+            if c == '\\':
+                esc = True
+            elif c == '"':
+                in_str = False
+        else:
+            if c == '"':
+                in_str = True
+            elif c == '{':
+                opens += 1
+            elif c == '}':
+                closes += 1
+    deficit = opens - closes
+    if 0 < deficit <= 5 and not in_str:
+        try:
+            obj = json.loads(candidate + '}' * deficit)
+            if isinstance(obj, dict) and "name" in obj:
+                args = obj.get("arguments", {})
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except (json.JSONDecodeError, TypeError):
+                        args = {}
+                log.warning(f"Repaired truncated tool-call JSON (added {deficit} '}}'): name={obj['name']}")
+                return ToolCall(name=obj["name"], arguments=args if isinstance(args, dict) else {})
+        except json.JSONDecodeError:
+            pass
     return None
 
 
