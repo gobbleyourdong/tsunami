@@ -71,10 +71,21 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
     deliv_root = Path(workspace_dir) / "deliverables"
     if not deliv_root.is_dir():
         return None
-    candidates = [d for d in deliv_root.iterdir() if d.is_dir() and (d / "package.json").exists()]
-    if not candidates:
-        return None
-    target = max(candidates, key=lambda d: d.stat().st_mtime)
+    # Prefer THIS session's deliverable (set by ProjectInit) over mtime — under
+    # concurrent QA load a neighbor's write can bump their deliverable's mtime
+    # above ours, causing the gate to refuse the WRONG project (QA-2 iter 16 HIGH:
+    # agent got a REFUSED message naming another QA's `number-counter-...`).
+    target = None
+    from .filesystem import _session_last_project
+    if _session_last_project:
+        candidate = deliv_root / _session_last_project
+        if candidate.is_dir() and (candidate / "package.json").exists():
+            target = candidate
+    if target is None:
+        candidates = [d for d in deliv_root.iterdir() if d.is_dir() and (d / "package.json").exists()]
+        if not candidates:
+            return None
+        target = max(candidates, key=lambda d: d.stat().st_mtime)
     app = target / "src" / "App.tsx"
     if not app.exists():
         return None  # api-only / non-react scaffold
