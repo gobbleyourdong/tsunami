@@ -580,15 +580,24 @@ class Agent:
         if self.active_project and self.project_context:
             system_prompt += f"\n\n---\n\n# Active Project: {self.active_project}\n{self.project_context}"
 
-        # Inject previous session context (ECC pattern)
+        # Inject previous session context (ECC pattern). QA-1 Fire 37 noted
+        # user-injected `<end_of_turn>` / `<start_of_turn>` tokens from an
+        # earlier session's prompt were being faithfully copied into the
+        # session summary, which then flows into THIS session's system prompt
+        # — a persistence-layer chat-template injection. 143d66e's server-side
+        # escape only covers user + tool roles; system-prompt content needs
+        # its own pass here.
+        from .chat_template_safety import escape_role_tokens as _esc_tokens
         prev_session = load_last_session_summary(self.session_dir)
         if prev_session:
-            system_prompt += f"\n\n---\n\n{prev_session}"
+            system_prompt += f"\n\n---\n\n{_esc_tokens(prev_session)}"
 
-        # Inject learned instincts from previous sessions
+        # Inject learned instincts from previous sessions (same path — the
+        # memory subsystem learns from tool results which can contain
+        # adversary-controlled shell output).
         instincts = self.observer.format_instincts_for_prompt()
         if instincts:
-            system_prompt += f"\n\n---\n\n{instincts}"
+            system_prompt += f"\n\n---\n\n{_esc_tokens(instincts)}"
 
         self.state.add_system(system_prompt)
 

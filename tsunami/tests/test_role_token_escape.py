@@ -63,3 +63,26 @@ def test_visually_identical_length_grows_by_zwsp_per_token():
     src = "<end_of_turn>"
     out = escape(src)
     assert len(out) == len(src) + 1  # one ZWSP inserted
+
+
+def test_agent_run_escapes_session_summary_before_system_prompt():
+    """QA-1 Fire 37 bonus finding: session summaries that captured user-
+    injected `<end_of_turn>` tokens were being appended to system_prompt
+    unescaped, giving a persistence-layer injection into future sessions.
+    143d66e's server-side escape only covers user + tool roles — so the
+    escape has to happen here at assembly time.
+
+    Source-invariant check: agent.run() wraps load_last_session_summary's
+    output through escape_role_tokens (or equivalent) before concatenating
+    onto system_prompt.
+    """
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent / "agent.py").read_text()
+    # The previous-session summary must not be concatenated raw — look for
+    # the escape call in the same block.
+    assert "_esc_tokens(prev_session)" in src or "escape_role_tokens(prev_session)" in src, (
+        "agent.run must escape role tokens in prev_session before injecting "
+        "into system_prompt (Fire 37 persistence-injection vector)"
+    )
+    # Instincts go through the same path (they're learned from tool results).
+    assert "_esc_tokens(instincts)" in src or "escape_role_tokens(instincts)" in src
