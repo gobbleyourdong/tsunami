@@ -68,16 +68,18 @@ def build_registry(config: TsunamiConfig) -> ToolRegistry:
     is_lite = config.eddy_endpoint == config.model_endpoint
 
     if is_lite:
-        # Lite mode (2B): 11 tools — fewer choices = better decisions
+        # Lite mode (2B): 13 tools — fewer choices = better decisions
         # Removed: PlanUpdate (2B plans poorly), Swell (auto-dispatched),
-        # Undertow (auto-fires), SummarizeFile (wastes context),
-        # PythonExec (2B misuses for file ops), MatchGrep (use shell grep),
-        # LoadToolbox (no dynamic loading on 2B)
+        # SummarizeFile (wastes context), PythonExec (2B misuses for file ops),
+        # MatchGrep (use shell grep), LoadToolbox (no dynamic loading on 2B)
+        # Re-included: Undertow — the model is trained to call it before
+        # message_result; without it, calls fail "tool not found", the agent
+        # narrates "outdated tool name" and ships placeholder deliverables.
         for cls in [FileRead, FileWrite, FileEdit,
                     MatchGlob,
                     ShellExec,
                     MessageInfo, MessageAsk, MessageResult, MessageChat,
-                    SearchWeb, ProjectInit, GenerateImage]:
+                    SearchWeb, ProjectInit, GenerateImage, Undertow]:
             registry.register(cls(config))
     else:
         # Full mode (9B+): 19 tools — full capabilities
