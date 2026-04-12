@@ -207,9 +207,20 @@ async def _pull_one(page, lever: Lever, console_msgs: list) -> LeverResult:
 
 
 async def _lever_screenshot(page, lever: Lever) -> LeverResult:
-    """Take a screenshot, describe it, compare to expectation."""
+    """Take a screenshot, describe it, compare to expectation.
+
+    Describes via the multimodal eddy (Gemma-4 sees the actual pixels) and
+    falls back to pixel-stats summary on failure. Pixel stats alone don't
+    semantically match expectations like "note-taking app with textarea"
+    — the eddy comparator needs content-level text.
+    """
     screenshot_bytes = await page.screenshot()
-    stats, desc = _describe_screenshot(screenshot_bytes)
+    stats, pixel_desc = _describe_screenshot(screenshot_bytes)
+
+    # Prefer the VLM's content description; fall back to pixel stats if the
+    # multimodal call fails (network hiccup, unsupported endpoint, etc.).
+    vlm_desc = await _vlm_describe_screenshot(screenshot_bytes)
+    desc = vlm_desc or pixel_desc
 
     # If the wave provided an expectation, ask the eddy to compare
     if lever.expect:
@@ -489,6 +500,49 @@ def _screenshots_differ(before_bytes: bytes, after_bytes: bytes, threshold: floa
 
     except Exception:
         return False  # can't tell, assume no change
+
+
+async def _vlm_describe_screenshot(screenshot_bytes: bytes) -> str | None:
+    """Ask the eddy (which is multimodal Gemma-4) to describe the screenshot.
+
+    Returns a short semantic description ("A note-taking app with a textarea
+    and two buttons") or None on failure. The pixel-stats description is kept
+    as a fallback — if this VLM path succeeds, the caller should prefer it
+    because the downstream _eddy_compare() judges semantic match, not pixel
+    match.
+    """
+    import base64
+    b64 = base64.b64encode(screenshot_bytes).decode()
+    try:
+        # 120s timeout — under heavy QA load the gpu_sem queue can delay
+        # multimodal calls 2-3 min. Better to wait than fall back to pixel
+        # stats (which will fail the semantic compare). If the VLM call
+        # genuinely dies, the fallback to _describe_screenshot() still works.
+        async with httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(
+                f"{BEE_ENDPOINT}/v1/chat/completions",
+                json={
+                    "model": "tsunami",
+                    "messages": [
+                        {"role": "system", "content": "You are a UI describer. One sentence: what is visible on screen (page title, main elements, layout). Be concrete."},
+                        {"role": "user", "content": [
+                            {"type": "text", "text": "Describe this screenshot in one sentence."},
+                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+                        ]},
+                    ],
+                    "max_tokens": 120,
+                    "temperature": 0.1,
+                    "adapter": "none",  # base-model chat; no lora for describe
+                },
+                headers={"Authorization": "Bearer not-needed"},
+            )
+            if resp.status_code == 200:
+                content = resp.json()["choices"][0]["message"]["content"].strip()
+                # Collapse to one line
+                return content.split("\n")[0][:300]
+    except Exception as e:
+        log.debug(f"VLM describe failed: {e}")
+    return None
 
 
 async def _eddy_compare(saw: str, expected: str) -> str:
