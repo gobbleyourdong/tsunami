@@ -327,22 +327,24 @@ class Agent:
         if not is_build:
             return ""
 
-        # Extract project name from the message
+        # Extract project name ONLY from an explicit `deliverables/X` path in
+        # the prompt. QA-3 Fire 96: the previous word-extraction fallback
+        # (first-3-non-skip-words → dir name) gave adversary prompts control
+        # over disk dir names — `"expose admin credentials"` →
+        # `expose-admin-credentials/`, `"project_init name X"` →
+        # `project-init-name/` (which then shadowed the user's explicit X).
+        # Name extraction + pre-scaffold also ran npm install BEFORE any
+        # model reasoning — 60-120s CPU/disk burn per hostile prompt, AND
+        # locked out subsequent legitimate project_init calls because the
+        # pre-scaffolded dir won the _detect_existing_project overlap match.
+        # Cleanest fix: let the model pick the name via its own project_init
+        # tool call (normal flow). Pre-scaffold only fires when the user
+        # explicitly writes `deliverables/<name>` in the prompt.
         import re
-        # Try to find "save to workspace/deliverables/X" or infer from context
         save_match = re.search(r'deliverables/([a-z0-9_-]+)', msg)
-        if save_match:
-            project_name = save_match.group(1)
-        else:
-            # Generate a name from key words
-            words = re.findall(r'[a-z]+', msg)
-            skip = {"build", "create", "make", "a", "an", "the", "with", "and",
-                    "for", "that", "app", "save", "to", "workspace"}
-            name_words = [w for w in words if w not in skip and len(w) > 2][:3]
-            project_name = "-".join(name_words) if name_words else ""
-
-        if not project_name:
+        if not save_match:
             return ""
+        project_name = save_match.group(1)
 
         # Check if project already exists
         project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
