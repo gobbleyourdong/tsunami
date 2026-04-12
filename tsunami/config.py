@@ -25,6 +25,10 @@ class TsunamiConfig:
                          # /v1/chat/completions so the server can enforce per-user
                          # fairness. Leave empty on single-user setups — the server
                          # falls back to a shared "default" queue.
+    adapter: str = ""    # set via TSUNAMI_ADAPTER env var; feeds the `adapter` field
+                         # of /v1/chat/completions so the server swaps LoRA adapters
+                         # per-request. "" = leave server's current adapter; "none" =
+                         # force base model. Server serializes swaps via gpu_sem.
 
     # --- Eddy (fast workers — same endpoint) ---
     eddy_endpoint: str = "http://localhost:8090"
@@ -72,6 +76,7 @@ class TsunamiConfig:
             "TSUNAMI_MODEL_ENDPOINT": "model_endpoint",
             "TSUNAMI_API_KEY": "api_key",
             "TSUNAMI_USER": "client_id",
+            "TSUNAMI_ADAPTER": "adapter",
             "TSUNAMI_WATCHER_ENABLED": "watcher_enabled",
             "TSUNAMI_WATCHER_MODEL": "watcher_model",
             "TSUNAMI_WORKSPACE": "workspace_dir",

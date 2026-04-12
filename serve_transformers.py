@@ -74,6 +74,7 @@ class ChatRequest(BaseModel):
     top_p: float = 0.95
     top_k: int = 64
     user: str = ""  # OpenAI API convention — used for per-client fairness queueing
+    adapter: str | None = None  # per-request LoRA adapter selection (None = leave current; "none" = base)
 
 
 # Fairness layer. QA-2 documented the pathology: one chatty client fires 5
@@ -90,6 +91,28 @@ class ChatRequest(BaseModel):
 #     round-robin across users once they're past their own gate.
 _user_sems: dict[str, asyncio.Semaphore] = {}
 _gpu_sem = asyncio.Semaphore(1)
+
+# Current LoRA adapter (global model state). Piggybacks on _gpu_sem for
+# serialization — every swap happens inside the same async-with that serializes
+# generate, so we never swap while another request is mid-generation. Updated
+# by both the /v1/adapter endpoint and the per-request ChatRequest.adapter
+# field (QA feature request — lets each QA instance pick its adapter without
+# instance-side coordination).
+_current_adapter: str | None = None
+
+from tsunami.adapter_swap import apply_adapter_swap as _apply_adapter_swap
+
+
+def _apply_adapter_swap_locked(name: str) -> str:
+    """Swap the global adapter. Caller MUST hold _gpu_sem (or equivalent
+    single-writer guarantee) to avoid mid-generation state churn.
+
+    Thin wrapper around `tsunami.adapter_swap.apply_adapter_swap` that threads
+    the module-level `model` and `_current_adapter` globals. Never raises.
+    """
+    global _current_adapter
+    status, _current_adapter = _apply_adapter_swap(model, name, _current_adapter)
+    return status
 
 
 def _get_user_sem(user: str) -> asyncio.Semaphore:
@@ -108,24 +131,19 @@ class AdapterRequest(BaseModel):
 
 @app.post("/v1/adapter")
 async def swap_adapter(req: AdapterRequest):
-    """Hot-swap LoRA adapter. 'none' disables all adapters (chat mode)."""
-    try:
-        if req.name == "none":
-            if hasattr(model, 'disable_adapter_layers'):
-                model.disable_adapter_layers()
-                return {"status": "ok", "adapter": "none", "mode": "chat"}
-            return {"status": "ok", "adapter": "none", "note": "no adapter was loaded"}
-        elif hasattr(model, 'set_adapter'):
-            model.set_adapter(req.name)
-            return {"status": "ok", "adapter": req.name}
-        elif hasattr(model, 'load_adapter'):
-            model.load_adapter(req.name, adapter_name=req.name)
-            model.set_adapter(req.name)
-            return {"status": "ok", "adapter": req.name, "loaded_from_disk": True}
-        else:
-            return {"status": "error", "message": "model does not support adapters"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    """Hot-swap LoRA adapter. 'none' disables all adapters (chat mode).
+
+    Goes through the same gpu_sem path as per-request swaps (ChatRequest.adapter)
+    so manual and per-request swaps never race mid-generate. Both code paths
+    update `_current_adapter` via `_apply_adapter_swap_locked`.
+    """
+    async with _gpu_sem:
+        status = _apply_adapter_swap_locked(req.name)
+    if status == "unsupported":
+        return {"status": "error", "message": "model does not support adapters"}
+    if status.startswith("error:"):
+        return {"status": "error", "message": status[6:]}
+    return {"status": "ok", "adapter": req.name, "note": status}
 
 @app.post("/v1/adapter/enable")
 async def enable_adapter():
@@ -434,6 +452,16 @@ async def _chat_completions_impl(req: ChatRequest):
                 do_sample=req.temperature > 0,
             )
     async with _gpu_sem:
+        # Per-request adapter selection — swap BEFORE generate, inside the
+        # gpu_sem that already serializes model access. Back-to-back requests
+        # with same adapter short-circuit via the `== _current_adapter` check
+        # in _apply_adapter_swap_locked; alternating adapters cost one swap
+        # per transition (adapters already in VRAM once --adapters-dir
+        # preloaded them).
+        if req.adapter:
+            swap_status = _apply_adapter_swap_locked(req.adapter)
+            if swap_status not in ("no-change", "unsupported"):
+                log.info(f"{_utag}adapter: {swap_status}")
         output = await asyncio.to_thread(_generate)
 
     # Decode response

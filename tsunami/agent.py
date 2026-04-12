@@ -72,6 +72,7 @@ class Agent:
             top_k=config.top_k,
             presence_penalty=config.presence_penalty,
             client_id=config.client_id,
+            adapter=config.adapter,
         )
 
         # The tools — the limbs
@@ -89,6 +90,7 @@ class Agent:
                 model_name=config.watcher_model,
                 endpoint=config.watcher_endpoint,
                 client_id=config.client_id,
+                adapter=config.adapter,
             )
             self.watcher = Watcher(watcher_model, interval=config.watcher_interval)
 

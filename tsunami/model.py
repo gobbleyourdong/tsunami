@@ -53,7 +53,7 @@ class TsunamiModel:
     def __init__(self, model: str = "tsunami", endpoint: str = "http://localhost:8090",
                  temperature: float = 0.7, max_tokens: int = 2048,
                  top_p: float = 0.8, top_k: int = 20, presence_penalty: float = 1.5,
-                 client_id: str = "", **kwargs):
+                 client_id: str = "", adapter: str = "", **kwargs):
         self.model = model
         self.endpoint = endpoint.rstrip("/")
         self.temperature = temperature
@@ -63,6 +63,11 @@ class TsunamiModel:
         # Identity for the server's per-user fairness queue (TSUNAMI_USER env).
         # Kept nonempty if set; the server treats "" as a shared "default" user.
         self.client_id = client_id
+        # LoRA adapter name for per-request server-side swap (TSUNAMI_ADAPTER env).
+        # "" = leave server's current adapter; "none" = force base model; any other
+        # string = select that preloaded adapter. Server serializes swaps via
+        # gpu_sem so instances don't need to coordinate.
+        self.adapter = adapter
 
     def _convert_tools(self, tools: list[dict]) -> list[dict]:
         """Ensure tools are in OpenAI function-calling format."""
@@ -124,6 +129,8 @@ class TsunamiModel:
         }
         if self.client_id:
             payload["user"] = self.client_id
+        if self.adapter:
+            payload["adapter"] = self.adapter
         if tools:
             payload["tools"] = self._convert_tools(tools)
             payload["tool_choice"] = "auto"
