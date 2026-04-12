@@ -50,7 +50,17 @@
       "output": "models/gemma-4-e4b-tsunami-chrome-ext-v1",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4",
       "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/chrome_ext_combined_v1.jsonl --output models/gemma-4-e4b-tsunami-chrome-ext-v1 --epochs 3 --lora-r 16 --lr 2e-4"
+    },
+    {
+      "type": "DPO",
+      "adapter": "gamedev-v4",
+      "base_model": "models/gemma-4-e4b-tsunami-gamedev-v4-merged",
+      "data": "workspace/training_data/gamedev_dpo_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-gamedev-v5",
+      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
+      "prerequisite": "Train gamedev-v4 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-gamedev-v4 --output models/gemma-4-e4b-tsunami-gamedev-v4-merged",
+      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-gamedev-v4-merged --data workspace/training_data/gamedev_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v5 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     }
   ],
-  "notes": "Fire 5 (2026-04-12): chrome-ext-v1 expanded to 8 examples (v1:4 + v2:4 = combined). eval_chrome_ext.py created (L1:5, L2:3, L3:2, L4:5). Updated train data to chrome_ext_combined_v1.jsonl. DPO v3 added 15 pairs (HF03 stall, HF06 info-loop, HF07 auto-wire, HF08 dedup-guard, HF09 complex-plan). Combined: curator_dpo_combined_v3.jsonl (73 pairs)."
+  "notes": "Fire 6 (2026-04-12): gamedev DPO v1 added 21 pairs targeting 7 L4 failures (GHF02/03/05/07/08/09/10). gamedev_dpo_v1.jsonl created. gamedev pipeline now: SFT v4 -> merge -> DPO v1 -> gamedev-v5. Fire 5: DPO v3 added 15 pairs, combined_v3.jsonl=73 pairs, chrome-ext-v1 8 examples."
 }
