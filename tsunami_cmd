@@ -200,10 +200,16 @@ def main():
         from tsunami.agent import Agent
         agent = Agent(config)
         patch_agent(agent)
-        asyncio.run(agent.run(args.task))
+        result = asyncio.run(agent.run(args.task))
         print()
         if model_proc:
             model_proc.terminate()
+        # Non-zero exit when the delivery / exit gate refused the deliverable
+        # (QA-1 Fire 31) — CI/QA scripts need a machine-readable signal for
+        # placeholder / XSS / static-skeleton / keyword-overlap failures
+        # without having to parse the output string.
+        if isinstance(result, str) and "REFUSED:" in result:
+            sys.exit(1)
         return
 
     # ── Web UI ──
