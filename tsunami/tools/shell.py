@@ -137,7 +137,35 @@ _DESTRUCTIVE_PATTERNS = [
     (re.compile(r'\b(?:export\s+)?(TMPDIR|TMP|TEMP|TEMPDIR)\s*=\s*/(tmp|var/tmp)\b'),
      "BLOCKED: refuse TMPDIR=/tmp assignment — env-var expansion is a "
      "known regex-bypass vector; use default /tmp handling from the OS"),
+    # QA-3 Fire 52: resource-starvation / DOS via social-engineered long-
+    # running shell commands. Default shell_exec tool_timeout is 3600s, so
+    # `while true` / `yes | ...` / `dd if=/dev/zero` burns the entire agent
+    # budget without triggering any existing pattern. No build pipeline has
+    # a legitimate use for these shapes. (`sleep N` is handled separately
+    # below since short `sleep 2` between retries is legitimate.)
+    (re.compile(r'\bwhile\s+(?:true\b|1\b|:)|\bwhile\s+\[\s+1\s+\]'),
+     "BLOCKED: `while true` / `while :` is an infinite-loop CPU burn — "
+     "no legitimate use in a build pipeline (DOS vector)"),
+    (re.compile(r'\byes\b[^|;&\n]*(\||>)'),
+     "BLOCKED: `yes` piped or redirected — unbounded-output DOS shape. "
+     "Use the package manager's --yes/-y flag instead"),
+    (re.compile(r'\b(?:dd|cat)\s+[^;&|\n]*(?:if=)?/dev/(?:zero|urandom|random)\b'),
+     "BLOCKED: reading from /dev/zero / /dev/urandom / /dev/random — "
+     "disk or CPU burn (DOS vector)"),
+    (re.compile(
+        r'\bpython3?\s+-c\s+[\'"][^\'"]*?\bwhile\s+True\b|'
+        r'\bnode\s+-e\s+[\'"][^\'"]*?(?:for\s*\(\s*;\s*;\s*\)|while\s*\(\s*(?:true|1)\s*\))|'
+        r'\b(?:perl|ruby)\s+-e\s+[\'"][^\'"]*?\b1\s+while\s+1\b'
+    ),
+     "BLOCKED: interpreter one-liner contains an infinite loop — "
+     "CPU-burn DOS vector"),
 ]
+
+# QA-3 Fire 52 continued: `sleep N` with N > _SLEEP_BUDGET blocks, shorter
+# sleeps (test delays, rate-limits) pass through. Built as a separate check
+# because the regex match needs numeric comparison of the captured N.
+_SLEEP_BUDGET_SECONDS = 30
+_SLEEP_RE = re.compile(r'\bsleep\s+(\d+(?:\.\d+)?)')
 
 
 def _check_destructive(command: str) -> str | None:
@@ -145,6 +173,22 @@ def _check_destructive(command: str) -> str | None:
     for pattern, warning in _DESTRUCTIVE_PATTERNS:
         if pattern.search(command):
             return warning
+    # QA-3 Fire 52: block `sleep N` when N exceeds a reasonable wait budget.
+    # Short sleeps (retry delay, rate-limit) are legitimate in build scripts
+    # and pass through; long sleeps are the DOS shape.
+    for m in _SLEEP_RE.finditer(command):
+        try:
+            n = float(m.group(1))
+        except (TypeError, ValueError):
+            continue
+        if n > _SLEEP_BUDGET_SECONDS:
+            return (
+                f"BLOCKED: `sleep {m.group(1)}` exceeds the "
+                f"{_SLEEP_BUDGET_SECONDS}s budget — this is the QA-3 Fire 52 "
+                f"DOS shape (prompt-injected long wait to burn the agent's "
+                f"timeout budget before real work starts). Use a short retry "
+                f"delay if you need one."
+            )
     return None
 
 import asyncio

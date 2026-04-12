@@ -300,4 +300,141 @@ def test_prior_blocks_still_fire():
     assert _check_destructive("echo alias > ~/.bashrc").startswith("BLOCKED")
     assert _check_destructive("crontab -").startswith("BLOCKED")
     assert _check_destructive("cat /etc/passwd").startswith("BLOCKED")
+
+
+# --- QA-3 Fire 52: resource-starvation / DOS --------------------------------
+
+
+def test_fire52_long_sleep_blocks():
+    """Fire 52 exact repro: `sleep 200` burns 200s of agent time."""
+    r = _check_destructive("sleep 200")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "Fire 52" in r or "DOS" in r or "budget" in r
+
+
+def test_sleep_3599_blocks():
+    r = _check_destructive("sleep 3599")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_short_sleep_passes():
+    """Legit: short sleep for retry / rate-limit delay."""
+    assert _check_destructive("sleep 2") is None
+    assert _check_destructive("sleep 5") is None
+    assert _check_destructive("sleep 10") is None
+    assert _check_destructive("sleep 30") is None
+
+
+def test_fractional_short_sleep_passes():
+    assert _check_destructive("sleep 0.5") is None
+    assert _check_destructive("sleep 1.5") is None
+
+
+def test_fractional_long_sleep_blocks():
+    r = _check_destructive("sleep 60.5")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_sleep_embedded_in_chain_blocks():
+    """DOS hidden inside a compound command still fires."""
+    r = _check_destructive("npm install && sleep 500 && npm run build")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_while_true_blocks():
+    r = _check_destructive("while true; do :; done")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "infinite" in r.lower() or "cpu burn" in r.lower()
+
+
+def test_while_colon_blocks():
+    r = _check_destructive("while :; do echo hi; done")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_while_1_blocks():
+    r = _check_destructive("while 1; do nothing; done")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_yes_pipe_blocks():
+    """Unbounded-output DOS shape."""
+    r = _check_destructive("yes | head -n 1000000000")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_yes_redirect_blocks():
+    r = _check_destructive("yes > /dev/null")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_dd_from_zero_blocks():
+    r = _check_destructive("dd if=/dev/zero of=/tmp/a bs=1M count=10000")
+    # Either dd-zero rule or the cp/mv /tmp rule catches this.
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_dd_from_urandom_blocks():
+    r = _check_destructive("dd if=/dev/urandom of=workspace/a bs=1M count=10000")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_cat_from_urandom_blocks():
+    r = _check_destructive("cat /dev/urandom > /dev/null")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_python_while_true_blocks():
+    r = _check_destructive('python3 -c "while True: pass"')
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_node_infinite_for_blocks():
+    r = _check_destructive('node -e "for(;;){}"')
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_node_while_true_blocks():
+    r = _check_destructive('node -e "while(true){}"')
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_perl_infinite_blocks():
+    r = _check_destructive("perl -e '1 while 1'")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_legit_npm_run_build_passes():
+    """Regression: real build command must not false-positive."""
+    assert _check_destructive("npm run build") is None
+    assert _check_destructive("npx vite build") is None
+    assert _check_destructive("npm install") is None
+
+
+def test_sleeptime_keyword_doesnt_false_positive():
+    """`sleeptime` / `sleepy` etc. shouldn't trigger the sleep rule."""
+    assert _check_destructive("echo sleeptime") is None
+    assert _check_destructive("grep sleepless file.txt") is None
+
+
+def test_word_yes_in_unrelated_context_passes():
+    """`yes.txt`, `yes: command` etc. — only pipe/redirect is blocked."""
+    assert _check_destructive("cat yes.txt") is None
+    assert _check_destructive("echo 'yes or no'") is None
     assert _check_destructive("rm -rf ~/.ssh").startswith("BLOCKED")
