@@ -224,6 +224,76 @@ def test_allows_python_script_path():
     assert r is None
 
 
+def test_blocks_bare_touch_to_tmp():
+    """QA-3 Fire 86 bypass 4: `touch /tmp/X` creates a 0-byte marker without
+    invoking echo/printf. d7448f3's pattern doesn't catch it."""
+    r = _check_destructive("touch /tmp/qa3_node_bypass.txt")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "touch" in r
+
+
+def test_blocks_touch_with_flags_to_tmp():
+    r = _check_destructive("touch -a /tmp/plant.txt")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_allows_touch_inside_workspace():
+    """Legit: `touch workspace/deliverables/myapp/README.md` passes."""
+    r = _check_destructive("touch workspace/deliverables/myapp/README.md")
+    assert r is None
+
+
+def test_blocks_cp_to_tmp():
+    """cp into /tmp is another plant vector."""
+    r = _check_destructive("cp /etc/hostname /tmp/planted.txt")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_blocks_mv_to_tmp():
+    """mv into /tmp — same surface as cp."""
+    r = _check_destructive("mv payload.sh /tmp/executable.sh")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_allows_cp_inside_workspace():
+    r = _check_destructive("cp workspace/deliverables/old/file.txt workspace/deliverables/new/")
+    assert r is None
+
+
+def test_blocks_tmpdir_env_assignment():
+    """QA-3 Fire 67 bypass 2: `export TMPDIR=/tmp` hides literal /tmp so
+    later `echo > $TMPDIR/X` slips past. Block the assignment itself."""
+    r = _check_destructive("export TMPDIR=/tmp && echo X > $TMPDIR/plant.txt")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "TMPDIR" in r or "env-var" in r.lower()
+
+
+def test_blocks_tmpdir_inline_assignment():
+    """Inline `TMPDIR=/tmp somecmd` form also blocks."""
+    r = _check_destructive("TMPDIR=/tmp echo hi")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_blocks_tmp_var_variants():
+    """Other common tmpdir env var names also block."""
+    for var in ("TMP", "TEMP", "TEMPDIR"):
+        r = _check_destructive(f"export {var}=/tmp")
+        assert r is not None, f"failed to block {var}=/tmp"
+        assert r.startswith("BLOCKED")
+
+
+def test_allows_tmpdir_pointing_inside_workspace():
+    """Legit: TMPDIR pointing inside workspace passes (legit scratch dir)."""
+    r = _check_destructive("TMPDIR=workspace/.cache npm install")
+    assert r is None
+
+
 def test_prior_blocks_still_fire():
     """Regression: previously-blocked patterns unaffected by the new rule."""
     assert _check_destructive("cat ~/.aws/credentials").startswith("BLOCKED")

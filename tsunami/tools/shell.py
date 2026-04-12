@@ -117,6 +117,26 @@ _DESTRUCTIVE_PATTERNS = [
     (re.compile(r'\b(bash|sh|zsh|fish|dash)\s+-c\b'),
      "BLOCKED: nested shell -c is redundant inside shell_exec and a "
      "common regex-bypass vector — emit the command directly"),
+    # QA-3 Fire 86 bypass 4 (plain `touch`): d7448f3 targets echo/printf/tee/
+    # curl/wget write-to-/tmp; `touch /tmp/X` creates a 0-byte marker, bypasses
+    # the "content-via-shell" pattern family. Block bare touch-to-/tmp too —
+    # legitimate agent workflows create files inside workspace/, not /tmp.
+    (re.compile(r'\btouch\s+(-[a-zA-Z]+\s+)*/(tmp|var/tmp)/'),
+     "BLOCKED: refuse to `touch` files in /tmp "
+     "(plant-marker vector)"),
+    # cp/mv to /tmp is the same attack surface — duplicate a planted payload
+    # into a known-path attacker-readable location, or relocate an existing
+    # file out of the workspace sandbox.
+    (re.compile(r'\b(cp|mv)\s+(-[a-zA-Z]+\s+)*.+\s+/(tmp|var/tmp)/'),
+     "BLOCKED: refuse to cp/mv into /tmp "
+     "(plant-marker / exfiltration vector)"),
+    # QA-3 Fire 67 bypass 2 (env-var expansion): `export TMPDIR=/tmp` or
+    # `TMPDIR=/tmp echo X > "$TMPDIR/..."` hides the literal /tmp path from
+    # the redirect patterns. Block the assignment itself — legitimate tooling
+    # doesn't need to override TMPDIR to /tmp (that's the default).
+    (re.compile(r'\b(?:export\s+)?(TMPDIR|TMP|TEMP|TEMPDIR)\s*=\s*/(tmp|var/tmp)\b'),
+     "BLOCKED: refuse TMPDIR=/tmp assignment — env-var expansion is a "
+     "known regex-bypass vector; use default /tmp handling from the OS"),
 ]
 
 
