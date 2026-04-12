@@ -98,9 +98,20 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
             f"REFUSED: {target.name}/src/App.tsx is the unchanged scaffold placeholder. "
             f"Write the actual app code with file_write before delivering."
         )
+    # Strip JS/JSX comments before the marker-phrase check. Agents often document
+    # their work ("// Phase 1: basic layout") while still shipping functional code —
+    # QA-2 iter 23 filed directional-click-counter (92L, 2 useState, real handlers)
+    # that got false-rejected because of three comment lines mentioning "Phase 1".
+    # The useState, size, XSS, and keyword-overlap checks all operate on structural
+    # or raw signals, so they use `content` unchanged; only the phrase check cares
+    # about authorial intent in prose, which is what comments *aren't*.
+    _no_line_comments = re.sub(r'//[^\n]*', '', content)
+    _no_block_comments = re.sub(r'/\*.*?\*/', '', _no_line_comments, flags=re.DOTALL)
+    _no_jsx_comments = re.sub(r'\{/\*.*?\*/\}', '', _no_block_comments, flags=re.DOTALL)
+    marker_scan = _no_jsx_comments.lower()
     lower = content.lower()
     for phrase in _PLACEHOLDER_PHRASES:
-        if phrase in lower:
+        if phrase in marker_scan:
             return (
                 f"REFUSED: {target.name}/src/App.tsx still contains placeholder text "
                 f"({phrase!r}). Replace it with the real implementation before delivering."
@@ -125,7 +136,11 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
         for line in content.splitlines()
         if line.lstrip().startswith("import")
     )
-    _calls_useState = bool(re.search(r"\buseState\s*\(", content))
+    # TypeScript's typed form `useState<number>(0)` must match too — QA-2 iter 18
+    # found the old `\buseState\s*\(` regex false-rejected typed-useState calls,
+    # and iter 23 reproduced it on the directional-click-counter. Accept an
+    # optional `<Type>` between the identifier and the opening paren.
+    _calls_useState = bool(re.search(r"\buseState\b\s*(?:<[^>]+>)?\s*\(", content))
     if _imports_useState and not _calls_useState:
         return (
             f"REFUSED: {target.name}/src/App.tsx imports useState from 'react' but "
