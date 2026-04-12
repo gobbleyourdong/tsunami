@@ -9,8 +9,70 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from pathlib import Path
 
 from .base import BaseTool, ToolResult
+
+
+# Exact placeholder text written by ProjectInit when scaffolding.
+# If App.tsx matches this verbatim, the agent never replaced it.
+_SCAFFOLD_PLACEHOLDER_APP_TSX = (
+    '// TODO: Replace with your app\n'
+    'export default function App() {\n'
+    '  return <div>Loading...</div>\n'
+    '}\n'
+)
+
+# Marker phrases that indicate the agent wrote a roadmap/stub instead of real code.
+# Carefully chosen to avoid false positives on legitimate strings — e.g. `placeholder`
+# would match `<input placeholder="...">` attributes, so we don't include it.
+_PLACEHOLDER_PHRASES = (
+    "todo: replace",
+    "phase 1",
+    "ready for phase",
+    "will go here",
+    "goes here",
+    "coming soon",
+)
+
+
+def _check_deliverable_complete(workspace_dir: str) -> str | None:
+    """Return error message if the latest deliverable looks like a placeholder.
+    Returns None if deliverable is OK to ship (or if there's no React deliverable to check).
+    """
+    deliv_root = Path(workspace_dir) / "deliverables"
+    if not deliv_root.is_dir():
+        return None
+    # Pick the deliverable touched most recently — that's the current task's output.
+    candidates = [d for d in deliv_root.iterdir() if d.is_dir() and (d / "package.json").exists()]
+    if not candidates:
+        return None
+    target = max(candidates, key=lambda d: d.stat().st_mtime)
+    app = target / "src" / "App.tsx"
+    if not app.exists():
+        return None  # api-only / non-react scaffold
+    try:
+        content = app.read_text()
+    except OSError:
+        return None
+    if content == _SCAFFOLD_PLACEHOLDER_APP_TSX:
+        return (
+            f"REFUSED: {target.name}/src/App.tsx is the unchanged scaffold placeholder. "
+            f"Write the actual app code with file_write before delivering."
+        )
+    lower = content.lower()
+    for phrase in _PLACEHOLDER_PHRASES:
+        if phrase in lower:
+            return (
+                f"REFUSED: {target.name}/src/App.tsx still contains placeholder text "
+                f"({phrase!r}). Replace it with the real implementation before delivering."
+            )
+    if len(content) < 300:
+        return (
+            f"REFUSED: {target.name}/src/App.tsx is only {len(content)} bytes — "
+            f"too short to be a complete app. Write the full implementation before delivering."
+        )
+    return None
 
 
 # Global callback for user input — set by the CLI runner
@@ -128,6 +190,11 @@ class MessageResult(BaseTool):
 
     async def execute(self, text: str = "", attachments: list[str] | None = None, **kw) -> ToolResult:
         global _last_displayed
+        # Gate: don't let the agent ship an unchanged scaffold or obvious placeholder.
+        # Returning is_error=True keeps the agent loop alive so it can fix and retry.
+        gate_error = _check_deliverable_complete(self.config.workspace_dir)
+        if gate_error:
+            return ToolResult(gate_error, is_error=True)
         # Don't re-display if message_info already showed this exact text
         if text != _last_displayed:
             clean = text.encode("ascii", errors="ignore").decode("ascii")
