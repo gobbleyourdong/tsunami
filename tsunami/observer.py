@@ -35,6 +35,30 @@ def _scrub_secrets(text: str) -> str:
     return SECRET_PATTERN.sub(r'\1\2\3[REDACTED]', text)
 
 
+# QA-3 Fires 38 + 41: chat-template role boundaries and tool-call sigils
+# must NOT land in observations.jsonl verbatim — memory_extract reads this
+# file to build heuristics, and a poisoned tip like `<end_of_turn>...` can
+# re-enter future system prompts. Replace with inert placeholders.
+_ROLE_TOKEN_PATTERNS = [
+    (re.compile(r'<end_of_turn>'), '[role-token]'),
+    (re.compile(r'<start_of_turn>'), '[role-token]'),
+    (re.compile(r'<\|tool_call>'), '[tool-call-sigil]'),
+    (re.compile(r'<tool_call\|>'), '[tool-call-sigil]'),
+    (re.compile(r'<\|tool_response>'), '[tool-call-sigil]'),
+    (re.compile(r'<tool_response\|>'), '[tool-call-sigil]'),
+    (re.compile(r'<\|"\|>'), '[str-delim]'),
+]
+
+
+def _scrub_role_tokens(text: str) -> str:
+    """Replace chat-template role boundary tokens + Gemma tool-call sigils
+    with inert placeholders so they can't re-enter a future session's
+    system prompt via memory_extract → instincts propagation."""
+    for pat, repl in _ROLE_TOKEN_PATTERNS:
+        text = pat.sub(repl, text)
+    return text
+
+
 def _truncate(text: str, max_len: int = MAX_FIELD_LEN) -> str:
     if len(text) <= max_len:
         return text
@@ -76,11 +100,36 @@ class Observer:
         """Record a tool call observation."""
         self._call_count += 1
 
+        # QA-3 Fire 41: refused tool-call INPUTS landed in observations.jsonl
+        # verbatim, including chat-template-injection payloads + poison
+        # markers. memory_extract reads this file as a heuristics source, so
+        # attacker content could propagate into future sessions' instincts.
+        # Fix: when a tool call is refused, preserve the tool NAME and the
+        # refusal MESSAGE (both useful learning signals) but drop the raw
+        # input — the specific bytes the attacker emitted aren't what the
+        # agent should learn from, the pattern of refusal is.
+        if is_error:
+            input_record = "[REFUSED: input omitted per QA-3 Fire 41 policy]"
+        else:
+            input_record = _scrub_secrets(_truncate(json.dumps(arguments)))
+
+        # QA-3 Fire 41 + 38: even on successful calls, strip chat-template
+        # role boundary tokens and the `<|tool_call>` / `<|"|>` sigils from
+        # the record. These have no legit reason to appear inside tool
+        # inputs; when they do, it's either a parser artefact or an attack
+        # echo. Replacing them keeps observation-sourced heuristics from
+        # reproducing the tokens verbatim if memory_extract ever feeds this
+        # data back into a system prompt.
+        input_record = _scrub_role_tokens(input_record)
+        output_record = _scrub_role_tokens(
+            _scrub_secrets(_truncate(result))
+        )
+
         obs = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "tool": tool_name,
-            "input": _scrub_secrets(_truncate(json.dumps(arguments))),
-            "output": _scrub_secrets(_truncate(result)),
+            "input": input_record,
+            "output": output_record,
             "error": is_error,
             "session": session_id,
             "project_id": self.project_id,
