@@ -284,6 +284,56 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
                     f"infographic with a 'Chart Placeholder' label."
                 )
 
+    # QA-1 Playtest Fire 124: `text-statistics-tool/` shipped with a
+    # `<textarea>` that had no `value` AND no `onChange`. The app's
+    # "real-time stats" would never update because the textarea's
+    # content couldn't reach React state. UI-claimed interactivity was
+    # fake. Detect: a `<textarea>` or `<input type="text|number|search|
+    # tel|email|url|password">` that has NEITHER `value` NOR `onChange`
+    # attribute. Uncontrolled + unread = dead.
+    # Skip: inputs with `defaultValue` (explicitly uncontrolled by design)
+    # or `ref={...}` (imperative read path is legit). Skip `type="submit"`
+    # / `button` / `checkbox` / `radio` / `file` (different interaction
+    # models).
+    dead_inputs = []
+    for tag_m in re.finditer(
+        r'<(textarea|input)\b([^>]*)/?>', content, re.IGNORECASE | re.DOTALL,
+    ):
+        tag = tag_m.group(0)
+        kind = tag_m.group(1).lower()
+        attrs = tag_m.group(2)
+        if kind == "input":
+            type_m = re.search(r'\btype=[\'"]?(\w+)', attrs, re.IGNORECASE)
+            input_type = type_m.group(1).lower() if type_m else "text"
+            if input_type not in (
+                "text", "number", "search", "tel", "email", "url",
+                "password", "date", "time", "datetime-local", "month", "week",
+            ):
+                continue
+        # Skip if there's a ref (imperative-access escape hatch).
+        if re.search(r'\bref=\{', attrs):
+            continue
+        # Skip if defaultValue is set (uncontrolled by design).
+        if re.search(r'\bdefaultValue=', attrs):
+            continue
+        has_value = bool(re.search(r'\bvalue=\{?', attrs))
+        has_onchange = bool(re.search(r'\bonChange=\{', attrs))
+        if not has_value and not has_onchange:
+            # Snapshot the tag for the error message (truncate).
+            snippet = tag if len(tag) <= 80 else tag[:77] + "..."
+            dead_inputs.append(snippet)
+    if dead_inputs:
+        return (
+            f"REFUSED: {target.name}/src/App.tsx has an uncontrolled "
+            f"`<{'textarea' if 'textarea' in dead_inputs[0].lower() else 'input'}>` "
+            f"with neither `value` nor `onChange` — user keystrokes can't "
+            f"reach React state, so anything claimed to be live-updated "
+            f"(counts, stats, validation) won't update. Add "
+            f"`value={{state}} onChange={{e => setState(e.target.value)}}` "
+            f"or use `defaultValue=` + `ref` if you truly want an "
+            f"uncontrolled input. Offending tag: {dead_inputs[0]}"
+        )
+
     # QA-1 Playtest Fire 119 + Fire 117 dead-interactivity:
     # analytics-dashboard-charts shipped with 3 `<a href="#">` tabs —
     # Overview / Reports / Settings — none with any onClick, so clicks
