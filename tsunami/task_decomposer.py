@@ -156,10 +156,19 @@ def decompose(prompt: str) -> TaskDAG:
     domains = detect_domains(prompt)
     tasks = []
 
-    # Phase 1 is always scaffold + basic structure
+    # Phase 1 is always scaffold + a FIRST WORKING implementation.
+    # QA-3 Fire 44 traced the dominant placeholder-delivery bug to the previous
+    # wording here ("Scaffold + basic layout (header, navigation, main content)") —
+    # the agent dutifully wrote a header+nav+main stub and stopped, treating the
+    # stub as "Phase 1 complete" since the description literally described a stub.
+    # Invert the instruction toward shipping real functionality on the first pass.
     tasks.append(SubTask(
         id="scaffold",
-        description="Scaffold the project and create the basic layout (header, navigation, main content area). Get it compiling.",
+        description=(
+            "Scaffold the project via project_init and write a FIRST FULL "
+            "implementation of the requested features in the initial file_write. "
+            "Do NOT defer functionality to later phases. Get it compiling."
+        ),
         domain="structure",
     ))
 

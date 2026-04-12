@@ -67,6 +67,20 @@ class TestDecomposition:
         assert "project_init" in prompt
         assert "BUILD" in prompt
 
+    def test_scaffold_phase_discourages_deferral(self):
+        """QA-3 Fire 44 regression: the scaffold description must push the
+        agent toward a FIRST FULL implementation, not a header/nav/main
+        placeholder-style stub. The old wording was the proximate cause of
+        the dominant placeholder-delivery bug."""
+        dag = decompose("build a weather and stock tracker dashboard with charts and live updates and search")
+        prompt = dag.to_phased_prompt()
+        # Old (buggy) wording should be gone
+        assert "header, navigation, main content" not in prompt.lower()
+        assert "(header, navigation" not in prompt.lower()
+        # New wording: explicit "first full implementation" + "do not defer"
+        assert "first full" in prompt.lower()
+        assert "defer" in prompt.lower() or "not defer" in prompt.lower()
+
 
 class TestLoopGuard:
     def test_no_loop_initially(self):
