@@ -359,6 +359,105 @@ def test_exit_gate_passing_case_prints_nothing(capsys):
         assert "REFUSED" not in captured.out
 
 
+def test_phase_2_rendered_text_blocks():
+    """QA-1 Fire 41: the gate had only "phase 1" in the substring list, so
+    an agent emitting Phase 2/3/N markers bypassed it. Now any `phase N`
+    with N ≥ 2 blocks in rendered text."""
+    app = """import { useState } from 'react'
+
+export default function App() {
+  const [n, setN] = useState(0)
+  return (
+    <div>
+      <h1>Task Runner</h1>
+      <p>Phase 2: interactive features coming in the next release.</p>
+      <button onClick={() => setN(n + 1)}>Click: {n}</button>
+    </div>
+  )
+}
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "task-runner", app)
+        fs_state.set_session_task_prompt("build a task runner with click counter")
+        agent = _make_agent(tmp)
+        suffix = agent._exit_gate_suffix()
+        assert "REFUSED" in suffix
+        assert "Phase 2" in suffix or "phase 2" in suffix.lower()
+
+
+def test_phase_3_rendered_text_blocks():
+    app = """import { useState } from 'react'
+
+export default function App() {
+  const [n, setN] = useState(0)
+  return (
+    <div>
+      <h1>Workflow</h1>
+      <p>Phase 3 includes drag-and-drop. For now, click to increment.</p>
+      <button onClick={() => setN(n + 1)}>Click: {n}</button>
+    </div>
+  )
+}
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "workflow", app)
+        fs_state.set_session_task_prompt("build a workflow tool with click counter")
+        agent = _make_agent(tmp)
+        suffix = agent._exit_gate_suffix()
+        assert "REFUSED" in suffix
+        assert "Phase 3" in suffix or "phase 3" in suffix.lower()
+
+
+def test_phase_n_in_comment_passes():
+    """Same as the Phase-1 comment-stripping rule: Phase-N in comments should
+    NOT block (QA-2 iter 23 false-positive pattern)."""
+    app = """import { useState } from 'react'
+
+export default function App() {
+  const [v, setV] = useState(10)
+  // Phase 2: swap to reducer once counters exceed 100 (currently unused)
+  return (
+    <div>
+      <h1>Clean Phase-In</h1>
+      <p>Current value: {v}. Press Click to increment in a tight loop.</p>
+      <button onClick={() => setV(v + 1)}>Click</button>
+      <button onClick={() => setV(0)}>Reset</button>
+    </div>
+  )
+}
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "phase-in", app)
+        fs_state.set_session_task_prompt("clean phase increment reducer button click")
+        agent = _make_agent(tmp)
+        suffix = agent._exit_gate_suffix()
+        assert suffix == "", f"Phase-N in comment should pass, got: {suffix!r}"
+
+
+def test_phase_10_also_blocks():
+    """Sanity check: double-digit phase numbers also match."""
+    app = """import { useState } from 'react'
+
+export default function App() {
+  const [x, setX] = useState(0)
+  return (
+    <div>
+      <h1>Long-term Plan</h1>
+      <p>Phase 10: total rewrite (not planned yet).</p>
+      <button onClick={() => setX(x + 1)}>Bump: {x}</button>
+    </div>
+  )
+}
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "plan", app)
+        fs_state.set_session_task_prompt("long term plan button bump counter")
+        agent = _make_agent(tmp)
+        suffix = agent._exit_gate_suffix()
+        assert "REFUSED" in suffix
+        assert "Phase 10" in suffix
+
+
 def test_all_task_complete_returns_call_exit_gate():
     """QA-1 Fire 33: the delivery-deadline safety valve reaches the normal
     task_complete return without ever entering message_result's gate.

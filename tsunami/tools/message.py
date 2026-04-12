@@ -29,12 +29,16 @@ _SCAFFOLD_PLACEHOLDER_APP_TSX = (
 # would match `<input placeholder="...">` attributes, so we don't include it.
 _PLACEHOLDER_PHRASES = (
     "todo: replace",
-    "phase 1",
     "ready for phase",
     "will go here",
     "goes here",
     "coming soon",
 )
+
+# Any `Phase N` marker (with N ≥ 1, word-boundary) is a deferred-work signal.
+# Regex is the right shape here — substring "phase 1" would false-match inside
+# "Phase 10" etc. (QA-1 Fire 41 follow-up).
+_PHASE_N_MARKER = re.compile(r"\bphase\s+\d+\b", re.IGNORECASE)
 
 # Stop-words excluded from prompt/deliverable keyword overlap. Chosen narrowly to
 # leave domain-specific nouns (chart, dashboard, regex, etc.) intact.
@@ -116,6 +120,17 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
                 f"REFUSED: {target.name}/src/App.tsx still contains placeholder text "
                 f"({phrase!r}). Replace it with the real implementation before delivering."
             )
+    # `Phase N` marker (any N) in rendered text is a deferred-work signal.
+    # Single regex covers Phase 1..N — QA-1 Fire 41 caught that the old
+    # substring "phase 1" both (a) missed higher-numbered phases and
+    # (b) false-matched inside "Phase 10", "Phase 100", etc.
+    _phase_n = _PHASE_N_MARKER.search(_no_jsx_comments)
+    if _phase_n:
+        return (
+            f"REFUSED: {target.name}/src/App.tsx still contains a `{_phase_n.group(0)}` "
+            f"placeholder marker. The agent is deferring work to a phase that never arrives. "
+            f"Finish the implementation before delivering."
+        )
     if len(content) < 300:
         return (
             f"REFUSED: {target.name}/src/App.tsx is only {len(content)} bytes — "
