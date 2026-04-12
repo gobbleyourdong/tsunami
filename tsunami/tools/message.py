@@ -284,6 +284,65 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
                     f"infographic with a 'Chart Placeholder' label."
                 )
 
+    # QA-1 Playtest Fires 117 / 119 / qa-solo dashboard regression:
+    # agents wrote `<img src="/icon-home">` etc. for sprites they never
+    # created. Every page load produces a browser 404 on the icon. Static
+    # check: for every JSX `src="<literal>"` (relative path, no scheme),
+    # verify the referenced file exists in the deliverable's public/ or
+    # src/assets/ directory. Skip external URLs, data URIs, variable
+    # refs (src={x}), and root-relative paths that look like React-router
+    # routes.
+    self_404: list[str] = []
+    for m in re.finditer(
+        r'\bsrc=[\'"]([^\'"{]+)[\'"]',
+        content,
+    ):
+        ref = m.group(1).strip()
+        # Skip schemed URLs, data URIs, variable refs (shouldn't match but
+        # defensive), in-page anchors, and pure `#` / `javascript:` shapes.
+        if ref.startswith(("http://", "https://", "data:", "blob:",
+                           "javascript:", "mailto:", "tel:", "#", "//")):
+            continue
+        # Skip empty or pure-whitespace refs.
+        if not ref:
+            continue
+        # Normalize: absolute-root → relative to deliverable root
+        # (Vite serves `public/` at `/`). Relative → relative to src/.
+        if ref.startswith("/"):
+            candidate = target / "public" / ref.lstrip("/")
+        else:
+            candidate = target / "src" / ref
+        # Also accept Vite's alias conventions: /src/..., /@/... map to
+        # the src tree. And `assets/X` commonly resolves via Vite imports.
+        # If candidate doesn't exist, try a few common alt locations
+        # before flagging.
+        alts = [candidate, target / ref, target / "src" / "assets" / ref.lstrip("/")]
+        if any(p.exists() for p in alts):
+            continue
+        # Path segments with no file extension often indicate
+        # React-Router / virtual routes — skip those (e.g. `/icon-home`
+        # without any extension is either a missing asset OR a virtual
+        # route; we flag it only if the extension or the context suggests
+        # an image asset).
+        # Heuristic: flag if the src appears inside `<img ... src=...>` —
+        # which is definitionally a fetched resource, not a route.
+        # Check the surrounding chars for an `<img` opening tag within
+        # ~100 chars back.
+        back = content[max(0, m.start() - 100): m.start()]
+        if re.search(r'<img\b[^>]*$', back, re.IGNORECASE):
+            self_404.append(ref)
+    if self_404:
+        first = self_404[0]
+        return (
+            f"REFUSED: {target.name}/src/App.tsx references `<img src=\"{first}\">` "
+            f"but no matching file exists in public/ or src/assets/. "
+            f"{len(self_404)} broken asset reference(s) would 404 on "
+            f"page load. Either create the asset, use a relative import "
+            f"`import icon from './assets/icon.svg'`, or inline the SVG "
+            f"directly. Other broken refs: "
+            f"{', '.join(self_404[1:4]) if len(self_404) > 1 else '(only this one)'}."
+        )
+
     # QA-1 Playtest Fire 120: `src/components/ui/Button.tsx` had been
     # overwritten with a 62-byte stub `return <div>Button</div>` that
     # takes no props and ignores children. App.tsx uses
