@@ -519,6 +519,27 @@ class Agent:
                 })
         return projects
 
+    def _exit_gate_suffix(self) -> str:
+        """Run content gates on the current deliverable at a forced-exit path.
+
+        QA-1 Fire 17+27 observation: placeholder/phase-1 deliverables ship
+        silently when the agent exits via safety valve, hard cap, or abort
+        instead of message_result — the gate never fires. Invoking
+        _check_deliverable_complete here surfaces the same REFUSED banner
+        on every exit path, so users and QA scripts can see the deliverable
+        is broken instead of treating a 4-line placeholder as complete.
+
+        Returns "" when the gate passes (or no React deliverable exists),
+        otherwise "\\n<REFUSED ...>" to append to the exit message.
+        """
+        try:
+            from .tools.message import _check_deliverable_complete
+            err = _check_deliverable_complete(self.config.workspace_dir)
+            return f"\n{err}" if err else ""
+        except Exception as e:
+            log.debug(f"Exit-gate check failed: {e}")
+            return ""
+
     async def run(self, user_message: str) -> str:
         """Run the agent loop on a user message until completion.
 
@@ -680,11 +701,11 @@ class Agent:
                 if recent_writes == 0:
                     log.warning(f"Safety valve: {self.state.iteration} iters, 0 writes in last 20 — forcing exit")
                     self.state.task_complete = True
-                    return "Task ended — no progress detected."
+                    return "Task ended — no progress detected." + self._exit_gate_suffix()
             if self.state.iteration > 60:
                 log.warning(f"Hard cap: {self.state.iteration} iterations — forcing exit")
                 self.state.task_complete = True
-                return f"Task ended after {self.state.iteration} iterations."
+                return f"Task ended after {self.state.iteration} iterations." + self._exit_gate_suffix()
 
             # Check abort signal
             if self.abort_signal.aborted:
@@ -693,7 +714,7 @@ class Agent:
                 save_session(self.state, self.session_dir, self.session_id)
                 save_session_summary(self.state, self.session_dir, self.session_id)
                 self.cost_tracker.save(self.config.workspace_dir)
-                return f"Aborted: {self.abort_signal.reason}"
+                return f"Aborted: {self.abort_signal.reason}" + self._exit_gate_suffix()
 
             # Incremental session memory — running summary every 10 iterations
             if self.session_memory.should_update(self.state.iteration):
