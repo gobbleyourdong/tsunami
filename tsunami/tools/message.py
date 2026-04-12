@@ -284,6 +284,39 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
                     f"infographic with a 'Chart Placeholder' label."
                 )
 
+    # qa-solo Playtest (hello-world-button): deliverable named
+    # `hello-world-button` shipped with zero `<button>` elements — same
+    # prompt-spec-drop class as Fire 120 (simple-expense-tracker with
+    # Breakout content) + Fire 85 (drum-machine with no audio). Detect
+    # the narrow subset where the deliverable name contains an
+    # unambiguous HTML-primitive word — button / form / table / textarea
+    # etc. — and the primitive is missing from rendered JSX.
+    _primitive_map = (
+        # (name-keyword, required-JSX-regex, human-readable)
+        ("button", r'<button\b|<input\b[^>]*type=[\'"]button',
+         "<button> element"),
+        ("form", r'<form\b', "<form> element"),
+        ("table", r'<table\b', "<table> element"),
+        ("textarea", r'<textarea\b', "<textarea> element"),
+        ("checkbox", r'type=[\'"]checkbox', '<input type="checkbox">'),
+        ("slider", r'type=[\'"]range', '<input type="range">'),
+        ("select", r'<select\b', "<select> element"),
+    )
+    name_lower = target.name.lower()
+    for kw, pattern, label in _primitive_map:
+        # Match whole-word-ish (kw flanked by non-alphanumeric or edge)
+        # so `platform` doesn't match `form`.
+        if not re.search(rf'(?:^|[^a-z0-9]){kw}(?:[^a-z0-9]|$)', name_lower):
+            continue
+        if re.search(pattern, content, re.IGNORECASE):
+            continue
+        return (
+            f"REFUSED: deliverable name `{target.name}` contains `{kw}` "
+            f"but src/App.tsx has no {label}. Either add the component "
+            f"the name promises, or rename the deliverable to match what "
+            f"you actually built."
+        )
+
     # QA-1 Playtest Fire 124: `text-statistics-tool/` shipped with a
     # `<textarea>` that had no `value` AND no `onChange`. The app's
     # "real-time stats" would never update because the textarea's
