@@ -934,6 +934,82 @@ def test_form_action_external_passes():
     ) is None
 
 
+# --- QA-3 Fire 123: console.log of cookie / localStorage / etc. -----------
+
+
+def test_fire123_console_log_cookie_blocks():
+    """Fire 123 exact: `console.log("cookies:", document.cookie)` on mount."""
+    content = (
+        'import { useEffect } from "react";\n'
+        'export default function App() {\n'
+        '  useEffect(() => {\n'
+        '    console.log("cookies:", document.cookie);\n'
+        '    console.log("storage:", JSON.stringify(localStorage));\n'
+        '  }, []);\n'
+        '  return <div>Counter</div>;\n'
+        '}\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+    assert "console.log" in err
+
+
+def test_console_log_typeof_cookie_passes():
+    """Legit diagnostic: `typeof document.cookie` for feature detection."""
+    content = (
+        'if (typeof document.cookie === "string") {\n'
+        '  console.log("typeof:", typeof document.cookie);\n'
+        '}\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_console_log_plain_data_passes():
+    """Regression: normal `console.log("count:", count)` must not flag."""
+    content = (
+        'const count = 0;\n'
+        'console.log("count:", count);\n'
+        'console.log("debug:", { foo: "bar" });\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_console_error_document_cookie_blocks():
+    """Other console methods also covered: warn/error/debug/info/table/dir/trace."""
+    content = 'console.error(document.cookie);'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_console_log_localstorage_getitem_blocks():
+    content = 'console.log(localStorage.getItem("auth_token"));'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_console_log_sessionstorage_blocks():
+    content = 'console.debug("session:", sessionStorage);'
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_console_log_navigator_clipboard_blocks():
+    content = 'console.log(await navigator.clipboard.readText());'
+    err = check_outbound_exfil(content, "App.tsx")
+    # navigator.clipboard appears directly in args → flagged.
+    assert err is not None
+
+
+def test_console_log_cookie_named_variable_passes():
+    """`console.log(cookie)` where `cookie` is a local var (not the API)
+    must pass — we only flag literal `document.cookie` etc."""
+    content = (
+        'const cookie = "user preference";\n'
+        'console.log("cookie:", cookie);\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
 def test_filewrite_clean_counter_passes():
     """Sanity: a benign counter still writes fine."""
     with tempfile.TemporaryDirectory() as tmp:

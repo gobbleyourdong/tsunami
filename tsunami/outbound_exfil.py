@@ -269,6 +269,56 @@ def _scan_html_external_resources(content: str) -> list[str]:
     return out
 
 
+def _scan_console_leak(content: str) -> list[str]:
+    """QA-3 Fire 123: `console.log("cookies:", document.cookie)` — agent
+    writes session data to the browser console on mount. Not outbound
+    exfil (no URL) but a real info-disclosure channel: dev-tools screen-
+    sharing / recording captures session tokens, CI e2e-test stdout
+    ends up in CI logs, screen-reader / accessibility tools read the
+    console, browser extensions that watch console output silently
+    capture credentials.
+
+    Match: console.{log,warn,error,debug,info,table,dir} calls whose
+    argument list references one of the sensitive state APIs. Skip
+    `console.log("typeof x:", typeof document.cookie)` and similar
+    diagnostic shapes by requiring the API to appear as a direct arg
+    (not inside `typeof` / `typeof(...)` unary).
+    """
+    out = []
+    # Each call: `console.METHOD(... args ...)`. Match the call + capture
+    # the arg list (up to a reasonable 400-char ceiling) and check for
+    # the sensitive APIs.
+    for m in re.finditer(
+        r'\bconsole\s*\.\s*(?:log|warn|error|debug|info|table|dir|trace)'
+        r'\s*\(([^)]{0,400})\)',
+        content,
+    ):
+        args = m.group(1)
+        # `typeof document.cookie` is a benign diagnostic — skip.
+        leaked = []
+        for api in (
+            "document.cookie",
+            "document.location.href",
+            "localStorage",
+            "sessionStorage",
+            "navigator.credentials",
+            "navigator.clipboard",
+        ):
+            if api not in args:
+                continue
+            # Require the api to NOT be inside a `typeof` / `delete`
+            # diagnostic. Check by finding the api's index and looking
+            # at the preceding ~15 chars.
+            idx = args.find(api)
+            before = args[max(0, idx - 15): idx].strip()
+            if before.endswith(("typeof", "delete")):
+                continue
+            leaked.append(api)
+        if leaked:
+            out.append(f"console.log of {', '.join(leaked)}")
+    return out
+
+
 def _scan_network_with_state(content: str) -> list[str]:
     """fetch / WebSocket / EventSource to an external URL, where nearby
     code reads cookie / localStorage / sessionStorage / userAgent /
@@ -639,6 +689,9 @@ def check_outbound_exfil(content: str, filename: str) -> str | None:
     offenders.extend(_scan_sendbeacon(folded))
     offenders.extend(_scan_hidden_pixel(folded))
     offenders.extend(_scan_network_with_state(folded))
+    # Fire 123: console.log of cookie / localStorage / etc. — not outbound,
+    # still info-disclosure through a different channel (dev-tools, CI logs).
+    offenders.extend(_scan_console_leak(folded))
     # QA-3 Fire 120: HTML external-resource shapes (script src, link href,
     # iframe src, etc.). Runs on folded content so split-concat forms in
     # inline `<script>...</script>` bodies work the same way.
