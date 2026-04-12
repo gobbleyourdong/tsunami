@@ -284,6 +284,49 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
                     f"infographic with a 'Chart Placeholder' label."
                 )
 
+    # QA-1 Playtest Fire 121 (regex-tester-input/): shipped with
+    # `/^(a+)+$/` — textbook catastrophic-backtracking ReDoS. Input
+    # "aaaaaaaaaaaaab" hangs the browser for seconds (exponential time).
+    # The nested-quantifier shape is never benign; it's always a
+    # misunderstanding of regex semantics. Detect the canonical ReDoS
+    # shapes in JSX/TSX source:
+    #   (<group>+)+   (<group>*)*   (<group>+)*   (<group>*)+
+    #   (<a>|<a>)+  — redundant alternation (a|a)*, (a|ab)*
+    # where <group> is a character-class, a dot, or a literal word.
+    _redos_patterns = (
+        re.compile(r'\(\[[^\]]+\]\+\)\+'),         # ([abc]+)+
+        re.compile(r'\(\[[^\]]+\]\*\)\*'),         # ([abc]*)*
+        re.compile(r'\(\[[^\]]+\]\+\)\*'),         # ([abc]+)*
+        re.compile(r'\(\[[^\]]+\]\*\)\+'),         # ([abc]*)+
+        re.compile(r'\(\\w\+\)\+'),                # (\w+)+
+        re.compile(r'\(\\w\*\)\*'),                # (\w*)*
+        re.compile(r'\(\\w\+\)\*'),                # (\w+)*
+        re.compile(r'\(\\w\*\)\+'),                # (\w*)+
+        re.compile(r'\(\\s\+\)\+'),                # (\s+)+
+        re.compile(r'\(\\s\*\)\*'),                # (\s*)*
+        re.compile(r'\(\\d\+\)\+'),                # (\d+)+
+        re.compile(r'\(\\d\*\)\*'),                # (\d*)*
+        re.compile(r'\(\\d\+\)\*'),                # (\d+)*
+        re.compile(r'\(\\d\*\)\+'),                # (\d*)+
+        re.compile(r'\(\.\+\)\+'),                 # (.+)+
+        re.compile(r'\(\.\*\)\*'),                 # (.*)*
+        re.compile(r'\(\.\+\)\*'),                 # (.+)*
+        re.compile(r'\([a-zA-Z_]\+\)\+'),          # (a+)+ — Fire 121 exact
+        re.compile(r'\([a-zA-Z_]\*\)\*'),          # (a*)*
+    )
+    for pat in _redos_patterns:
+        m = pat.search(content)
+        if m:
+            return (
+                f"REFUSED: {target.name}/src/App.tsx contains a "
+                f"catastrophic-backtracking regex `{m.group(0)}` — "
+                f"nested quantifier (ReDoS). Input like "
+                f"\"aaaaaaaaaaaaab\" hangs the browser for seconds / "
+                f"minutes. Rewrite without nested `+*` quantifiers "
+                f"(e.g. use a possessive `(?>...)` or a single non-"
+                f"capturing `(?:...)+` instead of `(...+)+`)."
+            )
+
     # qa-solo Playtest (hello-world-button): deliverable named
     # `hello-world-button` shipped with zero `<button>` elements — same
     # prompt-spec-drop class as Fire 120 (simple-expense-tracker with
