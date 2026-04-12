@@ -329,6 +329,9 @@ async def chat_completions(req: ChatRequest):
 
 async def _chat_completions_impl(req: ChatRequest):
     start = time.time()
+    # Tag log lines with the OpenAI `user` field so concurrent QA builds
+    # can be disambiguated in tsunami_8090.log (QA-2 iter 17 observation).
+    _utag = f"[user={req.user or 'default'}] "
 
     # Normalize messages — preserve tool_calls/tool roles for multi-turn,
     # convert image_url to PIL for multimodal
@@ -429,7 +432,7 @@ async def _chat_completions_impl(req: ChatRequest):
     text = processor.decode(new_tokens, skip_special_tokens=False)
 
     # Parse tool calls from native format
-    log.info(f"RAW OUTPUT: {text!r}")
+    log.info(f"{_utag}RAW OUTPUT: {text!r}")
 
     # Strip Gemma 31B "thought channel" prefix (appears before tool calls in multi-turn)
     text = re.sub(r'<\|channel>thought\n<channel\|>', '', text)
@@ -494,7 +497,7 @@ async def _chat_completions_impl(req: ChatRequest):
             _term_len = 12
         elif _rest.startswith('<|tool_response>') or _rest.startswith('<|tool_response|>'):
             _term_len = 0  # don't consume — let the response block parse separately
-            log.warning(f"Tool call {_name} closed with <|tool_response> (drift); accepting")
+            log.warning(f"{_utag}Tool call {_name} closed with <|tool_response> (drift); accepting")
         else:
             _scan = _arg_end
             continue
@@ -624,6 +627,8 @@ async def generate_image(req: ImageRequest):
 
 
 async def _generate_image_impl(req: ImageRequest):
+    # Tag log lines with the OpenAI `user` field — matches chat_completions.
+    _utag = f"[user={req.user or 'default'}] "
     # Run the whole generation off the event loop so /health stays responsive
     # while image generation is in progress. Same wedge fix as chat_completions.
     def _do_image_gen():
@@ -644,7 +649,7 @@ async def _generate_image_impl(req: ImageRequest):
             image.save(buf, format="PNG")
             b64 = base64.b64encode(buf.getvalue()).decode()
             elapsed = time.time() - start
-            log.info(f"Image generated in {elapsed:.1f}s ({req.width}x{req.height}, {req.steps} steps)")
+            log.info(f"{_utag}Image generated in {elapsed:.1f}s ({req.width}x{req.height}, {req.steps} steps)")
             _restore_language_model()
             return {
                 "created": int(time.time()),
