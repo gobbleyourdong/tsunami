@@ -531,6 +531,18 @@ def main():
     _low_vram = args.low_vram
 
     import os
+    import socket
+    import sys as _sys
+
+    # Bind probe — if port is taken, fail in ms instead of after loading 4GB of weights.
+    _probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        _probe.bind((args.host, args.port))
+    except OSError as e:
+        log.error(f"Port {args.port} unavailable ({e}). Aborting before model load.")
+        _sys.exit(1)
+    finally:
+        _probe.close()
 
     # Auto-detect device: CUDA > MPS > CPU
     if torch.cuda.is_available():
