@@ -39,7 +39,9 @@ RED = "\033[31m"
 def check_model_server(endpoint):
     try:
         import httpx
-        return httpx.get(f"{endpoint}/health", timeout=3).status_code == 200
+        # 10s tolerates a brief threadpool queue if the server is mid-load.
+        # /health itself is constant-time so this is a strict ceiling, not the typical wait.
+        return httpx.get(f"{endpoint}/health", timeout=10).status_code == 200
     except Exception:
         return False
 

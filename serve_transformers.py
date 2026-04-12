@@ -39,6 +39,7 @@ if not any(_a in ("-h", "--help") for _a in _sys.argv):
         _probe.close()
 
 import argparse
+import asyncio
 import base64
 import io
 import json
@@ -371,17 +372,22 @@ async def chat_completions(req: ChatRequest):
 
     prompt_len = inputs["input_ids"].shape[1]
 
-    # Generate
-    with torch.no_grad():
-        output = model.generate(
-            **inputs,
-            max_new_tokens=req.max_tokens,
-            use_cache=True,
-            temperature=req.temperature if req.temperature > 0 else 1.0,
-            top_p=req.top_p,
-            top_k=req.top_k,
-            do_sample=req.temperature > 0,
-        )
+    # Generate. Wrap in asyncio.to_thread so the event loop stays free to dispatch
+    # other requests (notably /health) — otherwise long generations make the whole
+    # server look wedged from outside, which is QA-3's "backend wedges, all endpoints
+    # timeout" HIGH bug.
+    def _generate():
+        with torch.no_grad():
+            return model.generate(
+                **inputs,
+                max_new_tokens=req.max_tokens,
+                use_cache=True,
+                temperature=req.temperature if req.temperature > 0 else 1.0,
+                top_p=req.top_p,
+                top_k=req.top_k,
+                do_sample=req.temperature > 0,
+            )
+    output = await asyncio.to_thread(_generate)
 
     # Decode response
     new_tokens = output[0][prompt_len:]
@@ -575,43 +581,37 @@ def _restore_language_model():
 
 @app.post("/v1/images/generate")
 async def generate_image(req: ImageRequest):
-    pipe = _load_image_model()
-    if pipe is None:
-        return {"error": "No image model configured. Start with --image-model"}
-
-    start = time.time()
-    try:
-        result = pipe(
-            prompt=req.prompt,
-            width=req.width,
-            height=req.height,
-            num_inference_steps=req.steps,
-            guidance_scale=req.guidance_scale,
-        )
-        image = result.images[0]
-
-        # Convert to base64 PNG
-        buf = io.BytesIO()
-        image.save(buf, format="PNG")
-        b64 = base64.b64encode(buf.getvalue()).decode()
-
-        elapsed = time.time() - start
-        log.info(f"Image generated in {elapsed:.1f}s ({req.width}x{req.height}, {req.steps} steps)")
-
-        # Restore language model if needed
-        _restore_language_model()
-
-        return {
-            "created": int(time.time()),
-            "data": [{
-                "b64_json": b64,
-                "revised_prompt": req.prompt,
-            }],
-            "timing": {"elapsed_s": round(elapsed, 2)},
-        }
-    except Exception as e:
-        _restore_language_model()
-        return {"error": str(e)}
+    # Run the whole generation off the event loop so /health stays responsive
+    # while image generation is in progress. Same wedge fix as chat_completions.
+    def _do_image_gen():
+        pipe = _load_image_model()
+        if pipe is None:
+            return {"error": "No image model configured. Start with --image-model"}
+        start = time.time()
+        try:
+            result = pipe(
+                prompt=req.prompt,
+                width=req.width,
+                height=req.height,
+                num_inference_steps=req.steps,
+                guidance_scale=req.guidance_scale,
+            )
+            image = result.images[0]
+            buf = io.BytesIO()
+            image.save(buf, format="PNG")
+            b64 = base64.b64encode(buf.getvalue()).decode()
+            elapsed = time.time() - start
+            log.info(f"Image generated in {elapsed:.1f}s ({req.width}x{req.height}, {req.steps} steps)")
+            _restore_language_model()
+            return {
+                "created": int(time.time()),
+                "data": [{"b64_json": b64, "revised_prompt": req.prompt}],
+                "timing": {"elapsed_s": round(elapsed, 2)},
+            }
+        except Exception as e:
+            _restore_language_model()
+            return {"error": str(e)}
+    return await asyncio.to_thread(_do_image_gen)
 
 
 def main():
