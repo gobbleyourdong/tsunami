@@ -62,3 +62,7 @@ aaron/
 # Legacy (removed)
 llama-server/
 llama.cpp/
+
+# Session artifacts / local operational files
+INSTANCE_PROMPTS.md
+DAILY_REPORT.pdf
