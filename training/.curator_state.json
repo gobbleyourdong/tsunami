@@ -55,12 +55,12 @@
       "type": "DPO",
       "adapter": "gamedev-v4",
       "base_model": "models/gemma-4-e4b-tsunami-gamedev-v4-merged",
-      "data": "workspace/training_data/gamedev_dpo_v1.jsonl",
+      "data": "workspace/training_data/gamedev_dpo_combined_v1.jsonl",
       "output": "models/gemma-4-e4b-tsunami-gamedev-v5",
       "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
       "prerequisite": "Train gamedev-v4 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-gamedev-v4 --output models/gemma-4-e4b-tsunami-gamedev-v4-merged",
-      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-gamedev-v4-merged --data workspace/training_data/gamedev_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v5 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
+      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-gamedev-v4-merged --data workspace/training_data/gamedev_dpo_combined_v1.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v5 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     }
   ],
-  "notes": "Fire 6 (2026-04-12): gamedev v5 SFT added 6 examples targeting GER04 (missing asset->file_write) and GER05 workspace/ prefix path fix. combined_v5full.jsonl=51 examples. gamedev DPO v1 added 21 pairs. security eval harness created. Fire 5: DPO v3 added 15 pairs, combined_v3.jsonl=73 pairs, chrome-ext-v1 8 examples."
+  "notes": "Fire 6 (2026-04-12): gamedev DPO v2 added 12 pairs (GX01 multiplayer degrade, GX02 3D degrade, GR routing). Combined: gamedev_dpo_combined_v1.jsonl=33 pairs. v5 SFT=51 examples. security eval harness. build DPO=73 pairs (combined_v3). chrome-ext=8 SFT examples."
 }
