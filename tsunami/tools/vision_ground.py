@@ -123,9 +123,12 @@ async def _ground_elements(endpoint: str, image_b64: str, elements: list[str], i
     )
 
     try:
-        # 180s — under concurrent QA load the gpu_sem queue can delay
-        # multimodal calls 2-3 min. Same reasoning as undertow's VLM path.
-        async with httpx.AsyncClient(timeout=180) as client:
+        # 300s — under concurrent QA load the gpu_sem queue + 1500-token
+        # vision-grounding generate can take 3-5 min end-to-end. Empirical
+        # 180s timeout still fired ReadTimeout. Vision grounding is
+        # best-effort under load; if 300s isn't enough the tool returns
+        # "unavailable" and the caller falls back to text-only reasoning.
+        async with httpx.AsyncClient(timeout=300) as client:
             # Health check
             try:
                 resp = await client.get(f"{endpoint}/health")
