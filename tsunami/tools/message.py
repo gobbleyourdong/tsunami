@@ -56,6 +56,19 @@ _STUB_COMMENT_PHRASES = (
     "for now, we",
     "simplified for",        # "simplified for compilation"
     "simulate the ",         # "simulate the structure" (Fire 81 self-incrimination)
+    # QA-1 Fire 87/88 (physics sandbox): agent wrote
+    # "// Since we don't have the actual Tsunami Engine, we must mock the
+    #  necessary parts to satisfy the structure and get it compiling for
+    #  Phase 1. We will use a simplified representation of RigidBody..."
+    # then hand-rolled a shadow PhysicsWorld interface instead of importing
+    # @engine. Each phrase is specific-enough to stubbing prose that
+    # false-positive risk stays low.
+    "we don't have",          # "we don't have the actual Tsunami Engine"
+    "we must mock",           # "we must mock the necessary parts"
+    "to satisfy the structure",
+    "simplified representation",
+    "doesn't seem to exist",
+    "isn't available",        # "the <X> isn't available"
 )
 # NB: "placeholder for " was considered but dropped — too broad. It matches
 # legit JSX layout annotations like `{/* Placeholder for Stats */}` in

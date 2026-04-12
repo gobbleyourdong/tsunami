@@ -553,6 +553,55 @@ export default function App() {
         assert "REFUSED" in suffix
 
 
+def test_stub_comment_fire87_physics_sandbox_blocks():
+    """QA-1 Fire 87/88 exact repro: agent declares engine nonexistent and
+    hand-rolls shadow interfaces. Comment prose is specific-enough stubbing
+    that these phrases should block even in comments."""
+    app = """import { useState, useEffect } from 'react'
+
+// --- Tsunami Engine PhysicsWorld Mockup ---
+// Since we don't have the actual Tsunami Engine, we must mock the necessary parts
+// to satisfy the structure and get it compiling for Phase 1.
+// We will use a simplified representation of RigidBody and PhysicsWorld.
+interface RigidBody {
+  position: { x: number; y: number }
+  velocity: { x: number; y: number }
+  radius: number
+  mass: number
+  color: string
+}
+
+export default function App() {
+  const [bodies, setBodies] = useState<RigidBody[]>([])
+  useEffect(() => {
+    setBodies(Array.from({ length: 20 }, (_, i) => ({
+      position: { x: 100 + i * 10, y: 100 },
+      velocity: { x: 0, y: 0 },
+      radius: 15, mass: 1, color: '#f00'
+    })))
+  }, [])
+  return (
+    <div>
+      <h1>Physics Sandbox</h1>
+      <p>Bodies: {bodies.length}</p>
+      <button onClick={() => setBodies([])}>Clear</button>
+    </div>
+  )
+}
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        _scaffold_deliverable(tmp, "physics-sandbox-game", app)
+        fs_state.set_session_task_prompt("physics sandbox game with bouncing balls")
+        agent = _make_agent(tmp)
+        suffix = agent._exit_gate_suffix()
+        assert "REFUSED" in suffix
+        # One of the Fire 87/88 phrases should have caught it
+        assert any(p in suffix.lower() for p in (
+            "we don't have", "we must mock", "to satisfy the structure",
+            "simplified representation",
+        ))
+
+
 def test_stub_comment_phrases_do_not_false_positive_on_real_code():
     """No stub-comment phrases in comments or strings — real working code should pass."""
     app = """import { useState } from 'react'
