@@ -21,7 +21,11 @@ import time
 import httpx
 import pytest
 
-# Skip all e2e tests if model servers aren't running
+# Skip all e2e tests unless explicitly opted in. Live-server detection alone is
+# not enough: casual `pytest tsunami/tests/` runs while a dev's server happens to
+# be up would trigger minutes of real inference per test. Require TSUNAMI_E2E=1.
+_E2E_ENABLED = os.environ.get("TSUNAMI_E2E") == "1"
+
 def _server_up(port: int) -> bool:
     try:
         r = httpx.get(f"http://localhost:{port}/health", timeout=2)
@@ -29,11 +33,11 @@ def _server_up(port: int) -> bool:
     except Exception:
         return False
 
-QUEEN_UP = _server_up(8090)
-EDDY_UP = _server_up(8092)
+QUEEN_UP = _E2E_ENABLED and _server_up(8090)
+EDDY_UP = _E2E_ENABLED and _server_up(8092)
 
-skip_no_queen = pytest.mark.skipif(not QUEEN_UP, reason="27B server not running on :8090")
-skip_no_bee = pytest.mark.skipif(not EDDY_UP, reason="2B server not running on :8092")
+skip_no_queen = pytest.mark.skipif(not QUEEN_UP, reason="27B e2e needs TSUNAMI_E2E=1 + :8090 up")
+skip_no_bee = pytest.mark.skipif(not EDDY_UP, reason="2B e2e needs TSUNAMI_E2E=1 + :8092 up")
 
 
 def _make_agent(workspace_dir: str):

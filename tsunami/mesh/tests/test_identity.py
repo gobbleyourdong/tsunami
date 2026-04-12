@@ -3,7 +3,7 @@
 import tempfile
 from pathlib import Path
 
-from megalan.identity import NodeIdentity
+from tsunami.mesh.identity import NodeIdentity
 
 
 def test_generate():
