@@ -1,0 +1,44 @@
+{
+  "last_bug_processed": "HF10",
+  "last_training_version": 0,
+  "last_training_timestamp": null,
+  "current_live_adapter": "gemma-4-e4b-tsunami-adapter",
+  "curator_version": 2,
+  "gamedev_eval_baseline": {
+    "date": "2026-04-12",
+    "adapter": "gamedev",
+    "mode": "--quick",
+    "l1": "10/12",
+    "l2": "6/6",
+    "l3": "4/6",
+    "l4": "3/10",
+    "total": "160/274",
+    "pct": 0.584
+  },
+  "dpo_pairs_accumulated": 49,
+  "dpo_threshold_met": true,
+  "pending_training": [
+    {
+      "type": "DPO",
+      "adapter": "build-v89",
+      "data": "workspace/training_data/curator_dpo_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-build-v90",
+      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
+    },
+    {
+      "type": "SFT",
+      "adapter": "gamedev-v3",
+      "data": "workspace/training_data/gamedev_combined_v3.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-gamedev-v3",
+      "params": "--epochs 3 --lora-r 16 --lr 2e-4"
+    },
+    {
+      "type": "SFT",
+      "adapter": "security-v1",
+      "data": "workspace/training_data/security_sft_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-security-v1",
+      "params": "--epochs 3 --lora-r 16 --lr 2e-4"
+    }
+  ],
+  "notes": "Fire 2 (2026-04-12 11:12): Gamedev baseline 58%. 49 DPO pairs harvested. Gamedev v3 (16 examples) + Security SFT (27 examples) created. All 3 adapters ready for training. Programmer notified in SCRATCHPAD."
+}
