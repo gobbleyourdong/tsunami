@@ -58,6 +58,22 @@ _CHROME_EXT_WORDS = (
     "content script",
 )
 
+# Fullstack signals — Express + SQLite + useApi; distinct two-file pipeline.
+_FULLSTACK_WORDS = (
+    # explicit
+    "fullstack app", "full stack app", "full-stack app",
+    "backend api", "rest api app", "sqlite app", "sqlite backend",
+    # express + db combos
+    "express server", "express + sqlite", "express sqlite",
+    "node backend", "node server",
+    # persistence patterns
+    "database backend", "with a database", "sqlite database",
+    "persisted to database", "save to database", "stored in database",
+    "crud app", "crud api",
+    # useApi pattern (when mentioned explicitly)
+    "useapi hook", "useapi(",
+)
+
 # Data-viz signals — Recharts + ChartCard scaffold, distinct from generic build.
 _DATAVIZ_WORDS = (
     # explicit vocabulary
@@ -129,7 +145,12 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
         if phrase in msg:
             return "chrome-ext-v1", f"chrome-ext signal: {phrase!r}"
 
-    # 2b. Data-viz signals — Recharts + ChartCard scaffold, checked before generic build.
+    # 2b. Fullstack signals — Express + SQLite + useApi two-file pipeline.
+    for phrase in _FULLSTACK_WORDS:
+        if phrase in msg:
+            return "fullstack-v1", f"fullstack signal: {phrase!r}"
+
+    # 2c. Data-viz signals — Recharts + ChartCard scaffold, checked before generic build.
     for phrase in _DATAVIZ_WORDS:
         if phrase in msg:
             return "dataviz-v1", f"dataviz signal: {phrase!r}"
@@ -149,7 +170,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
 
     # 5. Iteration hold — if already specialized, an "add X" / "fix Y" / etc.
     #    turn should KEEP the current adapter, not drop back to chat.
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1"):
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1"):
         for verb in _ITERATION_VERBS:
             if verb in msg:
                 return current, f"iteration-hold: matched {verb.strip()!r}"
@@ -157,7 +178,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
     # 6. No specialization signal. If we were already specialized and the
     #    user's turn is short/conversational, still hold (don't flip-flop
     #    on marginal signals like "looks good, thanks").
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1") and len(msg.split()) < 20:
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1") and len(msg.split()) < 20:
         return current, "short conversational turn — hold specialized adapter"
 
     # 6. Default: chat.

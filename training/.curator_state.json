@@ -79,7 +79,27 @@
       "params": "--epochs 3 --lora-r 16 --lr 2e-4",
       "notes": "NEW adapter (Fire 8). 6 SFT examples: sales/traffic/CSV/retention/crypto/error-recovery. Uses scaffolds/data-viz/ with ChartCard+StatRow+CsvLoader+Recharts. Router signals: bar/line/pie/area chart + recharts/d3.js/data-viz keywords -> dataviz-v1. Eval: python training/eval_dataviz.py --quick",
       "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/dataviz_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-dataviz-v1 --epochs 3 --lora-r 16 --lr 2e-4"
+    },
+    {
+      "type": "DPO",
+      "adapter": "dataviz-v1",
+      "base_model": "models/gemma-4-e4b-tsunami-dataviz-v1-merged",
+      "data": "workspace/training_data/dataviz_dpo_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-dataviz-v2",
+      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
+      "prerequisite": "Train dataviz-v1 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-dataviz-v1 --output models/gemma-4-e4b-tsunami-dataviz-v1-merged",
+      "notes": "18 DPO pairs targeting DVF01-DVF06: ChartCard wrapping, ResponsiveContainer, no-fetch, StatRow KPIs, data-viz template param, undertow before deliver",
+      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-dataviz-v1-merged --data workspace/training_data/dataviz_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-dataviz-v2 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
+    },
+    {
+      "type": "SFT",
+      "adapter": "fullstack-v1",
+      "data": "workspace/training_data/fullstack_sft_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-fullstack-v1",
+      "params": "--epochs 3 --lora-r 16 --lr 2e-4",
+      "notes": "NEW adapter (Fire 8 cont). 6 SFT examples using scaffolds/fullstack/ (Express+SQLite+useApi). Pipeline: project_init(template='fullstack') -> server/index.js -> src/App.tsx -> build -> undertow -> deliver. NEVER raw fetch — use useApi hook. FS01 todo, FS02 notes, FS03 expense, FS04 bookmarks, FS05 error-recovery, FS06 conversational. Router: sqlite/express/database-backend keywords -> fullstack-v1. Eval: python training/eval_fullstack.py --quick (not yet written)",
+      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/fullstack_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-fullstack-v1 --epochs 3 --lora-r 16 --lr 2e-4"
     }
   ],
-  "notes": "Fire 8 (2026-04-12): data-viz adapter created. SFT v1 (6 ex: DV01-06) uses scaffolds/data-viz/ with ChartCard+StatRow+CsvLoader+Recharts. eval_dataviz.py L1-L4 harness (DVF01-06). adapter_router.py now routes bar/line/pie/area charts + recharts/d3.js/data-viz keywords to dataviz-v1. Fire 7: chrome-ext SFT v3 added 4 examples (commands, contextMenus, downloads, reading-mode) -> combined_v2=12 examples. chrome-ext DPO v1 added 15 pairs (CEF01-05). chrome-ext pipeline now: SFT->merge->DPO. Fire 6: gamedev DPO 33 pairs, v5 SFT 51 ex, security eval, build DPO 73 pairs."
+  "notes": "Fire 8 (2026-04-12): data-viz adapter + DPO (SFT 6ex + DPO 18pairs, DVF01-06). fullstack NEW adapter (SFT 6ex, FS01-06: Express+SQLite+useApi). adapter_router.py: fullstack-v1 + dataviz-v1 signals. Earlier: chrome-ext SFT v3 (12ex) + DPO v1 (15pairs), gamedev DPO 33pairs, v5 SFT 51ex, security eval, build DPO 73pairs."
 }
