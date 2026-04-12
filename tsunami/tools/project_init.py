@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -38,7 +39,17 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
     all_text = name.lower() + " " + " ".join(deps_lower) + " " + prompt.lower()
 
     def needs(*keywords):
-        return any(k in all_text for k in keywords)
+        # Single-word keywords use word-boundary regex (with optional plural 's')
+        # so "electron" doesn't match "electronics", "log" doesn't match "login", etc.
+        # Multi-word keywords keep substring matching — they're specific enough.
+        for k in keywords:
+            if " " in k:
+                if k in all_text:
+                    return True
+            else:
+                if re.search(rf'\b{re.escape(k)}s?\b', all_text):
+                    return True
+        return False
 
     # 0a. Chrome extension
     if needs("extension", "chrome", "browser extension", "addon", "manifest",
