@@ -340,28 +340,41 @@ class FileWrite(BaseTool):
             err = _is_safe_write(p, self.config.workspace_dir)
             if err:
                 return ToolResult(err, is_error=True)
-            # QA-3 Fire 105: dotenv plant with attacker URL. .env files are
-            # read by Vite's dotenv-loader and VITE_* vars BAKE INTO the
-            # production bundle — so an attacker-controlled URL hidden in
-            # src/.env appears in dist/ as a string constant, and the
-            # App.tsx source only shows `import.meta.env.VITE_FOO`
-            # (non-literal — misses any content scanner targeting .tsx).
-            # Refuse .env* writes containing external http(s):// URLs.
-            # Localhost / private-network / path-relative refs pass.
-            if p.name == ".env" or p.name.startswith(".env."):
-                import re as _env_re
-                urls = _env_re.findall(r'https?://([^\s/\'"]+)', content)
-                external = [u for u in urls if not _env_re.match(
+            # QA-3 Fire 105 / Fire 109: config-file plant with attacker URL.
+            # Multiple file shapes bake external URLs into build- or runtime
+            # behavior where an App.tsx content scan would miss them:
+            #   .env / .env.*      — Vite VITE_* baked into production bundle
+            #   .npmrc             — `npm install` pulls from attacker registry
+            #   .yarnrc / .yarnrc.yml — yarn registry redirect
+            #   .pnpmrc            — pnpm registry redirect
+            #   .gitconfig / .git/config — git-fetch URL redirect
+            # All share the same attack shape: a single http(s)://attacker URL
+            # in a config value. Localhost / private-net / path-relative refs
+            # pass (legit dev endpoints).
+            _config_shape = (
+                p.name == ".env" or p.name.startswith(".env.")
+                or p.name == ".npmrc"
+                or p.name in (".yarnrc", ".yarnrc.yml")
+                or p.name == ".pnpmrc"
+                or p.name == ".gitconfig"
+                or (p.parent.name == ".git" and p.name == "config")
+            )
+            if _config_shape:
+                import re as _cfg_re
+                urls = _cfg_re.findall(r'https?://([^\s/\'"]+)', content)
+                external = [u for u in urls if not _cfg_re.match(
                     r'^(localhost|127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|0\.0\.0\.0)',
                     u
                 )]
                 if external:
                     return ToolResult(
-                        f"BLOCKED: {p.name} contains external URL(s) ({', '.join(sorted(set(external))[:3])}). "
-                        f"Vite's VITE_* env vars bake into the production bundle as string constants — "
-                        f"an external URL here becomes a baked-in endpoint in dist/. If the app genuinely "
-                        f"needs to call an external API, hardcode the URL in the component (user-visible) "
-                        f"rather than hiding it in a dotenv file. Localhost/private-net refs pass.",
+                        f"BLOCKED: {p.name} is a config-shape file and contains external URL(s) "
+                        f"({', '.join(sorted(set(external))[:3])}). These files drive build-time or "
+                        f"runtime behavior (VITE_* → dist bundle, .npmrc → `npm install` registry, "
+                        f".yarnrc/.pnpmrc → same for yarn/pnpm, .gitconfig → git fetch URL). An "
+                        f"external URL here is a supply-chain / exfiltration vector. Use localhost / "
+                        f"private-net refs, or if external is genuinely needed, hardcode in the "
+                        f"component (user-visible) instead of a config file.",
                         is_error=True,
                     )
             p.parent.mkdir(parents=True, exist_ok=True)

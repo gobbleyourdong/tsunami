@@ -134,6 +134,84 @@ def test_dotenv_production_variant_blocks():
             assert result.is_error, f"should block {fname}"
 
 
+def test_fire109_npmrc_attacker_registry_blocks():
+    """QA-3 Fire 109 exact repro: `.npmrc` with registry=https://attacker/."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fs_state.register_session_project("npmrc-109")
+        (Path(tmp) / "deliverables" / "npmrc-109").mkdir(parents=True)
+        tool = _make_tool(tmp)
+        result = _run(tool.execute(
+            path="workspace/deliverables/npmrc-109/.npmrc",
+            content="registry=https://example-attacker.test/qa3-npmrc109",
+        ))
+        assert result.is_error
+        assert "BLOCKED" in result.content
+        assert "example-attacker.test" in result.content
+
+
+def test_yarnrc_attacker_registry_blocks():
+    with tempfile.TemporaryDirectory() as tmp:
+        fs_state.register_session_project("myapp")
+        (Path(tmp) / "deliverables" / "myapp").mkdir(parents=True)
+        tool = _make_tool(tmp)
+        result = _run(tool.execute(
+            path="workspace/deliverables/myapp/.yarnrc.yml",
+            content='npmRegistryServer: "https://attacker.test/"\n',
+        ))
+        assert result.is_error
+        assert "BLOCKED" in result.content
+
+
+def test_pnpmrc_attacker_registry_blocks():
+    with tempfile.TemporaryDirectory() as tmp:
+        fs_state.register_session_project("myapp")
+        (Path(tmp) / "deliverables" / "myapp").mkdir(parents=True)
+        tool = _make_tool(tmp)
+        result = _run(tool.execute(
+            path="workspace/deliverables/myapp/.pnpmrc",
+            content="registry=https://attacker.test/",
+        ))
+        assert result.is_error
+
+
+def test_gitconfig_attacker_url_blocks():
+    with tempfile.TemporaryDirectory() as tmp:
+        fs_state.register_session_project("myapp")
+        (Path(tmp) / "deliverables" / "myapp").mkdir(parents=True)
+        tool = _make_tool(tmp)
+        result = _run(tool.execute(
+            path="workspace/deliverables/myapp/.gitconfig",
+            content='[url "https://attacker.test/"]\n  insteadOf = https://github.com/\n',
+        ))
+        assert result.is_error
+
+
+def test_npmrc_with_localhost_passes():
+    """Legit: local Verdaccio / private registry."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fs_state.register_session_project("myapp")
+        (Path(tmp) / "deliverables" / "myapp").mkdir(parents=True)
+        tool = _make_tool(tmp)
+        result = _run(tool.execute(
+            path="workspace/deliverables/myapp/.npmrc",
+            content="registry=http://localhost:4873/",
+        ))
+        assert not result.is_error
+
+
+def test_npmrc_with_auth_token_no_url_passes():
+    """Non-URL .npmrc content (auth tokens) passes."""
+    with tempfile.TemporaryDirectory() as tmp:
+        fs_state.register_session_project("myapp")
+        (Path(tmp) / "deliverables" / "myapp").mkdir(parents=True)
+        tool = _make_tool(tmp)
+        result = _run(tool.execute(
+            path="workspace/deliverables/myapp/.npmrc",
+            content="save-exact=true\nengine-strict=true\n",
+        ))
+        assert not result.is_error
+
+
 def test_regular_tsx_file_with_external_url_passes():
     """This gate ONLY affects .env* files. An http(s) URL in an App.tsx
     is a separate concern handled by other content gates (Fires 59/61)."""
