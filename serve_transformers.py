@@ -11,6 +11,33 @@ Provides OpenAI-compatible endpoints:
   POST /v1/adapter             — hot-swap LoRA adapters
   GET  /health                 — health check
 """
+# Earliest-possible bind probe — must happen BEFORE torch/transformers imports
+# (those take ~6s of CPU on first run, during which a duplicate would appear
+# alive to outside observers). Fail in <1s if the port is taken.
+import sys as _sys
+if not any(_a in ("-h", "--help") for _a in _sys.argv):
+    import socket as _socket
+    _port, _host = 8090, "0.0.0.0"
+    for _i, _a in enumerate(_sys.argv):
+        if _a == "--port" and _i + 1 < len(_sys.argv):
+            try: _port = int(_sys.argv[_i + 1])
+            except ValueError: pass
+        elif _a.startswith("--port="):
+            try: _port = int(_a.split("=", 1)[1])
+            except ValueError: pass
+        elif _a == "--host" and _i + 1 < len(_sys.argv):
+            _host = _sys.argv[_i + 1]
+        elif _a.startswith("--host="):
+            _host = _a.split("=", 1)[1]
+    _probe = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+    try:
+        _probe.bind((_host, _port))
+    except OSError as _e:
+        print(f"Port {_port} unavailable ({_e}). Aborting before model load.", file=_sys.stderr)
+        _sys.exit(1)
+    finally:
+        _probe.close()
+
 import argparse
 import base64
 import io
@@ -531,18 +558,9 @@ def main():
     _low_vram = args.low_vram
 
     import os
-    import socket
-    import sys as _sys
 
-    # Bind probe — if port is taken, fail in ms instead of after loading 4GB of weights.
-    _probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        _probe.bind((args.host, args.port))
-    except OSError as e:
-        log.error(f"Port {args.port} unavailable ({e}). Aborting before model load.")
-        _sys.exit(1)
-    finally:
-        _probe.close()
+    # (Bind probe ran at module top — before torch/transformers imports — so
+    # duplicate spawns die in <1s, not 6s of import-time CPU.)
 
     # Auto-detect device: CUDA > MPS > CPU
     if torch.cuda.is_available():
