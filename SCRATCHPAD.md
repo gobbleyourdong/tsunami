@@ -6982,3 +6982,51 @@ python training/train_dpo.py \
 2. **ai-app SFT v2** — RAG: upload text → chunk → embed via server → semantic search → cite sources
 3. **Builder SFT v94** — virtual scrolling (large lists); canvas API drawing tools; Web Workers for heavy computation
 4. **form-app SFT v2** — multi-step wizard (progress bar, per-step validation, back/next)
+
+---
+
+## Fire 33 — Gamedev DPO v6 (2026-04-12)
+
+### What was built
+18 DPO pairs covering the 4 new patterns from SFT v9 (ECS, save state, procedural gen, menu flow).
+
+### Pairs (`gamedev_dpo_v6.jsonl` — 18 pairs)
+- **GHF-ECS1** (3p): Multi-file ECS (4 files) vs monolithic main.ts
+- **GHF-ECS2** (3p): Systems as pure functions `(em, dt) => void` vs class-based or ad-hoc
+- **GHF-SAVE1** (3p): `saveState.ts` module vs inline `localStorage` in game loop
+- **GHF-SAVE2** (3p): `interface SaveData { ... }` + typed return `SaveData | null` vs untyped `any`
+- **GHF-PROC1** (3p): Generator in `dungeon.ts` module vs inline BSP in main.ts
+- **GHF-MENU1** (3p): `type Scene = 'menu'|'game'|'pause'|'gameover'` dispatch vs multiple boolean flags
+
+### Combined: gamedev_dpo_combined_v6.jsonl = 108 total pairs
+
+### Train commands (pair with SFT v9 → gamedev-v6)
+```bash
+# 1. SFT (gamedev-v5full = v8+v9 = 8 examples)
+python training/train_unsloth.py \
+  --model google/gemma-4-e4b-it \
+  --data workspace/training_data/gamedev_combined_v7full.jsonl \
+  --output models/gemma-4-e4b-tsunami-gamedev-v5 \
+  --epochs 3 --lora-r 16 --lr 2e-4
+
+# 2. Merge
+python training/merge_adapter.py \
+  --base google/gemma-4-e4b-it \
+  --adapter models/gemma-4-e4b-tsunami-gamedev-v5 \
+  --output models/gemma-4-e4b-tsunami-gamedev-v5-merged
+
+# 3. DPO → gamedev-v6 (108 pairs)
+python training/train_dpo.py \
+  --base-model models/gemma-4-e4b-tsunami-gamedev-v5-merged \
+  --data workspace/training_data/gamedev_dpo_combined_v6.jsonl \
+  --output models/gemma-4-e4b-tsunami-gamedev-v6 \
+  --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1
+```
+
+### Total DPO pairs accumulated: 199 (across all adapters)
+
+### What's next (Fire 34 candidates)
+1. **ai-app SFT v2** — RAG: file upload → chunking → server-side embedding → cosine search → cite sources in UI
+2. **Builder SFT v94** — virtual scrolling (react-window or manual); Web Worker for CPU-heavy tasks
+3. **New adapter: image-gen-v1** — Stable Diffusion / Replicate API; streaming image generation with progress
+4. **form-app SFT v2** — multi-step wizard: progress bar, per-step validation, back/next navigation
