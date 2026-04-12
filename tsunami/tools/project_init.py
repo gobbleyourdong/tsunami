@@ -199,7 +199,7 @@ class ProjectInit(BaseTool):
 
                 (project_dir / "package.json").write_text(json.dumps({
                     "name": name, "private": True, "type": "module",
-                    "scripts": {"dev": "vite", "build": "vite build"},
+                    "scripts": {"dev": "vite", "build": "tsc --noEmit && vite build"},
                     "dependencies": deps,
                     "devDependencies": {
                         "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0",
@@ -246,7 +246,8 @@ class ProjectInit(BaseTool):
                 f"Extra deps: {dep_list}\n"
                 f"Dev server: {url or 'run npx vite --port 9876'}\n\n"
                 f"src/App.tsx is a stub — replace it with your app.\n"
-                f"After all files: shell_exec 'cd {project_dir} && npx vite build'"
+                f"After all files: shell_exec 'cd {project_dir} && npm run build' "
+                f"(runs `tsc --noEmit && vite build` — typecheck step catches missing imports)"
                 f"{readme_content}"
             )
 

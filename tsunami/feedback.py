@@ -85,8 +85,9 @@ class FeedbackTracker:
         # Pattern: writes succeeding but no compile check → remind to build
         if writes >= 3 and "shell_exec" not in recent_names[-3:]:
             return (
-                "FEEDBACK: You've written 3+ files. Run 'npx vite build' "
-                "to check for compile errors before writing more."
+                "FEEDBACK: You've written 3+ files. Run 'npm run build' "
+                "(NOT 'npx vite build') so the typecheck gate runs and catches "
+                "missing imports / type errors."
             )
 
         return None

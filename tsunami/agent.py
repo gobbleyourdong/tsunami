@@ -650,7 +650,9 @@ class Agent:
                             project_dir = f"workspace/deliverables/{name_hint}"
                             self.state.add_system_note(
                                 f"Project scaffolded at {project_dir}/\n"
-                                f"To build: shell_exec with command=\"cd {project_dir} && npx vite build\"\n"
+                                f"To build: shell_exec with command=\"cd {project_dir} && npm run build\"\n"
+                                f"  (`npm run build` runs `tsc --noEmit && vite build` — the typecheck step catches "
+                                f"missing imports and type errors that bare `vite build` silently allows.)\n"
                                 f"To deliver: message_result when build passes."
                             )
                     except Exception as e:
@@ -1874,7 +1876,8 @@ class Agent:
                     if projects:
                         self.state.add_system_note(
                             f"You've written 4+ files without building. Run: "
-                            f"shell_exec with command=\"cd {projects[0]} && npx vite build\" to check compilation."
+                            f"shell_exec with command=\"cd {projects[0]} && npm run build\" to check compilation "
+                            f"(use `npm run build`, NOT bare `vite build`, so the typecheck gate runs)."
                         )
                         log.info("Write-streak nudge: 4+ writes without build")
 
