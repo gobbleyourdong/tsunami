@@ -29,11 +29,11 @@
     },
     {
       "type": "SFT",
-      "adapter": "gamedev-v4full",
-      "data": "workspace/training_data/gamedev_combined_v4full.jsonl",
+      "adapter": "gamedev-v5full",
+      "data": "workspace/training_data/gamedev_combined_v5full.jsonl",
       "output": "models/gemma-4-e4b-tsunami-gamedev-v4",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4",
-      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/gamedev_combined_v4full.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v4 --epochs 3 --lora-r 16 --lr 2e-4"
+      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/gamedev_combined_v5full.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v4 --epochs 3 --lora-r 16 --lr 2e-4"
     },
     {
       "type": "SFT",
@@ -62,5 +62,5 @@
       "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-gamedev-v4-merged --data workspace/training_data/gamedev_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v5 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     }
   ],
-  "notes": "Fire 6 (2026-04-12): gamedev DPO v1 added 21 pairs targeting 7 L4 failures (GHF02/03/05/07/08/09/10). gamedev_dpo_v1.jsonl created. gamedev pipeline now: SFT v4 -> merge -> DPO v1 -> gamedev-v5. Fire 5: DPO v3 added 15 pairs, combined_v3.jsonl=73 pairs, chrome-ext-v1 8 examples."
+  "notes": "Fire 6 (2026-04-12): gamedev v5 SFT added 6 examples targeting GER04 (missing asset->file_write) and GER05 workspace/ prefix path fix. combined_v5full.jsonl=51 examples. gamedev DPO v1 added 21 pairs. security eval harness created. Fire 5: DPO v3 added 15 pairs, combined_v3.jsonl=73 pairs, chrome-ext-v1 8 examples."
 }
