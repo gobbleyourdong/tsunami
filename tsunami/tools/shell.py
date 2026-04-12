@@ -34,7 +34,10 @@ _DESTRUCTIVE_PATTERNS = [
     # Recursive force delete on root-like paths
     (re.compile(r'\brm\s+(-\w+\s+)*/\s*$'),
      "BLOCKED: cannot rm -rf root"),
-    # Recursive force delete
+    # Recursive delete on any absolute or home-directory path — escapes the workspace
+    (re.compile(r'\brm\s+-[a-zA-Z]*[rR][a-zA-Z]*\s+[~/]'),
+     "BLOCKED: rm -r on absolute or home path — refuse (use a relative path inside the workspace)"),
+    # Recursive force delete (catchall — relative paths still warn)
     (re.compile(r'(^|[;&|]\s*)rm\s+-[a-zA-Z]*[rR][a-zA-Z]*f'),
      "WARNING: recursive force-remove"),
     # Database
