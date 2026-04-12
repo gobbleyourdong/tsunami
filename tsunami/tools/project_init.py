@@ -75,6 +75,12 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "realtime").exists():
             return "realtime"
 
+    # 5a. API-only — backend with no React frontend (webhook, microservice, REST API)
+    if needs("webhook", "microservice", "rest api", "api server", "api only",
+             "backend only", "no frontend", "headless api", "openapi", "swagger"):
+        if (SCAFFOLDS_DIR / "api-only").exists():
+            return "api-only"
+
     # 5. Needs persistence (database, accounts, saving state)
     if needs("database", "login", "auth", "account", "persist", "save", "crud",
              "backend", "api", "server", "express", "sqlite", "todo", "saas",
@@ -136,7 +142,7 @@ class ProjectInit(BaseTool):
                         "Explicit scaffold override — bypasses auto-detection. "
                         "Options: 'react-app', 'dashboard', 'data-viz', 'landing', "
                         "'form-app', 'fullstack', 'realtime', 'electron-app', "
-                        "'chrome-extension', 'game'. Omit to auto-detect from name."
+                        "'chrome-extension', 'game', 'api-only'. Omit to auto-detect from name."
                     ),
                 },
                 "dependencies": {
@@ -165,6 +171,8 @@ class ProjectInit(BaseTool):
         "chrome-ext":       "chrome-extension",
         "game":             "game",
         "gamedev":          "game",
+        "api-only":         "api-only",
+        "api":              "api-only",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:

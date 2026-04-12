@@ -101,6 +101,25 @@ _FULLSTACK_WORDS = (
     "useapi hook", "useapi(",
 )
 
+# API-only signals — Express + SQLite backend, NO React frontend.
+# Checked AFTER fullstack so "fullstack app with REST API" still goes fullstack.
+# "rest api app" (with "app") lands in fullstack; bare "rest api" goes here.
+_API_WORDS = (
+    # explicit no-frontend / headless
+    "api only", "backend only", "no frontend", "no ui", "no interface",
+    "headless api", "headless backend", "headless server",
+    # bare REST/JSON API patterns (without "app" suffix — that goes fullstack)
+    "rest api", "restful api", "json api", "api server",
+    # webhooks — inherently no UI
+    "webhook", "webhook server", "webhook handler", "webhook receiver",
+    # microservice — inherently no UI
+    "microservice", "micro service", "micro-service",
+    # express-only without any UI noun
+    "express endpoint", "express route", "express middleware",
+    # API standards
+    "openapi", "swagger", "api schema",
+)
+
 # Data-viz signals — Recharts + ChartCard scaffold, distinct from generic build.
 _DATAVIZ_WORDS = (
     # explicit vocabulary
@@ -239,6 +258,11 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
         if phrase in msg:
             return "fullstack-v1", f"fullstack signal: {phrase!r}"
 
+    # 2d2. API-only signals — Express + SQLite backend, no React frontend.
+    for phrase in _API_WORDS:
+        if phrase in msg:
+            return "api-only-v1", f"api-only signal: {phrase!r}"
+
     # 2e. Data-viz signals — Recharts + ChartCard scaffold, checked before generic build.
     for phrase in _DATAVIZ_WORDS:
         if phrase in msg:
@@ -274,7 +298,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
 
     # 5. Iteration hold — if already specialized, an "add X" / "fix Y" / etc.
     #    turn should KEEP the current adapter, not drop back to chat.
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1"):
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1", "api-only-v1"):
         for verb in _ITERATION_VERBS:
             if verb in msg:
                 return current, f"iteration-hold: matched {verb.strip()!r}"
@@ -282,7 +306,7 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
     # 6. No specialization signal. If we were already specialized and the
     #    user's turn is short/conversational, still hold (don't flip-flop
     #    on marginal signals like "looks good, thanks").
-    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1") and len(msg.split()) < 20:
+    if current in ("gamedev", "build-v89", "chrome-ext-v1", "dataviz-v1", "fullstack-v1", "realtime-v1", "form-app-v1", "electron-v1", "landing-v1", "dashboard-v1", "api-only-v1") and len(msg.split()) < 20:
         return current, "short conversational turn — hold specialized adapter"
 
     # 7. Default: chat.
