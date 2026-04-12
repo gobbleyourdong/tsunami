@@ -125,13 +125,44 @@ class GenerateImage(BaseTool):
                         pass  # CUDA reports available but doesn't work (XPU, driver issues)
 
                 log.info(f"Loading SD-Turbo on {device} (first time downloads ~2GB)...")
+                # Diffusers defaults to safety_checker=None for SD-Turbo — the library
+                # itself prints a warning advising NOT to expose this in user-facing
+                # services. Load the checker explicitly; fail-secure if unavailable.
+                try:
+                    from diffusers.pipelines.stable_diffusion.safety_checker import (
+                        StableDiffusionSafetyChecker,
+                    )
+                    from transformers import CLIPImageProcessor
+                    safety_checker = StableDiffusionSafetyChecker.from_pretrained(
+                        "CompVis/stable-diffusion-safety-checker",
+                        torch_dtype=dtype,
+                    )
+                    feature_extractor = CLIPImageProcessor.from_pretrained(
+                        "openai/clip-vit-base-patch32",
+                    )
+                except Exception as e:
+                    return ToolResult(
+                        "Image generation refused: safety checker could not be loaded "
+                        f"({e}). Image generation is disabled until the checker is available.",
+                        is_error=True,
+                    )
+
                 self._sd_pipe = AutoPipelineForText2Image.from_pretrained(
                     "stabilityai/sd-turbo",
                     torch_dtype=dtype,
                     variant="fp16" if dtype == torch.float16 else None,
+                    safety_checker=safety_checker,
+                    feature_extractor=feature_extractor,
                 )
                 self._sd_pipe.to(device)
-                log.info("SD-Turbo loaded")
+                log.info("SD-Turbo loaded with safety checker")
+
+            # SD-Turbo only supports up to 512×512 — warn explicitly when capping so
+            # callers know their requested dimensions weren't honored.
+            req_w, req_h = w, h
+            w, h = min(w, 512), min(h, 512)
+            if (req_w, req_h) != (w, h):
+                log.warning(f"SD-Turbo requested {req_w}x{req_h}, capped to {w}x{h}")
 
             import time
             t0 = time.time()
@@ -139,14 +170,15 @@ class GenerateImage(BaseTool):
                 prompt=prompt,
                 num_inference_steps=1,
                 guidance_scale=0.0,
-                width=min(w, 512),
-                height=min(h, 512),
+                width=w,
+                height=h,
             ).images[0]
             elapsed = time.time() - t0
 
             path.parent.mkdir(parents=True, exist_ok=True)
             image.save(str(path))
-            return ToolResult(f"Image generated and saved to {path} (SD-Turbo, {elapsed:.1f}s)")
+            cap_note = f" (requested {req_w}x{req_h}, capped to {w}x{h})" if (req_w, req_h) != (w, h) else ""
+            return ToolResult(f"Image generated and saved to {path} (SD-Turbo {w}x{h}, {elapsed:.1f}s){cap_note}")
 
         except Exception as e:
             return ToolResult(f"SD-Turbo error: {e}", is_error=True)
