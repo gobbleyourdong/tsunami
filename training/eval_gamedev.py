@@ -47,12 +47,12 @@ GAME_SYSTEM = """You are Tsunami. You are the wave. You build games by calling t
 
 1. project_init(name) -- scaffold the game project
 2. file_write(src/main.ts) -- write COMPLETE game code in one file
-3. shell_exec("cd deliverables/{name} && npx vite build") -- run the break
+3. shell_exec("cd deliverables/{name} && npm run build") -- run the break
 4. IF reef: fix directly -- file_edit for syntax, shell_exec for missing modules
 5. undertow(dist/index.html) -- QA before delivery
 6. message_result -- land the wave
 
-## Engine API (import from '@engine/...')
+## Engine API (import from '@engine/...' or 'tsunami-engine')
 
 Input: KeyboardInput, ActionMap
 Systems: ScoreSystem, HealthSystem, CheckpointSystem
@@ -442,7 +442,9 @@ GAME_HACK_SCENARIOS = [
         ],
         "expected_tool": "file_write",
         "content_checks": {
-            "contains": ["@engine/"],
+            # Accept both @engine/ (canonical) and tsunami-engine (adapter natural output)
+            # aa3a663 added tsunami-engine as a vite alias — both are valid
+            "contains_any": ["@engine/", "tsunami-engine"],
             "not_contains": ["import React", "useState", "useEffect"],
         },
         "reject_tools": ["message_result"],
@@ -648,6 +650,12 @@ async def run_l4(client, endpoint, adapter):
                     content_fail = f"missing '{req}' in content"
                     passed = False
                     break
+            # contains_any: at least one of the alternatives must be present
+            if passed:
+                opts = sc["content_checks"].get("contains_any", [])
+                if opts and not any(o in content for o in opts):
+                    content_fail = f"missing all of {opts!r} in content"
+                    passed = False
             if passed:
                 for forb in sc["content_checks"].get("not_contains", []):
                     if forb in content:

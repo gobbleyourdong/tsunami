@@ -27,8 +27,8 @@
     },
     {
       "type": "SFT",
-      "adapter": "gamedev-v3",
-      "data": "workspace/training_data/gamedev_combined_v3.jsonl",
+      "adapter": "gamedev-v3full",
+      "data": "workspace/training_data/gamedev_combined_v3full.jsonl",
       "output": "models/gemma-4-e4b-tsunami-gamedev-v3",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4"
     },
@@ -40,5 +40,5 @@
       "params": "--epochs 3 --lora-r 16 --lr 2e-4"
     }
   ],
-  "notes": "Fire 2 (2026-04-12 11:12): Gamedev baseline 58%. 49 DPO pairs harvested. Gamedev v3 (16 examples) + Security SFT (27 examples) created. All 3 adapters ready for training. Programmer notified in SCRATCHPAD."
+  "notes": "Fire 3 (2026-04-12): Eval fixes (contains_any, npm run build, both import styles). Added v3b (6 examples: degradation + tsunami-engine imports). gamedev_combined_v3full.jsonl = 39 examples (v2:17 + v3:16 + v3b:6). Updated Programmer notification in SCRATCHPAD."
 }
