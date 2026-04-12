@@ -36,6 +36,16 @@
       "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/gamedev_combined_v5full.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v4 --epochs 3 --lora-r 16 --lr 2e-4"
     },
     {
+      "type": "DPO",
+      "adapter": "gamedev-v4",
+      "base_model": "models/gemma-4-e4b-tsunami-gamedev-v4-merged",
+      "data": "workspace/training_data/gamedev_dpo_combined_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-gamedev-v5",
+      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
+      "prerequisite": "Train gamedev-v4 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-gamedev-v4 --output models/gemma-4-e4b-tsunami-gamedev-v4-merged",
+      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-gamedev-v4-merged --data workspace/training_data/gamedev_dpo_combined_v1.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v5 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
+    },
+    {
       "type": "SFT",
       "adapter": "security-v1",
       "data": "workspace/training_data/security_sft_v1.jsonl",
@@ -62,22 +72,12 @@
       "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-chrome-ext-v1-merged --data workspace/training_data/chrome_ext_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-chrome-ext-v2 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     },
     {
-      "type": "DPO",
-      "adapter": "gamedev-v4",
-      "base_model": "models/gemma-4-e4b-tsunami-gamedev-v4-merged",
-      "data": "workspace/training_data/gamedev_dpo_combined_v1.jsonl",
-      "output": "models/gemma-4-e4b-tsunami-gamedev-v5",
-      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
-      "prerequisite": "Train gamedev-v4 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-gamedev-v4 --output models/gemma-4-e4b-tsunami-gamedev-v4-merged",
-      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-gamedev-v4-merged --data workspace/training_data/gamedev_dpo_combined_v1.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v5 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
-    },
-    {
       "type": "SFT",
       "adapter": "dataviz-v1",
       "data": "workspace/training_data/dataviz_sft_v1.jsonl",
       "output": "models/gemma-4-e4b-tsunami-dataviz-v1",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4",
-      "notes": "NEW adapter (Fire 8). 6 SFT examples: sales/traffic/CSV/retention/crypto/error-recovery. Uses scaffolds/data-viz/ with ChartCard+StatRow+CsvLoader+Recharts. Router signals: bar/line/pie/area chart + recharts/d3.js/data-viz keywords -> dataviz-v1. Eval: python training/eval_dataviz.py --quick",
+      "notes": "6 SFT examples: sales/traffic/CSV/retention/crypto/error-recovery. Uses scaffolds/data-viz/ with ChartCard+StatRow+CsvLoader+Recharts. Eval: python training/eval_dataviz.py --quick",
       "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/dataviz_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-dataviz-v1 --epochs 3 --lora-r 16 --lr 2e-4"
     },
     {
@@ -88,7 +88,7 @@
       "output": "models/gemma-4-e4b-tsunami-dataviz-v2",
       "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
       "prerequisite": "Train dataviz-v1 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-dataviz-v1 --output models/gemma-4-e4b-tsunami-dataviz-v1-merged",
-      "notes": "18 DPO pairs targeting DVF01-DVF06: ChartCard wrapping, ResponsiveContainer, no-fetch, StatRow KPIs, data-viz template param, undertow before deliver",
+      "notes": "18 DPO pairs DVF01-DVF06: ChartCard, ResponsiveContainer, no-fetch, StatRow, template param, undertow",
       "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-dataviz-v1-merged --data workspace/training_data/dataviz_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-dataviz-v2 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     },
     {
@@ -97,7 +97,7 @@
       "data": "workspace/training_data/fullstack_sft_v1.jsonl",
       "output": "models/gemma-4-e4b-tsunami-fullstack-v1",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4",
-      "notes": "NEW adapter (Fire 8 cont). 6 SFT examples using scaffolds/fullstack/ (Express+SQLite+useApi). Eval: python training/eval_fullstack.py --quick",
+      "notes": "6 SFT examples (FS01-06): todo/notes/expense/bookmarks/error-recovery/conversational. Eval: python training/eval_fullstack.py --quick",
       "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/fullstack_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-fullstack-v1 --epochs 3 --lora-r 16 --lr 2e-4"
     },
     {
@@ -108,9 +108,18 @@
       "output": "models/gemma-4-e4b-tsunami-fullstack-v2",
       "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
       "prerequisite": "Train fullstack-v1 SFT first, then merge: python training/merge_adapter.py --base google/gemma-4-e4b-it --adapter models/gemma-4-e4b-tsunami-fullstack-v1 --output models/gemma-4-e4b-tsunami-fullstack-v1-merged",
-      "notes": "18 DPO pairs targeting FSF01-FSF06: template param, server-first, useApi-not-fetch, undertow, no-main.tsx, crudRoutes pattern",
+      "notes": "18 DPO pairs FSF01-FSF06: template, server-first, useApi, undertow, no-main.tsx, crudRoutes",
       "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-fullstack-v1-merged --data workspace/training_data/fullstack_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-fullstack-v2 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
+    },
+    {
+      "type": "SFT",
+      "adapter": "realtime-v1",
+      "data": "workspace/training_data/realtime_sft_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-realtime-v1",
+      "params": "--epochs 3 --lora-r 16 --lr 2e-4",
+      "notes": "NEW adapter (Fire 9). 6 SFT examples RT01-06: multi-room chat, live polls, error-recovery, typing-chat, collab-todos, conversational. Uses scaffolds/realtime/ (ws lib + useWebSocket + ChatFeed + ChatInput + PresenceDot). Server: WS rooms+history+presence. Router: websocket/realtime/live-chat/collaborative -> realtime-v1. Eval: python training/eval_realtime.py --quick (TODO next fire).",
+      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/realtime_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-realtime-v1 --epochs 3 --lora-r 16 --lr 2e-4"
     }
   ],
-  "notes": "Fire 9 (2026-04-12): eval_fullstack.py L1-L4 harness (FSF01-06). fullstack DPO v1 (18 pairs). Fire 8: data-viz adapter SFT+DPO (6ex+18pairs), fullstack SFT (6ex). adapter_router: dataviz-v1+fullstack-v1 routing. Earlier fires: chrome-ext (12ex+15pairs), gamedev (51ex+33pairs), security (27ex), build DPO (73pairs)."
+  "notes": "Fire 9 (2026-04-12): eval_fullstack.py + fullstack DPO v1 (18 pairs FSF01-06). realtime NEW adapter SFT v1 (6ex RT01-06). adapter_router: realtime-v1 at step 2a (websocket/live-chat/collaborative). Fire 8: data-viz SFT+DPO, fullstack SFT. Fire 7: chrome-ext. Fire 6: gamedev DPO+SFT. Fire 5: build DPO 73pairs."
 }
