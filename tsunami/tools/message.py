@@ -237,6 +237,53 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
             f"remove the tag."
         )
 
+    # QA-1 Playtest Fires 117 + 119: dashboard / analytics deliverables
+    # shipped with ZERO chart primitives — the scaffold pulls in `recharts`
+    # (dashboard / data-viz scaffolds) + "Dashboard" in the project name
+    # screams chart intent, but App.tsx rendered a text "Chart Placeholder"
+    # or `"Ready for charts"` stub. If a chart library is in deps AND no
+    # chart primitive is present, refuse.
+    pkg_path = target / "package.json"
+    if pkg_path.is_file():
+        try:
+            import json as _json
+            pkg_data = _json.loads(pkg_path.read_text())
+            _deps = {
+                **pkg_data.get("dependencies", {}),
+                **pkg_data.get("devDependencies", {}),
+            }
+        except (OSError, ValueError):
+            _deps = {}
+        # Any of these signals chart-library intent.
+        _chart_libs = {"recharts", "d3", "chart.js", "chartjs",
+                       "@visx/visx", "victory", "@nivo/core",
+                       "plotly.js", "react-plotly.js", "echarts",
+                       "apexcharts", "react-apexcharts"}
+        _has_chart_lib = any(lib in _deps for lib in _chart_libs)
+        if _has_chart_lib:
+            # Chart primitives: recharts components, raw <canvas>, <svg>, etc.
+            _chart_jsx_re = re.compile(
+                r'<(?:LineChart|BarChart|PieChart|AreaChart|ScatterChart|'
+                r'RadarChart|ComposedChart|Treemap|Sankey|FunnelChart|'
+                r'ResponsiveContainer|canvas|svg|Chart|VictoryChart|'
+                r'ApexChart|Plot)\b'
+            )
+            if not _chart_jsx_re.search(content):
+                _lib_name = next(
+                    (lib for lib in ("recharts", "d3", "chart.js", "victory",
+                                     "plotly.js", "echarts", "apexcharts")
+                     if lib in _deps),
+                    "a chart library",
+                )
+                return (
+                    f"REFUSED: {target.name}/src/App.tsx doesn't render any "
+                    f"chart primitive, but `{_lib_name}` is in dependencies. "
+                    f"Chart-scaffold deliverables must render at least one "
+                    f"<LineChart> / <BarChart> / <PieChart> / <canvas> / "
+                    f"<svg> — a dashboard without a chart is a static "
+                    f"infographic with a 'Chart Placeholder' label."
+                )
+
     # QA-1 Playtest Fire 120: `src/components/ui/Button.tsx` had been
     # overwritten with a 62-byte stub `return <div>Button</div>` that
     # takes no props and ignores children. App.tsx uses
