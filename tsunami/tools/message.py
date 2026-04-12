@@ -218,6 +218,24 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
             f"or remove the unused import and justify a purely static page."
         )
 
+    # QA-1 Playtest Fire 118: `<Badge />` used in JSX without being imported
+    # → React crashes at mount, blank page ships. tsc --noEmit in the scaffold
+    # catches this at build time, but older deliverables (or hand-edited
+    # package.json) skip typecheck. Static check: every PascalCase JSX tag
+    # must either be imported, locally defined, or a React intrinsic. Missing
+    # ones are a near-certain runtime crash.
+    from ..jsx_import_check import find_undefined_jsx_components
+    _missing = find_undefined_jsx_components(content)
+    if _missing:
+        return (
+            f"REFUSED: {target.name}/src/App.tsx uses JSX component(s) "
+            f"{', '.join(f'<{n}>' for n in _missing[:3])} that aren't imported "
+            f"or locally defined. At runtime these evaluate to `undefined` and "
+            f"React throws before mount — the page ships blank. Add the imports "
+            f"(e.g. `import {{ {_missing[0]} }} from \"./components/ui\"`) or "
+            f"remove the tag."
+        )
+
     # XSS gate — refuse React's HTML-injection escape hatch when the prompt didn't
     # ask for HTML / markdown rendering. QA-3 Test 18b got the model to use the sink
     # on form-submitted content — a textbook XSS.
