@@ -15,17 +15,17 @@
     "total": "160/274",
     "pct": 0.584
   },
-  "dpo_pairs_accumulated": 58,
+  "dpo_pairs_accumulated": 73,
   "dpo_threshold_met": true,
   "pending_training": [
     {
       "type": "DPO",
       "adapter": "build-v89",
       "base_model": "models/gemma-4-e4b-tsunami-v89-merged",
-      "data": "workspace/training_data/curator_dpo_combined.jsonl",
+      "data": "workspace/training_data/curator_dpo_combined_v3.jsonl",
       "output": "models/gemma-4-e4b-tsunami-build-v90",
       "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
-      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-v89-merged --data workspace/training_data/curator_dpo_combined.jsonl --output models/gemma-4-e4b-tsunami-build-v90 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
+      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-v89-merged --data workspace/training_data/curator_dpo_combined_v3.jsonl --output models/gemma-4-e4b-tsunami-build-v90 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     },
     {
       "type": "SFT",
@@ -52,5 +52,5 @@
       "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/chrome_ext_combined_v1.jsonl --output models/gemma-4-e4b-tsunami-chrome-ext-v1 --epochs 3 --lora-r 16 --lr 2e-4"
     }
   ],
-  "notes": "Fire 5 (2026-04-12): chrome-ext-v1 expanded to 8 examples (v1:4 + v2:4 = combined). eval_chrome_ext.py created (L1:5, L2:3, L3:2, L4:5). Updated train data to chrome_ext_combined_v1.jsonl."
+  "notes": "Fire 5 (2026-04-12): chrome-ext-v1 expanded to 8 examples (v1:4 + v2:4 = combined). eval_chrome_ext.py created (L1:5, L2:3, L3:2, L4:5). Updated train data to chrome_ext_combined_v1.jsonl. DPO v3 added 15 pairs (HF03 stall, HF06 info-loop, HF07 auto-wire, HF08 dedup-guard, HF09 complex-plan). Combined: curator_dpo_combined_v3.jsonl (73 pairs)."
 }
