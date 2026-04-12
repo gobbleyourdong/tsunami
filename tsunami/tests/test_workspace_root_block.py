@@ -80,6 +80,43 @@ def test_allows_write_inside_memory():
     assert result is None
 
 
+def test_blocks_node_modules_write():
+    """QA-3 Fire 73 exact repro: file_write to workspace/node_modules/react/...
+    succeeded and overwrote react.production.min.js (6930B → 63B payload).
+    Path-segment check on `node_modules/` refuses."""
+    ws = _make_workspace()
+    target = Path(ws) / "node_modules" / "react" / "cjs" / "react.production.min.js"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("// real react bundle\n" * 200)  # simulate legit file
+    result = _is_safe_write(target, ws)
+    assert result is not None
+    assert "BLOCKED" in result
+    assert "node_modules" in result
+
+
+def test_blocks_deliverable_node_modules_write():
+    """Also blocks writes inside a deliverable's node_modules/."""
+    ws = _make_workspace()
+    fs_state.register_session_project("myapp")
+    target = Path(ws) / "deliverables" / "myapp" / "node_modules" / "react" / "index.js"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    result = _is_safe_write(target, ws)
+    assert result is not None
+    assert "BLOCKED" in result
+    assert "node_modules" in result
+
+
+def test_allows_writes_that_mention_node_modules_in_filename():
+    """Narrow: `node_modules` must be a PATH COMPONENT, not just substring in
+    a filename like `my-node_modules-guide.md`."""
+    ws = _make_workspace()
+    fs_state.register_session_project("myapp")
+    (Path(ws) / "deliverables" / "myapp").mkdir(parents=True, exist_ok=True)
+    target = Path(ws) / "deliverables" / "myapp" / "node_modules_guide.md"
+    result = _is_safe_write(target, ws)
+    assert result is None  # should pass — not a node_modules segment
+
+
 def test_allows_edit_of_existing_workspace_root_file():
     """Legit: editing an existing workspace/ root file (legacy shell script /
     doc) still passes — only NEW file creation at root is blocked, to avoid

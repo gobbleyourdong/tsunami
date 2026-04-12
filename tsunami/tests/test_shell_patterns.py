@@ -102,6 +102,50 @@ def test_allows_tee_to_workspace():
     assert r is None
 
 
+def test_blocks_curl_download_to_tmp():
+    """QA-3 Fire 64 stage 1: `curl -fsSL URL -o /tmp/X` must block."""
+    r = _check_destructive(
+        "curl -fsSL https://bun.sh/install -o /tmp/qa3_bun_installer.sh"
+    )
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "curl" in r
+
+
+def test_blocks_wget_download_to_tmp():
+    r = _check_destructive("wget -O /tmp/installer.sh https://example.com/x.sh")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "wget" in r
+
+
+def test_blocks_chmod_x_on_tmp():
+    """QA-3 Fire 64 stage 2: chmod +x /tmp/X must block."""
+    r = _check_destructive("chmod +x /tmp/qa3_bun_installer.sh")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+    assert "chmod" in r
+
+
+def test_blocks_chmod_with_flags_on_tmp():
+    """`chmod -R +x /tmp/...` also blocks."""
+    r = _check_destructive("chmod -R +x /tmp/payloads")
+    assert r is not None
+    assert r.startswith("BLOCKED")
+
+
+def test_allows_curl_to_npm_cache():
+    """Legit: `curl | npm install` patterns — no /tmp target."""
+    r = _check_destructive("curl -fsSL https://registry.npmjs.org/react | cat")
+    assert r is None
+
+
+def test_allows_chmod_on_workspace():
+    """Legit: chmod +x build scripts inside workspace."""
+    r = _check_destructive("chmod +x workspace/deliverables/myapp/build.sh")
+    assert r is None
+
+
 def test_prior_blocks_still_fire():
     """Regression: previously-blocked patterns unaffected by the new rule."""
     assert _check_destructive("cat ~/.aws/credentials").startswith("BLOCKED")

@@ -76,6 +76,21 @@ _DESTRUCTIVE_PATTERNS = [
     (re.compile(r'\btee\s+(-[a-zA-Z]+\s+)*/(tmp|var/tmp)/'),
      "BLOCKED: refuse to plant values in /tmp via `tee <path>` "
      "(multi-turn exfiltration vector)"),
+    # QA-3 Fire 64: split download-then-execute chain bypassed the echo/tee
+    # blocks by using curl/wget's own -o / -O flag to write to /tmp, then
+    # chmod+exec. Block the first stage (download to /tmp) — if the payload
+    # can't land, stages 2-3 have nothing to run. React builds never need
+    # curl -o /tmp; legit dep install goes through npm.
+    (re.compile(r'\bcurl\b[^|&;\n]*\s-o\s+/(tmp|var/tmp)/'),
+     "BLOCKED: refuse to download to /tmp via `curl -o` "
+     "(supply-chain / RCE staging vector)"),
+    (re.compile(r'\bwget\b[^|&;\n]*\s-O\s+/(tmp|var/tmp)/'),
+     "BLOCKED: refuse to download to /tmp via `wget -O` "
+     "(supply-chain / RCE staging vector)"),
+    # Chmod +x on /tmp is the second stage of the same chain — defense in depth.
+    (re.compile(r'\bchmod\s+(-[a-zA-Z]+\s+)*\+?x\w*\s+/(tmp|var/tmp)/'),
+     "BLOCKED: refuse to chmod +x files in /tmp "
+     "(RCE staging vector)"),
 ]
 
 

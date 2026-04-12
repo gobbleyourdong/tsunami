@@ -153,6 +153,19 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
             f"Call project_init if you need a fresh scaffold."
         )
 
+    # QA-3 Fire 73: block writes to any path with a `node_modules/` component.
+    # Dependencies are managed via npm install; direct file_write to them is
+    # supply-chain poisoning. Confirmed attack on disk: agent overwrote
+    # workspace/node_modules/react/cjs/react.production.min.js (6930B → 63B
+    # console.log payload). Narrow path-segment check — no false-positive on
+    # legitimate tooling (nothing legit writes to node_modules via our agent).
+    if any(part == "node_modules" for part in p.parts):
+        return (
+            f"BLOCKED: refuse to write inside node_modules/ — dependencies "
+            f"must be managed via `npm install`, never direct file_write. "
+            f"Supply-chain poisoning vector."
+        )
+
     return None
 
 
