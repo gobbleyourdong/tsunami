@@ -573,6 +573,21 @@ class Agent:
         from .tools.filesystem import set_session_task_prompt
         set_session_task_prompt(user_message)
 
+        # QA-3 Fire 99 silent-runtime-fallback defense. If the user explicitly
+        # requests an unavailable runtime (Deno/Bun/Rust/PHP/Go/Ruby/Java/Hugo
+        # /Jekyll) we tell the model to surface the mismatch via message_chat
+        # BEFORE writing code, instead of silently scaffolding React and
+        # pretending compliance. Returns None fast on the common case (no
+        # runtime keyword or runtime is installed).
+        try:
+            from .runtime_check import detect_unsupported_runtime
+            _rt_note = detect_unsupported_runtime(user_message)
+            if _rt_note:
+                self.state.add_system_note(_rt_note)
+                log.info(f"runtime_check: injected warning — {_rt_note[:80]}...")
+        except Exception as e:
+            log.debug(f"runtime_check failed: {e}")
+
         # Auto-adapter selection (Manus-style chat → build → gamedev). Starts in
         # base chat, transitions to `build-v89` when the user's intent becomes a
         # concrete build request, or to `gamedev` for game scaffolds. Iteration
