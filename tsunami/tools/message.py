@@ -237,6 +237,56 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
             f"remove the tag."
         )
 
+    # QA-1 Playtest Fire 120: `src/components/ui/Button.tsx` had been
+    # overwritten with a 62-byte stub `return <div>Button</div>` that
+    # takes no props and ignores children. App.tsx uses
+    # `<Button>Start Game</Button>` — renders literal "Button" text
+    # instead of "Start Game". Every clickable UI element labels
+    # itself "Button". Detect the stub shape: a file in
+    # src/components/ui/<Name>.tsx that's tiny AND renders the
+    # component name as literal text AND doesn't reference
+    # `children`. Cross-check against App.tsx usage; only refuse when
+    # the stubbed component is actually used with children.
+    ui_dir = target / "src" / "components" / "ui"
+    if ui_dir.is_dir():
+        stub_components: list[str] = []
+        for comp_path in ui_dir.glob("*.tsx"):
+            try:
+                comp_text = comp_path.read_text()
+            except OSError:
+                continue
+            name = comp_path.stem
+            if len(comp_text) > 200:
+                continue
+            # Must literally render the component's own name as text
+            # (e.g. `<div>Button</div>`).
+            if not re.search(
+                rf'>\s*{re.escape(name)}\s*<',
+                comp_text,
+            ):
+                continue
+            # Legit components always reference `children`; a stub doesn't.
+            if "children" in comp_text:
+                continue
+            # Confirm App.tsx uses the component WITH children (has
+            # non-empty text between `<Name>` and `</Name>`).
+            if re.search(
+                rf'<{re.escape(name)}\b[^>]*>[^<]+</{re.escape(name)}>',
+                content,
+            ):
+                stub_components.append(name)
+        if stub_components:
+            first = stub_components[0]
+            return (
+                f"REFUSED: {target.name}/src/components/ui/{first}.tsx has been "
+                f"overwritten with a stub that renders the literal text "
+                f"\"{first}\" instead of its children. Every "
+                f"`<{first}>…</{first}>` in App.tsx will display \"{first}\" "
+                f"instead of its contents. Restore a real {first} component "
+                f"(accept `children`, render them inside). Other stubbed: "
+                f"{', '.join(stub_components[1:3]) if len(stub_components) > 1 else '(only this one)'}."
+            )
+
     # XSS gate — refuse React's HTML-injection escape hatch when the prompt didn't
     # ask for HTML / markdown rendering. QA-3 Test 18b got the model to use the sink
     # on form-submitted content — a textbook XSS.
