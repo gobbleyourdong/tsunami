@@ -45,6 +45,19 @@ _GAME_WORDS = (
     "wasd ", "keyboard controls", "gamepad",
 )
 
+# Chrome extension signals — distinct pipeline (3-file: popup + bg + content).
+_CHROME_EXT_WORDS = (
+    "chrome extension",
+    "browser extension",
+    "extension popup",
+    "popup extension",
+    "manifest.json",
+    "chrome.tabs",
+    "chrome.storage",
+    "service worker extension",
+    "content script",
+)
+
 # Build verb + noun pair — classic web/app scaffolding.
 _BUILD_VERBS = (
     "build", "create", "make", "develop", "design", "scaffold",
@@ -95,30 +108,35 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
         if phrase in msg:
             return "none", f"revert signal: {phrase!r}"
 
-    # 2. Game signals beat build signals (game is a specialization, not a
+    # 2. Chrome extension signals — distinct 3-file scaffold, checked before game/build.
+    for phrase in _CHROME_EXT_WORDS:
+        if phrase in msg:
+            return "chrome-ext-v1", f"chrome-ext signal: {phrase!r}"
+
+    # 3. Game signals beat build signals (game is a specialization, not a
     #    fallback — if the user says "game" we go to gamedev even if the
     #    sentence also contains "build").
     for word in _GAME_WORDS:
         if word in msg:
             return "gamedev", f"game signal: {word!r}"
 
-    # 3. Build verb + noun pair.
+    # 4. Build verb + noun pair.
     matched_verb = next((v for v in _BUILD_VERBS if v + " " in msg or msg.startswith(v + " ")), None)
     matched_noun = next((n for n in _BUILD_NOUNS if n in msg), None)
     if matched_verb and matched_noun:
         return "build-v89", f"build pair: {matched_verb!r} + {matched_noun.strip()!r}"
 
-    # 4. Iteration hold — if already specialized, an "add X" / "fix Y" / etc.
+    # 5. Iteration hold — if already specialized, an "add X" / "fix Y" / etc.
     #    turn should KEEP the current adapter, not drop back to chat.
-    if current in ("gamedev", "build-v89"):
+    if current in ("gamedev", "build-v89", "chrome-ext-v1"):
         for verb in _ITERATION_VERBS:
             if verb in msg:
                 return current, f"iteration-hold: matched {verb.strip()!r}"
 
-    # 5. No specialization signal. If we were already specialized and the
+    # 6. No specialization signal. If we were already specialized and the
     #    user's turn is short/conversational, still hold (don't flip-flop
     #    on marginal signals like "looks good, thanks").
-    if current in ("gamedev", "build-v89") and len(msg.split()) < 20:
+    if current in ("gamedev", "build-v89", "chrome-ext-v1") and len(msg.split()) < 20:
         return current, "short conversational turn — hold specialized adapter"
 
     # 6. Default: chat.

@@ -42,7 +42,15 @@
       "output": "models/gemma-4-e4b-tsunami-security-v1",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4",
       "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/security_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-security-v1 --epochs 3 --lora-r 16 --lr 2e-4"
+    },
+    {
+      "type": "SFT",
+      "adapter": "chrome-ext-v1",
+      "data": "workspace/training_data/chrome_ext_sft_v1.jsonl",
+      "output": "models/gemma-4-e4b-tsunami-chrome-ext-v1",
+      "params": "--epochs 3 --lora-r 16 --lr 2e-4",
+      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/chrome_ext_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-chrome-ext-v1 --epochs 3 --lora-r 16 --lr 2e-4"
     }
   ],
-  "notes": "Fire 4b (2026-04-12): DPO v2 (9 pairs): stub-gate-reject(3), mid-pipeline-chat(2), undertow-timeout(2), spec-drop(2). Combined = 58 pairs. CORRECTED DPO train command to use --base-model (not --model --base-adapter)."
+  "notes": "Fire 4c (2026-04-12): NEW adapter chrome-ext-v1 (4 examples: tab-counter, word-counter, quick-bookmarks, dark-mode-toggle). Adapter router updated to route 'chrome extension' / 'browser extension' to chrome-ext-v1. router also fixes iteration-hold for chrome-ext-v1."
 }
