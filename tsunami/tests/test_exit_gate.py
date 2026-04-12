@@ -323,6 +323,32 @@ export default function App() {
         assert "useState" in suffix
 
 
+def test_all_task_complete_returns_call_exit_gate():
+    """QA-1 Fire 33: the delivery-deadline safety valve reaches the normal
+    task_complete return without ever entering message_result's gate.
+    Source-invariant check that every return path inside agent.run's loop
+    either goes through message_result (which runs its own gate) or
+    appends _exit_gate_suffix() to the return string.
+    """
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent / "agent.py").read_text()
+
+    # Common task_complete return must append the gate suffix (catches the
+    # delivery-deadline safety valve path, which sets task_complete=True +
+    # breaks without calling message_result).
+    assert "return result + self._exit_gate_suffix()" in src, (
+        "normal task_complete return must append _exit_gate_suffix() — "
+        "otherwise delivery-deadline path ships placeholders silently"
+    )
+
+    # The three original forced-exit paths from 4ade0cf must also call it.
+    exit_calls = src.count("self._exit_gate_suffix()")
+    assert exit_calls >= 4, (
+        f"expected _exit_gate_suffix() called on all 4 exit paths "
+        f"(safety valve / hard cap / abort / task_complete); found {exit_calls}"
+    )
+
+
 def test_marker_phrase_still_blocks_in_rendered_text():
     """User-visible `<p>Phase 1 complete!</p>` SHOULD still REFUSE —
     that's authorial intent in prose, not a comment."""

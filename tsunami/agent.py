@@ -827,7 +827,13 @@ class Agent:
                     await self.observer.extract_session_memories()
                 except Exception:
                     pass  # Non-critical
-                return result
+                # QA-1 Fire 33: the delivery-deadline safety valve (line ~614)
+                # sets task_complete=True + break without calling message_result,
+                # so placeholder deliverables shipped here without the gate firing.
+                # Appending the suffix here covers that path. For message_result
+                # and conversational returns the gate already passed (or there's
+                # no deliverable to check), so the suffix is empty — idempotent.
+                return result + self._exit_gate_suffix()
 
         # Should never reach here — loop exits via task_complete, abort, or error
         self._auto_wire_on_exit()
