@@ -21,6 +21,10 @@ class TsunamiConfig:
     top_k: int = 20
     presence_penalty: float = 1.5
     max_tokens: int = 2048
+    client_id: str = ""  # set via TSUNAMI_USER env var; feeds the `user` field of
+                         # /v1/chat/completions so the server can enforce per-user
+                         # fairness. Leave empty on single-user setups — the server
+                         # falls back to a shared "default" queue.
 
     # --- Eddy (fast workers — same endpoint) ---
     eddy_endpoint: str = "http://localhost:8090"
@@ -67,6 +71,7 @@ class TsunamiConfig:
             "TSUNAMI_MODEL_NAME": "model_name",
             "TSUNAMI_MODEL_ENDPOINT": "model_endpoint",
             "TSUNAMI_API_KEY": "api_key",
+            "TSUNAMI_USER": "client_id",
             "TSUNAMI_WATCHER_ENABLED": "watcher_enabled",
             "TSUNAMI_WATCHER_MODEL": "watcher_model",
             "TSUNAMI_WORKSPACE": "workspace_dir",

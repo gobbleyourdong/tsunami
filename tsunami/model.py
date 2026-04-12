@@ -53,13 +53,16 @@ class TsunamiModel:
     def __init__(self, model: str = "tsunami", endpoint: str = "http://localhost:8090",
                  temperature: float = 0.7, max_tokens: int = 2048,
                  top_p: float = 0.8, top_k: int = 20, presence_penalty: float = 1.5,
-                 **kwargs):
+                 client_id: str = "", **kwargs):
         self.model = model
         self.endpoint = endpoint.rstrip("/")
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.presence_penalty = presence_penalty
+        # Identity for the server's per-user fairness queue (TSUNAMI_USER env).
+        # Kept nonempty if set; the server treats "" as a shared "default" user.
+        self.client_id = client_id
 
     def _convert_tools(self, tools: list[dict]) -> list[dict]:
         """Ensure tools are in OpenAI function-calling format."""
@@ -119,6 +122,8 @@ class TsunamiModel:
             "top_p": self.top_p,
             "presence_penalty": self.presence_penalty,
         }
+        if self.client_id:
+            payload["user"] = self.client_id
         if tools:
             payload["tools"] = self._convert_tools(tools)
             payload["tool_choice"] = "auto"
