@@ -571,6 +571,23 @@ class Agent:
         from .tools.filesystem import set_session_task_prompt
         set_session_task_prompt(user_message)
 
+        # Auto-adapter selection (Manus-style chat → build → gamedev). Starts in
+        # base chat, transitions to `build-v89` when the user's intent becomes a
+        # concrete build request, or to `gamedev` for game scaffolds. Iteration
+        # turns on an existing specialized project hold the current adapter so
+        # we don't flip-flop on "add dark mode" follow-ups. Only runs when the
+        # config didn't pin an adapter (TSUNAMI_ADAPTER env) — a pinned adapter
+        # means the caller explicitly chose.
+        if not self.config.adapter:
+            from .adapter_router import pick_adapter
+            prev_adapter = self.model.adapter or "none"
+            new_adapter, reason = pick_adapter(user_message, current=prev_adapter)
+            if new_adapter != prev_adapter:
+                log.info(f"adapter auto-swap: {prev_adapter} → {new_adapter} ({reason})")
+                # "none" as the per-request adapter value tells the server to
+                # disable_adapter_layers; a real name tells it to set_adapter.
+                self.model.adapter = new_adapter
+
         # Iterative refinement — detect matching existing project FIRST so the
         # system prompt can hide the bare project list on fresh builds. QA-1
         # Fire 25 traced the wrong-deliverable pathology to that list: on a
