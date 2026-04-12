@@ -143,6 +143,132 @@ def _scan_hidden_pixel(content: str) -> list[str]:
     return out
 
 
+def _scan_html_external_resources(content: str) -> list[str]:
+    """QA-3 Fire 120: `<script src="https://evil/x.js">` in index.html loads
+    attacker-controlled JS on every page load — worse than fetch-exfil
+    (runs with full same-origin privileges: cookies, localStorage, DOM
+    access, form hijack, persistence updates without redeploy).
+
+    The existing hidden-<img> scan requires `display:none`; a plain
+    `<script src>` / `<iframe src>` / `<link rel="stylesheet" href>` etc.
+    isn't hidden and doesn't need to be. Scan HTML for the specific
+    dangerous-element + external-URL shapes that execute code or load
+    resources with same-origin behavior:
+
+      - <script src="external">
+      - <iframe src="external">
+      - <object data="external">
+      - <embed src="external">
+      - <link rel="{stylesheet|manifest|preload|prefetch|modulepreload|
+                   dns-prefetch|icon}" href="external">
+      - <meta http-equiv="refresh" content="...;url=external">
+      - <base href="external">
+
+    NOT blocked (benign shapes):
+      - <a href="external"> — user navigation, doesn't execute on load
+      - <img src="external"> without display:none — display image,
+        handled by the hidden-pixel scan when actually hidden
+      - <form action="external"> — user-initiated submit, not load-time
+    """
+    out = []
+
+    def _flag(label: str, host: str):
+        out.append(f"{label} → {host}")
+
+    # <script src="external">
+    for m in re.finditer(
+        rf'<script\b[^>]*\bsrc=[\'"`]?{_URL_SCHEME_HTTP}([^\'"`\s/>]+)',
+        content,
+        re.IGNORECASE,
+    ):
+        host = _host_of(m.group(1))
+        if _is_external(host):
+            _flag("<script src>", host)
+
+    # <iframe src="external">
+    for m in re.finditer(
+        rf'<iframe\b[^>]*\bsrc=[\'"`]?{_URL_SCHEME_HTTP}([^\'"`\s/>]+)',
+        content,
+        re.IGNORECASE,
+    ):
+        host = _host_of(m.group(1))
+        if _is_external(host):
+            _flag("<iframe src>", host)
+
+    # <object data="external">
+    for m in re.finditer(
+        rf'<object\b[^>]*\bdata=[\'"`]?{_URL_SCHEME_HTTP}([^\'"`\s/>]+)',
+        content,
+        re.IGNORECASE,
+    ):
+        host = _host_of(m.group(1))
+        if _is_external(host):
+            _flag("<object data>", host)
+
+    # <embed src="external">
+    for m in re.finditer(
+        rf'<embed\b[^>]*\bsrc=[\'"`]?{_URL_SCHEME_HTTP}([^\'"`\s/>]+)',
+        content,
+        re.IGNORECASE,
+    ):
+        host = _host_of(m.group(1))
+        if _is_external(host):
+            _flag("<embed src>", host)
+
+    # <link rel="{stylesheet|manifest|preload|...}" href="external">
+    # Order-independent attrs: the `rel` and `href` may appear in either
+    # order inside the tag. Capture the full tag, then check both.
+    dangerous_rels = {
+        "stylesheet", "manifest", "preload", "prefetch",
+        "modulepreload", "dns-prefetch", "preconnect", "icon",
+        "shortcut icon", "apple-touch-icon", "import",
+    }
+    for tag_m in re.finditer(r'<link\b[^>]*?/?>', content, re.IGNORECASE):
+        tag = tag_m.group(0)
+        rel_m = re.search(r'\brel=[\'"]?([^\'"\s>]+)', tag, re.IGNORECASE)
+        href_m = re.search(
+            rf'\bhref=[\'"`]?{_URL_SCHEME_HTTP}([^\'"`\s/>]+)',
+            tag,
+            re.IGNORECASE,
+        )
+        if not rel_m or not href_m:
+            continue
+        if rel_m.group(1).lower() in dangerous_rels:
+            host = _host_of(href_m.group(1))
+            if _is_external(host):
+                _flag(f'<link rel="{rel_m.group(1)}" href>', host)
+
+    # <meta http-equiv="refresh" content="0; url=external">
+    for tag_m in re.finditer(r'<meta\b[^>]*?/?>', content, re.IGNORECASE):
+        tag = tag_m.group(0)
+        if not re.search(
+            r'http-equiv=[\'"]?refresh', tag, re.IGNORECASE
+        ):
+            continue
+        url_m = re.search(
+            rf'content=[\'"][^\'"]*?url=\s*{_URL_SCHEME_HTTP}([^\'"\s>;]+)',
+            tag,
+            re.IGNORECASE,
+        )
+        if url_m:
+            host = _host_of(url_m.group(1))
+            if _is_external(host):
+                _flag('<meta http-equiv="refresh">', host)
+
+    # <base href="external"> — changes relative URL resolution; any
+    # relative fetch / script load hits the attacker origin.
+    for m in re.finditer(
+        rf'<base\b[^>]*\bhref=[\'"`]?{_URL_SCHEME_HTTP}([^\'"`\s/>]+)',
+        content,
+        re.IGNORECASE,
+    ):
+        host = _host_of(m.group(1))
+        if _is_external(host):
+            _flag("<base href>", host)
+
+    return out
+
+
 def _scan_network_with_state(content: str) -> list[str]:
     """fetch / WebSocket / EventSource to an external URL, where nearby
     code reads cookie / localStorage / sessionStorage / userAgent /
@@ -513,6 +639,10 @@ def check_outbound_exfil(content: str, filename: str) -> str | None:
     offenders.extend(_scan_sendbeacon(folded))
     offenders.extend(_scan_hidden_pixel(folded))
     offenders.extend(_scan_network_with_state(folded))
+    # QA-3 Fire 120: HTML external-resource shapes (script src, link href,
+    # iframe src, etc.). Runs on folded content so split-concat forms in
+    # inline `<script>...</script>` bodies work the same way.
+    offenders.extend(_scan_html_external_resources(folded))
     # Fire 114: the exact shape is `const P1 = "http"; const P2 = "s://..."`
     # — two SEPARATE declarations, NOT joined by a `+` in source. Neither
     # fold nor the main scans catch it. Explicit detector for adjacent
