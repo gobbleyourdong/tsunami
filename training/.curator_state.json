@@ -15,30 +15,34 @@
     "total": "160/274",
     "pct": 0.584
   },
-  "dpo_pairs_accumulated": 49,
+  "dpo_pairs_accumulated": 58,
   "dpo_threshold_met": true,
   "pending_training": [
     {
       "type": "DPO",
       "adapter": "build-v89",
-      "data": "workspace/training_data/curator_dpo_v1.jsonl",
+      "base_model": "models/gemma-4-e4b-tsunami-v89-merged",
+      "data": "workspace/training_data/curator_dpo_combined.jsonl",
       "output": "models/gemma-4-e4b-tsunami-build-v90",
-      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
+      "params": "--epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1",
+      "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-v89-merged --data workspace/training_data/curator_dpo_combined.jsonl --output models/gemma-4-e4b-tsunami-build-v90 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     },
     {
       "type": "SFT",
       "adapter": "gamedev-v4full",
       "data": "workspace/training_data/gamedev_combined_v4full.jsonl",
       "output": "models/gemma-4-e4b-tsunami-gamedev-v4",
-      "params": "--epochs 3 --lora-r 16 --lr 2e-4"
+      "params": "--epochs 3 --lora-r 16 --lr 2e-4",
+      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/gamedev_combined_v4full.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v4 --epochs 3 --lora-r 16 --lr 2e-4"
     },
     {
       "type": "SFT",
       "adapter": "security-v1",
       "data": "workspace/training_data/security_sft_v1.jsonl",
       "output": "models/gemma-4-e4b-tsunami-security-v1",
-      "params": "--epochs 3 --lora-r 16 --lr 2e-4"
+      "params": "--epochs 3 --lora-r 16 --lr 2e-4",
+      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/security_sft_v1.jsonl --output models/gemma-4-e4b-tsunami-security-v1 --epochs 3 --lora-r 16 --lr 2e-4"
     }
   ],
-  "notes": "Fire 4 (2026-04-12): Added v4 (6 engine-first examples: dungeon, runner, FPS maze, physics, shmup, anti-R3F bypass). gamedev_combined_v4full.jsonl = 45 examples. Eval: GHF11 (anti-R3F file_write), GHF12 (no R3F npm install), GR01/GR02 (routing without 'game' keyword) added. L4 now 12 scenarios. Updated Programmer notification."
+  "notes": "Fire 4b (2026-04-12): DPO v2 (9 pairs): stub-gate-reject(3), mid-pipeline-chat(2), undertow-timeout(2), spec-drop(2). Combined = 58 pairs. CORRECTED DPO train command to use --base-model (not --model --base-adapter)."
 }
