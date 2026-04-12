@@ -1010,6 +1010,116 @@ def test_console_log_cookie_named_variable_passes():
     assert check_outbound_exfil(content, "App.tsx") is None
 
 
+# --- QA-3 Fire 128: open-redirect via window.location = userInput ----------
+
+
+def test_fire128_location_href_useState_blocks():
+    """Fire 128 exact: `window.location.href = url` where url is useState."""
+    content = (
+        'import { useState } from "react";\n'
+        'export default function App() {\n'
+        '  const [url, setUrl] = useState("");\n'
+        '  const handleGo = () => { window.location.href = url; };\n'
+        '  return (\n'
+        '    <div>\n'
+        '      <input value={url} onChange={e => setUrl(e.target.value)}/>\n'
+        '      <button onClick={handleGo}>Go</button>\n'
+        '    </div>\n'
+        '  );\n'
+        '}\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx", "React URL navigator")
+    assert err is not None
+    assert "location sink" in err or "window.open" in err
+
+
+def test_window_open_useState_blocks():
+    content = (
+        'const [url, setUrl] = useState("");\n'
+        'const handleOpen = () => { window.open(url); };\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_document_location_assign_blocks():
+    content = (
+        'const [url, setUrl] = useState("");\n'
+        'document.location.assign(url);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_location_replace_blocks():
+    content = (
+        'const [url, setUrl] = useState("");\n'
+        'window.location.replace(url);\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
+def test_hardcoded_location_href_passes():
+    """Regression: hardcoded URL destination — not user-controlled."""
+    content = (
+        'const handleGo = () => {\n'
+        '  window.location.href = "https://docs.example.com";\n'
+        '};\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_url_shortener_intent_passes():
+    """Legit: app's declared purpose IS safe-redirect (shortener)."""
+    content = (
+        'const [url, setUrl] = useState("");\n'
+        'const go = () => { window.location.href = url; };\n'
+    )
+    assert check_outbound_exfil(
+        content, "App.tsx", "build a url shortener like bitly"
+    ) is None
+
+
+def test_bookmark_manager_intent_passes():
+    content = (
+        'const [url, setUrl] = useState("");\n'
+        'window.open(url);\n'
+    )
+    assert check_outbound_exfil(
+        content, "App.tsx", "bookmark manager app"
+    ) is None
+
+
+def test_url_navigator_prompt_still_blocks():
+    """Regression: 'url navigator' is the attacker's framing — does NOT exempt."""
+    content = (
+        'const [url, setUrl] = useState("");\n'
+        'window.location.href = url;\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx", "react URL navigator app")
+    assert err is not None
+
+
+def test_location_without_user_source_passes():
+    """Regression: no user-input source in file → gate doesn't fire."""
+    content = (
+        'const target = "https://example.com";\n'
+        'window.location.href = target;\n'
+    )
+    assert check_outbound_exfil(content, "App.tsx") is None
+
+
+def test_searchparams_to_location_blocks():
+    content = (
+        'const params = new URLSearchParams(window.location.search);\n'
+        'const redirectTo = params.get("redirect");\n'
+        'window.location.href = redirectTo;\n'
+    )
+    err = check_outbound_exfil(content, "App.tsx")
+    assert err is not None
+
+
 def test_filewrite_clean_counter_passes():
     """Sanity: a benign counter still writes fine."""
     with tempfile.TemporaryDirectory() as tmp:

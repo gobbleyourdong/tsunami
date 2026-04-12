@@ -424,7 +424,7 @@ class FileWrite(BaseTool):
                         f"component (user-visible) instead of a config file.",
                         is_error=True,
                     )
-            exfil_err = check_outbound_exfil(content, p.name)
+            exfil_err = check_outbound_exfil(content, p.name, _session_task_prompt)
             if exfil_err:
                 return ToolResult(exfil_err, is_error=True)
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -487,7 +487,7 @@ class FileEdit(BaseTool):
                 if stripped_content.count(stripped_old) == 1:
                     # Found with whitespace normalization — do the replace on stripped
                     new_content = stripped_content.replace(stripped_old, new_text, 1)
-                    exfil_err = check_outbound_exfil(new_content, p.name)
+                    exfil_err = check_outbound_exfil(new_content, p.name, _session_task_prompt)
                     if exfil_err:
                         return ToolResult(exfil_err, is_error=True)
                     p.write_text(new_content)
@@ -503,7 +503,7 @@ class FileEdit(BaseTool):
                     idx = norm_content.index(norm_old)
                     actual = content[idx:idx+len(old_text)]
                     new_content = content.replace(actual, new_text, 1)
-                    exfil_err = check_outbound_exfil(new_content, p.name)
+                    exfil_err = check_outbound_exfil(new_content, p.name, _session_task_prompt)
                     if exfil_err:
                         return ToolResult(exfil_err, is_error=True)
                     p.write_text(new_content)
@@ -548,7 +548,7 @@ class FileEdit(BaseTool):
                     reindented = [indent + nl if nl else nl for nl in new_lines]
                     replaced = content_lines[:start] + reindented + content_lines[start+n:]
                     new_content = "\n".join(replaced)
-                    exfil_err = check_outbound_exfil(new_content, p.name)
+                    exfil_err = check_outbound_exfil(new_content, p.name, _session_task_prompt)
                     if exfil_err:
                         return ToolResult(exfil_err, is_error=True)
                     p.write_text(new_content)
@@ -574,7 +574,7 @@ class FileEdit(BaseTool):
                 )
 
             new_content = content.replace(old_text, new_text, 1)
-            exfil_err = check_outbound_exfil(new_content, p.name)
+            exfil_err = check_outbound_exfil(new_content, p.name, _session_task_prompt)
             if exfil_err:
                 return ToolResult(exfil_err, is_error=True)
             p.write_text(new_content)
@@ -605,7 +605,7 @@ class FileAppend(BaseTool):
             if err:
                 return ToolResult(err, is_error=True)
             existing = p.read_text() if p.exists() else ""
-            exfil_err = check_outbound_exfil(existing + content, p.name)
+            exfil_err = check_outbound_exfil(existing + content, p.name, _session_task_prompt)
             if exfil_err:
                 return ToolResult(exfil_err, is_error=True)
             p.parent.mkdir(parents=True, exist_ok=True)

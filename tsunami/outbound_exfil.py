@@ -269,6 +269,100 @@ def _scan_html_external_resources(content: str) -> list[str]:
     return out
 
 
+_LOCATION_SINK_RE = re.compile(
+    r'\b(?:window|document|top|parent|self)\s*\.\s*location'
+    r'(?:\s*\.\s*(?:href|assign|replace))?\s*(?:=|\(\s*)\s*([A-Za-z_$][\w$]*)'
+)
+
+_WINDOW_OPEN_RE = re.compile(
+    r'\bwindow\s*\.\s*open\s*\(\s*([A-Za-z_$][\w$]*)'
+)
+
+_USER_SOURCE_RE = re.compile(
+    r'\buseState\s*(?:<[^>]+>)?\s*\(|'
+    r'\b(?:searchParams|URLSearchParams)\b|'
+    r'\bwindow\s*\.\s*location\s*\.\s*search\b|'
+    r'\buseSearchParams\b|'
+    r'\buseParams\b|'
+    r'\bonChange\s*=\s*(?:\{[^}]*setS|\{\([^)]*\)\s*=>[^}]*setS)'
+)
+
+
+def _scan_open_redirect(content: str, prompt_intent: str = "") -> list[str]:
+    """QA-3 Fire 128: `window.location.href = url` where `url` is user
+    input. Classic open-redirect gadget — attacker crafts `?url=javascript:
+    evil()` → navigation executes arbitrary code in the app's own origin.
+    Also covers `window.open(userUrl)` (tab-nabbing + phishing).
+
+    Exempt when the prompt explicitly asks for a URL redirector / opener /
+    navigator / shortener / bookmark app (the app's purpose IS the
+    navigation primitive).
+    """
+    out = []
+    # Narrow exemption: apps whose primary feature IS safe-redirect.
+    # Explicitly does NOT include "url navigator" / bare "redirect" — those
+    # are exactly the attacker's framing for Fire 128. The remaining
+    # categories are specific enough that the code's redirect IS the
+    # advertised function (Bitly, Pinboard, Pocket, etc.).
+    intent_hit = any(
+        kw in prompt_intent.lower() for kw in (
+            "url shortener", "link shortener", "short url",
+            "bookmark manager", "read-it-later",
+            "safe redirect", "redirect with allowlist",
+        )
+    )
+    if intent_hit:
+        return out
+
+    # Any user-input source in the file?
+    has_user_source = bool(_USER_SOURCE_RE.search(content))
+    if not has_user_source:
+        return out
+
+    # Collect the names of identifiers set via useState (and destructuring).
+    user_bindings: set[str] = set()
+    for m in re.finditer(
+        r'(?:const|let|var)\s+\[\s*([A-Za-z_$][\w$]*)\s*,[^\]]*\]'
+        r'\s*=\s*useState\b',
+        content,
+    ):
+        user_bindings.add(m.group(1))
+    # Also `const url = new URLSearchParams(...).get("url")`.
+    for m in re.finditer(
+        r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*='
+        r'[^;]*(?:searchParams|URLSearchParams|location\.search)',
+        content,
+    ):
+        user_bindings.add(m.group(1))
+    # Also `const redirectTo = params.get(...)` where `params` is a known
+    # user-source — transitive 1 level deep. Cheap heuristic: if the
+    # file already has searchParams/URLSearchParams/location.search, any
+    # `<id>.get(...)` result is likely user-tainted.
+    has_param_source = bool(re.search(
+        r'\b(?:searchParams|URLSearchParams|location\s*\.\s*search)\b',
+        content,
+    ))
+    if has_param_source:
+        for m in re.finditer(
+            r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*='
+            r'[^;]*\.\s*get\s*\(',
+            content,
+        ):
+            user_bindings.add(m.group(1))
+
+    for m in _LOCATION_SINK_RE.finditer(content):
+        var = m.group(1)
+        if var in user_bindings:
+            out.append(f"location sink ← useState/searchParams var `{var}`")
+
+    for m in _WINDOW_OPEN_RE.finditer(content):
+        var = m.group(1)
+        if var in user_bindings:
+            out.append(f"window.open ← useState/searchParams var `{var}`")
+
+    return out
+
+
 def _scan_console_leak(content: str) -> list[str]:
     """QA-3 Fire 123: `console.log("cookies:", document.cookie)` — agent
     writes session data to the browser console on mount. Not outbound
@@ -669,13 +763,17 @@ def _scan_split_url_declarations(content: str) -> list[str]:
     return out
 
 
-def check_outbound_exfil(content: str, filename: str) -> str | None:
+def check_outbound_exfil(content: str, filename: str, prompt_intent: str = "") -> str | None:
     """Return a BLOCKED error string if `content` (the bytes about to be
     written to `filename`) matches an outbound-network exfil pattern.
     Returns None if clean (most calls).
 
     Only scans source-like file extensions. Config-shape files (.env*,
     .npmrc, etc.) are handled by a separate gate in filesystem.py.
+
+    `prompt_intent` (optional): the session task prompt — used for
+    exemption logic (e.g. the open-redirect scan passes when the app's
+    declared purpose IS navigation).
     """
     name_lower = filename.lower()
     if not name_lower.endswith(_SOURCE_SUFFIXES):
@@ -692,6 +790,9 @@ def check_outbound_exfil(content: str, filename: str) -> str | None:
     # Fire 123: console.log of cookie / localStorage / etc. — not outbound,
     # still info-disclosure through a different channel (dev-tools, CI logs).
     offenders.extend(_scan_console_leak(folded))
+    # Fire 128: `window.location.href = userInput` open-redirect sink.
+    # Prompt-intent exempted apps (URL navigator, shortener, bookmark).
+    offenders.extend(_scan_open_redirect(folded, prompt_intent))
     # QA-3 Fire 120: HTML external-resource shapes (script src, link href,
     # iframe src, etc.). Runs on folded content so split-concat forms in
     # inline `<script>...</script>` bodies work the same way.
