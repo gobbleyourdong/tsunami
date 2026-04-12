@@ -73,6 +73,31 @@ class ChatRequest(BaseModel):
     temperature: float = 0.3
     top_p: float = 0.95
     top_k: int = 64
+    user: str = ""  # OpenAI API convention — used for per-client fairness queueing
+
+
+# Fairness layer. QA-2 documented the pathology: one chatty client fires 5
+# requests, a sparse client waits behind all 5 (FCFS starvation). The 9d46f4f
+# async-unwedge kept /health responsive but didn't add fairness.
+#
+# Two-tier gate:
+#   - _user_sems[user] (capacity 1): a single user can have at most one request
+#     in-flight at a time. A 2nd request from the same user waits here, NOT in
+#     the GPU queue — so other users keep interleaving.
+#   - _gpu_sem (capacity 1): only one model.generate / pipe() runs on the GPU
+#     at a time. Prevents OOM / throughput collapse from concurrent CUDA
+#     contexts. asyncio.Semaphore releases waiters FIFO, which becomes a fair
+#     round-robin across users once they're past their own gate.
+_user_sems: dict[str, asyncio.Semaphore] = {}
+_gpu_sem = asyncio.Semaphore(1)
+
+
+def _get_user_sem(user: str) -> asyncio.Semaphore:
+    sem = _user_sems.get(user)
+    if sem is None:
+        sem = asyncio.Semaphore(1)
+        _user_sems[user] = sem
+    return sem
 
 @app.get("/health")
 def health():
@@ -295,6 +320,14 @@ def _read_object(s: str, i: int) -> tuple:
 
 @app.post("/v1/chat/completions")
 async def chat_completions(req: ChatRequest):
+    # Fairness gate first — a user waiting on their own prior request doesn't
+    # enter the GPU queue and can't crowd out other users. See _user_sems.
+    _user_sem = _get_user_sem(req.user or "default")
+    async with _user_sem:
+        return await _chat_completions_impl(req)
+
+
+async def _chat_completions_impl(req: ChatRequest):
     start = time.time()
 
     # Normalize messages — preserve tool_calls/tool roles for multi-turn,
@@ -375,7 +408,8 @@ async def chat_completions(req: ChatRequest):
     # Generate. Wrap in asyncio.to_thread so the event loop stays free to dispatch
     # other requests (notably /health) — otherwise long generations make the whole
     # server look wedged from outside, which is QA-3's "backend wedges, all endpoints
-    # timeout" HIGH bug.
+    # timeout" HIGH bug.  _gpu_sem serializes GPU access across users so
+    # concurrent-forward-pass CUDA contention can't starve throughput.
     def _generate():
         with torch.no_grad():
             return model.generate(
@@ -387,7 +421,8 @@ async def chat_completions(req: ChatRequest):
                 top_k=req.top_k,
                 do_sample=req.temperature > 0,
             )
-    output = await asyncio.to_thread(_generate)
+    async with _gpu_sem:
+        output = await asyncio.to_thread(_generate)
 
     # Decode response
     new_tokens = output[0][prompt_len:]
@@ -525,6 +560,7 @@ class ImageRequest(BaseModel):
     height: int = 1024
     steps: int = 4
     guidance_scale: float = 1.0
+    user: str = ""  # per-client fairness — see _user_sems comment
 
 
 def _load_image_model():
@@ -581,6 +617,13 @@ def _restore_language_model():
 
 @app.post("/v1/images/generate")
 async def generate_image(req: ImageRequest):
+    # Same fairness gate as chat_completions — per-user then global GPU.
+    _user_sem = _get_user_sem(req.user or "default")
+    async with _user_sem, _gpu_sem:
+        return await _generate_image_impl(req)
+
+
+async def _generate_image_impl(req: ImageRequest):
     # Run the whole generation off the event loop so /health stays responsive
     # while image generation is in progress. Same wedge fix as chat_completions.
     def _do_image_gen():
