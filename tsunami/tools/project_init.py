@@ -130,6 +130,15 @@ class ProjectInit(BaseTool):
                     "type": "string",
                     "description": "Project name (lowercase, no spaces). Created in workspace/deliverables/",
                 },
+                "template": {
+                    "type": "string",
+                    "description": (
+                        "Explicit scaffold override — bypasses auto-detection. "
+                        "Options: 'react-app', 'dashboard', 'data-viz', 'landing', "
+                        "'form-app', 'fullstack', 'realtime', 'electron-app', "
+                        "'chrome-extension', 'game'. Omit to auto-detect from name."
+                    ),
+                },
                 "dependencies": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -140,7 +149,25 @@ class ProjectInit(BaseTool):
             "required": ["name"],
         }
 
-    async def execute(self, name: str, dependencies: list = None, prompt: str = "", **kw) -> ToolResult:
+    # Map model-facing template names → scaffold directory names
+    _TEMPLATE_MAP = {
+        "react-app":        "react-app",
+        "dashboard":        "dashboard",
+        "data-viz":         "data-viz",
+        "dataviz":          "data-viz",
+        "landing":          "landing",
+        "form-app":         "form-app",
+        "fullstack":        "fullstack",
+        "realtime":         "realtime",
+        "electron-app":     "electron-app",
+        "electron":         "electron-app",
+        "chrome-extension": "chrome-extension",
+        "chrome-ext":       "chrome-extension",
+        "game":             "game",
+        "gamedev":          "game",
+    }
+
+    async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:
         dependencies = dependencies or []
 
         ws = Path(self.config.workspace_dir)
@@ -159,7 +186,17 @@ class ProjectInit(BaseTool):
         register_session_project(name)
 
         try:
-            scaffold_name = _pick_scaffold(name, dependencies, prompt)
+            # Explicit template overrides auto-detection
+            if template:
+                mapped = self._TEMPLATE_MAP.get(template.lower(), template.lower())
+                if (SCAFFOLDS_DIR / mapped).exists():
+                    scaffold_name = mapped
+                    log.info(f"Using explicit template={template!r} → scaffold={scaffold_name!r}")
+                else:
+                    log.warning(f"template={template!r} scaffold not found; falling back to auto-detect")
+                    scaffold_name = _pick_scaffold(name, dependencies, prompt)
+            else:
+                scaffold_name = _pick_scaffold(name, dependencies, prompt)
 
             if scaffold_name:
                 scaffold_dir = SCAFFOLDS_DIR / scaffold_name
