@@ -30,10 +30,11 @@
     {
       "type": "SFT",
       "adapter": "gamedev-v5full",
-      "data": "workspace/training_data/gamedev_combined_v5full.jsonl",
+      "data": "workspace/training_data/gamedev_combined_v6full.jsonl",
       "output": "models/gemma-4-e4b-tsunami-gamedev-v4",
       "params": "--epochs 3 --lora-r 16 --lr 2e-4",
-      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/gamedev_combined_v5full.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v4 --epochs 3 --lora-r 16 --lr 2e-4"
+      "notes": "56 SFT examples (v6full = v5full + 5 new). v6 adds GHF06 conversation (2ex), GHF11 3D-with-tsunami-engine (2ex: fps-maze+runner), GHF08 canvas-snake. DPO uses combined_v2 (48 pairs, all 12 GHF covered).",
+      "train_cmd": "python training/train_unsloth.py --model google/gemma-4-e4b-it --data workspace/training_data/gamedev_combined_v6full.jsonl --output models/gemma-4-e4b-tsunami-gamedev-v4 --epochs 3 --lora-r 16 --lr 2e-4"
     },
     {
       "type": "DPO",
@@ -153,5 +154,5 @@
       "train_cmd": "python training/train_dpo.py --base-model models/gemma-4-e4b-tsunami-formapp-v1-merged --data workspace/training_data/formapp_dpo_v1.jsonl --output models/gemma-4-e4b-tsunami-formapp-v2 --epochs 1 --lora-r 16 --lr 5e-6 --beta 0.1"
     }
   ],
-  "notes": "Fire 12 (2026-04-12): gamedev DPO v3 (15 pairs: GHF01/04/06/11/12 — all 12 GHF L4 scenarios now covered). Combined v2 = 48 total pairs. Fire 11: form-app NEW adapter — SFT v1 (6ex FA01-06) + eval + DPO v1 (18 pairs FAF01-06). adapter_router: form-app-v1 at step 2d (file-upload/dropzone/xlsx/multi-step-form). Router fix: removed 'upload csv' from dataviz (now routes to form-app). Fire 10: eval_realtime + realtime DPO v1. Fire 9: eval_fullstack + fullstack DPO + realtime SFT. Fire 8: data-viz SFT+DPO, fullstack SFT. Fire 7: chrome-ext. Fire 6: gamedev DPO+SFT. Fire 5: build DPO 73pairs."
+  "notes": "Fire 13 (2026-04-12): gamedev SFT v6 (5ex: GHF06 x2, GHF11 x2, GHF08 x1). Combined v6full=56 examples. SFT train_cmd updated. Fire 12: gamedev DPO v3 (15 pairs: GHF01/04/06/11/12 — all 12 GHF L4 scenarios now covered). Combined v2 = 48 total pairs. Fire 11: form-app NEW adapter — SFT v1 (6ex FA01-06) + eval + DPO v1 (18 pairs FAF01-06). adapter_router: form-app-v1 at step 2d (file-upload/dropzone/xlsx/multi-step-form). Router fix: removed 'upload csv' from dataviz (now routes to form-app). Fire 10: eval_realtime + realtime DPO v1. Fire 9: eval_fullstack + fullstack DPO + realtime SFT. Fire 8: data-viz SFT+DPO, fullstack SFT. Fire 7: chrome-ext. Fire 6: gamedev DPO+SFT. Fire 5: build DPO 73pairs."
 }
