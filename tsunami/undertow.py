@@ -93,6 +93,14 @@ async def pull_levers(
             LeverResult(lever=Lever(action="setup"), passed=False, saw="playwright not installed")
         ])
 
+    # Pick a free port to avoid conflicts with vite dev servers left
+    # running by project_init (which defaults to port 9876, the same
+    # port undertow used to default to). 2026-04-13 zero-shot smoke fix.
+    import socket as _sock
+    with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as _s:
+        _s.bind(("127.0.0.1", 0))
+        port = _s.getsockname()[1]
+
     # Start HTTP server
     server_proc = await asyncio.create_subprocess_exec(
         sys.executable, "-m", "http.server", str(port),
@@ -149,11 +157,17 @@ async def pull_levers(
             await browser.close()
 
     finally:
-        server_proc.terminate()
+        # ProcessLookupError fires when the http.server subprocess died on its
+        # own (e.g. port collision with another undertow run). Don't let
+        # cleanup mask the real failure further up the stack.
         try:
-            await asyncio.wait_for(server_proc.wait(), timeout=3)
-        except asyncio.TimeoutError:
-            server_proc.kill()
+            server_proc.terminate()
+            try:
+                await asyncio.wait_for(server_proc.wait(), timeout=3)
+            except asyncio.TimeoutError:
+                server_proc.kill()
+        except ProcessLookupError:
+            pass
 
     return report
 

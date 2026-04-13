@@ -67,4 +67,6 @@ class Undertow(BaseTool):
             report += f"\n\nCode tension: {tension:.2f} ({failed}/{total} levers failed)"
             return ToolResult(report, is_error=not result["passed"])
         except Exception as e:
-            return ToolResult(f"QA error: {e}", is_error=True)
+            import traceback
+            tb = traceback.format_exc()
+            return ToolResult(f"QA error: {e!r}\n{tb[-800:]}", is_error=True)
