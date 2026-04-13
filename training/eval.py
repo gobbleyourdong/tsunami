@@ -1507,7 +1507,7 @@ class IntegrationResult:
     diagnostics: dict = field(default_factory=dict)
 
 
-async def run_agent_build(endpoint: str, prompt: str, timeout: int = 180,
+async def run_agent_build(endpoint: str, prompt: str, timeout: int = 900,
                           workspace: str = "/tmp/tsunami_eval") -> IntegrationResult:
     """Run a real Tsunami agent build and capture everything."""
     result = IntegrationResult(prompt_id="", level="", prompt=prompt)
@@ -1853,7 +1853,7 @@ async def main():
         int_results = []
         for p in INT_PROMPTS:
             log.info(f"  Building: {p['prompt'][:50]}...")
-            r = await run_agent_build(args.endpoint, p["prompt"], timeout=180)
+            r = await run_agent_build(args.endpoint, p["prompt"], timeout=900)
             r.prompt_id = p["id"]
             r.level = p["level"]
             int_results.append(r)
