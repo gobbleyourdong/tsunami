@@ -2044,6 +2044,499 @@ EXAMPLES.append({
 })
 
 
+# =============================================================================
+# CHUNK B/file_edit — file_edit coverage (30 examples, sub-chunk 2 of 3)
+#
+# Spans: targeted single-line fixes, multi-line block replacements, import
+# adds, type-error fixes, in-pipeline edits, recovery from old_text-not-found,
+# multi-match, file-missing, regex-special chars.
+# =============================================================================
+
+# --- B.E1-B.E5: targeted single-line fixes (rename, color, typo) ---
+EXAMPLES.append({
+    "tag": "B_edit_rename_var",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "rename `count` to `score` in the quiz-app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/quiz-app/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { useState } from 'react'\n\nexport default function App() {\n  const [count, setCount] = useState(0)\n  return <div>{count}<button onClick={() => setCount(count + 1)}>+</button></div>\n}\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/quiz-app/src/App.tsx",
+                           "old_text": "const [count, setCount] = useState(0)\n  return <div>{count}<button onClick={() => setCount(count + 1)}>+</button></div>",
+                           "new_text": "const [score, setScore] = useState(0)\n  return <div>{score}<button onClick={() => setScore(score + 1)}>+</button></div>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_change_color",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "in snake-game change the snake color from green to yellow"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/snake-game/src/App.tsx",
+                           "old_text": "const SNAKE_COLOR = '#5a4'",
+                           "new_text": "const SNAKE_COLOR = '#fc4'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_fix_typo",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "fix the 'Welcom' typo on my landing page"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/landing/src/components/Hero.tsx",
+                           "old_text": "<h1>Welcom</h1>",
+                           "new_text": "<h1>Welcome</h1>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_change_button_label",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "change 'Submit' to 'Save' in the form"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/contact-form/src/App.tsx",
+                           "old_text": "<button type=\"submit\" className=\"button primary\">Submit</button>",
+                           "new_text": "<button type=\"submit\" className=\"button primary\">Save</button>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_increment_constant",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make the pomodoro timer 30 minutes instead of 25"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/pomodoro-timer/src/App.tsx",
+                           "old_text": "const POMO_SECONDS = 25 * 60",
+                           "new_text": "const POMO_SECONDS = 30 * 60"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+
+# --- B.E6-B.E8: multi-line block replacements ---
+EXAMPLES.append({
+    "tag": "B_edit_replace_function",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "in calculator, the divide function is wrong — it doesn't guard zero. fix it."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/calculator/src/App.tsx",
+                           "old_text": "function divide(a: number, b: number) {\n  return a / b\n}",
+                           "new_text": "function divide(a: number, b: number) {\n  if (b === 0) return NaN\n  return a / b\n}"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_add_useEffect",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "persist the todos array to localStorage"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx",
+                           "old_text": "import { useState } from 'react'",
+                           "new_text": "import { useState, useEffect } from 'react'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx",
+                           "old_text": "const [todos, setTodos] = useState<string[]>([])",
+                           "new_text": "const [todos, setTodos] = useState<string[]>(() => JSON.parse(localStorage.getItem('todos') || '[]'))\n  useEffect(() => { localStorage.setItem('todos', JSON.stringify(todos)) }, [todos])"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_replace_jsx_block",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "wrap the buttons in a flex container with gap"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/counter/src/App.tsx",
+                           "old_text": "      <button className=\"button\" onClick={() => setC(c-1)}>-</button>\n      <span className=\"text-2xl text-bold\">{c}</span>\n      <button className=\"button primary\" onClick={() => setC(c+1)}>+</button>",
+                           "new_text": "      <div className=\"flex gap-4 flex-center\">\n        <button className=\"button\" onClick={() => setC(c-1)}>-</button>\n        <span className=\"text-2xl text-bold\">{c}</span>\n        <button className=\"button primary\" onClick={() => setC(c+1)}>+</button>\n      </div>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+
+# --- B.E9-B.E11: import additions ---
+EXAMPLES.append({
+    "tag": "B_edit_add_import_useState",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add useState import to the empty App"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/blank-app/src/App.tsx",
+                           "old_text": "import './index.css'",
+                           "new_text": "import { useState } from 'react'\nimport './index.css'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_add_component_import",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "import the StatsCard component into App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/crypto-dashboard/src/App.tsx",
+                           "old_text": "import './index.css'",
+                           "new_text": "import StatsCard from './components/StatsCard'\nimport './index.css'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_add_css_import",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "import the layout.css we just created"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/dashboard/src/App.tsx",
+                           "old_text": "import './index.css'",
+                           "new_text": "import './index.css'\nimport './layout.css'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+
+# --- B.E12-B.E14: type fixes after compile errors (the L3 recovery shape) ---
+EXAMPLES.append({
+    "tag": "B_edit_fix_useState_type",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a counter with a typed state"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/counter-typed && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "src/App.tsx(4,28): error TS2769: No overload matches this call. Argument of type 'string' is not assignable to parameter of type 'number'."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/counter-typed/src/App.tsx",
+                           "old_text": "useState<number>(0 as any)",
+                           "new_text": "useState<number>(0)"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_fix_missing_return_type",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "fix the type error in the formatTime function"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/stopwatch && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "src/App.tsx(8,3): error TS7030: Not all code paths return a value."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/stopwatch/src/App.tsx",
+                           "old_text": "function formatTime(ms: number): string {\n  if (ms < 60000) {\n    return `${(ms/1000).toFixed(1)}s`\n  }\n}",
+                           "new_text": "function formatTime(ms: number): string {\n  if (ms < 60000) return `${(ms/1000).toFixed(1)}s`\n  return `${Math.floor(ms/60000)}m ${Math.floor((ms%60000)/1000)}s`\n}"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_fix_jsx_unclosed_tag",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build failed with JSX syntax error, fix it"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/landing && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "src/App.tsx(12,5): error: Unterminated JSX contents — expected closing </div> for opening <div> on line 8"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/landing/src/App.tsx",
+                           "old_text": "    <div className=\"container\">\n      <h1>Welcome</h1>\n      <p>landing page</p>\n  )\n}",
+                           "new_text": "    <div className=\"container\">\n      <h1>Welcome</h1>\n      <p>landing page</p>\n    </div>\n  )\n}"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+
+# --- B.E15-B.E19: in-pipeline edits (verify → fix → verify pattern) ---
+EXAMPLES.append({
+    "tag": "B_edit_after_undertow_fail",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a traffic light page"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/traffic-light-2/dist/index.html",
+                           "expect": "vertical traffic light: red top, yellow middle, green bottom"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "FAIL: only 2 lights visible (red, green). Yellow light is missing from the housing div."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/traffic-light-2/index.html",
+                           "old_text": "  <div class=\"light red on\"></div>\n  <div class=\"light green\"></div>",
+                           "new_text": "  <div class=\"light red on\"></div>\n  <div class=\"light yellow\"></div>\n  <div class=\"light green\"></div>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_remove_inline_style",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "swap inline color style for the Tsunami CSS class"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/dashboard/src/App.tsx",
+                           "old_text": "<div style={{color:'#888'}}>",
+                           "new_text": "<div className=\"text-muted\">"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_change_dep_pin",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "pin recharts to a stable version in package.json"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/crypto-dashboard/package.json",
+                           "old_text": "\"recharts\": \"latest\"",
+                           "new_text": "\"recharts\": \"^2.12.0\""}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_add_aria_label",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add an aria-label to the icon-only delete button"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx",
+                           "old_text": "<button onClick={() => remove(i)}>\u00d7</button>",
+                           "new_text": "<button aria-label=\"Delete\" onClick={() => remove(i)}>\u00d7</button>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_replace_array_with_set",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "in the tag selector, deduplicate the visited array using a Set"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/tag-selector/src/App.tsx",
+                           "old_text": "const [visited, setVisited] = useState<string[]>([])",
+                           "new_text": "const [visited, setVisited] = useState<Set<string>>(new Set())"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+
+# --- B.E20-B.E24: recovery from file_edit errors ---
+EXAMPLES.append({
+    "tag": "B_edit_recover_old_text_not_found",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "change the placeholder from 'enter task' to 'add a todo'"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx",
+                           "old_text": "placeholder=\"enter task\"",
+                           "new_text": "placeholder=\"add a todo\""}}}]},
+        {"role": "tool", "name": "file_edit",
+         "content": "old_text not found in deliverables/todo-app/src/App.tsx. Use file_read to see current content."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...<input value={v} onChange={e => setV(e.target.value)} placeholder=\"new todo\" />..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx",
+                           "old_text": "placeholder=\"new todo\"",
+                           "new_text": "placeholder=\"add a todo\""}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_recover_multiple_matches",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "change the second 'submit' button to 'save draft'"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/contact-form/src/App.tsx",
+                           "old_text": ">submit<",
+                           "new_text": ">save draft<"}}}]},
+        {"role": "tool", "name": "file_edit",
+         "content": "old_text appears 3 times in the file — ambiguous. Provide more surrounding context to identify a unique match."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/contact-form/src/App.tsx",
+                           "old_text": "<button type=\"button\" className=\"button ghost\">submit</button>",
+                           "new_text": "<button type=\"button\" className=\"button ghost\">save draft</button>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_recover_file_missing",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "fix the broken import path in App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/calc-v2/src/App.tsx",
+                           "old_text": "import './style.css'",
+                           "new_text": "import './index.css'"}}}]},
+        {"role": "tool", "name": "file_edit",
+         "content": "File not found: deliverables/calc-v2/src/App.tsx. Check the path or run project_init first."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls deliverables/ | grep -i calc"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "calculator\ncalc-v3\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/calc-v3/src/App.tsx",
+                           "old_text": "import './style.css'",
+                           "new_text": "import './index.css'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_recover_whitespace_diff",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "fix the missing semicolon"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/snake-game/src/App.tsx",
+                           "old_text": "const SPEED = 100",
+                           "new_text": "const SPEED = 100;"}}}]},
+        {"role": "tool", "name": "file_edit",
+         "content": "old_text not found in deliverables/snake-game/src/App.tsx. Use file_read to see current content."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/snake-game/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...\nconst SPEED  =  100\n..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/snake-game/src/App.tsx",
+                           "old_text": "const SPEED  =  100",
+                           "new_text": "const SPEED  =  100;"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_recover_html_special_chars",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "the &amp; is not escaping properly, it shows literal '&amp;'"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/landing/index.html"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...<title>Tools &amp;amp; Utilities</title>..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/landing/index.html",
+                           "old_text": "<title>Tools &amp;amp; Utilities</title>",
+                           "new_text": "<title>Tools &amp; Utilities</title>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+
+# --- B.E25-B.E30: edge cases (regex chars, unicode, trailing whitespace) ---
+EXAMPLES.append({
+    "tag": "B_edit_with_regex_chars",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "tighten the email regex to require a TLD"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/contact-form/src/App.tsx",
+                           "old_text": "const EMAIL = /^[^@\\s]+@[^@\\s]+$/",
+                           "new_text": "const EMAIL = /^[^@\\s]+@[^@\\s]+\\.[A-Za-z]{2,}$/"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_unicode",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "swap the checkmark emoji for a heavier one"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx",
+                           "old_text": "{done && '\u2713'}",
+                           "new_text": "{done && '\u2714'}"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_add_export",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make the COLUMNS const exported from types.ts"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/kanban-board/src/types.ts",
+                           "old_text": "const COLUMNS: ColumnId[] = ['todo', 'doing', 'done']",
+                           "new_text": "export const COLUMNS: ColumnId[] = ['todo', 'doing', 'done']"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_change_default_export",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "change the default export to a named export 'Header'"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/landing/src/components/Header.tsx",
+                           "old_text": "export default function Header()",
+                           "new_text": "export function Header()"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_long_block_replacement",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "wire up the form's onSubmit to validate then store, with full state"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/contact-form/src/App.tsx",
+                           "old_text": "<form>\n      <input name=\"email\" />\n      <button type=\"submit\">Submit</button>\n    </form>",
+                           "new_text": "<form onSubmit={(e) => {\n      e.preventDefault()\n      const fd = new FormData(e.currentTarget)\n      const email = String(fd.get('email') || '')\n      if (!/^[^@\\s]+@[^@\\s]+\\.[A-Za-z]{2,}$/.test(email)) { setErr('invalid email'); return }\n      setSubmitted(email); setErr('')\n    }}>\n      <input name=\"email\" required />\n      {err && <span className=\"text-danger\">{err}</span>}\n      {submitted && <span className=\"text-accent\">Saved {submitted}</span>}\n      <button type=\"submit\" className=\"button primary\">Submit</button>\n    </form>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_edit_fix_react_key_warning",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "undertow showed a React 'missing key' console warning, fix the .map"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/quote-generator/src/App.tsx",
+                           "old_text": "{QUOTES.map((q) => <li>{q}</li>)}",
+                           "new_text": "{QUOTES.map((q, i) => <li key={i}>{q}</li>)}"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+
+
 def render_example(ex: dict, tokenizer) -> str:
     """Render a structured example into the Gemma-4 chat template format."""
     return tokenizer.apply_chat_template(ex["messages"], tools=TOOLS, tokenize=False)
