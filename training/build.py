@@ -2988,6 +2988,441 @@ EXAMPLES.append({
 })
 
 
+# =============================================================================
+# CHUNK C/shell_exec — shell_exec coverage (30 examples)
+#
+# Spans: build invocations, install deps, ls/find in CWD-mode, path
+# corrections, test runners, in-pipeline shell calls, recovery from
+# command-not-found / missing-module / wrong-path / permission.
+# =============================================================================
+
+# --- C1-C6: build / install commands (the most common shell_exec) ---
+EXAMPLES.append({
+    "tag": "C_build_vite",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "rebuild my dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/dashboard && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "vite v5.0.0 building for production... built in 1.42s\ndist/index.html  0.45 kB\ndist/assets/index-a3f2.js  142.31 kB"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_build_npx_vite",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "compile the calculator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/calculator && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "vite v5.0.0 building for production... built in 1.18s"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_install_dep",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "install recharts in the analytics-board"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/analytics-board && npm install recharts"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "added 12 packages, audited 245 packages in 4s\nfound 0 vulnerabilities"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_install_devdep",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add vitest as a dev dependency to the calc project"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/calc && npm install -D vitest"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "added 38 packages in 6s"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_install_apt_node",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "node isn't installed, set it up"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "apt-get install -y nodejs npm"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "Setting up nodejs (18.19.1)...\nSetting up npm (9.2.0)..."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_dev_server",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "start the dev server for landing"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/landing && npm run dev &"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "VITE v5.0.0 ready in 432 ms\n  ➜ Local: http://localhost:5173/"},
+    ],
+})
+
+# --- C7-C12: ls / inspect commands (CWD-mode) ---
+EXAMPLES.append({
+    "tag": "C_ls_cwd",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's in this directory?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls -la"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "drwxr-xr-x  src/\ndrwxr-xr-x  public/\n-rw-r--r--  package.json\n-rw-r--r--  vite.config.ts\n-rw-r--r--  README.md"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_find_files",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "find all the .tsx files"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "find . -name '*.tsx' -not -path '*/node_modules/*'"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "./src/App.tsx\n./src/main.tsx\n./src/components/Header.tsx\n./src/components/Footer.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_grep_pattern",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "where do we use the Button component?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "grep -rn '<Button' src/ --include='*.tsx'"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "src/App.tsx:12:      <Button onClick={save}>Save</Button>\nsrc/components/Form.tsx:34:    <Button type=\"submit\">Submit</Button>"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_word_count",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "how big is App.tsx?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "wc -l deliverables/calculator/src/App.tsx"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "47 deliverables/calculator/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_disk_usage",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "check disk space"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "df -h /workspace | tail -1"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "/dev/sda1  300G  45G  255G  15%  /workspace"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_cat_small_file",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "show me package.json"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cat package.json"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "{\n  \"name\": \"my-app\",\n  \"version\": \"1.0.0\",\n  \"scripts\": { \"build\": \"vite build\", \"dev\": \"vite\" }\n}"},
+    ],
+})
+
+# --- C13-C16: mkdir / rm / mv (file operations via shell) ---
+EXAMPLES.append({
+    "tag": "C_mkdir_subdir",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "create a hooks folder for the pomodoro project"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "mkdir -p deliverables/pomodoro-timer/src/hooks"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": ""},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_rm_stale_dist",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "clear the dist folder before rebuild"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "rm -rf deliverables/dashboard/dist"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": ""},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_mv_file",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "rename header.tsx to Header.tsx in landing/components"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "mv deliverables/landing/src/components/header.tsx deliverables/landing/src/components/Header.tsx"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": ""},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_chmod_script",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make jot.sh executable"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "chmod +x scripts/jot.sh"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": ""},
+    ],
+})
+
+# --- C17-C20: in-pipeline shell calls (build → undertow path) ---
+EXAMPLES.append({
+    "tag": "C_pipeline_install_then_build",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build the chart-dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/chart-dashboard && npm install"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "added 245 packages, audited 245 packages in 8s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/chart-dashboard && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "vite v5.0.0 building for production... built in 2.31s"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_pipeline_test_runner",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "run the tests"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/calc && npm test"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "Test Files  3 passed (3)\nTests  18 passed (18)\nDuration  421ms"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_pipeline_lint",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "lint the dashboard project"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/dashboard && npm run lint"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "✓ No lint errors found."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_full_build_then_undertow",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a coin-flip and verify it"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "coin-flip"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/coin-flip"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/coin-flip/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [side, setSide] = useState<'H' | 'T'>('H')\n  return (\n    <div className=\"container flex-col flex-center gap-4\" style={{height:'100vh'}}>\n      <div className=\"card flex-center\" style={{width:120, height:120, fontSize:48}}>{side}</div>\n      <button className=\"button primary\" onClick={() => setSide(Math.random() < 0.5 ? 'H' : 'T')}>Flip</button>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/coin-flip/src/App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/coin-flip && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "vite v5.0.0 building for production... built in 1.05s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/coin-flip/dist/index.html",
+                           "expect": "coin flip with H/T display and Flip button"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — coin flip toggles between H and T."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built coin-flip: random H/T flip on button click."}}}]},
+    ],
+})
+
+# --- C21-C26: recovery from shell_exec errors ---
+EXAMPLES.append({
+    "tag": "C_recover_command_not_found",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build the landing page"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/landing && vite build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "bash: vite: command not found"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/landing && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "vite v5.0.0 building for production... built in 1.21s"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_recover_missing_module",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build the chart-dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/chart-dashboard && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "error: Cannot find module 'recharts'\nDid you mean to install it?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/chart-dashboard && npm install recharts"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "added 12 packages in 4s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/chart-dashboard && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "vite v5.0.0 building for production... built in 2.42s"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_recover_wrong_path",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build the calculator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd calculator && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "bash: cd: calculator: No such file or directory"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/calculator && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "vite v5.0.0 building for production... built in 1.18s"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_recover_permission_denied",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "run the deploy script"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "./scripts/deploy.sh"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "bash: ./scripts/deploy.sh: Permission denied"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "chmod +x scripts/deploy.sh && ./scripts/deploy.sh"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "Deploying...\nDone."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_recover_npm_audit_warnings",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "install all deps for crypto-dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/crypto-dashboard && npm install"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "added 245 packages in 8s\n3 moderate severity vulnerabilities\nrun `npm audit fix` to address them"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/crypto-dashboard && npm audit fix"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "fixed 3 of 3 vulnerabilities in 245 scanned packages"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_recover_port_in_use",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "start the dev server on port 3000"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/landing && PORT=3000 npm run dev &"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "Error: listen EADDRINUSE: address already in use :::3000"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "lsof -ti:3000 | xargs -r kill -9 && cd deliverables/landing && PORT=3000 npm run dev &"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "VITE v5.0.0 ready in 412 ms\n  ➜ Local: http://localhost:3000/"},
+    ],
+})
+
+# --- C27-C30: edge / specialized shell uses ---
+EXAMPLES.append({
+    "tag": "C_pipe_grep_count",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "how many useState calls in the dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "grep -rn 'useState' deliverables/dashboard/src --include='*.tsx' | wc -l"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "14"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_run_python_one_off",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "compute sha256 of dist/index.html"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "sha256sum deliverables/landing/dist/index.html"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "a3f29c8e4d5b6a7c... deliverables/landing/dist/index.html"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_env_check",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what node version are we on?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "node --version"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "v18.19.1"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "C_clean_node_modules_cache",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "free disk by clearing node_modules caches"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "find deliverables -type d -name '.cache' -exec rm -rf {} + 2>/dev/null && df -h /workspace | tail -1"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "/dev/sda1  300G  38G  262G  13%  /workspace"},
+    ],
+})
+
+
 def render_example(ex: dict, tokenizer) -> str:
     """Render a structured example into the Gemma-4 chat template format."""
     return tokenizer.apply_chat_template(ex["messages"], tools=TOOLS, tokenize=False)
