@@ -1,4 +1,4 @@
-# TSUNAMI — Core dependencies
+# TSUNAMI — Core runtime (the agent + server)
 httpx>=0.24.0
 pyyaml>=6.0
 rich>=13.0
@@ -8,3 +8,14 @@ ddgs>=9.0
 websockets>=12.0
 fastapi>=0.100.0
 uvicorn>=0.20.0
+# undertow QA tool — real browser screenshot + interaction
+playwright>=1.40.0
+
+# TRAINING — needed only for training/train.py + sweep.sh
+# Install separately: pip install -r requirements-train.txt
+# (kept out of core to avoid bloating tsunami-runtime installs)
+
+# SYSTEM DEPS (NOT pip-installable):
+#   - nodejs + npm           (L5 integration eval runs `npm` / `vite build`)
+#   - chromium browser       (`playwright install chromium`)
+#   - chromium shared libs   (`playwright install-deps chromium` on Ubuntu)
