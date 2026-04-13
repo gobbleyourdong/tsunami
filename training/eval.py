@@ -1735,18 +1735,18 @@ async def run_agent_build(endpoint: str, prompt: str, timeout: int = 180,
 async def main():
     parser = argparse.ArgumentParser(description="Full eval pyramid")
     parser.add_argument("--endpoint", default="http://localhost:8095")
-    parser.add_argument("--quick", action="store_true", help="Skip integration eval")
+    parser.add_argument("--quick", action="store_true",
+                        help="DEPRECATED — was 'skip integration'. L5 is now always-on; "
+                             "use --layers to subset.")
     parser.add_argument("--layers", default=None,
                         help="Comma-separated: format,scaffold,recovery,hackfree,integration")
     parser.add_argument("--output", default="workspace/training_data/eval_report.json")
     parser.add_argument("--compare", default=None, help="Previous report JSON to compare against")
     args = parser.parse_args()
 
-    layers = set()
+    # L5 (integration) is now always-on. Use --layers to subset if needed.
     if args.layers:
         layers = set(args.layers.split(","))
-    elif args.quick:
-        layers = {"format", "scaffold", "recovery", "hackfree"}
     else:
         layers = {"format", "scaffold", "recovery", "hackfree", "integration"}
 

@@ -426,6 +426,329 @@ EXAMPLES.append({
 })
 
 
+# --- L3 ERROR-RECOVERY DEPTH (v92 eval ER01/03/04/05 still failing) ---------
+# Every example: build error → STRAIGHT to the right tool, no chat, no read-first.
+# Variants per scenario so the model sees the pattern, not just one prompt.
+
+EXAMPLES.append({
+    "tag": "er01_missing_module_shell_exec",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Build a chart with recharts"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "chart-rc"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "src/App.tsx",
+                           "content": "import { LineChart, Line } from 'recharts'\nexport default function App() { return <LineChart width={400} height={200} data={[{x:1,y:1},{x:2,y:4}]}><Line dataKey='y'/></LineChart> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/chart-rc && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "ERROR: Cannot find module 'recharts'"},
+        # KEY: missing module → npm install via shell_exec. NO message_chat.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/chart-rc && npm install recharts"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "added 1 package"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/chart-rc && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built in 1.4s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/chart-rc/dist/index.html",
+                           "expect": "line chart"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built chart-rc with recharts."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "er01_missing_module_d3",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Build a bar visualization"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "bar-d3"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "src/App.tsx",
+                           "content": "import * as d3 from 'd3'\nexport default function App() { return <svg width={300} height={100}/> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/bar-d3 && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "ERROR: Cannot find module 'd3'"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/bar-d3 && npm install d3"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "ok"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/bar-d3 && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/bar-d3/dist/index.html",
+                           "expect": "svg bar visualization"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built bar-d3."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "er05_wrong_path_corrected_cd",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Build a kanban board"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "kanban"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd workspace/deliverables/kanban && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "cd: workspace/deliverables/kanban: No such file or directory"},
+        # KEY: wrong path → corrected shell_exec MUST include "deliverables/app" pattern
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/kanban && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/kanban/dist/index.html",
+                           "expect": "kanban"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built kanban."}}}]},
+    ],
+})
+
+
+# --- L4 HACK-FREE DEPTH (v92 HF03/04/05/07/10 still failing) ----------------
+# After-context-load → write code (not search). After-build → undertow (not chat).
+
+EXAMPLES.append({
+    "tag": "hf03_stall_after_read_write_now",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Build a recipe app, you'll need to read existing components first"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "recipe-app"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/recipe-app/src/components/ui/index.ts"}}}]},
+        {"role": "tool", "name": "file_read", "content": "export { Button, Card, Input } from './primitives'"},
+        # KEY: after a read, IMMEDIATE file_write. NOT another read or search.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/recipe-app/src/App.tsx",
+                           "content": "import { Card, Button, Input } from './components/ui'\nexport default function App() { return <Card><Input placeholder='ingredient'/><Button>add</Button></Card> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/recipe-app && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/recipe-app/dist/index.html",
+                           "expect": "recipe input with add button"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built recipe-app."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "hf04_code_write_gate_after_scaffold",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Build a memory-match game"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "memory-match"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/memory-match with React+Vite scaffold (default App.tsx is placeholder)"},
+        # KEY: after project_init's placeholder, model MUST file_write the real app. NOT search_web.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/memory-match/src/App.tsx",
+                           "content": "import { useState } from 'react'\nconst symbols=['A','B','C','D','A','B','C','D']\nexport default function App(){ const [flipped,setFlipped]=useState<number[]>([]); return <div className='grid grid-4'>{symbols.sort(()=>Math.random()-.5).map((s,i)=><button key={i} onClick={()=>setFlipped([...flipped,i])}>{flipped.includes(i)?s:'?'}</button>)}</div> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/memory-match && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/memory-match/dist/index.html",
+                           "expect": "memory match game with flip buttons"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built memory-match."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "hf05_shell_loop_break_with_write",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Build a notes app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "notes-app"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls deliverables/notes-app/src"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "App.tsx  index.css  main.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls deliverables/notes-app"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "package.json  src/  vite.config.ts"},
+        # KEY: 2nd consecutive shell_exec with no progress → break the loop with file_write.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/notes-app/src/App.tsx",
+                           "content": "import { useState } from 'react'\nexport default function App() { const [n,setN] = useState(['']); return <div>{n.map((x,i)=><textarea key={i} value={x} onChange={e=>{const c=[...n]; c[i]=e.target.value; setN(c)}}/>)}<button onClick={()=>setN([...n,''])}>+</button></div> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/notes-app && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/notes-app/dist/index.html",
+                           "expect": "notes app with textareas"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built notes-app."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "hf07_auto_wire_after_components_write",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Build a settings page with sidebar and form"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "settings-pg"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/settings-pg/src/components/Sidebar.tsx",
+                           "content": "export default function Sidebar(){ return <nav><a>General</a><a>Profile</a><a>Privacy</a></nav> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/settings-pg/src/components/Form.tsx",
+                           "content": "export default function Form(){ return <form><input placeholder='name'/><button>save</button></form> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        # KEY: after writing components, model auto-wires them into App.tsx via file_write.
+        # NOT shell_exec, NOT another investigation.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/settings-pg/src/App.tsx",
+                           "content": "import Sidebar from './components/Sidebar'\nimport Form from './components/Form'\nexport default function App(){ return <div className='flex'><Sidebar/><Form/></div> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote App.tsx wired with Sidebar + Form"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/settings-pg && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/settings-pg/dist/index.html",
+                           "expect": "settings page with sidebar nav and form"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built settings-pg."}}}]},
+    ],
+})
+
+
+# --- SMOKE-FAIL DIRECT TARGETS (probes 03, 05, 07 reproducibly fail) --------
+# Hand-crafted to teach exactly the prompts that smoke probes catch failing.
+
+EXAMPLES.append({
+    "tag": "smoke03_whats_in_dir_chat_form",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "What's in this directory?"},
+        # KEY: question form ALSO gets shell_exec. Don't ask user for path — they're IN the dir.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls -la"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "src/  tests/  package.json  README.md  vite.config.ts  node_modules/"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Vite/TypeScript project: src/, tests/, package.json, vite.config.ts, README.md, plus node_modules/."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "smoke05_summarize_python_files",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Summarize the python files."},
+        # KEY: don't ask for paths — list them yourself, then read, then summarize.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls *.py 2>/dev/null && wc -l *.py 2>/dev/null"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "loader.py  trainer.py  eval.py\n  120 loader.py\n  450 trainer.py\n   89 eval.py"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "trainer.py"}}}]},
+        {"role": "tool", "name": "file_read", "content": "class Trainer:\n  def __init__(self, model, data): ...\n  def train(self, epochs): ..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "3 Python files, 659 LOC: loader.py (120) data IO, trainer.py (450) Trainer class, eval.py (89) eval harness."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "smoke07_organize_files_by_type",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Organize these files by type."},
+        # KEY: same as cwd_organize but with extra reinforcement on prompt-shape.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "report.pdf  notes.md  data.csv  image.png  config.yaml  script.py  todo.md  paper.pdf"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "mkdir -p pdfs md data images code config && mv *.pdf pdfs/ && mv *.md md/ && mv *.csv data/ && mv *.png images/ && mv *.py code/ && mv *.yaml config/"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "moved 8 files into 6 type folders"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Organized 8 files into pdfs/, md/, data/, images/, code/, config/."}}}]},
+    ],
+})
+
+
 # --- COUNTER-REGRESSIONS (v91 eval revealed these failure modes) ------------
 # v91 introduced read-first / search-first patterns from CWD + vision examples
 # that leaked into error recovery and build-loop continuation. These examples
