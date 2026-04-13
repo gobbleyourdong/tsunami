@@ -5316,6 +5316,732 @@ EXAMPLES.append({
 })
 
 
+# =============================================================================
+# CHUNK G/message_chat — message_chat coverage (30 examples)
+#
+# Talk to user. done=true ends; done=false continues. Use for greetings,
+# capability questions, clarifications, status, refusal-to-build cases.
+# NEVER as a fallback when action is needed (that's the L3/L4 trap).
+# =============================================================================
+
+# --- G.MC1-G.MC5: greetings / casual ---
+for _tag, _user, _reply in [
+    ("G_chat_hi",         "hi",                       "Hi! What do you want to build?"),
+    ("G_chat_hey",        "hey there",                "Hey. What are we building?"),
+    ("G_chat_thanks",     "thanks",                   "Anytime."),
+    ("G_chat_bye",        "ok i'm done for today",    "Catch you later. Wave when you're back."),
+    ("G_chat_compliment", "you're fast",              "Built for it. What's next?"),
+]:
+    EXAMPLES.append({
+        "tag": _tag,
+        "messages": [
+            {"role": "system", "content": SYSTEM_TEXT},
+            {"role": "user", "content": _user},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"type": "function", "function": {"name": "message_chat",
+                 "arguments": {"text": _reply, "done": True}}}]},
+            {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        ],
+    })
+
+# --- G.MC6-G.MC8: capability questions (done=true ends conversation) ---
+EXAMPLES.append({
+    "tag": "G_chat_what_can_you_build",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what can you build?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Web apps, games, dashboards, tools — anything with React, vanilla JS, or HTML+canvas. Hand me a prompt.",
+                           "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_what_tools",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what tools do you have"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "I scaffold projects, write code, run shells, do QA in a real browser, ground vision references, and generate images. Tell me what to make.",
+                           "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_can_you_do_x",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "can you do mobile apps?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Web only — React/HTML in the browser. For mobile, I'd build a responsive PWA. Want me to do that?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+
+# --- G.MC9-G.MC13: clarification asks (done=false because conversation continues) ---
+EXAMPLES.append({
+    "tag": "G_chat_clarify_vague",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make me an app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What kind — calculator, todo, game, dashboard, something else?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_clarify_dashboard_for",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "For what data — analytics, admin, ops monitoring, sales? And any charts needed?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_clarify_game_genre",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a game"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What genre — puzzle, arcade, platformer, shooter? Or a specific classic like snake, tetris, breakout?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_clarify_clone_what",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "clone an existing site"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Which site, and do you have a screenshot? I can ground from a reference image with riptide for accurate layout.",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_clarify_data_shape",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a chart"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What kind — line, bar, pie, area? Sample data or live source?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+
+# --- G.MC14-G.MC16: status updates mid-build (done=false) ---
+EXAMPLES.append({
+    "tag": "G_chat_status_scaffolding",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "this might take a while right?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "30-90 seconds for the standard build pipeline. Going now.", "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_status_qa",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "how's it going"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Code's written. Running QA in a real browser now.", "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_status_building",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "still working?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Yep — fixing a type error from the build, then re-verifying.", "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+
+# --- G.MC17-G.MC19: refuse-to-build (out-of-scope, malicious, or impossible) ---
+EXAMPLES.append({
+    "tag": "G_chat_refuse_native_mobile",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me an iOS app in Swift"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "I'm web-only — no Swift/iOS native. Closest: a responsive PWA that installs to home screen. Want that instead?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_refuse_credentials",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a tool that scrapes someone's account using their saved password"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Won't build credential-stealing or unauthorized-account-access tools. If you have a legit task (your own data, an API with permission), tell me what you actually need.",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_refuse_backend_db",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a Postgres-backed REST API"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "I build front-end. For a backend you'd need a separate runtime — I can build the React UI that talks to your API, if you've got one.",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+
+# --- G.MC20-G.MC22: in-pipeline as the final action (chat-mode session) ---
+EXAMPLES.append({
+    "tag": "G_chat_explain_concept",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's a useState in React"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "A hook that gives a function component local state. const [v, setV] = useState(0) — read v, call setV to update and re-render.",
+                           "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_quick_q_answer",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's 47 * 13"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "611.", "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_recommend_library",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what should I use for a charts library?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Recharts for general use, visx if you need fine control. Want me to build a sample with one?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+
+# --- G.MC23-G.MC25: recovery — premature done=true with no work → switch to project_init ---
+EXAMPLES.append({
+    "tag": "G_chat_recover_premature_done",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me something cool"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What sort of thing did you have in mind?", "done": True}}}]},
+        {"role": "tool", "name": "message_chat",
+         "content": "Cannot end the task before doing any work. Make a best-effort interpretation, call project_init with a sensible name, and start building."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "color-palette-generator"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/color-palette-generator"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_recover_no_chat_during_build",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a calculator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "I'll build it now.", "done": False}}}]},
+        {"role": "tool", "name": "message_chat",
+         "content": "Don't narrate intent — call the action tool. Start with project_init."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "calculator-fresh"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/calculator-fresh"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_recover_after_clarify_user_answers",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build something for music"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What kind — a player, a metronome, a chord chart, a song search?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "metronome"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "metronome"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/metronome"},
+    ],
+})
+
+# --- G.MC26-G.MC30: edge cases (multi-line text, empty, escaping, etc) ---
+EXAMPLES.append({
+    "tag": "G_chat_long_explanation",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "explain how vite works"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Dev: serves source via native ESM, no bundle. Per-file transforms (TS/JSX/CSS) on demand. HMR. Build: rollup-based bundler producing optimized output. Trade: instant dev start, slightly slower production build than esbuild-only.",
+                           "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_terse_acknowledgement",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "ok"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What's next?", "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_url_in_response",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "where do I find the React docs"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "react.dev — the new official docs (replaces reactjs.org).", "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_code_snippet_inline",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's the syntax for a default export in TS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "export default function App() { return <div /> } — or for a const: const App = () => <div />; export default App;",
+                           "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_chat_humor_response",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "are you tired of building counter apps yet"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Counters are zen. Variety helps though — what's next?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+
+
+# =============================================================================
+# CHUNK G/message_result — message_result coverage (30 examples)
+#
+# Final delivery. Use ONLY after build + undertow PASS, or for in-place
+# CWD tasks after the work is done. NEVER as the response to a fresh
+# build prompt without doing the work.
+# =============================================================================
+
+# --- G.MR1-G.MR5: standard delivery after build ---
+EXAMPLES.append({
+    "tag": "G_result_basic",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "deliver the counter"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Counter ready in deliverables/counter."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_with_features",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "deliver the todo app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Todo-app delivered: add, complete, delete, persists to localStorage."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_tech_summary",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "wrap up the dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Dashboard delivered: 4 stat cards, line + bar chart via recharts, dark theme. Built and verified."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_terse",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "deliver"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Done."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_with_path",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "ship the snake game"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Snake-game shipped at deliverables/snake-game/dist/index.html — arrow keys, eat/grow/die mechanics, score tracker."}}}]},
+    ],
+})
+
+# --- G.MR6-G.MR9: with attachments (the proper deliver shape) ---
+EXAMPLES.append({
+    "tag": "G_result_with_one_attachment",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "deliver the calculator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Calculator delivered: full keypad, =, Clear.",
+                           "attachments": ["deliverables/calculator/dist/index.html"]}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_with_multi_attachments",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "ship the pricing page with the README"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Pricing-page delivered: 3-tier cards, monthly/annual toggle.",
+                           "attachments": ["deliverables/pricing/dist/index.html", "deliverables/pricing/README.md"]}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_with_image_attachment",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "ship the music player with album art"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Music-player ready: cover, controls, track list.",
+                           "attachments": ["deliverables/music-player/dist/index.html", "deliverables/music-player/public/album.png"]}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_attachments_only",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "send me the html"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Here.",
+                           "attachments": ["deliverables/traffic-light/index.html"]}}}]},
+    ],
+})
+
+# --- G.MR10-G.MR12: in-place CWD task delivery (no project, no undertow) ---
+EXAMPLES.append({
+    "tag": "G_result_inplace_summary",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "summarize what you did"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Renamed `methodName` → `method_name` in user.py (2 occurrences: def + call site)."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_inplace_organize",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "report what was organized"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Organized 23 files into notes/2026/04/ by date. Old root files moved into year/month subdirs."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_inplace_refactor",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "wrap up the refactor"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Extracted 4 components from App.tsx into src/components/. App.tsx down from 340 → 78 lines. Build still passes."}}}]},
+    ],
+})
+
+# --- G.MR13-G.MR15: after multi-iteration fix ---
+EXAMPLES.append({
+    "tag": "G_result_after_two_fixes",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "deliver the expense tracker"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Expense-tracker delivered after 2 fixes (categories def, NaN guard on empty input). Categories, total, breakdown all working."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_after_undertow_iterations",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "ship the kanban after the drag fix"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Kanban shipped: drag-and-drop fixed (was missing dragOver preventDefault). 3 columns, cards move between."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_after_lint_then_fix",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "wrap it up"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Color-picker delivered. Added missing key prop to swatch list to clear React warnings."}}}]},
+    ],
+})
+
+# --- G.MR16-G.MR20: recovery from gate refusal — placeholder, undertow-missing, etc ---
+EXAMPLES.append({
+    "tag": "G_result_recover_undertow_missing",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a counter"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Counter delivered."}}}]},
+        {"role": "tool", "name": "message_result",
+         "content": "You haven't run undertow yet. Call undertow(path=\"deliverables/counter/dist/index.html\", expect=...) first. Only call message_result after undertow passes."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/counter/dist/index.html",
+                           "expect": "counter app: +/- buttons increment/decrement"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — +/- buttons work."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Counter delivered: +/- buttons increment a number."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_recover_placeholder",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "ship the dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Dashboard ready."}}}]},
+        {"role": "tool", "name": "message_result",
+         "content": "deliverables/dashboard/src/App.tsx contains 'TODO: replace with real data' — this is a placeholder. Replace with the actual implementation, then re-build, undertow, and deliver."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/dashboard/src/App.tsx",
+                           "old_text": "// TODO: replace with real data\nconst data = []",
+                           "new_text": "const data = [{ label: 'Revenue', value: 12450 }, { label: 'Users', value: 875 }, { label: 'Sessions', value: 2103 }, { label: 'Bounce', value: 32 }]"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/dashboard && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.1s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/dashboard/dist/index.html",
+                           "expect": "4 stat cards with concrete values (not zeros)"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — 4 cards with revenue/users/sessions/bounce data."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Dashboard delivered: 4 stat cards with real data."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_recover_dead_input",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "deliver the contact form"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Contact-form delivered."}}}]},
+        {"role": "tool", "name": "message_result",
+         "content": "deliverables/contact-form/src/App.tsx has an uncontrolled <input> with neither value nor onChange — user keystrokes can't reach React state. Add value={state} onChange={e => setState(e.target.value)} or use defaultValue+ref if you want uncontrolled."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/contact-form/src/App.tsx",
+                           "old_text": "<input name=\"email\" />",
+                           "new_text": "<input name=\"email\" value={email} onChange={e => setEmail(e.target.value)} />"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/contact-form && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.0s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/contact-form/dist/index.html",
+                           "expect": "form with controlled email input"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — typing in email field updates state."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Contact-form delivered: controlled inputs, validates email."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_recover_keyword_mismatch",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "deliver the analytics dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Analytics-dashboard delivered."}}}]},
+        {"role": "tool", "name": "message_result",
+         "content": "deliverables/analytics-dashboard/src/App.tsx barely matches the task prompt (overlap: dashboard; expected: analytics, charts, metrics, traffic). Re-read the prompt and rewrite App.tsx on-topic."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/analytics-dashboard/src/App.tsx",
+                           "content": "import './index.css'\n\nconst METRICS = [\n  { label: 'Pageviews',   value: '124,500', delta: 12 },\n  { label: 'Unique users', value: '8,450',  delta: -3 },\n  { label: 'Sessions',     value: '21,030', delta: 8 },\n  { label: 'Bounce rate',  value: '32%',    delta: -5 },\n]\n\nexport default function App() {\n  return (\n    <div className=\"container p-8\">\n      <h1 className=\"text-2xl text-bold\">Analytics</h1>\n      <div className=\"grid grid-4 gap-4\">\n        {METRICS.map(m => (\n          <div key={m.label} className=\"card p-6\">\n            <div className=\"text-muted text-sm\">{m.label}</div>\n            <div className=\"text-2xl text-bold\">{m.value}</div>\n            <div className={m.delta >= 0 ? 'text-accent' : 'text-danger'}>{m.delta >= 0 ? '↑' : '↓'} {Math.abs(m.delta)}% vs last week</div>\n          </div>\n        ))}\n      </div>\n      <div className=\"card p-6 mt-6\">[traffic chart placeholder]</div>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/analytics-dashboard/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_recover_broken_image_ref",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "ship the landing"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Landing ready."}}}]},
+        {"role": "tool", "name": "message_result",
+         "content": "deliverables/landing/src/App.tsx references <img src=\"/hero.png\"> but no matching file exists in public/. Either create the asset, use a relative import, or inline an SVG."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/landing/public/hero.png",
+                           "prompt": "modern SaaS hero illustration, isometric, gradient blue-purple, 1200x800"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/landing/public/hero.png (1200x800)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/landing && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.2s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/landing/dist/index.html",
+                           "expect": "hero with image renders without 404"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — hero image loads, no 404s."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Landing delivered with generated hero image."}}}]},
+    ],
+})
+
+# --- G.MR21-G.MR27: edge cases / variants ---
+EXAMPLES.append({
+    "tag": "G_result_no_attachments_arg",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "wrap the quote-gen"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Quote-generator delivered."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_named_features",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "deliver the kanban"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Kanban delivered: Todo / Doing / Done columns, drag-and-drop, persists to localStorage."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_with_metric",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "ship the markdown editor"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Markdown-editor delivered: split-view textarea/preview, supports H1-H6, code blocks, lists, bold, italic. Bundle 142KB."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_pivot_after_user_changed_mind",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "wrap up — the snake-game-v2 we just rebuilt"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Snake-game-v2 delivered: arrow keys, 5-block start, food spawns, score in corner, game-over restarts."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_with_tradeoff_note",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "ship the chart-dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Chart-dashboard delivered. Used recharts (~50KB) — for smaller bundle, swap to hand-rolled SVG sparklines."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_ascii_hint",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "ship the rgb mixer"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "RGB-mixer delivered: 3 sliders (R, G, B), live hex code, color preview swatch."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "G_result_after_full_pipeline_in_session",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a stopwatch with laps"},
+        *_pipeline(
+            project_name="stopwatch-laps-v2",
+            app_code="import { useEffect, useRef, useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [ms, setMs] = useState(0)\n  const [running, setRunning] = useState(false)\n  const [laps, setLaps] = useState<number[]>([])\n  const start = useRef(0)\n  useEffect(() => {\n    if (!running) return\n    start.current = Date.now() - ms\n    const id = setInterval(() => setMs(Date.now() - start.current), 10)\n    return () => clearInterval(id)\n  }, [running])\n  const fmt = (n: number) => `${Math.floor(n/60000)}:${String(Math.floor((n%60000)/1000)).padStart(2,'0')}.${String(Math.floor((n%1000)/10)).padStart(2,'0')}`\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"text-2xl text-bold\">{fmt(ms)}</div>\n      <div className=\"flex gap-4\">\n        <button className=\"button primary\" onClick={() => setRunning(!running)}>{running ? 'Pause' : 'Start'}</button>\n        <button className=\"button\" onClick={() => setLaps([ms, ...laps])}>Lap</button>\n        <button className=\"button danger\" onClick={() => { setMs(0); setLaps([]); setRunning(false) }}>Reset</button>\n      </div>\n      <ul>{laps.map((l, i) => <li key={i}>Lap {laps.length - i}: {fmt(l)}</li>)}</ul>\n    </div>\n  )\n}\n",
+            app_path="deliverables/stopwatch-laps-v2/src/App.tsx",
+            expect="stopwatch with start/pause/reset and lap recording",
+            result_text="Stopwatch-laps-v2 delivered: timer with start/pause/reset and lap list.",
+        ),
+    ],
+})
+
+
 def render_example(ex: dict, tokenizer) -> str:
     """Render a structured example into the Gemma-4 chat template format."""
     return tokenizer.apply_chat_template(ex["messages"], tools=TOOLS, tokenize=False)
