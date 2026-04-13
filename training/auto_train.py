@@ -362,8 +362,11 @@ def main():
     _log(f"baseline: {_scores_summary(base_scores)}")
     _log(f"new:      {_scores_summary(new_scores)}")
 
-    # PER-LAYER REGRESSION CHECK — refuse to swap if ANY layer regressed by >1
-    # point vs current. Tolerates noise (e.g. flaky S12 ghost) but catches drift.
+    # Regression check — TWO conditions, either triggers rollback:
+    # (a) any single layer drops by >1 (catches flaky individual collapse)
+    # (b) total drops by 2+ (catches death-by-a-thousand-cuts: v93 took -1 on
+    #     every non-saturated layer, net -3, and the per-layer check let it
+    #     through because each individual -1 was within tolerance)
     regressions = []
     for layer, base in base_scores.items():
         new = new_scores.get(layer)
@@ -372,6 +375,10 @@ def main():
         delta = new["passed"] - base["passed"]
         if delta < -1:
             regressions.append(f"{layer}: {base['passed']}→{new['passed']} ({delta:+d})")
+    base_total = sum(s["passed"] for s in base_scores.values())
+    new_total = sum(s["passed"] for s in new_scores.values())
+    if new_total - base_total < -1:
+        regressions.append(f"TOTAL: {base_total}→{new_total} ({new_total - base_total:+d})")
 
     if regressions:
         _log(f"REGRESSIONS detected: {'; '.join(regressions)} — ROLLING BACK")
