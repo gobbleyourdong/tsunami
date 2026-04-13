@@ -6042,6 +6042,867 @@ EXAMPLES.append({
 })
 
 
+# =============================================================================
+# CHUNK H/multi-turn conversational — multi-turn coverage (40 examples)
+#
+# Sessions that begin mid-flight (prior tool calls in context) or have
+# multiple user turns. Trains the model to read history and respond
+# correctly: clarify → build, mid-build interrupt → integrate, pivot →
+# abandon old path, Q&A → build, push-back → re-fix, long history → iterate.
+# =============================================================================
+
+# --- H.1-H.8: clarification → answer → build (user gives info after a Q) ---
+EXAMPLES.append({
+    "tag": "H_clarify_then_build_dashboard",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "For what data — analytics, admin, ops, sales?", "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "analytics, with traffic and conversion metrics"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "analytics-dashboard"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/analytics-dashboard"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_clarify_then_build_game",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a game"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What kind — puzzle, arcade, platformer, shooter?", "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "arcade, like asteroids"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "asteroids-clone"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/asteroids-clone"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_clarify_then_build_form",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a form"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What does it collect — contact, signup, feedback, survey?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "signup with name, email, password"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "signup-form"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/signup-form"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_clarify_with_image_yes",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "clone an existing site"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Which one? Got a screenshot or URL?", "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "yeah, /tmp/notion-style.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/notion-style.png",
+                           "focus": "left sidebar, top bar, main editor area"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "sidebar: left=0% top=0% width=20% height=100%\ntopbar: left=20% top=0% width=80% height=5%\neditor: left=20% top=5% width=80% height=95%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_clarify_then_pivot_to_built_in",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a counter"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Just +/- on a number, or counter with steps and reset?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "with steps of 5 and reset"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "counter-stepped"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/counter-stepped"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_clarify_size_then_build",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a quiz"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "How many questions, and what topic?", "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "5 questions about React"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "react-quiz"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/react-quiz"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_clarify_color_palette",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a landing page"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What's the brand vibe — minimal corporate, playful startup, dark tech?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "dark tech, neon accents"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "dark-tech-landing"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/dark-tech-landing"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_clarify_two_questions_one_answer",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make me a chart"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Type (line/bar/pie) and data source?", "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "line chart, sample data is fine"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "line-chart-demo"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/line-chart-demo"},
+    ],
+})
+
+# --- H.9-H.16: mid-build interrupt ("also add X") ---
+EXAMPLES.append({
+    "tag": "H_interrupt_add_clear",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a todo app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "todo-h9"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/todo-h9"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/todo-h9/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [todos, setTodos] = useState<string[]>([])\n  const [v, setV] = useState('')\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"flex gap-2\">\n        <input value={v} onChange={e => setV(e.target.value)} />\n        <button className=\"button primary\" onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button>\n      </div>\n      <ul>{todos.map((t, i) => <li key={i}>{t}</li>)}</ul>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/todo-h9/src/App.tsx"},
+        {"role": "user", "content": "wait — also add a Clear All button"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/todo-h9/src/App.tsx",
+                           "old_text": "<button className=\"button primary\" onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button>",
+                           "new_text": "<button className=\"button primary\" onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button>\n        <button className=\"button danger\" onClick={() => setTodos([])}>Clear All</button>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_interrupt_add_dark_mode",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a notes app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "notes-h10"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/notes-h10"},
+        {"role": "user", "content": "also dark mode toggle"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/notes-h10/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [dark, setDark] = useState(true)\n  const [notes, setNotes] = useState<string[]>([])\n  const [v, setV] = useState('')\n  return (\n    <div className=\"container p-8 flex-col gap-4\" style={{minHeight:'100vh', background: dark ? '#111' : '#fff', color: dark ? '#eee' : '#111'}}>\n      <button className=\"button\" onClick={() => setDark(!dark)} style={{alignSelf:'flex-end'}}>{dark ? 'Light' : 'Dark'}</button>\n      <div className=\"flex gap-2\">\n        <input value={v} onChange={e => setV(e.target.value)} />\n        <button className=\"button primary\" onClick={() => { if (v) { setNotes([v, ...notes]); setV('') } }}>Add note</button>\n      </div>\n      <ul>{notes.map((n, i) => <li key={i}>{n}</li>)}</ul>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/notes-h10/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_interrupt_add_validation",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a contact form"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "contact-h11"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/contact-h11"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/contact-h11/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [name, setName] = useState('')\n  const [email, setEmail] = useState('')\n  const [submitted, setSubmitted] = useState(false)\n  return (\n    <form className=\"container p-8 flex-col gap-4\" onSubmit={e => { e.preventDefault(); setSubmitted(true) }}>\n      <input value={name} onChange={e => setName(e.target.value)} placeholder=\"name\" />\n      <input value={email} onChange={e => setEmail(e.target.value)} placeholder=\"email\" />\n      <button className=\"button primary\" type=\"submit\">Submit</button>\n      {submitted && <div>Thanks!</div>}\n    </form>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/contact-h11/src/App.tsx"},
+        {"role": "user", "content": "also add email format validation"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/contact-h11/src/App.tsx",
+                           "old_text": "<form className=\"container p-8 flex-col gap-4\" onSubmit={e => { e.preventDefault(); setSubmitted(true) }}>",
+                           "new_text": "<form className=\"container p-8 flex-col gap-4\" onSubmit={e => { e.preventDefault(); if (!/^[^@\\s]+@[^@\\s]+\\.[A-Za-z]{2,}$/.test(email)) { setErr('invalid email'); return } setErr(''); setSubmitted(true) }}>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_interrupt_change_color",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a snake game"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "snake-h12"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/snake-h12"},
+        {"role": "user", "content": "make it green snake on black bg"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/snake-h12/src/App.tsx",
+                           "content": "import './index.css'\n\nconst BG = '#000'\nconst SNAKE = '#4f4'\n\n// snake game using these colors\nexport default function App() {\n  return <canvas style={{background:BG}} />\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/snake-h12/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_interrupt_make_responsive",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a 3-card pricing page"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "pricing-h13"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/pricing-h13"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/pricing-h13/src/App.tsx",
+                           "content": "import './index.css'\n\nexport default function App() {\n  return (\n    <div className=\"container p-8\">\n      <div className=\"grid grid-3 gap-4\">\n        <div className=\"card p-6\">Free</div>\n        <div className=\"card p-6\">Pro</div>\n        <div className=\"card p-6\">Enterprise</div>\n      </div>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/pricing-h13/src/App.tsx"},
+        {"role": "user", "content": "also make it stack on mobile"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/pricing-h13/src/App.tsx",
+                           "old_text": "<div className=\"grid grid-3 gap-4\">",
+                           "new_text": "<div className=\"grid gap-4\" style={{gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))'}}>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_interrupt_add_localstorage",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a todo app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "todo-h14"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/todo-h14"},
+        {"role": "user", "content": "also persist to localStorage"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/todo-h14/src/App.tsx",
+                           "content": "import { useState, useEffect } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [todos, setTodos] = useState<string[]>(() => JSON.parse(localStorage.getItem('todos') || '[]'))\n  const [v, setV] = useState('')\n  useEffect(() => { localStorage.setItem('todos', JSON.stringify(todos)) }, [todos])\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"flex gap-2\">\n        <input value={v} onChange={e => setV(e.target.value)} />\n        <button className=\"button primary\" onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button>\n      </div>\n      <ul>{todos.map((t, i) => <li key={i}>{t}</li>)}</ul>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/todo-h14/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_interrupt_after_build_passes",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a calculator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "calc-h15"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/calc-h15"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/calc-h15/src/App.tsx",
+                           "content": "import './index.css'\nexport default function App() { return <div>calc</div> }\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/calc-h15/src/App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/calc-h15 && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.0s"},
+        {"role": "user", "content": "also add a memory function (M+, MR, MC)"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/calc-h15/src/App.tsx",
+                           "old_text": "import './index.css'\nexport default function App() { return <div>calc</div> }",
+                           "new_text": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [d, setD] = useState('0')\n  const [mem, setMem] = useState(0)\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"card p-4 text-2xl text-bold text-right\">{d}</div>\n      <div className=\"flex gap-2\">\n        <button className=\"button\" onClick={() => setMem(mem + parseFloat(d || '0'))}>M+</button>\n        <button className=\"button\" onClick={() => setD(String(mem))}>MR</button>\n        <button className=\"button danger\" onClick={() => setMem(0)}>MC</button>\n      </div>\n    </div>\n  )\n}"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_interrupt_add_keyboard_shortcuts",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a counter"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "counter-h16"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/counter-h16"},
+        {"role": "user", "content": "and add space-to-increment"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/counter-h16/src/App.tsx",
+                           "content": "import { useEffect, useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [c, setC] = useState(0)\n  useEffect(() => {\n    const handle = (e: KeyboardEvent) => { if (e.code === 'Space') { e.preventDefault(); setC(x => x + 1) } }\n    window.addEventListener('keydown', handle)\n    return () => window.removeEventListener('keydown', handle)\n  }, [])\n  return (\n    <div className=\"container flex-center\" style={{height:'100vh'}}>\n      <div className=\"flex gap-4 flex-center\">\n        <button className=\"button\" onClick={() => setC(c-1)}>-</button>\n        <span className=\"text-2xl text-bold\">{c}</span>\n        <button className=\"button primary\" onClick={() => setC(c+1)}>+</button>\n      </div>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/counter-h16/src/App.tsx"},
+    ],
+})
+
+# --- H.17-H.22: pivot mid-build ("scratch that, build Y") ---
+EXAMPLES.append({
+    "tag": "H_pivot_full_replacement",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a tic-tac-toe"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "tictactoe-h17"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/tictactoe-h17"},
+        {"role": "user", "content": "actually scratch that, build connect-4 instead"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "connect-4"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/connect-4"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_pivot_after_file_write",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a stopwatch"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "stopwatch-h18"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/stopwatch-h18"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/stopwatch-h18/src/App.tsx",
+                           "content": "// stopwatch\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/stopwatch-h18/src/App.tsx"},
+        {"role": "user", "content": "wait — make it a countdown timer instead"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "countdown-timer-h18"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/countdown-timer-h18"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_pivot_change_framework",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a calc with React"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "calc-react-h19"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/calc-react-h19"},
+        {"role": "user", "content": "actually do it as plain HTML+JS, no framework"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "calc-vanilla-h19"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/calc-vanilla-h19"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/calc-vanilla-h19/index.html",
+                           "content": "<!doctype html><html><head><title>Calc</title></head><body><div id=\"d\">0</div><div id=\"keys\"></div><script>\nlet d='0'; const el=document.getElementById('d'); const keys='789/456*123-0.=+';\nconst grid=document.getElementById('keys');\n[...keys].forEach(k=>{const b=document.createElement('button'); b.textContent=k; b.onclick=()=>{ if(k==='='){try{d=String(Function('return '+d)())}catch{d='err'}}else{d=d==='0'?k:d+k}el.textContent=d;}; grid.appendChild(b);});\n</script></body></html>"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/calc-vanilla-h19/index.html"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_pivot_simpler_request",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a kanban with auth, db backend, and team members"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "I'm front-end only — no auth/db backend. Can do the kanban UI with localStorage persistence. Want that scope?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "ok yeah just frontend with localStorage"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "kanban-localstorage"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/kanban-localstorage"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_pivot_after_undertow",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a generic dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "generic-dashboard"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/generic-dashboard"},
+        {"role": "user", "content": "actually no — make it a portfolio site instead, scrap the dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "portfolio-site"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/portfolio-site"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_pivot_partial_keep",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a markdown editor"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "md-editor-h22"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/md-editor-h22"},
+        {"role": "user", "content": "you know what, simpler — just a textarea with character count, no preview"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/md-editor-h22/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [t, setT] = useState('')\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <textarea value={t} onChange={e => setT(e.target.value)} rows={20} placeholder=\"write something\" />\n      <div>{t.length} characters</div>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/md-editor-h22/src/App.tsx"},
+    ],
+})
+
+# --- H.23-H.28: Q&A → "ok now build it" ---
+EXAMPLES.append({
+    "tag": "H_qa_then_build_lib_choice",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's a good charts library for React"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Recharts for general use, visx for low-level control. Want me to demo with one?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "yeah build a sample dashboard with recharts"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "recharts-dashboard"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/recharts-dashboard"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_qa_then_build_pattern_question",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's the typical state pattern for a wizard?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Single state object with a `step` field, an array of step components keyed by step name, and a Next/Back action that updates `step`. Want a working example?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "yes please, 3-step signup wizard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "signup-wizard"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/signup-wizard"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_qa_then_build_difference",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's the difference between flexbox and grid"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Flex is 1D (row OR column), grid is 2D (rows AND columns). Use flex for navbars/sidebars, grid for page layouts and card grids.",
+                           "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "ok build me a demo showing both"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "flex-vs-grid-demo"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/flex-vs-grid-demo"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_qa_then_no_build",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what does useEffect's dependency array do"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Tells React when to re-run the effect. [] = once on mount. [x] = re-run when x changes. Omitted = every render (usually a bug).",
+                           "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "got it thanks"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Anytime.", "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_qa_then_ask_for_alternative",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "is recharts good for real-time updating charts"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Adequate but re-renders the whole SVG. For high-frequency updates use Lightweight Charts (TradingView) or hand-rolled canvas.",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "ok build me a real-time price chart with hand-rolled canvas"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "realtime-price-chart"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/realtime-price-chart"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_qa_then_build_with_constraint",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's the smallest react component for a switch"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "<input type=\"checkbox\" role=\"switch\" /> with CSS. ~10 lines of CSS for the slider look. No library needed.",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+        {"role": "user", "content": "show me — build a settings panel using that"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "settings-panel"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/settings-panel"},
+    ],
+})
+
+# --- H.29-H.34: long history — iteration on existing project ---
+EXAMPLES.append({
+    "tag": "H_long_iter_after_full_build",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a counter app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "counter-iter"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/counter-iter"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/counter-iter/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\nexport default function App() {\n  const [c, setC] = useState(0)\n  return <div><button onClick={() => setC(c-1)}>-</button>{c}<button onClick={() => setC(c+1)}>+</button></div>\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/counter-iter/src/App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/counter-iter && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.0s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/counter-iter/dist/index.html",
+                           "expect": "counter +/- buttons"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — buttons increment/decrement."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Counter delivered."}}}]},
+        {"role": "user", "content": "now add a reset button"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/counter-iter/src/App.tsx",
+                           "old_text": "<button onClick={() => setC(c+1)}>+</button>",
+                           "new_text": "<button onClick={() => setC(c+1)}>+</button><button onClick={() => setC(0)}>Reset</button>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_long_iter_change_styling",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make me a todo"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "todo-iter"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/todo-iter"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/todo-iter/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\nexport default function App() {\n  const [todos, setTodos] = useState<string[]>([])\n  const [v, setV] = useState('')\n  return <div className=\"container p-8\"><input value={v} onChange={e => setV(e.target.value)} /><button onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button><ul>{todos.map((t, i) => <li key={i}>{t}</li>)}</ul></div>\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/todo-iter/src/App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Todo delivered."}}}]},
+        {"role": "user", "content": "make the items have a checkbox"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/todo-iter/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { useState } from 'react'\nimport './index.css'\nexport default function App() {\n  const [todos, setTodos] = useState<string[]>([])\n  ..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/todo-iter/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\n\ntype Item = { text: string; done: boolean }\n\nexport default function App() {\n  const [todos, setTodos] = useState<Item[]>([])\n  const [v, setV] = useState('')\n  const toggle = (i: number) => setTodos(ts => ts.map((t, j) => j === i ? { ...t, done: !t.done } : t))\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"flex gap-2\">\n        <input value={v} onChange={e => setV(e.target.value)} />\n        <button className=\"button primary\" onClick={() => { if (v) { setTodos([...todos, { text: v, done: false }]); setV('') } }}>Add</button>\n      </div>\n      <ul className=\"flex-col gap-2\">{todos.map((t, i) => (\n        <li key={i} className=\"card p-3 flex gap-2\">\n          <input type=\"checkbox\" checked={t.done} onChange={() => toggle(i)} />\n          <span style={{textDecoration: t.done ? 'line-through' : 'none'}}>{t.text}</span>\n        </li>\n      ))}</ul>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/todo-iter/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_long_iter_three_changes",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a calculator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "calc-multi-iter"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/calc-multi-iter"},
+        {"role": "user", "content": "make the display dark"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/calc-multi-iter/src/App.tsx",
+                           "content": "import './index.css'\nexport default function App() { return <div className=\"card\" style={{background:'#111',color:'#0f0'}}>0</div> }\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/calc-multi-iter/src/App.tsx"},
+        {"role": "user", "content": "and make the digits monospace"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/calc-multi-iter/src/App.tsx",
+                           "old_text": "background:'#111',color:'#0f0'",
+                           "new_text": "background:'#111',color:'#0f0',fontFamily:'monospace'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "user", "content": "and right-align the digits"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/calc-multi-iter/src/App.tsx",
+                           "old_text": "fontFamily:'monospace'",
+                           "new_text": "fontFamily:'monospace',textAlign:'right'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_long_iter_chain_with_search",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a chart"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "chart-iter"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/chart-iter"},
+        {"role": "user", "content": "make it interactive — tooltips on hover"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "recharts Tooltip component example onHover"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. <Tooltip /> as a child of <BarChart>/<LineChart>. Auto-shows on hover. 2. Customize via content prop or default formatter."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/chart-iter && npm install recharts"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "added 12 packages in 4s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/chart-iter/src/App.tsx",
+                           "content": "import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'\nimport './index.css'\n\nconst DATA = [\n  { name: 'Jan', value: 24 }, { name: 'Feb', value: 18 }, { name: 'Mar', value: 32 },\n  { name: 'Apr', value: 28 }, { name: 'May', value: 41 }, { name: 'Jun', value: 38 },\n]\n\nexport default function App() {\n  return (\n    <div className=\"container p-8\" style={{height:400}}>\n      <ResponsiveContainer>\n        <LineChart data={DATA}>\n          <XAxis dataKey=\"name\" />\n          <YAxis />\n          <Tooltip />\n          <Line type=\"monotone\" dataKey=\"value\" stroke=\"#14b8a6\" strokeWidth={2} />\n        </LineChart>\n      </ResponsiveContainer>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/chart-iter/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_long_iter_5_turns_deep",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a notes app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "notes-deep"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/notes-deep"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/notes-deep/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\nexport default function App() { const [n, setN] = useState(['']); return <div>{n.map((x,i) => <div key={i}>{x}</div>)}</div> }\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/notes-deep/src/App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/notes-deep && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.0s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/notes-deep/dist/index.html", "expect": "notes app"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — empty notes div renders."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Notes-deep delivered (initial scaffold)."}}}]},
+        {"role": "user", "content": "now add an input to create new notes"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/notes-deep/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { useState } from 'react'\nimport './index.css'\nexport default function App() { const [n, setN] = useState(['']); return <div>{n.map((x,i) => <div key={i}>{x}</div>)}</div> }\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/notes-deep/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [notes, setNotes] = useState<string[]>([])\n  const [v, setV] = useState('')\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"flex gap-2\">\n        <input value={v} onChange={e => setV(e.target.value)} placeholder=\"new note\" />\n        <button className=\"button primary\" onClick={() => { if (v) { setNotes([v, ...notes]); setV('') } }}>Add</button>\n      </div>\n      <ul className=\"flex-col gap-2\">{notes.map((n, i) => <li key={i} className=\"card p-3\">{n}</li>)}</ul>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/notes-deep/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_long_iter_after_undertow_ext",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a kanban"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "kanban-deep"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/kanban-deep"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/kanban-deep/src/App.tsx",
+                           "content": "import './index.css'\nexport default function App() { return <div>kanban</div> }\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/kanban-deep/src/App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/kanban-deep && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.0s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/kanban-deep/dist/index.html", "expect": "3-col kanban"}}}]},
+        {"role": "tool", "name": "undertow", "content": "FAIL — only single 'kanban' text shown, no columns."},
+        {"role": "user", "content": "yeah do the actual 3 cols"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/kanban-deep/src/App.tsx",
+                           "content": "import './index.css'\nexport default function App() {\n  const cols = ['Todo', 'Doing', 'Done']\n  return (\n    <div className=\"container p-8\">\n      <div className=\"grid grid-3 gap-4\">{cols.map(c => <div key={c} className=\"card p-6\"><h3>{c}</h3></div>)}</div>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/kanban-deep/src/App.tsx"},
+    ],
+})
+
+# --- H.35-H.40: user pushes back on completion ---
+EXAMPLES.append({
+    "tag": "H_pushback_color_wrong",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a counter"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Counter delivered."}}}]},
+        {"role": "user", "content": "the +/- colors look bad — use teal for +, coral for -"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/counter/src/App.tsx",
+                           "old_text": "<button className=\"button\" onClick={() => setC(c-1)}>-</button>",
+                           "new_text": "<button className=\"button\" style={{background:'#ff6b6b',color:'#fff'}} onClick={() => setC(c-1)}>-</button>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/counter/src/App.tsx",
+                           "old_text": "<button className=\"button primary\" onClick={() => setC(c+1)}>+</button>",
+                           "new_text": "<button className=\"button\" style={{background:'#14b8a6',color:'#fff'}} onClick={() => setC(c+1)}>+</button>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_pushback_missing_feature",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a quiz"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Quiz delivered: 5 questions, score, restart."}}}]},
+        {"role": "user", "content": "no — needs a timer per question, 30s each"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/quiz/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { useState } from 'react'\nimport './index.css'\n...\nexport default function App() { const [i, setI] = useState(0); ... }\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/quiz/src/App.tsx",
+                           "old_text": "import { useState } from 'react'",
+                           "new_text": "import { useState, useEffect } from 'react'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/quiz/src/App.tsx",
+                           "old_text": "const [i, setI] = useState(0);",
+                           "new_text": "const [i, setI] = useState(0);\n  const [t, setT] = useState(30);\n  useEffect(() => { setT(30); const id = setInterval(() => setT(x => Math.max(0, x - 1)), 1000); return () => clearInterval(id) }, [i]);\n  useEffect(() => { if (t === 0) setI(x => x + 1) }, [t]);"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_pushback_layout_off",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a calculator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Calculator delivered."}}}]},
+        {"role": "user", "content": "looks weird — display should be at the top, not the bottom"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/calculator/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...\n      <div className=\"grid grid-4 gap-2\">{KEYS.map(...)}</div>\n      <div className=\"card p-4 text-2xl text-bold text-right\">{d}</div>\n    </div>\n..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/calculator/src/App.tsx",
+                           "old_text": "      <div className=\"grid grid-4 gap-2\">{KEYS.map(...)}</div>\n      <div className=\"card p-4 text-2xl text-bold text-right\">{d}</div>",
+                           "new_text": "      <div className=\"card p-4 text-2xl text-bold text-right\">{d}</div>\n      <div className=\"grid grid-4 gap-2\">{KEYS.map(...)}</div>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_pushback_size_too_small",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a stopwatch"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Stopwatch delivered."}}}]},
+        {"role": "user", "content": "the timer text is too small, make it bigger"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/stopwatch/src/App.tsx",
+                           "old_text": "<div className=\"text-2xl text-bold\">",
+                           "new_text": "<div className=\"text-bold\" style={{fontSize:'5rem',fontFamily:'monospace'}}>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_pushback_misunderstood_intent",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a list"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "list-app"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/list-app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built list-app: add/remove items."}}}]},
+        {"role": "user", "content": "no I meant a shopping list, with quantities and a total cost"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "shopping-list"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/shopping-list"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "H_pushback_undertow_PASS_user_disagrees",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a kanban"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/kanban-pb/dist/index.html",
+                           "expect": "3-col kanban"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — 3 columns visible."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Kanban delivered: Todo / Doing / Done columns."}}}]},
+        {"role": "user", "content": "the cards aren't actually draggable — drag does nothing"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/kanban-pb/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...\n        <div className=\"card p-3\" draggable>{c.text}</div>\n..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/kanban-pb/src/App.tsx",
+                           "old_text": "<div className=\"card p-3\" draggable>{c.text}</div>",
+                           "new_text": "<div className=\"card p-3\" draggable onDragStart={() => setDrag(c.id)}>{c.text}</div>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/kanban-pb/src/App.tsx",
+                           "old_text": "<div key={col} className=\"card\">",
+                           "new_text": "<div key={col} className=\"card\" onDragOver={e => e.preventDefault()} onDrop={() => move(col)}>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+
+
 def render_example(ex: dict, tokenizer) -> str:
     """Render a structured example into the Gemma-4 chat template format."""
     return tokenizer.apply_chat_template(ex["messages"], tools=TOOLS, tokenize=False)
