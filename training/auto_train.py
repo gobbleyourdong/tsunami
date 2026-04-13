@@ -206,24 +206,80 @@ def _wait_for_server(timeout_s: int = 180) -> bool:
     return False
 
 
-def _quick_eval_l1() -> tuple[int, int]:
-    """Run eval.py L1-only and return (passed, total)."""
+def _consecutive_failures() -> int:
+    """Track how many cycles in a row have failed to improve."""
+    p = REPO / "workspace" / ".auto_train.consecutive_failures"
+    if p.exists():
+        try:
+            return int(p.read_text().strip())
+        except ValueError:
+            return 0
+    return 0
+
+
+def _set_consecutive_failures(n: int) -> None:
+    p = REPO / "workspace" / ".auto_train.consecutive_failures"
+    p.write_text(str(n))
+
+
+def _is_halted() -> bool:
+    """Auto-train halts after 3 consecutive failures until operator clears."""
+    return _consecutive_failures() >= 3
+
+
+def _baseline_scores() -> dict:
+    """Adapter's last successful per-layer scores. Falls back to v91 known."""
+    p = REPO / "workspace" / ".auto_train.baseline.json"
+    if p.exists():
+        try:
+            return json.loads(p.read_text())
+        except json.JSONDecodeError:
+            pass
+    return {
+        "format":   {"passed": 40, "total": 40},
+        "scaffold": {"passed": 10, "total": 12},
+        "recovery": {"passed": 2,  "total": 6},
+        "hackfree": {"passed": 3,  "total": 10},
+    }
+
+
+def _save_baseline(scores: dict) -> None:
+    p = REPO / "workspace" / ".auto_train.baseline.json"
+    p.write_text(json.dumps(scores, indent=2))
+
+
+def _scores_summary(scores: dict) -> str:
+    parts = []
+    for layer in ("format", "scaffold", "recovery", "hackfree"):
+        if layer in scores:
+            s = scores[layer]
+            parts.append(f"{layer[0].upper()}{s['passed']}/{s['total']}")
+    return " ".join(parts) if parts else "(none)"
+
+
+def _full_quick_eval() -> dict:
+    """Run all four quick layers and return per-layer passed/total dict.
+
+    L1-only was too narrow — L1 is saturated at 100% so it can't surface the
+    L3/L4 drift that v91 demonstrated. Full quick costs ~7 min but catches
+    every regression class.
+    """
     log_path = REPO / "training" / "logs" / "auto_eval.log"
     cmd = ["python3", "-u", "training/eval.py",
-           "--endpoint", "http://localhost:8090", "--quick", "--layers", "format"]
+           "--endpoint", "http://localhost:8090", "--quick"]
     env = os.environ.copy()
     env["UNSLOTH_SKIP_TORCHVISION_CHECK"] = "1"
     rc = subprocess.run(cmd, cwd=REPO, stdout=log_path.open("w"),
                         stderr=subprocess.STDOUT, env=env).returncode
     if rc != 0:
         _log(f"eval rc={rc} — check {log_path}")
-    # Parse the report
     rpt = REPO / "workspace" / "training_data" / "eval_report.json"
     if not rpt.exists():
-        return (0, 1)
+        return {}
     d = json.loads(rpt.read_text())
-    f = d.get("format", {})
-    return (f.get("passed", 0), f.get("total", 1))
+    return {layer: {"passed": d[layer]["passed"], "total": d[layer]["total"]}
+            for layer in ("format", "scaffold", "recovery", "hackfree")
+            if layer in d}
 
 
 def main():
@@ -238,6 +294,12 @@ def main():
     args = ap.parse_args()
 
     _log(f"=== auto_train cycle start ===")
+
+    # Circuit breaker: after 3 consecutive failed cycles, halt until operator clears
+    if not args.force and _is_halted():
+        _log(f"DISABLED ({_consecutive_failures()} consecutive failures). "
+             f"Delete workspace/.auto_train.consecutive_failures to resume.")
+        return 0
 
     # Cooldown: don't retrain more than once every 90 min
     if not args.force and _last_train_age_s() < 90 * 60:
@@ -287,24 +349,52 @@ def main():
             shutil.rmtree(ADAPTER)
         shutil.move(str(ADAPTER_BACKUP), str(ADAPTER))
         _restart_server()
+        _set_consecutive_failures(_consecutive_failures() + 1)
         return 1
 
-    passed, total = _quick_eval_l1()
-    pct = 100.0 * passed / max(total, 1)
-    _log(f"L1 quick-eval: {passed}/{total} ({pct:.0f}%) — floor={args.floor}")
+    new_scores = _full_quick_eval()
+    base_scores = _baseline_scores()
+    _log(f"baseline: {_scores_summary(base_scores)}")
+    _log(f"new:      {_scores_summary(new_scores)}")
 
-    if pct < args.floor:
-        _log(f"REGRESSED below floor — ROLLING BACK to previous adapter")
+    # PER-LAYER REGRESSION CHECK — refuse to swap if ANY layer regressed by >1
+    # point vs current. Tolerates noise (e.g. flaky S12 ghost) but catches drift.
+    regressions = []
+    for layer, base in base_scores.items():
+        new = new_scores.get(layer)
+        if not new:
+            continue
+        delta = new["passed"] - base["passed"]
+        if delta < -1:
+            regressions.append(f"{layer}: {base['passed']}→{new['passed']} ({delta:+d})")
+
+    if regressions:
+        _log(f"REGRESSIONS detected: {'; '.join(regressions)} — ROLLING BACK")
         if ADAPTER.exists():
             shutil.rmtree(ADAPTER)
         shutil.move(str(ADAPTER_BACKUP), str(ADAPTER))
         _restart_server()
         if not _wait_for_server():
             _log("CRITICAL: rollback server failed to start")
+        fails = _consecutive_failures() + 1
+        _set_consecutive_failures(fails)
+        if fails >= 3:
+            _log(f"⚠️  3 consecutive failed cycles. Auto-train DISABLED until "
+                 f"operator intervention. Delete workspace/.auto_train.consecutive_failures to resume.")
         return 1
 
-    _log(f"v92-auto adopted ({pct:.0f}% L1) — server now serving new adapter")
+    # Success: update baseline + clear failure counter
+    _save_baseline(new_scores)
+    _set_consecutive_failures(0)
+    total_passed = sum(s["passed"] for s in new_scores.values())
+    total = sum(s["total"] for s in new_scores.values())
+    _log(f"✓ v92-auto adopted ({total_passed}/{total}) — baseline updated")
     return 0
+
+
+def _is_halted() -> bool:
+    """Auto-train halts after 3 consecutive failures until operator clears."""
+    return _consecutive_failures() >= 3
 
 
 if __name__ == "__main__":
