@@ -10,9 +10,9 @@ When `shell_exec` build returns an error, diagnose it and act with the right cor
 
 | Error pattern | Tool | Args |
 |---|---|---|
-| `Cannot find module 'X'` / `error: Could not resolve "X"` | `shell_exec` | `cd deliverables/<project> && npm install X` |
+| `Cannot find module 'X'` / `error: Could not resolve "X"` | `shell_exec` | `cd workspace/deliverables/<project> && npm install X` |
 | `vite: command not found` | `shell_exec` | re-run with `npx vite build` |
-| `cd: <path>: No such file or directory` | `shell_exec` | re-run with corrected path (verify with `ls deliverables/`) |
+| `cd: <path>: No such file or directory` | `shell_exec` | re-run with corrected path (verify with `ls workspace/deliverables/`) |
 | `error TS<N>: ...` (type error) | `file_edit` | targeted fix at the line:col in the error |
 | `Unterminated JSX contents` / `Expected '</X>'` | `file_edit` | add the missing closing tag |
 | `Unexpected token` at a specific line | `file_read` first to see the line, then `file_edit` |

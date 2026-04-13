@@ -13,9 +13,9 @@ For "looks like X / clone Y / style of Z" prompts where the user wants to match 
    - OR `generate_image(path="/tmp/ref.png", prompt=<concrete visual description>)` — synthesize a reference
 2. `riptide(image_path=<path>, focus="<comma-separated UI elements to locate>")` — get bbox positions as percentages
 3. `project_init(name=<kebab-case-clone-name>)` — usually `<base>-clone` or `<base>-style`
-4. `file_write(path="deliverables/<name>/src/layout.css", content=<CSS using the bbox %s as position:absolute left/top/width/height>)`
-5. `file_write(path="deliverables/<name>/src/App.tsx", content=<JSX that uses the layout classes>)`
-6. `shell_exec("cd deliverables/<name> && npm run build")`
+4. `file_write(path="workspace/deliverables/<name>/src/layout.css", content=<CSS using the bbox %s as position:absolute left/top/width/height>)`
+5. `file_write(path="workspace/deliverables/<name>/src/App.tsx", content=<JSX that uses the layout classes>)`
+6. `shell_exec("cd workspace/deliverables/<name> && npm run build")`
 7. `undertow(path=..., expect="layout matches reference: <key elements + positions>")`
 8. If undertow says positions are off → `file_edit` the layout.css percentages, rebuild
 9. `message_result(text="<name> verified: layout matches reference percentages.", attachments=[dist/index.html])`

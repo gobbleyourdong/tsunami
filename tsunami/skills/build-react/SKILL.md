@@ -4,7 +4,7 @@ The scaffold is a foundation, not a final product. Map the request, read what's 
 
 ## When
 - User says "build", "make", "create", or "I need a/an" + an app name
-- The app does not already exist in `deliverables/`
+- The app does not already exist in `workspace/deliverables/`
 - Default if the prompt doesn't match `iteration`, `in-place-cwd`, or `visual-clone`
 
 ## Pipeline (incremental, not one-shot)
@@ -18,19 +18,19 @@ The scaffold is a foundation, not a final product. Map the request, read what's 
 - Styling? (dark theme, specific brand colors) → plan CSS variable overrides
 
 ### 3. Read the scaffold entry point
-`file_read(path="deliverables/<name>/src/App.tsx")` — see what placeholder/example code is there. The scaffold ships with stub content like `<div>Loading...</div>` or a sample hero. You need to know what's there before overwriting.
+`file_read(path="workspace/deliverables/<name>/src/App.tsx")` — see what placeholder/example code is there. The scaffold ships with stub content like `<div>Loading...</div>` or a sample hero. You need to know what's there before overwriting.
 
 ### 4. Replace, don't append
-`file_write(path="deliverables/<name>/src/App.tsx", content=<COMPLETE TSX>)` — overwrite the placeholder with the real implementation. Full code, no `// TODO`, no `// Phase 1` comments. One file_write should produce a working app for most simple cases (counter, todo, calc, clock, dice, color picker).
+`file_write(path="workspace/deliverables/<name>/src/App.tsx", content=<COMPLETE TSX>)` — overwrite the placeholder with the real implementation. Full code, no `// TODO`, no `// Phase 1` comments. One file_write should produce a working app for most simple cases (counter, todo, calc, clock, dice, color picker).
 
 ### 5. Compile
-`shell_exec("cd deliverables/<name> && npm run build")` — must compile clean. If it fails → switch to `build-recovery`.
+`shell_exec("cd workspace/deliverables/<name> && npm run build")` — must compile clean. If it fails → switch to `build-recovery`.
 
 ### 6. QA
-`undertow(path="deliverables/<name>/dist/index.html", expect="<plain-language description of what should render>")`. If FAIL → switch to `qa-loop`.
+`undertow(path="workspace/deliverables/<name>/dist/index.html", expect="<plain-language description of what should render>")`. If FAIL → switch to `qa-loop`.
 
 ### 7. Deliver
-`message_result(text="<one-line summary>", attachments=["deliverables/<name>/dist/index.html"])`
+`message_result(text="<one-line summary>", attachments=["workspace/deliverables/<name>/dist/index.html"])`
 
 ## Decomposition for larger apps (>200 LOC)
 After reading the scaffold (step 3), if the app is genuinely modular:

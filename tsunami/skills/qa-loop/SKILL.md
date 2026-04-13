@@ -8,9 +8,9 @@ When `undertow` returns FAIL with a specific issue, fix that exact issue and re-
 
 ## Pipeline
 1. Read undertow's FAIL message literally — it tells you what to fix
-2. `file_read(path="deliverables/<project>/src/App.tsx")` — confirm current state of the offending code
+2. `file_read(path="workspace/deliverables/<project>/src/App.tsx")` — confirm current state of the offending code
 3. `file_edit(path=..., old_text=<exact failing slice>, new_text=<fixed slice>)` — surgical fix targeting the FAIL
-4. `shell_exec("cd deliverables/<project> && npm run build")` — must compile clean
+4. `shell_exec("cd workspace/deliverables/<project> && npm run build")` — must compile clean
 5. `undertow(path=..., expect=<same expect as before>)` — re-verify
 6. If PASS → `message_result(text="<delivered after fix>")`
 7. If FAIL again on same issue → check that file_edit actually applied the change (re-`file_read`)

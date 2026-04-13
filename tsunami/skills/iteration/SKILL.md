@@ -1,16 +1,16 @@
 # Iteration on an existing project
 
-For "in my X, change/add/fix/rename Y" prompts where the project already exists in `deliverables/`.
+For "in my X, change/add/fix/rename Y" prompts where the project already exists in `workspace/deliverables/`.
 
 ## When
 - User says "in my <project>, ..." or "change", "add", "fix", "rename", "update", "modify"
-- The project name they reference exists in `deliverables/`
+- The project name they reference exists in `workspace/deliverables/`
 - You are NOT starting a new build from scratch
 
 ## Pipeline
-1. `file_read(path="deliverables/<project>/src/App.tsx")` — see the actual current content before editing
+1. `file_read(path="workspace/deliverables/<project>/src/App.tsx")` — see the actual current content before editing
 2. `file_edit(path=..., old_text=<exact slice from step 1>, new_text=<changed slice>)` — surgical edit, not a rewrite
-3. `shell_exec("cd deliverables/<project> && npm run build")` — verify the edit compiles
+3. `shell_exec("cd workspace/deliverables/<project> && npm run build")` — verify the edit compiles
 4. If build fails → `build-recovery`
 5. `message_result(text="<what changed>")` — short, references the deliverable
 
