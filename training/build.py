@@ -1303,6 +1303,747 @@ export default function App() {
 })
 
 
+# =============================================================================
+# CHUNK A — project_init coverage (30 examples)
+#
+# Spans: when project_init is the right call, name shapes, full pipelines,
+# recovery from realistic project_init errors. No rigid call/sum/recover split.
+# Errors in tool results are plain text (no "REFUSED:" prefix) so the model
+# learns tool errors as normal data, not as out-of-band system_notes.
+# =============================================================================
+
+# --- A1-A8: build prompts → project_init (single-turn: "this is the right tool") ---
+for _name, _prompt in [
+    ("calculator",        "build me a calculator"),
+    ("todo-app",          "build a todo app"),
+    ("snake",             "make a snake game"),
+    ("weather-widget",    "create a weather widget"),
+    ("markdown-previewer","I need a markdown previewer"),
+    ("pomodoro-timer",    "build a pomodoro timer with start, pause, reset"),
+    ("expense-tracker",   "build an expense tracker with categories"),
+    ("color-picker",      "build a color picker"),
+]:
+    EXAMPLES.append({
+        "tag": f"A_call_{_name}",
+        "messages": [
+            {"role": "system", "content": SYSTEM_TEXT},
+            {"role": "user", "content": _prompt},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"type": "function", "function": {"name": "project_init",
+                 "arguments": {"name": _name}}}]},
+            {"role": "tool", "name": "project_init",
+             "content": f"Created project deliverables/{_name}"},
+        ],
+    })
+
+# --- A9-A11: name-style coverage (kebab from multi-word, descriptive, numbered) ---
+EXAMPLES.append({
+    "tag": "A_name_kebab_from_multiword",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a JSON formatter and validator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "json-formatter-validator"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/json-formatter-validator"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_name_descriptive_short",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make me something to track my reading"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "reading-tracker"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/reading-tracker"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_name_concise_for_complex_request",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a habit tracker with daily streaks, calendar view, and reminders"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "habit-tracker"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/habit-tracker"},
+    ],
+})
+
+# --- A12-A19: project_init in full pipelines (project_init → ... → message_result) ---
+EXAMPLES.append({
+    "tag": "A_full_counter",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a counter app with plus and minus buttons"},
+        *_pipeline(
+            project_name="counter",
+            app_code="import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [c, setC] = useState(0)\n  return (\n    <div className=\"container flex-center\" style={{height:'100vh'}}>\n      <div className=\"card flex-center gap-4\">\n        <button className=\"button\" onClick={() => setC(c - 1)}>-</button>\n        <span className=\"text-2xl text-bold\">{c}</span>\n        <button className=\"button primary\" onClick={() => setC(c + 1)}>+</button>\n      </div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/counter/src/App.tsx",
+            expect="counter app with plus/minus buttons that increment/decrement a number",
+            result_text="Built counter: +/- buttons increment a number, centered card layout.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_full_clock",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a digital clock"},
+        *_pipeline(
+            project_name="digital-clock",
+            app_code="import { useEffect, useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [t, setT] = useState(new Date())\n  useEffect(() => { const id = setInterval(() => setT(new Date()), 1000); return () => clearInterval(id) }, [])\n  const hh = String(t.getHours()).padStart(2,'0')\n  const mm = String(t.getMinutes()).padStart(2,'0')\n  const ss = String(t.getSeconds()).padStart(2,'0')\n  return (\n    <div className=\"container flex-center\" style={{height:'100vh'}}>\n      <div className=\"card glass p-8\"><span className=\"text-2xl text-bold\">{hh}:{mm}:{ss}</span></div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/digital-clock/src/App.tsx",
+            expect="HH:MM:SS clock that updates every second",
+            result_text="Built digital-clock: HH:MM:SS display, updates every second.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_full_tip",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a tip calculator"},
+        *_pipeline(
+            project_name="tip-calculator",
+            app_code="import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [bill, setBill] = useState(0)\n  const [pct, setPct] = useState(15)\n  const tip = bill * pct / 100\n  return (\n    <div className=\"container p-8\">\n      <div className=\"card flex-col gap-4 p-6\">\n        <label>Bill <input type=\"number\" value={bill} onChange={e => setBill(+e.target.value)} /></label>\n        <label>Tip % <input type=\"number\" value={pct} onChange={e => setPct(+e.target.value)} /></label>\n        <div className=\"text-bold\">Tip: ${tip.toFixed(2)}  Total: ${(bill+tip).toFixed(2)}</div>\n      </div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/tip-calculator/src/App.tsx",
+            expect="bill input, tip percent input, computed tip and total",
+            result_text="Built tip-calculator: enter bill + tip%, shows tip and total.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_full_quote",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a random quote generator"},
+        *_pipeline(
+            project_name="quote-generator",
+            app_code="import { useState } from 'react'\nimport './index.css'\n\nconst QUOTES = [\n  'The only way to do great work is to love what you do. — Steve Jobs',\n  'Stay hungry, stay foolish.',\n  'In the middle of difficulty lies opportunity. — Einstein',\n  'It always seems impossible until it\\'s done. — Mandela',\n  'The best time to plant a tree was 20 years ago. The second best time is now.',\n]\n\nexport default function App() {\n  const [i, setI] = useState(0)\n  return (\n    <div className=\"container flex-center\" style={{height:'100vh'}}>\n      <div className=\"card glass p-8 flex-col gap-4\">\n        <p className=\"text-lg\">{QUOTES[i]}</p>\n        <button className=\"button primary\" onClick={() => setI(Math.floor(Math.random() * QUOTES.length))}>New quote</button>\n      </div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/quote-generator/src/App.tsx",
+            expect="random quote display with new-quote button that cycles through 5 quotes",
+            result_text="Built quote-generator: 5 quotes, button picks a random one.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_full_countdown",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a countdown timer to a date I pick"},
+        *_pipeline(
+            project_name="countdown-timer",
+            app_code="import { useEffect, useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [target, setTarget] = useState('')\n  const [now, setNow] = useState(Date.now())\n  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id) }, [])\n  const ms = target ? new Date(target).getTime() - now : 0\n  const d = Math.max(0, Math.floor(ms / 86400000))\n  const h = Math.max(0, Math.floor((ms % 86400000) / 3600000))\n  const m = Math.max(0, Math.floor((ms % 3600000) / 60000))\n  const s = Math.max(0, Math.floor((ms % 60000) / 1000))\n  return (\n    <div className=\"container flex-col gap-4 p-8\">\n      <input type=\"datetime-local\" value={target} onChange={e => setTarget(e.target.value)} />\n      <div className=\"card glass p-6 text-center text-2xl\">{d}d {h}h {m}m {s}s</div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/countdown-timer/src/App.tsx",
+            expect="datetime input + countdown showing days/hours/minutes/seconds remaining",
+            result_text="Built countdown-timer: pick a date, see live d/h/m/s countdown.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_full_unit_converter",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a unit converter for length"},
+        *_pipeline(
+            project_name="unit-converter",
+            app_code="import { useState } from 'react'\nimport './index.css'\n\nconst TO_M: Record<string, number> = { mm: 0.001, cm: 0.01, m: 1, km: 1000, in: 0.0254, ft: 0.3048, mi: 1609.34 }\nconst UNITS = Object.keys(TO_M)\n\nexport default function App() {\n  const [v, setV] = useState(1)\n  const [from, setFrom] = useState('m')\n  const [to, setTo] = useState('ft')\n  const out = (v * TO_M[from]) / TO_M[to]\n  return (\n    <div className=\"container p-8\">\n      <div className=\"card flex-col gap-4 p-6\">\n        <input type=\"number\" value={v} onChange={e => setV(+e.target.value)} />\n        <div className=\"flex gap-4\">\n          <select value={from} onChange={e => setFrom(e.target.value)}>{UNITS.map(u => <option key={u}>{u}</option>)}</select>\n          <span>→</span>\n          <select value={to} onChange={e => setTo(e.target.value)}>{UNITS.map(u => <option key={u}>{u}</option>)}</select>\n        </div>\n        <div className=\"text-bold text-2xl\">{out.toFixed(4)} {to}</div>\n      </div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/unit-converter/src/App.tsx",
+            expect="length unit converter with from/to dropdowns and live computed result",
+            result_text="Built unit-converter: 7 length units, live conversion.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_full_password_gen",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a password generator"},
+        *_pipeline(
+            project_name="password-generator",
+            app_code="import { useState } from 'react'\nimport './index.css'\n\nconst CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'\n\nexport default function App() {\n  const [len, setLen] = useState(16)\n  const [pw, setPw] = useState('')\n  const gen = () => {\n    let s = ''\n    for (let i = 0; i < len; i++) s += CHARS[Math.floor(Math.random() * CHARS.length)]\n    setPw(s)\n  }\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <label>Length <input type=\"number\" value={len} onChange={e => setLen(+e.target.value)} min={4} max={64} /></label>\n      <button className=\"button primary\" onClick={gen}>Generate</button>\n      <div className=\"card glass p-4 text-bold\" style={{wordBreak:'break-all'}}>{pw || 'click generate'}</div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/password-generator/src/App.tsx",
+            expect="password generator with length input and generate button",
+            result_text="Built password-generator: configurable length, mixed-charset random password.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_full_tic_tac_toe",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build tic-tac-toe"},
+        *_pipeline(
+            project_name="tic-tac-toe",
+            app_code="import { useState } from 'react'\nimport './index.css'\n\ntype Cell = 'X' | 'O' | null\nconst LINES: number[][] = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]\nconst winner = (b: Cell[]): Cell => { for (const l of LINES) if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[1]] === b[l[2]]) return b[l[0]]; return null }\n\nexport default function App() {\n  const [board, setBoard] = useState<Cell[]>(Array(9).fill(null))\n  const [x, setX] = useState(true)\n  const w = winner(board)\n  const click = (i: number) => { if (board[i] || w) return; const b = [...board]; b[i] = x ? 'X' : 'O'; setBoard(b); setX(!x) }\n  const reset = () => { setBoard(Array(9).fill(null)); setX(true) }\n  return (\n    <div className=\"container p-8 flex-col flex-center gap-4\">\n      <div className=\"text-bold\">{w ? `${w} wins!` : `Turn: ${x ? 'X' : 'O'}`}</div>\n      <div className=\"grid grid-3 gap-2\" style={{maxWidth:200}}>\n        {board.map((c, i) => <button key={i} className=\"card flex-center\" style={{height:60,fontSize:24}} onClick={() => click(i)}>{c}</button>)}\n      </div>\n      <button className=\"button\" onClick={reset}>Reset</button>\n    </div>\n  )\n}\n",
+            app_path="deliverables/tic-tac-toe/src/App.tsx",
+            expect="3x3 tic-tac-toe grid, X/O alternation, win detection, reset",
+            result_text="Built tic-tac-toe: 3x3 grid, win detection, reset button.",
+        ),
+    ],
+})
+
+# --- A20-A26: recovery from project_init errors ---
+EXAMPLES.append({
+    "tag": "A_recover_name_conflict",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a notes app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "notes"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Project 'notes' already exists at deliverables/notes. Pick a unique name (e.g. notes-v2) or use file_edit to modify the existing one."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "notes-v2"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/notes-v2"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_recover_invalid_name_spaces",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a memory game"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "memory game"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Invalid name 'memory game' — must be kebab-case (lowercase + hyphens, no spaces)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "memory-game"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/memory-game"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_recover_invalid_name_caps",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a flashcard app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "FlashcardApp"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Invalid name 'FlashcardApp' — must be kebab-case (lowercase + hyphens, no spaces)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "flashcard-app"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/flashcard-app"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_recover_already_exists_pivot_to_edit",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add a clear button to my todo app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "todo-app"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Project 'todo-app' already exists at deliverables/todo-app. Pick a unique name (e.g. todo-app-v2) or use file_edit to modify the existing one."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [todos, setTodos] = useState<string[]>([])\n  const [v, setV] = useState('')\n  return (\n    <div className=\"container p-8\">\n      <input value={v} onChange={e => setV(e.target.value)} />\n      <button onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button>\n      <ul>{todos.map((t, i) => <li key={i}>{t}</li>)}</ul>\n    </div>\n  )\n}\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx",
+                           "old_text": "<button onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button>",
+                           "new_text": "<button onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button>\n      <button onClick={() => setTodos([])}>Clear</button>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_recover_scaffold_unknown",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a fancy landing page"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "fancy-landing", "template": "fancy"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Unknown template 'fancy'. Available: react-app, landing, dashboard, gamedev. Defaulting requires retry without template."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "fancy-landing", "template": "landing"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/fancy-landing (landing template)"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_recover_empty_name",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build something"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": ""}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Name is required and cannot be empty. Provide a kebab-case name like 'my-app'."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What kind of app — a calculator, a game, a tracker, something else?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_recover_disk_full",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a stopwatch"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "stopwatch"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Could not create project: disk write failed (no space left on device). Free space and retry."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "rm -rf /tmp/stale-builds && df -h /workspace | tail -1"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "/dev/sda1  100G  45G  55G  45%  /workspace"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "stopwatch"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/stopwatch"},
+    ],
+})
+
+# --- A27-A30: project_init in CWD-mode boundary cases ---
+EXAMPLES.append({
+    "tag": "A_skip_for_in_place_organize",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "organize the files in the current directory"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls -la"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "drwxr-xr-x  notes/\n-rw-r--r--  README.md\n-rw-r--r--  random.txt\n-rw-r--r--  todo.txt"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_skip_for_iteration_existing",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "in my snake game, change the snake color to green"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/snake/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...const SNAKE_COLOR = '#5a4'..."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_with_dependencies",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a charting dashboard using recharts"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "charting-dashboard", "dependencies": ["recharts"]}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/charting-dashboard with deps: recharts"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "A_long_name_kept_descriptive",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a real-time crypto portfolio tracker"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "crypto-portfolio-tracker"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/crypto-portfolio-tracker"},
+    ],
+})
+
+
+# =============================================================================
+# CHUNK B/file_write — file_write coverage (30 examples, sub-chunk 1 of 3)
+# =============================================================================
+
+for _name, _user_prompt, _code in [
+    ("counter-fw",
+     "build a counter app",
+     "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [c, setC] = useState(0)\n  return (\n    <div className=\"container flex-center\" style={{height:'100vh'}}>\n      <button className=\"button\" onClick={() => setC(c-1)}>-</button>\n      <span className=\"text-2xl text-bold\">{c}</span>\n      <button className=\"button primary\" onClick={() => setC(c+1)}>+</button>\n    </div>\n  )\n}\n"),
+    ("toggle-fw",
+     "build a dark/light toggle",
+     "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [dark, setDark] = useState(true)\n  return (\n    <div className=\"container flex-center\" style={{height:'100vh', background: dark ? '#111' : '#eee', color: dark ? '#eee' : '#111'}}>\n      <button className=\"button primary\" onClick={() => setDark(!dark)}>{dark ? 'Light' : 'Dark'} mode</button>\n    </div>\n  )\n}\n"),
+    ("flashcard-fw",
+     "build a flashcard app",
+     "import { useState } from 'react'\nimport './index.css'\n\nconst CARDS = [\n  { q: 'Capital of France?', a: 'Paris' },\n  { q: '2 + 2?', a: '4' },\n]\n\nexport default function App() {\n  const [i, setI] = useState(0)\n  const [show, setShow] = useState(false)\n  const c = CARDS[i]\n  return (\n    <div className=\"container flex-col flex-center gap-4 p-8\">\n      <div className=\"card glass p-8\" onClick={() => setShow(!show)}>{show ? c.a : c.q}</div>\n      <button className=\"button\" onClick={() => { setI((i+1) % CARDS.length); setShow(false) }}>Next</button>\n    </div>\n  )\n}\n"),
+    ("dice-fw",
+     "build a dice roller",
+     "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [v, setV] = useState(1)\n  return (\n    <div className=\"container flex-col flex-center gap-4\" style={{height:'100vh'}}>\n      <div className=\"card flex-center\" style={{width:120, height:120, fontSize:48}}>{v}</div>\n      <button className=\"button primary\" onClick={() => setV(1 + Math.floor(Math.random()*6))}>Roll</button>\n    </div>\n  )\n}\n"),
+    ("char-counter-fw",
+     "build a character counter",
+     "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [t, setT] = useState('')\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <textarea value={t} onChange={e => setT(e.target.value)} rows={6} placeholder=\"type here\" />\n      <div>{t.length} chars / {t.split(/\\s+/).filter(Boolean).length} words</div>\n    </div>\n  )\n}\n"),
+    ("base64-fw",
+     "build a base64 encoder/decoder",
+     "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [t, setT] = useState('')\n  const enc = (() => { try { return btoa(t) } catch { return 'invalid' } })()\n  const dec = (() => { try { return atob(t) } catch { return 'invalid' } })()\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <textarea value={t} onChange={e => setT(e.target.value)} rows={4} />\n      <div className=\"card p-4\"><b>Encoded:</b> {enc}</div>\n      <div className=\"card p-4\"><b>Decoded:</b> {dec}</div>\n    </div>\n  )\n}\n"),
+    ("rgb-mixer-fw",
+     "build an RGB color mixer",
+     "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [r, setR] = useState(128)\n  const [g, setG] = useState(128)\n  const [b, setB] = useState(128)\n  const hex = '#' + [r,g,b].map(n => n.toString(16).padStart(2,'0')).join('')\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"card\" style={{height:120, background:hex}} />\n      <div className=\"text-center text-bold\">{hex}</div>\n      {[['R',r,setR],['G',g,setG],['B',b,setB]].map(([l,v,s]: any) => (\n        <label key={l}>{l} <input type=\"range\" min={0} max={255} value={v} onChange={e => s(+e.target.value)} /> {v}</label>\n      ))}\n    </div>\n  )\n}\n"),
+]:
+    EXAMPLES.append({
+        "tag": f"B_write_{_name}",
+        "messages": [
+            {"role": "system", "content": SYSTEM_TEXT},
+            {"role": "user", "content": _user_prompt},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"type": "function", "function": {"name": "project_init",
+                 "arguments": {"name": _name}}}]},
+            {"role": "tool", "name": "project_init",
+             "content": f"Created project deliverables/{_name}"},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"type": "function", "function": {"name": "file_write",
+                 "arguments": {"path": f"deliverables/{_name}/src/App.tsx", "content": _code}}}]},
+            {"role": "tool", "name": "file_write",
+             "content": f"Wrote deliverables/{_name}/src/App.tsx"},
+        ],
+    })
+
+EXAMPLES.append({
+    "tag": "B_write_component_button",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "in my dashboard project, add a custom IconButton component"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/dashboard/src/components/IconButton.tsx",
+                           "content": "import { ReactNode } from 'react'\n\ntype Props = { icon: ReactNode; onClick?: () => void; label?: string }\n\nexport default function IconButton({ icon, onClick, label }: Props) {\n  return (\n    <button className=\"button ghost flex-center gap-2\" onClick={onClick} aria-label={label}>\n      {icon}\n      {label && <span>{label}</span>}\n    </button>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/dashboard/src/components/IconButton.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_component_card",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add a StatsCard component to crypto-dashboard for displaying a stat with delta"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/crypto-dashboard/src/components/StatsCard.tsx",
+                           "content": "type Props = { label: string; value: string | number; delta?: number }\n\nexport default function StatsCard({ label, value, delta }: Props) {\n  const up = (delta ?? 0) >= 0\n  return (\n    <div className=\"card p-6 flex-col gap-2\">\n      <div className=\"text-muted text-sm\">{label}</div>\n      <div className=\"text-2xl text-bold\">{value}</div>\n      {delta !== undefined && (\n        <div className={up ? 'text-accent' : 'text-danger'}>{up ? '\u2191' : '\u2193'} {Math.abs(delta)}%</div>\n      )}\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/crypto-dashboard/src/components/StatsCard.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_component_useTimer_hook",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add a useTimer hook to pomodoro-timer"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/pomodoro-timer/src/hooks/useTimer.ts",
+                           "content": "import { useEffect, useRef, useState } from 'react'\n\nexport function useTimer(initial: number) {\n  const [s, setS] = useState(initial)\n  const [running, setRunning] = useState(false)\n  const id = useRef<number | null>(null)\n  useEffect(() => {\n    if (!running) return\n    id.current = window.setInterval(() => setS(x => Math.max(0, x - 1)), 1000)\n    return () => { if (id.current) clearInterval(id.current) }\n  }, [running])\n  return { s, running, start: () => setRunning(true), pause: () => setRunning(false), reset: () => { setS(initial); setRunning(false) } }\n}\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/pomodoro-timer/src/hooks/useTimer.ts"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_main_tsx",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "I need a main.tsx that mounts App into the dom"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/quiz-app/src/main.tsx",
+                           "content": "import { StrictMode } from 'react'\nimport { createRoot } from 'react-dom/client'\nimport App from './App'\nimport './index.css'\n\ncreateRoot(document.getElementById('root')!).render(\n  <StrictMode>\n    <App />\n  </StrictMode>,\n)\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/quiz-app/src/main.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_types_file",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add a types.ts for the kanban-board project"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/kanban-board/src/types.ts",
+                           "content": "export type ColumnId = 'todo' | 'doing' | 'done'\n\nexport type Card = {\n  id: number\n  text: string\n  col: ColumnId\n  createdAt: number\n}\n\nexport const COLUMNS: ColumnId[] = ['todo', 'doing', 'done']\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/kanban-board/src/types.ts"},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "B_write_layout_css",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add layout.css with a 3-zone grid for my dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/dashboard/src/layout.css",
+                           "content": ".layout {\n  display: grid;\n  grid-template-areas: \"sidebar topbar\" \"sidebar main\";\n  grid-template-columns: 240px 1fr;\n  grid-template-rows: 56px 1fr;\n  height: 100vh;\n}\n.layout > .sidebar { grid-area: sidebar; background: var(--bg-1); }\n.layout > .topbar  { grid-area: topbar;  background: var(--bg-2); }\n.layout > .main    { grid-area: main;    padding: 24px; overflow: auto; }\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/dashboard/src/layout.css"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_index_html_override",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "set the page title to 'Tip Calc' for tip-calculator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/tip-calculator/index.html",
+                           "content": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>Tip Calc</title>\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"module\" src=\"/src/main.tsx\"></script>\n  </body>\n</html>\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/tip-calculator/index.html"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_data_json",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add a sample data file with 5 tasks for kanban-board"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/kanban-board/src/data.json",
+                           "content": "[\n  {\"id\":1,\"text\":\"Sketch UI\",\"col\":\"todo\"},\n  {\"id\":2,\"text\":\"Wire state\",\"col\":\"doing\"},\n  {\"id\":3,\"text\":\"Drag and drop\",\"col\":\"todo\"},\n  {\"id\":4,\"text\":\"Persist to localStorage\",\"col\":\"todo\"},\n  {\"id\":5,\"text\":\"Ship MVP\",\"col\":\"done\"}\n]\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/kanban-board/src/data.json"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_readme",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add a README to the snake-game project"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/snake-game/README.md",
+                           "content": "# snake-game\n\nClassic snake. Arrow keys to steer, eat the red dot, don't hit walls or yourself.\n\n## Run\n```\nnpm install\nnpm run dev\n```\n\n## Build\n```\nnpm run build\n```\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/snake-game/README.md"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_test_html",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a single-file HTML traffic light page"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "traffic-light"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/traffic-light"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/traffic-light/index.html",
+                           "content": "<!doctype html>\n<html><head><title>Traffic Light</title><style>\nbody { margin: 0; height: 100vh; display: grid; place-items: center; background: #222; }\n.housing { background: #000; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; }\n.light { width: 80px; height: 80px; border-radius: 50%; opacity: 0.3; }\n.light.on { opacity: 1; box-shadow: 0 0 30px currentColor; }\n.red { background: #f44; color: #f44; }\n.yellow { background: #fc4; color: #fc4; }\n.green { background: #4f4; color: #4f4; }\n</style></head><body>\n<div class=\"housing\">\n  <div class=\"light red on\"></div>\n  <div class=\"light yellow\"></div>\n  <div class=\"light green\"></div>\n</div>\n<script>\nconst lights = document.querySelectorAll('.light');\nlet i = 0;\nsetInterval(() => { lights.forEach(l => l.classList.remove('on')); lights[i].classList.add('on'); i = (i + 1) % 3; }, 1500);\n</script>\n</body></html>\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/traffic-light/index.html"},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "B_write_full_stopwatch",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a stopwatch"},
+        *_pipeline(
+            project_name="stopwatch",
+            app_code="import { useEffect, useRef, useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [ms, setMs] = useState(0)\n  const [running, setRunning] = useState(false)\n  const start = useRef(0)\n  useEffect(() => {\n    if (!running) return\n    start.current = Date.now() - ms\n    const id = setInterval(() => setMs(Date.now() - start.current), 10)\n    return () => clearInterval(id)\n  }, [running])\n  const fmt = (n: number) => String(n).padStart(2, '0')\n  const m = Math.floor(ms / 60000)\n  const s = Math.floor((ms % 60000) / 1000)\n  const cs = Math.floor((ms % 1000) / 10)\n  return (\n    <div className=\"container flex-col flex-center gap-4\" style={{height:'100vh'}}>\n      <div className=\"text-2xl text-bold\">{fmt(m)}:{fmt(s)}.{fmt(cs)}</div>\n      <div className=\"flex gap-4\">\n        <button className=\"button primary\" onClick={() => setRunning(!running)}>{running ? 'Pause' : 'Start'}</button>\n        <button className=\"button\" onClick={() => { setMs(0); setRunning(false) }}>Reset</button>\n      </div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/stopwatch/src/App.tsx",
+            expect="stopwatch with start/pause and reset buttons; mm:ss.cs display",
+            result_text="Built stopwatch: start/pause/reset, centisecond precision.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_full_typing_test",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a typing speed test"},
+        *_pipeline(
+            project_name="typing-test",
+            app_code="import { useState } from 'react'\nimport './index.css'\n\nconst PHRASE = 'the quick brown fox jumps over the lazy dog'\n\nexport default function App() {\n  const [t, setT] = useState('')\n  const [start, setStart] = useState<number | null>(null)\n  const handle = (v: string) => { if (!start) setStart(Date.now()); setT(v) }\n  const elapsed = start ? (Date.now() - start) / 1000 : 0\n  const wpm = elapsed > 0 ? Math.round((t.split(/\\s+/).filter(Boolean).length / elapsed) * 60) : 0\n  const correct = PHRASE.startsWith(t)\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"card p-4 text-lg\">{PHRASE}</div>\n      <input value={t} onChange={e => handle(e.target.value)} className=\"card p-4\" style={{borderColor: correct ? '#4f4' : '#f44'}} />\n      <div className=\"text-bold\">{wpm} WPM {t === PHRASE && '\u2713 done'}</div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/typing-test/src/App.tsx",
+            expect="typing speed test, WPM counter, completion check",
+            result_text="Built typing-test: type the phrase, see live WPM.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_full_palette",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a palette generator that shows 5 random colors"},
+        *_pipeline(
+            project_name="palette-gen",
+            app_code="import { useState } from 'react'\nimport './index.css'\n\nconst rand = () => '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0')\nconst gen = () => Array.from({ length: 5 }, rand)\n\nexport default function App() {\n  const [palette, setPalette] = useState<string[]>(gen())\n  return (\n    <div className=\"container flex-col gap-4 p-8\">\n      <div className=\"flex\" style={{height:200}}>\n        {palette.map((c, i) => (\n          <div key={i} style={{flex:1, background:c}} className=\"flex-center text-bold\">{c}</div>\n        ))}\n      </div>\n      <button className=\"button primary\" onClick={() => setPalette(gen())}>Generate</button>\n    </div>\n  )\n}\n",
+            app_path="deliverables/palette-gen/src/App.tsx",
+            expect="5-color palette display + generate button that randomizes the colors",
+            result_text="Built palette-gen: 5 random hex colors, regenerate on click.",
+        ),
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "B_write_recover_dir_missing",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add a Layout component to my dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/dashboard/src/components/Layout.tsx",
+                           "content": "export default function Layout({ children }: { children: React.ReactNode }) {\n  return <div className=\"layout\">{children}</div>\n}\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Could not write deliverables/dashboard/src/components/Layout.tsx \u2014 directory deliverables/dashboard/src/components does not exist."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "mkdir -p deliverables/dashboard/src/components"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": ""},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/dashboard/src/components/Layout.tsx",
+                           "content": "export default function Layout({ children }: { children: React.ReactNode }) {\n  return <div className=\"layout\">{children}</div>\n}\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/dashboard/src/components/Layout.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_recover_path_not_in_project",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "write App.tsx for the dice-roller"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "src/App.tsx", "content": "// dice\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Refusing write to src/App.tsx \u2014 path is outside any project directory. Use deliverables/<project-name>/src/App.tsx."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/dice-roller/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [v, setV] = useState(1)\n  return (\n    <div className=\"container flex-col flex-center gap-4\" style={{height:'100vh'}}>\n      <div className=\"card flex-center\" style={{width:120,height:120,fontSize:48}}>{v}</div>\n      <button className=\"button primary\" onClick={() => setV(1 + Math.floor(Math.random()*6))}>Roll</button>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/dice-roller/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_recover_no_project_init_yet",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a memo app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/memo-app/src/App.tsx", "content": "// memo\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Project deliverables/memo-app does not exist. Run project_init first."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "memo-app"}}}]},
+        {"role": "tool", "name": "project_init",
+         "content": "Created project deliverables/memo-app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/memo-app/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [memos, setMemos] = useState<string[]>([])\n  const [t, setT] = useState('')\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"flex gap-2\">\n        <input value={t} onChange={e => setT(e.target.value)} placeholder=\"new memo\" />\n        <button className=\"button primary\" onClick={() => { if (t) { setMemos([t, ...memos]); setT('') } }}>Add</button>\n      </div>\n      <ul className=\"flex-col gap-2\">{memos.map((m, i) => <li key={i} className=\"card p-3\">{m}</li>)}</ul>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/memo-app/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_recover_overwrite_warning",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "rewrite the App.tsx in todo-app to add a counter"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { useState } from 'react'\n\nexport default function App() {\n  const [todos, setTodos] = useState<string[]>([])\n  const [v, setV] = useState('')\n  return (\n    <div>\n      <input value={v} onChange={e => setV(e.target.value)} />\n      <button onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button>\n      <ul>{todos.map((t, i) => <li key={i}>{t}</li>)}</ul>\n    </div>\n  )\n}\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx",
+                           "content": "import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [todos, setTodos] = useState<string[]>([])\n  const [v, setV] = useState('')\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"text-bold\">{todos.length} item{todos.length === 1 ? '' : 's'}</div>\n      <div className=\"flex gap-2\">\n        <input value={v} onChange={e => setV(e.target.value)} />\n        <button className=\"button primary\" onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button>\n      </div>\n      <ul>{todos.map((t, i) => <li key={i}>{t}</li>)}</ul>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/todo-app/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_recover_disk_full",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "save the new components/Hero.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/landing/src/components/Hero.tsx",
+                           "content": "export default function Hero() { return <section className=\"hero p-8\"><h1>Welcome</h1></section> }\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Write failed: no space left on device."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "rm -rf deliverables/*/node_modules/.cache && df -h | tail -1"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "/dev/sda1  100G  72G  28G  72%  /"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/landing/src/components/Hero.tsx",
+                           "content": "export default function Hero() { return <section className=\"hero p-8\"><h1>Welcome</h1></section> }\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/landing/src/components/Hero.tsx"},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "B_write_with_template_literals",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add a logger utility that uses template literals and backticks"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/dashboard/src/lib/logger.ts",
+                           "content": "type Level = 'info' | 'warn' | 'error'\n\nexport function log(level: Level, msg: string, data?: unknown) {\n  const ts = new Date().toISOString()\n  const line = `[${ts}] [${level.toUpperCase()}] ${msg}`\n  if (data !== undefined) console[level](line, data)\n  else console[level](line)\n}\n\nexport const info  = (m: string, d?: unknown) => log('info', m, d)\nexport const warn  = (m: string, d?: unknown) => log('warn', m, d)\nexport const error = (m: string, d?: unknown) => log('error', m, d)\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/dashboard/src/lib/logger.ts"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_jsx_with_braces",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add a CountdownDisplay component that handles {0,0,0,0} edge case"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/countdown-timer/src/CountdownDisplay.tsx",
+                           "content": "type Props = { d: number; h: number; m: number; s: number }\n\nexport default function CountdownDisplay({ d, h, m, s }: Props) {\n  const done = d === 0 && h === 0 && m === 0 && s === 0\n  return (\n    <div className=\"card p-6 text-2xl text-center\">\n      {done ? '\u23f0 time up' : `${d}d ${h}h ${m}m ${s}s`}\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/countdown-timer/src/CountdownDisplay.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_write_with_quotes_in_strings",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add quotes data with apostrophes for the quote-generator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/quote-generator/src/quotes.ts",
+                           "content": "export const QUOTES = [\n  \"It always seems impossible until it's done. \u2014 Mandela\",\n  \"Don't watch the clock; do what it does. Keep going. \u2014 Levenson\",\n  \"You're braver than you believe. \u2014 Milne\",\n  \"What we think, we become. \u2014 Buddha\",\n]\n"}}}]},
+        {"role": "tool", "name": "file_write",
+         "content": "Wrote deliverables/quote-generator/src/quotes.ts"},
+    ],
+})
+
+
 def render_example(ex: dict, tokenizer) -> str:
     """Render a structured example into the Gemma-4 chat template format."""
     return tokenizer.apply_chat_template(ex["messages"], tools=TOOLS, tokenize=False)
