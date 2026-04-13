@@ -1465,6 +1465,24 @@ INT_PROMPTS = [
     {"id": "IH01", "level": "hard", "prompt": "Build a kanban board with 3 columns and draggable cards"},
     {"id": "IH02", "level": "hard", "prompt": "Build a markdown editor with live preview"},
     {"id": "IH03", "level": "hard", "prompt": "Build an expense tracker with categories and a chart"},
+
+    # Vision — must call riptide on the reference, then build to match
+    {"id": "IV01", "level": "vision",
+     "prompt": (
+        "Build a calculator HTML page that matches this reference layout: "
+        f"{str(Path(__file__).parent / 'eval_assets' / 'calculator_ref.png')}. "
+        "Use riptide to extract the positions of the display, the four operator buttons (+, -, ×, ÷), "
+        "and the equals button before writing any code."
+     ),
+     "expect_tools": ["riptide", "undertow"]},
+
+    # Vision — agent should screenshot-verify the build with undertow before finishing
+    {"id": "IV02", "level": "vision",
+     "prompt": (
+        "Build a single-page traffic-light HTML page with red, yellow, green circles stacked vertically "
+        "in a black housing. After you write the file, run undertow against it to verify the layout."
+     ),
+     "expect_tools": ["undertow"]},
 ]
 
 
