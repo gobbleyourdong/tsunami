@@ -26,7 +26,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 REPO = os.path.expanduser("~/ComfyUI/CelebV-HQ/ark")
-OUTPUT_PDF = os.path.join(REPO, "DAILY_REPORT.pdf")
+OUTPUT_PDF = os.path.join(REPO, "docs", "DAILY_REPORT.pdf")
 SCRATCHPAD = os.path.join(REPO, "SCRATCHPAD.md")
 DELIVERABLES = os.path.join(REPO, "workspace", "deliverables")
 
