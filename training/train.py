@@ -47,9 +47,11 @@ parser.add_argument("--target-modules", default="all-linear",
 parser.add_argument("--warmup-ratio", type=float, default=0.03,
                     help="Cosine warmup ratio. Unsloth notebook default 0.03.")
 parser.add_argument("--base-model", default="google/gemma-4-e4b-it", help="Base model path or HF name")
-parser.add_argument("--max-len", type=int, default=16384)
+parser.add_argument("--max-len", type=int, default=2048,
+                    help="Max sequence length. Unsloth notebook: 2048.")
 parser.add_argument("--batch", type=int, default=1)
-parser.add_argument("--grad-accum", type=int, default=16)
+parser.add_argument("--grad-accum", type=int, default=4,
+                    help="Gradient accumulation. Unsloth notebook: 4.")
 parser.add_argument("--gguf", default=None, help="(deprecated, ignored)")
 parser.add_argument("--merge", action="store_true", help="Merge LoRA into base and save full HF weights")
 parser.add_argument("--load-in-4bit", action="store_true", help="Load base model in 4-bit (for large models like 31B)")
@@ -61,26 +63,28 @@ args = parser.parse_args()
 # ==========================================
 from unsloth import FastLanguageModel
 
-lora_alpha = args.lora_alpha if args.lora_alpha else args.lora_r  # Unsloth: alpha == r
-log.info(f"Loading {args.base_model} with Unsloth (LoRA r={args.lora_r}, alpha={lora_alpha}, dropout={args.lora_dropout})...")
+# Replicate the Unsloth Gemma 4 notebook verbatim — ALL params they use.
+# Source: ~/Downloads/copy_of_gemma4_(e4b)_vision.py
+lora_alpha = args.lora_alpha if args.lora_alpha else args.lora_r  # Notebook: alpha == r
+log.info(f"Loading {args.base_model} — Unsloth recipe (r={args.lora_r}, alpha={lora_alpha})")
+
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=args.base_model,
-    max_seq_length=args.max_len,
-    dtype=None,  # auto-detect
-    load_in_4bit=args.load_in_4bit,
+    load_in_4bit=True,                        # NOTEBOOK: True (reduce memory)
+    use_gradient_checkpointing="unsloth",     # NOTEBOOK (on from_pretrained, not get_peft_model)
 )
 
-log.info("Applying LoRA...")
+log.info("Applying LoRA per Unsloth recipe...")
 model = FastLanguageModel.get_peft_model(
     model,
-    r=args.lora_r,
-    lora_alpha=lora_alpha,
-    lora_dropout=args.lora_dropout,
-    bias="none",
-    target_modules=(args.target_modules if args.target_modules != "all-linear"
-                    else "all-linear").split(",") if "," in args.target_modules else args.target_modules,
-    use_gradient_checkpointing="unsloth",  # Unsloth's optimization
-    random_state=3407,
+    r=args.lora_r,                    # NOTEBOOK: 32
+    lora_alpha=lora_alpha,            # NOTEBOOK: 32 (== r)
+    lora_dropout=0,                   # NOTEBOOK: 0
+    bias="none",                      # NOTEBOOK: "none"
+    random_state=3407,                # NOTEBOOK: 3407
+    use_rslora=False,                 # NOTEBOOK: False
+    loftq_config=None,                # NOTEBOOK: None
+    target_modules="all-linear",      # NOTEBOOK: "all-linear"
 )
 
 trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -95,17 +99,43 @@ if hasattr(tokenizer, 'tokenizer'):
 
 # ==========================================
 # LOAD DATA
+# Supports two input formats:
+#   1. Legacy: {"text": "<pre-rendered chat template>"}
+#   2. Unsloth-style: {"messages": [{"role":"user","content":"..."}, ...]}
+#      — we render via unsloth.get_chat_template at train time.
 # ==========================================
 data = []
+has_messages = False
 with open(args.data) as f:
     for line in f:
         ex = json.loads(line)
-        data.append({"text": ex["text"]})
+        if "messages" in ex:
+            has_messages = True
+            data.append({"messages": ex["messages"]})
+        elif "text" in ex:
+            data.append({"text": ex["text"]})
 
-log.info(f"Loaded {len(data)} examples from {args.data}")
+log.info(f"Loaded {len(data)} examples from {args.data} "
+         f"(format: {'messages' if has_messages else 'text'})")
 
 from datasets import Dataset
 dataset = Dataset.from_list(data)
+
+# If the dataset is structured (messages), apply Unsloth's patched chat template
+# AND render to text ourselves. SFTTrainer's dataset_text_field="text" still works.
+if has_messages:
+    try:
+        from unsloth import get_chat_template
+        tokenizer = get_chat_template(tokenizer, "gemma-4")
+        log.info("Applied unsloth get_chat_template('gemma-4')")
+    except Exception as e:
+        log.warning(f"get_chat_template failed: {e} — using tokenizer default")
+    def _render(ex):
+        text = tokenizer.apply_chat_template(
+            ex["messages"], tools=None, tokenize=False, add_generation_prompt=False)
+        return {"text": text}
+    dataset = dataset.map(_render, remove_columns=["messages"])
+    log.info(f"Rendered {len(dataset)} messages → text via patched template")
 
 # ==========================================
 # RESPONSE-ONLY MASKING (custom collator, works with any TRL version)
@@ -168,31 +198,34 @@ log.info(f"Response-only masking on <|turn>model tokens (instruction markers: us
 # ==========================================
 from trl import SFTTrainer, SFTConfig
 
+# SFTConfig — replicate the Unsloth notebook verbatim.
+# Source: ~/Downloads/copy_of_gemma4_(e4b)_vision.py SFTConfig block.
 sft_config_kwargs = dict(
+    per_device_train_batch_size=args.batch,          # NOTEBOOK: 1
+    gradient_accumulation_steps=args.grad_accum,     # NOTEBOOK: 4
+    max_grad_norm=0.3,                               # NOTEBOOK: 0.3
+    warmup_ratio=args.warmup_ratio,                  # NOTEBOOK: 0.03
+    learning_rate=args.lr,                           # NOTEBOOK: 2e-4
+    logging_steps=1,                                 # NOTEBOOK: 1
+    save_strategy="steps",                           # NOTEBOOK: "steps"
+    optim="adamw_8bit",                              # NOTEBOOK: "adamw_8bit"
+    weight_decay=0.001,                              # NOTEBOOK: 0.001
+    lr_scheduler_type="cosine",                      # NOTEBOOK: "cosine"
+    seed=3407,                                       # NOTEBOOK: 3407
     output_dir=args.output,
-    run_name=args.run_name,
-    num_train_epochs=args.epochs,
-    per_device_train_batch_size=args.batch,
-    gradient_accumulation_steps=args.grad_accum,
-    learning_rate=args.lr,
-    lr_scheduler_type="cosine",
-    warmup_ratio=args.warmup_ratio,  # replaces fixed warmup_steps=10
-    bf16=True,
-    logging_steps=1,  # Unsloth notebook default — tight feedback loop
-    save_strategy="steps",
-    save_steps=50,
-    report_to="none",
-    max_grad_norm=0.3,
-    optim="adamw_8bit",  # Unsloth notebook default (was adamw_torch_fused)
-    weight_decay=0.001,
-    max_seq_length=args.max_len,
+    report_to="none",                                # NOTEBOOK: "none"
+    remove_unused_columns=False,                     # NOTEBOOK: False
+    max_length=args.max_len,                         # NOTEBOOK: 2048
     dataset_text_field="text",
-    seed=3407,
+    run_name=args.run_name,
+    save_steps=50,
+    bf16=True,
 )
-# max_steps overrides num_train_epochs when set — lets you run quick 60-step
-# iterations for fast hyperparam probes (Unsloth notebook default).
+# max_steps from notebook is 60 (for quick iter). If not passed, use num_train_epochs.
 if args.max_steps:
-    sft_config_kwargs["max_steps"] = args.max_steps
+    sft_config_kwargs["max_steps"] = args.max_steps  # NOTEBOOK: 60
+else:
+    sft_config_kwargs["num_train_epochs"] = args.epochs
 sft_config = SFTConfig(**sft_config_kwargs)
 
 trainer = SFTTrainer(
