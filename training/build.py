@@ -4925,6 +4925,397 @@ EXAMPLES.append({
 })
 
 
+# =============================================================================
+# CHUNK F/search_web — search_web coverage (30 examples)
+#
+# When uncertain, search FIRST. For visual clones, search for reference
+# images. For unfamiliar APIs, search for current docs. Stop searching
+# once you have enough — don't loop on searches.
+# =============================================================================
+
+# --- F1-F6: standard code/API searches ---
+EXAMPLES.append({
+    "tag": "F_search_api_recharts",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "how do I do a stacked bar chart in recharts"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "recharts BarChart stacked example"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. recharts.org/api/BarChart — pass `stackId` prop to multiple <Bar /> children with the same id to stack them. 2. Example: <BarChart><Bar dataKey='a' stackId='1' /><Bar dataKey='b' stackId='1' /></BarChart>"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_react_hook",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's the React hook for keyboard shortcuts"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react keyboard shortcut useEffect window addEventListener pattern"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. Standard pattern is useEffect with window.addEventListener('keydown', handler) and a cleanup function. 2. react-hotkeys-hook library wraps this into useHotkeys('cmd+s', handler)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_css_grid",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "how do I make a 3-column css grid where the middle column is wider"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "css grid 3 columns middle wider grid-template-columns fr"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. Use grid-template-columns: 1fr 2fr 1fr — fr units divide the available space proportionally. 2. Or fixed: 200px 1fr 200px for fixed sidebars."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_js_idiom",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's the idiomatic way to deep-clone a JSON-safe object in modern JS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "javascript structuredClone vs JSON parse stringify deep clone 2025"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. structuredClone() is the modern built-in (Node 17+, all browsers). Handles Maps, Sets, Dates, etc. 2. JSON.parse(JSON.stringify(x)) still works for pure-JSON-safe objects but loses Dates/Maps."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_npm_package",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's a good lightweight markdown parser for React"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react markdown parser lightweight comparison 2025 react-markdown marked remark"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. react-markdown — most popular, plugin ecosystem, ~50KB. 2. marked — standalone, fastest, ~30KB, you wire React yourself. 3. Use react-markdown unless you need raw speed."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_html_canvas",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "how to do high-DPI canvas rendering"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "html5 canvas devicePixelRatio retina high-dpi rendering"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. Set canvas.width = cssWidth * window.devicePixelRatio. 2. Set canvas.style.width = cssWidth + 'px'. 3. Then ctx.scale(devicePixelRatio, devicePixelRatio) at the start of each draw."},
+    ],
+})
+
+# --- F7-F11: image searches for clone tasks ---
+EXAMPLES.append({
+    "tag": "F_search_image_dashboard_ref",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "I want to clone a clean SaaS dashboard, find a reference image"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "modern saas dashboard ui screenshot 2025 inspiration"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. dribbble.com/shots/saas-dashboard — minimalist sidebar+topbar+stat cards layout. 2. linear.app/screenshots — stark dark-mode dashboard. 3. Common pattern: 240px sidebar, 56px topbar, content grid below."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_image_landing_ref",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "find a landing page that looks like Stripe's"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "Stripe landing page layout hero section gradient 2025"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. stripe.com homepage — full-width gradient hero, headline left, animated graphic right, CTA below. 2. Style: deep navy background, vibrant gradient mesh, sans-serif headlines."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_image_game_ui_ref",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "I want a Game Boy UI clone — find me a reference"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "original Game Boy DMG-01 layout dpad buttons screen reference image"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. Wikipedia Game Boy reference photo — vertical body, screen upper-center (~64% width), D-pad lower-left, A/B buttons lower-right diagonal, Start/Select bottom-center, speaker lower-right corner."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_image_color_palette",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "find me a moody dark palette for a music app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "dark moody color palette music app interface deep purple teal"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. Common palette: #0f0f1f (background), #1a1a2e (cards), #6b46c1 (primary), #14b8a6 (accent), #e2e8f0 (text). 2. Spotify dark uses near-black #121212 + green #1ed760 accent."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_image_pricing_ref",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "find a pricing page reference"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "saas pricing page 3 tier cards toggle monthly annual reference"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. Standard: 3 horizontal pricing cards with the middle highlighted (most popular). Toggle for monthly/annual at top. Feature comparison table below."},
+    ],
+})
+
+# --- F12-F16: research-then-build sequences ---
+EXAMPLES.append({
+    "tag": "F_search_then_build_chart",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a dashboard with a sparkline chart"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react sparkline component lightweight no dependencies"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. react-sparklines — 8KB, simple API: <Sparklines data={[5,10,5,20]}><SparklinesLine /></Sparklines>. 2. Or hand-roll with SVG <polyline> in ~20 lines."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_then_build_drag",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what library should I use for drag-and-drop in React"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react drag and drop library 2025 dnd-kit react-beautiful-dnd comparison"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. dnd-kit — modern, flexible, accessible, the de-facto choice. 2. react-beautiful-dnd is unmaintained as of 2024. 3. For simple cases, native HTML5 dragstart/dragover/drop is fine."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_then_build_form",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a form with strong validation"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react form validation 2025 zod react-hook-form pattern"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. react-hook-form + zod is the standard stack. zod schema for types + validation, useForm({resolver: zodResolver(schema)}) for the form. 2. Both ~10KB total."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_then_build_animation",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's the simplest way to animate a list reorder"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react list reorder animation FLIP technique framer-motion AnimatePresence"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. framer-motion's AnimatePresence + layout prop on <motion.li> handles reorder for free. 2. FLIP-based; ~70KB. 3. For tiny case, react-flip-toolkit is ~20KB."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_then_build_audio",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "how do I play a sound on click in the browser"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "html5 audio play on click react useRef AudioContext minimal"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. const audio = new Audio('/click.mp3'); button onClick={() => audio.play()}. 2. For game-style with overlap, use AudioContext + AudioBufferSource."},
+    ],
+})
+
+# --- F17-F19: stop-searching pattern (model decides it has enough, builds) ---
+EXAMPLES.append({
+    "tag": "F_stop_searching_have_enough",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a counter app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "counter-simple"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/counter-simple"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_once_then_commit",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a markdown editor with live preview"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react-markdown basic example with textarea split view"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. import ReactMarkdown from 'react-markdown'. 2. Two-pane: <textarea value={md} onChange={...} /> on left, <ReactMarkdown>{md}</ReactMarkdown> on right."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "markdown-editor-live"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/markdown-editor-live"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_no_search_for_obvious_task",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a digital clock"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "digital-clock-simple"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/digital-clock-simple"},
+    ],
+})
+
+# --- F20-F23: in full pipelines (search → research-driven build) ---
+EXAMPLES.append({
+    "tag": "F_pipeline_search_then_full_build",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a sparkline dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react sparkline svg polyline minimal"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. SVG <polyline points='0,50 10,30 20,40 30,10' /> with stroke. 2. Width = data.length * step, scale Y to height."},
+        *_pipeline(
+            project_name="sparkline-dash",
+            app_code="import './index.css'\n\nfunction Sparkline({ data, w = 200, h = 40 }: { data: number[]; w?: number; h?: number }) {\n  const max = Math.max(...data)\n  const min = Math.min(...data)\n  const range = max - min || 1\n  const step = w / (data.length - 1)\n  const points = data.map((v, i) => `${i * step},${h - ((v - min) / range) * h}`).join(' ')\n  return <svg width={w} height={h}><polyline fill=\"none\" stroke=\"#14b8a6\" strokeWidth={2} points={points} /></svg>\n}\n\nconst SERIES = [\n  { name: 'Revenue',  data: [12, 19, 15, 25, 22, 28, 32] },\n  { name: 'Users',    data: [120, 130, 128, 145, 160, 158, 175] },\n  { name: 'Sessions', data: [80, 95, 88, 110, 105, 120, 132] },\n]\n\nexport default function App() {\n  return (\n    <div className=\"container p-8\">\n      <div className=\"grid grid-3 gap-4\">\n        {SERIES.map(s => (\n          <div key={s.name} className=\"card p-6 flex-col gap-2\">\n            <div className=\"text-muted text-sm\">{s.name}</div>\n            <div className=\"text-2xl text-bold\">{s.data[s.data.length - 1]}</div>\n            <Sparkline data={s.data} />\n          </div>\n        ))}\n      </div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/sparkline-dash/src/App.tsx",
+            expect="3-card dashboard with sparkline charts",
+            result_text="Built sparkline-dash: 3 stat cards each with hand-rolled SVG sparkline.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_image_then_riptide_then_build",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a Spotify-style player UI"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "Spotify desktop player layout sidebar nav main library now-playing bar reference"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. Layout: 240px left sidebar (library), main content area, 80px now-playing bar fixed bottom. 2. Dark theme #121212 background, #1ed760 accent green."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "spotify-style-player"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/spotify-style-player"},
+    ],
+})
+
+# --- F24-F28: recovery from search_web errors ---
+EXAMPLES.append({
+    "tag": "F_search_recover_no_results",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "search for something niche"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "obscure xyzpdq library example 2099"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "No results for 'obscure xyzpdq library example 2099'. Try a broader query or check spelling."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "xyzpdq alternative library similar"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. xyzpdq is not a known library — possibly a typo. Did you mean 'xyz-flow' or another similar name?"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_recover_too_broad",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "search for js"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "js"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Query too broad — 'js' returns millions of results. Provide a specific topic, library, or question."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Need more specifics — what about JS were you trying to find? A library, a syntax question, a runtime?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_recover_network_error",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "search react state management 2025"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react state management 2025 zustand jotai redux"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Network error: connection refused. Search backend unreachable; retry in a moment."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react state management 2025 zustand jotai redux"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. zustand — minimal, ~3KB, hooks-first, top choice 2025. 2. jotai — atomic state, similar size, more granular. 3. Redux Toolkit — heavier but standard for large apps."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_recover_paywall_hit",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "look up the Apple Human Interface Guidelines for buttons"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "Apple Human Interface Guidelines button sizes spacing 2025"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. developer.apple.com/design/human-interface-guidelines/buttons (paywalled excerpt). 2. Open summary on UI Patterns blog: minimum 44pt tap target, 8pt spacing, primary in tint color."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_recover_repeat_loop_break",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a chart"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "react chart library 2025"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. recharts — most popular. 2. visx — Airbnb's, low-level. 3. chart.js + react-chartjs-2 — solid."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "chart-demo"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/chart-demo"},
+    ],
+})
+
+# --- F29-F30: edge cases ---
+EXAMPLES.append({
+    "tag": "F_search_specific_version",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's the breaking change in React 19 for forwardRef"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "React 19 forwardRef deprecation ref as prop changelog"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. React 19: forwardRef is deprecated. Function components now accept `ref` as a normal prop. 2. Migration: replace forwardRef wrappers with components that destructure `ref` from props."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "F_search_returns_image_url_for_riptide",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "find a reference for a retro arcade cabinet"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "search_web",
+             "arguments": {"query": "classic arcade cabinet vertical layout joystick buttons coin slot reference image"}}}]},
+        {"role": "tool", "name": "search_web",
+         "content": "Results: 1. Vertical cabinet, ~24% screen at top, control panel with joystick (left) and 6 buttons (right) middle, marquee top, coin slot bottom. 2. Reference: /tmp/arcade-ref.png saved locally."},
+    ],
+})
+
+
 def render_example(ex: dict, tokenizer) -> str:
     """Render a structured example into the Gemma-4 chat template format."""
     return tokenizer.apply_chat_template(ex["messages"], tools=TOOLS, tokenize=False)
