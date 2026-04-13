@@ -30,6 +30,10 @@ if not any(_a in ("-h", "--help") for _a in _sys.argv):
         elif _a.startswith("--host="):
             _host = _a.split("=", 1)[1]
     _probe = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+    # SO_REUSEADDR lets us bind even when the previous server left the port
+    # in TIME_WAIT (common after kill-and-restart cycles). Without this, you
+    # get "[Errno 98] Address already in use" for up to 60s after a kill.
+    _probe.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
     try:
         _probe.bind((_host, _port))
     except OSError as _e:
