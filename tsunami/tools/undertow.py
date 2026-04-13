@@ -37,15 +37,27 @@ class Undertow(BaseTool):
             # Fallback: if the model didn't pass expect, use the session's
             # original user prompt. Without this, undertow with no expect
             # runs only a 2-lever plan (console + screenshot, no compare)
-            # and placeholder deliverables silently pass. This is the same
-            # module-global pattern filesystem.py uses for exfil checks;
-            # it's a hack but an existing consistent one.
+            # and placeholder deliverables silently pass.
             if not expect:
                 try:
                     from .filesystem import _session_task_prompt
                     expect = _session_task_prompt or ""
                 except Exception:
                     pass
+            # Resolve workspace-relative paths the same way file_write does.
+            # Without this, undertow couldn't find dist/index.html when the
+            # model wrote `path: "dist/index.html"` or `deliverables/.../...`
+            # because it treated the arg as CWD-relative. Mirror file_write's
+            # _resolve_path so paths the model can write are paths undertow
+            # can read. (2026-04-13 zero-shot smoke fix.)
+            from .filesystem import _resolve_path, _active_project
+            from pathlib import Path as _P
+            try:
+                resolved = _resolve_path(path, self.config.workspace_dir, _active_project)
+                if _P(resolved).exists():
+                    path = str(resolved)
+            except Exception:
+                pass
             from ..undertow import run_drag, format_qa_report
             result = await run_drag(path, user_request=expect)
             report = format_qa_report(result)
