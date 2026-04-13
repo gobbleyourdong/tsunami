@@ -1,7 +1,20 @@
 #!/bin/bash
 # TSUNAMI — Reborn from the Flood
 DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
-cd "$DIR"
+USER_CWD="$PWD"        # remember where the user invoked us
+cd "$DIR"              # cd to repo so python imports + relative paths work
+
+# Workspace resolution:
+#   - If user ran tsu from inside the repo → use repo's workspace/ (legacy).
+#   - If user ran from somewhere else → build there (their project dir).
+#   - TSUNAMI_WORKSPACE env var always wins.
+if [ -z "${TSUNAMI_WORKSPACE:-}" ]; then
+  case "$USER_CWD" in
+    "$DIR"|"$DIR"/*) : ;;  # inside repo → leave default
+    *) export TSUNAMI_WORKSPACE="$USER_CWD" ;;
+  esac
+fi
+[ -n "${TSUNAMI_WORKSPACE:-}" ] && echo "  workspace: $TSUNAMI_WORKSPACE"
 
 # Auto-update on launch (silent, non-blocking)
 if [ -d "$DIR/.git" ]; then
