@@ -1022,15 +1022,17 @@ class Agent:
 
         log.info(f"[{self.state.iteration}] Tool: {tool_call.name} | Args: {_truncate(tool_call.arguments)}")
 
-        # 3a. message_result gate: require a successful undertow call first.
-        # v89 (and current models) occasionally skip undertow and deliver
-        # placeholder code straight to message_result. Gate this at the agent
-        # level — if the last 10 tool calls don't include undertow, refuse
-        # the delivery and tell the model to QA first.
+        # 3a. message_result gate: require a successful undertow call first —
+        # BUT ONLY if there's actual build activity to QA. Chat prompts route
+        # through message_chat(done=true)→message_result with no build, and
+        # we must let them deliver. Gate fires only when project_init,
+        # file_write, file_edit, or shell_exec is in recent history.
         if tool_call.name == "message_result":
             recent = self._tool_history[-10:]
-            if "undertow" not in recent:
-                log.info("message_result without preceding undertow — forcing QA")
+            build_tools = {"project_init", "file_write", "file_edit", "shell_exec"}
+            has_build = any(t in build_tools for t in recent)
+            if has_build and "undertow" not in recent:
+                log.info("message_result after build without preceding undertow — forcing QA")
                 self.state.add_system_note(
                     "REFUSED message_result: you haven't run undertow yet. "
                     "Call undertow(path=\"dist/index.html\") first — it auto-tests "

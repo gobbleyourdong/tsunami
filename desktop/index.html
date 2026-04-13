@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tsunami</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ── Dark (default) ─────────────────────────────────────────────── */
+    :root, [data-theme="dark"] {
+      --bg: #08090d; --bg2: #0e1014; --panel: #111318; --panel2: #191c24;
+      --border: rgba(255,255,255,0.06); --border-hi: rgba(255,255,255,0.12);
+      --text: #d0d2d8; --muted: #505568;
+      --accent: #4a9eff; --accent-glow: rgba(74,158,255,0.15); --accent-bright: #6ab4ff;
+      --green: #34d4b0; --yellow: #d4a834; --red: #d44848;
+      --blue: #5090d4; --purple: #8060c4; --orange: #d47834;
+    }
+    /* ── Medium ─────────────────────────────────────────────────────── */
+    [data-theme="medium"] {
+      --bg: #16181e; --bg2: #1c1e26; --panel: #21242e; --panel2: #282c38;
+      --border: rgba(255,255,255,0.08); --border-hi: rgba(255,255,255,0.14);
+      --text: #d8dae0; --muted: #606578;
+      --accent: #5aa8ff; --accent-glow: rgba(90,168,255,0.15); --accent-bright: #7abcff;
+    }
+    /* ── Light ──────────────────────────────────────────────────────── */
+    [data-theme="light"] {
+      --bg: #f4f5f7; --bg2: #ebedf0; --panel: #e2e4e8; --panel2: #d8dae0;
+      --border: rgba(0,0,0,0.08); --border-hi: rgba(0,0,0,0.14);
+      --text: #1a1c24; --muted: #6a6e7e;
+      --accent: #2b7ad4; --accent-glow: rgba(43,122,212,0.12); --accent-bright: #3a8ee8;
+      --green: #1a9a70; --red: #c83838;
+    }
+
+    html, body {
+      height: 100%; background: var(--bg); color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px; overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Grain overlay */
+    body::after {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.018;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 200px;
+    }
+
+    #app { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 40px 1fr; height: 100vh; }
+    #app.preview-max { grid-template-columns: 0 1fr; }
+
+    /* ── Top Bar ─────────────────────────────────────────────────────── */
+    .top-bar {
+      grid-column: 1 / -1; background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 16px; gap: 14px;
+    }
+    .top-bar .logo {
+      font-weight: 800; font-size: 13px; letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--accent), #1a5ab8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .top-bar .spacer { flex: 1; }
+    .top-bar .hud { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 10px; font-weight: 500; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; transition: all 0.3s; }
+    .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.off { background: var(--muted); opacity: 0.4; }
+
+    /* ── Left: Chat ──────────────────────────────────────────────────── */
+    .left {
+      display: flex; flex-direction: column; border-right: 1px solid var(--border);
+      background: var(--bg2); overflow: hidden; min-height: 0; max-height: calc(100vh - 40px);
+    }
+    .chat-msgs { flex: 1 1 0; overflow-y: auto; padding: 16px; min-height: 0; }
+    .msg {
+      margin-bottom: 10px; line-height: 1.6; border-radius: 6px;
+      animation: msgIn 0.2s cubic-bezier(0.16,1,0.3,1);
+    }
+    @keyframes msgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+    .msg.user { color: var(--accent-bright); font-weight: 600; }
+    .msg.user::before { content: "› "; color: var(--muted); }
+    .msg.agent {
+      padding: 8px 12px; margin-left: 4px;
+      border-left: 2px solid var(--accent);
+      background: var(--accent-glow);
+      border-radius: 0 6px 6px 0;
+    }
+    .msg.tool {
+      color: var(--muted); font-size: 11px; padding-left: 12px;
+      font-family: 'JetBrains Mono', monospace; font-weight: 400;
+    }
+    .msg.tool::before { content: "● "; color: var(--accent); opacity: 0.6; }
+    .msg.error { color: var(--red); font-size: 11px; font-weight: 500; }
+    .msg.system { color: var(--green); font-size: 11px; font-weight: 500; }
+    .msg.system::before { content: "✓ "; }
+
+    .chat-input {
+      display: flex; padding: 10px; gap: 8px;
+      border-top: 1px solid var(--border); background: var(--panel);
+    }
+    .chat-input input {
+      flex: 1; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 11px 14px; color: var(--text);
+      font-family: inherit; font-size: 13px; font-weight: 500; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .chat-input input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .chat-input input::placeholder { color: var(--muted); }
+    .chat-input button {
+      background: linear-gradient(135deg, var(--accent), #3580d4);
+      color: #08090d; border: none; border-radius: 8px;
+      padding: 11px 18px; font-weight: 700; cursor: pointer; font-size: 15px;
+      font-family: inherit;
+      transition: all 0.15s cubic-bezier(0.16,1,0.3,1);
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+    .chat-input button:hover { transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-glow); }
+    .chat-input button:active { transform: scale(0.97); }
+    .stop-btn {
+      background: var(--red) !important; box-shadow: none !important;
+      padding: 11px 14px !important; font-size: 13px !important;
+    }
+
+    .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; }
+    .welcome h1 {
+      font-size: 38px; font-weight: 300; letter-spacing: 10px; text-transform: lowercase;
+      background: linear-gradient(135deg, #4a9eff, #1a5ab8, #4a9eff);
+      background-size: 200% 200%;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; animation: shimmer 5s ease infinite;
+    }
+    @keyframes shimmer { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    .welcome p { color: var(--muted); font-size: 13px; font-weight: 500; }
+
+    /* ── Right: Code/Preview ─────────────────────────────────────────── */
+    .right {
+      display: flex; flex-direction: column; background: var(--bg);
+      overflow: hidden; min-height: 0; max-height: calc(100vh - 40px);
+    }
+    .tabs {
+      display: flex; background: var(--panel); border-bottom: 1px solid var(--border);
+      min-height: 32px; align-items: center; padding: 0 4px;
+    }
+    .tab {
+      padding: 7px 16px; cursor: pointer; color: var(--muted);
+      font-size: 11px; font-weight: 600; border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent-bright); border-bottom-color: var(--accent); }
+    .tab-spacer { flex: 1; }
+    .tab-btn {
+      padding: 5px 12px; cursor: pointer; color: var(--muted); font-size: 13px;
+      border-radius: 4px; transition: all 0.15s;
+    }
+    .tab-btn:hover { color: var(--accent-bright); background: var(--accent-glow); }
+    .tab-content { flex: 1 1 0; overflow: hidden; display: flex; min-height: 0; }
+
+    /* File tree */
+    .file-tree {
+      width: 170px; background: var(--bg2); border-right: 1px solid var(--border);
+      overflow-y: auto; flex-shrink: 0; min-height: 0;
+    }
+    .file-tree-header {
+      padding: 8px 10px; color: var(--muted); font-size: 10px;
+      font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    .file-item {
+      padding: 5px 8px 5px 14px; cursor: pointer; font-size: 11px; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: flex; align-items: center; gap: 6px;
+      transition: background 0.1s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .file-item:hover { background: var(--panel); }
+    .file-item.active { background: var(--panel); color: var(--accent-bright); }
+
+    /* Code viewer */
+    .code-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .code-path {
+      padding: 6px 12px; background: var(--panel); font-size: 11px;
+      color: var(--muted); border-bottom: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace; font-weight: 500;
+    }
+    .code-area {
+      flex: 1; overflow: auto; padding: 12px; font-size: 12px; line-height: 1.65;
+      white-space: pre-wrap; font-family: 'JetBrains Mono', monospace;
+      background: var(--bg);
+    }
+    .code-area .ln {
+      color: var(--muted); display: inline-block; width: 32px;
+      text-align: right; margin-right: 14px; user-select: none; opacity: 0.5;
+    }
+
+    /* Preview */
+    .preview-wrap { width: 100%; height: 100%; }
+    .preview-wrap iframe { width: 100%; height: 100%; border: none; background: #fff; }
+    #app.preview-max .left { display: none; }
+    #app.preview-max .right { border: none; }
+
+    /* ── Controls ────────────────────────────────────────────────────── */
+    .theme-btn, .projects-btn {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: all 0.15s;
+    }
+    .theme-btn:hover, .projects-btn:hover { color: var(--text); border-color: var(--accent); }
+    .projects-btn { position: relative; }
+    .projects-list {
+      display: none; position: absolute; top: 100%; left: 0; margin-top: 6px;
+      background: var(--panel2); border: 1px solid var(--border-hi);
+      border-radius: 10px; min-width: 220px; max-height: 300px; overflow-y: auto;
+      z-index: 50; box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+    .projects-list.open { display: block; }
+    .proj-item {
+      padding: 8px 14px; cursor: pointer; font-size: 12px; font-weight: 500;
+      border-bottom: 1px solid var(--border); transition: background 0.1s;
+    }
+    .proj-item:hover { background: var(--accent-glow); color: var(--accent-bright); }
+    .proj-item:last-child { border-bottom: none; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+    * { scrollbar-width: thin; scrollbar-color: var(--border-hi) transparent; }
+
+    ::selection { background: var(--accent); color: var(--bg); }
+
+    /* ── Mobile ──────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      #app { grid-template-columns: 1fr; grid-template-rows: 40px 1fr 1fr; }
+      .left { max-height: 50vh; }
+      .right { max-height: 50vh; }
+      .file-tree { width: 110px; }
+      .top-bar .hud { display: none; }
+      .projects-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="top-bar">
+      <span class="logo">TSUNAMI</span>
+      <div style="position:relative">
+        <button class="projects-btn" onclick="toggleProjects()">Projects ▾</button>
+        <div class="projects-list" id="projects-list"></div>
+      </div>
+      <span class="spacer"></span>
+      <button class="theme-btn" onclick="cycleTheme()" id="theme-btn">dark</button>
+      <div class="hud">
+        <span id="hud-text">idle</span>
+        <span title="Model server">wave <div class="dot" id="wave-dot"></div></span>
+        <span title="Eddy workers">eddy <div class="dot" id="eddy-dot"></div></span>
+        <span title="Image generation">img <div class="dot" id="img-dot"></div></span>
+        <span title="Preview server">view <div class="dot" id="view-dot"></div></span>
+      </div>
+    </div>
+
+    <!-- LEFT: Chat + Activity -->
+    <div class="left">
+      <div class="chat-msgs" id="chat-msgs">
+        <div class="welcome">
+          <h1>tsunami</h1>
+          <p>what do you want to build?</p>
+        </div>
+      </div>
+      <div class="chat-input">
+        <input id="prompt" placeholder="build me a..." onkeydown="if(event.key==='Enter')send()" autofocus />
+        <button onclick="send()">→</button>
+        <button onclick="stopAgent()" class="stop-btn" id="stop-btn" style="display:none" title="Stop current task">■</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: Tabbed Code/Preview -->
+    <div class="right">
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('code',this)">Code</div>
+        <div class="tab" onclick="showTab('preview',this)">Output</div>
+        <div class="tab-spacer"></div>
+        <div class="tab-btn" id="max-btn" onclick="toggleMax()">⤢</div>
+      </div>
+      <div class="tab-content" id="tab-content">
+        <div class="file-tree">
+          <div class="file-tree-header">Files</div>
+          <div id="file-list"></div>
+        </div>
+        <div class="code-pane">
+          <div class="code-path" id="code-path">no file selected</div>
+          <div class="code-area" id="code-area"><span style="color:var(--muted)">select a file</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const WS_AGENT = "ws://localhost:3002"
+    const WS_FILES = "ws://localhost:3003"
+    let ws = null, fileWs = null
+    let messages = [], fileList = [], codeContent = "", currentFile = ""
+    let currentTab = "code", isMaximized = false
+
+    // === AGENT CONNECTION ===
+    function connectAgent() {
+      ws = new WebSocket(WS_AGENT)
+      ws.onopen = () => updateDots()
+      ws.onclose = () => { updateDots(); setTimeout(connectAgent, 3000) }
+      ws.onmessage = e => {
+        try { handleMsg(JSON.parse(e.data)) } catch { addChat("agent", e.data) }
+      }
+    }
+
+    function handleMsg(d) {
+      if (d.type === "tool_call") {
+        addChat("tool", `${toolLabel(d.name)}(${d.preview || ""})`)
+        setHud(toolLabel(d.name))
+        showStopBtn(true)
+        if (d.content && d.path) { codeContent = d.content; currentFile = d.path; renderCode(); renderFiles() }
+      } else if (d.type === "message") {
+        addChat("agent", d.text)
+      } else if (d.type === "error") {
+        addChat("error", d.text)
+      } else if (d.type === "complete") {
+        addChat("system", `done in ${d.iterations} iterations`)
+        setHud("done", false)
+        showStopBtn(false)
+      } else if (d.type === "status") {
+        addChat("system", d.message)
+      }
+    }
+
+    function stopAgent() {
+      if (ws?.readyState === 1) {
+        ws.send(JSON.stringify({ type: "abort" }))
+        addChat("system", "stopping...")
+        showStopBtn(false)
+      }
+    }
+
+    function showStopBtn(show) {
+      document.getElementById("stop-btn").style.display = show ? "block" : "none"
+    }
+
+    // === FILE WATCHER ===
+    function connectFiles() {
+      fileWs = new WebSocket(WS_FILES)
+      fileWs.onclose = () => setTimeout(connectFiles, 3000)
+      fileWs.onmessage = e => {
+        try {
+          const d = JSON.parse(e.data)
+          if (d.type === "files") { fileList = d.files; renderFiles() }
+          if (d.type === "file_changed") {
+            codeContent = d.content; currentFile = d.path
+            renderCode(); renderFiles()
+          }
+        } catch {}
+      }
+    }
+
+    // === CHAT ===
+    function send() {
+      const input = document.getElementById("prompt")
+      const text = input.value.trim()
+      if (!text) return
+      addChat("user", text)
+      input.value = ""
+      if (ws?.readyState === 1) { ws.send(JSON.stringify({ type: "prompt", text })); setHud("starting..."); showStopBtn(true) }
+      else addChat("error", "not connected")
+    }
+
+    let lastText = ""
+    function addChat(type, text) {
+      if (type !== "user" && text === lastText) return
+      lastText = text
+      messages.push({ type, text })
+      const el = document.getElementById("chat-msgs")
+      const w = el.querySelector(".welcome"); if (w) w.remove()
+      const div = document.createElement("div")
+      div.className = `msg ${type}`
+      div.textContent = text
+      el.appendChild(div)
+      el.scrollTop = el.scrollHeight
+    }
+
+    // === TABS ===
+    function showTab(name, tab) {
+      currentTab = name
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"))
+      if (tab) tab.classList.add("active")
+      const c = document.getElementById("tab-content")
+      if (name === "code") {
+        c.innerHTML = `
+          <div class="file-tree"><div class="file-tree-header">Files</div><div id="file-list"></div></div>
+          <div class="code-pane">
+            <div class="code-path" id="code-path">${esc(currentFile || "no file")}</div>
+            <div class="code-area" id="code-area"></div>
+          </div>`
+        renderCode(); renderFiles()
+      } else if (name === "preview") {
+        c.innerHTML = '<div class="preview-wrap"><iframe src="http://localhost:9876"></iframe></div>'
+      }
+    }
+
+    function toggleMax() {
+      isMaximized = !isMaximized
+      document.getElementById("app").classList.toggle("preview-max", isMaximized)
+      document.getElementById("max-btn").textContent = isMaximized ? "⤡" : "⤢"
+      if (isMaximized && currentTab !== "preview") {
+        showTab("preview", document.querySelectorAll(".tab")[1])
+      }
+    }
+
+    // === CODE ===
+    function renderCode() {
+      if (currentTab !== "code") return
+      const path = document.getElementById("code-path")
+      const area = document.getElementById("code-area")
+      if (!path || !area) return
+      path.textContent = currentFile || "no file"
+      if (!codeContent) { area.innerHTML = '<span style="color:var(--muted)">select a file</span>'; return }
+      area.innerHTML = codeContent.split("\n").map((line, i) =>
+        `<div><span class="ln">${i + 1}</span>${esc(line)}</div>`
+      ).join("")
+    }
+
+    function renderFiles() {
+      const el = document.getElementById("file-list")
+      if (!el) return
+      if (!fileList.length) { el.innerHTML = '<div style="padding:8px;color:var(--muted)">no files yet</div>'; return }
+      const colors = { tsx: "var(--blue)", ts: "var(--green)", css: "var(--purple)", json: "var(--orange)", html: "var(--red)", js: "var(--yellow)", py: "var(--green)", md: "var(--muted)" }
+      el.innerHTML = fileList.slice(0, 80).map(f => {
+        const name = f.split("/").pop()
+        const ext = name.split(".").pop()
+        const c = colors[ext] || "var(--muted)"
+        const active = f === currentFile ? " active" : ""
+        return `<div class="file-item${active}" onclick="selectFile('${esc(f)}')"><span style="color:${c};font-size:9px">●</span>${esc(name)}</div>`
+      }).join("")
+    }
+
+    function selectFile(path) {
+      currentFile = path
+      renderFiles()
+      // Try file watcher WebSocket first
+      if (fileWs?.readyState === 1) {
+        fileWs.send(JSON.stringify({ type: "read", path }))
+      } else {
+        // Fallback: try to fetch from dev server
+        fetch(`http://localhost:9876/src/${path}`)
+          .then(r => r.ok ? r.text() : Promise.reject())
+          .then(text => { codeContent = text; renderCode() })
+          .catch(() => {
+            // Try without src/ prefix
+            fetch(`http://localhost:9876/${path}`)
+              .then(r => r.ok ? r.text() : Promise.reject())
+              .then(text => { codeContent = text; renderCode() })
+              .catch(() => {})
+          })
+      }
+    }
+
+    // === HUD ===
+    function setHud(text, active = true) {
+      document.getElementById("hud-text").textContent = active ? text : "idle"
+    }
+    function toolLabel(n) {
+      return { file_write:"Write", file_edit:"Edit", file_read:"Read", shell_exec:"Run", search_web:"Search", project_init:"Init", swell:"Swell", undertow:"Test", generate_image:"Generate", plan_update:"Plan", message_info:"Info", message_result:"Result", match_glob:"Glob", match_grep:"Grep", python_exec:"Python", summarize_file:"Summarize" }[n] || n
+    }
+
+    // === HEALTH ===
+    function updateDots() {
+      document.getElementById("wave-dot").className = "dot " + (ws?.readyState === 1 ? "on" : "off")
+    }
+    async function checkHealth() {
+      for (const [id, port] of [["wave-dot", 8090], ["eddy-dot", 8092], ["img-dot", 8091], ["view-dot", 9876]]) {
+        try { const r = await fetch(`http://localhost:${port}/health`, {signal: AbortSignal.timeout(2000)}); document.getElementById(id).className = "dot " + (r.ok ? "on" : "off") }
+        catch {
+          // 9876 serves HTML not /health — check differently
+          if (port === 9876) {
+            try { const r2 = await fetch(`http://localhost:${port}/`, {signal: AbortSignal.timeout(2000)}); document.getElementById(id).className = "dot " + (r2.ok ? "on" : "off") }
+            catch { document.getElementById(id).className = "dot off" }
+          } else { document.getElementById(id).className = "dot off" }
+        }
+      }
+    }
+
+    function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML }
+
+    // === THEMES ===
+    const themes = ["dark", "medium", "light"]
+    let currentThemeIdx = parseInt(localStorage.getItem("tsunami_theme") || "0")
+    function cycleTheme() {
+      currentThemeIdx = (currentThemeIdx + 1) % themes.length
+      document.documentElement.setAttribute("data-theme", themes[currentThemeIdx])
+      document.getElementById("theme-btn").textContent = themes[currentThemeIdx]
+      localStorage.setItem("tsunami_theme", currentThemeIdx)
+    }
+    // Apply saved theme
+    document.documentElement.setAttribute("data-theme", themes[currentThemeIdx])
+    document.getElementById("theme-btn").textContent = themes[currentThemeIdx]
+
+    // === PROJECTS ===
+    function toggleProjects() {
+      const list = document.getElementById("projects-list")
+      list.classList.toggle("open")
+      if (list.classList.contains("open")) loadProjects()
+    }
+    async function loadProjects() {
+      const list = document.getElementById("projects-list")
+      try {
+        const r = await fetch("/api/projects")
+        if (!r.ok) throw new Error()
+        const projects = await r.json()
+        list.innerHTML = projects.length
+          ? projects.map(p => `<div class="proj-item" onclick="openProject('${esc(p.name)}')">${esc(p.name)} <span style="color:var(--muted)">${p.files} files</span></div>`).join("")
+          : '<div class="proj-item" style="color:var(--muted)">No projects yet</div>'
+      } catch {
+        // API not available — show file watcher's current project
+        if (fileList.length > 0) {
+          list.innerHTML = '<div class="proj-item active">Current project</div>'
+        } else {
+          list.innerHTML = '<div class="proj-item" style="color:var(--muted)">No projects yet</div>'
+        }
+      }
+    }
+    function openProject(name) {
+      document.getElementById("projects-list").classList.remove("open")
+      // Switch preview to this project
+      addChat("system", `Viewing project: ${name}`)
+    }
+    // Close dropdown on outside click
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".projects-btn") && !e.target.closest(".projects-list")) {
+        document.getElementById("projects-list").classList.remove("open")
+      }
+    })
+
+    // === INIT ===
+    connectAgent()
+    connectFiles()
+    checkHealth()
+    setInterval(checkHealth, 5000)
+  </script>
+</body>
+</html>
