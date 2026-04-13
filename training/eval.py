@@ -27,6 +27,35 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+# --------------------------------------------------------------------------
+# Canonical tool schemas + system prompt — pulled from LIVE production surface
+# (tsunami.tools registry + tsunami.prompt). Eval must match what the agent
+# actually sends, otherwise we're measuring a fictional model.
+# --------------------------------------------------------------------------
+import sys as _eval_sys
+from pathlib import Path as _EvalPath
+_repo = _EvalPath(__file__).resolve().parent.parent
+if str(_repo) not in _eval_sys.path:
+    _eval_sys.path.insert(0, str(_repo))
+
+from tsunami.config import TsunamiConfig as _EvalTsunamiConfig
+from tsunami.tools import build_registry as _eval_build_registry
+from tsunami.prompt import build_system_prompt as _eval_build_system_prompt
+from tsunami.state import AgentState as _EvalAgentState
+
+_eval_cfg = _EvalTsunamiConfig()
+_eval_registry = _eval_build_registry(_eval_cfg)
+TOOL_SCHEMAS = _eval_registry.schemas()
+
+_eval_state = _EvalAgentState()
+try:
+    SYSTEM_PROMPT = _eval_build_system_prompt(_eval_state, workspace=_eval_cfg.workspace_dir)
+except Exception:
+    SYSTEM_PROMPT = "You are Tsunami. Build apps by calling tools."
+
+# Back-compat alias — some merged submodule code still refers to SYSTEM
+SYSTEM = SYSTEM_PROMPT
+
 
 # Fix imports — add training/ to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -445,48 +474,7 @@ EVAL_PROMPTS = [
 ]
 
 # Tool schemas for the eval (same as what Tsunami sends at inference)
-TOOL_SCHEMAS = [
-    {"type": "function", "function": {"name": "file_read", "description": "Read text content from a file.", "parameters": {"type": "object", "properties": {"path": {"type": "string", "description": "Path to the file to read"}}, "required": ["path"]}}},
-    {"type": "function", "function": {"name": "file_write", "description": "Create or overwrite a file with full content.", "parameters": {"type": "object", "properties": {"path": {"type": "string", "description": "Path to write to"}, "content": {"type": "string", "description": "Full file content"}}, "required": ["path", "content"]}}},
-    {"type": "function", "function": {"name": "file_edit", "description": "Make targeted modifications to an existing file.", "parameters": {"type": "object", "properties": {"path": {"type": "string", "description": "Path to the file"}, "old_text": {"type": "string", "description": "Exact text to find and replace"}, "new_text": {"type": "string", "description": "Replacement text"}}, "required": ["path", "old_text", "new_text"]}}},
-    {"type": "function", "function": {"name": "shell_exec", "description": "Run a shell command and return its output.", "parameters": {"type": "object", "properties": {"command": {"type": "string", "description": "Shell command to execute"}}, "required": ["command"]}}},
-    {"type": "function", "function": {"name": "match_glob", "description": "Find files by name and path patterns.", "parameters": {"type": "object", "properties": {"pattern": {"type": "string", "description": "Glob pattern"}}, "required": ["pattern"]}}},
-    {"type": "function", "function": {"name": "message_info", "description": "Acknowledge, update, or inform the user.", "parameters": {"type": "object", "properties": {"text": {"type": "string", "description": "Information to share"}}, "required": ["text"]}}},
-    {"type": "function", "function": {"name": "message_ask", "description": "Request input from the user. Only use when genuinely blocked.", "parameters": {"type": "object", "properties": {"text": {"type": "string", "description": "Question to ask"}}, "required": ["text"]}}},
-    {"type": "function", "function": {"name": "message_result", "description": "Deliver final outcome and end the task.", "parameters": {"type": "object", "properties": {"text": {"type": "string", "description": "Final result to deliver"}}, "required": []}}},
-    {"type": "function", "function": {"name": "plan_update", "description": "Create or revise the task plan.", "parameters": {"type": "object", "properties": {"goal": {"type": "string", "description": "Desired end state"}, "phases": {"type": "array", "description": "Ordered list of phases"}}, "required": ["goal", "phases"]}}},
-    {"type": "function", "function": {"name": "search_web", "description": "Search the web for information.", "parameters": {"type": "object", "properties": {"query": {"type": "string", "description": "Search query"}}, "required": ["query"]}}},
-    {"type": "function", "function": {"name": "project_init", "description": "Create a project from the scaffold library.", "parameters": {"type": "object", "properties": {"name": {"type": "string", "description": "Project name"}}, "required": ["name"]}}},
-    {"type": "function", "function": {"name": "generate_image", "description": "Generate an image from a text description.", "parameters": {"type": "object", "properties": {"prompt": {"type": "string", "description": "Text description"}, "save_path": {"type": "string", "description": "Path to save image"}}, "required": ["prompt", "save_path"]}}},
-    {"type": "function", "function": {"name": "load_toolbox", "description": "Load tools on demand. Available: browser, webdev, generate, services, parallel, management", "parameters": {"type": "object", "properties": {"toolbox": {"type": "string", "description": "Toolbox to load"}}}}},
-    {"type": "function", "function": {"name": "message_chat", "description": "Talk to the user. For conversation (greetings, questions, thanks): set done=true to end. For status updates during builds: set done=false to continue.", "parameters": {"type": "object", "properties": {"text": {"type": "string", "description": "Message to the user"}, "done": {"type": "boolean", "description": "true=end task, false=keep working", "default": True}}, "required": ["text"]}}},
-]
 
-SYSTEM_PROMPT = (
-    "You are Tsunami. You are the wave. You build apps by calling tools.\n\n"
-    "The ocean:\n"
-    "- current: your sense of direction. If uncertain, search first.\n"
-    "- circulation: routing. Low tension=deliver. High tension=search or refuse.\n"
-    "- pressure: sustained uncertainty. 2 failures=search. 4 failures=ask the user.\n"
-    "- eddies: parallel workers. 3+ components=dispatch swell.\n"
-    "- undertow: QA. ALWAYS verify before delivering.\n"
-    "- break: compile. shell_exec build after EVERY file_write.\n"
-    "- reef: error. Fix directly. Type/syntax -> file_edit. Missing module -> shell_exec npm install. Missing file -> file_write. Wrong path (cd fails) -> shell_exec with corrected path (NEVER message_chat). CSS resolution errors -> file_edit to remove/replace the import (don't file_read first).\n\n"
-    "BEFORE THE PIPELINE:\n"
-    "- Visual clones (\"looks like X\", \"style of Y\") -> search_web FIRST for reference\n"
-    "- User explicitly asks for a plan (\"plan needed\", \"plan carefully\") -> plan_update FIRST\n"
-    "- Default: go straight to project_init\n\n"
-    "THE PIPELINE (every build follows this EXACTLY):\n"
-    "1. project_init(name) -- scaffold the project\n"
-    "2. file_write(App.tsx) -- write COMPLETE code\n"
-    "3. shell_exec(\"cd deliverables/{name} && npx vite build\") -- run the break\n"
-    "4. IF ERROR: fix directly -- file_edit (type/syntax fix), file_write (missing file), or shell_exec (install module, corrected path)\n"
-    "5. undertow(dist/index.html) -- QA before delivery\n"
-    "6. message_result -- land the wave\n\n"
-    "RESUME/MODIFY (existing project):\n"
-    "1. file_read -> 2. file_write/file_edit -> 3. shell_exec build -> 4. message_result\n\n"
-    "NEVER skip the break. NEVER deliver without building. One tool call per response. Be brief."
-)
 
 VALID_TOOLS = {s["function"]["name"] for s in TOOL_SCHEMAS}
 # Tools that end the task
@@ -948,23 +936,7 @@ import httpx
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("eval_scaffold")
 
-TOOL_SCHEMAS = [
-    {"type": "function", "function": {"name": "project_init", "description": "Create a project from the scaffold library. Analyzes needs and picks the right template.", "parameters": {"type": "object", "properties": {"name": {"type": "string", "description": "Project name"}, "dependencies": {"type": "array", "items": {"type": "string"}, "description": "Extra npm packages"}}, "required": ["name"]}}},
-    {"type": "function", "function": {"name": "message_chat", "description": "Talk to the user.", "parameters": {"type": "object", "properties": {"text": {"type": "string"}, "done": {"type": "boolean"}}, "required": ["text"]}}},
-    {"type": "function", "function": {"name": "search_web", "description": "Search the web.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
-    {"type": "function", "function": {"name": "plan_update", "description": "Create a plan.", "parameters": {"type": "object", "properties": {"goal": {"type": "string"}, "phases": {"type": "array"}}, "required": ["goal", "phases"]}}},
-]
 
-SYSTEM = (
-    "You are Tsunami. You are the wave. You build apps by calling tools.\n\n"
-    "THE PIPELINE (every build follows this EXACTLY):\n"
-    "1. project_init(name)\n"
-    "2. file_write(App.tsx) -- write COMPLETE code\n"
-    "3. shell_exec -- run the break\n"
-    "4. undertow -- QA before delivery\n"
-    "5. message_result -- land the wave\n\n"
-    "Rules: project_init first. One tool call per response. Be brief."
-)
 
 # Prompt → expected scaffold (based on project_init.py _pick_scaffold logic)
 SCAFFOLD_TESTS = [
@@ -1050,37 +1022,7 @@ import httpx
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("eval_recovery")
 
-TOOL_SCHEMAS = [
-    {"type": "function", "function": {"name": "file_read", "description": "Read a file.", "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}},
-    {"type": "function", "function": {"name": "file_write", "description": "Write a file.", "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}}},
-    {"type": "function", "function": {"name": "file_edit", "description": "Edit a file.", "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}}},
-    {"type": "function", "function": {"name": "shell_exec", "description": "Run a shell command.", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}},
-    {"type": "function", "function": {"name": "message_chat", "description": "Talk to the user. done=true ends task, done=false continues.", "parameters": {"type": "object", "properties": {"text": {"type": "string"}, "done": {"type": "boolean"}}, "required": ["text"]}}},
-    {"type": "function", "function": {"name": "message_result", "description": "Deliver final result.", "parameters": {"type": "object", "properties": {"text": {"type": "string"}}, "required": []}}},
-]
 
-SYSTEM = (
-    "You are Tsunami. You are the wave. You build apps by calling tools.\n\n"
-    "The ocean:\n"
-    "- current: your sense of direction. If uncertain, search first.\n"
-    "- circulation: routing. Low tension=deliver. High tension=search or refuse.\n"
-    "- pressure: sustained uncertainty. 2 failures=search. 4 failures=ask the user.\n"
-    "- eddies: parallel workers. 3+ components=dispatch swell.\n"
-    "- undertow: QA. ALWAYS verify before delivering.\n"
-    "- break: compile. shell_exec build after EVERY file_write.\n"
-    "- reef: error. Fix it directly with the right tool. "
-    "Type/syntax errors → file_edit. Missing module → shell_exec npm install. "
-    "Missing file → file_write. Wrong path (cd fails) → shell_exec with corrected path (NEVER message_chat — just fix it). "
-    "CSS resolution errors → file_edit to remove or replace the import (the error tells you the line — don't file_read first).\n\n"
-    "THE PIPELINE (every build follows this EXACTLY):\n"
-    "1. project_init(name)\n"
-    "2. file_write(App.tsx) -- write COMPLETE code\n"
-    "3. shell_exec -- run the break\n"
-    "4. IF ERROR: fix it directly — file_edit (single-line fix), file_write (missing file or full rewrite), or shell_exec (install module / corrected path)\n"
-    "5. undertow -- QA before delivery\n"
-    "6. message_result -- land the wave\n\n"
-    "NEVER skip the break. NEVER deliver without building. One tool call per response. Be brief."
-)
 
 ERROR_SCENARIOS = [
     {
@@ -1250,45 +1192,7 @@ import httpx
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("eval_hack_free")
 
-TOOL_SCHEMAS = [
-    {"type": "function", "function": {"name": "file_read", "description": "Read a file.", "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}},
-    {"type": "function", "function": {"name": "file_write", "description": "Write a file.", "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}}},
-    {"type": "function", "function": {"name": "file_edit", "description": "Edit a file.", "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}}},
-    {"type": "function", "function": {"name": "shell_exec", "description": "Run a shell command.", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}},
-    {"type": "function", "function": {"name": "project_init", "description": "Scaffold a project.", "parameters": {"type": "object", "properties": {"name": {"type": "string"}, "dependencies": {"type": "array", "items": {"type": "string"}}}, "required": ["name"]}}},
-    {"type": "function", "function": {"name": "search_web", "description": "Search the web.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
-    {"type": "function", "function": {"name": "plan_update", "description": "Create a plan.", "parameters": {"type": "object", "properties": {"goal": {"type": "string"}, "phases": {"type": "array"}}, "required": ["goal", "phases"]}}},
-    {"type": "function", "function": {"name": "swell", "description": "Dispatch parallel eddies.", "parameters": {"type": "object", "properties": {"tasks": {"type": "array"}}, "required": ["tasks"]}}},
-    {"type": "function", "function": {"name": "undertow", "description": "QA test an HTML file.", "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "expect": {"type": "string"}}, "required": ["path"]}}},
-    {"type": "function", "function": {"name": "message_chat", "description": "Talk to user. done=true ends, done=false continues.", "parameters": {"type": "object", "properties": {"text": {"type": "string"}, "done": {"type": "boolean"}}, "required": ["text"]}}},
-    {"type": "function", "function": {"name": "message_result", "description": "Deliver final result.", "parameters": {"type": "object", "properties": {"text": {"type": "string"}}, "required": []}}},
-    {"type": "function", "function": {"name": "generate_image", "description": "Generate an image.", "parameters": {"type": "object", "properties": {"prompt": {"type": "string"}, "save_path": {"type": "string"}}, "required": ["prompt", "save_path"]}}},
-    {"type": "function", "function": {"name": "match_glob", "description": "Find files by pattern.", "parameters": {"type": "object", "properties": {"pattern": {"type": "string"}}, "required": ["pattern"]}}},
-]
 
-SYSTEM = (
-    "You are Tsunami. You are the wave. You build apps by calling tools.\n\n"
-    "The ocean:\n"
-    "- current: your sense of direction. If uncertain, search first.\n"
-    "- circulation: routing. Low tension=deliver. High tension=search or refuse.\n"
-    "- pressure: sustained uncertainty. 2 failures=search. 4 failures=ask the user.\n"
-    "- eddies: parallel workers. 3+ components=dispatch swell.\n"
-    "- undertow: QA. ALWAYS verify before delivering.\n"
-    "- break: compile. shell_exec build after EVERY file_write.\n"
-    "- reef: error. Fix directly. Type/syntax -> file_edit. Missing module -> shell_exec npm install. Missing file -> file_write. Wrong path (cd fails) -> shell_exec with corrected path (NEVER message_chat). CSS resolution errors -> file_edit to remove/replace the import (don't file_read first).\n\n"
-    "BEFORE THE PIPELINE:\n"
-    "- Visual clones (\"looks like X\", \"style of Y\") -> search_web FIRST for reference\n"
-    "- User explicitly asks for a plan (\"plan needed\", \"plan carefully\") -> plan_update FIRST\n"
-    "- Default: go straight to project_init\n\n"
-    "THE PIPELINE (every build follows this EXACTLY):\n"
-    "1. project_init(name)\n"
-    "2. file_write(App.tsx) -- write COMPLETE code\n"
-    "3. shell_exec -- run the break\n"
-    "4. IF ERROR: fix directly -- file_edit (type/syntax fix), file_write (missing file), or shell_exec (install module, corrected path)\n"
-    "5. undertow -- QA before delivery\n"
-    "6. message_result -- land the wave\n\n"
-    "NEVER skip the break. NEVER deliver without building. One tool call per response. Be brief."
-)
 
 HACK_SCENARIOS = [
     # === HACK: Auto-scaffold (model should scaffold on its own) ===
