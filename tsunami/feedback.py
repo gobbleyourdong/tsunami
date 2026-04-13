@@ -38,7 +38,12 @@ class FeedbackTracker:
         ))
 
     def get_nudge(self, iteration: int) -> str | None:
-        """Analyze recent outcomes and return steering advice, or None."""
+        """Disabled for zero-shot (2026-04-13). Nudges injected as system
+        messages weren't being parsed by base Gemma-4 — they polluted context
+        without shaping behavior. Skills (tsunami/skills/*/SKILL.md) carry
+        the workflow guidance now. record() still runs for telemetry."""
+        return None
+        # Original logic preserved below for reference / re-enable via flag.
         # Only nudge every 5 iterations
         if iteration - self._last_nudge_iter < 5:
             return None

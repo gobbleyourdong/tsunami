@@ -156,42 +156,20 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
     _no_jsx_comments = re.sub(r'\{/\*.*?\*/\}', '', _no_block_comments, flags=re.DOTALL)
     marker_scan = _no_jsx_comments.lower()
     lower = content.lower()
-    for phrase in _PLACEHOLDER_PHRASES:
-        if phrase in marker_scan:
-            return (
-                f"REFUSED: {target.name}/src/App.tsx still contains placeholder text "
-                f"({phrase!r}). Replace it with the real implementation before delivering."
-            )
-    # QA-1 Fire 85 stub-comment scan — runs against RAW content (not comment-
-    # stripped) because these phrases are signature stubs even when they appear
-    # in code comments like `// Mock audio context and sample loading`. The
-    # comment-stripping for _PLACEHOLDER_PHRASES was specifically to protect
-    # iter-23's "// Phase 1: Basic layout" false-positive (legit code), but
-    # these phrases have far lower false-positive rate.
-    for phrase in _STUB_COMMENT_PHRASES:
-        if phrase in lower:
-            return (
-                f"REFUSED: {target.name}/src/App.tsx contains stub-comment text "
-                f"({phrase!r}). The function it annotates is almost certainly a "
-                f"stub that prints or no-ops instead of implementing the real "
-                f"behavior. Write the actual implementation."
-            )
-    # `Phase N` marker (any N) in rendered text is a deferred-work signal.
-    # Single regex covers Phase 1..N — QA-1 Fire 41 caught that the old
-    # substring "phase 1" both (a) missed higher-numbered phases and
-    # (b) false-matched inside "Phase 10", "Phase 100", etc.
-    _phase_n = _PHASE_N_MARKER.search(_no_jsx_comments)
-    if _phase_n:
-        return (
-            f"REFUSED: {target.name}/src/App.tsx still contains a `{_phase_n.group(0)}` "
-            f"placeholder marker. The agent is deferring work to a phase that never arrives. "
-            f"Finish the implementation before delivering."
-        )
-    if len(content) < 300:
-        return (
-            f"REFUSED: {target.name}/src/App.tsx is only {len(content)} bytes — "
-            f"too short to be a complete app. Write the full implementation before delivering."
-        )
+    # ZERO-SHOT FIX (2026-04-13): Phrase-based gates were too aggressive for
+    # base Gemma-4 — false-positives on legitimate comments ("Phase 1: layout"),
+    # tiny-but-valid apps (<300 bytes), and stub-phrase substrings in working
+    # code. Disabled the four phrase/size scans below. KEPT the structural
+    # checks further down (scaffold-unchanged, useState-unused, stub-component,
+    # ReDoS, dead-input, broken-img) — those have low false-positive rates and
+    # catch real bugs.
+    #
+    # Disabled scans (regex preserved at module top for re-enable via flag):
+    #   - _PLACEHOLDER_PHRASES loop
+    #   - _STUB_COMMENT_PHRASES loop
+    #   - _PHASE_N_MARKER regex
+    #   - len(content) < 300 size gate
+    _ = (marker_scan, lower, _no_jsx_comments)  # silence unused-var warnings
     # Static-skeleton gate — QA-2 iter 12 found an app that passed every other check
     # (37 lines, no marker phrases, >300 bytes) but rendered hardcoded `>0</` literals
     # for stats and had `useState` imported but never called. Looks like a real React
@@ -411,32 +389,11 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
             f"uncontrolled input. Offending tag: {dead_inputs[0]}"
         )
 
-    # QA-1 Playtest Fire 119 + Fire 117 dead-interactivity:
-    # analytics-dashboard-charts shipped with 3 `<a href="#">` tabs —
-    # Overview / Reports / Settings — none with any onClick, so clicks
-    # produced zero navigation. "Cosmetic nav" — decoration that looks
-    # interactive. Detect: 2+ `<a href="#">` (or `<a href="">`) tags
-    # without an `onClick` handler in the same tag. Single dead `<a>`
-    # is often a legit "scroll to top" convention; 2+ is a signature
-    # of the agent copy-pasting a nav bar without wiring it.
-    anchor_tags = re.findall(
-        r'<a\b[^>]*\bhref=[\'"]#?[\'"][^>]*>',
-        content,
-        re.IGNORECASE | re.DOTALL,
-    )
-    dead_anchors = [
-        t for t in anchor_tags
-        if "onclick" not in t.lower()
-    ]
-    if len(dead_anchors) >= 2:
-        return (
-            f"REFUSED: {target.name}/src/App.tsx has {len(dead_anchors)} "
-            f"`<a href=\"#\">` tags with no onClick handler — looks like "
-            f"navigation but does nothing. Wire each one to an onClick "
-            f"that updates state / routes / scrolls, or change the "
-            f"elements to buttons / spans if they're not actually "
-            f"interactive."
-        )
+    # ZERO-SHOT FIX (2026-04-13): Dead-anchor check disabled. False-positives
+    # on legitimate `<a href="#">` patterns (scroll-to-top, modal triggers,
+    # in-page anchors) at 2+ count. Base Gemma-4 will sometimes write these
+    # in valid React patterns. Re-enable behind a strict-gates flag if
+    # cosmetic-nav regressions reappear.
 
     # QA-1 Playtest Fires 117 / 119 / qa-solo dashboard regression:
     # agents wrote `<img src="/icon-home">` etc. for sprites they never

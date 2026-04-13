@@ -40,7 +40,10 @@ class TsunamiConfig:
 
     # --- Paths ---
     workspace_dir: str = "./workspace"
-    skills_dir: str = "./skills"
+    # Default to the package's bundled skills directory so the agent gets
+    # the canonical workflows out-of-the-box. Override via env or arg to
+    # point at a user's own skills dir for additive workflows.
+    skills_dir: str = str(Path(__file__).parent / "skills")
 
     # --- Behavior ---
     max_iterations: int = 200

@@ -118,8 +118,13 @@ class AgentState:
                         "content": result, "is_error": is_error})
 
     def add_system_note(self, note: str):
-        self.conversation.append(Message(role="system", content=f"[WATCHER] {note}"))
-        self._log_turn({"role": "system_note", "content": note})
+        # Zero-shot fix (2026-04-13): base Gemma-4 doesn't parse mid-stream
+        # role:system messages as instructions — they pollute context without
+        # shaping behavior. We log the note for telemetry but DON'T inject
+        # into the conversation. Programmatic gates that NEED the model to
+        # see a rejection should return ToolResult(text, is_error=True)
+        # instead — that's a tool message, which the model does read.
+        self._log_turn({"role": "system_note_suppressed", "content": note})
 
     def record_error(self, tool_name: str, args: dict, error: str):
         key = f"{tool_name}:{json.dumps(args, sort_keys=True)[:200]}"

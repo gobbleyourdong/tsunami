@@ -53,6 +53,9 @@ SCRATCHPAD.md
 !CHANGELOG.md
 !CONTRIBUTING.md
 !CODE_OF_CONDUCT.md
+# Tsunami skills are canonical workflow blueprints — track them
+!tsunami/skills/**/SKILL.md
+!tsunami/skills/**/WAVEFORM.md
 
 # Misc
 *.log

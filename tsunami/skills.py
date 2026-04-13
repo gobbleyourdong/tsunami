@@ -84,9 +84,11 @@ class SkillsManager:
 
         parts = []
         total_chars = 0
+        # Cap raised from 8000 → 16000 (~4000 tokens) to fit ~10 skills at
+        # ~1500 chars each. Production prompt is still well under 32k context.
         for s in skills:
             content = self.load_skill(s["name"])
-            if content and total_chars + len(content) < 8000:  # cap at ~2000 tokens
+            if content and total_chars + len(content) < 16000:
                 parts.append(f"### {s['name']}\n{content}")
                 total_chars += len(content)
 

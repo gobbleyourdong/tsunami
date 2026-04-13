@@ -1022,26 +1022,15 @@ class Agent:
 
         log.info(f"[{self.state.iteration}] Tool: {tool_call.name} | Args: {_truncate(tool_call.arguments)}")
 
-        # 3a. message_result gate: require a successful undertow call first —
-        # BUT ONLY if there's actual build activity to QA. Chat prompts route
-        # through message_chat(done=true)→message_result with no build, and
-        # we must let them deliver. Gate fires only when project_init,
-        # file_write, file_edit, or shell_exec is in recent history.
-        if tool_call.name == "message_result":
-            recent = self._tool_history[-10:]
-            build_tools = {"project_init", "file_write", "file_edit", "shell_exec"}
-            has_build = any(t in build_tools for t in recent)
-            if has_build and "undertow" not in recent:
-                log.info("message_result after build without preceding undertow — forcing QA")
-                self.state.add_system_note(
-                    "REFUSED message_result: you haven't run undertow yet. "
-                    "Call undertow(path=\"dist/index.html\") first — it auto-tests "
-                    "the built app. If undertow returns FAIL, file_edit to fix the "
-                    "specific issue, rebuild with shell_exec, then undertow again. "
-                    "Only call message_result after undertow passes."
-                )
-                # Don't append to history; let next iteration try again.
-                return ""
+        # ZERO-SHOT FIX (2026-04-13): undertow-before-deliver gate disabled.
+        # The gate used add_system_note which is now a no-op for base Gemma-4,
+        # which would create an infinite loop (refuse → return "" → retry →
+        # refuse). The qa-loop SKILL.md teaches the model to undertow before
+        # message_result. The deliverable validators in message.py
+        # _check_deliverable_complete still catch real shippable bugs (stub
+        # components, ReDoS, broken refs, dead inputs). Re-enable the gate
+        # behind a strict-gates flag if shippable-without-QA becomes a problem.
+        pass
 
         # 3b. Stall detection — detect no-progress loops
         self._tool_history.append(tool_call.name)

@@ -60,7 +60,7 @@ class ToolRegistry:
 
 
 def build_registry(config) -> ToolRegistry:
-    """Build the one-and-only 11-tool registry."""
+    """Build the 13-tool registry: 11 core + 2 planning."""
     from .filesystem import FileRead, FileWrite, FileEdit
     from .shell import ShellExec
     from .message import MessageResult, MessageChat
@@ -69,6 +69,7 @@ def build_registry(config) -> ToolRegistry:
     from .riptide import Riptide
     from .project_init import ProjectInit
     from .generate import GenerateImage
+    from .plan import PlanUpdate, PlanAdvance
 
     registry = ToolRegistry()
     for cls in [
@@ -78,6 +79,7 @@ def build_registry(config) -> ToolRegistry:
         SearchWeb,
         ProjectInit,
         Undertow, Riptide, GenerateImage,
+        PlanUpdate, PlanAdvance,
     ]:
         registry.register(cls(config))
 
