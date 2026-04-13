@@ -17,6 +17,13 @@ import json
 import logging
 import os
 
+# Unsloth import-time compat check hard-fails on the container's torchvision 0.25
+# (newer torch wants >=0.26). We've verified the old torchvision works — skip the
+# check so `train.py` just runs. Must be set BEFORE unsloth is imported below.
+os.environ.setdefault("UNSLOTH_SKIP_TORCHVISION_CHECK", "1")
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("train")
 
