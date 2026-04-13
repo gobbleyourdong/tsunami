@@ -41,6 +41,21 @@ class BaseTool(ABC):
         """Return JSON Schema for this tool's parameters."""
         ...
 
+    def schema(self) -> dict:
+        """OpenAI-style tool schema used by /v1/chat/completions `tools` field.
+
+        Assembled from `name`, `description`, and `parameters_schema()`. Every
+        concrete tool already has all three, so no subclass needs to override.
+        """
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters_schema(),
+            },
+        }
+
     def validate_input(self, **kwargs) -> str | None:
         """Validate input parameters before execution.
 
