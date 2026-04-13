@@ -60,46 +60,15 @@ class PhaseMachine:
     _last_test_error: str = ""
 
     def gate(self, tool_name: str) -> tuple[bool, str]:
-        """Hard gate: can this tool be called in the current phase?
-
-        Returns (allowed, reason). Only blocks critical violations:
-          - message_result before build passes
-          - message_result before any files written
-
-        Everything else is allowed — the model may legitimately skip phases.
-        Transitions are tracked in record(), not enforced here.
-        """
-        if tool_name == "message_result":
-            # Conversational responses (no project) always pass
-            if not self.project_path and self.files_written == 0:
-                return True, ""
-
-            if self.files_written == 0:
-                return False, (
-                    "PHASE GATE: No code written yet. "
-                    "Call file_write to create src/App.tsx first."
-                )
-
-            if not self.build_passed:
-                return False, (
-                    "PHASE GATE: Code written but not compiled. "
-                    "Run the build first: shell_exec with command "
-                    "'cd workspace/deliverables/{project} && npx vite build'."
-                    .format(project=self.project_path.split("/")[-1] if self.project_path else "PROJECT")
-                )
-
-        # Block message_chat stalls during build tasks.
-        # After writing code, the only forward move is building — not chatting.
-        # This kills the IH03 failure mode: 7 writes → chat loop → timeout.
-        if tool_name == "message_chat" and self.phase == Phase.WRITE and self.files_written > 0:
-            return False, (
-                "PHASE GATE: Code written but not compiled. "
-                "Run the build: shell_exec with command "
-                "'cd workspace/deliverables/{project} && npx vite build'. "
-                "Do NOT chat — build first."
-                .format(project=self.project_path.split("/")[-1] if self.project_path else "PROJECT")
-            )
-
+        """Disabled for zero-shot (2026-04-13). The hard gates were misfiring
+        repeatedly in smoke v6: model would file_write → shell_exec → undertow,
+        then PHASE GATE would say 'not compiled' (build_passed not set even
+        though build succeeded), forcing model into a build → undertow →
+        message_result loop. The downstream _check_deliverable_complete in
+        message.py still catches real shippable bugs (stub components, ReDoS,
+        broken imgs, dead inputs, scaffold-unchanged). Re-enable behind a
+        strict-gates flag if shippable-without-QA becomes a problem.
+        Transitions still tracked in record() for telemetry."""
         return True, ""
 
     def record(self, tool_name: str, args: dict, result_content: str, is_error: bool):
