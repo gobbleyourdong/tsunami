@@ -394,6 +394,38 @@ async def _chat_completions_impl(req: ChatRequest):
             })
         content = ""
 
+    # Fallback: Python-call style (`name(arg=val, arg="...")`) — v90 drops to this
+    # pretraining-prior on short prompts (chat turns) where SFT coverage was thin.
+    # Catches it before the agent loops on empty tool_calls. The 11-tool registry
+    # is the canonical whitelist — don't fabricate unknown tool names.
+    if not tc_matches:
+        _known = {"project_init", "file_write", "file_read", "file_edit", "shell_exec",
+                  "search_web", "undertow", "riptide", "generate_image",
+                  "message_result", "message_chat"}
+        _fallback = re.search(r'\b(' + '|'.join(_known) + r')\(([^)]*)\)', text)
+        if _fallback:
+            _name = _fallback.group(1)
+            _body = _fallback.group(2)
+            # Parse k=v pairs — tolerate quoted strings with commas inside
+            args = {}
+            for _kv in re.finditer(r'(\w+)\s*=\s*("(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\'|[^,)]+)', _body):
+                _k = _kv.group(1)
+                _v = _kv.group(2).strip()
+                if (_v.startswith('"') and _v.endswith('"')) or (_v.startswith("'") and _v.endswith("'")):
+                    _v = _v[1:-1]
+                elif _v.lower() == "true":
+                    _v = True
+                elif _v.lower() == "false":
+                    _v = False
+                args[_k] = _v
+            log.warning(f"{_utag}Python-call fallback matched {_name}({list(args.keys())})")
+            tool_calls = [{
+                "type": "function",
+                "function": {"name": _name, "arguments": json.dumps(args)},
+                "id": uuid.uuid4().hex[:16],
+            }]
+            content = ""
+
     # Clean up content
     content = re.sub(r'<\|.*?\|>', '', content).strip()
     if content.endswith("<turn|>"):
