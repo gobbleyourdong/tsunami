@@ -11,7 +11,7 @@ function findEngine(): string {
     if (existsSync(path.join(candidate, 'index.ts'))) return candidate
     dir = path.dirname(dir)
   }
-  return path.resolve(__dirname, '../../engine/src')
+  return path.resolve(__dirname, '../engine/src')
 }
 
 export default defineConfig({

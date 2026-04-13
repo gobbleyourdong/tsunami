@@ -13,10 +13,10 @@
     "types": ["@webgpu/types"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "paths": {
-      "@engine/*": ["../../engine/src/*"],
-      "@engine": ["../../engine/src/index.ts"],
-      "tsunami-engine": ["../../engine/src/index.ts"],
-      "tsunami-engine/*": ["../../engine/src/*"]
+      "@engine/*": ["../engine/src/*"],
+      "@engine": ["../engine/src/index.ts"],
+      "tsunami-engine": ["../engine/src/index.ts"],
+      "tsunami-engine/*": ["../engine/src/*"]
     }
   },
   "include": ["src"]

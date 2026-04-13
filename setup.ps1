@@ -347,14 +347,7 @@ if (-not (Test-Path $tsuPs1Dest)) {
         Invoke-RestMethod -Uri $tsuPs1Url -OutFile $tsuPs1Dest -ErrorAction Stop
         Write-Ok "Downloaded tsu.ps1"
     } catch {
-        # Last-resort: generate a minimal launcher that delegates to tsunami_cmd
-        @'
-#!/usr/bin/env pwsh
-$DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $DIR
-& python "$DIR\tsunami_cmd" @args
-'@ | Set-Content $tsuPs1Dest -Encoding UTF8
-        Write-Ok "Generated tsu.ps1 launcher"
+        Write-Fail "Could not download tsu.ps1 — re-clone the repo to get it."
     }
 }
 

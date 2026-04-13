@@ -49,8 +49,6 @@ case "${1:-}" in
     pkill -f "serve_diffusion" 2>/dev/null
     pkill -f "tsunami_daemon_start" 2>/dev/null
     pkill -f "tsunami_server_start" 2>/dev/null
-    pkill -f "ws_bridge" 2>/dev/null
-    pkill -f "file_watcher" 2>/dev/null
     echo "  ✓ All processes killed"
     exit 0
     ;;
@@ -136,20 +134,6 @@ start_server(host='0.0.0.0', port=3000)
     curl -sf http://localhost:3000/api/health > /dev/null 2>&1 && break
     sleep 0.5
   done
-fi
-
-# Start WebSocket bridge (agent activity → UI on :3002)
-BRIDGE_PID=""
-if [ -f "$DIR/desktop/ws_bridge.py" ]; then
-  python3 "$DIR/desktop/ws_bridge.py" > /tmp/tsunami_bridge.log 2>&1 &
-  BRIDGE_PID=$!
-fi
-
-# Start file watcher (file changes → UI on :3003)
-WATCHER_PID=""
-if [ -f "$DIR/desktop/file_watcher.py" ]; then
-  python3 "$DIR/desktop/file_watcher.py" > /tmp/tsunami_watcher.log 2>&1 &
-  WATCHER_PID=$!
 fi
 
 # Start serve daemon (auto-serves latest deliverable on :9876)
