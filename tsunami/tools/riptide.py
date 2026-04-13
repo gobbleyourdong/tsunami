@@ -25,14 +25,14 @@ import httpx
 
 from .base import BaseTool, ToolResult
 
-log = logging.getLogger("tsunami.vision_ground")
+log = logging.getLogger("tsunami.riptide")
 
 # Vision model endpoint — separate from the text wave
 VL_ENDPOINT = os.environ.get("TSUNAMI_VL_ENDPOINT", "http://localhost:8094")
 
 
-class VisionGround(BaseTool):
-    name = "vision_ground"
+class Riptide(BaseTool):
+    name = "riptide"
     description = (
         "Extract UI element positions from a reference image. "
         "Give it an image path and a list of elements to find. "

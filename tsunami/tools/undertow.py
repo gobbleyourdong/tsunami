@@ -34,6 +34,18 @@ class Undertow(BaseTool):
 
     async def execute(self, path: str, expect: str = "", **kw) -> ToolResult:
         try:
+            # Fallback: if the model didn't pass expect, use the session's
+            # original user prompt. Without this, undertow with no expect
+            # runs only a 2-lever plan (console + screenshot, no compare)
+            # and placeholder deliverables silently pass. This is the same
+            # module-global pattern filesystem.py uses for exfil checks;
+            # it's a hack but an existing consistent one.
+            if not expect:
+                try:
+                    from .filesystem import _session_task_prompt
+                    expect = _session_task_prompt or ""
+                except Exception:
+                    pass
             from ..undertow import run_drag, format_qa_report
             result = await run_drag(path, user_request=expect)
             report = format_qa_report(result)

@@ -1,17 +1,43 @@
-"""Tool registry — maps tool names to implementations."""
+"""Tool registry — 11 tools, one mode.
 
+Previous design had separate "lite" (2B/4B) and "full" (9B+) registries.
+That split is gone — there's only one model target (Gemma 4 E4B) and one
+tool surface. Any agent sees these 11 tools, no branching.
+
+Core pipeline (saturated in training):
+  project_init, file_write, file_edit, file_read, shell_exec,
+  undertow, message_result
+
+Conversational:
+  message_chat (done=true ends, done=false continues)
+
+Research:
+  search_web
+
+Vision (force multiplier for small models):
+  riptide (extract element positions from a reference image)
+  generate_image (create reference via Z-Image-Turbo)
+
+Deprecated (previously existed, now removed from codebase):
+  plan_update, plan_advance, swell, swell_build, swell_analyze,
+  message_info, message_ask, match_glob, match_grep, python_exec,
+  summarize_file, browser_*, webdev_*, load_toolbox, subtask_*,
+  session_*. See git history commit where tools/ was trimmed for details.
+
+Agent-side dispatching (not model-callable):
+  Eddy swarm for multi-component writes: agent.py auto-detects missing
+  component references and dispatches tsunami/eddy.py::run_swarm.
+  Research parallelization: after first search_web, agent auto-dispatches
+  per-result eddies to extract and merge. Neither is exposed to the model
+  — the 4B is bad at deciding "fork 10 workers," the agent is good at it.
+"""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from .base import BaseTool, ToolResult
-
-if TYPE_CHECKING:
-    from ..config import TsunamiConfig
+from .base import BaseTool
 
 
 class ToolRegistry:
-    """Central registry of all available tools."""
+    """Simple tool lookup by name."""
 
     def __init__(self):
         self._tools: dict[str, BaseTool] = {}
@@ -25,75 +51,34 @@ class ToolRegistry:
     def names(self) -> list[str]:
         return list(self._tools.keys())
 
+    @property
+    def tools(self) -> dict[str, BaseTool]:
+        return self._tools
+
     def schemas(self) -> list[dict]:
-        """Return all tool schemas in OpenAI function-calling format."""
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": t.name,
-                    "description": t.description,
-                    "parameters": t.parameters_schema(),
-                },
-            }
-            for t in self._tools.values()
-        ]
+        return [t.schema() for t in self._tools.values()]
 
 
-def build_registry(config: TsunamiConfig) -> ToolRegistry:
-    """Build the tool registry — bootstrap tools only.
-
-    The agent starts with just enough to operate: messages, files, shell,
-    search, planning, and load_toolbox. Everything else lives on disk in
-    toolboxes/ — the agent reads those files to discover capabilities and
-    calls load_toolbox to activate what it needs.
-    """
-    from .filesystem import FileRead, FileWrite, FileEdit, FileAppend
-    from .match import MatchGlob, MatchGrep
-    from .shell import ShellExec, ShellView
-    from .message import MessageInfo, MessageAsk, MessageResult, MessageChat
-    from .plan import PlanUpdate, PlanAdvance
+def build_registry(config) -> ToolRegistry:
+    """Build the one-and-only 11-tool registry."""
+    from .filesystem import FileRead, FileWrite, FileEdit
+    from .shell import ShellExec
+    from .message import MessageResult, MessageChat
     from .search import SearchWeb
-    from .python_exec import PythonExec
-    from .summarize import SummarizeFile
-    from .swell import Swell
     from .undertow import Undertow
+    from .riptide import Riptide
     from .project_init import ProjectInit
     from .generate import GenerateImage
-    from .toolbox import LoadToolbox, set_registry
 
     registry = ToolRegistry()
-
-    # Detect lite mode: eddy and wave on same endpoint = one model doing everything
-    is_lite = config.eddy_endpoint == config.model_endpoint
-
-    if is_lite:
-        # Lite mode (2B): 13 tools — fewer choices = better decisions
-        # Removed: PlanUpdate (2B plans poorly), Swell (auto-dispatched),
-        # SummarizeFile (wastes context), PythonExec (2B misuses for file ops),
-        # MatchGrep (use shell grep), LoadToolbox (no dynamic loading on 2B)
-        # Re-included: Undertow — the model is trained to call it before
-        # message_result; without it, calls fail "tool not found", the agent
-        # narrates "outdated tool name" and ships placeholder deliverables.
-        for cls in [FileRead, FileWrite, FileEdit,
-                    MatchGlob,
-                    ShellExec,
-                    MessageInfo, MessageAsk, MessageResult, MessageChat,
-                    SearchWeb, ProjectInit, GenerateImage, Undertow]:
-            registry.register(cls(config))
-    else:
-        # Full mode (9B+): 19 tools — full capabilities
-        for cls in [FileRead, FileWrite, FileEdit,
-                    MatchGlob, MatchGrep,
-                    ShellExec,
-                    MessageInfo, MessageAsk, MessageResult, MessageChat,
-                    PlanUpdate,
-                    SearchWeb, PythonExec, SummarizeFile, Swell, Undertow,
-                    ProjectInit, GenerateImage]:
-            registry.register(cls(config))
-        # The meta-tool — loads everything else from disk
-        registry.register(LoadToolbox(config))
-
-    set_registry(registry)
+    for cls in [
+        FileRead, FileWrite, FileEdit,
+        ShellExec,
+        MessageResult, MessageChat,
+        SearchWeb,
+        ProjectInit,
+        Undertow, Riptide, GenerateImage,
+    ]:
+        registry.register(cls(config))
 
     return registry

@@ -6,11 +6,14 @@ Extends the dynamic tool filter (chunk 4) with:
 3. Model capability probing — classify model as basic/intermediate/advanced
 
 Phases:
-  RESEARCH: gathering info (search_web, file_read, match_grep, match_glob)
-  PLAN:     structuring approach (plan_update, message_info)
-  BUILD:    writing code (file_write, file_edit, shell_exec, project_init, generate_image)
-  VERIFY:   testing (shell_exec for build/test only, file_read)
+  RESEARCH: gathering info (search_web, file_read)
+  PLAN:     structuring approach (message_chat for clarification)
+  BUILD:    writing code (file_write, file_edit, shell_exec, project_init, generate_image, riptide)
+  VERIFY:   testing (shell_exec for build/test, undertow for QA, file_read)
   DELIVER:  presenting result (message_result)
+
+Updated after the 11-tool cleanup: dropped match_grep, match_glob,
+plan_update, message_info, message_ask, browser_navigate from phase sets.
 """
 
 from __future__ import annotations
@@ -22,17 +25,17 @@ from pathlib import Path
 
 log = logging.getLogger("tsunami.phase_filter")
 
-# Phase definitions with allowed tools
+# Phase definitions with allowed tools — must be subset of the 11 live tools
 PHASE_TOOLS: dict[str, set[str]] = {
-    "RESEARCH": {"search_web", "file_read", "file_list", "match_grep", "match_glob", "browser_navigate"},
-    "PLAN": {"plan_update", "message_info", "message_ask"},
-    "BUILD": {"file_write", "file_edit", "shell_exec", "project_init", "generate_image", "plan_update"},
-    "VERIFY": {"shell_exec", "file_read", "match_grep"},
-    "DELIVER": {"message_result", "message_info"},
+    "RESEARCH": {"search_web", "file_read"},
+    "PLAN": {"message_chat"},
+    "BUILD": {"file_write", "file_edit", "shell_exec", "project_init", "generate_image", "riptide"},
+    "VERIFY": {"shell_exec", "file_read", "undertow"},
+    "DELIVER": {"message_result"},
 }
 
 # Tools that are always available regardless of phase
-UNIVERSAL_TOOLS = {"message_ask", "message_info", "plan_update"}
+UNIVERSAL_TOOLS = {"message_chat"}
 
 # Capability levels
 CAPABILITY_LEVELS = ("basic", "intermediate", "advanced")
@@ -73,8 +76,8 @@ def detect_phase(tool_history: list[str], window: int = 10) -> str:
     if shells / total > 0.4 and any(t in ("file_write", "file_edit") for t in tool_history[-20:]):
         return "VERIFY"
 
-    # Plan = message/plan heavy
-    plans = sum(1 for t in recent if t in ("plan_update", "message_info"))
+    # Plan = conversational-heavy (message_chat clarifying before building)
+    plans = sum(1 for t in recent if t == "message_chat")
     if plans / total > 0.3:
         return "PLAN"
 

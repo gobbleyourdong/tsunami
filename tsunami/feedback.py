@@ -59,7 +59,7 @@ class FeedbackTracker:
             )
 
         # Pattern: repeated file_read without file_write → stop reading, start writing
-        reads = sum(1 for n in recent_names if n in ("file_read", "match_glob", "match_grep"))
+        reads = sum(1 for n in recent_names if n in ("file_read"))
         if reads >= 5 and writes == 0:
             return (
                 "FEEDBACK: You've read 5+ files without writing anything. "

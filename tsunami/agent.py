@@ -977,21 +977,22 @@ class Agent:
         tool_call = response.tool_call
 
         if tool_call is None:
-            # Model responded with text only — wrap in message_info
-            # (enforcing the "always use tools" rule)
-            # Clean the content — strip any leaked thinking/JSON before storing
+            # Model responded with text only — wrap in message_chat
+            # (enforcing the "always use tools" rule). message_info and
+            # message_ask are no longer registered; message_chat is the
+            # conversational fallback.
             import re
             clean = re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL).strip()
             clean = re.sub(r'\{[^{}]*"name"\s*:.*', '', clean, flags=re.DOTALL).strip()
             if clean:
                 self.state.add_assistant(clean)
-                tool_call = ToolCall(name="message_info", arguments={"text": clean})
+                tool_call = ToolCall(name="message_chat", arguments={"text": clean, "done": False})
             else:
                 self._empty_steps += 1
                 if self._empty_steps >= 3:
                     self.state.add_system_note(
                         "Multiple empty responses. You MUST call a tool. "
-                        "If the task is done, call message_result. If stuck, call message_ask."
+                        "If the task is done, call message_result. If unclear, call message_chat."
                     )
                     self._empty_steps = 0
                 return ""
@@ -1011,7 +1012,7 @@ class Agent:
         # message_info loop detection — safety net for untrained patterns
         # The trained model should use message_chat instead, but if it falls
         # back to message_info, catch loops and force termination.
-        if tool_call.name == "message_info":
+        if tool_call.name == "message_chat":
             self._info_streak = getattr(self, '_info_streak', 0) + 1
             if self._info_streak >= 3:
                 log.info(f"Info loop detected ({self._info_streak} consecutive). Forcing delivery.")
@@ -1022,6 +1023,25 @@ class Agent:
 
         log.info(f"[{self.state.iteration}] Tool: {tool_call.name} | Args: {_truncate(tool_call.arguments)}")
 
+        # 3a. message_result gate: require a successful undertow call first.
+        # v89 (and current models) occasionally skip undertow and deliver
+        # placeholder code straight to message_result. Gate this at the agent
+        # level — if the last 10 tool calls don't include undertow, refuse
+        # the delivery and tell the model to QA first.
+        if tool_call.name == "message_result":
+            recent = self._tool_history[-10:]
+            if "undertow" not in recent:
+                log.info("message_result without preceding undertow — forcing QA")
+                self.state.add_system_note(
+                    "REFUSED message_result: you haven't run undertow yet. "
+                    "Call undertow(path=\"dist/index.html\") first — it auto-tests "
+                    "the built app. If undertow returns FAIL, file_edit to fix the "
+                    "specific issue, rebuild with shell_exec, then undertow again. "
+                    "Only call message_result after undertow passes."
+                )
+                # Don't append to history; let next iteration try again.
+                return ""
+
         # 3b. Stall detection — detect no-progress loops
         self._tool_history.append(tool_call.name)
         if len(self._tool_history) > 10:
@@ -1029,12 +1049,12 @@ class Agent:
         # If last 4 calls are all read-only tools → stalled
         if len(self._tool_history) >= 4:
             recent = self._tool_history[-4:]
-            read_only = {"message_info", "search_web", "file_read", "match_glob",
+            read_only = {"message_chat", "search_web", "file_read", "match_glob",
                          "match_grep", "summarize_file", "shell_exec", "undertow"}
             no_writes = all(t in read_only for t in recent)
             if no_writes:
                 # Check if build already passed — verification stall
-                has_delivered = any(t == "message_info" for t in self._tool_history[-15:])
+                has_delivered = any(t == "message_chat" for t in self._tool_history[-15:])
                 if has_delivered and self.state.iteration > 5:
                     log.warning("Verification stall: build looks done, forcing delivery")
                     self.state.add_system_note(
@@ -1245,9 +1265,9 @@ class Agent:
             log.warning("Pressure: 4+ consecutive high tension — forcing user guidance")
             self.state.add_system_note(
                 "PRESSURE CRITICAL: You've made 4+ uncertain decisions in a row. "
-                "Stop and use message_ask to get guidance from the user."
+                "Stop and use message_chat(done=false) to ask the user."
             )
-        elif self._pressure.should_force_search() and tool_call.name not in ("search_web", "message_ask"):
+        elif self._pressure.should_force_search() and tool_call.name not in ("search_web", "message_chat"):
             log.info(f"Pressure: forcing search (consecutive high tension)")
             self.state.add_system_note(
                 "PRESSURE ELEVATED: Consider using search_web to ground your next action."
@@ -1329,7 +1349,7 @@ class Agent:
                     f"Step 1: Call file_read with path=\"{app_path}\" to see your code. "
                     f"Step 2: Call file_edit to fix the syntax errors. "
                     f"Step 3: Then call shell_exec to rebuild. "
-                    f"Do NOT call shell_exec or message_ask. Call file_read NOW."
+                    f"Do NOT call shell_exec or message_chat. Call file_read NOW."
                 )
                 log.warning("Hard shell_exec block: 3 consecutive, forcing code fix")
                 self.state.add_tool_result(tool_call.name, tool_call.arguments, block_msg, is_error=True)
@@ -1540,8 +1560,8 @@ class Agent:
                     elements.append("main body/casing")
 
                     if elements:
-                        from .tools.vision_ground import VisionGround, _parse_grounding_response
-                        vg = VisionGround(self.config)
+                        from .tools.riptide import Riptide, _parse_grounding_response
+                        vg = Riptide(self.config)
                         ground_result = await vg.execute(image_path=save_path, elements=elements)
                         if not ground_result.is_error:
                             log.info(f"Auto-ground: extracted positions for {len(elements)} elements")
@@ -2225,7 +2245,7 @@ class Agent:
             if self.state.should_escalate(tool_call.name, tool_call.arguments):
                 self.state.add_system_note(
                     "3 failures on same approach. You must try a fundamentally different "
-                    "approach or use message_ask to request guidance from the user."
+                    "approach or use message_chat(done=false) to request guidance."
                 )
 
         # 8d. Stub detection — catch App.tsx not wired

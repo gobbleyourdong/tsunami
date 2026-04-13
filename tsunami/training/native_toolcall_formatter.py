@@ -307,7 +307,7 @@ TOOL_SCHEMAS = {
             'required': ['path', 'content'],
         },
     },
-    'vision_ground': {
+    'riptide': {
         'description': 'Extract UI element positions from an image.',
         'parameters': {
             'type': 'OBJECT',

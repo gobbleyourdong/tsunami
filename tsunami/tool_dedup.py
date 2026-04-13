@@ -26,15 +26,13 @@ CACHE_TTL = 30
 
 # Tools that should NEVER be cached (side effects or stateful)
 NO_CACHE_TOOLS = frozenset({
-    "shell_exec", "shell_send", "shell_kill",
-    "file_write", "file_edit", "file_append",
-    "message_info", "message_ask", "message_result",
-    "plan_update", "plan_advance",
-    "python_exec",
-    "swell", "swell_analyze",
+    "shell_exec",
+    "file_write", "file_edit",
+    "message_chat", "message_result",
     "search_web",
-    "generate_image", "webdev_generate_assets",
+    "generate_image",
     "undertow",
+    "riptide",
     "project_init",
 })
 
