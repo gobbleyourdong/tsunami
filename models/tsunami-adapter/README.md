@@ -1,7 +1,7 @@
 ---
 base_model: google/gemma-4-e4b-it
 library_name: peft
-model_name: gemma-4-e4b-tsunami-v90-champion
+model_name: tsunami-adapter-v91
 tags:
 - base_model:adapter:google/gemma-4-e4b-it
 - lora
@@ -13,7 +13,7 @@ licence: license
 pipeline_tag: text-generation
 ---
 
-# Model Card for gemma-4-e4b-tsunami-v90-champion
+# Model Card for tsunami-adapter-v91
 
 This model is a fine-tuned version of [google/gemma-4-e4b-it](https://huggingface.co/google/gemma-4-e4b-it).
 It has been trained using [TRL](https://github.com/huggingface/trl).

@@ -1308,17 +1308,20 @@ HACK_SCENARIOS = [
         "expect_tool": "project_init",  # should start building with what it found
         "reject_tools": ["search_web"],  # should NOT search the same thing again
     },
-    # === HACK: Complex build needs plan (model should plan 3+ component builds) ===
+    # === HACK: Complex build still starts with project_init (no plan_update tool exists) ===
+    # Was expecting `plan_update` which is a dead tool removed in the 11-tool cleanup.
+    # The 11-tool surface has no planning tool — complex builds correctly start with
+    # project_init like any other build. Test now just verifies project_init fires.
     {
         "id": "HF09",
-        "hack": "No plan for complex builds",
-        "desc": "Complex multi-component build should start with plan_update or swell",
+        "hack": "Complex build starts cleanly",
+        "desc": "Complex multi-component build should still start with project_init",
         "messages": [
             {"role": "system", "content": SYSTEM},
             {"role": "user", "content": "Build a full e-commerce store with product grid, shopping cart, checkout form, user auth, and order history"},
         ],
-        "expect_tool": "plan_update",  # complex build should be planned
-        "reject_tools": ["file_write"],  # should NOT jump straight to writing
+        "expect_tool": "project_init",
+        "reject_tools": ["search_web"],  # should NOT defer to research first
     },
     # === HACK: Undertow before delivery (model should QA before delivering) ===
     {
