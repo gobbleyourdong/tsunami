@@ -34,10 +34,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--data", default="workspace/training_data/e4b_toolcall_train_v14.jsonl")
 parser.add_argument("--output", default="models/gemma-4-e4b-tsunami-unsloth")
 parser.add_argument("--epochs", type=int, default=3)
+parser.add_argument("--max-steps", type=int, default=None,
+                    help="Cap total optimizer steps. Unsloth notebook uses 60 for quick iteration.")
 parser.add_argument("--lr", type=float, default=2e-4)
-parser.add_argument("--lora-r", type=int, default=8)
-parser.add_argument("--lora-alpha", type=int, default=None, help="LoRA alpha (default: 2*r)")
+parser.add_argument("--lora-r", type=int, default=32,
+                    help="LoRA rank. Unsloth default 32; was 8.")
+parser.add_argument("--lora-alpha", type=int, default=None,
+                    help="LoRA alpha (default: r, matching Unsloth notebook; was 2*r).")
 parser.add_argument("--lora-dropout", type=float, default=0.0, help="LoRA dropout (try 0.05)")
+parser.add_argument("--target-modules", default="all-linear",
+                    help="LoRA target modules. Unsloth recommends 'all-linear' (default) or a comma list.")
+parser.add_argument("--warmup-ratio", type=float, default=0.03,
+                    help="Cosine warmup ratio. Unsloth notebook default 0.03.")
 parser.add_argument("--base-model", default="google/gemma-4-e4b-it", help="Base model path or HF name")
 parser.add_argument("--max-len", type=int, default=16384)
 parser.add_argument("--batch", type=int, default=1)
@@ -53,7 +61,7 @@ args = parser.parse_args()
 # ==========================================
 from unsloth import FastLanguageModel
 
-lora_alpha = args.lora_alpha if args.lora_alpha else args.lora_r * 2
+lora_alpha = args.lora_alpha if args.lora_alpha else args.lora_r  # Unsloth: alpha == r
 log.info(f"Loading {args.base_model} with Unsloth (LoRA r={args.lora_r}, alpha={lora_alpha}, dropout={args.lora_dropout})...")
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=args.base_model,
@@ -69,8 +77,8 @@ model = FastLanguageModel.get_peft_model(
     lora_alpha=lora_alpha,
     lora_dropout=args.lora_dropout,
     bias="none",
-    target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                     "gate_proj", "up_proj", "down_proj"],
+    target_modules=(args.target_modules if args.target_modules != "all-linear"
+                    else "all-linear").split(",") if "," in args.target_modules else args.target_modules,
     use_gradient_checkpointing="unsloth",  # Unsloth's optimization
     random_state=3407,
 )
@@ -160,7 +168,7 @@ log.info(f"Response-only masking on <|turn>model tokens (instruction markers: us
 # ==========================================
 from trl import SFTTrainer, SFTConfig
 
-sft_config = SFTConfig(
+sft_config_kwargs = dict(
     output_dir=args.output,
     run_name=args.run_name,
     num_train_epochs=args.epochs,
@@ -168,18 +176,24 @@ sft_config = SFTConfig(
     gradient_accumulation_steps=args.grad_accum,
     learning_rate=args.lr,
     lr_scheduler_type="cosine",
-    warmup_steps=10,
+    warmup_ratio=args.warmup_ratio,  # replaces fixed warmup_steps=10
     bf16=True,
-    logging_steps=10,
+    logging_steps=1,  # Unsloth notebook default — tight feedback loop
     save_strategy="steps",
     save_steps=50,
     report_to="none",
     max_grad_norm=0.3,
-    optim="adamw_torch_fused",
+    optim="adamw_8bit",  # Unsloth notebook default (was adamw_torch_fused)
     weight_decay=0.001,
     max_seq_length=args.max_len,
     dataset_text_field="text",
+    seed=3407,
 )
+# max_steps overrides num_train_epochs when set — lets you run quick 60-step
+# iterations for fast hyperparam probes (Unsloth notebook default).
+if args.max_steps:
+    sft_config_kwargs["max_steps"] = args.max_steps
+sft_config = SFTConfig(**sft_config_kwargs)
 
 trainer = SFTTrainer(
     model=model,
