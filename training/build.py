@@ -426,6 +426,138 @@ EXAMPLES.append({
 })
 
 
+# --- IN-PLACE / CWD MODE (user's CWD has files, task is about them) ---------
+# Zero coverage in v90/v91 — model always reaches for project_init. These
+# examples teach "list first, operate in place, skip project_init + undertow"
+# for requests like "organize", "rename", "summarize", "what's in here".
+
+EXAMPLES.append({
+    "tag": "cwd_organize_by_type",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Organize these files by type."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls -la"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "report.pdf  paper.pdf  notes.md  todo.md  image.png  logo.png  data.csv  config.yaml"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "mkdir -p pdfs markdown images data && mv *.pdf pdfs/ && mv *.md markdown/ && mv *.png images/ && mv *.csv *.yaml data/"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "moved 8 files into pdfs/, markdown/, images/, data/"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Organized 8 files into pdfs/, markdown/, images/, data/ by extension."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "cwd_whats_in_here",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "What's in this directory?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls -la"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "README.md  src/  tests/  package.json  node_modules/  dist/  .git/"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "A Node/TypeScript project: README.md, src/, tests/, package.json, plus node_modules/ and dist/ build output. Git-tracked."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "cwd_rename_pngs_to_date",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Rename all these PNGs to use their modified-date as the prefix, like 2026-04-12_oldname.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls *.png"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "screenshot.png  logo.png  banner.png  icon.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "for f in *.png; do d=$(date -r \"$f\" +%Y-%m-%d); mv \"$f\" \"${d}_${f}\"; done"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "renamed: 2026-04-12_screenshot.png, 2026-04-12_logo.png, 2026-04-11_banner.png, 2026-04-10_icon.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Renamed 4 PNGs with date prefix."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "cwd_summarize_python",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Summarize the Python files in this directory."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls *.py && wc -l *.py"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "loader.py  trainer.py  eval.py\n  120 loader.py\n  450 trainer.py\n   89 eval.py\n  659 total"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "trainer.py"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import torch\nclass Trainer:\n    def __init__(self, model, data): ...\n    def train(self, epochs): ..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "3 Python files, 659 LOC total:\n- loader.py (120): data loading\n- trainer.py (450): training loop with Trainer class\n- eval.py (89): evaluation harness"}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "cwd_find_todos",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Find all TODO comments in this codebase."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "grep -rn 'TODO' --include='*.py' --include='*.ts' --include='*.tsx' --include='*.js'"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "./src/api.ts:42: // TODO: rate-limit\n./src/auth.ts:17: // TODO: handle expired tokens\n./trainer.py:88: # TODO: add early stopping"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "3 TODOs found:\n- src/api.ts:42 — rate-limit\n- src/auth.ts:17 — handle expired tokens\n- trainer.py:88 — add early stopping"}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "cwd_refactor_snake_case",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Rename the function `methodName` to snake_case in user.py."},
+        # Classic Claude Code framing: don't output the string, MODIFY THE CODE.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "user.py"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "class User:\n    def methodName(self):\n        return self.data\n    def callMethodName(self):\n        return self.methodName()"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {
+                 "path": "user.py",
+                 "old_text": "def methodName(self):",
+                 "new_text": "def method_name(self):"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "Edited"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {
+                 "path": "user.py",
+                 "old_text": "return self.methodName()",
+                 "new_text": "return self.method_name()"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "Edited"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Renamed methodName → method_name in user.py (2 occurrences: def + call site)."}}}]},
+    ],
+})
+
+
 # --- VISION PIPELINE (generate_image + riptide — the undertrained tools) -----
 
 EXAMPLES.append({
