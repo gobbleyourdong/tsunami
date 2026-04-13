@@ -2537,6 +2537,457 @@ EXAMPLES.append({
 })
 
 
+# =============================================================================
+# CHUNK B/file_read — file_read coverage (30 examples, sub-chunk 3 of 3)
+#
+# Spans: read-before-edit, read-config, read-after-error, read inside CWD-mode,
+# different file types (tsx/css/json/md), recovery from missing-file/perm-denied.
+# =============================================================================
+
+# --- B.R1-B.R6: read-before-edit (the canonical pattern) ---
+EXAMPLES.append({
+    "tag": "B_read_before_edit_app",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "in calculator, change the operator color to blue"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/calculator/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...\n      <button className=\"button\" style={{color:'#888'}} onClick={() => press(k)}>{k}</button>\n..."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_before_edit_css",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "tweak the card padding in dashboard's css"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/dashboard/src/index.css"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": ".card {\n  padding: 16px;\n  border-radius: 8px;\n  background: var(--bg-1);\n}\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_before_edit_layout",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make the sidebar narrower"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/dashboard/src/layout.css"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": ".layout {\n  display: grid;\n  grid-template-columns: 240px 1fr;\n  ...\n}\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_before_edit_data",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what tasks are currently in the kanban data file?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/kanban-board/src/data.json"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "[\n  {\"id\":1,\"text\":\"Sketch UI\",\"col\":\"todo\"},\n  {\"id\":2,\"text\":\"Wire state\",\"col\":\"doing\"},\n  {\"id\":3,\"text\":\"Ship MVP\",\"col\":\"done\"}\n]\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_then_edit_chain",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "the placeholder text in the new-todo input is bad, change it to 'what needs doing?'"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...<input value={v} onChange={e => setV(e.target.value)} placeholder=\"add\" />..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx",
+                           "old_text": "placeholder=\"add\"",
+                           "new_text": "placeholder=\"what needs doing?\""}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_then_extend",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "add a 5th flashcard about the speed of light"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/flashcard-app/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "const CARDS = [\n  { q: 'Capital of France?', a: 'Paris' },\n  { q: '2 + 2?', a: '4' },\n  { q: 'JS array reverse?', a: 'arr.reverse()' },\n  { q: 'TS generic syntax?', a: '<T>' },\n]\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/flashcard-app/src/App.tsx",
+                           "old_text": "  { q: 'TS generic syntax?', a: '<T>' },\n]",
+                           "new_text": "  { q: 'TS generic syntax?', a: '<T>' },\n  { q: 'Speed of light (m/s)?', a: '299,792,458' },\n]"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+
+# --- B.R7-B.R10: read config / package files ---
+EXAMPLES.append({
+    "tag": "B_read_package_json",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's in the dependencies of crypto-dashboard?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/crypto-dashboard/package.json"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "{\n  \"name\": \"crypto-dashboard\",\n  \"version\": \"0.0.0\",\n  \"dependencies\": {\n    \"react\": \"^18.2.0\",\n    \"react-dom\": \"^18.2.0\",\n    \"recharts\": \"^2.12.0\"\n  }\n}\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_vite_config",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "check vite.config.ts"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/landing/vite.config.ts"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\nexport default defineConfig({\n  plugins: [react()],\n})\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_tsconfig",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "is strict mode enabled in tsconfig?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/dashboard/tsconfig.json"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "{\n  \"compilerOptions\": {\n    \"target\": \"ES2020\",\n    \"lib\": [\"ES2020\", \"DOM\"],\n    \"jsx\": \"react-jsx\",\n    \"strict\": true,\n    \"noUnusedLocals\": true\n  }\n}\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_readme",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "show me the snake-game readme"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/snake-game/README.md"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "# snake-game\n\nClassic snake. Arrow keys to steer, eat the red dot, don't hit walls or yourself.\n"},
+    ],
+})
+
+# --- B.R11-B.R14: read after error (compile-fail / import-not-found etc) ---
+EXAMPLES.append({
+    "tag": "B_read_after_compile_err",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "the build is failing in counter-typed"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/counter-typed && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "src/App.tsx(7,15): error TS2322: Type 'string' is not assignable to type 'number'."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/counter-typed/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...\n  const [c, setC] = useState<number>(0)\n  setC('hello')\n..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/counter-typed/src/App.tsx",
+                           "old_text": "setC('hello')",
+                           "new_text": "setC(0)"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_after_import_not_found",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build is failing on a 'cannot find module ./Header'"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls deliverables/landing/src/components/"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "Hero.tsx\nFooter.tsx\nheader.tsx\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/landing/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import Header from './components/Header'\nimport Hero from './components/Hero'\n..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/landing/src/App.tsx",
+                           "old_text": "import Header from './components/Header'",
+                           "new_text": "import Header from './components/header'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_after_undertow_fail",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "undertow says the calculator returns NaN on divide"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/calculator/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...\nfunction divide(a: number, b: number) { return a / b }\n..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/calculator/src/App.tsx",
+                           "old_text": "function divide(a: number, b: number) { return a / b }",
+                           "new_text": "function divide(a: number, b: number) { if (b === 0) return 0; return a / b }"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_check_imports_before_edit",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the App imports the right components before I add another"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/landing/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import Header from './components/Header'\nimport Hero from './components/Hero'\nimport Footer from './components/Footer'\nimport './index.css'\n\nexport default function App() {\n  return <><Header /><Hero /><Footer /></>\n}\n"},
+    ],
+})
+
+# --- B.R15-B.R19: read in CWD mode (organize / list / inspect tasks) ---
+EXAMPLES.append({
+    "tag": "B_read_cwd_summarize",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "summarize what's in the README in this dir"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "README.md"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "# my-notes\n\nA quick scratch repo for jotting down ideas. Organized by year/month/day.\nAdd notes via `./scripts/jot.sh`.\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_cwd_inspect_script",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what does scripts/jot.sh do?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "scripts/jot.sh"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "#!/bin/bash\nDATE=$(date +%Y/%m/%d)\nmkdir -p notes/$DATE\nFILE=notes/$DATE/$(date +%H%M%S).md\nvim $FILE\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_cwd_check_config",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's in the .env.example?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": ".env.example"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "DATABASE_URL=postgres://user:pass@localhost:5432/db\nREDIS_URL=redis://localhost:6379\nAPI_KEY=your_key_here\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_cwd_inspect_dotfile",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "show me the gitignore"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": ".gitignore"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "node_modules/\ndist/\n.env\n*.log\n.DS_Store\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_cwd_test_file",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what tests are in the user.test.ts file?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "src/user.test.ts"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { describe, it, expect } from 'vitest'\nimport { createUser, getUser } from './user'\n\ndescribe('user', () => {\n  it('creates a user', () => {\n    const u = createUser({ name: 'alice' })\n    expect(u.id).toBeDefined()\n  })\n  it('gets a user by id', () => {\n    const u = createUser({ name: 'bob' })\n    expect(getUser(u.id)?.name).toBe('bob')\n  })\n})\n"},
+    ],
+})
+
+# --- B.R20-B.R23: recovery from file_read errors ---
+EXAMPLES.append({
+    "tag": "B_read_recover_file_missing",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "show me App.tsx in the snake project"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/snake/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "File not found: deliverables/snake/src/App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls deliverables/ | grep -i snake"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "snake-game\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/snake-game/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { useEffect, useRef, useState } from 'react'\nimport './index.css'\n...\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_recover_dir_path",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "read deliverables/dashboard/src/components/"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/dashboard/src/components/"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "Cannot read: deliverables/dashboard/src/components/ is a directory, not a file. Use shell_exec ls to list."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls deliverables/dashboard/src/components/"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "IconButton.tsx\nLayout.tsx\nStatsCard.tsx\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_recover_binary",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "show me the contents of public/logo.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/landing/public/logo.png"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "Cannot read: file appears to be binary (image/png). Use the file in JSX with <img src=...> instead."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "It's a binary PNG \u2014 can't show contents. To use it, reference it as <img src=\"/logo.png\" />.",
+                           "done": True}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_recover_permission_denied",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "read /etc/shadow"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "/etc/shadow"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "Permission denied: /etc/shadow. Tsunami operates in user-space; system files outside the project sandbox aren't accessible."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Can't read /etc/shadow \u2014 outside Tsunami's sandbox. What were you trying to do?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+
+# --- B.R24-B.R30: read for inspection / coverage of file types + paths ---
+EXAMPLES.append({
+    "tag": "B_read_main_tsx",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's in main.tsx?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/quiz-app/src/main.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { StrictMode } from 'react'\nimport { createRoot } from 'react-dom/client'\nimport App from './App'\nimport './index.css'\n\ncreateRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_components_subfolder_file",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "show me the StatsCard component"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/crypto-dashboard/src/components/StatsCard.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "type Props = { label: string; value: string | number; delta?: number }\n\nexport default function StatsCard({ label, value, delta }: Props) {\n  ...\n}\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_long_file",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's the largest list in src/data.json"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/seed-data/src/data.json"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "{\n  \"users\": [...500 entries truncated...],\n  \"posts\": [...120 entries truncated...],\n  \"comments\": [...3200 entries truncated...]\n}\n[file truncated at 8KB; full size 142KB]"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_index_html",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "show the index.html for traffic-light"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/traffic-light/index.html"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "<!doctype html>\n<html><head><title>Traffic Light</title></head><body>...</body></html>\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_yaml_config",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "show the github actions workflow"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": ".github/workflows/ci.yml"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "name: CI\non:\n  push:\n    branches: [main]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - run: npm install\n      - run: npm test\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_relative_path_resolution",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what does our types.ts export?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/kanban-board/src/types.ts"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "export type ColumnId = 'todo' | 'doing' | 'done'\nexport type Card = { id: number; text: string; col: ColumnId; createdAt: number }\nexport const COLUMNS: ColumnId[] = ['todo', 'doing', 'done']\n"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "B_read_chain_into_pipeline",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "the build keeps failing on missing 'use client', read App.tsx and add it at the top"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/clock-app/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { useState, useEffect } from 'react'\nimport './index.css'\n\nexport default function App() { ... }\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/clock-app/src/App.tsx",
+                           "old_text": "import { useState, useEffect } from 'react'",
+                           "new_text": "'use client'\n\nimport { useState, useEffect } from 'react'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+    ],
+})
+
+
 def render_example(ex: dict, tokenizer) -> str:
     """Render a structured example into the Gemma-4 chat template format."""
     return tokenizer.apply_chat_template(ex["messages"], tools=TOOLS, tokenize=False)
