@@ -4033,6 +4033,898 @@ EXAMPLES.append({
 })
 
 
+# =============================================================================
+# CHUNK E/riptide — riptide coverage (30 examples)
+#
+# Vision grounding: image_path + focus → returns bbox positions as percentages.
+# Use on clone/mimic tasks where the user wants to match a reference image.
+# =============================================================================
+
+# --- E.RT1-E.RT6: standard riptide calls ---
+EXAMPLES.append({
+    "tag": "E_riptide_dashboard_layout",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "extract layout positions from /tmp/dashboard_ref.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/dashboard_ref.png",
+                           "focus": "sidebar, top bar, stat cards, chart region"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "sidebar: left=0% top=0% width=18% height=100%\ntopbar: left=18% top=0% width=82% height=8%\nstat_cards: left=20% top=12% width=76% height=15%\nchart: left=20% top=30% width=76% height=55%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_game_ui",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "find the UI elements on /tmp/gameboy.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/gameboy.png",
+                           "focus": "screen, A button, B button, D-pad, start button, select button, speaker grille"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "screen: left=18% top=12% width=64% height=40%\nd_pad: left=10% top=58% width=22% height=22%\nA: left=72% top=58% width=12% height=12%\nB: left=86% top=64% width=12% height=12%\nstart: left=42% top=82% width=14% height=4%\nselect: left=58% top=82% width=14% height=4%\nspeaker: left=78% top=88% width=14% height=8%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_landing_page",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "extract layout from /tmp/landing-ref.jpg"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/landing-ref.jpg",
+                           "focus": "logo, nav, hero headline, hero image, CTA button, feature row, footer"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "logo: left=4% top=2% width=10% height=4%\nnav: left=20% top=2% width=60% height=4%\nhero_headline: left=8% top=15% width=44% height=10%\nhero_image: left=55% top=12% width=40% height=35%\ncta: left=8% top=28% width=18% height=5%\nfeatures: left=8% top=55% width=84% height=20%\nfooter: left=0% top=88% width=100% height=12%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_mobile_app",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what's where on /tmp/mobile-app.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/mobile-app.png",
+                           "focus": "status bar, header, search bar, content list, bottom tabs"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "status_bar: left=0% top=0% width=100% height=3%\nheader: left=0% top=3% width=100% height=8%\nsearch: left=4% top=12% width=92% height=5%\ncontent: left=0% top=18% width=100% height=72%\ntabs: left=0% top=92% width=100% height=8%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_calculator",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "find layout in /tmp/calc-ref.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/calc-ref.png",
+                           "focus": "display, digit grid, operator column, equals, clear"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "display: left=4% top=2% width=92% height=15%\ndigit_grid: left=4% top=20% width=68% height=70%\noperator_column: left=76% top=20% width=20% height=55%\nequals: left=76% top=78% width=20% height=12%\nclear: left=4% top=92% width=92% height=6%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_form",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "where are the form fields in /tmp/signup-ref.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/signup-ref.png",
+                           "focus": "title, name field, email field, password field, submit button, social login row"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "title: left=20% top=10% width=60% height=8%\nname: left=20% top=25% width=60% height=6%\nemail: left=20% top=35% width=60% height=6%\npassword: left=20% top=45% width=60% height=6%\nsubmit: left=20% top=55% width=60% height=8%\nsocial: left=20% top=70% width=60% height=10%"},
+    ],
+})
+
+# --- E.RT7-E.RT11: clone task — search_web → riptide → file_write using bbox ---
+EXAMPLES.append({
+    "tag": "E_riptide_then_write_dashboard",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "clone /tmp/dashboard_ref.png as a React app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/dashboard_ref.png",
+                           "focus": "sidebar, topbar, content area"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "sidebar: left=0% top=0% width=18% height=100%\ntopbar: left=18% top=0% width=82% height=8%\ncontent: left=18% top=8% width=82% height=92%"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "dashboard-clone"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/dashboard-clone"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/dashboard-clone/src/layout.css",
+                           "content": ".sidebar { position: absolute; left: 0%; top: 0%; width: 18%; height: 100%; background: #1a1a2e; }\n.topbar  { position: absolute; left: 18%; top: 0%; width: 82%; height: 8%; background: #16213e; }\n.content { position: absolute; left: 18%; top: 8%; width: 82%; height: 92%; padding: 24px; }\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/dashboard-clone/src/layout.css"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_then_position_buttons",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a Game Boy clone matching /tmp/gameboy.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/gameboy.png",
+                           "focus": "screen, A button, B button, D-pad, speaker"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "screen: left=18% top=12% width=64% height=40%\nd_pad: left=10% top=58% width=22% height=22%\nA: left=72% top=58% width=12% height=12%\nB: left=86% top=64% width=12% height=12%\nspeaker: left=78% top=88% width=14% height=8%"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "gameboy-clone"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/gameboy-clone"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/gameboy-clone/src/layout.css",
+                           "content": ".body { position: relative; width: 320px; height: 540px; background: #d3d3d3; border-radius: 12px; }\n.screen { position: absolute; left: 18%; top: 12%; width: 64%; height: 40%; background: #8c9b6b; border: 4px solid #444; }\n.dpad { position: absolute; left: 10%; top: 58%; width: 22%; height: 22%; background: #222; }\n.a-btn { position: absolute; left: 72%; top: 58%; width: 12%; height: 12%; background: #c33; border-radius: 50%; }\n.b-btn { position: absolute; left: 86%; top: 64%; width: 12%; height: 12%; background: #c33; border-radius: 50%; }\n.speaker { position: absolute; left: 78%; top: 88%; width: 14%; height: 8%; background: repeating-linear-gradient(45deg, #555, #555 2px, #888 2px, #888 4px); }\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/gameboy-clone/src/layout.css"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_landing_clone_full",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "clone /tmp/saas-landing.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/saas-landing.png",
+                           "focus": "nav, hero, features, footer"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "nav: left=0% top=0% width=100% height=6%\nhero: left=0% top=6% width=100% height=44%\nfeatures: left=0% top=50% width=100% height=30%\nfooter: left=0% top=80% width=100% height=20%"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "saas-landing-clone"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/saas-landing-clone"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_after_search_for_ref",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "I want a Stripe-style pricing page; reference /tmp/stripe-pricing.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/stripe-pricing.png",
+                           "focus": "header, monthly/annual toggle, three pricing cards, feature comparison table, FAQ"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "header: left=10% top=4% width=80% height=10%\ntoggle: left=42% top=14% width=16% height=4%\ncards: left=10% top=20% width=80% height=35%\ncomparison: left=10% top=58% width=80% height=22%\nfaq: left=10% top=82% width=80% height=15%"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "stripe-pricing-clone"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/stripe-pricing-clone"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_focus_as_list",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "find every interactive element in /tmp/calc-clone-ref.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/calc-clone-ref.png",
+                           "focus": "display, button 0, button 1, button 2, button 3, button 4, button 5, button 6, button 7, button 8, button 9, button +, button -, button *, button /, button =, button C"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "display: left=4% top=2% width=92% height=15%\nbutton_grid: left=4% top=20% width=92% height=70%\n  (digits 0-9 + operators arranged in a 4x5 grid; clear spans bottom row)"},
+    ],
+})
+
+# --- E.RT12-E.RT15: in full pipelines (riptide → ... → message_result) ---
+EXAMPLES.append({
+    "tag": "E_riptide_full_clone_pipeline",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "clone the layout in /tmp/widget.png exactly"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/widget.png",
+                           "focus": "header, body, footer"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "header: left=0% top=0% width=100% height=20%\nbody: left=0% top=20% width=100% height=60%\nfooter: left=0% top=80% width=100% height=20%"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "widget-clone"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/widget-clone"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/widget-clone/src/App.tsx",
+                           "content": "import './index.css'\nimport './layout.css'\n\nexport default function App() {\n  return (\n    <div className=\"widget\">\n      <header className=\"widget-header\">Widget</header>\n      <main className=\"widget-body\">Body content</main>\n      <footer className=\"widget-footer\">Footer</footer>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/widget-clone/src/App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/widget-clone/src/layout.css",
+                           "content": ".widget { position: relative; width: 320px; height: 480px; background: #fff; border: 1px solid #ddd; }\n.widget-header { position: absolute; left: 0%; top: 0%; width: 100%; height: 20%; background: #f5f5f5; padding: 12px; }\n.widget-body { position: absolute; left: 0%; top: 20%; width: 100%; height: 60%; padding: 12px; }\n.widget-footer { position: absolute; left: 0%; top: 80%; width: 100%; height: 20%; background: #f5f5f5; padding: 12px; }\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/widget-clone/src/layout.css"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/widget-clone && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 0.9s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/widget-clone/dist/index.html",
+                           "expect": "header (top 20%), body (middle 60%), footer (bottom 20%)"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — three sections, ratios match reference."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Widget-clone verified: layout matches reference percentages."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_pricing_simple",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "what does /tmp/pricing-ref.png look like?"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/pricing-ref.png",
+                           "focus": "free tier card, pro tier card, enterprise tier card"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "free: left=8% top=20% width=26% height=60%\npro: left=37% top=15% width=26% height=70%\nenterprise: left=66% top=20% width=26% height=60%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_chart_layout",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "where are the charts on /tmp/analytics.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/analytics.png",
+                           "focus": "line chart, bar chart, pie chart, KPI cards row"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "kpis: left=4% top=8% width=92% height=12%\nline: left=4% top=24% width=58% height=40%\nbar: left=64% top=24% width=32% height=40%\npie: left=4% top=68% width=44% height=28%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_screenshot_to_clone",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "I dropped a screenshot at /tmp/notion-style.png — clone it"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/notion-style.png",
+                           "focus": "left sidebar (page tree), top bar, main editor, right info panel"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "sidebar: left=0% top=0% width=20% height=100%\ntopbar: left=20% top=0% width=80% height=5%\neditor: left=20% top=5% width=55% height=95%\ninfo: left=75% top=5% width=25% height=95%"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "notion-style-clone"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/notion-style-clone"},
+    ],
+})
+
+# --- E.RT16-E.RT19: recovery from riptide errors ---
+EXAMPLES.append({
+    "tag": "E_riptide_recover_image_not_found",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "extract layout from /tmp/missing-ref.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/missing-ref.png", "focus": "main elements"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "Image not found: /tmp/missing-ref.png. Verify the path or use search_web to find a reference image."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "ls /tmp/*.png"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "/tmp/main-ref.png\n/tmp/dashboard_ref.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/main-ref.png", "focus": "main elements"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "header: left=0% top=0% width=100% height=10%\nbody: left=0% top=10% width=100% height=80%\nfooter: left=0% top=90% width=100% height=10%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_recover_no_focus",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "look at /tmp/widget.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/widget.png"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "No focus elements specified. Pass a `focus` string listing the UI elements to locate (e.g. 'header, body, footer')."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/widget.png",
+                           "focus": "header, content, button"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "header: left=0% top=0% width=100% height=15%\ncontent: left=0% top=15% width=100% height=70%\nbutton: left=30% top=88% width=40% height=8%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_recover_vision_endpoint_down",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "find the buttons in /tmp/ref.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/ref.png", "focus": "all buttons"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "Vision grounding unavailable — no VL endpoint responding. Start a vision model on port 8094 or ensure the main tsunami endpoint is reachable."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Vision endpoint is offline — can't extract bbox positions. Want me to proceed without exact coordinates, using a sensible flexbox layout?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_recover_unsupported_format",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "use /tmp/ref.svg as the layout reference"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/ref.svg", "focus": "main shapes"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "Unsupported format: SVG. Convert to PNG/JPG first. Use shell_exec with `convert /tmp/ref.svg /tmp/ref.png` (ImageMagick) or rasterize via headless browser."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "convert /tmp/ref.svg /tmp/ref.png"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": ""},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/ref.png", "focus": "main shapes"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "circle: left=20% top=20% width=20% height=20%\nrect: left=50% top=20% width=30% height=20%\ntriangle: left=35% top=55% width=30% height=30%"},
+    ],
+})
+
+# --- E.RT20-E.RT22: edge cases ---
+EXAMPLES.append({
+    "tag": "E_riptide_relative_path",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "extract layout from references/hero.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "references/hero.png",
+                           "focus": "headline, subtitle, CTA, hero image"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "headline: left=8% top=20% width=44% height=12%\nsubtitle: left=8% top=34% width=44% height=8%\ncta: left=8% top=46% width=18% height=6%\nhero_image: left=55% top=15% width=40% height=50%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_iterative_zoom",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "first find the main sections in /tmp/app.png"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/app.png", "focus": "header, body, footer"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "header: left=0% top=0% width=100% height=12%\nbody: left=0% top=12% width=100% height=78%\nfooter: left=0% top=90% width=100% height=10%"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/app.png",
+                           "focus": "elements inside the header: logo, search box, profile avatar"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "logo: left=2% top=3% width=10% height=6%\nsearch: left=30% top=3% width=40% height=6%\navatar: left=92% top=3% width=6% height=6%"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_riptide_after_generate_image",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate a music player ref then ground it"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "/tmp/music-ref.png",
+                           "prompt": "minimalist music player UI, dark theme, album art on left, track list on right, playback controls at bottom"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated /tmp/music-ref.png (1024x768)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "riptide",
+             "arguments": {"image_path": "/tmp/music-ref.png",
+                           "focus": "album art, track list, playback controls"}}}]},
+        {"role": "tool", "name": "riptide",
+         "content": "album_art: left=4% top=4% width=40% height=70%\ntrack_list: left=48% top=4% width=48% height=70%\ncontrols: left=20% top=80% width=60% height=14%"},
+    ],
+})
+
+
+# =============================================================================
+# CHUNK E/generate_image — generate_image coverage (30 examples)
+# =============================================================================
+
+# --- E.GI1-E.GI6: standard asset generation calls ---
+EXAMPLES.append({
+    "tag": "E_gen_texture",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate a stone wall texture"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/dungeon-game/public/textures/stone-wall.png",
+                           "prompt": "seamless stone wall texture, medieval, weathered grey blocks, photorealistic, 512x512"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/dungeon-game/public/textures/stone-wall.png (512x512)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_sprite",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate a pixel-art knight sprite"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/rpg/public/sprites/knight.png",
+                           "prompt": "pixel art knight character, 32x32, side view, sword and shield, transparent background"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/rpg/public/sprites/knight.png (32x32)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_icon",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate an app icon for the weather widget"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/weather-widget/public/icon.png",
+                           "prompt": "flat design weather app icon, sun behind cloud, blue and white, 256x256, app store style"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/weather-widget/public/icon.png (256x256)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_hero_image",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "create a hero image for the landing page"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/landing/public/hero.png",
+                           "prompt": "modern SaaS dashboard mockup floating in 3D space, gradient background purple to blue, professional, marketing material"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/landing/public/hero.png (1024x768)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_background",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make a starfield background for the space-shooter"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/space-shooter/public/bg.png",
+                           "prompt": "deep space starfield, scattered stars, distant nebula in cyan and magenta, 1920x1080, parallax-ready"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/space-shooter/public/bg.png (1920x1080)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_avatar",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "create a placeholder avatar"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/social-app/public/avatar.png",
+                           "prompt": "abstract geometric avatar, soft gradient, blue to teal, 256x256, friendly mood"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/social-app/public/avatar.png (256x256)."},
+    ],
+})
+
+# --- E.GI7-E.GI11: gen → file_write that USES the asset ---
+EXAMPLES.append({
+    "tag": "E_gen_then_use_in_jsx",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a music player with a generated album cover"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "music-player"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/music-player"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/music-player/public/album.png",
+                           "prompt": "abstract album cover art, dark teal and gold, geometric, square, 512x512"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/music-player/public/album.png (512x512)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/music-player/src/App.tsx",
+                           "content": "import './index.css'\n\nexport default function App() {\n  return (\n    <div className=\"container flex-col flex-center gap-4 p-8\">\n      <img src=\"/album.png\" alt=\"album cover\" style={{width:300,height:300,borderRadius:12}} />\n      <div className=\"text-bold text-lg\">Track Name</div>\n      <div className=\"text-muted\">Artist</div>\n      <div className=\"flex gap-4\">\n        <button className=\"button\">⏮</button>\n        <button className=\"button primary\">⏯</button>\n        <button className=\"button\">⏭</button>\n      </div>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/music-player/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_sprite_then_canvas",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a mini RPG with a knight sprite"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "mini-rpg"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/mini-rpg"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/mini-rpg/public/knight.png",
+                           "prompt": "pixel art knight, 64x64, idle pose, side view, transparent background"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/mini-rpg/public/knight.png (64x64)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/mini-rpg/src/App.tsx",
+                           "content": "import { useEffect, useRef, useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [pos, setPos] = useState({ x: 100, y: 100 })\n  const ref = useRef<HTMLImageElement>(null)\n  useEffect(() => {\n    const handle = (e: KeyboardEvent) => {\n      const STEP = 8\n      if (e.key === 'ArrowLeft')  setPos(p => ({ ...p, x: p.x - STEP }))\n      if (e.key === 'ArrowRight') setPos(p => ({ ...p, x: p.x + STEP }))\n      if (e.key === 'ArrowUp')    setPos(p => ({ ...p, y: p.y - STEP }))\n      if (e.key === 'ArrowDown')  setPos(p => ({ ...p, y: p.y + STEP }))\n    }\n    window.addEventListener('keydown', handle)\n    return () => window.removeEventListener('keydown', handle)\n  }, [])\n  return (\n    <div style={{position:'relative', width:'100vw', height:'100vh', background:'#1a1a2e'}}>\n      <img ref={ref} src=\"/knight.png\" alt=\"knight\" style={{position:'absolute', left:pos.x, top:pos.y, width:64, height:64}} />\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/mini-rpg/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_three_textures",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make grass, water, and dirt textures for the tile-map"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/tile-map/public/tiles/grass.png",
+                           "prompt": "seamless grass texture, top-down, vivid green, painterly, 64x64"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/tile-map/public/tiles/grass.png (64x64)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/tile-map/public/tiles/water.png",
+                           "prompt": "seamless water texture, top-down, blue with subtle ripples, 64x64"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/tile-map/public/tiles/water.png (64x64)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/tile-map/public/tiles/dirt.png",
+                           "prompt": "seamless dirt texture, top-down, warm brown with pebbles, 64x64"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/tile-map/public/tiles/dirt.png (64x64)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_logo",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "design a logo for the brand 'tide'"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/tide-landing/public/logo.png",
+                           "prompt": "minimal wordmark logo for the brand 'tide', flowing wave incorporated into the letter 't', deep teal on white, 512x256"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/tide-landing/public/logo.png (512x256)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_pattern",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make a subtle SVG-style background pattern"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/landing/public/bg-pattern.png",
+                           "prompt": "subtle dot grid pattern, soft gradient grey, seamless tileable, 512x512"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/landing/public/bg-pattern.png (512x512)."},
+    ],
+})
+
+# --- E.GI12-E.GI16: in full pipelines (project_init → gen → write → build → undertow → message_result) ---
+EXAMPLES.append({
+    "tag": "E_gen_full_pipeline_widget",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a card with a generated illustration"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "illustration-card"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/illustration-card"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/illustration-card/public/hero.png",
+                           "prompt": "abstract illustration, mountains and aurora, vibrant teal and purple, painterly, 800x500"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/illustration-card/public/hero.png (800x500)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/illustration-card/src/App.tsx",
+                           "content": "import './index.css'\n\nexport default function App() {\n  return (\n    <div className=\"container flex-center\" style={{height:'100vh'}}>\n      <div className=\"card\" style={{maxWidth:600}}>\n        <img src=\"/hero.png\" alt=\"hero\" style={{width:'100%',display:'block'}} />\n        <div className=\"p-6\">\n          <h2 className=\"text-2xl text-bold\">Mountain Aurora</h2>\n          <p className=\"text-muted\">An evening above the treeline.</p>\n        </div>\n      </div>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/illustration-card/src/App.tsx"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/illustration-card && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.0s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/illustration-card/dist/index.html",
+                           "expect": "card with hero image, title, description"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — card with hero image renders, title and description below."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Illustration-card verified: card with generated mountain-aurora hero."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_full_pipeline_avatar_grid",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a team grid with 4 generated avatars"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "team-grid"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/team-grid"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/team-grid/public/avatars.png",
+                           "prompt": "set of 4 abstract geometric avatars in a 2x2 grid, each with different gradient palette, soft, friendly, 512x512"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/team-grid/public/avatars.png (512x512)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/team-grid/src/App.tsx",
+                           "content": "import './index.css'\n\nconst MEMBERS = [\n  { name: 'Alice', role: 'Engineer' },\n  { name: 'Bob', role: 'Designer' },\n  { name: 'Carol', role: 'PM' },\n  { name: 'Dan', role: 'Founder' },\n]\n\nexport default function App() {\n  return (\n    <div className=\"container p-8\">\n      <h1 className=\"text-2xl text-bold\" style={{marginBottom:24}}>Team</h1>\n      <div className=\"grid grid-2 gap-4\">\n        {MEMBERS.map((m, i) => (\n          <div key={i} className=\"card flex gap-4 p-4\">\n            <div style={{width:64,height:64,borderRadius:'50%',background:`hsl(${i*90},70%,60%)`}} />\n            <div className=\"flex-col\"><div className=\"text-bold\">{m.name}</div><div className=\"text-muted\">{m.role}</div></div>\n          </div>\n        ))}\n      </div>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/team-grid/src/App.tsx"},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_full_pipeline_landing_hero",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a landing page with a generated hero illustration"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "saas-landing"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created project deliverables/saas-landing"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/saas-landing/public/hero.png",
+                           "prompt": "isometric SaaS dashboard mockup with abstract data viz, gradient blue-purple background, marketing-grade quality, 1200x800"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/saas-landing/public/hero.png (1200x800)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "deliverables/saas-landing/src/App.tsx",
+                           "content": "import './index.css'\n\nexport default function App() {\n  return (\n    <div className=\"container p-8\">\n      <header className=\"flex flex-between p-4\"><div className=\"text-bold\">Brand</div><nav className=\"flex gap-4\"><a>Pricing</a><a>Docs</a><a>Sign in</a></nav></header>\n      <section className=\"flex gap-8 p-8\">\n        <div className=\"flex-col gap-4\" style={{flex:1}}>\n          <h1 className=\"text-2xl text-bold\">Ship faster</h1>\n          <p className=\"text-muted\">Build, test, deploy — without the friction.</p>\n          <button className=\"button primary\" style={{alignSelf:'flex-start'}}>Try free</button>\n        </div>\n        <img src=\"/hero.png\" alt=\"hero\" style={{flex:1, maxWidth:600}} />\n      </section>\n    </div>\n  )\n}\n"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote deliverables/saas-landing/src/App.tsx"},
+    ],
+})
+
+# --- E.GI17-E.GI21: recovery from generate_image errors ---
+EXAMPLES.append({
+    "tag": "E_gen_recover_dir_missing",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate a hero image for the new landing"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/new-landing/public/hero.png",
+                           "prompt": "modern SaaS hero, gradient, 1200x800"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Could not save: deliverables/new-landing/public/ does not exist."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "mkdir -p deliverables/new-landing/public"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": ""},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/new-landing/public/hero.png",
+                           "prompt": "modern SaaS hero, gradient, 1200x800"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/new-landing/public/hero.png (1200x800)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_recover_prompt_too_short",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate something"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "/tmp/img.png", "prompt": "image"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Prompt too vague — 'image' is not enough to guide generation. Provide concrete subject, style, and palette (e.g. 'minimalist mountain landscape at dawn, teal sky')."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "What would you like the image to depict? E.g. a logo, hero illustration, sprite, texture, icon — and any style or color preferences?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_recover_model_busy",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate the texture"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/dungeon/public/wall.png",
+                           "prompt": "seamless stone wall texture, medieval, 512x512"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Image model busy: queue depth 8, retry in ~30s."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "sleep 30"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": ""},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/dungeon/public/wall.png",
+                           "prompt": "seamless stone wall texture, medieval, 512x512"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/dungeon/public/wall.png (512x512)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_recover_no_image_model",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate a logo"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/landing/public/logo.png",
+                           "prompt": "minimal wordmark logo, blue, 512x256"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "No image model configured. Server was started with --image-model none. Restart the server with --image-model Tongyi-MAI/Z-Image-Turbo to enable generation."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_chat",
+             "arguments": {"text": "Image generation is disabled on this server. Want me to skip the logo and use a CSS-only placeholder, or restart with the image model enabled?",
+                           "done": False}}}]},
+        {"role": "tool", "name": "message_chat", "content": "Delivered."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_recover_safety_filter",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate the boss enemy sprite for the shooter"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/shooter/public/boss.png",
+                           "prompt": "graphic violent boss enemy with weapons, blood splatter, 256x256"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generation blocked by safety filter: prompt contains terms flagged as graphic violence. Reword to focus on the visual silhouette without violence descriptors."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/shooter/public/boss.png",
+                           "prompt": "menacing alien boss creature for arcade game, dark silhouette with glowing eyes, pixel art style, 256x256"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/shooter/public/boss.png (256x256)."},
+    ],
+})
+
+# --- E.GI22-E.GI26: prompt-style coverage (concrete, abstract, technical, branded) ---
+EXAMPLES.append({
+    "tag": "E_gen_concrete_subject",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate a coffee cup illustration"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/coffee-app/public/cup.png",
+                           "prompt": "single white coffee cup with steam rising, photorealistic, on wooden table, soft natural light, 512x512"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/coffee-app/public/cup.png (512x512)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_abstract_pattern",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make an abstract pattern for the empty state"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/notes-app/public/empty.png",
+                           "prompt": "abstract minimal illustration of an empty notebook, soft pastels, line art, friendly mood, 600x400"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/notes-app/public/empty.png (600x400)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_technical_diagram",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "create a hero diagram showing 3 servers connected to a database"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/architecture-page/public/diagram.png",
+                           "prompt": "isometric tech diagram: 3 server racks on top connecting via lines to a single database cylinder below, flat design, blue and teal palette, 1024x768"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/architecture-page/public/diagram.png (1024x768)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_branded_palette",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate a hero image matching our brand: deep navy and coral"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/brand-site/public/hero.png",
+                           "prompt": "abstract gradient flowing wave, deep navy (#1a1f4e) blending into coral (#ff6b6b), professional, 1600x900"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/brand-site/public/hero.png (1600x900)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_iconset",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "make an icon set: home, settings, profile, logout"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/dashboard/public/icons.png",
+                           "prompt": "set of 4 minimal line icons in a row: house, gear, person, exit-door arrow, monochrome dark grey on white, 512x128"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/dashboard/public/icons.png (512x128)."},
+    ],
+})
+
+# --- E.GI27-E.GI30: edge cases ---
+EXAMPLES.append({
+    "tag": "E_gen_path_with_subdir",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate the orc sprite for sprites/enemies/"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/rpg/public/sprites/enemies/orc.png",
+                           "prompt": "pixel art orc enemy, 32x32, side view, green skin, club weapon, transparent background"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/rpg/public/sprites/enemies/orc.png (32x32)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_overwrite_existing",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "regenerate the hero — make it darker"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/landing/public/hero.png",
+                           "prompt": "modern SaaS dashboard mockup, deep midnight blue background, dark mode aesthetic, professional, 1200x800"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/landing/public/hero.png (1200x800). Overwrote existing file."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_non_image_path",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "generate the hero"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/landing/src/hero.txt",
+                           "prompt": "hero image"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Path must end in .png, .jpg, or .webp. Got: deliverables/landing/src/hero.txt"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/landing/public/hero.png",
+                           "prompt": "modern SaaS hero illustration, gradient blue, 1200x800"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/landing/public/hero.png (1200x800)."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "E_gen_chained_into_message_result",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "I just need the favicon"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "generate_image",
+             "arguments": {"path": "deliverables/landing/public/favicon.png",
+                           "prompt": "minimal wave logo, single brushstroke style, blue on transparent, 64x64"}}}]},
+        {"role": "tool", "name": "generate_image",
+         "content": "Generated deliverables/landing/public/favicon.png (64x64)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Favicon generated at deliverables/landing/public/favicon.png.",
+                           "attachments": ["deliverables/landing/public/favicon.png"]}}}]},
+    ],
+})
+
+
 def render_example(ex: dict, tokenizer) -> str:
     """Render a structured example into the Gemma-4 chat template format."""
     return tokenizer.apply_chat_template(ex["messages"], tools=TOOLS, tokenize=False)
