@@ -327,10 +327,15 @@ def main():
         _log("no synthesizable SFT examples — skipping")
         return 0
 
+    # Touch BEFORE training starts so the next cron fire (within 90m of THIS start)
+    # sees an active cooldown — prevents parallel training races. Without this,
+    # cooldown check uses post-train mtime → cron at 01:17 fires while 00:47 train
+    # is still running → two trains write to the same output dir → corruption.
+    LAST_TRAIN.touch()
     if not _train(corpus):
         _log("train failed — keeping current adapter")
         return 1
-    LAST_TRAIN.touch()
+    LAST_TRAIN.touch()  # post-train re-touch to anchor the next cooldown
 
     # Port the new adapter
     _port_adapter(ADAPTER_NEW, REPO / "models" / "tsunami-adapter-staging")
