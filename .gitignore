@@ -42,6 +42,18 @@ TSUNAMI.md
 SCRATCHPAD.md
 **/SCRATCHPAD.md
 
+# ALL_CAPS filename convention: working files go in ALL_CAPS, research uses
+# lowercase. Catches the whole class (SESSION_STATE, MORNING_BRIEFING, etc.)
+# without per-file blocklists. Standards (README, LICENSE, CHANGELOG) and
+# known canonical research (ADAPTER_PLAYBOOK, UNSLOTH_RECIPE) are whitelisted.
+[A-Z][A-Z0-9_]*.md
+!README.md
+!LICENSE
+!LICENSE.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!CODE_OF_CONDUCT.md
+
 # Misc
 *.log
 /tmp/
