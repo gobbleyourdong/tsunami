@@ -3423,6 +3423,616 @@ EXAMPLES.append({
 })
 
 
+# =============================================================================
+# CHUNK D/undertow — undertow coverage (30 examples)
+#
+# CRITICAL: this chunk fixes the L4 hackfree gap (model must call undertow
+# before message_result) AND the loop-trap (model must read undertow FAIL
+# and file_edit, not chat). Every Phase-3 recovery here trains the
+# tool-result → next-action pattern that's missing in legacy data.
+# =============================================================================
+
+# --- D1-D6: standard verify after build, PASS path → message_result ---
+EXAMPLES.append({
+    "tag": "D_pass_basic_counter",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the counter is working"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/counter/dist/index.html",
+                           "expect": "counter app: +/- buttons increment a number"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — counter renders, + and - buttons increment/decrement the displayed number."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Counter verified: +/- buttons step a centered number. Ready in deliverables/counter."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_pass_kanban",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "QA the kanban board"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/kanban-board/dist/index.html",
+                           "expect": "3-column kanban (todo, doing, done) with draggable cards"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — 3 columns visible (Todo, Doing, Done), cards drag between columns, drop fires correctly."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Kanban-board verified: 3 columns, drag-and-drop between columns. Ready."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_pass_traffic_light",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the traffic light"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/traffic-light/dist/index.html",
+                           "expect": "vertical traffic light with red top, yellow middle, green bottom in a black housing"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — vertical layout with three lights (red top, yellow middle, green bottom) in a black rounded housing. Lights cycle every 1.5s."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Traffic-light verified: vertical R/Y/G in black housing, auto-cycles every 1.5s."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_pass_form",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "QA the contact form"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/contact-form/dist/index.html",
+                           "expect": "form with name, email, message inputs and a submit button; validates email"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — form has name/email/message fields. Invalid email triggers inline error; valid submit clears form and shows confirmation."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Contact-form verified: 3 fields, email validation, success state on submit."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_pass_canvas_game",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the snake game runs"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/snake-game/dist/index.html",
+                           "expect": "snake game on canvas, arrow keys steer, eats food and grows"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — canvas renders, snake moves on arrow keys, food spawns, snake grows on eat, death on wall/self."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Snake-game verified: canvas-based, arrow-key control, eat-grow-die mechanics."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_pass_short_expect",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the dice roller"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/dice-roller/dist/index.html",
+                           "expect": "die display + roll button"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — die value shown, button rolls 1-6."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Dice-roller verified."}}}]},
+    ],
+})
+
+# --- D7-D11: FAIL → file_edit → rebuild → re-undertow (the canonical L4 fix) ---
+EXAMPLES.append({
+    "tag": "D_fail_missing_button_then_fix",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the calculator works"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/calculator/dist/index.html",
+                           "expect": "calculator with digit buttons, operators, equals, clear"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "FAIL — digit buttons render and click but '=' button is missing from the keypad. No way to evaluate the expression."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/calculator/src/App.tsx",
+                           "old_text": "const KEYS = ['7','8','9','/','4','5','6','*','1','2','3','-','0','.','+']",
+                           "new_text": "const KEYS = ['7','8','9','/','4','5','6','*','1','2','3','-','0','.','=','+']"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/calculator && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "vite v5.0.0 building for production... built in 1.1s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/calculator/dist/index.html",
+                           "expect": "calculator with digits, operators, equals, clear"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — full keypad including =, evaluates expressions on click."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Calculator verified: full keypad, = evaluates."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_fail_layout_then_fix",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "QA the dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/dashboard/dist/index.html",
+                           "expect": "sidebar (left), topbar (top), main content area"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "FAIL — sidebar is full-width on top instead of left. Layout grid not applied."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/dashboard/src/App.tsx",
+                           "old_text": "import './index.css'",
+                           "new_text": "import './index.css'\nimport './layout.css'"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/dashboard && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "vite v5.0.0 building for production... built in 1.4s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/dashboard/dist/index.html",
+                           "expect": "sidebar left, topbar top, main right"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — sidebar 240px on left, topbar 56px on top, main fills remaining space."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Dashboard verified: sidebar/topbar/main grid layout."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_fail_console_error",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the quote-generator"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/quote-generator/dist/index.html",
+                           "expect": "displays a quote, button cycles to next"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "FAIL — console error: 'Each child in a list should have a unique key prop'. UI displays but React warns repeatedly."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/quote-generator/src/App.tsx",
+                           "old_text": "{QUOTES.map((q) => <li>{q}</li>)}",
+                           "new_text": "{QUOTES.map((q, i) => <li key={i}>{q}</li>)}"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/quote-generator && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "vite v5.0.0 building for production... built in 0.9s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/quote-generator/dist/index.html",
+                           "expect": "displays a quote, button cycles, no console errors"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — no console warnings, button cycles cleanly."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Quote-generator verified, no console errors."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_fail_dead_button",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "QA the todo app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/todo-app/dist/index.html",
+                           "expect": "input + Add button; Add appends to a visible list"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "FAIL — Add button is rendered but has no onClick handler. Typing and clicking does not append to the list."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/todo-app/src/App.tsx",
+                           "old_text": "<button className=\"button primary\">Add</button>",
+                           "new_text": "<button className=\"button primary\" onClick={() => { if (v) { setTodos([...todos, v]); setV('') } }}>Add</button>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/todo-app && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 0.8s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/todo-app/dist/index.html",
+                           "expect": "Add button appends typed value to list"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — Add appends; list updates."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Todo-app verified: Add appends to list."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_fail_missing_clear_button",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the calculator has a clear"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/calculator/dist/index.html",
+                           "expect": "digits, operators, equals, AND a Clear button that resets to 0"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "FAIL — no Clear button anywhere in the keypad. Display can't be reset."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/calculator/src/App.tsx",
+                           "old_text": "        {KEYS.map(k => <button key={k} className=\"button\" onClick={() => k === '=' ? eq() : press(k)}>{k}</button>)}\n      </div>",
+                           "new_text": "        {KEYS.map(k => <button key={k} className=\"button\" onClick={() => k === '=' ? eq() : press(k)}>{k}</button>)}\n        <button className=\"button danger\" onClick={() => setD('0')} style={{gridColumn:'span 4'}}>Clear</button>\n      </div>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/calculator && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.0s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/calculator/dist/index.html",
+                           "expect": "digits + operators + equals + Clear that resets"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — Clear button present, click resets display to 0."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Calculator verified: full keypad including = and Clear."}}}]},
+    ],
+})
+
+# --- D12-D14: undertow without explicit expect (uses session prompt fallback) ---
+EXAMPLES.append({
+    "tag": "D_no_expect_basic",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a stopwatch"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/stopwatch/dist/index.html",
+                           "expect": "stopwatch with start/pause/reset"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — stopwatch ticks, start/pause/reset all work."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Stopwatch verified."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_short_expect_one_line",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "QA my color picker"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/color-picker/dist/index.html",
+                           "expect": "color picker with hex display"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — picker selects color, hex updates live."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Color-picker verified."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_long_expect_complex",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the markdown editor — full preview, syntax highlighting, all"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/markdown-editor/dist/index.html",
+                           "expect": "markdown editor: left textarea for input, right pane shows live HTML preview, headings render as H1-H6, code blocks have monospace font, lists render correctly, bold/italic work"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — split view (textarea left, preview right). H1-H3 tested and render. Code blocks use monospace. Lists, bold, italic all render correctly."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Markdown-editor verified: live preview, headings/code/lists/bold/italic all working."}}}]},
+    ],
+})
+
+# --- D15-D19: in full pipelines (project_init → ... → undertow → message_result) ---
+EXAMPLES.append({
+    "tag": "D_pipeline_unit_converter",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build me a unit converter for temperature"},
+        *_pipeline(
+            project_name="temp-converter",
+            app_code="import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [c, setC] = useState(0)\n  const f = c * 9/5 + 32\n  const k = c + 273.15\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <label>Celsius <input type=\"number\" value={c} onChange={e => setC(+e.target.value)} /></label>\n      <div className=\"card p-4\">{c}\u00b0C = {f.toFixed(1)}\u00b0F = {k.toFixed(2)}K</div>\n    </div>\n  )\n}\n",
+            app_path="deliverables/temp-converter/src/App.tsx",
+            expect="temperature converter: enter celsius, see fahrenheit and kelvin",
+            result_text="Built temp-converter: \u00b0C \u2192 \u00b0F + K live conversion.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_pipeline_random_quote",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a random number guesser"},
+        *_pipeline(
+            project_name="number-guesser",
+            app_code="import { useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [target] = useState(() => Math.floor(Math.random() * 100) + 1)\n  const [guess, setGuess] = useState(0)\n  const [tries, setTries] = useState(0)\n  const [msg, setMsg] = useState('Guess 1-100')\n  const check = () => {\n    setTries(t => t + 1)\n    if (guess === target) setMsg(`Got it in ${tries + 1}!`)\n    else if (guess < target) setMsg('Higher')\n    else setMsg('Lower')\n  }\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"text-bold\">{msg}</div>\n      <input type=\"number\" value={guess} onChange={e => setGuess(+e.target.value)} />\n      <button className=\"button primary\" onClick={check}>Check</button>\n    </div>\n  )\n}\n",
+            app_path="deliverables/number-guesser/src/App.tsx",
+            expect="number guesser 1-100 with higher/lower hints and try counter",
+            result_text="Built number-guesser: 1-100, hot/cold hints, try counter.",
+        ),
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_pipeline_qr_text",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "build a stopwatch with lap recording"},
+        *_pipeline(
+            project_name="stopwatch-laps",
+            app_code="import { useEffect, useRef, useState } from 'react'\nimport './index.css'\n\nexport default function App() {\n  const [ms, setMs] = useState(0)\n  const [running, setRunning] = useState(false)\n  const [laps, setLaps] = useState<number[]>([])\n  const start = useRef(0)\n  useEffect(() => {\n    if (!running) return\n    start.current = Date.now() - ms\n    const id = setInterval(() => setMs(Date.now() - start.current), 10)\n    return () => clearInterval(id)\n  }, [running])\n  const fmt = (n: number) => `${Math.floor(n/60000)}:${String(Math.floor((n%60000)/1000)).padStart(2,'0')}.${String(Math.floor((n%1000)/10)).padStart(2,'0')}`\n  return (\n    <div className=\"container p-8 flex-col gap-4\">\n      <div className=\"text-2xl text-bold\">{fmt(ms)}</div>\n      <div className=\"flex gap-4\">\n        <button className=\"button primary\" onClick={() => setRunning(!running)}>{running ? 'Pause' : 'Start'}</button>\n        <button className=\"button\" onClick={() => setLaps([ms, ...laps])}>Lap</button>\n        <button className=\"button danger\" onClick={() => { setMs(0); setLaps([]); setRunning(false) }}>Reset</button>\n      </div>\n      <ul className=\"flex-col gap-2\">{laps.map((l, i) => <li key={i} className=\"card p-2\">Lap {laps.length - i}: {fmt(l)}</li>)}</ul>\n    </div>\n  )\n}\n",
+            app_path="deliverables/stopwatch-laps/src/App.tsx",
+            expect="stopwatch with start/pause/reset and lap recording",
+            result_text="Built stopwatch-laps: timer + lap list.",
+        ),
+    ],
+})
+
+# --- D20-D24: recovery from undertow tool errors (path missing, html broken, timeout) ---
+EXAMPLES.append({
+    "tag": "D_recover_path_missing",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify dist/index.html for new-app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/new-app/dist/index.html", "expect": "homepage"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "Cannot test: deliverables/new-app/dist/index.html does not exist. Run `npm run build` first to generate dist/."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/new-app && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.3s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/new-app/dist/index.html", "expect": "homepage"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — homepage renders."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_recover_blank_page",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the landing page"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/landing/dist/index.html",
+                           "expect": "hero, features, CTA sections"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "FAIL — page loads blank. Console shows: 'Failed to load resource: /assets/index.js (404)'. Build artifact path mismatch."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/landing/vite.config.ts"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "import { defineConfig } from 'vite'\nexport default defineConfig({ base: '/landing/' })\n"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/landing/vite.config.ts",
+                           "old_text": "export default defineConfig({ base: '/landing/' })",
+                           "new_text": "export default defineConfig({ base: './' })"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/landing && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.5s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/landing/dist/index.html",
+                           "expect": "hero, features, CTA sections"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — hero/features/CTA all render correctly."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_recover_browser_crash",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the data-viz dashboard"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/data-viz/dist/index.html",
+                           "expect": "5 charts rendered"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "FAIL — page hangs the browser. Memory grew to 2GB before the test killed the page. Likely an infinite render loop."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_read",
+             "arguments": {"path": "deliverables/data-viz/src/App.tsx"}}}]},
+        {"role": "tool", "name": "file_read",
+         "content": "...\n  useEffect(() => { setData(processData(raw)) })\n..."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/data-viz/src/App.tsx",
+                           "old_text": "useEffect(() => { setData(processData(raw)) })",
+                           "new_text": "useEffect(() => { setData(processData(raw)) }, [raw])"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/data-viz && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.4s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/data-viz/dist/index.html",
+                           "expect": "5 charts rendered without infinite loop"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — 5 charts render, page idles at 80MB."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_recover_undertow_unavailable",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the kanban"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/kanban/dist/index.html",
+                           "expect": "3-col kanban"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "Headless browser unavailable: chromium binary not installed. Run `playwright install chromium` to enable QA."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "playwright install chromium"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "Chrome Headless Shell 145.0.7632.6 downloaded to /root/.cache/ms-playwright/chromium_headless_shell-1208"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/kanban/dist/index.html",
+                           "expect": "3-col kanban"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — 3 columns, drag-and-drop functional."},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_recover_partial_pass",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the quiz app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/quiz-app/dist/index.html",
+                           "expect": "5 questions, score tally, restart button"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PARTIAL — 5 questions cycle, score increments. FAIL: restart button missing — cannot replay."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/quiz-app/src/App.tsx",
+                           "old_text": "      {done && <div>Final score: {score}</div>}",
+                           "new_text": "      {done && (\n        <div className=\"flex-col gap-4\">\n          <div>Final score: {score}</div>\n          <button className=\"button primary\" onClick={() => { setI(0); setScore(0); setDone(false) }}>Restart</button>\n        </div>\n      )}"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/quiz-app && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.0s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/quiz-app/dist/index.html",
+                           "expect": "5 questions, score, restart"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — restart button present, click resets quiz to question 1."},
+    ],
+})
+
+# --- D25-D30: edge cases (HTML-only pages, multiple expectations, FAIL-then-PASS-after-2-edits) ---
+EXAMPLES.append({
+    "tag": "D_html_only_page",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the static traffic-light"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/traffic-light/index.html",
+                           "expect": "traffic light cycles through R/Y/G in vertical layout"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — vertical R/Y/G stack, lights cycle every 1.5s via setInterval."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Traffic-light verified (single-file HTML)."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_two_iter_fix",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the expense tracker"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/expense-tracker/dist/index.html",
+                           "expect": "add expenses with category, see total and per-category breakdown"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "FAIL — categories list is empty. CATEGORIES const is not defined."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/expense-tracker/src/App.tsx",
+                           "old_text": "import { useState } from 'react'",
+                           "new_text": "import { useState } from 'react'\n\nconst CATEGORIES = ['Food', 'Transport', 'Bills', 'Entertainment', 'Other']"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/expense-tracker && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.1s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/expense-tracker/dist/index.html",
+                           "expect": "categories selectable, total + breakdown shown"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "FAIL — categories now show but total is NaN when first expense is added (parseFloat called on empty string)."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {"path": "deliverables/expense-tracker/src/App.tsx",
+                           "old_text": "const total = expenses.reduce((s, e) => s + parseFloat(e.amount), 0)",
+                           "new_text": "const total = expenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "OK"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/expense-tracker && npm run build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "vite v5.0.0 building for production... built in 1.0s"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/expense-tracker/dist/index.html",
+                           "expect": "categories, total, breakdown"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — categories work, total is correct, per-category breakdown matches sums."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Expense-tracker verified after 2 fixes (categories def, NaN guard)."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_undertow_empty_expect",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "QA the dice page"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/dice/dist/index.html"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — page renders. (No `expect` provided; ran default checks: no console errors, no 404s, page non-empty.)"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Dice page verified (default checks)."}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_undertow_after_riptide_layout_fix",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify the calculator-from-ref matches the reference"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/calculator-clone/dist/index.html",
+                           "expect": "matches reference layout: dark display top, 4x5 keypad below, equals button bottom-right"}}}]},
+        {"role": "tool", "name": "undertow",
+         "content": "PASS — display top (dark, right-aligned), 4x5 keypad below with = in bottom-right corner. Layout matches reference percentages."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Calculator-clone verified: layout matches the reference image.",
+                           "attachments": ["deliverables/calculator-clone/dist/index.html"]}}}]},
+    ],
+})
+EXAMPLES.append({
+    "tag": "D_undertow_dist_path_pattern",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "verify pomodoro after the build"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/pomodoro-timer/dist/index.html",
+                           "expect": "25-minute timer, start/pause/reset"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — timer at 25:00, start runs, pause halts, reset returns to 25:00."},
+    ],
+})
+
+
 def render_example(ex: dict, tokenizer) -> str:
     """Render a structured example into the Gemma-4 chat template format."""
     return tokenizer.apply_chat_template(ex["messages"], tools=TOOLS, tokenize=False)
