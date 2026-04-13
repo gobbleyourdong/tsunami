@@ -79,23 +79,47 @@ class AgentState:
         self.iteration: int = 0
         self.task_complete: bool = False
 
+        # Session log — structured turn-by-turn record for offline mining
+        # (extract_failures.py -> DPO pairs). Written append-only as JSONL.
+        # One file per process start; file name encodes timestamp + pid.
+        import os as _os, time as _time
+        _sessions = self.workspace / "sessions"
+        _sessions.mkdir(parents=True, exist_ok=True)
+        self.session_log_path = _sessions / f"{int(_time.time())}_{_os.getpid()}.jsonl"
+
+    def _log_turn(self, record: dict) -> None:
+        """Append a turn record to the session log. Best-effort (never raises)."""
+        try:
+            import time as _time
+            record = {"ts": _time.time(), **record}
+            with open(self.session_log_path, "a") as _f:
+                _f.write(json.dumps(record, default=str) + "\n")
+        except Exception:
+            pass  # logging must never break the agent loop
+
     def add_system(self, content: str):
         self.conversation.append(Message(role="system", content=content))
+        self._log_turn({"role": "system", "content": content})
 
     def add_user(self, content: str):
         self.conversation.append(Message(role="user", content=content))
+        self._log_turn({"role": "user", "content": content})
 
     def add_assistant(self, content: str, tool_call: dict | None = None):
         self.conversation.append(Message(role="assistant", content=content, tool_call=tool_call))
+        self._log_turn({"role": "assistant", "content": content, "tool_call": tool_call})
 
     def add_tool_result(self, tool_name: str, args: dict, result: str, is_error: bool = False):
         prefix = f"[{tool_name}] "
         if is_error:
             prefix += "ERROR: "
         self.conversation.append(Message(role="tool_result", content=prefix + result))
+        self._log_turn({"role": "tool_result", "name": tool_name, "args": args,
+                        "content": result, "is_error": is_error})
 
     def add_system_note(self, note: str):
         self.conversation.append(Message(role="system", content=f"[WATCHER] {note}"))
+        self._log_turn({"role": "system_note", "content": note})
 
     def record_error(self, tool_name: str, args: dict, error: str):
         key = f"{tool_name}:{json.dumps(args, sort_keys=True)[:200]}"
