@@ -426,6 +426,155 @@ EXAMPLES.append({
 })
 
 
+# --- COUNTER-REGRESSIONS (v91 eval revealed these failure modes) ------------
+# v91 introduced read-first / search-first patterns from CWD + vision examples
+# that leaked into error recovery and build-loop continuation. These examples
+# explicitly counter that: error recovery goes STRAIGHT to file_edit (no
+# preceding file_read), continue-build goes STRAIGHT to file_write (no
+# preceding search_web), post-build goes STRAIGHT to undertow.
+
+EXAMPLES.append({
+    "tag": "counter_l3_syntax_direct_edit",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Build a counter app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "counter-syn"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "src/App.tsx",
+                           "content": "export default function App() { return <div>{count<;</div> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/counter-syn && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "ERROR: Expected ',' got ';' in src/App.tsx line 1"},
+        # KEY: model goes STRAIGHT to file_edit. NO file_read first.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_edit",
+             "arguments": {
+                 "path": "deliverables/counter-syn/src/App.tsx",
+                 "old_text": "{count<;</div>",
+                 "new_text": "{count}</div>"}}}]},
+        {"role": "tool", "name": "file_edit", "content": "Edited"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/counter-syn && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/counter-syn/dist/index.html",
+                           "expect": "counter app"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built counter-syn."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "counter_l3_missing_module_direct_write",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Build a header-and-content layout"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "header-layout"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "src/App.tsx",
+                           "content": "import Header from './components/Header'\nexport default function App() { return <Header /> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/header-layout && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec",
+         "content": "ERROR: Cannot find module './components/Header'"},
+        # KEY: missing module → file_write the component. NO file_read first.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {
+                 "path": "deliverables/header-layout/src/components/Header.tsx",
+                 "content": "export default function Header() { return <header>App</header> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/header-layout && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/header-layout/dist/index.html",
+                           "expect": "header layout"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built header-layout."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "counter_l4_post_build_undertow_not_chat",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Build a timer app"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "project_init",
+             "arguments": {"name": "timer-undertow"}}}]},
+        {"role": "tool", "name": "project_init", "content": "Created"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {"path": "src/App.tsx",
+                           "content": "import { useState, useEffect } from 'react'\nexport default function App() { const [s,setS] = useState(0); useEffect(()=>{const i=setInterval(()=>setS(x=>x+1),1000); return ()=>clearInterval(i)},[]); return <div>{s}s</div> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/timer-undertow && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built in 420ms"},
+        # KEY: build passed → undertow IMMEDIATELY. NO message_chat narrating.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/timer-undertow/dist/index.html",
+                           "expect": "a timer ticking up by seconds"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS — counter ticks"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Built timer-undertow. Counts seconds, verified."}}}]},
+    ],
+})
+
+EXAMPLES.append({
+    "tag": "counter_l4_continue_build_write_not_search",
+    "messages": [
+        {"role": "system", "content": SYSTEM_TEXT},
+        {"role": "user", "content": "Continue building the dashboard"},
+        # Pretend prior turn established context: project exists, App.tsx written,
+        # build passing. Continuation should write the next component, not search.
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "file_write",
+             "arguments": {
+                 "path": "deliverables/dashboard/src/components/StatCard.tsx",
+                 "content": "export default function StatCard({label, value}: {label: string; value: string}) { return <div className='card'><h3>{label}</h3><strong>{value}</strong></div> }"}}}]},
+        {"role": "tool", "name": "file_write", "content": "Wrote"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "shell_exec",
+             "arguments": {"command": "cd deliverables/dashboard && npx vite build"}}}]},
+        {"role": "tool", "name": "shell_exec", "content": "built"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "undertow",
+             "arguments": {"path": "deliverables/dashboard/dist/index.html",
+                           "expect": "dashboard with stat cards"}}}]},
+        {"role": "tool", "name": "undertow", "content": "PASS"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"type": "function", "function": {"name": "message_result",
+             "arguments": {"text": "Added StatCard component to dashboard."}}}]},
+    ],
+})
+
+
 # --- IN-PLACE / CWD MODE (user's CWD has files, task is about them) ---------
 # Zero coverage in v90/v91 — model always reaches for project_init. These
 # examples teach "list first, operate in place, skip project_init + undertow"
