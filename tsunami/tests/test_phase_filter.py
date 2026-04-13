@@ -1,25 +1,18 @@
-"""Tests for Chunk 14: Phase-Based Tool Filtering + Model Probing.
+"""Tests for phase-based tool filtering.
 
 Verifies:
 - Phase detection from tool usage patterns
 - Per-phase tool subsets
 - Phase transition notes
-- Model capability probing and persistence
 """
-
-import json
-import tempfile
-from pathlib import Path
 
 from tsunami.phase_filter import (
     detect_phase,
     get_phase_tools,
     filter_tools_for_phase,
     generate_phase_note,
-    ModelCapability,
     PHASE_TOOLS,
     UNIVERSAL_TOOLS,
-    CAPABILITY_LEVELS,
 )
 
 
@@ -55,9 +48,10 @@ class TestPhaseDetection:
         assert detect_phase(history) == "DELIVER"
 
     def test_plan_phase(self):
-        history = ["plan_update", "message_info", "plan_update",
-                    "plan_update", "message_info", "message_info",
-                    "plan_update", "message_info", "plan_update", "plan_update"]
+        # PLAN phase = predominantly message_chat (clarification before building).
+        # Old test referenced plan_update / message_info which were dropped in
+        # the 11-tool cleanup; updated to the current PLAN tool set.
+        history = ["message_chat"] * 8 + ["file_read", "search_web"]
         assert detect_phase(history) == "PLAN"
 
 
@@ -140,62 +134,6 @@ class TestPhaseNotes:
         assert note is None  # shell_exec in recent, no need to nag
 
 
-class TestModelCapability:
-    """Model capability probing and persistence."""
-
-    def test_default_intermediate(self):
-        cap = ModelCapability()
-        assert cap.level == "intermediate"
-
-    def test_classify_basic(self):
-        cap = ModelCapability()
-        result = cap.classify("I don't know how to do that")
-        assert result == "basic"
-
-    def test_classify_intermediate(self):
-        cap = ModelCapability()
-        result = cap.classify("function reverseString(s: string) { return s.split('').reverse().join('') }")
-        assert result == "intermediate"
-
-    def test_classify_advanced(self):
-        cap = ModelCapability()
-        result = cap.classify(
-            "function reverseString(s: string): string {\n"
-            "  if (!s || s.length === 0) return '';\n"
-            "  return s.split('').reverse().join('');\n"
-            "}"
-        )
-        assert result == "advanced"
-
-    def test_save_and_load(self):
-        tmpfile = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
-        tmpfile.close()
-        path = Path(tmpfile.name)
-
-        cap = ModelCapability(path)
-        cap.level = "advanced"
-        cap.save()
-
-        cap2 = ModelCapability(path)
-        loaded = cap2.load()
-        assert loaded == "advanced"
-        path.unlink()
-
-    def test_load_nonexistent(self):
-        cap = ModelCapability("/nonexistent/path.json")
-        level = cap.load()
-        assert level == "intermediate"  # default
-
-    def test_is_capable(self):
-        cap = ModelCapability()
-        cap.level = "advanced"
-        assert cap.is_capable is True
-        cap.level = "intermediate"
-        assert cap.is_capable is True
-        cap.level = "basic"
-        assert cap.is_capable is False
-
-    def test_capability_levels_constant(self):
-        assert "basic" in CAPABILITY_LEVELS
-        assert "intermediate" in CAPABILITY_LEVELS
-        assert "advanced" in CAPABILITY_LEVELS
+# NB: TestModelCapability removed 2026-04-13 alongside ModelCapability itself —
+# the probe was tested-but-never-wired-into-agent dead code. If we ever want
+# capability gating, drive it from real eval scores (training/eval.py L1-L5).

@@ -1,9 +1,7 @@
-"""Phase-based tool filtering + model capability probing.
+"""Phase-based tool filtering.
 
-Extends the dynamic tool filter (chunk 4) with:
-1. Per-phase tool subsets — only show relevant tools for current phase
-2. Auto-detection of phase transitions from tool usage patterns
-3. Model capability probing — classify model as basic/intermediate/advanced
+Per-phase tool subsets + auto-detection of phase transitions from
+tool usage patterns.
 
 Phases:
   RESEARCH: gathering info (search_web, file_read)
@@ -18,10 +16,7 @@ plan_update, message_info, message_ask, browser_navigate from phase sets.
 
 from __future__ import annotations
 
-import json
 import logging
-import os
-from pathlib import Path
 
 log = logging.getLogger("tsunami.phase_filter")
 
@@ -36,10 +31,6 @@ PHASE_TOOLS: dict[str, set[str]] = {
 
 # Tools that are always available regardless of phase
 UNIVERSAL_TOOLS = {"message_chat"}
-
-# Capability levels
-CAPABILITY_LEVELS = ("basic", "intermediate", "advanced")
-
 
 def detect_phase(tool_history: list[str], window: int = 10) -> str:
     """Detect current phase from recent tool usage patterns.
@@ -141,81 +132,13 @@ def generate_phase_note(phase: str, tool_history: list[str]) -> str | None:
 
     if phase == "VERIFY":
         shells = sum(1 for t in recent if t == "shell_exec")
-        errors = sum(1 for t in recent if t == "shell_exec")  # proxy
         if shells >= 3:
             return "[PHASE] Verification complete. Consider delivering the result."
 
     return None
 
 
-class ModelCapability:
-    """Probe and persist model capability level.
-
-    On first run, sends a simple coding task to the model and measures
-    quality. Result persisted to config so we don't re-probe every session.
-    """
-
-    CONFIG_KEY = "model_capability"
-
-    def __init__(self, config_path: str | Path = ""):
-        self.config_path = Path(config_path) if config_path else None
-        self.level: str = "intermediate"  # default
-
-    def load(self) -> str:
-        """Load persisted capability level."""
-        if self.config_path and self.config_path.exists():
-            try:
-                data = json.loads(self.config_path.read_text())
-                level = data.get(self.CONFIG_KEY, "intermediate")
-                if level in CAPABILITY_LEVELS:
-                    self.level = level
-            except (json.JSONDecodeError, KeyError):
-                pass
-        return self.level
-
-    def save(self):
-        """Persist capability level."""
-        if not self.config_path:
-            return
-        data = {}
-        if self.config_path.exists():
-            try:
-                data = json.loads(self.config_path.read_text())
-            except json.JSONDecodeError:
-                pass
-        data[self.CONFIG_KEY] = self.level
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        self.config_path.write_text(json.dumps(data, indent=2))
-
-    def classify(self, response: str) -> str:
-        """Classify model capability from a probe response.
-
-        The probe asks: "Write a TypeScript function that reverses a string."
-
-        basic: no function, wrong syntax, or nonsensical
-        intermediate: correct function but no types or edge cases
-        advanced: typed, handles edge cases, clean code
-        """
-        response_lower = response.lower()
-
-        # Check for function presence
-        has_function = "function" in response_lower or "=>" in response
-        has_typescript = "string" in response_lower and (":" in response)
-        has_reverse = "reverse" in response_lower or "split" in response_lower
-        has_edge_case = "null" in response_lower or "undefined" in response_lower or "length" in response_lower
-
-        if not has_function or not has_reverse:
-            self.level = "basic"
-        elif has_typescript and has_edge_case:
-            self.level = "advanced"
-        elif has_function and has_reverse:
-            self.level = "intermediate"
-        else:
-            self.level = "basic"
-
-        return self.level
-
-    @property
-    def is_capable(self) -> bool:
-        """Can the model handle complex multi-step tasks?"""
-        return self.level in ("intermediate", "advanced")
+# NB: ModelCapability (TypeScript-reverse-string probe + grep classifier)
+# was removed 2026-04-13 — only used by tests, never wired into the agent.
+# If we ever want capability gating, do it from real eval scores
+# (training/eval.py L1-L5), not a one-off probe.

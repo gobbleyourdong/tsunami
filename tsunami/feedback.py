@@ -85,9 +85,9 @@ class FeedbackTracker:
         # Pattern: writes succeeding but no compile check → remind to build
         if writes >= 3 and "shell_exec" not in recent_names[-3:]:
             return (
-                "FEEDBACK: You've written 3+ files. Run 'npm run build' "
-                "(NOT 'npx vite build') so the typecheck gate runs and catches "
-                "missing imports / type errors."
+                "FEEDBACK: You've written 3+ files without running a build. "
+                "Run shell_exec to compile (e.g. 'cd <project> && npm run build') "
+                "so the typecheck catches missing imports / type errors before QA."
             )
 
         # Pattern: build-loop without source progress. QA-2 iter 11+12+14 all showed
@@ -110,9 +110,10 @@ class FeedbackTracker:
             return (
                 f"FEEDBACK: You've run {streak} builds / QA checks in a row since "
                 f"your last file_write or file_edit. Re-running won't change the "
-                f"output — the fix has to be in App.tsx (or another source file). "
-                f"Edit the source now, or call message_result so the content gates "
-                f"can review what's on disk."
+                f"output — the fix has to be in the source code. file_edit (or "
+                f"file_write) the failing file now, then run the build and undertow "
+                f"again. Don't call message_result until undertow passes — the "
+                f"deliverable gate will refuse it."
             )
 
         return None
