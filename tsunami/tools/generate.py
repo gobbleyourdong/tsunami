@@ -45,6 +45,10 @@ class GenerateImage(BaseTool):
 
     async def execute(self, prompt: str, save_path: str = "", width: int = 1024,
                       height: int = 1024, style: str = "photo", **kw) -> ToolResult:
+        # Training corpus uses `path` — accept either name so champion-trained
+        # models don't silently fail on parameter-name mismatch.
+        if not save_path and kw.get("path"):
+            save_path = kw["path"]
         # Auto-generate save_path if model forgot it (common with 2B)
         if not save_path:
             import time as _time

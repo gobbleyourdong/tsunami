@@ -32,7 +32,7 @@ jobs:
 
       - name: Run L1-L4 quick eval
         run: |
-          python training/eval_all.py \
+          python training/eval.py \
             --endpoint "$EVAL_ENDPOINT" \
             --quick \
             --output eval_quick_report.json

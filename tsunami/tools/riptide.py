@@ -61,8 +61,17 @@ class Riptide(BaseTool):
         }
 
     async def execute(self, image_path: str, elements: list[str] | None = None, **kw) -> ToolResult:
+        # Training corpus uses `focus` (natural-language string of comma-separated
+        # elements) — accept either. Splitting on commas is a loose parse; the
+        # downstream VLM prompt just joins them back into a comma list anyway.
+        if not elements and kw.get("focus"):
+            focus = kw["focus"]
+            if isinstance(focus, str):
+                elements = [e.strip() for e in focus.split(",") if e.strip()]
+            elif isinstance(focus, list):
+                elements = focus
         if not elements:
-            return ToolResult("No elements specified to find", is_error=True)
+            return ToolResult("No elements specified to find (pass 'elements' list or 'focus' string)", is_error=True)
 
         p = Path(image_path).expanduser().resolve()
         if not p.exists():

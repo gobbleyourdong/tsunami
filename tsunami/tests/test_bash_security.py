@@ -40,9 +40,6 @@ class TestSafeCommands:
     def test_npm_install(self):
         assert validate_bash_command("npm install express") == []
 
-    def test_docker_run(self):
-        assert validate_bash_command("docker run -it ubuntu bash") == []
-
     def test_empty_command(self):
         assert validate_bash_command("") == []
 

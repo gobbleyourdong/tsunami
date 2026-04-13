@@ -208,7 +208,7 @@ def _resolve_path(path: str, workspace_dir: str, active_project: str | None = No
     Handles all the weird ways the model writes paths:
     - ./workspace/deliverables/x/file.tsx
     - workspace/deliverables/x/file.tsx
-    - /workspace/deliverables/x/file.tsx  (absolute — Docker training artifact)
+    - /workspace/deliverables/x/file.tsx  (absolute — legacy training artifact)
     - deliverables/x/file.tsx
     - src/App.tsx  (bare — resolves to active project)
 
@@ -226,7 +226,7 @@ def _resolve_path(path: str, workspace_dir: str, active_project: str | None = No
 
     p = Path(path)
 
-    # Absolute /workspace/ paths — Docker training artifact, rewrite to relative
+    # Absolute /workspace/ paths — legacy training artifact, rewrite to relative
     if path.startswith("/workspace/"):
         path = path[len("/workspace/"):]
         p = Path(path)

@@ -23,13 +23,6 @@ source ~/.bashrc
 tsunami
 ```
 
-**Docker:**
-
-```bash
-docker compose up
-# or: docker run -p 9876:9876 tsunami "build me a calculator"
-```
-
 that's it. it downloads everything, detects your gpu, starts the models, opens the UI.
 
 ---
@@ -151,7 +144,6 @@ runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud re
 | **Windows (installer)** | `TsunamiSetup.exe` | Desktop shortcut / Start Menu |
 | **Windows (manual)** | `.\setup.ps1` | `.\tsu.ps1` |
 | **Mac / Linux** | `setup.sh` | `tsu` |
-| **Docker** | `docker compose build` | `docker compose up` |
 
 the desktop shortcut opens the webUI in your browser. `tsu` auto-updates on every launch.
 

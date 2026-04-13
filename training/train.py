@@ -10,7 +10,7 @@ Based on Unsloth's Gemma 4 recommendations:
 
 Usage:
   # Train + merge to HF weights (for serve_transformers.py):
-  python -u training/train_unsloth.py --merge --data workspace/training_data/e4b_toolcall_train_v80.jsonl --epochs 10 --grad-accum 4
+  python -u training/train.py --merge --data workspace/training_data/e4b_toolcall_train_v80.jsonl --epochs 10 --grad-accum 4
 """
 import argparse
 import json

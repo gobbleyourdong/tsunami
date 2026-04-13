@@ -295,7 +295,7 @@ class ShellExec(BaseTool):
             log.warning(f"Bash security warnings for '{command[:80]}': {sec_warnings}")
 
         # Fix common path errors from the model
-        # Model trained on Docker where /workspace was the root — rewrite to correct paths
+        # Legacy training corpus used /workspace as root — rewrite to real workspace
         import os
         # ark dir is 3 levels up from tsunami/tools/shell.py
         tools_dir = os.path.dirname(os.path.abspath(__file__))

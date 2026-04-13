@@ -7,11 +7,11 @@
 # Example:
 #   ./training/train_adapter.sh \
 #     workspace/training_data/e4b_toolcall_train_v89.jsonl \
-#     training/eval_all.py \
+#     training/eval.py \
 #     v90-test
 #
 # Behavior:
-#   1. Train LoRA via train_unsloth.py (native python3, no Docker)
+#   1. Train LoRA via train.py (native python3)
 #   2. Start serve_transformers.py on port 8095 with the EXACT production
 #      deployment command — same model, same image-model, same flags. Only
 #      differences from prod: port 8095 (not 8090), and --adapter points at
@@ -35,7 +35,7 @@ DATA="${1:-}"
 EVAL_SCRIPT="${2:-}"
 if [[ -z "$DATA" || -z "$EVAL_SCRIPT" ]]; then
   echo "Usage: $0 <training_data.jsonl> <eval_script.py> [adapter_name]" >&2
-  echo "  training_data.jsonl — SFT data for train_unsloth.py" >&2
+  echo "  training_data.jsonl — SFT data for train.py" >&2
   echo "  eval_script.py      — any script taking --endpoint <url>" >&2
   echo "  adapter_name        — optional; default <basename>-YYYYMMDD-HHMM" >&2
   exit 2
@@ -70,7 +70,7 @@ echo "[train_adapter] output=$ADAPTER_DIR"
 export UNSLOTH_SKIP_TORCHVISION_CHECK=1
 
 echo "[train_adapter] training..."
-python3 -u training/train_unsloth.py \
+python3 -u training/train.py \
   --data "$DATA" \
   --output "$ADAPTER_DIR" \
   --epochs 10 --grad-accum 4 --lr 2e-4 --lora-r 8 --merge \

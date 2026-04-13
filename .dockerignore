@@ -1,9 +1,0 @@
-workspace/
-models/
-node_modules/
-*.egg-info/
-__pycache__/
-.git/
-*.pyc
-.env
-dist/

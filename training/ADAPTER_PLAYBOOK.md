@@ -147,39 +147,31 @@ text = tokenizer.apply_chat_template(msgs, tools=TOOL_SCHEMAS, tokenize=False)
 
 ### Training command template
 
+Native on the host (DGX Spark GB10). `serve_transformers` on 8090 can keep running
+during training — unsloth will share the GPU.
+
 ```bash
-docker run --gpus all --ipc=host --shm-size=16g \
-  -v $(pwd):/workspace \
-  -v ~/.cache/huggingface:/root/.cache/huggingface \
-  -w /workspace --name tsunami_train_<specialist>_v1 \
-  -e PYTHONUNBUFFERED=1 -e CUDA_VISIBLE_DEVICES=0 \
-  -e WORLD_SIZE=1 -e LOCAL_RANK=0 -e RANK=0 \
-  -e MASTER_ADDR=localhost -e MASTER_PORT=29500 \
-  -d nvcr.io/nvidia/pytorch:25.11-py3 \
-  bash -c "pip uninstall -y flash-attn 2>/dev/null; \
-    pip install unsloth trl datasets -q && \
-    python3 -u training/train_unsloth.py \
-      --data workspace/training_data/<specialist>_toolcall_train_v1.jsonl \
-      --output models/gemma-4-<size>-tsunami-<specialist>-v1 \
-      --epochs <10 or 3> --grad-accum 4 --lr <2e-4 or 2e-5> \
-      --lora-r <8 or 32> --lora-alpha <2r> --lora-dropout 0.05 \
-      --merge"
+UNSLOTH_SKIP_TORCHVISION_CHECK=1 \
+python3 -u training/train.py \
+  --data workspace/training_data/<specialist>_toolcall_train_v1.jsonl \
+  --output models/gemma-4-<size>-tsunami-<specialist>-v1 \
+  --epochs <10 or 3> --grad-accum 4 --lr <2e-4 or 2e-5> \
+  --lora-r <8 or 32> --lora-alpha <2r> --lora-dropout 0.05 \
+  --merge
 ```
+
+Or via `training/train_adapter.sh` which trains → serves on :8095 → evals → tears
+down.
 
 ### Serving
 
 ```bash
-docker run --gpus all -d --ipc=host \
-  -v $(pwd):/workspace -v ~/.cache/huggingface:/root/.cache/huggingface \
-  -w /workspace --name tsunami_serve_<specialist>_v1 -p 8090:8090 \
-  nvcr.io/nvidia/pytorch:25.11-py3 \
-  bash -c "pip install fastapi uvicorn transformers accelerate pillow -q && \
-    python3 -u serve_transformers.py \
-      --model models/gemma-4-<size>-tsunami-<specialist>-v1-merged \
-      --port 8090"
+python3 serve_transformers.py \
+  --model models/gemma-4-<size>-tsunami-<specialist>-v1-merged \
+  --port 8090
 ```
 
-For large models, add `--load-in-4bit` to serve_transformers.py.
+For large models, add `--load-in-4bit`.
 
 ### Expected loss trajectories
 
@@ -279,15 +271,8 @@ DPO fixes specific decision boundaries. Run this **after** SFT has plateaued.
 
 ### Training command
 
-```bash
-python3 -u training/train_dpo.py \
-  --base-model models/<sft_champion>-merged \
-  --data workspace/training_data/<specialist>_dpo_v1.jsonl \
-  --output models/<sft_champion>-dpo-v1 \
-  --epochs 3 --lr 5e-6 --beta 0.1 \
-  --lora-r 8 --lora-alpha 16 --lora-dropout 0.05 \
-  --merge
-```
+DPO is a future pass; re-introduce `training/train_dpo.py` when ready. The SFT
+champion trained via `train.py` is the current production loop.
 
 ### DPO generalization check (before full eval)
 
@@ -395,7 +380,7 @@ This playbook produces adapters with identical infrastructure:
 - Same base model (Gemma 4 family)
 - Same serving (`serve_transformers.py`)
 - Same eval structure (5 layers, 500 points)
-- Same training scripts (`train_unsloth.py`, `train_dpo.py`)
+- Same training script (`train.py`)
 - Same format (tokenizer chat template, `<|tool_call>` responses)
 
 Implication: you can serve them via **vLLM multi-LoRA** (one base + N ~35MB adapters)

@@ -26,7 +26,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputBaseFilename=TsunamiSetup
-SetupIconFile=..\desktop\icon.ico
+SetupIconFile=desktop\icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -40,7 +40,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 ; Bundle the entire repo (excluding heavy stuff)
-Source: "..\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs; Excludes: "*.gguf,node_modules,dist,.git,__pycache__,workspace,.venv,models,installer\output"
+Source: "*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs; Excludes: "*.gguf,node_modules,dist,.git,__pycache__,workspace,.venv,models,output"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\tsu.ps1"""; WorkingDir: "{app}"; IconFilename: "{app}\desktop\icon.ico"
