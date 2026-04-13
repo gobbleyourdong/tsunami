@@ -126,11 +126,12 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
         candidate = deliv_root / effective
         if candidate.is_dir() and (candidate / "package.json").exists():
             target = candidate
+    # If this session hasn't project_init'd or touched a deliverable, the user
+    # isn't trying to ship a scaffold — likely a chat turn. Falling back to
+    # mtime here picks a stale neighbor (e.g. json-plant-135) and REFUSES a
+    # harmless message_result("Hello!"). Skip the gate entirely in that case.
     if target is None:
-        candidates = [d for d in deliv_root.iterdir() if d.is_dir() and (d / "package.json").exists()]
-        if not candidates:
-            return None
-        target = max(candidates, key=lambda d: d.stat().st_mtime)
+        return None
     app = target / "src" / "App.tsx"
     if not app.exists():
         return None  # api-only / non-react scaffold
