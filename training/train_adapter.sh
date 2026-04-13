@@ -103,7 +103,7 @@ sleep 1
 # eval pins one adapter so evals measure THIS adapter's behavior.
 # All other flags identical so the request/response path is prod-equivalent.
 echo "[train_adapter] starting eval server on :${EVAL_PORT} (prod-parity)..."
-setsid nohup python3 -u serve_transformers.py \
+setsid nohup python3 -u tsunami/serve_transformers.py \
   --model google/gemma-4-e4b-it \
   --image-model Tongyi-MAI/Z-Image-Turbo \
   --adapter "$ADAPTER_DIR" \

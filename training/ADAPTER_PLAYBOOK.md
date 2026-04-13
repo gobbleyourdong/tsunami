@@ -166,7 +166,7 @@ down.
 ### Serving
 
 ```bash
-python3 serve_transformers.py \
+python3 tsunami/serve_transformers.py \
   --model models/gemma-4-<size>-tsunami-<specialist>-v1-merged \
   --port 8090
 ```

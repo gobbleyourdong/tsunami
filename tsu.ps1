@@ -150,7 +150,7 @@ function Find-ModelDir {
 # ── Start model server if not running ─────────────────────────────────────────
 $ModelPid = $null
 if (-not (Test-ModelServer)) {
-    $serveScript = Join-Path $DIR "serve_transformers.py"
+    $serveScript = Join-Path $DIR "tsunami\serve_transformers.py"
     $modelDir = Find-ModelDir
     if (-not $modelDir) {
         Write-Warning "No model found — place merged HuggingFace weights in $DIR\models\"

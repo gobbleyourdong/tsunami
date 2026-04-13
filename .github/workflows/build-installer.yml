@@ -15,10 +15,10 @@ jobs:
         run: choco install innosetup -y
 
       - name: Build installer
-        run: iscc installer\tsunami.iss
+        run: iscc tsunami.iss
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: TsunamiSetup
-          path: installer/output/TsunamiSetup.exe
+          path: output/TsunamiSetup.exe
