@@ -118,13 +118,14 @@ class AgentState:
                         "content": result, "is_error": is_error})
 
     def add_system_note(self, note: str):
-        # Zero-shot fix (2026-04-13): base Gemma-4 doesn't parse mid-stream
-        # role:system messages as instructions — they pollute context without
-        # shaping behavior. We log the note for telemetry but DON'T inject
-        # into the conversation. Programmatic gates that NEED the model to
-        # see a rejection should return ToolResult(text, is_error=True)
-        # instead — that's a tool message, which the model does read.
-        self._log_turn({"role": "system_note_suppressed", "content": note})
+        # Zero-shot revision (2026-04-13): re-enabled. Smoke test showed that
+        # disabling this broke recovery loops — the stall detector and
+        # "early completion blocked" gates fired correctly but the model
+        # never saw the feedback. Dropped the `[WATCHER]` prefix (textv1-
+        # specific, untrained) in favor of plain "[SYSTEM]" which base
+        # Gemma-4 parses as authoritative system feedback.
+        self.conversation.append(Message(role="system", content=f"[SYSTEM] {note}"))
+        self._log_turn({"role": "system_note", "content": note})
 
     def record_error(self, tool_name: str, args: dict, error: str):
         key = f"{tool_name}:{json.dumps(args, sort_keys=True)[:200]}"

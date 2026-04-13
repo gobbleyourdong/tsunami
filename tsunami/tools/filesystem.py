@@ -110,21 +110,24 @@ def set_session_task_prompt(text: str):
 
 def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
     """Check if a write path is safe. Returns error message or None if OK."""
+    import os
     resolved = str(p.resolve())
     ark_dir = str(Path(workspace_dir).parent.resolve())
 
-    # Must be inside the ark project directory
-    if not resolved.startswith(ark_dir):
+    # Must be inside the ark project directory.
+    # Use sep-suffixed prefix so /tmp/tsunami_smoke isn't seen as inside /tmp
+    # when ark_dir is /tmp (string-prefix bug fix, 2026-04-13).
+    if not (resolved == ark_dir or resolved.startswith(ark_dir + os.sep)):
         return f"BLOCKED: Cannot write outside project directory. Path: {resolved}"
 
-    # Block writes to tsunami source code (the agent itself)
+    # Block writes to tsunami source code (the agent itself).
     tsunami_dir = str(Path(ark_dir) / "tsunami")
-    if resolved.startswith(tsunami_dir):
+    if resolved == tsunami_dir or resolved.startswith(tsunami_dir + os.sep):
         return f"BLOCKED: Cannot write to tsunami source code. Use workspace/deliverables/ for output."
 
-    # Block writes to models directory
+    # Block writes to models directory.
     models_dir = str(Path(ark_dir) / "models")
-    if resolved.startswith(models_dir):
+    if resolved == models_dir or resolved.startswith(models_dir + os.sep):
         return f"BLOCKED: Cannot write to models directory."
 
     # Config protection — prevent weakening quality gates (ECC pattern)
