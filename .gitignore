@@ -14,8 +14,12 @@ node_modules/
 cli/dist/
 cli/package-lock.json
 
-# Models (too large for git — users download their own)
-models/
+# Models (too large for git) — but keep the production adapter committed
+# so users get it on clone (~82MB, under GitHub's 100MB file limit).
+# Use models/* (not models/) so git can descend into un-ignored subdirs.
+models/*
+!models/tsunami-adapter/
+!models/tsunami-adapter/**
 
 # Workspace (runtime artifacts)
 workspace/.history/

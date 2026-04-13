@@ -892,54 +892,6 @@ def save_results(format_results: list[EvalResult], build_results: list[BuildResu
 # Main
 # ---------------------------------------------------------------------------
 
-async def main():
-    parser = argparse.ArgumentParser(description="Eval harness for Tsunami tool call models")
-    parser.add_argument("--endpoint", default="http://localhost:8095",
-                        help="Model server endpoint")
-    parser.add_argument("--level", choices=["format", "build", "both"], default="both",
-                        help="Which eval to run")
-    parser.add_argument("--filter", default=None,
-                        help="Filter prompts by level (trivial/easy/medium/hard/extreme)")
-    parser.add_argument("--max-iters", type=int, default=50,
-                        help="Max iterations for build eval")
-    parser.add_argument("--output", default="workspace/training_data/eval_results.json",
-                        help="Save results to JSON")
-    args = parser.parse_args()
-
-    prompts = EVAL_PROMPTS
-    if args.filter:
-        prompts = [p for p in prompts if p["level"] == args.filter]
-        log.info(f"Filtered to {len(prompts)} {args.filter} prompts")
-
-    # Health check
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(f"{args.endpoint}/health")
-            if resp.status_code != 200:
-                log.error(f"Server not healthy: {resp.status_code}")
-                sys.exit(1)
-        log.info(f"Server healthy at {args.endpoint}")
-    except Exception as e:
-        log.error(f"Cannot reach server at {args.endpoint}: {e}")
-        sys.exit(1)
-
-    format_results = []
-    build_results = []
-
-    if args.level in ("format", "both"):
-        log.info("\n--- FORMAT EVAL ---")
-        format_results = await eval_format(args.endpoint, prompts)
-        print_format_report(format_results)
-
-    if args.level in ("build", "both"):
-        log.info("\n--- BUILD EVAL ---")
-        build_results = await eval_build(args.endpoint, prompts, args.max_iters)
-        print_build_report(build_results)
-
-    save_results(format_results, build_results, args.output)
-
-
-
 # --- eval_scaffold_selection ---
 
 import httpx
@@ -1052,16 +1004,6 @@ async def eval_scaffolds(endpoint):
     print(f"  SCAFFOLD SELECTION: {passed}/{len(results)} ({100*passed/len(results):.0f}%)")
     print(f"{'='*50}")
     return results
-
-
-async def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--endpoint", default="http://localhost:8095")
-    args = parser.parse_args()
-
-    log.info(f"Testing scaffold selection against {args.endpoint}\n")
-    await eval_scaffolds(args.endpoint)
-
 
 
 # --- eval_error_recovery ---
@@ -1280,22 +1222,6 @@ async def eval_recovery(endpoint):
     print(f"{'='*50}")
 
     return results
-
-
-async def main():
-    parser = argparse.ArgumentParser(description="Error recovery eval")
-    parser.add_argument("--endpoint", default="http://localhost:8095")
-    parser.add_argument("--output", default="workspace/training_data/eval_recovery_results.json")
-    args = parser.parse_args()
-
-    log.info(f"Testing error recovery against {args.endpoint}\n")
-    results = await eval_recovery(args.endpoint)
-
-    Path = __import__("pathlib").Path
-    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output, "w") as f:
-        json.dump({"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "results": results}, f, indent=2)
-
 
 
 # --- eval_hack_free ---
@@ -1604,16 +1530,6 @@ async def eval_hack_free(endpoint):
     return results
 
 
-async def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--endpoint", default="http://localhost:8095")
-    args = parser.parse_args()
-
-    log.info(f"Testing hack-free model behavior against {args.endpoint}\n")
-    await eval_hack_free(args.endpoint)
-
-
-
 # --- eval_integration ---
 import shutil
 from dataclasses import dataclass, field
@@ -1621,7 +1537,7 @@ from dataclasses import dataclass, field
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("eval_integration")
 
-EVAL_PROMPTS = [
+INT_PROMPTS = [
     # Easy — single component, should complete in <10 iters
     {"id": "IE01", "level": "easy", "prompt": "Build a counter app with plus and minus buttons"},
     {"id": "IE02", "level": "easy", "prompt": "Build a digital clock"},
@@ -1901,164 +1817,6 @@ async def run_agent_build(endpoint: str, prompt: str, timeout: int = 180,
         result.errors.append(str(e))
 
     return result
-
-
-async def main():
-    parser = argparse.ArgumentParser(description="Integration eval — real agent builds")
-    parser.add_argument("--endpoint", default="http://localhost:8095")
-    parser.add_argument("--filter", default=None, choices=["easy", "medium", "hard"])
-    parser.add_argument("--timeout", type=int, default=180, help="Per-build timeout in seconds")
-    parser.add_argument("--output", default="workspace/training_data/eval_integration_results.json")
-    args = parser.parse_args()
-
-    prompts = EVAL_PROMPTS
-    if args.filter:
-        prompts = [p for p in prompts if p["level"] == args.filter]
-
-    log.info(f"Running {len(prompts)} integration builds against {args.endpoint}")
-
-    results = []
-    for p in prompts:
-        log.info(f"\n{'='*50}")
-        log.info(f"  {p['id']} [{p['level']}] {p['prompt'][:60]}")
-        log.info(f"{'='*50}")
-
-        r = await run_agent_build(
-            args.endpoint, p["prompt"], timeout=args.timeout,
-        )
-        r.prompt_id = p["id"]
-        r.level = p["level"]
-
-        status = "PASS" if r.delivered and r.compiled else "FAIL"
-        log.info(
-            f"  {status} | iters={r.iterations} files={r.files_written} "
-            f"compiled={r.compiled} delivered={r.delivered} "
-            f"time={r.wall_clock_s:.1f}s"
-        )
-        if r.failure_mode:
-            log.info(f"  FAILURE: {r.failure_mode}")
-        if r.tool_sequence:
-            seq = " → ".join(r.tool_sequence[:15])
-            if len(r.tool_sequence) > 15:
-                seq += f" ... ({len(r.tool_sequence)} total)"
-            log.info(f"  TOOLS: {seq}")
-
-        results.append(r)
-
-    # Report
-    print(f"\n{'='*60}")
-    print(f"  INTEGRATION EVAL RESULTS")
-    print(f"{'='*60}\n")
-
-    total = len(results)
-    delivered = sum(1 for r in results if r.delivered)
-    compiled = sum(1 for r in results if r.compiled)
-    scaffolded = sum(1 for r in results if r.scaffolded)
-
-    print(f"  Scaffolded: {scaffolded}/{total}")
-    print(f"  Compiled:   {compiled}/{total}")
-    print(f"  Delivered:  {delivered}/{total}")
-    print(f"  Success:    {sum(1 for r in results if r.delivered and r.compiled)}/{total}")
-    print(f"  Avg iters:  {sum(r.iterations for r in results)/total:.1f}")
-    print(f"  Avg time:   {sum(r.wall_clock_s for r in results)/total:.1f}s")
-
-    # Failure taxonomy
-    failures = [r for r in results if not (r.delivered and r.compiled)]
-    if failures:
-        print(f"\n  FAILURES ({len(failures)}):")
-        for r in failures:
-            print(f"    {r.prompt_id}: {r.failure_mode}")
-            if r.tool_sequence:
-                print(f"      Tools: {' → '.join(r.tool_sequence[:10])}")
-
-    # Agentic diagnostics summary
-    all_diags = [r.diagnostics for r in results if r.diagnostics]
-    if all_diags:
-        print(f"\n  AGENTIC DIAGNOSTICS:")
-        total_path = sum(d.get("path_errors", 0) for d in all_diags)
-        total_shell_loop = sum(d.get("shell_exec_loops", 0) for d in all_diags)
-        total_edit_fail = sum(d.get("edit_failures", 0) for d in all_diags)
-        total_missing_params = sum(d.get("missing_params", 0) for d in all_diags)
-        total_missing_qa = sum(1 for d in all_diags if d.get("missing_qa"))
-        total_build_fail = sum(d.get("build_failures", 0) for d in all_diags)
-        total_build_attempt = sum(d.get("build_attempts", 0) for d in all_diags)
-        total_recovery = sum(d.get("error_recovery_attempts", 0) for d in all_diags)
-        total_lint = sum(d.get("lint_reactions", 0) for d in all_diags)
-        total_stalls = sum(len(d.get("stalls", [])) for d in all_diags)
-        used_plan = sum(1 for d in all_diags if d.get("used_plan"))
-        used_swell = sum(1 for d in all_diags if d.get("used_swell"))
-        used_undertow_count = sum(1 for d in all_diags if d.get("used_undertow"))
-        used_search = sum(1 for d in all_diags if d.get("used_search"))
-        used_chat = sum(1 for d in all_diags if d.get("used_message_chat"))
-
-        n = len(all_diags)
-        print(f"    Path errors:        {total_path:>4}  {'BAD' if total_path > 0 else 'OK'}")
-        print(f"    Shell loops:        {total_shell_loop:>4}  {'BAD' if total_shell_loop > 2 else 'OK'}")
-        print(f"    Edit hallucinations:{total_edit_fail:>4}  {'BAD' if total_edit_fail > 0 else 'OK'}")
-        print(f"    Missing params:     {total_missing_params:>4}  {'BAD' if total_missing_params > 0 else 'OK'}")
-        print(f"    Missing QA:         {total_missing_qa:>4}/{n}  {'BAD' if total_missing_qa > n//2 else 'OK'}")
-        print(f"    Build attempts:     {total_build_attempt:>4}")
-        print(f"    Build failures:     {total_build_fail:>4}  ({100*total_build_fail/max(total_build_attempt,1):.0f}%)")
-        print(f"    Error recovery:     {total_recovery:>4}  (fix attempts after build fail)")
-        print(f"    Lint reactions:     {total_lint:>4}  (read/edit/fix after vite error)")
-        print(f"    Stalls (3x repeat): {total_stalls:>4}  {'BAD' if total_stalls > 0 else 'OK'}")
-        print(f"    Used plan_update:   {used_plan:>4}/{n}")
-        print(f"    Used swell:         {used_swell:>4}/{n}")
-        print(f"    Used undertow:      {used_undertow_count:>4}/{n}")
-        print(f"    Used search_web:    {used_search:>4}/{n}")
-        print(f"    Used message_chat:  {used_chat:>4}/{n}")
-
-        # Collect all unique vite errors
-        all_vite = []
-        for d in all_diags:
-            all_vite.extend(d.get("vite_errors", []))
-        if all_vite:
-            print(f"\n  VITE ERROR PATTERNS:")
-            from collections import Counter
-            # Simplify errors to patterns
-            patterns = Counter()
-            for err in all_vite:
-                if "Cannot find module" in err:
-                    patterns["Missing module/import"] += 1
-                elif "is not assignable" in err:
-                    patterns["Type error"] += 1
-                elif "Unexpected token" in err or "Expected" in err:
-                    patterns["Syntax error"] += 1
-                elif "No such file" in err:
-                    patterns["File not found"] += 1
-                else:
-                    patterns[err[:60]] += 1
-            for pattern, count in patterns.most_common(10):
-                print(f"      [{count}x] {pattern}")
-
-    # Per-level
-    for level in ["easy", "medium", "hard"]:
-        level_results = [r for r in results if r.level == level]
-        if level_results:
-            n = len(level_results)
-            ok = sum(1 for r in level_results if r.delivered and r.compiled)
-            avg_iter = sum(r.iterations for r in level_results) / n
-            print(f"\n  {level.upper()}: {ok}/{n} ({100*ok/n:.0f}%) avg {avg_iter:.0f} iters")
-
-    # Save results
-    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output, "w") as f:
-        json.dump({
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "endpoint": args.endpoint,
-            "results": [
-                {
-                    "id": r.prompt_id, "level": r.level, "prompt": r.prompt,
-                    "scaffolded": r.scaffolded, "files_written": r.files_written,
-                    "compiled": r.compiled, "delivered": r.delivered,
-                    "iterations": r.iterations, "wall_clock_s": r.wall_clock_s,
-                    "tool_sequence": r.tool_sequence, "failure_mode": r.failure_mode,
-                }
-                for r in results
-            ],
-        }, f, indent=2)
-    log.info(f"\nResults saved to {args.output}")
-
 
 
 async def main():

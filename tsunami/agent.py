@@ -598,13 +598,12 @@ class Agent:
         except Exception as e:
             log.debug(f"runtime_check failed: {e}")
 
-        # Auto-adapter selection (Manus-style chat → build → gamedev). Starts in
-        # base chat, transitions to `build-v89` when the user's intent becomes a
-        # concrete build request, or to `gamedev` for game scaffolds. Iteration
-        # turns on an existing specialized project hold the current adapter so
-        # we don't flip-flop on "add dark mode" follow-ups. Only runs when the
-        # config didn't pin an adapter (TSUNAMI_ADAPTER env) — a pinned adapter
-        # means the caller explicitly chose.
+        # Auto-adapter selection (Manus-style chat → build). Starts in base chat,
+        # transitions to `tsunami-adapter` when the user's intent becomes a concrete
+        # build request (web, game, data app — one adapter handles all). Iteration
+        # turns on an existing project hold the adapter so we don't flip-flop on
+        # "add dark mode" follow-ups. Only runs when the config didn't pin an
+        # adapter (TSUNAMI_ADAPTER env) — a pinned adapter means caller chose.
         if not self.config.adapter:
             from .adapter_router import pick_adapter
             prev_adapter = self.model.adapter or "none"

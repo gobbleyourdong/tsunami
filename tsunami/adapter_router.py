@@ -1,86 +1,62 @@
-"""Auto-adapter selection — 3-way: chat → build → gamedev.
+"""Auto-adapter selection — 2-way: chat ↔ tsunami-adapter.
 
-The previous router handled 13 adapters (electron, chrome-ext, realtime,
-auth-app, fullstack, dataviz, landing, dashboard, api-only, ai-app,
-form-app, gamedev, build-v89). Most of those adapters never trained,
-and the keyword-surface was brittle. Cut down to the actual target
-distribution:
+Previously routed between build-v89 / gamedev / none. Collapsed to one
+production adapter (`tsunami-adapter`) that handles both web and game
+scaffolds; router's job is now just chat-vs-build gating.
 
-  none      — chat mode (no build intent)
-  build-v89 — general web/desktop/data app scaffolding
-  gamedev   — game-shaped prompts (engine, WASD, sprite, tilemap, etc.)
-
-Matches Manus-style criteria: stay in base chat until intent crystallizes
-as "build X", then transition to the specialized adapter. Iteration
-on an existing specialized project holds the current adapter.
+  none              — base chat (no build intent)
+  tsunami-adapter   — any build request (web, data, game, desktop, etc.)
 
 Pure function. Caller mutates self.model.adapter.
 """
 from __future__ import annotations
 
-# ---------------------------------------------------------------------------
-# Signal vocabularies
-# ---------------------------------------------------------------------------
-
-# User pulling back → chat, regardless of current state.
+# User pulling back → drop to chat, regardless of current state.
 _REVERT_PHRASES = (
     "forget about",
     "cancel that",
     "actually, no",
     "scrap that",
-    "scratch that",
-    "nevermind",
     "never mind",
-    "stop that build",
+    "nevermind",
+    "nm,",
+    "hold off",
     "don't build",
+    "do not build",
+    "stop building",
 )
 
-# Game signals — checked before build (a game request is always gamedev).
-_GAME_WORDS = (
-    "game", "gamedev", "game dev",
-    "webgpu", "three.js", "three js", "tsunami engine",
-    "platformer", "shooter", " rpg ", "roguelike", "bullet hell",
-    "idle game", "incremental game", "tower defense",
-    "sprite", "tilemap", "tile map", "physics simulation",
-    "3d scene", "3d game", "2d game", "canvas game",
-    "bouncing ball", "particle system",
-    "wasd ", "keyboard controls", "gamepad",
+# Any one of these verbs + one of the nouns below means "build it".
+_BUILD_VERBS = (
+    "build", "make", "create", "generate", "spin up", "put together",
+    "scaffold", "code", "write", "bootstrap", "start a", "start an",
+    "set up", "setup", "clone",
 )
 
-# Build verbs + nouns — the "build X" pair that triggers general build.
-_BUILD_VERBS = ("build", "create", "make", "develop", "design", "write")
+# Nouns that mark something buildable — covers web, desktop, game, data.
 _BUILD_NOUNS = (
-    "app", "website", "site", "webapp", "web app",
-    "page", "landing page", "dashboard", "tool",
-    "tracker", "form", "calculator", "timer", "todo",
-    "editor", "viewer", "list", "kanban", "blog",
-    "portfolio", "resume", "wiki", "cms", "shop",
-    "store", "cart", "chat", "calendar", "planner",
-    "notes app", "note taking", "reminder", "habit tracker",
-    "clone of", "clone for",
+    "app ", "game ", "website ", "page ", "site ", "landing", "dashboard",
+    "component ", "form ", "calculator", "counter", "timer", "clock",
+    "editor", "viewer", "tool ", "extension ", "plugin", "widget",
+    "portal", "scraper", "bot ", "tracker", "chart", "table",
+    "ui ", "api ", "server", "demo ", "clone ", "replica", "copy of",
+    "version of", "engine", "simulator", "visualizer",
 )
 
-# Iteration signals — on specialized adapter, these keep current state
-# ("add dark mode" on a build shouldn't flip back to chat).
+# Iteration on an existing project keeps the current adapter.
 _ITERATION_VERBS = (
-    "add ", "fix ", "change ", "update ", "remove ", "delete ",
-    "refactor ", "rename ", "style ", "restyle ", "tweak ",
-    "adjust ", "modify ", "improve ", "polish ",
+    "add ", "remove ", "delete ", "change ", "update ", "fix ",
+    "rename ", "move ", "extract ", "refactor ", "style ",
 )
 
-
-# ---------------------------------------------------------------------------
-# Router
-# ---------------------------------------------------------------------------
 
 def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
     """Pick the best adapter for the given user message.
 
     Returns:
         (adapter, reason) where adapter is:
-          "none"      — chat mode
-          "build-v89" — general scaffolding
-          "gamedev"   — game-shaped
+          "none"            — base chat mode
+          "tsunami-adapter" — any build/iteration
     """
     msg = (user_message or "").lower()
 
@@ -89,29 +65,30 @@ def pick_adapter(user_message: str, current: str = "") -> tuple[str, str]:
         if phrase in msg:
             return "none", f"revert signal: {phrase!r}"
 
-    # 2. Game signals beat build signals (specialization, not fallback).
-    for word in _GAME_WORDS:
-        if word in msg:
-            return "gamedev", f"game signal: {word!r}"
-
-    # 3. Build verb + noun pair → general scaffolding.
+    # 2. Build verb + noun pair → specialized adapter.
     matched_verb = next(
         (v for v in _BUILD_VERBS if v + " " in msg or msg.startswith(v + " ")),
         None,
     )
-    matched_noun = next((n for n in _BUILD_NOUNS if n in msg), None)
+    # Match noun as substring — also accept trailing EOL (user's prompt may
+    # end on the noun without trailing space, e.g. "build me a game").
+    matched_noun = next(
+        (n.strip() for n in _BUILD_NOUNS
+         if n in msg or msg.endswith(n.strip()) or f" {n.strip()} " in msg),
+        None,
+    )
     if matched_verb and matched_noun:
-        return "build-v89", f"build pair: {matched_verb!r} + {matched_noun.strip()!r}"
+        return "tsunami-adapter", f"build pair: {matched_verb!r} + {matched_noun.strip()!r}"
 
-    # 4. Iteration hold — already on specialized adapter? "Add X" keeps it.
-    if current in ("gamedev", "build-v89"):
+    # 3. Iteration hold — already on the adapter? "Add X" keeps it.
+    if current == "tsunami-adapter":
         for verb in _ITERATION_VERBS:
             if verb in msg:
                 return current, f"iteration-hold: {verb.strip()!r}"
 
-    # 5. Short conversational turn on specialized adapter → still hold.
-    if current in ("gamedev", "build-v89") and len(msg.split()) < 20:
-        return current, "short conversational turn — hold specialized adapter"
+    # 4. Short conversational turn on adapter → still hold.
+    if current == "tsunami-adapter" and len(msg.split()) < 20:
+        return current, "short conversational turn — hold adapter"
 
-    # 6. Default: chat mode.
-    return "none", "chat mode (no specialization signal)"
+    # 5. Default: chat mode.
+    return "none", "chat mode (no build signal)"

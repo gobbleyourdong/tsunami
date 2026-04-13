@@ -120,12 +120,12 @@ def test_disable_attr_missing_returns_unsupported_for_none():
 
 
 def test_fallback_when_requested_adapter_not_in_peft_config():
-    """Router picked chrome-ext-v1 but server only has build-v89 + gamedev
+    """Router picked chrome-ext-v1 but server only has tsunami-adapter + gamedev
     loaded. Without fallback, set_adapter would raise ValueError and leave
     the agent running on stale state. Fallback disables to base instead."""
     m = _FakeModel()
-    m.peft_config = {"build-v89": object(), "gamedev": object()}
-    status, new_current = apply_adapter_swap(m, "chrome-ext-v1", "gamedev")
+    m.peft_config = {"tsunami-adapter": object(), "other-adapter": object()}
+    status, new_current = apply_adapter_swap(m, "chrome-ext-v1", "other-adapter")
     assert status == "fallback→none"
     assert new_current == "none"
     # disable_adapter_layers was called; set_adapter NOT called for unloaded name
@@ -156,17 +156,17 @@ def test_no_fallback_when_peft_config_empty():
 def test_requested_adapter_in_peft_config_proceeds_normally():
     """When the adapter IS loaded, we take the normal set_adapter path."""
     m = _FakeModel()
-    m.peft_config = {"build-v89": object(), "gamedev": object()}
-    status, new_current = apply_adapter_swap(m, "build-v89", None)
-    assert status == "swapped→build-v89"
-    assert new_current == "build-v89"
+    m.peft_config = {"tsunami-adapter": object(), "other-adapter": object()}
+    status, new_current = apply_adapter_swap(m, "tsunami-adapter", None)
+    assert status == "swapped→tsunami-adapter"
+    assert new_current == "tsunami-adapter"
 
 
 def test_none_never_falls_back():
     """Requesting 'none' always goes to disable_adapter_layers regardless of
     peft_config content."""
     m = _FakeModel()
-    m.peft_config = {"build-v89": object()}
-    status, new_current = apply_adapter_swap(m, "none", "build-v89")
+    m.peft_config = {"tsunami-adapter": object()}
+    status, new_current = apply_adapter_swap(m, "none", "tsunami-adapter")
     assert status == "swapped→none"
     assert new_current == "none"

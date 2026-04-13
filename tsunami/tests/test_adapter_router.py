@@ -1,8 +1,7 @@
-"""Auto-adapter router — chat → build → gamedev transition criteria.
+"""Auto-adapter router — 2-way chat ↔ tsunami-adapter transition.
 
-Matches the Manus-style decision matrix: explicit build intent flips to
-build-v89, game signals flip to gamedev, iteration on specialized state
-holds, revert signals drop back to chat.
+Build verb + noun → tsunami-adapter. Iteration on adapter state holds.
+Revert signals drop back to chat. Everything else stays in chat.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from tsunami.adapter_router import pick_adapter
 def test_empty_message_stays_chat():
     adapter, reason = pick_adapter("", current="")
     assert adapter == "none"
-    assert "chat" in reason.lower() or "no specialization" in reason.lower()
+    assert "chat" in reason.lower() or "no build" in reason.lower()
 
 
 def test_conversational_greeting_stays_chat():
@@ -21,197 +20,43 @@ def test_conversational_greeting_stays_chat():
     assert adapter == "none"
 
 
-def test_build_verb_plus_noun_triggers_build_v89():
+def test_build_verb_plus_noun_triggers_adapter():
     adapter, reason = pick_adapter("build me a counter app", current="")
-    assert adapter == "build-v89"
+    assert adapter == "tsunami-adapter"
     assert "build" in reason.lower()
 
 
 def test_build_variants_match():
-    for prompt in [
-        "create a todo list",
-        "make a landing page",
-        "develop a dashboard",
-        "design a portfolio website",
-        "scaffold an editor",
-    ]:
+    for prompt in (
+        "make a calculator",
+        "create a todo app",
+        "generate a landing page",
+        "scaffold a dashboard",
+        "bootstrap a form",
+    ):
         adapter, _ = pick_adapter(prompt, current="")
-        assert adapter == "build-v89", f"failed on: {prompt!r}"
+        assert adapter == "tsunami-adapter", f"failed on: {prompt!r}"
 
 
-def test_game_signal_overrides_build():
-    """Game is a specialization: `build me a game` → gamedev, not build-v89."""
-    adapter, reason = pick_adapter("build me a game with WASD controls", current="")
-    assert adapter == "gamedev"
-    assert "game" in reason.lower()
+def test_game_prompt_also_routes_to_adapter():
+    """One adapter handles games too — 'build me a game' still fires."""
+    adapter, _ = pick_adapter("build me a snake game", current="")
+    assert adapter == "tsunami-adapter"
 
 
-def test_game_keywords_fire_gamedev():
-    for prompt in [
-        "make a platformer",
-        "build a tilemap editor",
-        "create a 2D game with gravity",
-        "physics simulation with 20 bouncing balls",
-        "use the Tsunami Engine to render 3D scene",
-    ]:
-        adapter, _ = pick_adapter(prompt, current="")
-        assert adapter == "gamedev", f"failed on: {prompt!r}"
-
-
-def test_iteration_holds_specialized_adapter():
-    """'add dark mode' while currently on gamedev should HOLD gamedev."""
-    adapter, reason = pick_adapter("add dark mode", current="gamedev")
-    assert adapter == "gamedev"
+def test_iteration_verbs_hold_adapter():
+    adapter, reason = pick_adapter("add dark mode", current="tsunami-adapter")
+    assert adapter == "tsunami-adapter"
     assert "iteration" in reason.lower() or "hold" in reason.lower()
 
 
-def test_iteration_on_build_adapter_holds():
-    adapter, _ = pick_adapter("fix the button styling", current="build-v89")
-    assert adapter == "build-v89"
+def test_short_conversation_on_adapter_holds():
+    adapter, reason = pick_adapter("looks good thanks", current="tsunami-adapter")
+    assert adapter == "tsunami-adapter"
+    assert "hold" in reason.lower()
 
 
-def test_short_conversational_on_specialized_holds():
-    """Short 'looks good thanks' turn while specialized doesn't drop back to chat."""
-    adapter, _ = pick_adapter("looks good, thanks", current="build-v89")
-    assert adapter == "build-v89"
-
-
-def test_revert_signal_drops_back_to_chat():
-    for prompt in [
-        "actually, no, forget about that",
-        "scrap that build",
-        "never mind, let's just talk",
-    ]:
-        adapter, reason = pick_adapter(prompt, current="build-v89")
-        assert adapter == "none", f"failed on: {prompt!r}"
-        assert "revert" in reason.lower()
-
-
-def test_revert_overrides_build_signal():
-    """If message has both 'forget about' and 'build', revert wins."""
-    adapter, _ = pick_adapter("scratch that, let's just chat — actually nevermind building anything", current="build-v89")
-    assert adapter == "none"
-
-
-def test_game_signal_overrides_iteration_hold():
-    """On build-v89, 'now add a game mode' should transition to gamedev."""
-    adapter, _ = pick_adapter("now add a bullet-hell game mode", current="build-v89")
-    assert adapter == "gamedev"
-
-
-def test_new_build_from_chat():
-    """chat → first real build turn flips to build-v89."""
-    adapter, _ = pick_adapter("okay let's build a kanban board", current="none")
-    assert adapter == "build-v89"
-
-
-def test_multi_turn_flow_chat_build_gamedev():
-    """End-to-end flow: chat → build → gamedev transitions."""
-    current = "none"
-    # Turn 1: conversational
-    current, _ = pick_adapter("hi can you help me with something?", current=current)
-    assert current == "none"
-    # Turn 2: build intent
-    current, _ = pick_adapter("build me a task tracker app", current=current)
-    assert current == "build-v89"
-    # Turn 3: iteration
-    current, _ = pick_adapter("add localStorage persistence", current=current)
-    assert current == "build-v89"
-    # Turn 4: pivot to game
-    current, _ = pick_adapter("actually let me instead build a 2D game", current=current)
-    assert current == "gamedev"
-    # Turn 5: iteration on game
-    current, _ = pick_adapter("add collision detection", current=current)
-    assert current == "gamedev"
-    # Turn 6: revert
-    current, _ = pick_adapter("forget about all that, just help me with something", current=current)
-    assert current == "none"
-
-
-def test_verb_without_noun_stays_chat():
-    """'build' alone (no target noun) is ambiguous — don't fire build-v89."""
-    adapter, _ = pick_adapter("i'm not sure what to build yet", current="")
-    assert adapter == "none"
-
-
-def test_noun_without_verb_stays_chat():
-    adapter, _ = pick_adapter("dashboards are really hard", current="")
-    assert adapter == "none"
-
-
-# --- Chrome-extension adapter category --------------------------------------
-
-
-def test_chrome_extension_phrase_routes_to_chrome_ext():
-    """Explicit 'chrome extension' should route to chrome-ext-v1."""
-    adapter, reason = pick_adapter("build a chrome extension for tab management", current="")
-    assert adapter == "chrome-ext-v1"
-    assert "chrome" in reason.lower()
-
-
-def test_browser_extension_phrase_routes_to_chrome_ext():
-    adapter, _ = pick_adapter("create a browser extension popup", current="")
-    assert adapter == "chrome-ext-v1"
-
-
-def test_manifest_json_hint_routes_to_chrome_ext():
-    """A prompt mentioning `manifest.json` (MV3 signature) routes correctly
-    even without the literal 'chrome extension' phrase."""
-    adapter, _ = pick_adapter("make a thing with manifest.json v3 and popup", current="")
-    assert adapter == "chrome-ext-v1"
-
-
-def test_chrome_tabs_api_hint_routes_to_chrome_ext():
-    adapter, _ = pick_adapter("build an extension using chrome.tabs API", current="")
-    assert adapter == "chrome-ext-v1"
-
-
-def test_content_script_hint_routes_to_chrome_ext():
-    adapter, _ = pick_adapter("need a content script that injects a sidebar", current="")
-    assert adapter == "chrome-ext-v1"
-
-
-def test_chrome_ext_beats_game_signal():
-    """chrome-ext is checked BEFORE game — 'chrome extension that plays a game'
-    should route to chrome-ext-v1, not gamedev."""
-    adapter, _ = pick_adapter(
-        "build a chrome extension that plays a game in the popup", current=""
-    )
-    assert adapter == "chrome-ext-v1"
-
-
-def test_chrome_ext_beats_build_pair():
-    """Also wins over plain 'build X app' — chrome-ext is first in check order."""
-    adapter, _ = pick_adapter("create a chrome extension app for notes", current="")
-    assert adapter == "chrome-ext-v1"
-
-
-def test_iteration_on_chrome_ext_holds():
-    """Follow-up 'add dark mode' while on chrome-ext-v1 holds the adapter."""
-    adapter, _ = pick_adapter("add dark mode to the popup", current="chrome-ext-v1")
-    assert adapter == "chrome-ext-v1"
-
-
-def test_short_turn_on_chrome_ext_holds():
-    adapter, _ = pick_adapter("looks good, thanks", current="chrome-ext-v1")
-    assert adapter == "chrome-ext-v1"
-
-
-def test_revert_from_chrome_ext_to_chat():
-    adapter, _ = pick_adapter("nevermind, forget about that", current="chrome-ext-v1")
-    assert adapter == "none"
-
-
-def test_chat_start_to_chrome_ext_to_chrome_iteration():
-    """End-to-end: start in chat, pivot to chrome-ext, iterate."""
-    current = "none"
-    current, _ = pick_adapter("hi", current=current)
-    assert current == "none"
-    current, _ = pick_adapter(
-        "let's build a chrome extension for reading time tracking", current=current
-    )
-    assert current == "chrome-ext-v1"
-    current, _ = pick_adapter("add a badge counter in the toolbar", current=current)
-    assert current == "chrome-ext-v1"
-    current, _ = pick_adapter("now pivot to a 2D platformer game instead", current=current)
-    assert current == "gamedev"
+def test_revert_phrase_drops_to_chat():
+    for phrase in ("forget about that", "nevermind", "scrap that", "stop building"):
+        adapter, _ = pick_adapter(phrase, current="tsunami-adapter")
+        assert adapter == "none", f"failed on: {phrase!r}"

@@ -49,8 +49,8 @@ def apply_adapter_swap(model, name: str, current: str | None) -> tuple[str, str 
         return "no-change", current
 
     # Graceful fallback when the requested adapter isn't loaded on the model
-    # (e.g. router picked chrome-ext-v1 but server's --adapters-dir only had
-    # build-v89 and gamedev). Without this, `set_adapter` raises ValueError
+    # (e.g. config refers to an adapter the server never loaded). Without
+    # this, `set_adapter` raises ValueError
     # and the client never learns — request proceeds on the WRONG adapter
     # (whichever was active). Falling to base is predictable and logs clearly.
     if name != "none":
