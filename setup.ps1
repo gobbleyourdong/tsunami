@@ -184,10 +184,43 @@ function Test-Dep {
     }
 }
 
+function Install-ViaWinget {
+    param([string]$pkgId, [string]$displayName)
+    if (-not (Get-Command "winget" -ErrorAction SilentlyContinue)) {
+        return $false
+    }
+    Write-Step "Installing $displayName via winget (this may take a minute)..."
+    try {
+        & winget install --id $pkgId --silent --accept-source-agreements --accept-package-agreements 2>&1 | Out-Null
+        # Refresh PATH for the current session so newly-installed tools resolve
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 Write-Host ""
 Write-Host "  Checking dependencies..."
 
-Test-Dep "git"    "winget install Git.Git  OR  https://git-scm.com" | Out-Null
+# Auto-install git if missing — it's the bootstrap everything else needs.
+# Tries winget first (built into Windows 10 1809+); falls back to a printed
+# link that the user can follow manually.
+if (-not (Get-Command "git" -ErrorAction SilentlyContinue)) {
+    Write-Step "git not found — attempting auto-install..."
+    if (Install-ViaWinget "Git.Git" "Git for Windows") {
+        if (Get-Command "git" -ErrorAction SilentlyContinue) {
+            Write-Ok "git (auto-installed)"
+        } else {
+            Write-Fail "git install reported success but the 'git' command is still missing. You may need to restart this PowerShell window, then re-run setup."
+            $MISSING += "git"
+        }
+    } else {
+        Test-Dep "git" "winget install Git.Git  OR  https://git-scm.com" | Out-Null
+    }
+} else {
+    Write-Ok "git"
+}
 
 # Accept either python3 or python
 $PYTHON = $null
