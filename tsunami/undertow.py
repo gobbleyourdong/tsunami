@@ -128,6 +128,21 @@ async def pull_levers(
                 resp = await page.goto(
                     f"http://localhost:{port}/{filename}", timeout=10000
                 )
+                # Wipe any persistent session state the app may have written
+                # on mount — localStorage, sessionStorage, cookies, indexedDB.
+                # Voting apps, onboarding wizards, and signup flows commonly
+                # store "already did this" flags that would make the second+
+                # undertow run see a post-action state and report click/input
+                # levers as no-ops. Reload after clearing so the app re-mounts
+                # against a truly fresh session.
+                try:
+                    await page.evaluate(
+                        "() => { try { localStorage.clear(); sessionStorage.clear(); } catch(e) {} }"
+                    )
+                    await page.context.clear_cookies()
+                    await page.reload(timeout=10000)
+                except Exception as e:
+                    log.debug(f"Storage reset skipped: {e}")
                 await asyncio.sleep(2)  # let JS initialize
             except Exception as e:
                 report.passed = False
@@ -159,6 +174,24 @@ async def pull_levers(
             # JS contains key strings like 'Enter'/'ArrowDown' — those are
             # incidental (library code, event-map constants) and have nothing
             # to do with whether the app has clickable buttons to exercise.
+            # Always run ghost_classes check — catches "model wrote Tailwind
+            # but Tailwind isn't installed" and similar unstyled-class failure
+            # modes, independent of whether the page has interactable elements.
+            # Splice right before the final screenshot so the QA flow is
+            # console → content screenshot → ghost-class audit → interactions
+            # → final screenshot.
+            if not any(l.action == "ghost_classes" for l in levers):
+                ghost_lever = Lever(action="ghost_classes")
+                final_ss = None
+                for idx in range(len(levers) - 1, -1, -1):
+                    if levers[idx].action == "screenshot":
+                        final_ss = idx
+                        break
+                if final_ss is not None:
+                    levers = levers[:final_ss] + [ghost_lever] + levers[final_ss:]
+                else:
+                    levers.append(ghost_lever)
+
             already_interacts = any(
                 l.action in ("click", "type", "fill") for l in levers
             )
@@ -316,6 +349,9 @@ async def _pull_one(page, lever: Lever, console_msgs: list) -> LeverResult:
         elif lever.action == "click":
             return await _lever_click(page, lever)
 
+        elif lever.action == "ghost_classes":
+            return await _lever_ghost_classes(page, lever)
+
         elif lever.action == "read_text":
             return await _lever_read_text(page, lever)
 
@@ -426,6 +462,75 @@ async def _lever_press(page, lever: Lever) -> LeverResult:
         return LeverResult(lever=lever, passed=passed, saw=saw, detail=verdict)
 
     return LeverResult(lever=lever, passed=changed, saw=saw)
+
+
+async def _lever_ghost_classes(page, lever: Lever) -> LeverResult:
+    """Catch 'model wrote Tailwind but Tailwind isn't installed' failure mode.
+
+    Collect every className token in the live DOM, then every class selector
+    defined in every loaded stylesheet, and flag tokens that are declared in
+    markup but never styled. If a deliverable uses 20+ className tokens and
+    most of them don't resolve to any CSS rule, the page LOOKS rendered but
+    looks bland/boxy because the utility classes the model reached for (the
+    Tailwind training prior) were silently no-ops.
+
+    Threshold: more than 30% ghost classes among tokens the model wrote →
+    fail. The 30% tolerance accommodates BEM-style per-component classes
+    that legitimately don't exist in the bundled CSS (they're declared on
+    the element but styled by a parent selector, e.g. `.Card .Card-header`).
+    Tailwind's usual spread is hundreds of utility tokens — when Tailwind is
+    missing, ghost rate runs 70–95%, well above the floor.
+    """
+    result = await page.evaluate(r"""
+        () => {
+            // Every class token used in the live DOM
+            const used = new Set()
+            for (const el of document.querySelectorAll('*')) {
+                for (const c of el.classList) used.add(c)
+            }
+            // Every class token DEFINED in any loaded stylesheet. Extract
+            // `.foo` segments from each rule's selectorText (including
+            // :hover, > child, etc.). Cross-origin sheets raise on access —
+            // swallow and treat their contents as defined-unknown.
+            const defined = new Set()
+            const classRe = /\.([A-Za-z_][-\w]*)/g
+            for (const sheet of document.styleSheets) {
+                try {
+                    for (const rule of sheet.cssRules) {
+                        const sel = rule.selectorText
+                        if (!sel) continue
+                        let m
+                        classRe.lastIndex = 0
+                        while ((m = classRe.exec(sel)) !== null) defined.add(m[1])
+                    }
+                } catch (e) { /* CORS-blocked sheet, ignore */ }
+            }
+            const ghosts = [...used].filter(c => !defined.has(c))
+            return {
+                used_count: used.size,
+                defined_count: defined.size,
+                ghost_count: ghosts.length,
+                ghosts: ghosts.slice(0, 15),
+            }
+        }
+    """)
+    used = result.get("used_count", 0) or 0
+    ghost = result.get("ghost_count", 0) or 0
+    ghosts = result.get("ghosts", [])
+    if used < 5:
+        return LeverResult(lever=lever, passed=True,
+                           saw=f"only {used} class tokens in DOM — too few to judge")
+    ghost_rate = ghost / used
+    if ghost_rate > 0.30:
+        return LeverResult(
+            lever=lever, passed=False,
+            saw=(f"{ghost}/{used} class tokens ({ghost_rate:.0%}) don't match any CSS rule — "
+                 f"the page uses Tailwind-style utilities without Tailwind installed, "
+                 f"or classes with typos"),
+            detail=f"unresolved: {', '.join(ghosts[:10])}",
+        )
+    return LeverResult(lever=lever, passed=True,
+                       saw=f"{used} class tokens, {ghost} unresolved ({ghost_rate:.0%}) — styling wired up")
 
 
 async def _lever_click(page, lever: Lever) -> LeverResult:
