@@ -1560,7 +1560,7 @@ class Agent:
                             f"for code, message_chat for conversational replies only."
                         )
                         # Fall through to normal execution with the rewritten call
-                        tool = self.tools.get(tool_call.name)
+                        tool = self.registry.get(tool_call.name)
 
         # Input validation
         validation_error = tool.validate_input(**tool_call.arguments)
