@@ -32,23 +32,19 @@ OUTPUT_DIR = Path(__file__).parent.parent.parent / "scaffolds" / "webgpu-game" /
 # ── Model Management ──────────────────────────────────────────────
 
 MODEL_CONFIGS = {
-    "sd-turbo": {
-        "repo": "stabilityai/sd-turbo",
-        "steps": 4, "guidance": 0.0,
-        "dtype": "float16", "variant": "fp16",
+    "z-image": {
+        # Hits the tsunami server on :8090 — uses the Z-Image-Turbo weights
+        # already loaded by serve_transformers.py, no second model load.
+        # Sprite generation is an authoring-time activity and assumes the
+        # tsunami server is running on a proper GPU box (the apps it produces
+        # serve on-device; only authoring needs real hardware).
+        "backend": "http",
+        "endpoint": "http://localhost:8090/v1/images/generate",
+        "steps": 4, "guidance": 1.0,
     },
-    "sd-1.5": {
-        "repo": "stable-diffusion-v1-5/stable-diffusion-v1-5",
-        "steps": 20, "guidance": 7.5,
-        "dtype": "float16", "variant": "fp16",
-    },
-    # Future backends — implement generate_image_api() when keys available:
-    # "gemini": { "api": "google", "model": "gemini-2.0-flash" },
-    # "fal-nano": { "api": "fal", "model": "fal-ai/nano-banana-2" },
-    # "gpt-image": { "api": "openai", "model": "gpt-image-1.5" },
 }
 
-_active_model = "sd-turbo"
+_active_model = "z-image"
 _pipe = None
 
 
@@ -64,26 +60,9 @@ def set_model(name: str) -> None:
 
 
 def get_pipeline():
-    """Lazy-load the active diffusion pipeline."""
-    global _pipe
-    if _pipe is not None:
-        return _pipe
-
-    import torch
-    from diffusers import AutoPipelineForText2Image
-
-    config = MODEL_CONFIGS[_active_model]
-    if "api" in config:
-        raise NotImplementedError(f"API backend '{config['api']}' — add key + implement generate_image_api()")
-
-    print(f"[sprite] Loading {_active_model} ({config['repo']})...")
-    kwargs = {"torch_dtype": getattr(torch, config["dtype"])}
-    if config.get("variant"):
-        kwargs["variant"] = config["variant"]
-    _pipe = AutoPipelineForText2Image.from_pretrained(config["repo"], **kwargs)
-    _pipe = _pipe.to("cuda")
-    print(f"[sprite] {_active_model} ready")
-    return _pipe
+    """No-op for the HTTP backend — generate_image() hits :8090 directly.
+    Kept as a placeholder so future local-backend configs can slot in."""
+    return None
 
 
 def get_model_config() -> dict:
@@ -121,12 +100,8 @@ def generate_image(
     seed: int = -1,
 ) -> Image.Image:
     """Generate a single image with the active model backend."""
-    import torch
-
-    pipe = get_pipeline()
     config = get_model_config()
 
-    # Use model defaults if not overridden
     if steps < 0:
         steps = config["steps"]
     if guidance < 0:
@@ -134,24 +109,36 @@ def generate_image(
 
     styled_prompt = STYLE_PREFIXES.get(category, "") + prompt
 
-    generator = None
-    if seed >= 0:
-        generator = torch.Generator(device="cuda").manual_seed(seed)
+    # HTTP backend: hit the tsunami server on :8090. Same Z-Image-Turbo
+    # weights our generate_image tool uses, no second GPU-resident copy.
+    if config.get("backend") == "http":
+        import base64, io, httpx
+        t0 = time.time()
+        # Long timeout because the tsunami server may be busy with LLM
+        # inference when a sprite request arrives; image generation itself
+        # is fast (~3s) but queue wait can be minutes during active builds.
+        with httpx.Client(timeout=600) as client:
+            resp = client.post(config["endpoint"], json={
+                "prompt": styled_prompt,
+                "width": width, "height": height,
+                "steps": steps, "guidance_scale": guidance,
+            })
+        elapsed = time.time() - t0
+        if resp.status_code != 200:
+            raise RuntimeError(f"HTTP backend returned {resp.status_code}: {resp.text[:200]}")
+        data = resp.json()
+        if "error" in data:
+            raise RuntimeError(f"Z-Image server error: {data['error']}")
+        b64 = data["data"][0]["b64_json"]
+        img = Image.open(io.BytesIO(base64.b64decode(b64)))
+        print(f"[sprite] Generated in {elapsed:.2f}s ({steps} steps, via {config['endpoint']})")
+        return img
 
-    t0 = time.time()
-    result = pipe(
-        prompt=styled_prompt,
-        negative_prompt=NEGATIVE_PROMPT,
-        num_inference_steps=steps,
-        guidance_scale=guidance,
-        width=width,
-        height=height,
-        generator=generator,
+    raise RuntimeError(
+        f"Model '{_active_model}' is not HTTP-backed but no local pipeline "
+        f"is configured. Ensure the tsunami server is running on "
+        f"http://localhost:8090 and the z-image backend is selected."
     )
-    elapsed = time.time() - t0
-    print(f"[sprite] Generated in {elapsed:.2f}s ({steps} steps)")
-
-    return result.images[0]
 
 
 def generate_variations(
@@ -630,8 +617,8 @@ def main():
     parser.add_argument("category", choices=["character", "object", "texture", "batch"],
                         help="Asset category or 'batch' for JSON file")
     parser.add_argument("prompt", help="Text prompt or batch JSON file path")
-    parser.add_argument("--model", "-m", default="sd-turbo", choices=list(MODEL_CONFIGS.keys()),
-                        help="Generation model backend (default: sd-turbo)")
+    parser.add_argument("--model", "-m", default="z-image", choices=list(MODEL_CONFIGS.keys()),
+                        help="Generation model backend (default: z-image, via tsunami server on :8090)")
     parser.add_argument("--name", default="sprite", help="Output name prefix")
     parser.add_argument("--variations", "-n", type=int, default=4)
     parser.add_argument("--size", type=int, default=64, help="Target sprite size (square)")
