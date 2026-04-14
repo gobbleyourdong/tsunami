@@ -2492,7 +2492,7 @@ class Agent:
                 except Exception as e:
                     log.debug(f"Mid-loop auto-wire skipped: {e}")
 
-        # 8z. Generate nudge — visual projects should use SD-Turbo for assets
+        # 8z. Generate nudge — visual projects should use Z-Image-Turbo for assets
         if self.state.iteration > 0 and self.state.iteration % 12 == 0:
             has_generated = any(
                 t == "generate_image" or t == "webdev_generate_assets"
@@ -2510,7 +2510,7 @@ class Agent:
                 if any(k in user_req.lower() for k in visual_keywords):
                     self.state.add_system_note(
                         "GENERATE REMINDER: Use generate_image to create textures, icons, "
-                        "backgrounds, and visual assets. SD-Turbo generates in <1 second. "
+                        "backgrounds, and visual assets. Z-Image-Turbo generates in ~2 seconds. "
                         "Don't use placeholder SVGs when you can generate real images."
                     )
 
