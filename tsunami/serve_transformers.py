@@ -54,6 +54,7 @@ from pathlib import Path
 
 import torch
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from transformers import AutoProcessor, AutoModelForImageTextToText
 import uvicorn
@@ -172,11 +173,30 @@ from tsunami.gemma_args import (
 
 @app.post("/v1/chat/completions")
 async def chat_completions(req: ChatRequest):
-    # Fairness gate first — a user waiting on their own prior request doesn't
-    # enter the GPU queue and can't crowd out other users. See _user_sems.
+    # GGUF fast path: if LLAMA_SERVER_URL is set (e.g. http://localhost:8091),
+    # proxy the raw OpenAI-format request to llama-server and return its
+    # response verbatim. Lets tsunami ride on llama.cpp's native CUDA kernels
+    # (5x+ decode speed vs our transformers path) without reimplementing the
+    # LM pipeline. Fairness gate still applies.
     _user_sem = _get_user_sem(req.user or "default")
     async with _user_sem:
+        import os as _os
+        llama_url = _os.environ.get("LLAMA_SERVER_URL")
+        if llama_url:
+            return await _proxy_chat_completions(req, llama_url)
         return await _chat_completions_impl(req)
+
+
+async def _proxy_chat_completions(req: ChatRequest, base_url: str):
+    """Forward an OpenAI ChatCompletion request to an external llama-server.
+    Strips multimodal image parts if present (llama.cpp handles them via
+    separate /mtmd endpoints). Everything else passes through untouched."""
+    import httpx
+    body = req.model_dump(exclude_none=True)
+    endpoint = base_url.rstrip("/") + "/v1/chat/completions"
+    async with httpx.AsyncClient(timeout=600) as client:
+        resp = await client.post(endpoint, json=body)
+    return JSONResponse(resp.json(), status_code=resp.status_code)
 
 
 from tsunami.chat_template_safety import escape_role_tokens as _escape_role_tokens
@@ -532,10 +552,46 @@ def _restore_language_model():
 
 @app.post("/v1/images/generate")
 async def generate_image(req: ImageRequest):
-    # Same fairness gate as chat_completions — per-user then global GPU.
+    # GGUF fast path: if SD_SERVER_URL is set (e.g. http://localhost:8092),
+    # proxy to stable-diffusion.cpp's sd-server and return its output.
+    # Same tradeoff as LLAMA_SERVER_URL for chat — lets us ride on sd.cpp's
+    # native CUDA diffusion kernels without running the pipeline in Python.
     _user_sem = _get_user_sem(req.user or "default")
     async with _user_sem, _gpu_sem:
+        import os as _os
+        sd_url = _os.environ.get("SD_SERVER_URL")
+        if sd_url:
+            return await _proxy_image_generate(req, sd_url)
         return await _generate_image_impl(req)
+
+
+async def _proxy_image_generate(req: ImageRequest, base_url: str):
+    """Forward to sd.cpp's /v1/images/generations (OpenAI-compatible).
+    sd.cpp expects 'size' as 'WxH' and returns {data:[{b64_json}]}.
+    Our tool normally returns a file path; reconstruct that contract so
+    callers see the same shape whether the backend is local or remote."""
+    import httpx, base64, time as _time
+    size = f"{req.width}x{req.height}"
+    body = {
+        "prompt": req.prompt,
+        "n": 1,
+        "size": size,
+        "response_format": "b64_json",
+        # sd.cpp respects num_inference_steps via different keys; pass both
+        "num_inference_steps": req.steps,
+        "cfg_scale": req.guidance_scale,
+    }
+    endpoint = base_url.rstrip("/") + "/v1/images/generations"
+    async with httpx.AsyncClient(timeout=600) as client:
+        resp = await client.post(endpoint, json=body)
+    if resp.status_code != 200:
+        return JSONResponse({"error": resp.text[:500]}, status_code=resp.status_code)
+    data = resp.json()
+    # Return in our server's native shape (matches what generate_image_impl emits)
+    return JSONResponse({
+        "created": int(_time.time()),
+        "data": data.get("data", []),
+    })
 
 
 async def _generate_image_impl(req: ImageRequest):
