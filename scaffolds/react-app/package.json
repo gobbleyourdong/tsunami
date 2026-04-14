@@ -2,7 +2,7 @@
   "name": "react-app",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "vite", "build": "tsc --noEmit && vite build" },
+  "scripts": { "dev": "vite", "build": "node scripts/auto-import-ui.mjs && tsc --noEmit && vite build" },
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
