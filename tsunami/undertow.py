@@ -452,9 +452,22 @@ async def _lever_click(page, lever: Lever) -> LeverResult:
                 lever=lever, passed=False,
                 saw=f"'{lever.selector}' exists but is not visible"
             )
-        # Snapshot DOM text before
-        dom_before = await page.evaluate("document.body.innerText")
+        # Two-phase baseline → the click has to cause a change BEYOND
+        # whatever the page does on its own (setInterval tickers, CSS
+        # transitions, auto-advancing carousels). A crypto dash with a 15s
+        # price refresh used to fool us: dom_before != dom_after was true
+        # purely from the timer tick, so the 'View Chart' dead button passed
+        # QA. Measure the noise floor first, then require the click to
+        # introduce lines the baseline didn't.
+        def _lines(text: str) -> set[str]:
+            return {l for l in text.split("\n") if l.strip()}
+
+        dom_t0 = await page.evaluate("document.body.innerText")
         before = await page.screenshot()
+        await asyncio.sleep(0.5)
+        dom_t05 = await page.evaluate("document.body.innerText")
+        noise_added = _lines(dom_t05) - _lines(dom_t0)
+        noise_removed = _lines(dom_t0) - _lines(dom_t05)
         # First try a normal click. If playwright's actionability check times
         # out (button covered by overlay / absolutely-positioned sibling /
         # tight-packed UI like a NES d-pad), retry with force=True which
@@ -468,15 +481,24 @@ async def _lever_click(page, lever: Lever) -> LeverResult:
         after = await page.screenshot()
         dom_after = await page.evaluate("document.body.innerText")
 
+        click_added = _lines(dom_after) - _lines(dom_t05)
+        click_removed = _lines(dom_t05) - _lines(dom_after)
+        # Credit the click only for changes that aren't explained by the
+        # baseline drift. A ticker cycling "$65021.34" → "$64988.12" will
+        # land in both noise and click sets — subtract it off.
+        specific_added = click_added - noise_added
+        specific_removed = click_removed - noise_removed
+        dom_changed_by_click = bool(specific_added or specific_removed)
         pixels_changed = _screenshots_differ(before, after)
-        dom_changed = dom_before != dom_after
-        changed = pixels_changed or dom_changed
+        changed = pixels_changed or dom_changed_by_click
 
         parts = []
         if pixels_changed:
             parts.append("pixels changed")
-        if dom_changed:
-            parts.append("DOM text changed")
+        if dom_changed_by_click:
+            parts.append(f"DOM text changed (+{len(specific_added)} -{len(specific_removed)} beyond baseline)")
+        elif click_added or click_removed:
+            parts.append("DOM change matched background ticker noise — click likely dead")
         if not changed:
             parts.append("nothing changed")
 
