@@ -1544,7 +1544,12 @@ class Agent:
                             f"Tool-role guard: rerouting message_chat({len(text)} chars of code) "
                             f"→ file_write({inferred_path})"
                         )
-                        from .tools.base import ToolCall
+                        # ToolCall is imported at module top; a local re-import
+                        # here would shadow the module-level binding as local
+                        # throughout _step, making earlier uses at lines ~1147/
+                        # 1166/1177/1481 raise UnboundLocalError. Caught by the
+                        # eval session showing "cannot access local variable
+                        # 'ToolCall' where it is not associated with a value".
                         tool_call = ToolCall(
                             name="file_write",
                             arguments={"path": inferred_path, "content": text},
