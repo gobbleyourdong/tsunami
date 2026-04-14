@@ -592,9 +592,22 @@ function Get-Model {
 }
 
 if (Get-Command "curl.exe" -ErrorAction SilentlyContinue) {
-    Get-Model "unsloth/gemma-4-31B-it-GGUF" "gemma-4-31B-it-Q4_K_M.gguf"
-    Get-Model "unsloth/gemma-4-31B-it-GGUF" "mmproj-F16.gguf"
-    Write-Ok "Models installed (Z-Image-Turbo auto-downloads on first image gen via diffusers)"
+    # Primary LM: Gemma-4-26B-A4B MoE at MXFP4 — ~15 GB, MoE keeps only 4B
+    # active per token so decode runs at near-4B-dense speed while quality
+    # stays close to dense-26B. Native Blackwell fp4 tensor cores on CUDA.
+    Get-Model "unsloth/gemma-4-26B-A4B-it-GGUF" "gemma-4-26B-A4B-it-MXFP4_MOE.gguf"
+    Get-Model "unsloth/gemma-4-26B-A4B-it-GGUF" "mmproj-F16.gguf"
+    # Image gen stack: Z-Image-Turbo Q4_K (DiT) + VAE + Qwen3-4B text encoder.
+    Get-Model "leejet/Z-Image-Turbo-GGUF" "z_image_turbo-Q4_K.gguf"
+    Get-Model "Comfy-Org/z_image_turbo" "split_files/vae/ae.safetensors"
+    # Flatten nested download dir.
+    $nested = Join-Path $MODELS_DIR "split_files/vae/ae.safetensors"
+    if (Test-Path $nested) {
+        Move-Item $nested (Join-Path $MODELS_DIR "ae.safetensors") -Force
+        Remove-Item (Join-Path $MODELS_DIR "split_files") -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Get-Model "unsloth/Qwen3-4B-GGUF" "Qwen3-4B-Q4_K_M.gguf"
+    Write-Ok "Models installed — LM (Gemma-4-26B-A4B MXFP4) + image stack (Z-Image Q4_K)"
 } else {
     Write-Warn "curl.exe not found — download models manually to $MODELS_DIR"
 }
