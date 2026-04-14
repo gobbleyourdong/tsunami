@@ -534,6 +534,108 @@ class Agent:
                 })
         return projects
 
+    # Node built-ins that don't need npm install
+    _NODE_BUILTINS = frozenset({
+        "fs", "path", "os", "crypto", "util", "events", "stream", "buffer",
+        "child_process", "http", "https", "url", "querystring", "zlib",
+        "net", "tls", "dns", "assert", "cluster", "readline", "vm",
+        "node:fs", "node:path", "node:os", "node:crypto", "node:util",
+        "node:child_process", "node:http", "node:https", "node:url",
+    })
+
+    async def _auto_install_missing_deps(self, written_path: str) -> None:
+        """After file_write/file_edit of TS/JS, scan for bare imports and
+        auto-install any missing npm packages. Prevents the "model writes
+        import, build fails, model manually installs, rebuilds" cycle.
+        """
+        import re as _re
+        import json as _json
+
+        # Resolve the written file's project root — look up for package.json
+        from .tools.filesystem import _resolve_path, _active_project
+        abs_path = _resolve_path(written_path, self.config.workspace_dir, _active_project)
+        p = Path(abs_path)
+        if not p.exists():
+            return
+        # Walk up to find the nearest package.json
+        proj_dir = p.parent
+        for _ in range(6):
+            if (proj_dir / "package.json").exists():
+                break
+            if proj_dir == proj_dir.parent:
+                return
+            proj_dir = proj_dir.parent
+        pkg_path = proj_dir / "package.json"
+        if not pkg_path.exists():
+            return
+
+        content = p.read_text()
+        # Parse imports. Match both `import ... from 'X'` and `require('X')`.
+        imports = set()
+        for pat in (
+            r"""import\s+[^;]*?from\s+['"]([^'"]+)['"]""",
+            r"""import\s+['"]([^'"]+)['"]""",  # bare "import 'X'"
+            r"""require\s*\(\s*['"]([^'"]+)['"]\s*\)""",
+        ):
+            imports.update(_re.findall(pat, content))
+
+        # Filter: skip relative, local alias, built-ins, type-only imports
+        npm_mods: set[str] = set()
+        for mod in imports:
+            if mod.startswith((".", "/", "@/")):
+                continue  # relative or aliased-local
+            if mod in self._NODE_BUILTINS:
+                continue
+            # Scoped packages: @scope/pkg[/subpath] → @scope/pkg
+            if mod.startswith("@"):
+                parts = mod.split("/")
+                if len(parts) >= 2:
+                    pkg = f"{parts[0]}/{parts[1]}"
+                    npm_mods.add(pkg)
+                continue
+            # Unscoped: pkg or pkg/subpath → pkg
+            npm_mods.add(mod.split("/")[0])
+
+        if not npm_mods:
+            return
+
+        # Read current package.json to see what's already there
+        try:
+            pkg = _json.loads(pkg_path.read_text())
+        except Exception:
+            return
+        installed = set(pkg.get("dependencies", {}).keys()) | set(pkg.get("devDependencies", {}).keys())
+        missing = npm_mods - installed
+        if not missing:
+            return
+
+        # Guard: don't install obviously-bogus packages the model hallucinated
+        # (e.g. "./foo" slipping through, or @/foo despite the filter).
+        missing = {m for m in missing if _re.match(r"^(@[\w-]+/)?[\w.-]+$", m)}
+        if not missing:
+            return
+
+        log.info(f"Auto-install: {len(missing)} missing deps → {sorted(missing)}")
+        import asyncio as _aio
+        cmd = f"cd {proj_dir} && npm install {' '.join(sorted(missing))} 2>&1 | tail -5"
+        try:
+            proc = await _aio.create_subprocess_shell(
+                cmd, stdout=_aio.subprocess.PIPE, stderr=_aio.subprocess.STDOUT,
+            )
+            try:
+                out, _ = await _aio.wait_for(proc.communicate(), timeout=90)
+                out_s = out.decode(errors="ignore")[:400]
+                log.info(f"Auto-install done: {out_s[:200]}")
+                self.state.add_system_note(
+                    f"Auto-installed missing deps: {', '.join(sorted(missing))}. "
+                    f"Continue with your next tool call — the build should now resolve these."
+                )
+            except _aio.TimeoutError:
+                proc.kill()
+                log.warning("Auto-install timed out after 90s")
+        except Exception as e:
+            log.debug(f"Auto-install failed: {e}")
+
     def _exit_gate_suffix(self) -> str:
         """Run content gates on the current deliverable at a forced-exit path.
 
@@ -2115,6 +2217,20 @@ class Agent:
                             f"(use `npm run build`, NOT bare `vite build`, so the typecheck gate runs)."
                         )
                         log.info("Write-streak nudge: 4+ writes without build")
+
+        # 8b.5. Auto-install missing npm packages. Models frequently import
+        # lucide-react, axios, zustand, date-fns, etc. that aren't in the
+        # scaffold's package.json — build fails, model realizes, manually
+        # runs npm install, rebuilds. Detecting + installing at file_write
+        # time saves 2-3 iterations per build. Inspired by Replit's
+        # packager_tool intelligence.
+        if tool_call.name in ("file_write", "file_edit") and not result.is_error:
+            written_path = tool_call.arguments.get("path", "")
+            if written_path and written_path.endswith((".tsx", ".ts", ".jsx", ".js")):
+                try:
+                    await self._auto_install_missing_deps(written_path)
+                except Exception as e:
+                    log.debug(f"Auto-install skipped: {e}")
 
         # 8c. Auto-undertow — run QA immediately after writing HTML.
         # Manus-style risk classifier: for file_edit, look at the diff. If
