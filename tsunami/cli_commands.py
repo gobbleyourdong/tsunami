@@ -106,10 +106,6 @@ def format_status(agent=None, state: CLIState | None = None) -> str:
         lines.append(f"  Iteration: {agent.state.iteration}")
         lines.append(f"  Messages: {len(agent.state.conversation)}")
 
-        # Tension
-        if hasattr(agent, '_pressure'):
-            lines.append(f"  Pressure: {agent._pressure.format_status()}")
-
         # Context usage
         from .compression import estimate_tokens
         tokens = estimate_tokens(agent.state)

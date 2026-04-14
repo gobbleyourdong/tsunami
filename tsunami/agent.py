@@ -122,9 +122,10 @@ class Agent:
         # Abort signal for graceful interruption
         self.abort_signal = AbortSignal()
 
-        # Tension monitoring (current/circulation/pressure)
-        from .pressure import Pressure
-        self._pressure = Pressure()
+        # (tension/pressure/circulation removed 2026-04-13 — replaced by the
+        # observable gates: compile, runtime, undertow, scaffold-unchanged.
+        # Prose tension on summary strings produced more false positives than
+        # real catches and blocked correct deliveries.)
 
         # Phase state machine — enforced forward progress
         from .phase_machine import PhaseMachine
@@ -1190,11 +1191,25 @@ class Agent:
                         f"Give each eddy a specific subtask string."
                     )
                 elif repeated_tool == "generate_image":
-                    self.state.add_system_note(
-                        "STOP GENERATING IMAGES. You've called generate_image 3 times in a row. "
-                        "Use the images you already generated. Reference them in your HTML/JSX with "
-                        "<img src='...'> and move on to building the UI. Do NOT call generate_image again."
+                    # Galleries, slideshows, grids, collages legitimately need
+                    # N > 3 images. Only nudge when the task prompt doesn't
+                    # signal bulk-image intent. The no-file_write and
+                    # no-project_init safety valves upstream catch real
+                    # flailing (generating images without ever wiring them up).
+                    user_req = (
+                        self.state.conversation[1].content.lower()
+                        if len(self.state.conversation) > 1 else ""
                     )
+                    bulk_hints = ("gallery", "grid", "collection", "collage",
+                                  "slideshow", "carousel", "pages", "cards",
+                                  "4 image", "5 image", "6 image", "8 image",
+                                  "multiple image", "several image")
+                    if not any(h in user_req for h in bulk_hints):
+                        self.state.add_system_note(
+                            "You've called generate_image 3x in a row. If you have "
+                            "enough images for the task, switch to file_write to "
+                            "reference them in JSX as <img src=\"/assets/...\">."
+                        )
                 elif repeated_tool == "search_web":
                     self.state.add_system_note(
                         "STOP SEARCHING. You've searched 3 times in a row. Use the results you "
@@ -1242,26 +1257,9 @@ class Agent:
                 pass
         log.info(f"  Args type={type(tool_call.arguments).__name__}, value={str(tool_call.arguments)[:200]}")
 
-        # Tension check on tool choice — is this the right tool for the task?
-        from .current import measure_heuristic
-        user_request = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
-        tool_statement = f"User asked: {user_request[:200]}. Agent chose: {tool_call.name}({str(tool_call.arguments)[:200]})"
-        # Record pre-tool tension for dynamic tool filter
-        self.tool_filter.record_before(measure_heuristic(tool_statement))
-        tool_tension = measure_heuristic(tool_statement)
-        self._pressure.record(tool_tension, tool_call.name)
-
-        if self._pressure.should_refuse():
-            log.warning("Pressure: 4+ consecutive high tension — forcing user guidance")
-            self.state.add_system_note(
-                "PRESSURE CRITICAL: You've made 4+ uncertain decisions in a row. "
-                "Stop and use message_chat(done=false) to ask the user."
-            )
-        elif self._pressure.should_force_search() and tool_call.name not in ("search_web", "message_chat"):
-            log.info(f"Pressure: forcing search (consecutive high tension)")
-            self.state.add_system_note(
-                "PRESSURE ELEVATED: Consider using search_web to ground your next action."
-            )
+        # (tension/pressure pre-tool checks removed — observable gates below
+        # catch real failures; prose heuristics on tool choice were noise.)
+        self.tool_filter.record_before(0.0)
 
         # Auto-fix missing path for file_write/file_edit — infer from active project
         # Works for both project_init-spawned and pre-scaffolded projects.
@@ -1420,9 +1418,8 @@ class Agent:
             self.state.add_system_note(nudge)
             log.info(f"Feedback nudge: {nudge[:60]}")
 
-        # Dynamic tool filter — record post-tool tension + inject guidance
-        post_tension = measure_heuristic(result.content[:500]) if result.content else 0.0
-        self.tool_filter.record_after(tool_call.name, post_tension, not result.is_error)
+        # Dynamic tool filter — tension component removed; just record outcome.
+        self.tool_filter.record_after(tool_call.name, 0.0, not result.is_error)
         tool_guidance = self.tool_filter.get_guidance()
         if tool_guidance:
             self.state.add_system_note(tool_guidance)
@@ -2021,29 +2018,47 @@ class Agent:
                         )
                         log.info("Write-streak nudge: 4+ writes without build")
 
-        # 8c. Auto-undertow — run QA immediately after writing HTML
+        # 8c. Auto-undertow — run QA immediately after writing HTML.
+        # Manus-style risk classifier: for file_edit, look at the diff. If
+        # it's only text-content / CSS class tweaks (no <script>, no handler,
+        # no new tag), skip the full playwright cycle — a compile check at
+        # deliver-time is sufficient for cosmetic changes.
         if tool_call.name in ("file_write", "file_edit") and not result.is_error:
             written_path = tool_call.arguments.get("path", "")
             if written_path.endswith((".html", ".htm")):
-                try:
-                    from .undertow import run_drag
-                    user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
-                    qa = await run_drag(written_path, user_request=user_req)
-                    failed = qa.get("levers_failed", 0)
-                    total = qa.get("levers_total", 0)
-                    tension = qa.get("code_tension", 0)
-                    self._pressure.record(tension, "undertow")
+                risky = True
+                if tool_call.name == "file_edit":
+                    old_text = tool_call.arguments.get("old_text", "")
+                    new_text = tool_call.arguments.get("new_text", "")
+                    risky_tokens = (
+                        "<script", "</script", "onclick", "onload", "onchange",
+                        "addEventListener", "fetch(", "XMLHttpRequest",
+                        "<iframe", "<form",
+                    )
+                    risky = any(
+                        t in old_text.lower() or t in new_text.lower()
+                        for t in risky_tokens
+                    )
+                if not risky:
+                    log.info("Auto-undertow skipped: low-risk text/CSS edit")
+                else:
+                    try:
+                        from .undertow import run_drag
+                        user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                        qa = await run_drag(written_path, user_request=user_req)
+                        failed = qa.get("levers_failed", 0)
+                        total = qa.get("levers_total", 0)
 
-                    if not qa["passed"] and qa["errors"]:
-                        error_list = "\n".join(f"  - {e}" for e in qa["errors"][:5])
-                        self.state.add_system_note(
-                            f"UNDERTOW ({failed}/{total} failed):\n{error_list}"
-                        )
-                        log.info(f"Auto-undertow: {failed}/{total} failed, tension={tension:.2f}")
-                    else:
-                        log.info(f"Auto-undertow: PASS ({total} levers, tension={tension:.2f})")
-                except Exception as e:
-                    log.debug(f"Auto-undertow skipped: {e}")
+                        if not qa["passed"] and qa["errors"]:
+                            error_list = "\n".join(f"  - {e}" for e in qa["errors"][:5])
+                            self.state.add_system_note(
+                                f"UNDERTOW ({failed}/{total} failed):\n{error_list}"
+                            )
+                            log.info(f"Auto-undertow: {failed}/{total} failed")
+                        else:
+                            log.info(f"Auto-undertow: PASS ({total} levers)")
+                    except Exception as e:
+                        log.debug(f"Auto-undertow skipped: {e}")
 
         # 8b. Save-findings nudge (Ark: save to files every 2-3 tool calls)
         if self.state.iteration > 0 and self.state.iteration % 5 == 0:
@@ -2279,14 +2294,11 @@ class Agent:
                                     log.info(f"Auto-wired App.tsx with {len(components)} components: {components}")
                     break
 
-        # 9. Tension gate — measure current before allowing delivery
+        # 9. Delivery gates — observable checks only (compile, runtime,
+        # undertow, real-code-present). Prose-tension / circulation /
+        # adversarial-review removed 2026-04-13. See current.py / circulation.py
+        # / adversarial.py / pressure.py deletions in that commit.
         if tool_call.name == "message_result":
-            from .current import measure_heuristic, UNCERTAIN, DRIFTING
-            from .circulation import Circulation
-
-            tension = measure_heuristic(result.content)
-            self._pressure.record(tension, tool_call.name)
-
             # Track delivery attempts — prevent infinite block loops
             self._delivery_attempts = getattr(self, '_delivery_attempts', 0) + 1
 
@@ -2316,70 +2328,15 @@ class Agent:
                     self._delivery_attempts -= 1
                     return "Write code before delivering."
 
-            # Short conversational responses (greetings, acknowledgments) skip all gates
-            is_conversational = len(result.content) < 300 and tension < 0.3
+            # Short conversational deliveries bypass build-only gates below.
+            # A build is distinguished by project_init having been called;
+            # without that, this is a chat/research reply and the compile/
+            # runtime/undertow checks don't apply.
+            is_conversational = len(result.content) < 300
             if is_conversational and not self._project_init_called:
                 self._delivery_attempts = 0
                 self.state.task_complete = True
                 return result.content
-
-            # Only block factual claims that need verification, not build deliveries
-            can_block = self._delivery_attempts <= 3
-
-            # Detect task type for adaptive thresholds
-            user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
-            build_keywords = ["build", "create", "make", "app", "game", "dashboard", "website"]
-            task_type = "build" if any(k in user_req.lower() for k in build_keywords) else "general"
-            circ = Circulation(task_type=task_type)
-            route = circ.route(
-                user_req,
-                tension,
-            )
-
-            log.info(
-                f"Tension gate: tension={tension:.2f} route={route.action} "
-                f"delivery_attempt={self._delivery_attempts} can_block={can_block}"
-            )
-
-            if can_block:
-                if route.action == "refuse":
-                    log.warning(f"Tension gate: REFUSING delivery (tension={tension:.2f})")
-                    self.state.add_system_note(
-                        f"TENSION CRITICAL ({tension:.2f}): Your response is likely hallucinated. "
-                        f"Either search to verify your claims, or say you don't know. "
-                        f"Do NOT deliver unverified content."
-                    )
-                    return result.content
-
-                if route.action in ("search", "caveat"):
-                    did_search = any(
-                        "search_web" in m.content or "browser_navigate" in m.content
-                        for m in self.state.conversation if m.role == "tool_result"
-                    )
-                    if not did_search:
-                        log.info(f"Tension gate: forcing verification (tension={tension:.2f})")
-                        self.state.add_system_note(
-                            f"TENSION ELEVATED ({tension:.2f}): Your response needs verification. "
-                            f"Search external sources before delivering. Tools suggested: {route.tools}"
-                        )
-                        return result.content
-
-                # Adversarial review — cross-examine reasoning before delivery
-                if len(result.content) > 200:
-                    try:
-                        from .adversarial import review_before_delivery
-                        should_deliver, review_text = await review_before_delivery(
-                            result.content,
-                            self.state.conversation[1].content if len(self.state.conversation) > 1 else "",
-                        )
-                        if not should_deliver and review_text:
-                            log.info("Adversarial review: FAIL — sending objections back to wave")
-                            self.state.add_system_note(review_text)
-                            return result.content  # don't terminate — let wave address objections
-                    except Exception as e:
-                        log.debug(f"Adversarial review skipped: {e}")
-            elif self._delivery_attempts > 2:
-                log.info(f"Tension gate: allowing delivery after {self._delivery_attempts} attempts (loop prevention)")
 
             # 10a. Swell compile gate — vite build must pass for React deliveries
             if self._delivery_attempts <= 5:
@@ -2470,12 +2427,8 @@ class Agent:
                     user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
                     qa = await run_drag(last_html, user_request=user_req)
 
-                    # Record code tension into pressure alongside prose tension
-                    code_tension = qa.get("code_tension", 0.0)
-                    self._pressure.record(code_tension, "undertow")
                     log.info(
-                        f"Undertow: code_tension={code_tension:.2f} "
-                        f"({qa.get('levers_failed', 0)}/{qa.get('levers_total', 0)} failed)"
+                        f"Undertow: {qa.get('levers_failed', 0)}/{qa.get('levers_total', 0)} failed"
                     )
 
                     if not qa["passed"] and qa["errors"]:
@@ -2493,8 +2446,6 @@ class Agent:
 
             # All gates passed — deliver
             self._delivery_attempts = 0
-            if tension < DRIFTING:
-                self._pressure.reset()
             self.state.task_complete = True
 
             # Learn from this build — extract patterns for future sessions
