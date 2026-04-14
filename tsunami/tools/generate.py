@@ -96,6 +96,33 @@ def _extract_alpha(path: Path, mode: str) -> None:
         inner_r = 40.0    # clearly background
         outer_r = 80.0    # clearly NOT background
         alpha = _np.clip((dist - inner_r) * 255.0 / (outer_r - inner_r), 0, 255).astype(_np.uint8)
+
+        # Second pass: magenta-family fringe kill. The primary color-key leaves
+        # a 1-3px violet/purple halo where the generator blended subject colors
+        # with the magenta background. Any visible pixel whose R and B both
+        # exceed G by a clear margin (pink / purple / violet / magenta residue)
+        # gets cleared. Blue/cyan/white legit subject pixels have G ≥ R and
+        # survive. Tuned against the tsunami banner generation (2026-04-13).
+        if _np.allclose(target, pure_magenta):
+            visible = alpha > 16
+            r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+            fringe = visible & (r > g + 25) & (b > g + 25) & ((r + b) > 1.8 * g + 80)
+            alpha[fringe] = 0
+
+        # Third pass: 2-pixel erosion of the alpha mask trims anything
+        # remaining at the boundary (anti-alias residue that's neither
+        # magenta nor subject). Only for icon mode — alpha mode needs the
+        # feathered edge.
+        mask = alpha > 16
+        for _ in range(2):
+            eroded = _np.zeros_like(mask)
+            eroded[1:-1, 1:-1] = (
+                mask[1:-1, 1:-1] & mask[:-2, 1:-1] & mask[2:, 1:-1]
+                & mask[1:-1, :-2] & mask[1:-1, 2:]
+            )
+            mask = eroded
+        alpha[~mask] = 0
+
         # Premultiply fringe: kill RGB of transparent pixels.
         rgb = rgb_int.copy()
         rgb[alpha == 0] = 0
