@@ -1593,9 +1593,14 @@ class Agent:
         else:
             self._dedup_hits = 0  # reset on non-cached call
 
-        # Post-build shell_exec block — build already passed, stop rebuilding and deliver.
-        # First 2 hits: nudge. 3rd hit: synthesize the delivery ourselves —
-        # the model is stuck in a rebuild loop, the build is fine, just ship it.
+        # Post-build shell_exec block — build already passed, stop rebuilding
+        # and deliver. FIRST hit auto-delivers: the model re-running its own
+        # build command after BUILD PASSED is a guaranteed wasted iteration
+        # (20-30s/iter, 60-90s saved per run across tsunami's eval suite).
+        # The auto-deliver path always logs the workspace/dist/ location so a
+        # reviewer can inspect what shipped; failures surface via the
+        # existing undertow + deliver gates, not via "wait for the model to
+        # stop looping."
         if tool_call.name == "shell_exec" and hasattr(self, '_build_passed_at'):
             cmd = tool_call.arguments.get("command", "")
             is_build_cmd = any(k in cmd for k in ("vite build", "npm run build", "npx vite"))
@@ -1603,13 +1608,14 @@ class Agent:
                 self._post_build_blocks = getattr(self, '_post_build_blocks', 0) + 1
                 log.warning(
                     f"Post-build shell_exec block #{self._post_build_blocks}: "
-                    f"build already passed, forcing delivery"
+                    f"build already passed, auto-delivering"
                 )
-                if self._post_build_blocks >= 3:
+                if self._post_build_blocks >= 1:
                     # Synthesize the delivery. Find the most recent dist and
                     # ship it with a generic message. Better to deliver a
-                    # working build than loop until timeout.
-                    log.warning("Auto-delivering: 3+ post-build blocks, model is stuck")
+                    # working build than loop until timeout. Workspace path
+                    # is logged so the user can inspect the shipped artifact.
+                    log.warning("Auto-delivering: post-build block, model wants to loop")
                     from pathlib import Path as _P
                     deliverables = _P(self.config.workspace_dir) / "deliverables"
                     dist = None
