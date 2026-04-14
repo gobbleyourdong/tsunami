@@ -4,19 +4,19 @@
 
 **[see it work →](https://gobbleyourdong.github.io/tsunami/)**
 
-**Windows** (open **Windows PowerShell** — not CMD, not Git Bash, not WSL):
-
-```powershell
-iwr -useb https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
-# close and reopen PowerShell, then:
-tsunami
-```
-
 **Mac / Linux:**
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.sh | bash
 source ~/.bashrc
+tsunami
+```
+
+**Windows** (open **Windows PowerShell** — not CMD, not Git Bash, not WSL):
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
+# close and reopen PowerShell, then:
 tsunami
 ```
 
@@ -144,8 +144,8 @@ runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud re
 
 | platform | install | run |
 |----------|---------|-----|
-| **Windows** | `iwr -useb .../setup.ps1 \| iex` | `tsunami` (after PowerShell restart) |
 | **Mac / Linux** | `curl -sSL .../setup.sh \| bash` | `tsunami` |
+| **Windows** | `iwr -useb .../setup.ps1 \| iex` | `tsunami` (after PowerShell restart) |
 
 both paths auto-update on every launch. the install command clones the repo, installs dependencies (including git itself on Windows via winget if missing), downloads model weights, and wires `tsunami` into your shell so you can invoke it from anywhere.
 
