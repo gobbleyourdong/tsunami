@@ -226,14 +226,78 @@ def load_gemma_gguf(path: str | Path, n_head: int, n_head_kv: int) -> dict[str, 
 
 
 def load_lumina2_gguf(path: str | Path) -> dict[str, GGMLTensor]:
-    """Z-Image DiT. No HF equivalent (it's a diffusers module). Return the
-    raw GGUF-naming state dict; remap to diffusers' ZImageTransformer2DModel
-    naming is still TBD (ComfyUI-GGUF handles this via a UNet-specific
-    detect_arch path — we'd need to port that separately)."""
+    """Z-Image / Lumina-2 DiT GGUF → diffusers ZImageTransformer2DModel
+    state dict.
+
+    The two naming conventions differ in three places:
+      1. attention.qkv (fused, shape [3*dim, dim])
+         → attention.to_q, attention.to_k, attention.to_v (split 3-way,
+         shape [dim, dim] each). Same for context_refiner.* and
+         noise_refiner.* blocks.
+      2. attention.out → attention.to_out.0
+      3. attention.q_norm → attention.norm_q
+         attention.k_norm → attention.norm_k
+
+    The fused qkv tensor is quantized; to split it cleanly we dequantize
+    once at load time, chunk along dim 0, and keep the three resulting
+    tensors in bf16 (~0.2% of total model size — cheap). All other
+    tensors stay in their original quantized form.
+    """
     sd, arch, _ = _load_raw_gguf(path)
     if arch not in ("lumina2", "zimage"):
         log.warning(f"Expected arch=lumina2, got {arch}")
-    return sd
+
+    out: dict[str, GGMLTensor] = {}
+    for k, v in sd.items():
+        # Case 1: fused qkv → split to_q/to_k/to_v. `k` ends with
+        # `attention.qkv.weight` — could be anywhere in the module tree.
+        if k.endswith("attention.qkv.weight"):
+            prefix = k[: -len(".qkv.weight")]  # e.g. "layers.0.attention"
+            # Dequant then split. v.tensor_shape is the logical shape
+            # [3*dim, dim]. Chunk along dim 0 into three equal pieces.
+            dequant = dequantize_tensor(v, dtype=torch.bfloat16)
+            q, kk, vv = dequant.chunk(3, dim=0)
+            # Wrap each split as a non-quantized GGMLTensor (tensor_type=None
+            # so the ops layer passes through .to(dtype) without dequant).
+            def _as_plain(t: torch.Tensor) -> GGMLTensor:
+                g = GGMLTensor(t.contiguous(), tensor_type=None,
+                               tensor_shape=t.shape)
+                return g
+            out[f"{prefix}.to_q.weight"] = _as_plain(q)
+            out[f"{prefix}.to_k.weight"] = _as_plain(kk)
+            out[f"{prefix}.to_v.weight"] = _as_plain(vv)
+            continue
+
+        # Case 2: attention.out → attention.to_out.0 (weight + bias)
+        if k.endswith("attention.out.weight"):
+            out[k.replace("attention.out.weight", "attention.to_out.0.weight")] = v
+            continue
+        if k.endswith("attention.out.bias"):
+            out[k.replace("attention.out.bias", "attention.to_out.0.bias")] = v
+            continue
+
+        # Case 3: q_norm / k_norm rename
+        if "attention.q_norm." in k:
+            out[k.replace("attention.q_norm.", "attention.norm_q.")] = v
+            continue
+        if "attention.k_norm." in k:
+            out[k.replace("attention.k_norm.", "attention.norm_k.")] = v
+            continue
+
+        # Diffusers wraps x_embedder / final_layer in a multi-resolution
+        # ModuleDict keyed by patchify ratio. Z-Image-Turbo only has the
+        # "2-1" variant, so rebrand the single GGUF tensors to that slot.
+        if k.startswith("x_embedder."):
+            out[k.replace("x_embedder.", "all_x_embedder.2-1.", 1)] = v
+            continue
+        if k.startswith("final_layer."):
+            out[k.replace("final_layer.", "all_final_layer.2-1.", 1)] = v
+            continue
+
+        # Pass-through for everything else (FFN, norms, adaLN, embedders, etc.)
+        out[k] = v
+
+    return out
 
 
 # ───────────────── Lightweight inspector ──────────────────────────────────
