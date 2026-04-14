@@ -2169,6 +2169,21 @@ class Agent:
                         project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
                         if (project_dir / "package.json").exists() and (project_dir / "node_modules").exists():
                             import subprocess
+                            # Pre-build: run the scaffold's auto-import-ui script if present.
+                            # It injects missing ./components/ui imports (e.g. <Alert>) that
+                            # would otherwise ship as `undefined` and blank-page the app.
+                            # Using `npx vite build` directly skips the npm run build pipeline,
+                            # so we have to invoke the script explicitly here.
+                            ai_script = project_dir / "scripts" / "auto-import-ui.mjs"
+                            if ai_script.exists():
+                                try:
+                                    subprocess.run(
+                                        ["node", str(ai_script)],
+                                        cwd=str(project_dir),
+                                        capture_output=True, text=True, timeout=15,
+                                    )
+                                except Exception:
+                                    pass
                             build = subprocess.run(
                                 ["npx", "vite", "build"],
                                 cwd=str(project_dir),
@@ -2677,6 +2692,16 @@ class Agent:
                         for proj in projects[:1]:
                             if (proj / "package.json").exists() and (proj / "node_modules").exists():
                                 import subprocess
+                                # Run scaffold's auto-import-ui script (see agent.py:2173 comment).
+                                ai_script = proj / "scripts" / "auto-import-ui.mjs"
+                                if ai_script.exists():
+                                    try:
+                                        subprocess.run(
+                                            ["node", str(ai_script)],
+                                            cwd=str(proj), capture_output=True, text=True, timeout=15,
+                                        )
+                                    except Exception:
+                                        pass
                                 build = subprocess.run(
                                     ["npx", "vite", "build"],
                                     cwd=str(proj), capture_output=True, text=True, timeout=30,
