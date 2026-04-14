@@ -7,8 +7,7 @@
 **Windows:**
 
 ```powershell
-.\setup.ps1
-.\tsu.ps1
+iwr -useb https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
 ```
 
 **Mac / Linux:**
