@@ -8,6 +8,8 @@
 
 ```powershell
 iwr -useb https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
+# restart PowerShell, then:
+tsunami
 ```
 
 **Mac / Linux:**
@@ -18,7 +20,7 @@ source ~/.bashrc
 tsunami
 ```
 
-that's it. it downloads everything, detects your gpu, starts the models, opens the UI.
+that's it. `tsunami` auto-installs git (via winget on Windows), clones the repo, detects your gpu, downloads the models, starts the server, opens the UI. Run the same `tsunami` command to launch on subsequent sessions.
 
 ---
 
@@ -142,10 +144,10 @@ runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud re
 
 | platform | install | run |
 |----------|---------|-----|
-| **Windows** | `.\setup.ps1` | `.\tsu.ps1` |
-| **Mac / Linux** | `setup.sh` | `tsu` |
+| **Windows** | `iwr -useb .../setup.ps1 \| iex` | `tsunami` (after PowerShell restart) |
+| **Mac / Linux** | `curl -sSL .../setup.sh \| bash` | `tsunami` |
 
-`tsu` auto-updates on every launch.
+both paths auto-update on every launch. the install command clones the repo, installs dependencies (including git itself on Windows via winget if missing), downloads model weights, and wires `tsunami` into your shell so you can invoke it from anywhere.
 
 ---
 
