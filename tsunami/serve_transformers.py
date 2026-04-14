@@ -485,25 +485,30 @@ def _load_image_model():
 
     log.info(f"Loading image model: {image_model_id}")
     try:
-        from diffusers import FluxPipeline
-        image_pipe = FluxPipeline.from_pretrained(
+        # AutoPipelineForText2Image auto-selects the right Diffusers pipeline
+        # class based on the model's model_index.json. Previously hardcoded
+        # FluxPipeline, which broke for Z-Image-Turbo (different architecture,
+        # different required submodules). Auto handles Flux, SD, SD-Turbo,
+        # Z-Image, Kandinsky, etc.
+        from diffusers import AutoPipelineForText2Image
+        image_pipe = AutoPipelineForText2Image.from_pretrained(
             image_model_id,
             torch_dtype=torch.bfloat16,
             trust_remote_code=True,
         )
         image_pipe.to("cuda")
-        log.info("Image model loaded")
+        log.info(f"Image model loaded: {type(image_pipe).__name__}")
     except Exception as e:
         log.error(f"Failed to load image model: {e}")
         # Try FP8 quantized fallback
         try:
-            image_pipe = FluxPipeline.from_pretrained(
+            image_pipe = AutoPipelineForText2Image.from_pretrained(
                 image_model_id,
                 torch_dtype=torch.float8_e4m3fn,
                 trust_remote_code=True,
             )
             image_pipe.to("cuda")
-            log.info("Image model loaded (FP8 fallback)")
+            log.info(f"Image model loaded FP8 fallback: {type(image_pipe).__name__}")
         except Exception as e2:
             log.error(f"FP8 fallback also failed: {e2}")
             return None
