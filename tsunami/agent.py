@@ -264,8 +264,8 @@ class Agent:
             try:
                 import subprocess
                 build = subprocess.run(
-                    ["npx", "vite", "build"],
-                    cwd=str(best_match), capture_output=True, text=True, timeout=30,
+                    ["npm", "run", "build"],
+                    cwd=str(best_match), capture_output=True, text=True, timeout=45,
                 )
                 if build.returncode == 0:
                     build_status = "passes"
@@ -2169,25 +2169,14 @@ class Agent:
                         project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
                         if (project_dir / "package.json").exists() and (project_dir / "node_modules").exists():
                             import subprocess
-                            # Pre-build: run the scaffold's auto-import-ui script if present.
-                            # It injects missing ./components/ui imports (e.g. <Alert>) that
-                            # would otherwise ship as `undefined` and blank-page the app.
-                            # Using `npx vite build` directly skips the npm run build pipeline,
-                            # so we have to invoke the script explicitly here.
-                            ai_script = project_dir / "scripts" / "auto-import-ui.mjs"
-                            if ai_script.exists():
-                                try:
-                                    subprocess.run(
-                                        ["node", str(ai_script)],
-                                        cwd=str(project_dir),
-                                        capture_output=True, text=True, timeout=15,
-                                    )
-                                except Exception:
-                                    pass
+                            # Use `npm run build` (not bare `npx vite build`) so the scaffold's
+                            # full pipeline runs — pre-build scripts like auto-import-ui, tsc
+                            # typecheck, and vite. Bypassing npm skips those and lets the model
+                            # ship broken bundles (e.g. <Alert> unimported → `undefined` at mount).
                             build = subprocess.run(
-                                ["npx", "vite", "build"],
+                                ["npm", "run", "build"],
                                 cwd=str(project_dir),
-                                capture_output=True, text=True, timeout=30,
+                                capture_output=True, text=True, timeout=45,
                             )
                             if build.returncode != 0:
                                 errors = [l.strip() for l in build.stderr.splitlines() if "Error" in l][:3]
@@ -2198,9 +2187,9 @@ class Agent:
                                     if fixed:
                                         # Rebuild after auto-fix
                                         build2 = subprocess.run(
-                                            ["npx", "vite", "build"],
+                                            ["npm", "run", "build"],
                                             cwd=str(project_dir),
-                                            capture_output=True, text=True, timeout=30,
+                                            capture_output=True, text=True, timeout=45,
                                         )
                                         if build2.returncode == 0:
                                             log.info("Auto-compile: FIXED (deterministic recovery)")
@@ -2692,19 +2681,9 @@ class Agent:
                         for proj in projects[:1]:
                             if (proj / "package.json").exists() and (proj / "node_modules").exists():
                                 import subprocess
-                                # Run scaffold's auto-import-ui script (see agent.py:2173 comment).
-                                ai_script = proj / "scripts" / "auto-import-ui.mjs"
-                                if ai_script.exists():
-                                    try:
-                                        subprocess.run(
-                                            ["node", str(ai_script)],
-                                            cwd=str(proj), capture_output=True, text=True, timeout=15,
-                                        )
-                                    except Exception:
-                                        pass
                                 build = subprocess.run(
-                                    ["npx", "vite", "build"],
-                                    cwd=str(proj), capture_output=True, text=True, timeout=30,
+                                    ["npm", "run", "build"],
+                                    cwd=str(proj), capture_output=True, text=True, timeout=45,
                                 )
                                 if build.returncode != 0:
                                     errors = [l.strip() for l in build.stderr.splitlines() if "Error" in l][:3]
