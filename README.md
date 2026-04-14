@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/banner.png" alt="tsunami" width="800">
+</p>
+
 # tsunami
 
 **an ai agent that runs on your computer. tell it what to build, it builds it.**
