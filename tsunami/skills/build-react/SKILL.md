@@ -5,7 +5,11 @@ The scaffold is a foundation, not a final product. Map the request, read what's 
 ## When
 - User says "build", "make", "create", or "I need a/an" + an app name
 - The app does not already exist in `workspace/deliverables/`
-- Default if the prompt doesn't match `iteration`, `in-place-cwd`, or `visual-clone`
+- Default if the prompt doesn't match `iteration`, `in-place-cwd`, `visual-clone`, or `build-multi-page`
+- Single-page scope: counter, calculator, dice roller, timer, todo, color picker, calendar, quiz, note-taking, chart, single-form contact page
+
+## When NOT
+Branch to `build-multi-page` instead if the prompt mentions: dashboard, multi-page, routing, tabs, sidebar, nav, login, signup, auth, profile, settings, SaaS, admin panel, OR asks for 2+ explicit pages. Those apps need dependency-ordered building (routing → pages → auth → protected pages), which this skill doesn't handle.
 
 ## Pipeline (incremental, not one-shot)
 
@@ -40,6 +44,18 @@ After reading the scaffold (step 3), if the app is genuinely modular:
 4. Then build / undertow / deliver as above
 
 Don't decompose for simple apps — one App.tsx is more reliable than 4 files for a counter.
+
+## Available components (react-app scaffold)
+
+Import from `./components/ui` — these are the only exports:
+
+**Primitives:** `Text`, `Heading`, `Flex`, `Box` — use for layout/typography instead of hallucinating Chakra/Mantine APIs.
+
+**Interactive:** `Button`, `Input`, `Select`, `Switch`, `Dropdown`, `Dialog`, `Tooltip`, `Accordion`, `Alert`, `Badge`, `Progress`, `Skeleton`.
+
+**Rich widgets:** `Card`, `Avatar`, `StarRating`, `GlowCard`, `Parallax`, `AnimatedCounter`, `BeforeAfter`, `ColorPicker`, `Timeline`, `Kanban`, `AnnouncementBar`, `Marquee`, `TypeWriter`, `GradientText`, `ScrollReveal`, `Slideshow`, `RichTextEditor`, `FileManager`, `CommandPalette`, `Calendar`, `NotificationCenter`, `AudioPlayer`, `VideoPlayer`.
+
+**If you need anything else** (e.g. a tab bar, a table, a menubar): use raw HTML + Tailwind, don't import a name you haven't seen above. The scaffold has no `Tabs`, `Table`, `Menu`, `Drawer`, `Sheet`, `Popover`, `Carousel`, `Slider`, `Checkbox`, `Radio`, `Form`, `Label`, `Separator`, `Spinner`, `Pagination`. Build them from `<div>` / `<button>` / `<input>` + classes.
 
 ## Gotchas
 - **No narration.** Every assistant turn is exactly one tool call, no `content` text.

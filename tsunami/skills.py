@@ -84,11 +84,13 @@ class SkillsManager:
 
         parts = []
         total_chars = 0
-        # Cap raised from 8000 → 16000 (~4000 tokens) to fit ~10 skills at
-        # ~1500 chars each. Production prompt is still well under 32k context.
+        # Cap 32000 chars (~8000 tokens). Gemma-4 has 128k context; skills are
+        # the single most load-bearing piece of the system prompt, so spend
+        # more on them. Bumped from 16000 after build-multi-page pushed the
+        # total over and silently dropped visual-clone from the load.
         for s in skills:
             content = self.load_skill(s["name"])
-            if content and total_chars + len(content) < 16000:
+            if content and total_chars + len(content) < 32000:
                 parts.append(f"### {s['name']}\n{content}")
                 total_chars += len(content)
 
