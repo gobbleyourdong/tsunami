@@ -207,7 +207,15 @@ async def pull_levers(
                             return {clickables, divClickables, inputs};
                         }
                     """)
-                    live_clickables = min(int(counts.get("clickables", 0) or 0), 3)
+                    # Only click the FIRST clickable. Clicking multiple in
+                    # sequence fights React state mutations (click 1 opens a
+                    # modal, click 2 tries to hit a button that moved, click 3
+                    # selects something no longer visible). A single click
+                    # proves "interaction works" — which is all undertow needs
+                    # to establish. Multi-step workflows (signup → next →
+                    # submit) are outside undertow's scope; those are the
+                    # wave's job to express in `expect`.
+                    live_clickables = min(int(counts.get("clickables", 0) or 0), 1)
                     live_div_clicks = min(int(counts.get("divClickables", 0) or 0), 2)
                     live_inputs = min(int(counts.get("inputs", 0) or 0), 2)
 
