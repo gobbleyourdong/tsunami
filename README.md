@@ -4,11 +4,11 @@
 
 **[see it work →](https://gobbleyourdong.github.io/tsunami/)**
 
-**Windows:**
+**Windows** (open **Windows PowerShell** — not CMD, not Git Bash, not WSL):
 
 ```powershell
 iwr -useb https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
-# restart PowerShell, then:
+# close and reopen PowerShell, then:
 tsunami
 ```
 
