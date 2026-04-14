@@ -1491,9 +1491,16 @@ class Agent:
         # Works for both project_init-spawned and pre-scaffolded projects.
         # Uses `deliverables/...` prefix (not `workspace/deliverables/...`) so that
         # _resolve_path correctly joins with workspace_dir — v14 training data uses
-        # this convention.
+        # this convention. Triggers for file_edit (old_text/new_text shape) too —
+        # the eval's T2 leads failure was 3 consecutive file_edit calls missing
+        # path, burning the entire 900s budget before this guard was extended.
         if tool_call.name in ("file_write", "file_edit") and "path" not in tool_call.arguments:
-            if "content" in tool_call.arguments:
+            has_payload = (
+                "content" in tool_call.arguments
+                or "old_text" in tool_call.arguments
+                or "new_text" in tool_call.arguments
+            )
+            if has_payload:
                 # Find the active project (works for both init and pre-scaffold)
                 deliverables = Path(self.config.workspace_dir) / "deliverables"
                 if deliverables.exists():
@@ -1505,6 +1512,50 @@ class Agent:
                         inferred_path = f"deliverables/{projects[0].name}/src/App.tsx"
                         tool_call.arguments["path"] = inferred_path
                         log.info(f"Auto-fixed missing path: {inferred_path}")
+
+        # Tool-role guard — model sometimes dumps full JSX/TS source as
+        # message_chat.text instead of file_write.content. Fires in two
+        # eval runs (T1 pomodoro, T1 chiptune). Convert to file_write
+        # targeting App.tsx, save the build. Heuristic: >500 chars of text
+        # that looks like code (has imports or JSX tags).
+        if tool_call.name == "message_chat":
+            text = str(tool_call.arguments.get("text", ""))
+            looks_like_code = (
+                len(text) > 500
+                and (
+                    "import " in text
+                    or "</" in text
+                    or "const " in text
+                    or "function " in text
+                    or "export " in text
+                )
+            )
+            if looks_like_code:
+                # Reroute to file_write on App.tsx
+                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                if deliverables.exists():
+                    projects = sorted(
+                        [d for d in deliverables.iterdir() if d.is_dir()],
+                        key=lambda p: p.stat().st_mtime, reverse=True,
+                    )
+                    if projects:
+                        inferred_path = f"deliverables/{projects[0].name}/src/App.tsx"
+                        log.warning(
+                            f"Tool-role guard: rerouting message_chat({len(text)} chars of code) "
+                            f"→ file_write({inferred_path})"
+                        )
+                        from .tools.base import ToolCall
+                        tool_call = ToolCall(
+                            name="file_write",
+                            arguments={"path": inferred_path, "content": text},
+                        )
+                        self.state.add_system_note(
+                            f"You emitted code as message_chat.text ({len(text)} chars). "
+                            f"Rerouted to file_write(path='{inferred_path}'). Use file_write "
+                            f"for code, message_chat for conversational replies only."
+                        )
+                        # Fall through to normal execution with the rewritten call
+                        tool = self.tools.get(tool_call.name)
 
         # Input validation
         validation_error = tool.validate_input(**tool_call.arguments)
