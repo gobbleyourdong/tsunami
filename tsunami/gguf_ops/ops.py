@@ -81,14 +81,20 @@ class _GGMLLoadMixin:
 
 
 class GGMLLinear(_GGMLLoadMixin, nn.Linear):
-    """nn.Linear that stores its weight as a GGMLTensor and dequantizes
-    per-forward. Drop-in replacement — same constructor signature, same
-    forward contract."""
+    """nn.Linear that stores weight as a GGMLTensor and dequantizes
+    per-forward. Benchmarked caching bf16 across forwards: peak memory
+    4x-ed for only ~10% speed win — the dequant isn't the bottleneck on
+    GB10 Blackwell, the matmul + attention is. Keep it simple: dequant
+    every forward, let the allocator free the bf16 copy after."""
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         w = _dequant_if_needed(self.weight, input.dtype)
+        if w.device != input.device:
+            w = w.to(input.device)
         b = None
         if self.bias is not None:
             b = _dequant_if_needed(self.bias, input.dtype)
+            if b.device != input.device:
+                b = b.to(input.device)
         return F.linear(input, w, b)
 
 
