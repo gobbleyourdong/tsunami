@@ -66,6 +66,15 @@ def main():
     parser.add_argument("--api-key", type=str, default=None, help="API key for remote models")
     parser.add_argument("--sessions", action="store_true", help="List saved sessions")
     parser.add_argument("--resume", type=str, default=None, help="Resume a saved session by ID")
+    parser.add_argument(
+        "--in-place", action="store_true",
+        help="Operate on the current working directory instead of ./workspace. "
+             "Use for in-place tasks: organize files, rename, summarize, refactor.",
+    )
+    parser.add_argument(
+        "--workspace", type=str, default=None,
+        help="Override workspace directory (default: ./workspace, or CWD with --in-place).",
+    )
     args = parser.parse_args()
 
     # Logging
@@ -91,6 +100,28 @@ def main():
 
     if args.watcher:
         config.watcher_enabled = True
+
+    # Workspace resolution. Explicit --workspace wins. Else --in-place sets
+    # CWD as the workspace (tools operate on user's files directly). Else
+    # auto-detect: if there's no ./workspace and CWD has real content,
+    # assume the user meant in-place (common for "organize my icons" style
+    # asks from a non-tsunami directory).
+    import os as _os
+    if args.workspace:
+        config.workspace_dir = args.workspace
+    elif args.in_place:
+        config.workspace_dir = _os.getcwd()
+    elif not _os.path.isdir(Path(config.workspace_dir)):
+        # No ./workspace exists. If CWD has user files (>0 non-hidden entries)
+        # and there's no sign this is a tsunami project root, default to CWD.
+        cwd_entries = [e for e in _os.listdir(".") if not e.startswith(".")]
+        tsunami_markers = {"workspace", "tsunami", "scaffolds"}
+        looks_tsunami = any(m in cwd_entries for m in tsunami_markers)
+        if cwd_entries and not looks_tsunami:
+            config.workspace_dir = _os.getcwd()
+            logging.getLogger("tsunami.cli").info(
+                f"In-place mode: workspace = CWD ({config.workspace_dir})"
+            )
 
     # Session listing
     if args.sessions:
