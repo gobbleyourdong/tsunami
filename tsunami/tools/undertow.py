@@ -56,6 +56,28 @@ class Undertow(BaseTool):
                 resolved = _resolve_path(path, self.config.workspace_dir, _active_project)
                 if _P(resolved).exists():
                     path = str(resolved)
+                elif _active_project:
+                    # Path resolved but file doesn't exist — common failure
+                    # mode: model passed a bare "dist/index.html" without the
+                    # project prefix. Try prepending the active project.
+                    # (Gallery test: "dist/index.html" should resolve to
+                    # <ws>/<project>/dist/index.html, not <ws>/dist/index.html.)
+                    base = _P(self.config.workspace_dir) / _active_project.lstrip("/")
+                    candidate = (base / path.lstrip("/")).resolve()
+                    if candidate.exists():
+                        path = str(candidate)
+                    else:
+                        # Last resort: search for any matching path under
+                        # deliverables/*/. Covers cases where _active_project
+                        # wasn't set but a single project exists.
+                        deliverables = _P(self.config.workspace_dir) / "deliverables"
+                        if deliverables.exists():
+                            for proj in deliverables.iterdir():
+                                if not proj.is_dir(): continue
+                                candidate2 = (proj / path.lstrip("/")).resolve()
+                                if candidate2.exists():
+                                    path = str(candidate2)
+                                    break
             except Exception:
                 pass
             from ..undertow import run_drag, format_qa_report

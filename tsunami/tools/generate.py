@@ -11,10 +11,111 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 from pathlib import Path
 
 from .base import BaseTool, ToolResult
+
+
+def _extract_alpha(path: Path, mode: str) -> None:
+    """Convert the RGB image at `path` into an RGBA PNG with the alpha
+    channel derived from the render-background signal.
+
+      mode="alpha" — feathered 8-bit alpha from luminance. Black → 0,
+                     bright → 255. Good for glows, particle sprites,
+                     soft lighting effects.
+      mode="icon"  — hard-edged color-key against magenta (#FF00FF).
+                     Pixels close to magenta become transparent; everything
+                     else stays fully opaque. A thin distance-ramp at the
+                     threshold edge feathers the cutout ~2px to hide
+                     color-fringe artifacts from the generator.
+
+    Overwrites the file in place.
+    """
+    try:
+        import numpy as _np
+        from PIL import Image as _Image
+    except ImportError as e:
+        raise RuntimeError(f"alpha extraction requires pillow + numpy ({e})")
+
+    img = _Image.open(path).convert("RGB")
+    arr = _np.asarray(img, dtype=_np.float32)  # H × W × 3
+    h, w, _ = arr.shape
+
+    if mode == "alpha":
+        # Rec.709 perceptual luminance — matches how human vision weights
+        # channels (green dominates, red moderate, blue minor). Using this
+        # instead of a flat (R+G+B)/3 gives cleaner feathering on colored
+        # glows where the generator leaned one channel.
+        lum = 0.2126 * arr[:, :, 0] + 0.7152 * arr[:, :, 1] + 0.0722 * arr[:, :, 2]
+        # Stretch: take the darkest 5% as pure-transparent, brightest 5% as
+        # pure-opaque. Gives a full-range alpha ramp even when the image
+        # didn't quite hit solid black.
+        lo = _np.percentile(lum, 5)
+        hi = _np.percentile(lum, 95)
+        if hi - lo < 1:
+            alpha = _np.clip(lum, 0, 255).astype(_np.uint8)
+        else:
+            alpha = _np.clip((lum - lo) * 255.0 / (hi - lo), 0, 255).astype(_np.uint8)
+        rgba = _np.dstack([arr.astype(_np.uint8), alpha])
+
+    elif mode == "icon":
+        # Dynamic corner-color key. Sample the four corners (plus a small
+        # patch around each to denoise), pick the dominant color as the
+        # background target, then color-key against it. This is generator-
+        # agnostic — works whether SD produced magenta, white, gray, or
+        # anything else. Color-based (not spatial) so it still catches
+        # holes in the middle of icons (letter 'O', gear teeth, donut).
+        #
+        # Fallback to pure magenta if Z-Image-Turbo actually honors the
+        # prompt — the magenta target is an even safer key than an arbitrary
+        # corner color, since it's guaranteed not to match the subject.
+        rgb_int = arr.astype(_np.uint8)
+        # 8×8 corner patches → average → candidate background colors
+        patch = 8
+        corner_samples = [
+            arr[:patch, :patch].reshape(-1, 3).mean(axis=0),
+            arr[:patch, -patch:].reshape(-1, 3).mean(axis=0),
+            arr[-patch:, :patch].reshape(-1, 3).mean(axis=0),
+            arr[-patch:, -patch:].reshape(-1, 3).mean(axis=0),
+        ]
+        # Use median of corners so one "subject touches corner" outlier
+        # doesn't poison the target color.
+        target = _np.median(_np.stack(corner_samples), axis=0).astype(_np.float32)
+
+        # If the corners are close to magenta (Z-Image-Turbo complied),
+        # use the pure magenta target — it's cleaner.
+        pure_magenta = _np.array([255, 0, 255], dtype=_np.float32)
+        if _np.linalg.norm(target - pure_magenta) < 80:
+            target = pure_magenta
+
+        dist = _np.sqrt(((arr - target) ** 2).sum(axis=2))
+        # Radius tuned for mixed realities: photo-style backgrounds
+        # have 30-50 unit variation; flat backgrounds have <10.
+        inner_r = 40.0    # clearly background
+        outer_r = 80.0    # clearly NOT background
+        alpha = _np.clip((dist - inner_r) * 255.0 / (outer_r - inner_r), 0, 255).astype(_np.uint8)
+        # Premultiply fringe: kill RGB of transparent pixels.
+        rgb = rgb_int.copy()
+        rgb[alpha == 0] = 0
+        rgba = _np.dstack([rgb, alpha])
+    else:
+        return
+
+    _Image.fromarray(rgba, mode="RGBA").save(path, format="PNG")
+
+
+def _public_url_hint(path: Path) -> str:
+    """If `path` is inside a Vite/CRA-style `public/` dir, return the URL the
+    dev server will serve it at (e.g. `<project>/public/assets/x.png` →
+    `/assets/x.png`). Returns empty string otherwise.
+    """
+    parts = path.resolve().parts
+    if "public" in parts:
+        i = parts.index("public")
+        return "/" + "/".join(parts[i + 1:])
+    return ""
 
 log = logging.getLogger("tsunami.generate")
 
@@ -23,7 +124,10 @@ class GenerateImage(BaseTool):
     name = "generate_image"
     description = (
         "Generate an image from a text description. The artist: bring visual ideas into existence. "
-        "Saves the image to the specified path."
+        "If a project exists, the image is auto-routed to <project>/public/assets/<filename> "
+        "so you can reference it in JSX as <img src=\"/assets/<filename>\" />. "
+        "Call project_init BEFORE generate_image when building a UI — otherwise images land "
+        "in the workspace root and won't be served by the dev server."
     )
 
     def parameters_schema(self) -> dict:
@@ -39,12 +143,25 @@ class GenerateImage(BaseTool):
                     "description": "Style hint (e.g. 'photo', 'illustration', 'diagram')",
                     "default": "photo",
                 },
+                "mode": {
+                    "type": "string",
+                    "description": (
+                        "Output mode. 'opaque' (default) = normal RGB. "
+                        "'alpha' = render on black, extract 8-bit alpha from luminance "
+                        "(for glows, sparks, soft cutouts, particle sprites). "
+                        "'icon' = render on magenta, color-key out the background "
+                        "(for hard-edged logos/icons with clean transparency)."
+                    ),
+                    "enum": ["opaque", "alpha", "icon"],
+                    "default": "opaque",
+                },
             },
             "required": ["prompt", "save_path"],
         }
 
     async def execute(self, prompt: str, save_path: str = "", width: int = 1024,
-                      height: int = 1024, style: str = "photo", **kw) -> ToolResult:
+                      height: int = 1024, style: str = "photo",
+                      mode: str = "opaque", **kw) -> ToolResult:
         # Training corpus uses `path` — accept either name so champion-trained
         # models don't silently fail on parameter-name mismatch.
         if not save_path and kw.get("path"):
@@ -55,26 +172,142 @@ class GenerateImage(BaseTool):
             save_path = f"public/images/generated_{int(_time.time())}.png"
             log.info(f"generate_image called without save_path — defaulting to {save_path}")
 
-        # Resolve path — always within workspace, strip leading /workspace
-        clean = save_path.lstrip("/")
-        # Strip "workspace/" prefix if the model sends absolute-looking paths
-        for prefix in ["workspace/", "app/workspace/"]:
-            if clean.startswith(prefix):
-                clean = clean[len(prefix):]
-                break
-        p = (Path(self.config.workspace_dir) / clean).resolve()
-        p.parent.mkdir(parents=True, exist_ok=True)
+        # Route saves into the active project's public/ when possible.
+        # Without this, the model writes "/tmp/foo.png" (or any out-of-project
+        # path) and the Vite dev server 404s on the <img src="..."> reference
+        # because the file isn't under the serve root. Saving into public/
+        # means the model can reference it as "/assets/foo.png" and it Just
+        # Works after a build. (2026-04-13: image-gallery fix.)
+        from .filesystem import _active_project
+        routed = False
+        if _active_project:
+            import os.path as _osp
+            filename = _osp.basename(save_path) or f"generated_{int(__import__('time').time())}.png"
+            # Anything the model sent that ISN'T already rooted at the project
+            # gets redirected to <project>/public/assets/. Covers /tmp/foo.png,
+            # bare "foo.png", "images/foo.png", etc.
+            project_root = Path(self.config.workspace_dir) / _active_project.lstrip("/")
+            project_root_resolved = project_root.resolve()
+            candidate = (project_root / save_path.lstrip("/")).resolve()
+            try:
+                inside_project = (
+                    candidate == project_root_resolved
+                    or str(candidate).startswith(str(project_root_resolved) + os.sep)
+                )
+            except Exception:
+                inside_project = False
+            if not inside_project:
+                p = project_root / "public" / "assets" / filename
+                p = p.resolve()
+                p.parent.mkdir(parents=True, exist_ok=True)
+                log.info(
+                    f"generate_image: routed {save_path!r} → {p} "
+                    f"(active project: {_active_project})"
+                )
+                routed = True
 
-        # SD-Turbo in-process first, placeholder fallback
-        for backend in [self._try_sd_turbo_local, self._try_placeholder]:
+        if not routed:
+            # Resolve path — always within workspace, strip leading /workspace
+            clean = save_path.lstrip("/")
+            # Strip "workspace/" prefix if the model sends absolute-looking paths
+            for prefix in ["workspace/", "app/workspace/"]:
+                if clean.startswith(prefix):
+                    clean = clean[len(prefix):]
+                    break
+            p = (Path(self.config.workspace_dir) / clean).resolve()
+            p.parent.mkdir(parents=True, exist_ok=True)
+
+        # Prompt modifiers for alpha/icon modes. These bias the generator
+        # toward producing the specific background we'll color-key out post-hoc.
+        mode = (mode or "opaque").lower()
+        if mode == "alpha":
+            prompt = f"{prompt}, on solid pure black background, centered subject"
+        elif mode == "icon":
+            # Heavy prompt repetition + emphatic tokens so SD-Turbo's
+            # 1-step sampler actually produces magenta background.
+            # Without this, it defaults to white/gray and the color-key
+            # finds nothing to remove.
+            prompt = (
+                f"(({prompt})), centered, isolated, "
+                f"on flat solid bright magenta color background, "
+                f"pure magenta (hot pink) backdrop everywhere around the subject, "
+                f"magenta wallpaper fill, no other background colors, "
+                f"vibrant #FF00FF background, hard clean edges"
+            )
+
+        # Z-Image-Turbo on the tsunami server (/v1/images/generate on :8090)
+        # is the canonical backend. Placeholder is the last-ditch fallback for
+        # when the server is up but the image model wasn't loaded at startup.
+        # SD-Turbo in-process was removed — Z-Image follows prompts better and
+        # is the prod model.
+        for backend in [self._try_zimage_server, self._try_placeholder]:
             result = await backend(prompt, p, width, height, style)
             if not result.is_error:
+                # Post-process: extract alpha for alpha/icon modes so callers
+                # get a PNG with real transparency instead of a background-
+                # baked-in RGB image.
+                if mode in ("alpha", "icon") and p.exists():
+                    try:
+                        _extract_alpha(p, mode)
+                        result = ToolResult(result.content + f"\nExtracted alpha (mode={mode})")
+                    except Exception as e:
+                        log.warning(f"Alpha extraction failed: {e}")
                 return result
 
         return ToolResult("No image generation backend available", is_error=True)
 
+    async def _try_zimage_server(self, prompt: str, path: Path, w: int, h: int, style: str) -> ToolResult:
+        """Call Z-Image-Turbo on the tsunami server (:8090/v1/images/generate).
+
+        Z-Image-Turbo (Tongyi-MAI/Z-Image-Turbo) is the prod image model.
+        Expects the tsunami server was started with --image-model set to
+        Tongyi-MAI/Z-Image-Turbo (the default). If the server is up but
+        --image-model was "none", returns is_error so the placeholder
+        fallback can run.
+        """
+        import base64
+        try:
+            endpoint = getattr(self.config, "model_endpoint", "http://localhost:8090")
+            if not endpoint.startswith("http"):
+                endpoint = f"http://{endpoint}"
+            import httpx
+            async with httpx.AsyncClient(timeout=180) as client:
+                resp = await client.post(
+                    f"{endpoint}/v1/images/generate",
+                    json={
+                        "prompt": prompt,
+                        "width": w,
+                        "height": h,
+                        "steps": 4,  # Z-Image-Turbo: 4 steps is the sweet spot
+                        "guidance_scale": 1.0,
+                    },
+                )
+                if resp.status_code != 200:
+                    return ToolResult(
+                        f"Z-Image server returned {resp.status_code}: {resp.text[:200]}",
+                        is_error=True,
+                    )
+                data = resp.json()
+                if "error" in data:
+                    return ToolResult(
+                        f"Z-Image server error: {data['error']}",
+                        is_error=True,
+                    )
+                if not data.get("data") or not data["data"][0].get("b64_json"):
+                    return ToolResult("Z-Image server returned no image", is_error=True)
+                b64 = data["data"][0]["b64_json"]
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(base64.b64decode(b64))
+                url_hint = _public_url_hint(path)
+                return ToolResult(
+                    f"Image generated and saved to {path} (Z-Image-Turbo {w}x{h}, 4 steps)"
+                    + (f"\nReference in JSX as <img src=\"{url_hint}\" />" if url_hint else "")
+                )
+        except Exception as e:
+            return ToolResult(f"Z-Image call failed: {e}", is_error=True)
+
     async def _try_diffusion_server(self, prompt: str, path: Path, w: int, h: int, style: str) -> ToolResult:
-        """Try the SD-Turbo server on :8091."""
+        """(Legacy) Try the SD-Turbo server on :8091."""
         try:
             import httpx
             async with httpx.AsyncClient(timeout=120) as client:
@@ -182,7 +415,11 @@ class GenerateImage(BaseTool):
             path.parent.mkdir(parents=True, exist_ok=True)
             image.save(str(path))
             cap_note = f" (requested {req_w}x{req_h}, capped to {w}x{h})" if (req_w, req_h) != (w, h) else ""
-            return ToolResult(f"Image generated and saved to {path} (SD-Turbo {w}x{h}, {elapsed:.1f}s){cap_note}")
+            url_hint = _public_url_hint(path)
+            return ToolResult(
+                f"Image generated and saved to {path} (SD-Turbo {w}x{h}, {elapsed:.1f}s){cap_note}"
+                + (f"\nReference in JSX as <img src=\"{url_hint}\" />" if url_hint else "")
+            )
 
         except Exception as e:
             return ToolResult(f"SD-Turbo error: {e}", is_error=True)

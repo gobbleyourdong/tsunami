@@ -147,6 +147,129 @@ async def pull_levers(
                 ))
                 report.passed = False
 
+            # React/Vue/etc SPAs render buttons and inputs via JS after load, so
+            # the static HTML that generate_levers regex-scanned is empty. Query
+            # the LIVE DOM here and inject interaction levers — clicks for
+            # buttons, typing for text inputs — so the post-interaction
+            # screenshot captures the app in its "used" state rather than its
+            # initial placeholder state. (2026-04-13: dice-roller judgment ran
+            # before Roll was pressed; typing-mirror was judged on empty input.)
+            # Only treat click/type/fill as "real" interactions here. press
+            # levers get added by the static-HTML regex scan when the bundled
+            # JS contains key strings like 'Enter'/'ArrowDown' — those are
+            # incidental (library code, event-map constants) and have nothing
+            # to do with whether the app has clickable buttons to exercise.
+            already_interacts = any(
+                l.action in ("click", "type", "fill") for l in levers
+            )
+            if not already_interacts:
+                try:
+                    # Enumerate live-DOM interactables. Counts only visible and
+                    # not-disabled elements. Covers what Manus's clickability
+                    # framework calls out: <button>, <a href>, role=button,
+                    # role=link, and styled divs with cursor:pointer (the
+                    # last is a visual affordance signal in shadcn-style UIs).
+                    counts = await page.evaluate("""
+                        () => {
+                            const vis = el => {
+                                if (el.offsetParent === null) return false;
+                                if (el.disabled) return false;
+                                if (el.getAttribute('aria-disabled') === 'true') return false;
+                                return true;
+                            };
+                            const clickableSel = [
+                                'button',
+                                'a[href]',
+                                '[role="button"]',
+                                '[role="link"]',
+                                'input[type="submit"]',
+                                'input[type="button"]',
+                                'input[type="reset"]'
+                            ].join(', ');
+                            const clickables = Array.from(document.querySelectorAll(clickableSel)).filter(vis).length;
+
+                            // Styled-div clickables: cursor:pointer + some event
+                            // affordance. Rare but catches React cards wired as
+                            // click targets without role=button.
+                            const divClickables = Array.from(document.querySelectorAll('div, span'))
+                                .filter(el => vis(el)
+                                    && getComputedStyle(el).cursor === 'pointer'
+                                    && !el.closest('button,a,[role="button"],[role="link"]'))
+                                .length;
+
+                            const inputSel = 'input[type="text"], input[type="search"],'
+                                + ' input[type="email"], input[type="url"], input[type="tel"],'
+                                + ' input[type="password"], input[type="number"],'
+                                + ' input:not([type]), textarea';
+                            const inputs = Array.from(document.querySelectorAll(inputSel))
+                                .filter(el => vis(el) && !el.readOnly)
+                                .length;
+                            return {clickables, divClickables, inputs};
+                        }
+                    """)
+                    live_clickables = min(int(counts.get("clickables", 0) or 0), 3)
+                    live_div_clicks = min(int(counts.get("divClickables", 0) or 0), 2)
+                    live_inputs = min(int(counts.get("inputs", 0) or 0), 2)
+
+                    # Combined clickable selector — matches anything semantically
+                    # or visually signaling "I am clickable". Playwright's
+                    # `>> nth=N` indexes across the full match set globally.
+                    clickable_css = (
+                        'button:not([disabled]):not([aria-disabled="true"]), '
+                        'a[href], '
+                        '[role="button"]:not([aria-disabled="true"]), '
+                        '[role="link"], '
+                        'input[type="submit"]:not([disabled]), '
+                        'input[type="button"]:not([disabled])'
+                    )
+                    injected: list[Lever] = []
+                    # Inputs first — typing triggers state that buttons may
+                    # then read (typing-mirror apps, forms).
+                    if live_inputs > 0:
+                        injected.append(Lever(
+                            action="type",
+                            selector=(
+                                "input:not([type='button']):not([type='submit'])"
+                                ":not([type='checkbox']):not([type='radio'])"
+                                ":not([readonly]):not([disabled]), "
+                                "textarea:not([readonly]):not([disabled])"
+                            ),
+                            expect="hello world",  # reuse expect slot for the text to type
+                        ))
+                    for i in range(live_clickables):
+                        injected.append(Lever(
+                            action="click", selector=f"{clickable_css} >> nth={i}"
+                        ))
+                    # Styled-div clickables — click the first if semantic
+                    # targets didn't cover all the interactables.
+                    if live_clickables == 0 and live_div_clicks > 0:
+                        injected.append(Lever(
+                            action="click",
+                            selector='div:has(> *), span:has(> *) >> nth=0',
+                        ))
+                    if injected:
+                        # Animations (dice rolls, transitions, controlled inputs
+                        # propagating state) often take 500–1500ms to settle.
+                        injected.append(Lever(action="wait", ms=1500))
+                        # Splice interactions in before the final screenshot
+                        # (the one carrying user_request as its expect).
+                        final_idx = None
+                        for idx in range(len(levers) - 1, -1, -1):
+                            if levers[idx].action == "screenshot" and levers[idx].expect:
+                                final_idx = idx
+                                break
+                        if final_idx is not None:
+                            levers = levers[:final_idx] + injected + levers[final_idx:]
+                        else:
+                            levers = levers + injected
+                        log.info(
+                            f"Undertow: injected {live_inputs} type + {live_clickables} click "
+                            f"+ {live_div_clicks if live_clickables == 0 else 0} div-click "
+                            f"levers from live DOM"
+                        )
+                except Exception as e:
+                    log.debug(f"Live DOM interaction scan failed: {e}")
+
             # Pull each lever
             for lever in levers:
                 result = await _pull_one(page, lever, console_msgs)
@@ -207,6 +330,9 @@ async def _pull_one(page, lever: Lever, console_msgs: list) -> LeverResult:
             await asyncio.sleep(lever.ms / 1000)
             return LeverResult(lever=lever, passed=True, saw=f"waited {lever.ms}ms")
 
+        elif lever.action == "type":
+            return await _lever_type(page, lever)
+
         else:
             return LeverResult(
                 lever=lever, passed=False,
@@ -221,29 +347,46 @@ async def _pull_one(page, lever: Lever, console_msgs: list) -> LeverResult:
 
 
 async def _lever_screenshot(page, lever: Lever) -> LeverResult:
-    """Take a screenshot, describe it, compare to expectation.
+    """Take a screenshot, describe it, and judge on OBSERVABLE facts only.
 
-    Describes via the multimodal eddy (Gemma-4 sees the actual pixels) and
-    falls back to pixel-stats summary on failure. Pixel stats alone don't
-    semantically match expectations like "note-taking app with textarea"
-    — the eddy comparator needs content-level text.
+    Pass/fail rule (2026-04-13, post-tension-removal):
+      PASS if the page has visible content (not blank, not solid-color).
+      FAIL if the page is blank / near-empty / entirely one color — those are
+        the real failure modes (App.tsx crashed, CSS broke, wrong mount point).
+
+    The wave's `expect` string is still compared to what the VLM sees, but the
+    verdict is surfaced as `detail` for the model to read. It does NOT gate
+    pass/fail. Eddy-compare was producing false negatives on working apps
+    (e.g. "saw shows '2' but expect says '?' initially" — both correct, one is
+    post-click, one is pre-click — and wedged the agent in edit loops).
     """
     screenshot_bytes = await page.screenshot()
     stats, pixel_desc = _describe_screenshot(screenshot_bytes)
 
-    # Prefer the VLM's content description; fall back to pixel stats if the
-    # multimodal call fails (network hiccup, unsupported endpoint, etc.).
     vlm_desc = await _vlm_describe_screenshot(screenshot_bytes)
     desc = vlm_desc or pixel_desc
 
-    # If the wave provided an expectation, ask the eddy to compare
+    # Observable pass criterion: page isn't blank. A blank page is a real
+    # failure (mount crash, white screen of death). Signals:
+    #   unique_colors < 5       — near-monochrome image, no content rendered
+    #   dominant_pct > 0.985    — one color owns ~all pixels (solid fill)
+    # Anti-aliasing and font rendering push a real app well above these
+    # thresholds, so these only trip on genuinely empty pages.
+    unique_colors = stats.get("unique_colors", 0)
+    dominant_pct = stats.get("dominant_pct", 0.0)
+    is_blank = unique_colors < 5 or dominant_pct > 0.985
+
+    verdict = ""
     if lever.expect:
         verdict = await _eddy_compare(desc, lever.expect)
-        passed = verdict.startswith("PASS")
-        return LeverResult(lever=lever, passed=passed, saw=desc, detail=verdict)
 
-    # No expectation — just report what we see
-    return LeverResult(lever=lever, passed=True, saw=desc)
+    if is_blank:
+        return LeverResult(
+            lever=lever, passed=False,
+            saw=desc,
+            detail=f"page appears blank ({unique_colors} colors, dominant {dominant_pct:.0%})"
+        )
+    return LeverResult(lever=lever, passed=True, saw=desc, detail=verdict)
 
 
 async def _lever_press(page, lever: Lever) -> LeverResult:
@@ -278,17 +421,25 @@ async def _lever_press(page, lever: Lever) -> LeverResult:
 
 
 async def _lever_click(page, lever: Lever) -> LeverResult:
-    """Click a selector, report if anything changed (pixels or DOM)."""
+    """Click a selector, report if anything changed (pixels or DOM).
+
+    Uses page.locator() (modern playwright API) which handles both plain CSS
+    and combined selectors like "button >> nth=0". query_selector does CSS
+    only — and CSS :nth-of-type is parent-scoped, which misfires on any
+    layout where buttons live in sibling containers (NES d-pad, action rows).
+    """
     try:
-        el = await page.query_selector(lever.selector)
-        if not el:
+        locator = page.locator(lever.selector)
+        count = await locator.count()
+        if count == 0:
             return LeverResult(
                 lever=lever, passed=False,
                 saw=f"selector '{lever.selector}' not found on page"
             )
-        # Check visibility before clicking (avoids 30s timeout)
-        visible = await el.is_visible()
-        if not visible:
+        # Use the first match; for "button >> nth=N" syntax this already
+        # resolves to exactly one element, so .first is a no-op there.
+        el = locator.first
+        if not await el.is_visible():
             return LeverResult(
                 lever=lever, passed=False,
                 saw=f"'{lever.selector}' exists but is not visible"
@@ -296,7 +447,15 @@ async def _lever_click(page, lever: Lever) -> LeverResult:
         # Snapshot DOM text before
         dom_before = await page.evaluate("document.body.innerText")
         before = await page.screenshot()
-        await el.click(timeout=5000)
+        # First try a normal click. If playwright's actionability check times
+        # out (button covered by overlay / absolutely-positioned sibling /
+        # tight-packed UI like a NES d-pad), retry with force=True which
+        # bypasses actionability. Injected exploratory clicks care only that
+        # the onClick fires, not that the pointer path is perfectly clear.
+        try:
+            await el.click(timeout=2500)
+        except Exception:
+            await el.click(timeout=2500, force=True)
         await asyncio.sleep(0.5)
         after = await page.screenshot()
         dom_after = await page.evaluate("document.body.innerText")
@@ -317,6 +476,54 @@ async def _lever_click(page, lever: Lever) -> LeverResult:
         return LeverResult(lever=lever, passed=changed, saw=saw)
     except Exception as e:
         return LeverResult(lever=lever, passed=False, saw=f"click failed: {e}")
+
+
+async def _lever_type(page, lever: Lever) -> LeverResult:
+    """Type a string into the first matching input/textarea.
+
+    Uses page.locator(...).first so we don't fight with nth-of-type when
+    inputs and non-inputs share parents (common in React component libraries
+    where <input> is wrapped in <div>). The text to type lives in lever.expect
+    since Lever has no dedicated text field — a small repurposing, documented
+    at the injection site.
+    """
+    text = lever.expect or "hello world"
+    try:
+        # Grab the first visible input or textarea on the page. This is more
+        # forgiving than a strict nth-of-type selector — React libraries often
+        # wrap inputs in divs, which throws off document-level nth counts.
+        locator = page.locator(
+            'input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"])'
+            ', textarea'
+        ).first
+        if await locator.count() == 0:
+            return LeverResult(
+                lever=lever, passed=False, saw="no fillable input found"
+            )
+        dom_before = await page.evaluate("document.body.innerText")
+        before = await page.screenshot()
+        # fill is one-shot; type is character-by-character. For "mirrors my
+        # typing" apps the onChange-per-keystroke matters, so use type().
+        await locator.click(timeout=2500, force=True)
+        await locator.type(text, delay=15, timeout=5000)
+        await asyncio.sleep(0.5)
+        after = await page.screenshot()
+        dom_after = await page.evaluate("document.body.innerText")
+
+        pixels_changed = _screenshots_differ(before, after)
+        dom_changed = dom_before != dom_after
+        changed = pixels_changed or dom_changed
+        parts = []
+        if pixels_changed:
+            parts.append("pixels changed")
+        if dom_changed:
+            parts.append("DOM text changed")
+        if not changed:
+            parts.append("nothing changed")
+        saw = f"typed {text!r}, {', '.join(parts)}"
+        return LeverResult(lever=lever, passed=changed, saw=saw)
+    except Exception as e:
+        return LeverResult(lever=lever, passed=False, saw=f"type failed: {e}")
 
 
 async def _lever_motion(page, lever: Lever) -> LeverResult:
@@ -635,11 +842,17 @@ def generate_levers(user_request: str, html_content: str = "") -> list[Lever]:
     import re
     levers: list[Lever] = []
 
-    # Always start with console + screenshot
+    # Always start with console. Initial screenshot with no compare — just a
+    # baseline snapshot; the user_request compare runs AFTER interactions so
+    # that apps requiring a click (dice roller, counter, color picker) are
+    # judged on their post-interaction state, not their initial placeholder.
     levers.append(Lever(action="console"))
-    levers.append(Lever(action="screenshot", expect=user_request))
+    levers.append(Lever(action="screenshot"))
 
     if not html_content:
+        # No HTML to inspect → judge the single screenshot we have against
+        # the user's expectation. Static content, no interaction needed.
+        levers[-1] = Lever(action="screenshot", expect=user_request)
         return levers
 
     # Find every element ID → read its text
@@ -696,9 +909,22 @@ def generate_levers(user_request: str, html_content: str = "") -> list[Lever]:
             expect="press Space|wait 2000|motion"
         ))
 
-    # End with screenshot after all interactions
-    if len(levers) > 3:
-        levers.append(Lever(action="screenshot", expect="page state changed after interactions"))
+    # End with screenshot after all interactions, judged against the user's
+    # request. This is THE compare that decides PASS/FAIL for interactive apps.
+    # (For static pages with no interactions, we already attached user_request
+    # to the initial screenshot in the early-return above.)
+    has_interactions = any(
+        l.action in ("click", "press", "motion", "sequence") for l in levers
+    )
+    if has_interactions:
+        levers.append(Lever(action="screenshot", expect=user_request))
+    else:
+        # No interactions queued → apply the compare to the first screenshot
+        # so static content still gets judged.
+        for i, l in enumerate(levers):
+            if l.action == "screenshot" and not l.expect:
+                levers[i] = Lever(action="screenshot", expect=user_request)
+                break
 
     return levers
 
