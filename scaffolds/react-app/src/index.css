@@ -2,8 +2,12 @@
    TSUNAMI — Base Design System
    Deep surfaces, luminous accents, atmospheric depth.
    Every scaffold inherits this. Override --variables to re-skin.
+   Tailwind v4 utilities layer on top — the model reliably writes
+   text-3xl / grid-cols-3 / text-green-500 / flex-col conventions and
+   we accommodate that instead of fighting it.
    ═══════════════════════════════════════════════════════════════════════ */
 
+@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ── Design Tokens ──────────────────────────────────────────────────── */
