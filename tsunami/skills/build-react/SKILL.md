@@ -59,6 +59,7 @@ Import from `./components/ui` — these are the only exports:
 
 ## Gotchas
 - **No narration.** Every assistant turn is exactly one tool call, no `content` text.
+- **Imports must match JSX.** Every `<PascalCase />` tag in your JSX must either (a) be in the import statement from `./components/ui`, or (b) be defined locally in the same file. Undefined components compile (they're just `undefined`) but crash at runtime with "React.createElement: type is invalid." Scan your import list against every `<Foo>` you write — a mismatch ships a blank page. Tsunami's deliver gate catches this and refuses; you'll waste iterations recovering.
 - **`import "./index.css"` at the top of App.tsx.** The scaffold provides base styles.
 - **Use scaffold component classes** — `.container .card .button .button.primary .grid .grid-3 .flex .flex-col .flex-center .gap-4 .p-8 .text-bold .text-2xl .text-muted` — not inline styles for layout.
 - **Never `dangerouslySetInnerHTML`** unless the user explicitly asked for HTML/markdown rendering.
