@@ -186,13 +186,31 @@ class GenerateImage(BaseTool):
             # Anything the model sent that ISN'T already rooted at the project
             # gets redirected to <project>/public/assets/. Covers /tmp/foo.png,
             # bare "foo.png", "images/foo.png", etc.
-            project_root = Path(self.config.workspace_dir) / _active_project.lstrip("/")
+            # _active_project can arrive as "workspace/deliverables/foo" or
+            # "deliverables/foo" depending on who set it. workspace_dir IS
+            # the workspace root, so strip any leading "workspace/" to avoid
+            # double-nesting (e.g. /tmp/ws/workspace/deliverables/foo).
+            proj_rel = _active_project.lstrip("/")
+            if proj_rel.startswith("workspace/"):
+                proj_rel = proj_rel[len("workspace/"):]
+            project_root = Path(self.config.workspace_dir) / proj_rel
             project_root_resolved = project_root.resolve()
-            candidate = (project_root / save_path.lstrip("/")).resolve()
+            # Compute where the save would actually land using the SAME
+            # resolution logic the non-routed branch uses below — else the
+            # "is inside project?" check fails for save_paths like "/tmp/x.png"
+            # (which land in workspace/tmp/x.png, outside the project, but my
+            # previous check joined them to project_root and wrongly concluded
+            # "inside").
+            actual_clean = save_path.lstrip("/")
+            for _pfx in ("workspace/", "app/workspace/"):
+                if actual_clean.startswith(_pfx):
+                    actual_clean = actual_clean[len(_pfx):]
+                    break
+            actual_save = (Path(self.config.workspace_dir) / actual_clean).resolve()
             try:
                 inside_project = (
-                    candidate == project_root_resolved
-                    or str(candidate).startswith(str(project_root_resolved) + os.sep)
+                    actual_save == project_root_resolved
+                    or str(actual_save).startswith(str(project_root_resolved) + os.sep)
                 )
             except Exception:
                 inside_project = False
