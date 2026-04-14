@@ -90,40 +90,26 @@ def _extract_alpha(path: Path, mode: str) -> None:
         if _np.linalg.norm(target - pure_magenta) < 80:
             target = pure_magenta
 
-        dist = _np.sqrt(((arr - target) ** 2).sum(axis=2))
-        # Radius tuned for mixed realities: photo-style backgrounds
-        # have 30-50 unit variation; flat backgrounds have <10.
-        inner_r = 40.0    # clearly background
-        outer_r = 80.0    # clearly NOT background
-        alpha = _np.clip((dist - inner_r) * 255.0 / (outer_r - inner_r), 0, 255).astype(_np.uint8)
+        # Binary key on magenta-family shape rather than distance-to-target.
+        # A pixel is "magenta-family" if BOTH R and B are high AND G is
+        # clearly lower. Catches the fringe band in one shot — no soft
+        # ramp leaving partial-alpha purple residue, no erosion chewing
+        # real pixel-art edges. Legit subject colors (blue/cyan/white/black)
+        # all fail the test: white has R=G=B, blue has R~0, cyan has R~0,
+        # black has all low. Only true magenta-family pixels get zeroed.
+        r = arr[:, :, 0]
+        g = arr[:, :, 1]
+        b = arr[:, :, 2]
+        avg_rb = (r + b) / 2.0
+        is_magenta_family = (
+            (avg_rb > 120)            # not near-black
+            & (avg_rb > g + 40)       # red+blue clearly higher than green
+            & (_np.abs(r - b) < 120)  # roughly balanced R and B (rules out pure blue/red)
+        )
+        alpha = _np.where(is_magenta_family, 0, 255).astype(_np.uint8)
 
-        # Second pass: magenta-family fringe kill. The primary color-key leaves
-        # a 1-3px violet/purple halo where the generator blended subject colors
-        # with the magenta background. Any visible pixel whose R and B both
-        # exceed G by a clear margin (pink / purple / violet / magenta residue)
-        # gets cleared. Blue/cyan/white legit subject pixels have G ≥ R and
-        # survive. Tuned against the tsunami banner generation (2026-04-13).
-        if _np.allclose(target, pure_magenta):
-            visible = alpha > 16
-            r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-            fringe = visible & (r > g + 25) & (b > g + 25) & ((r + b) > 1.8 * g + 80)
-            alpha[fringe] = 0
-
-        # Third pass: 2-pixel erosion of the alpha mask trims anything
-        # remaining at the boundary (anti-alias residue that's neither
-        # magenta nor subject). Only for icon mode — alpha mode needs the
-        # feathered edge.
-        mask = alpha > 16
-        for _ in range(2):
-            eroded = _np.zeros_like(mask)
-            eroded[1:-1, 1:-1] = (
-                mask[1:-1, 1:-1] & mask[:-2, 1:-1] & mask[2:, 1:-1]
-                & mask[1:-1, :-2] & mask[1:-1, 2:]
-            )
-            mask = eroded
-        alpha[~mask] = 0
-
-        # Premultiply fringe: kill RGB of transparent pixels.
+        # Premultiply fringe: kill RGB of transparent pixels so there's no
+        # lingering color leak through any semi-transparent compositor.
         rgb = rgb_int.copy()
         rgb[alpha == 0] = 0
         rgba = _np.dstack([rgb, alpha])
