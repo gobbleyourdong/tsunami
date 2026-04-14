@@ -308,6 +308,37 @@ class ProjectInit(BaseTool):
                 # Store for periodic re-injection by scaffold awareness
                 self._readme_cache = readme_text
 
+            # Surface the actual component exports upfront so model doesn't
+            # hallucinate imports and hit TS2305 at first build. Gallery runs
+            # spent 3-4 iterations on CardContent/Image/etc. that didn't exist
+            # until we surfaced them. Parsing index.ts exports is cheap.
+            exports_note = ""
+            idx_path = project_dir / "src" / "components" / "ui" / "index.ts"
+            if idx_path.exists():
+                try:
+                    import re as _re
+                    idx_text = idx_path.read_text()
+                    exports = set()
+                    # export { default as Name } from "./X"
+                    for m in _re.findall(r"export\s+\{\s*default\s+as\s+(\w+)", idx_text):
+                        exports.add(m)
+                    # export { Name, Name2 } from "./X"
+                    for m in _re.findall(r"export\s+\{\s*([^}]+)\s*\}\s+from", idx_text):
+                        for part in m.split(","):
+                            name = part.strip().split(" as ")[-1].strip()
+                            if name and not name.startswith("default"):
+                                exports.add(name)
+                    if exports:
+                        exports_note = (
+                            "\n\nAvailable imports from ./components/ui "
+                            "(or @/components/ui with alias):\n  "
+                            + ", ".join(sorted(exports))
+                            + "\n  Nothing else is exported — use raw <div>/<button>/<input> + Tailwind "
+                            + "classes for anything not listed."
+                        )
+                except Exception:
+                    pass
+
             return ToolResult(
                 f"Project '{name}' ready{scaffold_info} at {project_dir}\n"
                 f"Extra deps: {dep_list}\n"
@@ -315,6 +346,7 @@ class ProjectInit(BaseTool):
                 f"src/App.tsx is a stub — replace it with your app.\n"
                 f"After all files: shell_exec 'cd {project_dir} && npm run build' "
                 f"(runs `tsc --noEmit && vite build` — typecheck step catches missing imports)"
+                f"{exports_note}"
                 f"{readme_content}"
             )
 
