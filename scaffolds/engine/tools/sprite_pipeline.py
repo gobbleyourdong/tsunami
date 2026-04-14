@@ -26,7 +26,12 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from pixel_snap import snap_to_grid
+# pixel_extract lives in the tsunami tools package so the runtime's
+# generate.py and this authoring pipeline share one implementation.
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[3] / "tsunami" / "tools"))
+from pixel_extract import extract_one  # noqa: E402
 
 # Output directory
 OUTPUT_DIR = Path(__file__).parent.parent.parent / "scaffolds" / "webgpu-game" / "public" / "sprites"
@@ -42,7 +47,9 @@ MODEL_CONFIGS = {
         # serve on-device; only authoring needs real hardware).
         "backend": "http",
         "endpoint": "http://localhost:8090/v1/images/generate",
-        "steps": 4, "guidance": 1.0,
+        # Z-Image-Turbo official recipe: 9 steps + guidance 0.0.
+        # Guidance > 0 on turbo models smooths edges.
+        "steps": 9, "guidance": 0.0,
     },
 }
 
@@ -114,8 +121,12 @@ def generate_image(
     # HTTP backend: hit the tsunami server on :8090. Same Z-Image-Turbo
     # weights our generate_image tool uses, no second GPU-resident copy.
     if config.get("backend") == "http":
-        import base64, io, httpx
+        import base64, io, httpx, random
         t0 = time.time()
+        # Randomize seed if the caller didn't supply one — Z-Image-Turbo's
+        # sampler is deterministic given a fixed seed, so batch generation
+        # returns identical images without fresh randomness each call.
+        actual_seed = seed if seed >= 0 else random.randint(0, 2**31 - 1)
         # Long timeout because the tsunami server may be busy with LLM
         # inference when a sprite request arrives; image generation itself
         # is fast (~3s) but queue wait can be minutes during active builds.
@@ -124,6 +135,7 @@ def generate_image(
                 "prompt": styled_prompt,
                 "width": width, "height": height,
                 "steps": steps, "guidance_scale": guidance,
+                "seed": actual_seed,
             })
         elapsed = time.time() - t0
         if resp.status_code != 200:
@@ -503,45 +515,33 @@ def run_pipeline(
         img.save(raw_dir / f"{name}_raw_{i}.png")
     print(f"[1/5] Saved {len(images)} raw images to {raw_dir}")
 
-    # 2. Remove backgrounds (skip for textures — they fill the frame)
-    if category == "texture":
-        print("[2/5] Skipping bg removal (texture mode)")
-        transparent = [img.convert("RGBA") for img in images]
-    else:
-        # For objects: center-crop first to grab the main item before bg removal
-        if category == "object":
-            print("[2/7] Center-cropping objects...")
-            images = [center_crop_object(img, 0.55) for img in images]
-
-        print("[3/7] Removing backgrounds...")
-        transparent = []
-        for img in images:
-            t = remove_background(img, method="sigmatrade", threshold=120)
-            transparent.append(t)
-
-        # Isolate largest connected region
-        print("[4/7] Isolating largest object per image...")
-        transparent = [isolate_largest_object(t) for t in transparent]
-
-    # 4. Trim (skip for textures — they fill the frame)
-    if category == "texture":
-        print("[4/7] Skipping trim (texture mode)")
-        trimmed = transparent
-    else:
-        print("[4/7] Trimming...")
-        trimmed = [trim_transparent(t) for t in transparent]
-
-    # 5. Snap to native pixel grid — discovers the AI's actual pixel size via
-    # gradient analysis and mode-resamples each cell. Replaces the old
-    # normalize_height → nearest-neighbor → median-cut chain, which ignored
-    # the drifting AI pixel grid and smeared it into target_size.
-    # Output dims are the discovered grid (e.g. ~60×50), not target_size.
-    print(f"[5/7] Snapping to pixel grid (k_colors={n_colors})...")
+    # 2. Extract pixel-art sprite per variation. This does bg detection
+    # (perceptual Lab), native-grid recovery, center-sampling, and
+    # edge-adjacent fringe cleanup in one pass — replaces the old
+    # center_crop / remove_background / isolate_largest / trim / snap chain.
+    # Textures still skip the extractor (they fill the frame by design).
+    print(f"[2/4] Extracting pixel art from {len(images)} variations...")
     final = []
-    for i, img in enumerate(trimmed):
-        snapped = snap_to_grid(img, k_colors=n_colors)
-        final.append(snapped)
-        print(f"  [{i}] {img.size} → {snapped.size}")
+    for i, img in enumerate(images):
+        rgba = np.asarray(img.convert("RGBA"))
+        if category == "texture":
+            # For textures: no extraction, just hand the raw frame through.
+            final.append(img.convert("RGBA"))
+            print(f"  [{i}] texture {img.size} (passthrough)")
+            continue
+        result = extract_one(rgba)
+        if result is None:
+            print(f"  [{i}] extraction failed — skipping")
+            continue
+        sprite = Image.fromarray(result.rgba, mode="RGBA")
+        final.append(sprite)
+        print(
+            f"  [{i}] {img.size} → {sprite.size}  "
+            f"pixel_size=({result.pixel_size_x:.1f}, {result.pixel_size_y:.1f})"
+        )
+
+    if not final:
+        raise RuntimeError(f"No sprites extracted from {len(images)} variations")
 
     # Score all sprites and rank
     print("[6/7] Scoring sprites...")

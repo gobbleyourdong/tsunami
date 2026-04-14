@@ -464,8 +464,12 @@ class ImageRequest(BaseModel):
     prompt: str
     width: int = 1024
     height: int = 1024
-    steps: int = 4
-    guidance_scale: float = 1.0
+    # Z-Image-Turbo official sampling recipe: 9 steps (= 8 DiT forwards),
+    # guidance_scale 0.0. Guidance > 0 on turbo models produces over-smooth
+    # output with anti-aliased edges that destroy fine subject detail.
+    steps: int = 9
+    guidance_scale: float = 0.0
+    seed: int = -1  # -1 → server picks a fresh random seed per call
     user: str = ""  # per-client fairness — see _user_sems comment
 
 
@@ -540,29 +544,42 @@ async def _generate_image_impl(req: ImageRequest):
     # Run the whole generation off the event loop so /health stays responsive
     # while image generation is in progress. Same wedge fix as chat_completions.
     def _do_image_gen():
+        import random as _random
         pipe = _load_image_model()
         if pipe is None:
             return {"error": "No image model configured. Start with --image-model"}
         start = time.time()
         try:
+            # Without an explicit torch.Generator, Z-Image-Turbo's sampler
+            # is effectively deterministic — repeated calls with identical
+            # prompts return the same image, which breaks batch generation
+            # (banners, sprite sheets, variations). Seed the Generator
+            # directly from the request, defaulting to a fresh random seed
+            # when the caller didn't specify one.
+            seed = int(req.seed) if req.seed is not None and req.seed >= 0 \
+                else _random.randint(0, 2**31 - 1)
+            device = pipe.device if hasattr(pipe, "device") else "cuda"
+            generator = torch.Generator(device=device).manual_seed(seed)
             result = pipe(
                 prompt=req.prompt,
                 width=req.width,
                 height=req.height,
                 num_inference_steps=req.steps,
                 guidance_scale=req.guidance_scale,
+                generator=generator,
             )
             image = result.images[0]
             buf = io.BytesIO()
             image.save(buf, format="PNG")
             b64 = base64.b64encode(buf.getvalue()).decode()
             elapsed = time.time() - start
-            log.info(f"{_utag}Image generated in {elapsed:.1f}s ({req.width}x{req.height}, {req.steps} steps)")
+            log.info(f"{_utag}Image generated in {elapsed:.1f}s ({req.width}x{req.height}, {req.steps} steps, seed={seed})")
             _restore_language_model()
             return {
                 "created": int(time.time()),
                 "data": [{"b64_json": b64, "revised_prompt": req.prompt}],
                 "timing": {"elapsed_s": round(elapsed, 2)},
+                "seed": seed,
             }
         except Exception as e:
             _restore_language_model()

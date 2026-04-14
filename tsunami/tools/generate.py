@@ -18,7 +18,7 @@ from pathlib import Path
 from .base import BaseTool, ToolResult
 
 
-def _extract_alpha(path: Path, mode: str) -> None:
+def _extract_alpha(path: Path, mode: str, pixel_art: bool = False) -> None:
     """Convert the RGB image at `path` into an RGBA PNG with the alpha
     channel derived from the render-background signal.
 
@@ -30,6 +30,12 @@ def _extract_alpha(path: Path, mode: str) -> None:
                      else stays fully opaque. A thin distance-ramp at the
                      threshold edge feathers the cutout ~2px to hide
                      color-fringe artifacts from the generator.
+                     When `pixel_art` is True the icon branch uses the
+                     pixel_extract pipeline instead (Lab-space bg detection,
+                     native-grid recovery, center-sampling, two-threshold
+                     fringe peel) — ONLY appropriate for generations where
+                     the subject is actually pixel art, since it quantizes
+                     colors and snaps to a discovered grid.
 
     Overwrites the file in place.
     """
@@ -61,58 +67,40 @@ def _extract_alpha(path: Path, mode: str) -> None:
         rgba = _np.dstack([arr.astype(_np.uint8), alpha])
 
     elif mode == "icon":
-        # Dynamic corner-color key. Sample the four corners (plus a small
-        # patch around each to denoise), pick the dominant color as the
-        # background target, then color-key against it. This is generator-
-        # agnostic — works whether SD produced magenta, white, gray, or
-        # anything else. Color-based (not spatial) so it still catches
-        # holes in the middle of icons (letter 'O', gear teeth, donut).
+        # Lab-space bg removal (with optional grid recovery if the subject
+        # is actually pixel art). Both paths share the same bg-detection +
+        # palette-quantization + two-threshold fringe peel — that's what
+        # eliminates magenta-tinted fringe the RGB color-key couldn't reach
+        # and handles interior holes (letter A, donuts, gear teeth) by
+        # keying on color rather than spatial connectedness.
         #
-        # Fallback to pure magenta if Z-Image-Turbo actually honors the
-        # prompt — the magenta target is an even safer key than an arbitrary
-        # corner color, since it's guaranteed not to match the subject.
-        rgb_int = arr.astype(_np.uint8)
-        # 8×8 corner patches → average → candidate background colors
-        patch = 8
-        corner_samples = [
-            arr[:patch, :patch].reshape(-1, 3).mean(axis=0),
-            arr[:patch, -patch:].reshape(-1, 3).mean(axis=0),
-            arr[-patch:, :patch].reshape(-1, 3).mean(axis=0),
-            arr[-patch:, -patch:].reshape(-1, 3).mean(axis=0),
-        ]
-        # Use median of corners so one "subject touches corner" outlier
-        # doesn't poison the target color.
-        target = _np.median(_np.stack(corner_samples), axis=0).astype(_np.float32)
-
-        # If the corners are close to magenta (Z-Image-Turbo complied),
-        # use the pure magenta target — it's cleaner.
-        pure_magenta = _np.array([255, 0, 255], dtype=_np.float32)
-        if _np.linalg.norm(target - pure_magenta) < 80:
-            target = pure_magenta
-
-        # Binary key on magenta-family shape rather than distance-to-target.
-        # A pixel is "magenta-family" if BOTH R and B are high AND G is
-        # clearly lower. Catches the fringe band in one shot — no soft
-        # ramp leaving partial-alpha purple residue, no erosion chewing
-        # real pixel-art edges. Legit subject colors (blue/cyan/white/black)
-        # all fail the test: white has R=G=B, blue has R~0, cyan has R~0,
-        # black has all low. Only true magenta-family pixels get zeroed.
-        r = arr[:, :, 0]
-        g = arr[:, :, 1]
-        b = arr[:, :, 2]
-        avg_rb = (r + b) / 2.0
-        is_magenta_family = (
-            (avg_rb > 120)            # not near-black
-            & (avg_rb > g + 40)       # red+blue clearly higher than green
-            & (_np.abs(r - b) < 120)  # roughly balanced R and B (rules out pure blue/red)
-        )
-        alpha = _np.where(is_magenta_family, 0, 255).astype(_np.uint8)
-
-        # Premultiply fringe: kill RGB of transparent pixels so there's no
-        # lingering color leak through any semi-transparent compositor.
-        rgb = rgb_int.copy()
-        rgb[alpha == 0] = 0
-        rgba = _np.dstack([rgb, alpha])
+        # Grid recovery snaps each AI-drawn pixel to a recovered native grid
+        # and mode-samples per cell. That's only appropriate when the source
+        # IS pixel art — running it on a photo or painting would quantize
+        # and blockify the image. The caller tells us via the pixel_art flag.
+        from PIL import Image as _Image2
+        if pixel_art:
+            from .pixel_extract import extract_one  # noqa: WPS433
+            rgba_in = _np.dstack([arr.astype(_np.uint8), _np.full(arr.shape[:2], 255, dtype=_np.uint8)])
+            result = extract_one(rgba_in)
+            if result is None:
+                rgba = _np.dstack([arr.astype(_np.uint8), _np.full(arr.shape[:2], 255, dtype=_np.uint8)])
+            else:
+                sprite = result.rgba
+                sh, sw = sprite.shape[:2]
+                # Preserve pixel structure: largest integer NN factor that fits,
+                # then center on a transparent canvas at (w, h).
+                factor = max(1, min(h // sh, w // sw))
+                up = _Image2.fromarray(sprite, mode="RGBA").resize(
+                    (sw * factor, sh * factor), _Image2.Resampling.NEAREST,
+                ) if factor > 1 else _Image2.fromarray(sprite, mode="RGBA")
+                canvas = _Image2.new("RGBA", (w, h), (0, 0, 0, 0))
+                canvas.paste(up, ((w - up.size[0]) // 2, (h - up.size[1]) // 2))
+                rgba = _np.asarray(canvas)
+        else:
+            from .pixel_extract import extract_alpha  # noqa: WPS433
+            rgba_in = _np.dstack([arr.astype(_np.uint8), _np.full(arr.shape[:2], 255, dtype=_np.uint8)])
+            rgba = extract_alpha(rgba_in)
     else:
         return
 
@@ -254,16 +242,26 @@ class GenerateImage(BaseTool):
         if mode == "alpha":
             prompt = f"{prompt}, on solid pure black background, centered subject"
         elif mode == "icon":
-            # Heavy prompt repetition + emphatic tokens so SD-Turbo's
-            # 1-step sampler actually produces magenta background.
-            # Without this, it defaults to white/gray and the color-key
-            # finds nothing to remove.
+            # Pure black background. Simple, common in AI training data, and
+            # most subject colors contrast strongly against it. Magenta and
+            # green chromakeys both bled their hue into subject highlights
+            # (pink-tinted foam, green speckle on edges) — black has no
+            # chroma to bleed, just brightness.
+            #
+            # The one failure mode is dark subjects (black logos, dark
+            # silhouettes) which can blend with the bg. Workaround: add a
+            # contrasting outline in your prompt, e.g.
+            #   "dark logo with thick white outline"
             prompt = (
-                f"(({prompt})), centered, isolated, "
-                f"on flat solid bright magenta color background, "
-                f"pure magenta (hot pink) backdrop everywhere around the subject, "
-                f"magenta wallpaper fill, no other background colors, "
-                f"vibrant #FF00FF background, hard clean edges"
+                f"FLAT BACKGROUND SINGLE COLOR BLACK. "
+                f"The entire background is pure black #000000, "
+                f"completely uniform black filling the frame, "
+                f"no gradients, no shading, no scenery, no other background elements. "
+                f"Subject: (({prompt})), centered, isolated, "
+                f"on pure black field, "
+                f"hard clean sharp edges, no anti-aliasing, no soft edges, "
+                f"no edge blur, no fade between subject and background, "
+                f"crisp pixelated boundary, sharp silhouette"
             )
 
         # Z-Image-Turbo on the tsunami server (/v1/images/generate on :8090)
@@ -278,9 +276,19 @@ class GenerateImage(BaseTool):
                 # get a PNG with real transparency instead of a background-
                 # baked-in RGB image.
                 if mode in ("alpha", "icon") and p.exists():
+                    # Detect pixel-art intent from the prompt. The user has
+                    # to SAY "pixel" or "sprite" (or close variants) for us
+                    # to run the grid-recovery pass — otherwise we quantize
+                    # and blockify photos and illustrations that weren't
+                    # meant to be pixel art.
+                    pixel_art = any(
+                        tok in prompt.lower()
+                        for tok in ("pixel art", "pixelart", "sprite", "8-bit", "8 bit", "16-bit", "16 bit")
+                    )
                     try:
-                        _extract_alpha(p, mode)
-                        result = ToolResult(result.content + f"\nExtracted alpha (mode={mode})")
+                        _extract_alpha(p, mode, pixel_art=pixel_art)
+                        tag = mode + ("+pixel-grid" if (mode == "icon" and pixel_art) else "")
+                        result = ToolResult(result.content + f"\nExtracted alpha (mode={tag})")
                     except Exception as e:
                         log.warning(f"Alpha extraction failed: {e}")
                 return result
@@ -296,12 +304,17 @@ class GenerateImage(BaseTool):
         --image-model was "none", returns is_error so the placeholder
         fallback can run.
         """
-        import base64
+        import base64, random
         try:
             endpoint = getattr(self.config, "model_endpoint", "http://localhost:8090")
             if not endpoint.startswith("http"):
                 endpoint = f"http://{endpoint}"
             import httpx
+            # Always pass a fresh random seed — without one Z-Image-Turbo's
+            # sampler defaults to deterministic output, so repeated calls
+            # with the same prompt return the same image. Users chaining
+            # generations (banners, sprite sheets, variations) need variety.
+            seed = random.randint(0, 2**31 - 1)
             async with httpx.AsyncClient(timeout=180) as client:
                 resp = await client.post(
                     f"{endpoint}/v1/images/generate",
@@ -309,8 +322,14 @@ class GenerateImage(BaseTool):
                         "prompt": prompt,
                         "width": w,
                         "height": h,
-                        "steps": 4,  # Z-Image-Turbo: 4 steps is the sweet spot
-                        "guidance_scale": 1.0,
+                        # Z-Image-Turbo official recipe: num_inference_steps=9
+                        # (yields 8 DiT forwards), guidance_scale=0.0. We had
+                        # been using steps=4 + guidance=1.0 which produced
+                        # over-smooth, anti-aliased output — guidance>0 on a
+                        # turbo model also degrades sharpness.
+                        "steps": 9,
+                        "guidance_scale": 0.0,
+                        "seed": seed,
                     },
                 )
                 if resp.status_code != 200:
