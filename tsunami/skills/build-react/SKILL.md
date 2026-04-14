@@ -76,3 +76,33 @@ These prevent the generic "AI slop" look that Manus/v0/Lovable all flag as a cor
 - **All styles in the design system, not ad-hoc in components.** Build component classes in CSS, reference them in JSX. Never `style={{color: '#abc123', padding: '17px'}}` inline — that's how designs drift across pages.
 - **Mobile-first sizing.** Minimum touch target 44x44px for any interactive element. Inputs at least 16px font (smaller triggers iOS Safari zoom-on-focus). Start every layout in mobile viewport, scale up.
 - **Stay strictly in scope.** Don't add "nice-to-have" features the user didn't request. Counter app = counter. Landing page = hero + CTA. Gallery = the images. Over-delivery creates maintenance debt and rarely matches what the user actually wanted.
+
+## Live data — use real APIs, not mocks
+
+If the prompt says "live", "real-time", "current", "latest", or names a specific market/feed, fetch from a real public API. Mocked-with-Math.random hardcodes prices from your training data that are already stale (BTC at "$65k" when it's since moved). The user sees WRONG data and calls it broken. A free CORS-enabled API is always better than a stub.
+
+Known-good browser-callable APIs (no key, CORS-enabled, HTTPS):
+
+| Domain | API | Example endpoint |
+|---|---|---|
+| Crypto prices | CoinGecko | `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true` |
+| Weather | Open-Meteo | `https://api.open-meteo.com/v1/forecast?latitude=40.7&longitude=-74.0&current_weather=true` |
+| Stocks/FX | Yahoo Finance (via yfinance proxies, check freshness) | — |
+| Code/repos | GitHub | `https://api.github.com/repos/OWNER/REPO` |
+| Exchange rates | Frankfurter | `https://api.frankfurter.app/latest?from=USD&to=EUR` |
+| News (headlines) | Hacker News | `https://hacker-news.firebaseio.com/v0/topstories.json` |
+
+Pattern:
+```tsx
+useEffect(() => {
+  const load = async () => {
+    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true")
+    setPrices(await r.json())
+  }
+  load()
+  const id = setInterval(load, 15000)
+  return () => clearInterval(id)
+}, [])
+```
+
+Only mock when: (a) the prompt explicitly says "mocked" or "fake", (b) no free public API exists for that data domain, or (c) the API requires a key we don't have. When you do mock, say so in the UI ("mock data; refresh to see variance") — don't let it LOOK live when it isn't.
