@@ -14,6 +14,25 @@ For "in my X, change/add/fix/rename Y" prompts where the project already exists 
 4. If build fails → `build-recovery`
 5. `message_result(text="<what changed>")` — short, references the deliverable
 
+## Surgical edit vs. complete rewrite
+
+`file_edit` is for surgical changes. `file_write` overwrites everything. Pick correctly:
+
+**Prefer `file_edit` when:**
+- File is <300 lines
+- The change touches <20% of the file
+- The change is localized to one section (one function, one component, one block)
+- Architecture is sound; only specific text/logic needs adjustment
+
+**Escalate to `file_write` when:**
+- File is >500 lines AND the change is significant
+- The change touches >50% of the file
+- Multiple sections need changes (3+)
+- You've already `file_edit`-ed the same file 3+ times in this session without delivering — each edit is deepening the mess, time to rewrite clean
+- Architecture is fundamentally wrong and patching compounds the debt
+
+Gray zone (300-500 lines, 20-50% change): prefer `file_write` if any doubt — a clean rewrite compiles predictably, a partial-edit cascade often doesn't.
+
 ## Gotchas
 - **NEVER `project_init`.** The project exists; scaffolding it again destroys their work.
 - **Always `file_read` first.** `file_edit` requires `old_text` to match EXACTLY (including whitespace and indentation). You cannot guess.

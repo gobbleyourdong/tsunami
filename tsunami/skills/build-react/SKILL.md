@@ -49,7 +49,7 @@ Don't decompose for simple apps — one App.tsx is more reliable than 4 files fo
 
 Import from `./components/ui` — these are the only exports:
 
-**Primitives:** `Text`, `Heading`, `Flex`, `Box` — use for layout/typography instead of hallucinating Chakra/Mantine APIs.
+**Primitives:** `Text`, `Heading`, `Flex`, `Box`, `Image` — use for layout/typography instead of hallucinating Chakra/Mantine APIs.
 
 **Interactive:** `Button`, `Input`, `Select`, `Switch`, `Dropdown`, `Dialog`, `Tooltip`, `Accordion`, `Alert`, `Badge`, `Progress`, `Skeleton`.
 
@@ -64,3 +64,4 @@ Import from `./components/ui` — these are the only exports:
 - **Never `dangerouslySetInnerHTML`** unless the user explicitly asked for HTML/markdown rendering.
 - **Always provide `expect` to undertow** — describe what should render, not the implementation.
 - **Cleanup before adding.** If the scaffold has a "Welcome to React" header, remove it first; don't paste your content underneath it.
+- **After 3 failed `file_edit` attempts on the same file, switch to `file_write`.** Each partial edit deepens the mess (unclosed tags, half-removed imports). A clean rewrite compiles predictably.

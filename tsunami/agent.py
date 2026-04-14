@@ -1119,6 +1119,50 @@ class Agent:
         if len(self._recent_tools) > 10:
             self._recent_tools = self._recent_tools[-10:]
 
+        # 5b.1. file_edit escalation — if the same file has been edited 3+
+        # times in this session without message_result delivering, the edits
+        # are probably compounding the mess rather than fixing it. Nudge the
+        # model to rewrite the file clean with file_write. Based on Manus's
+        # observation that partial edits on a broken file rarely converge.
+        if tool_call.name == "file_edit":
+            edit_path = str(tool_call.arguments.get("path", "")).strip()
+            if edit_path:
+                if not hasattr(self, "_edits_per_path"):
+                    self._edits_per_path: dict[str, int] = {}
+                self._edits_per_path[edit_path] = self._edits_per_path.get(edit_path, 0) + 1
+                if self._edits_per_path[edit_path] == 3:
+                    self.state.add_system_note(
+                        f"You've edited {edit_path} 3 times without delivering. "
+                        f"Partial edits often deepen the mess (unclosed tags, half-removed "
+                        f"imports, stale references). Switch to file_write and rewrite the "
+                        f"whole file clean — that compiles predictably, 5 patches on a "
+                        f"broken file rarely do."
+                    )
+
+        # 5b.2. Large-file surgical-edit warning — if the target file is big
+        # AND the patch is a big slice of it, prefer file_write. Threshold:
+        # >500 lines + old_text >40% of file. Non-blocking; just a nudge.
+        if tool_call.name == "file_edit":
+            try:
+                edit_path = str(tool_call.arguments.get("path", "")).strip()
+                old_text = str(tool_call.arguments.get("old_text", ""))
+                if edit_path and old_text:
+                    from .tools.filesystem import _resolve_path, _active_project
+                    resolved = _resolve_path(edit_path, self.config.workspace_dir, _active_project)
+                    rp = Path(resolved)
+                    if rp.exists():
+                        full = rp.read_text()
+                        total_lines = full.count("\n")
+                        if total_lines > 500 and len(old_text) > 0.4 * len(full):
+                            self.state.add_system_note(
+                                f"{edit_path} is {total_lines} lines and your old_text "
+                                f"is ~{len(old_text)*100//max(len(full),1)}% of it. "
+                                f"A surgical edit this large often fails at the seams — "
+                                f"consider file_write instead."
+                            )
+            except Exception:
+                pass  # non-critical nudge, never break the loop
+
         # Write-swell: when wave writes 2+ component files sequentially,
         # check if App.tsx references more missing components and dispatch eddies
         _write_swelled = getattr(self, '_write_swelled', False)

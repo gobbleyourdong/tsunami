@@ -21,7 +21,8 @@ When `shell_exec` build returns an error, diagnose it and act with the right cor
 ## After the fix
 - ALWAYS re-run `shell_exec` build to verify the fix worked
 - If the rebuild still fails with a different error → repeat: pattern-match, fix, rebuild
-- After 3 failed fix attempts on the same file → stop and `message_chat(done=false)` describing the impasse to the user
+- **After 3 failed `file_edit` attempts on the same file → switch to `file_write` and rewrite the file clean.** Each partial edit tends to deepen the mess (unclosed tags, half-removed imports, stale references). A clean `file_write` of the whole component compiles predictably; 5 surgical patches on a broken file rarely do.
+- After 5 total fix attempts with no progress → `message_chat(done=false)` describing the impasse.
 
 ## Gotchas
 - **Read the error message literally.** If it says `Cannot find module 'react-beautiful-dnd'`, the fix is `npm install react-beautiful-dnd`, not `npm install react-dnd-kit`.
