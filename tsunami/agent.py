@@ -1163,6 +1163,30 @@ class Agent:
             except Exception:
                 pass  # non-critical nudge, never break the loop
 
+        # 5b.3. Context hygiene — nudge if model re-reads a file whose content
+        # is already in session context AND hasn't been written since. Lovable's
+        # "useful-context" pattern: a re-read burns tokens on identical bytes.
+        # Invalidate the read-set on file_write/file_edit for that path.
+        if tool_call.name in ("file_write", "file_edit"):
+            if not hasattr(self, "_files_already_read"):
+                self._files_already_read: set[str] = set()
+            edit_path = str(tool_call.arguments.get("path", "")).strip()
+            if edit_path in self._files_already_read:
+                self._files_already_read.discard(edit_path)
+        if tool_call.name == "file_read":
+            if not hasattr(self, "_files_already_read"):
+                self._files_already_read: set[str] = set()
+            read_path = str(tool_call.arguments.get("path", "")).strip()
+            if read_path and read_path in self._files_already_read:
+                self.state.add_system_note(
+                    f"You already have {read_path} in context from an earlier file_read. "
+                    f"Skip the re-read and use what you've seen — unless the file was "
+                    f"modified since (a file_write/file_edit on it would have invalidated "
+                    f"the cache)."
+                )
+            if read_path:
+                self._files_already_read.add(read_path)
+
         # Write-swell: when wave writes 2+ component files sequentially,
         # check if App.tsx references more missing components and dispatch eddies
         _write_swelled = getattr(self, '_write_swelled', False)

@@ -65,3 +65,13 @@ Import from `./components/ui` — these are the only exports:
 - **Always provide `expect` to undertow** — describe what should render, not the implementation.
 - **Cleanup before adding.** If the scaffold has a "Welcome to React" header, remove it first; don't paste your content underneath it.
 - **After 3 failed `file_edit` attempts on the same file, switch to `file_write`.** Each partial edit deepens the mess (unclosed tags, half-removed imports). A clean rewrite compiles predictably.
+
+## Design constraints (quality floor)
+
+These prevent the generic "AI slop" look that Manus/v0/Lovable all flag as a core failure mode. Apply every build, no exceptions.
+
+- **Max 4-5 colors total.** Primary, surface/background, text, accent, one neutral. Any more and it looks like a pitch deck. Define as CSS variables in `src/index.css`, reference everywhere.
+- **Max 2 font families.** A heading font + a body font. Usually just one (body font inheriting for headings). Don't pile on decorative fonts.
+- **All styles in the design system, not ad-hoc in components.** Build component classes in CSS, reference them in JSX. Never `style={{color: '#abc123', padding: '17px'}}` inline — that's how designs drift across pages.
+- **Mobile-first sizing.** Minimum touch target 44x44px for any interactive element. Inputs at least 16px font (smaller triggers iOS Safari zoom-on-focus). Start every layout in mobile viewport, scale up.
+- **Stay strictly in scope.** Don't add "nice-to-have" features the user didn't request. Counter app = counter. Landing page = hero + CTA. Gallery = the images. Over-delivery creates maintenance debt and rarely matches what the user actually wanted.
