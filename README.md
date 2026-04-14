@@ -82,17 +82,20 @@ the agent never guesses positions or colors. it sees the reference and matches i
 
 ---
 
-## the tension system
+## quality gates
 
-tsunami measures whether it's lying.
+tsunami doesn't trust what the model says about its output. it verifies against reality.
 
-**current** — prose tension: is the agent hedging, fabricating, or grounded? 0.0 (truth) to 1.0 (hallucination).
+every delivery runs through four observable gates, in order:
 
-**circulation** — reads the current and decides: deliver, search for verification, or refuse.
+1. **scaffold-unchanged check** — did you actually replace the placeholder or just ship the stub?
+2. **compile gate** — `npm run build` must pass (`tsc --noEmit && vite build`). typecheck catches missing imports.
+3. **runtime gate** — page must render without JS errors. blank pages caught via pixel-color entropy.
+4. **undertow** — browser QA. live-DOM scan finds interactables (buttons, inputs, `[role=button]`, `cursor:pointer` divs), injects click + type levers, waits for React state to settle, screenshots the post-interaction state, asks the multimodal LM what it sees.
 
-**pressure** — tracks tension over time. if tension stays high: force a search, force a strategy change, or stop and ask for help.
+all four are deterministic. no prose heuristics on the model's summary text. delivery fails only when a real artifact is broken.
 
-**undertow** — QA gate. pulls levers: screenshots, key presses, click tests, text reads. reports pass/fail. the wave reads the report and fixes what's broken.
+undertow auto-injects interactions — you don't tell it which button to click. it scans the rendered DOM, pulls the first clickable, waits 1.5s for animations + setTimeout to settle, screenshots, reports. apps with buttons should DO something when clicked; undertow checks that they do.
 
 ---
 
@@ -100,14 +103,13 @@ tsunami measures whether it's lying.
 
 | tier | hardware | language model | image model |
 |------|----------|----------------|-------------|
-| **S** | 16GB+ GPU (4080 / 4090 / 3090 / 5090) | Gemma 4 E4B bf16 | Z-Image-Turbo (~6GB, default) |
-| **mid** | 8–16GB GPU | `--load-in-8bit` Gemma 4 E4B | `--image-model black-forest-labs/FLUX.2-klein-4B` (~4B, smaller) |
-| **shit** | <8GB GPU / no GPU | `--load-in-4bit` or CPU | `--image-model stabilityai/sd-turbo` (~2GB legacy) or `none` |
+| **S** | 16GB+ GPU (4080 / 4090 / 3090 / 5090) | Gemma 4 E4B bf16 (~10GB) | Z-Image-Turbo (~6GB, default) |
+| **mid** | 12–16GB GPU | `--load-in-4bit` Gemma 4 E4B (~3GB) | Z-Image-Turbo |
+| **low** | 8–12GB GPU | `--load-in-4bit` + `device_map=auto` (CPU overflow) | `--image-model stabilityai/sd-turbo` (~2GB) or `none` |
 
 tsunami auto-detects your GPU and configures itself. you never think about this.
 
-one language model across every tier: **Gemma 4 E4B** — 128K native context, native tool calling, built-in thinking, multimodal vision.
-image model swaps with the tier: **Z-Image-Turbo** (S, best text rendering) → **FLUX.2-klein-4B** (mid, smaller) → **SD-Turbo** (shit, legacy 2GB).
+one language model across every tier: **Gemma 4 E4B** — 128K native context, native tool calling, built-in thinking, multimodal vision. quantization via `bitsandbytes` (4-bit NF4 or 8-bit) applies to the upstream `google/gemma-4-e4b-it` weights directly — no intermediate repo, no GGUF, no llama.cpp, no cross-compilation. pure torch wheels, same code path from 4GB to 80GB GPUs.
 
 runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud required.
 
@@ -115,7 +117,7 @@ runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud re
 
 ## what's inside
 
-**Gemma 4 E4B** — the single language model powering everything. bf16 (~10GB) by default; `--load-in-8bit` and `--load-in-4bit` flags available for smaller GPUs. native tool calling, built-in thinking, multimodal vision. one server on port 8090 handles wave, eddy, and watcher roles.
+**Gemma 4 E4B** — the single language model powering everything. bf16 (~10GB) by default; `--load-in-4bit` for ~3GB via bitsandbytes NF4, `--load-in-8bit` for ~6GB. quantization runs against the upstream `google/gemma-4-e4b-it` weights — no intermediate repo, multimodal vision preserved (mmproj stays fp16), same pure-torch code path. native tool calling, built-in thinking. one server on port 8090 handles wave, eddy, and watcher roles.
 
 **the wave** — reasons, plans, calls tools, dispatches eddies, synthesizes results. generates images via Z-Image-Turbo. builds websites, writes code, does research. no iteration limit.
 
@@ -127,13 +129,17 @@ runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud re
 
 **vision grounding** — extracts UI element positions from reference images. returns ratio-based CSS (percentages, aspect-ratio). resolution-independent.
 
-**Z-Image-Turbo** — in-process image generation. no server needed. ~6GB, auto-downloads on first use. best text rendering for UI mockups. swap to `FLUX.2-klein-4B` (smaller, faster) via the `--image-model` flag. generates textures, icons, backgrounds, reference images.
+**Z-Image-Turbo** — in-process image generation served from the same port as the LM. ~6GB, auto-downloads on first use, best prompt adherence for UI mockups. point `--image-model` at any HuggingFace text2image model (SD-Turbo, FLUX variants, your own fine-tune) — tsunami auto-picks the right Diffusers pipeline via `AutoPipelineForText2Image`. supports `mode="alpha"` (feathered luminance alpha for glows) and `mode="icon"` (magenta color-key for hard-edged sprites).
 
-**current / circulation / pressure** — the tension system. measures lies, routes decisions, tracks trajectory.
+**observable gates** — scaffold-unchanged, compile, runtime, undertow. every delivery runs through all four. no prose heuristics.
+
+**auto-install** — file_write scans imports, runs `npm install` for anything missing. saves 2-3 iterations per build.
+
+**component library** — 45+ shadcn-style components pre-exported (Card with compound subcomponents, Box/Flex/Heading/Text/Image primitives, interactive widgets). project_init surfaces the exact export list on scaffold so the model can't hallucinate an import.
 
 **context management** — three-tier compaction. large tool results saved to disk with previews. auto-compact circuit breaker.
 
-**auto-fix layers** — research gate, mid-loop auto-wire, swell compile gate, dedup loop detection, React hook auto-import, reference save.
+**auto-deliver** — if the build is green but the model keeps trying to rebuild (stuck in post-build loop), tsunami synthesizes the delivery itself. better to ship a working build than loop until timeout.
 
 ---
 
