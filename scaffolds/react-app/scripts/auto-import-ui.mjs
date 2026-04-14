@@ -69,58 +69,38 @@ function walkSrcTsx(dir, out = []) {
   return out
 }
 
-// Collect every identifier that's "in scope" at module level: imported names,
-// function declarations, variable declarations, class declarations. Any of
-// these shadows the UI component, so we must NOT inject an import for them.
-function collectScopeBindings(ast) {
-  const bindings = new Set()
-  for (const node of ast.program.body) {
-    if (node.type === "ImportDeclaration") {
-      for (const spec of node.specifiers) {
-        if (spec.local && spec.local.name) bindings.add(spec.local.name)
-      }
-    } else if (node.type === "FunctionDeclaration" && node.id) {
-      bindings.add(node.id.name)
-    } else if (node.type === "ClassDeclaration" && node.id) {
-      bindings.add(node.id.name)
-    } else if (node.type === "VariableDeclaration") {
-      for (const decl of node.declarations) {
-        if (decl.id && decl.id.type === "Identifier") bindings.add(decl.id.name)
-      }
-    } else if (node.type === "ExportNamedDeclaration" && node.declaration) {
-      const decl = node.declaration
-      if (decl.type === "FunctionDeclaration" && decl.id) bindings.add(decl.id.name)
-      else if (decl.type === "ClassDeclaration" && decl.id) bindings.add(decl.id.name)
-      else if (decl.type === "VariableDeclaration") {
-        for (const d of decl.declarations) {
-          if (d.id && d.id.type === "Identifier") bindings.add(d.id.name)
-        }
-      }
-    } else if (node.type === "ExportDefaultDeclaration") {
-      const decl = node.declaration
-      if ((decl.type === "FunctionDeclaration" || decl.type === "ClassDeclaration") && decl.id) {
-        bindings.add(decl.id.name)
-      }
-    }
-  }
-  return bindings
-}
-
-// Collect every PascalCase JSX opening element name. JSXMemberExpression
-// (e.g. Card.Header) is flattened to its root ("Card").
-function collectUsedPascalTags(ast) {
-  const used = new Set()
+// Walk the AST and for every PascalCase JSX tag, check if babel's scope
+// analysis resolves the name in the scope where the tag appears. If it does
+// (any enclosing function's const, a module import, a parameter, etc.), we
+// leave it alone. If it doesn't, it's an "unresolved" tag we may need to
+// either import from ./components/ui or fall back to as a passthrough.
+//
+// Returns two sets:
+//   `simple`     — unresolved tag used as a plain <Name> at least once
+//                  (safe to passthrough — a div fallback works)
+//   `memberRoot` — unresolved tag used as <Name.Sub> (div passthrough would
+//                  NOT work because the sub-property wouldn't exist; must
+//                  come from a real import or be left alone for tsc)
+function collectUnresolvedPascalTags(ast) {
+  const simple = new Set()
+  const memberRoot = new Set()
   traverse(ast, {
     JSXOpeningElement(path) {
       let name = path.node.name
+      const isMember = name.type === "JSXMemberExpression"
       while (name.type === "JSXMemberExpression") name = name.object
-      if (name.type === "JSXIdentifier") {
-        const n = name.name
-        if (n[0] >= "A" && n[0] <= "Z") used.add(n)
-      }
+      if (name.type !== "JSXIdentifier") return
+      const n = name.name
+      if (n[0] < "A" || n[0] > "Z") return
+      // Babel's scope tracks bindings at every level: module, function, block.
+      // If hasBinding(n) returns true, the name resolves somewhere up the
+      // scope chain and we should leave it alone.
+      if (path.scope.hasBinding(n)) return
+      if (isMember) memberRoot.add(n)
+      else simple.add(n)
     },
   })
-  return used
+  return { simple, memberRoot }
 }
 
 // Find the import declaration from one of the UI paths, if any, and return
@@ -140,48 +120,86 @@ function hasSpecifier(importNode, name) {
   )
 }
 
-// Process one .tsx file. Returns { changed, added } where added is the list
-// of names we injected.
+// Build a passthrough component declaration: `const Name = (props: any) => <div {...props} />`
+// TypeScript-friendly, renders children + forwards any props so layout roughly
+// works. Used for PascalCase tags the model invented that don't exist anywhere.
+function passthroughDecl(name) {
+  const propsParam = t.identifier("props")
+  propsParam.typeAnnotation = t.tsTypeAnnotation(t.tsAnyKeyword())
+  const div = t.jsxElement(
+    t.jsxOpeningElement(
+      t.jsxIdentifier("div"),
+      [t.jsxSpreadAttribute(t.identifier("props"))],
+      false,
+    ),
+    t.jsxClosingElement(t.jsxIdentifier("div")),
+    [],
+    false,
+  )
+  const arrow = t.arrowFunctionExpression([propsParam], div)
+  return t.variableDeclaration("const", [
+    t.variableDeclarator(t.identifier(name), arrow),
+  ])
+}
+
+// Process one .tsx file. Returns { changed, imported, passthrough } where
+// `imported` are names we added to the ui import and `passthrough` are names
+// we defined locally as <div {...props} /> fallbacks so the build doesn't fail.
 function processFile(filePath, uiExports) {
   const source = readFileSync(filePath, "utf8")
   let ast
   try {
     ast = parseTS(source)
   } catch (e) {
-    // Don't block the build on a parse error here — tsc/vite will report it
-    // with better location info. Skip.
-    return { changed: false, added: [] }
+    return { changed: false, imported: [], passthrough: [] }
   }
-  const scope = collectScopeBindings(ast)
-  const used = collectUsedPascalTags(ast)
+  const { simple, memberRoot } = collectUnresolvedPascalTags(ast)
 
-  // Missing = used, is a UI export, and not already in scope.
-  const missing = []
-  for (const tag of used) {
-    if (uiExports.has(tag) && !scope.has(tag)) missing.push(tag)
+  // Case 1: UI components — unresolved and named in uiExports. Inject imports.
+  // Covers both <Name> and <Name.Sub> since the real component carries its
+  // sub-properties.
+  const toImport = []
+  for (const tag of [...simple, ...memberRoot]) {
+    if (uiExports.has(tag)) toImport.push(tag)
   }
-  if (missing.length === 0) return { changed: false, added: [] }
 
-  const uiImport = findUIImport(ast)
-  if (uiImport) {
-    // Extend existing import: add specifiers for each missing name.
-    for (const name of missing) {
-      if (!hasSpecifier(uiImport, name)) {
-        uiImport.specifiers.push(t.importSpecifier(t.identifier(name), t.identifier(name)))
+  // Case 2: Model-invented components — unresolved and NOT in uiExports, used
+  // as simple <Name> only. Inject a local passthrough so the app renders
+  // instead of crashing. Tags appearing as <Name.Sub> are skipped because a
+  // div fallback has no sub-properties — tsc will surface those.
+  const toPassthrough = []
+  for (const tag of simple) {
+    if (!uiExports.has(tag) && !memberRoot.has(tag)) toPassthrough.push(tag)
+  }
+
+  if (toImport.length === 0 && toPassthrough.length === 0) {
+    return { changed: false, imported: [], passthrough: [] }
+  }
+
+  if (toImport.length > 0) {
+    const uiImport = findUIImport(ast)
+    if (uiImport) {
+      for (const name of toImport) {
+        if (!hasSpecifier(uiImport, name)) {
+          uiImport.specifiers.push(t.importSpecifier(t.identifier(name), t.identifier(name)))
+        }
       }
+    } else {
+      const newImport = t.importDeclaration(
+        toImport.map((n) => t.importSpecifier(t.identifier(n), t.identifier(n))),
+        t.stringLiteral("./components/ui"),
+      )
+      ast.program.body.unshift(newImport)
     }
-  } else {
-    // Prepend a new import at the top of the file.
-    const newImport = t.importDeclaration(
-      missing.map((n) => t.importSpecifier(t.identifier(n), t.identifier(n))),
-      t.stringLiteral("./components/ui"),
-    )
-    ast.program.body.unshift(newImport)
+  }
+
+  if (toPassthrough.length > 0) {
+    for (const name of toPassthrough) ast.program.body.push(passthroughDecl(name))
   }
 
   const out = generate(ast, { retainLines: false, jsescOption: { minimal: true } }, source)
   writeFileSync(filePath, out.code)
-  return { changed: true, added: missing }
+  return { changed: true, imported: toImport, passthrough: toPassthrough }
 }
 
 function main() {
@@ -196,12 +214,20 @@ function main() {
   const report = []
   for (const f of files) {
     const r = processFile(f, uiExports)
-    if (r.changed) report.push({ file: f.replace(PROJECT + "/", ""), added: r.added })
+    if (r.changed) {
+      report.push({
+        file: f.replace(PROJECT + "/", ""),
+        imported: r.imported,
+        passthrough: r.passthrough,
+      })
+    }
   }
   if (report.length > 0) {
-    console.log("[auto-import-ui] injected UI imports:")
     for (const r of report) {
-      console.log(`  ${r.file}: ${r.added.join(", ")}`)
+      const parts = []
+      if (r.imported.length) parts.push(`imported=${r.imported.join(",")}`)
+      if (r.passthrough.length) parts.push(`passthrough=${r.passthrough.join(",")}`)
+      console.log(`[auto-import-ui] ${r.file}: ${parts.join(" ")}`)
     }
   }
 }

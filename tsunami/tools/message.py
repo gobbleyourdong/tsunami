@@ -198,25 +198,14 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
             f"or remove the unused import and justify a purely static page."
         )
 
-    # QA-1 Playtest Fire 118: `<Badge />` used in JSX without being imported
-    # → React crashes at mount, blank page ships. tsc --noEmit in the scaffold
-    # catches this at build time, but older deliverables (or hand-edited
-    # package.json) skip typecheck. Static check: every PascalCase JSX tag
-    # must either be imported, locally defined, or a React intrinsic. Missing
-    # ones are a near-certain runtime crash.
-    from ..jsx_import_check import find_undefined_jsx_components
-    _missing = find_undefined_jsx_components(content)
-    if _missing:
-        return (
-            f"REFUSED: {target.name}/src/App.tsx uses JSX component(s) "
-            f"{', '.join(f'<{n}>' for n in _missing[:3])} that aren't imported "
-            f"or locally defined. At runtime these evaluate to `undefined` and "
-            f"React throws before mount — the page ships blank. Add the imports "
-            f"(e.g. `import {{ {_missing[0]} }} from \"./components/ui\"`) or "
-            f"remove the tag."
-        )
+    # Unimported JSX used to REFUSE here (QA-1 Playtest Fire 118). That gate is
+    # now redundant: scaffolds/react-app/scripts/auto-import-ui.mjs runs as the
+    # first step of `npm run build` and either (a) imports the name from
+    # ./components/ui, or (b) injects a local `(props) => <div {...props} />`
+    # passthrough. Either way the build produces a dist/ that won't crash at
+    # mount on an undefined component, so no need to refuse at delivery.
 
-    # QA-1 Playtest Fires 117 + 119: dashboard / analytics deliverables
+# QA-1 Playtest Fires 117 + 119: dashboard / analytics deliverables
     # shipped with ZERO chart primitives — the scaffold pulls in `recharts`
     # (dashboard / data-viz scaffolds) + "Dashboard" in the project name
     # screams chart intent, but App.tsx rendered a text "Chart Placeholder"
