@@ -51,6 +51,42 @@ def _is_external(host: str) -> bool:
     return not _PRIVATE_HOST_RE.match(host)
 
 
+# Read-only public APIs the tsunami skill tells models to use for "live"
+# prompts (crypto prices, weather, FX, repo stats, news). These are GET-only
+# data sources — fetching from them can't leak user state because there's no
+# user state in a freshly-mounted Tsunami deliverable to begin with. Carved
+# out of the exfil scanners so the skill's "use a real API for live data"
+# directive doesn't collide with the "no external fetch" baseline.
+_SAFE_API_HOSTS = frozenset({
+    "api.coingecko.com",
+    "api.open-meteo.com",
+    "api.github.com",
+    "api.frankfurter.app",
+    "hacker-news.firebaseio.com",
+    "api.exchangerate.host",
+    "api.publicapis.org",
+    "api.openstreetmap.org",
+    "nominatim.openstreetmap.org",
+    "restcountries.com",
+    "dog.ceo",
+    "api.quotable.io",
+    "official-joke-api.appspot.com",
+})
+
+
+def _is_safe_public_api(host: str) -> bool:
+    """True if `host` is a known read-only public API we deliberately
+    allow fetches to (see _SAFE_API_HOSTS). Subdomain-aware:
+    `us-central1.api.coingecko.com` also matches."""
+    host = host.lower()
+    if host in _SAFE_API_HOSTS:
+        return True
+    for safe in _SAFE_API_HOSTS:
+        if host.endswith("." + safe):
+            return True
+    return False
+
+
 _SOURCE_SUFFIXES = (".tsx", ".ts", ".jsx", ".js", ".mjs", ".cjs", ".html", ".vue", ".svelte")
 
 
@@ -427,6 +463,8 @@ def _scan_network_with_state(content: str) -> list[str]:
         host = _host_of(m.group(1))
         if not _is_external(host):
             continue
+        if _is_safe_public_api(host):
+            continue  # known read-only public API, not exfil
         start = max(0, m.start() - 300)
         end = min(len(content), m.end() + 500)
         if _EXFIL_STATE_KEYWORDS.search(content[start:end]):
@@ -745,6 +783,8 @@ def _scan_split_url_declarations(content: str) -> list[str]:
         host = _host_of(um.group(1))
         if not _is_external(host):
             continue
+        if _is_safe_public_api(host):
+            continue  # whitelisted public API, not exfil
         # Extract bound names from the binding expression.
         if binding.startswith("["):
             names = re.findall(r'\w+', binding)[:1]  # first positional only
