@@ -1355,12 +1355,42 @@ class Agent:
         else:
             self._dedup_hits = 0  # reset on non-cached call
 
-        # Post-build shell_exec block — build already passed, stop rebuilding and deliver
+        # Post-build shell_exec block — build already passed, stop rebuilding and deliver.
+        # First 2 hits: nudge. 3rd hit: synthesize the delivery ourselves —
+        # the model is stuck in a rebuild loop, the build is fine, just ship it.
         if tool_call.name == "shell_exec" and hasattr(self, '_build_passed_at'):
             cmd = tool_call.arguments.get("command", "")
             is_build_cmd = any(k in cmd for k in ("vite build", "npm run build", "npx vite"))
             if is_build_cmd:
-                log.warning("Post-build shell_exec block: build already passed, forcing delivery")
+                self._post_build_blocks = getattr(self, '_post_build_blocks', 0) + 1
+                log.warning(
+                    f"Post-build shell_exec block #{self._post_build_blocks}: "
+                    f"build already passed, forcing delivery"
+                )
+                if self._post_build_blocks >= 3:
+                    # Synthesize the delivery. Find the most recent dist and
+                    # ship it with a generic message. Better to deliver a
+                    # working build than loop until timeout.
+                    log.warning("Auto-delivering: 3+ post-build blocks, model is stuck")
+                    from pathlib import Path as _P
+                    deliverables = _P(self.config.workspace_dir) / "deliverables"
+                    dist = None
+                    if deliverables.exists():
+                        projects = sorted(
+                            [d for d in deliverables.iterdir() if d.is_dir()],
+                            key=lambda p: p.stat().st_mtime, reverse=True
+                        )
+                        for proj in projects[:1]:
+                            candidate = proj / "dist" / "index.html"
+                            if candidate.exists():
+                                dist = candidate
+                                break
+                    if dist:
+                        msg = f"Build passed. App delivered at {dist}."
+                        print(f"\n  {msg}")
+                        self.state.task_complete = True
+                        self._tool_history.append("message_result")
+                        return msg
                 self.state.add_tool_result(
                     tool_call.name, tool_call.arguments,
                     "BUILD ALREADY PASSED. Do NOT rebuild. Call message_result NOW to deliver the app.",
