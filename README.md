@@ -4,11 +4,7 @@
 
 **[see it work →](https://gobbleyourdong.github.io/tsunami/)**
 
-**Windows (installer):**
-
-Download [TsunamiSetup.exe](https://github.com/gobbleyourdong/tsunami/releases/latest) — double-click, it handles everything.
-
-**Windows (manual):**
+**Windows:**
 
 ```powershell
 .\setup.ps1
@@ -147,11 +143,10 @@ runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud re
 
 | platform | install | run |
 |----------|---------|-----|
-| **Windows (installer)** | `TsunamiSetup.exe` | Desktop shortcut / Start Menu |
-| **Windows (manual)** | `.\setup.ps1` | `.\tsu.ps1` |
+| **Windows** | `.\setup.ps1` | `.\tsu.ps1` |
 | **Mac / Linux** | `setup.sh` | `tsu` |
 
-the desktop shortcut opens the webUI in your browser. `tsu` auto-updates on every launch.
+`tsu` auto-updates on every launch.
 
 ---
 
