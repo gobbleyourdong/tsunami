@@ -82,3 +82,6 @@ llama.cpp/
 
 # Session artifacts / local operational files
 INSTANCE_PROMPTS.md
+
+# sprite_pipeline generated output (OUTPUT_DIR pathing bug, see scaffolds/engine/tools/sprite_pipeline.py:32)
+scaffolds/scaffolds/

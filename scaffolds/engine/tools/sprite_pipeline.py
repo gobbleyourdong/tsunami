@@ -26,6 +26,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from pixel_snap import snap_to_grid
+
 # Output directory
 OUTPUT_DIR = Path(__file__).parent.parent.parent / "scaffolds" / "webgpu-game" / "public" / "sprites"
 
@@ -521,22 +523,25 @@ def run_pipeline(
         print("[4/7] Isolating largest object per image...")
         transparent = [isolate_largest_object(t) for t in transparent]
 
-    # 4. Trim + normalize (skip trim for textures)
+    # 4. Trim (skip for textures — they fill the frame)
     if category == "texture":
-        print("[4/6] Skipping trim (texture mode)")
-        normalized = transparent
+        print("[4/7] Skipping trim (texture mode)")
+        trimmed = transparent
     else:
-        print("[4/6] Trimming + normalizing...")
+        print("[4/7] Trimming...")
         trimmed = [trim_transparent(t) for t in transparent]
-        normalized = [normalize_height(t, target_size[1]) for t in trimmed]
 
-    # 5. Pixel snap + quantize
-    print("[5/6] Pixel snapping + palette quantization...")
+    # 5. Snap to native pixel grid — discovers the AI's actual pixel size via
+    # gradient analysis and mode-resamples each cell. Replaces the old
+    # normalize_height → nearest-neighbor → median-cut chain, which ignored
+    # the drifting AI pixel grid and smeared it into target_size.
+    # Output dims are the discovered grid (e.g. ~60×50), not target_size.
+    print(f"[5/7] Snapping to pixel grid (k_colors={n_colors})...")
     final = []
-    for img in normalized:
-        snapped = pixel_snap(img, target_size)
-        quantized = quantize_palette(snapped, n_colors)
-        final.append(quantized)
+    for i, img in enumerate(trimmed):
+        snapped = snap_to_grid(img, k_colors=n_colors)
+        final.append(snapped)
+        print(f"  [{i}] {img.size} → {snapped.size}")
 
     # Score all sprites and rank
     print("[6/7] Scoring sprites...")
