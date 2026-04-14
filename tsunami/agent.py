@@ -636,6 +636,62 @@ class Agent:
         except Exception as e:
             log.debug(f"Auto-install failed: {e}")
 
+    def _scan_required_env_vars(self) -> set[str]:
+        """Scan the most recent deliverable project for env var references
+        that aren't defined in .env / .env.example. Returns the set of
+        unresolved var names so the delivery can report them.
+        """
+        import re as _re
+        deliverables = Path(self.config.workspace_dir) / "deliverables"
+        if not deliverables.exists():
+            return set()
+        projects = sorted(
+            [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
+            key=lambda p: p.stat().st_mtime, reverse=True,
+        )
+        if not projects:
+            return set()
+        proj = projects[0]
+
+        # Find every process.env.X and import.meta.env.X reference in src/
+        referenced: set[str] = set()
+        src = proj / "src"
+        if not src.exists():
+            return set()
+        for f in src.rglob("*"):
+            if f.suffix not in (".ts", ".tsx", ".js", ".jsx"):
+                continue
+            try:
+                txt = f.read_text()
+            except Exception:
+                continue
+            # process.env.FOO and process.env['FOO']
+            for m in _re.findall(r"process\.env\.([A-Z_][A-Z0-9_]*)", txt):
+                referenced.add(m)
+            for m in _re.findall(r"process\.env\[['\"]([A-Z_][A-Z0-9_]*)['\"]\]", txt):
+                referenced.add(m)
+            # Vite/esm: import.meta.env.VITE_FOO
+            for m in _re.findall(r"import\.meta\.env\.([A-Z_][A-Z0-9_]*)", txt):
+                referenced.add(m)
+
+        if not referenced:
+            return set()
+
+        # Filter out common framework-provided vars that don't need user setup
+        builtins = {"NODE_ENV", "MODE", "BASE_URL", "DEV", "PROD", "SSR"}
+        referenced -= builtins
+
+        # Subtract anything already defined in .env / .env.example / .env.local
+        defined: set[str] = set()
+        for env_file in (".env", ".env.example", ".env.local", ".env.development"):
+            env_path = proj / env_file
+            if env_path.exists():
+                for line in env_path.read_text().splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        defined.add(line.split("=", 1)[0].strip())
+        return referenced - defined
+
     def _exit_gate_suffix(self) -> str:
         """Run content gates on the current deliverable at a forced-exit path.
 
@@ -2661,6 +2717,28 @@ class Agent:
             # All gates passed — deliver
             self._delivery_attempts = 0
             self.state.task_complete = True
+
+            # .env awareness (Replit-inspired): scan the delivered project
+            # for process.env.X / import.meta.env.X references and, if any
+            # are unresolved (not in .env or .env.example), append them to
+            # the result text so the user knows what env vars to fill in
+            # before running the app. Pure report — we never prompt.
+            try:
+                required = self._scan_required_env_vars()
+                if required:
+                    # Inject a short note at the end of the delivery text.
+                    note = (
+                        "\n\nRequired env vars (set in .env before running):\n"
+                        + "\n".join(f"  - {v}" for v in sorted(required))
+                    )
+                    print(f"\033[33m{note}\033[0m")  # yellow in terminal
+                    # Don't mutate result.content here — the tool already
+                    # emitted the print; adding to state is for logs only.
+                    self.state.add_system_note(
+                        f"Delivered with pending env vars: {', '.join(sorted(required))}"
+                    )
+            except Exception as e:
+                log.debug(f"env-var scan skipped: {e}")
 
             # Learn from this build — extract patterns for future sessions
             try:
