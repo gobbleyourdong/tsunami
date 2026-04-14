@@ -102,17 +102,11 @@ undertow auto-injects interactions — you don't tell it which button to click. 
 
 ## what you need
 
-| tier | hardware | language model | image model |
-|------|----------|----------------|-------------|
-| **S** | 16GB+ GPU (4080 / 4090 / 3090 / 5090) | Gemma 4 E4B bf16 (~10GB) | Z-Image-Turbo (~6GB, default) |
-| **mid** | 12–16GB GPU | `--load-in-4bit` Gemma 4 E4B (~3GB) | Z-Image-Turbo |
-| **low** | 8–12GB GPU | `--load-in-4bit` + `device_map=auto` (CPU overflow) | `--image-model stabilityai/sd-turbo` (~2GB) or `none` |
+**16GB+ GPU.** one setup, one path. no tiers, no toggles.
 
-tsunami auto-detects your GPU and configures itself. you never think about this.
+Gemma 4 E4B (bf16, ~10GB) + Z-Image-Turbo (~6GB) load on the same GPU via one server on port 8090. consumer cards (4080/4090/5090), workstation cards (A6000, L40), and Blackwell data center (H100, B100) all work. macs with 16GB+ unified memory work via the same code path. windows, linux, macOS — no cloud required.
 
-one language model across every tier: **Gemma 4 E4B** — 128K native context, native tool calling, built-in thinking, multimodal vision. quantization via `bitsandbytes` (4-bit NF4 or 8-bit) applies to the upstream `google/gemma-4-e4b-it` weights directly — no intermediate repo, no GGUF, no llama.cpp, no cross-compilation. pure torch wheels, same code path from 4GB to 80GB GPUs.
-
-runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud required.
+`--load-in-4bit` runs against upstream `google/gemma-4-e4b-it` directly via bitsandbytes NF4 if you want to cut the LM to ~3GB (keeps vision, same pure-torch path). only worth doing to fit alongside other workloads; 16GB is enough without it.
 
 ---
 
@@ -130,7 +124,7 @@ runs on nvidia GPUs, macs with 16GB+ unified memory, windows, linux. no cloud re
 
 **vision grounding** — extracts UI element positions from reference images. returns ratio-based CSS (percentages, aspect-ratio). resolution-independent.
 
-**Z-Image-Turbo** — in-process image generation served from the same port as the LM. ~6GB, auto-downloads on first use, best prompt adherence for UI mockups. point `--image-model` at any HuggingFace text2image model (SD-Turbo, FLUX variants, your own fine-tune) — tsunami auto-picks the right Diffusers pipeline via `AutoPipelineForText2Image`. supports `mode="alpha"` (feathered luminance alpha for glows) and `mode="icon"` (magenta color-key for hard-edged sprites).
+**Z-Image-Turbo** — in-process image generation on the same port as the LM. ~6GB, auto-downloads on first use, 9-step sampler at guidance=0 (official recipe). supports `mode="alpha"` (feathered luminance alpha for glows) and `mode="icon"` (magenta color-key for hard-edged sprites).
 
 **observable gates** — scaffold-unchanged, compile, runtime, undertow. every delivery runs through all four. no prose heuristics.
 

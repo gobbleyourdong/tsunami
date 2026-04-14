@@ -37,46 +37,20 @@ from pixel_extract import extract_one  # noqa: E402
 # Output directory
 OUTPUT_DIR = Path(__file__).parent.parent.parent / "scaffolds" / "webgpu-game" / "public" / "sprites"
 
-# ── Model Management ──────────────────────────────────────────────
+# ── Generation Backend ────────────────────────────────────────────
+#
+# One backend. Hits the tsunami server on :8090 — uses the Z-Image-Turbo
+# weights already loaded by serve_transformers.py, no second model load.
+# Sprite generation is an authoring-time activity; the tsunami server runs
+# on a proper GPU box (apps it produces serve on-device; only authoring
+# needs real hardware).
+#
+# Z-Image-Turbo official recipe: 9 steps, guidance 0.0. Guidance > 0 on
+# turbo models smooths edges and destroys pixel detail.
 
-MODEL_CONFIGS = {
-    "z-image": {
-        # Hits the tsunami server on :8090 — uses the Z-Image-Turbo weights
-        # already loaded by serve_transformers.py, no second model load.
-        # Sprite generation is an authoring-time activity and assumes the
-        # tsunami server is running on a proper GPU box (the apps it produces
-        # serve on-device; only authoring needs real hardware).
-        "backend": "http",
-        "endpoint": "http://localhost:8090/v1/images/generate",
-        # Z-Image-Turbo official recipe: 9 steps + guidance 0.0.
-        # Guidance > 0 on turbo models smooths edges.
-        "steps": 9, "guidance": 0.0,
-    },
-}
-
-_active_model = "z-image"
-_pipe = None
-
-
-def set_model(name: str) -> None:
-    """Switch generation backend. Call before any generation."""
-    global _active_model, _pipe
-    if name not in MODEL_CONFIGS:
-        raise ValueError(f"Unknown model '{name}'. Available: {', '.join(MODEL_CONFIGS.keys())}")
-    if name != _active_model:
-        _pipe = None
-    _active_model = name
-    print(f"[sprite] Model: {name}")
-
-
-def get_pipeline():
-    """No-op for the HTTP backend — generate_image() hits :8090 directly.
-    Kept as a placeholder so future local-backend configs can slot in."""
-    return None
-
-
-def get_model_config() -> dict:
-    return MODEL_CONFIGS[_active_model]
+ZIMAGE_ENDPOINT = "http://localhost:8090/v1/images/generate"
+ZIMAGE_STEPS = 9
+ZIMAGE_GUIDANCE = 0.0
 
 
 # ── Generation ────────────────────────────────────────────────────
@@ -105,55 +79,37 @@ def generate_image(
     category: str = "character",
     width: int = 512,
     height: int = 512,
-    steps: int = -1,       # -1 = use model default
-    guidance: float = -1,  # -1 = use model default
     seed: int = -1,
 ) -> Image.Image:
-    """Generate a single image with the active model backend."""
-    config = get_model_config()
-
-    if steps < 0:
-        steps = config["steps"]
-    if guidance < 0:
-        guidance = config["guidance"]
+    """Generate a single image via the tsunami server's Z-Image-Turbo endpoint."""
+    import base64, io, httpx, random
 
     styled_prompt = STYLE_PREFIXES.get(category, "") + prompt
-
-    # HTTP backend: hit the tsunami server on :8090. Same Z-Image-Turbo
-    # weights our generate_image tool uses, no second GPU-resident copy.
-    if config.get("backend") == "http":
-        import base64, io, httpx, random
-        t0 = time.time()
-        # Randomize seed if the caller didn't supply one — Z-Image-Turbo's
-        # sampler is deterministic given a fixed seed, so batch generation
-        # returns identical images without fresh randomness each call.
-        actual_seed = seed if seed >= 0 else random.randint(0, 2**31 - 1)
-        # Long timeout because the tsunami server may be busy with LLM
-        # inference when a sprite request arrives; image generation itself
-        # is fast (~3s) but queue wait can be minutes during active builds.
-        with httpx.Client(timeout=600) as client:
-            resp = client.post(config["endpoint"], json={
-                "prompt": styled_prompt,
-                "width": width, "height": height,
-                "steps": steps, "guidance_scale": guidance,
-                "seed": actual_seed,
-            })
-        elapsed = time.time() - t0
-        if resp.status_code != 200:
-            raise RuntimeError(f"HTTP backend returned {resp.status_code}: {resp.text[:200]}")
-        data = resp.json()
-        if "error" in data:
-            raise RuntimeError(f"Z-Image server error: {data['error']}")
-        b64 = data["data"][0]["b64_json"]
-        img = Image.open(io.BytesIO(base64.b64decode(b64)))
-        print(f"[sprite] Generated in {elapsed:.2f}s ({steps} steps, via {config['endpoint']})")
-        return img
-
-    raise RuntimeError(
-        f"Model '{_active_model}' is not HTTP-backed but no local pipeline "
-        f"is configured. Ensure the tsunami server is running on "
-        f"http://localhost:8090 and the z-image backend is selected."
-    )
+    # Randomize seed if the caller didn't supply one — Z-Image-Turbo's sampler
+    # is deterministic given a fixed seed, so batch generation returns identical
+    # images without fresh randomness each call.
+    actual_seed = seed if seed >= 0 else random.randint(0, 2**31 - 1)
+    t0 = time.time()
+    # Long timeout: the tsunami server may be busy with LLM inference when a
+    # sprite request arrives. Generation itself is ~3s but queue wait can be
+    # minutes during active app builds.
+    with httpx.Client(timeout=600) as client:
+        resp = client.post(ZIMAGE_ENDPOINT, json={
+            "prompt": styled_prompt,
+            "width": width, "height": height,
+            "steps": ZIMAGE_STEPS, "guidance_scale": ZIMAGE_GUIDANCE,
+            "seed": actual_seed,
+        })
+    elapsed = time.time() - t0
+    if resp.status_code != 200:
+        raise RuntimeError(f"Z-Image server returned {resp.status_code}: {resp.text[:200]}")
+    data = resp.json()
+    if "error" in data:
+        raise RuntimeError(f"Z-Image server error: {data['error']}")
+    b64 = data["data"][0]["b64_json"]
+    img = Image.open(io.BytesIO(base64.b64decode(b64)))
+    print(f"[sprite] Generated in {elapsed:.2f}s ({ZIMAGE_STEPS} steps, via {ZIMAGE_ENDPOINT})")
+    return img
 
 
 def generate_variations(
@@ -162,14 +118,12 @@ def generate_variations(
     count: int = 4,
     width: int = 512,
     height: int = 512,
-    steps: int = -1,  # -1 = model default (Z-Image: 9)
 ) -> list[Image.Image]:
-    """Generate multiple variations, return all."""
+    """Generate multiple variations via distinct seeds."""
     images = []
     for i in range(count):
         seed = int(time.time() * 1000) % (2**32) + i * 7919
-        img = generate_image(prompt, category, width, height, steps, seed=seed)
-        images.append(img)
+        images.append(generate_image(prompt, category, width, height, seed=seed))
     return images
 
 
@@ -491,9 +445,7 @@ def run_pipeline(
     variations: int = 4,
     target_size: tuple[int, int] = (64, 64),
     n_colors: int = 16,
-    bg_method: str = "corners",
     gen_size: int = 512,
-    steps: int = -1,  # -1 = model default (Z-Image: 9)
     output_dir: Path | None = None,
 ) -> dict:
     """Run the full sprite generation pipeline."""
@@ -507,7 +459,7 @@ def run_pipeline(
 
     # 1. Generate variations
     print(f"[1/4] Generating {variations} variations...")
-    images = generate_variations(prompt, category, variations, gen_size, gen_size, steps)
+    images = generate_variations(prompt, category, variations, gen_size, gen_size)
 
     # Save raw generations
     raw_dir = out / name / "raw"
@@ -618,23 +570,16 @@ def run_batch(batch_file: str):
 def main():
     parser = argparse.ArgumentParser(
         description="Sprite generation pipeline — Z-Image (via tsunami server) + pixel-extract",
-        epilog="Models: " + ", ".join(MODEL_CONFIGS.keys()),
     )
     parser.add_argument("category", choices=["character", "object", "texture", "batch"],
                         help="Asset category or 'batch' for JSON file")
     parser.add_argument("prompt", help="Text prompt or batch JSON file path")
-    parser.add_argument("--model", "-m", default="z-image", choices=list(MODEL_CONFIGS.keys()),
-                        help="Generation model backend (default: z-image, via tsunami server on :8090)")
     parser.add_argument("--name", default="sprite", help="Output name prefix")
     parser.add_argument("--variations", "-n", type=int, default=4)
     parser.add_argument("--size", type=int, default=64, help="Target sprite size (square)")
     parser.add_argument("--colors", type=int, default=16, help="Palette color count")
-    parser.add_argument("--steps", type=int, default=-1, help="Diffusion steps (-1 = model default)")
     parser.add_argument("--gen-size", type=int, default=512, help="Generation resolution")
-    parser.add_argument("--bg", choices=["sigmatrade", "floodfill", "chroma"], default="sigmatrade")
     args = parser.parse_args()
-
-    set_model(args.model)
 
     if args.category == "batch":
         run_batch(args.prompt)
@@ -646,9 +591,7 @@ def main():
             variations=args.variations,
             target_size=(args.size, args.size),
             n_colors=args.colors,
-            steps=args.steps,
             gen_size=args.gen_size,
-            bg_method=args.bg,
         )
 
 

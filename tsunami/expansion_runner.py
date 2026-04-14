@@ -29,7 +29,7 @@ TIER1_PROMPTS = {
 
 TIER2_PROMPTS = {
     "E4": "build a beautiful photography portfolio with 50 AI-generated landscape photos in a masonry grid with lightbox zoom, categories (mountains, ocean, forest, desert, urban), and lazy loading",
-    "E5": "build a Netflix-style app with rows of shows. Generate 30 movie posters with SD-Turbo. Include: hero banner, category rows (Action, Comedy, Drama, Sci-Fi, Horror), search with filtering, show detail modal with fake synopsis, and a My List feature",
+    "E5": "build a Netflix-style app with rows of shows. Generate 30 movie posters with Z-Image-Turbo. Include: hero banner, category rows (Action, Comedy, Drama, Sci-Fi, Horror), search with filtering, show detail modal with fake synopsis, and a My List feature",
 }
 
 TIER3_GAME_PROMPTS = {

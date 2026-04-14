@@ -4,8 +4,7 @@ Simulates what a fresh user sees after install:
 1. Model servers respond
 2. Wave (9B) can reason and call tools
 3. Eddies (2B) can execute tasks in parallel
-4. SD-Turbo can generate an image
-5. Agent can scaffold a project, generate a hero, and serve it
+4. Agent can scaffold a project, generate a hero, and serve it
 
 Skip with: pytest -k "not smoke"
 """
@@ -116,50 +115,9 @@ class TestSmokeEddy:
         assert ok >= 3, f"Only {ok}/4 eddies succeeded"
 
 
-class TestSmokeImageGen:
-    """Step 4: SD-Turbo can generate an image."""
-
-    def test_sd_turbo_generates(self):
-        try:
-            import torch
-            from diffusers import AutoPipelineForText2Image
-        except ImportError:
-            pytest.skip("diffusers/torch not installed")
-
-        if not torch.cuda.is_available():
-            pytest.skip("No CUDA GPU available")
-
-        tmpdir = tempfile.mkdtemp()
-        out_path = os.path.join(tmpdir, "smoke_test.png")
-
-        pipe = AutoPipelineForText2Image.from_pretrained(
-            "stabilityai/sd-turbo",
-            torch_dtype=torch.float16,
-            variant="fp16",
-        )
-        pipe.to("cuda")
-
-        image = pipe(
-            "a simple blue wave on dark background",
-            num_inference_steps=1,
-            guidance_scale=0.0,
-            width=512,
-            height=512,
-        ).images[0]
-        image.save(out_path)
-
-        assert os.path.exists(out_path)
-        assert os.path.getsize(out_path) > 10000, "Image too small — generation likely failed"
-
-        # Cleanup
-        os.unlink(out_path)
-        del pipe
-        torch.cuda.empty_cache()
-
-
 @skip_no_wave
 class TestSmokeEndToEnd:
-    """Step 5: full agent loop — prompt to result."""
+    """Step 4: full agent loop — prompt to result."""
 
     def test_agent_completes_task(self):
         from tsunami.config import TsunamiConfig
