@@ -691,6 +691,15 @@ def main():
         log.info(f"Available adapters: {list(model.peft_config.keys())}")
         log.info("Swap via POST /v1/adapter {{\"name\": \"<adapter_name>\"}} or 'none' for base chat")
 
+    # Eager-load the image model so the first /v1/images/generate call isn't
+    # a cold 10+ second stall for the user. Skip if --image-model was "none".
+    if image_model_id:
+        log.info("Eager-loading image model at startup...")
+        try:
+            _load_image_model()
+        except Exception as e:
+            log.warning(f"Eager image-model load failed (will retry lazily): {e}")
+
     log.info(f"Starting server on port {args.port}...")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
