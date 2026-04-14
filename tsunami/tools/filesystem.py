@@ -56,6 +56,51 @@ def register_session_project(name: str):
     _session_last_project = name
 
 
+def _validate_structured_format(path: Path, content: str) -> str | None:
+    """Parse-validate the file based on its extension. Returns None if the
+    content is valid or the format is unknown/freeform; returns a short
+    error string if parsing failed. Covers the common "model wrote
+    a structured config file and got the syntax subtly wrong" case so the
+    model sees the error immediately instead of at build/runtime.
+
+    Skips empty content (empty is "valid" for most formats) and skips formats
+    we'd hit false-positives on (e.g. JSX files ending in .tsx are not pure
+    TypeScript and we don't type-check here; that's the compile gate's job).
+    """
+    if not content.strip():
+        return None
+    ext = path.suffix.lower()
+    try:
+        if ext == ".json":
+            import json as _j
+            _j.loads(content)
+        elif ext in (".yaml", ".yml"):
+            try:
+                import yaml as _y
+                _y.safe_load(content)
+            except ImportError:
+                return None  # pyyaml not installed; skip
+        elif ext == ".toml":
+            try:
+                import tomllib as _t  # py3.11+
+            except ImportError:
+                try:
+                    import tomli as _t
+                except ImportError:
+                    return None
+            _t.loads(content) if hasattr(_t, "loads") else _t.loads(content.encode())
+        elif ext == ".xml" or ext == ".svg":
+            import xml.etree.ElementTree as _e
+            _e.fromstring(content)
+        # Skip .tsx/.ts/.js/.py/.html/.css/.md — these have their own validators
+        # (compile gate, lint, etc.) and often contain intentionally-novel syntax
+        # (JSX, template literals) that trip parse-validate.
+    except Exception as e:
+        msg = str(e).replace("\n", " ")[:200]
+        return f"{ext} parse error: {msg}"
+    return None
+
+
 def _note_write_to_deliverable(resolved_path: Path, workspace_dir: str):
     """Record the deliverable that received a successful write. The gate
     uses this as a third fallback when _active_project + _session_last_project
@@ -452,6 +497,21 @@ class FileWrite(BaseTool):
             p.write_text(content)
             _note_write_to_deliverable(p, self.config.workspace_dir)
             lines = content.count("\n") + 1
+
+            # Parse-validate known structured formats. Covers the "model
+            # outputs a file type it's rarely seen" case — if the result
+            # isn't valid JSON/YAML/TOML/XML, surface the parser error so
+            # the model can fix the syntax rather than shipping broken
+            # config. Catches malformed JSON in package.json, invalid YAML
+            # in a GitHub Action, stale TOML in a pyproject, etc.
+            parse_err = _validate_structured_format(p, content)
+            if parse_err:
+                return ToolResult(
+                    f"Wrote {lines} lines to {p}\n"
+                    f"WARNING: file did not parse cleanly — {parse_err}\n"
+                    f"Fix the syntax error before relying on this file.",
+                    is_error=True,
+                )
             return ToolResult(f"Wrote {lines} lines to {p}")
         except Exception as e:
             return ToolResult(f"Error writing {path}: {e}", is_error=True)
