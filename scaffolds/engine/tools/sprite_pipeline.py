@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Sprite Pipeline — Generate game-ready pixel art sprites using SD Turbo + post-processing.
+Sprite Pipeline — Generate game-ready pixel art sprites via the tsunami
+server's Z-Image-Turbo endpoint + post-processing.
 
 Pipeline:
-  1. Generate: SD Turbo text-to-image (1-4 steps, sub-second)
-  2. Background removal: chroma key or threshold
-  3. Palette quantization: reduce to N colors
-  4. Pixel snap: downscale to target size with nearest-neighbor
-  5. Output: transparent PNG + spritesheet assembly
+  1. Generate N variations against a magenta backdrop (Z-Image, 9 steps)
+  2. pixel_extract: perceptual-Lab bg detection + native-grid recovery +
+     edge-fringe cleanup (one pass, replaces the older bg-removal chain)
+  3. Score each variation (coverage, centering, fragmentation, color variety)
+  4. Rank best-first and assemble a spritesheet (+ JSON metadata)
 
 Usage:
   python sprite_pipeline.py character "pixel art knight with sword, side view"
@@ -161,7 +162,7 @@ def generate_variations(
     count: int = 4,
     width: int = 512,
     height: int = 512,
-    steps: int = 4,
+    steps: int = -1,  # -1 = model default (Z-Image: 9)
 ) -> list[Image.Image]:
     """Generate multiple variations, return all."""
     images = []
@@ -492,7 +493,7 @@ def run_pipeline(
     n_colors: int = 16,
     bg_method: str = "corners",
     gen_size: int = 512,
-    steps: int = 4,
+    steps: int = -1,  # -1 = model default (Z-Image: 9)
     output_dir: Path | None = None,
 ) -> dict:
     """Run the full sprite generation pipeline."""
@@ -505,7 +506,7 @@ def run_pipeline(
     print(f"{'='*60}\n")
 
     # 1. Generate variations
-    print("[1/5] Generating...")
+    print(f"[1/4] Generating {variations} variations...")
     images = generate_variations(prompt, category, variations, gen_size, gen_size, steps)
 
     # Save raw generations
@@ -513,14 +514,14 @@ def run_pipeline(
     raw_dir.mkdir(parents=True, exist_ok=True)
     for i, img in enumerate(images):
         img.save(raw_dir / f"{name}_raw_{i}.png")
-    print(f"[1/5] Saved {len(images)} raw images to {raw_dir}")
+    print(f"[1/4] Saved {len(images)} raw images to {raw_dir}")
 
-    # 2. Extract pixel-art sprite per variation. This does bg detection
-    # (perceptual Lab), native-grid recovery, center-sampling, and
+    # 2. Extract pixel-art sprite per variation. pixel_extract does bg
+    # detection (perceptual Lab), native-grid recovery, center-sampling, and
     # edge-adjacent fringe cleanup in one pass — replaces the old
     # center_crop / remove_background / isolate_largest / trim / snap chain.
-    # Textures still skip the extractor (they fill the frame by design).
-    print(f"[2/4] Extracting pixel art from {len(images)} variations...")
+    # Textures skip extraction (they fill the frame by design).
+    print(f"[2/4] Extracting pixel art...")
     final = []
     for i, img in enumerate(images):
         rgba = np.asarray(img.convert("RGBA"))
@@ -543,8 +544,8 @@ def run_pipeline(
     if not final:
         raise RuntimeError(f"No sprites extracted from {len(images)} variations")
 
-    # Score all sprites and rank
-    print("[6/7] Scoring sprites...")
+    # 3. Score all sprites and rank
+    print("[3/4] Scoring sprites...")
     scored = []
     for i, img in enumerate(final):
         score, reasons = score_sprite(img, category)
@@ -564,10 +565,10 @@ def run_pipeline(
     for i, img in enumerate(final):
         img.save(sprite_dir / f"{name}_{i}.png")
     best_img.save(sprite_dir / f"{name}_best.png")
-    print(f"[6/7] Saved {len(final)} sprites + best to {sprite_dir}")
+    print(f"[3/4] Saved {len(final)} sprites + best to {sprite_dir}")
 
-    # 7. Assemble spritesheet (best first, then rest by score)
-    print("[7/7] Assembling spritesheet...")
+    # 4. Assemble spritesheet (best first, then rest by score)
+    print("[4/4] Assembling spritesheet...")
     sorted_images = [s[3] for s in scored]
     sheet, metadata = assemble_spritesheet(sorted_images, columns=len(sorted_images))
     sheet.save(sprite_dir / f"{name}_sheet.png")
@@ -584,7 +585,7 @@ def run_pipeline(
     with open(sprite_dir / f"{name}_meta.json", "w") as f:
         json.dump(metadata, f, indent=2)
 
-    print(f"[6/6] Spritesheet: {sprite_dir / f'{name}_sheet.png'}")
+    print(f"[4/4] Spritesheet: {sprite_dir / f'{name}_sheet.png'}")
     print(f"[pipeline] Done: {name}\n")
 
     return metadata
@@ -616,7 +617,7 @@ def run_batch(batch_file: str):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Sprite generation pipeline — SD Turbo + post-processing",
+        description="Sprite generation pipeline — Z-Image (via tsunami server) + pixel-extract",
         epilog="Models: " + ", ".join(MODEL_CONFIGS.keys()),
     )
     parser.add_argument("category", choices=["character", "object", "texture", "batch"],
