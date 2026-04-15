@@ -64,6 +64,7 @@ Import from `./components/ui` — these are the only exports:
 | `Chart` | `{ type?: "line"\|"bar"\|"pie", data: {x: string\|number, y: number}[], height?, color?, palette?, showGrid?, showLegend?, showTooltip? }` — **data MUST be `{x, y}[]` objects** — `{value: n}[]` / `number[]` / `{name, count}[]` all fail TS2739. Map first: `data.map(p => ({x: p.name, y: p.count}))`. Seen in crypto session `tsu_prog_crypto_1776237712` — 21-iter regression |
 | `MetricCard` | `{ label, value, delta?, deltaLabel?, prefix?, suffix?, hint?, icon?, invertDelta?, className?, style? }` — `value` is ReactNode (can be number, string, or JSX) |
 | `StatGrid` | `{ stats?: {label, value, delta?, ...}[], columns?, minWidth?, gap?, children?, className? }` — pass `stats` array OR `children` (MetricCards) |
+| `StarRating` | `{ rating: number, max?, size?, color?, onChange?: (r: number) => void }` — **the value prop is `rating`, NOT `value`** (Radix/MUI convention). Seen in watchlist session `tsu_prog_watchlist_1776253112` — 18-iter regression on `<StarRating value={n} />` |
 
 **Rich widgets:** `Card`, `Avatar`, `StarRating`, `GlowCard`, `Parallax`, `AnimatedCounter`, `BeforeAfter`, `ColorPicker`, `Timeline`, `Kanban`, `AnnouncementBar`, `Marquee`, `TypeWriter`, `GradientText`, `ScrollReveal`, `Slideshow`, `RichTextEditor`, `FileManager`, `CommandPalette`, `Calendar`, `NotificationCenter`, `AudioPlayer`, `VideoPlayer`.
 
