@@ -66,6 +66,8 @@ Import from `./components/ui` — these are the only exports:
 - **Always provide `expect` to undertow** — describe what should render, not the implementation.
 - **Cleanup before adding.** If the scaffold has a "Welcome to React" header, remove it first; don't paste your content underneath it.
 - **After 3 failed `file_edit` attempts on the same file, switch to `file_write`.** Each partial edit deepens the mess (unclosed tags, half-removed imports). A clean rewrite compiles predictably.
+- **Don't re-read files you've already seen.** One `file_read` per file is enough — the contents are in your context. If a compile error names a line, fix it with `file_edit` against that line; don't `file_read` the whole file again to "check what's there." Re-reading the same file three times in a row is a stall loop that eats your iteration budget with zero progress — seen in pomodoro eval, session /tmp/tsu_prog_pomodoro_1776217864/ had 5 consecutive `file_read index.css` calls before timeout.
+- **When `tsc` reports an error at a specific line, use `file_edit` at that line.** Don't rewrite the whole file — rewrites generate new syntax errors in different places. Extract the error line number from the compile message, craft a focused `file_edit` with `old_text` matching the broken region and `new_text` fixing just that region.
 
 ## Design constraints (quality floor)
 
