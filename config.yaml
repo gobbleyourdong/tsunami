@@ -6,7 +6,7 @@ model_backend: api
 model_name: "tsunami"
 model_endpoint: "http://localhost:8090"
 temperature: 0.7
-max_tokens: 4096
+max_tokens: 8192
 
 # --- Eddies (same endpoint) ---
 eddy_endpoint: "http://localhost:8090"
