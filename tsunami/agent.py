@@ -271,7 +271,7 @@ class Agent:
                     build_status = "passes"
                 else:
                     build_status = "BROKEN"
-                    errors = [l.strip() for l in build.stderr.splitlines() if "Error" in l][:3]
+                    errors = [l.strip() for l in (build.stderr + "\n" + build.stdout).splitlines() if "error" in l.lower()][:3]
                     if errors:
                         build_errors = "\nBuild errors:\n" + "\n".join(f"  {e}" for e in errors)
             except Exception:
@@ -2185,7 +2185,7 @@ class Agent:
                                 capture_output=True, text=True, timeout=45,
                             )
                             if build.returncode != 0:
-                                errors = [l.strip() for l in build.stderr.splitlines() if "Error" in l][:3]
+                                errors = [l.strip() for l in (build.stderr + "\n" + build.stdout).splitlines() if "error" in l.lower()][:3]
                                 if errors:
                                     # Try deterministic fix first — don't bother the LLM
                                     from .error_fixer import try_auto_fix
@@ -2200,7 +2200,7 @@ class Agent:
                                         if build2.returncode == 0:
                                             log.info("Auto-compile: FIXED (deterministic recovery)")
                                         else:
-                                            errors2 = [l.strip() for l in build2.stderr.splitlines() if "Error" in l][:3]
+                                            errors2 = [l.strip() for l in (build2.stderr + "\n" + build2.stdout).splitlines() if "error" in l.lower()][:3]
                                             self.state.add_system_note(
                                                 f"COMPILE ERROR (auto-fix tried, still failing):\n" +
                                                 "\n".join(f"  {e}" for e in errors2)
@@ -2692,7 +2692,7 @@ class Agent:
                                     cwd=str(proj), capture_output=True, text=True, timeout=45,
                                 )
                                 if build.returncode != 0:
-                                    errors = [l.strip() for l in build.stderr.splitlines() if "Error" in l][:3]
+                                    errors = [l.strip() for l in (build.stderr + "\n" + build.stdout).splitlines() if "error" in l.lower()][:3]
                                     if errors:
                                         error_list = "\n".join(f"  - {e}" for e in errors)
                                         log.info(f"Swell compile gate: FAIL — {len(errors)} errors in {proj.name}")
