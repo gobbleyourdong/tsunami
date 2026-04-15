@@ -172,12 +172,22 @@ function processFile(filePath, uiExports) {
     if (!uiExports.has(tag) && !memberRoot.has(tag)) toPassthrough.push(tag)
   }
 
-  if (toImport.length === 0 && toPassthrough.length === 0) {
+  // Case 3: Existing UI import that uses "./components/ui" from a sub-file
+  // where that path is invalid. Normalize to the "@/components/ui" alias so
+  // the import resolves from any depth. (TS2307 "Cannot find module
+  // './components/ui'" from src/components/**.tsx.)
+  const uiImport = findUIImport(ast)
+  const needsPathRewrite = uiImport && uiImport.source.value !== "@/components/ui"
+
+  if (toImport.length === 0 && toPassthrough.length === 0 && !needsPathRewrite) {
     return { changed: false, imported: [], passthrough: [] }
   }
 
+  if (needsPathRewrite) {
+    uiImport.source.value = "@/components/ui"
+  }
+
   if (toImport.length > 0) {
-    const uiImport = findUIImport(ast)
     if (uiImport) {
       for (const name of toImport) {
         if (!hasSpecifier(uiImport, name)) {
@@ -185,9 +195,12 @@ function processFile(filePath, uiExports) {
         }
       }
     } else {
+      // Use the "@/" path alias (configured in tsconfig.json + vite.config.ts)
+      // so the import resolves correctly from any depth. "./components/ui"
+      // breaks from files inside src/components/** (TS2307).
       const newImport = t.importDeclaration(
         toImport.map((n) => t.importSpecifier(t.identifier(n), t.identifier(n))),
-        t.stringLiteral("./components/ui"),
+        t.stringLiteral("@/components/ui"),
       )
       ast.program.body.unshift(newImport)
     }
@@ -199,7 +212,7 @@ function processFile(filePath, uiExports) {
 
   const out = generate(ast, { retainLines: false, jsescOption: { minimal: true } }, source)
   writeFileSync(filePath, out.code)
-  return { changed: true, imported: toImport, passthrough: toPassthrough }
+  return { changed: true, imported: toImport, passthrough: toPassthrough, rewrotePath: needsPathRewrite }
 }
 
 function main() {
@@ -219,6 +232,7 @@ function main() {
         file: f.replace(PROJECT + "/", ""),
         imported: r.imported,
         passthrough: r.passthrough,
+        rewrotePath: r.rewrotePath,
       })
     }
   }
@@ -227,6 +241,7 @@ function main() {
       const parts = []
       if (r.imported.length) parts.push(`imported=${r.imported.join(",")}`)
       if (r.passthrough.length) parts.push(`passthrough=${r.passthrough.join(",")}`)
+      if (r.rewrotePath) parts.push(`rewrotePath=@/components/ui`)
       console.log(`[auto-import-ui] ${r.file}: ${parts.join(" ")}`)
     }
   }

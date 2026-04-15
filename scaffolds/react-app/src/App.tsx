@@ -1,14 +1,12 @@
-import "./index.css"
-import { useState } from 'react'
-import { Card, Button, Badge } from './components/ui'
+import "./index.css";
+import { useState } from 'react';
+import { Card, Button, Badge } from "@/components/ui";
 // Hooks available from './hooks': useLocalStorage, useDebounce, useMediaQuery,
 // useMobile, useInterval. Prefer them over rolling raw localStorage / setInterval.
 
 export default function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <div className="min-h-screen p-8 max-w-4xl mx-auto">
+  const [count, setCount] = useState(0);
+  return <div className="min-h-screen p-8 max-w-4xl mx-auto">
       <header className="mb-8">
         <h1 className="text-3xl font-bold">My App</h1>
         <p className="text-muted mt-2">TODO: Replace with your app content</p>
@@ -33,6 +31,5 @@ export default function App() {
           </p>
         </Card>
       </div>
-    </div>
-  )
+    </div>;
 }
