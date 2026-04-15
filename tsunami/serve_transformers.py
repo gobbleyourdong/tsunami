@@ -683,30 +683,41 @@ def main():
     else:
         device_map = "cpu"
 
-    log.info(f"Loading {args.model} on {device_map}...")
-    load_kwargs = dict(
-        torch_dtype=torch.bfloat16 if device_map != "cpu" else torch.float32,
-        device_map=device_map,
-        trust_remote_code=True,
-    )
-    if args.load_in_8bit:
-        from transformers import BitsAndBytesConfig
-        load_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
-        del load_kwargs["torch_dtype"]  # quantization handles dtype
-        log.info("Loading in 8-bit quantization")
-    elif args.load_in_4bit:
-        from transformers import BitsAndBytesConfig
-        load_kwargs["quantization_config"] = BitsAndBytesConfig(
-            load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16
+    # Pure-proxy mode: if --model is "none", skip loading a local LM entirely.
+    # The server runs as a FastAPI front end that forwards /v1/chat/completions
+    # to LLAMA_SERVER_URL and /v1/images/generate to SD_SERVER_URL. No VRAM for
+    # the LM, no transformers load time.
+    if args.model in ("none", "None", ""):
+        log.info("Model set to 'none' — running in pure-proxy mode (no local LM).")
+        log.info(f"  LLAMA_SERVER_URL={os.environ.get('LLAMA_SERVER_URL', '(unset)')}")
+        log.info(f"  SD_SERVER_URL={os.environ.get('SD_SERVER_URL', '(unset)')}")
+        processor = None
+        model = None
+    else:
+        log.info(f"Loading {args.model} on {device_map}...")
+        load_kwargs = dict(
+            torch_dtype=torch.bfloat16 if device_map != "cpu" else torch.float32,
+            device_map=device_map,
+            trust_remote_code=True,
         )
-        del load_kwargs["torch_dtype"]
-        log.info("Loading in 4-bit quantization")
-    processor = AutoProcessor.from_pretrained(args.model, trust_remote_code=True)
-    model = AutoModelForImageTextToText.from_pretrained(args.model, **load_kwargs)
-    log.info(f"Base model loaded on {model.device}")
+        if args.load_in_8bit:
+            from transformers import BitsAndBytesConfig
+            load_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
+            del load_kwargs["torch_dtype"]
+            log.info("Loading in 8-bit quantization")
+        elif args.load_in_4bit:
+            from transformers import BitsAndBytesConfig
+            load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16
+            )
+            del load_kwargs["torch_dtype"]
+            log.info("Loading in 4-bit quantization")
+        processor = AutoProcessor.from_pretrained(args.model, trust_remote_code=True)
+        model = AutoModelForImageTextToText.from_pretrained(args.model, **load_kwargs)
+        log.info(f"Base model loaded on {model.device}")
 
-    # Load LoRA adapter(s)
-    if args.adapter or args.adapters_dir:
+    # Load LoRA adapter(s) — only if we actually have a base model
+    if model is not None and (args.adapter or args.adapters_dir):
         from peft import PeftModel
 
         if args.adapter:

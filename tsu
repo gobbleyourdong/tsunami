@@ -48,92 +48,105 @@ case "${1:-}" in
     ;;
   kill|stop)
     echo "  Killing all Tsunami processes..."
-    # Kill model servers
-    for port in 8090 8092 8094; do
+    for port in 8090 8091 8092 3000 3002 3003 9876 9200; do
       lsof -ti:$port 2>/dev/null | xargs kill -9 2>/dev/null
     done
-    # Kill web services
-    for port in 3000 3002 3003 9876; do
-      lsof -ti:$port 2>/dev/null | xargs kill -9 2>/dev/null
-    done
-    # Kill any remaining tsunami/llama processes
     pkill -f "llama-server" 2>/dev/null
+    pkill -f "sd-server" 2>/dev/null
+    pkill -f "serve_transformers" 2>/dev/null
     pkill -f "tsunami" 2>/dev/null
-    pkill -f "serve_diffusion" 2>/dev/null
-    pkill -f "tsunami_daemon_start" 2>/dev/null
-    pkill -f "tsunami_server_start" 2>/dev/null
     echo "  ✓ All processes killed"
     exit 0
     ;;
 esac
 
-# Kill stale servers from previous runs
-for port in 3000 9876; do
+# Stale-port cleanup (per-tier).
+for port in 3000 9876 8090 8091 8092; do
   lsof -ti:$port 2>/dev/null | xargs kill -9 2>/dev/null
 done
 
-# Check model server
-check_model() { curl -sf http://localhost:8090/health > /dev/null 2>&1; }
+# ---------------------------------------------------------------------------
+# Three-tier inference stack:
+#   8091 — llama-server    (chat LM, Gemma-4-26B-A4B MXFP4 via llama.cpp)
+#   8092 — sd-server       (image gen, Z-Image-Turbo Q4_K via sd.cpp)
+#   8090 — tsunami proxy   (FastAPI front-end, forwards /v1/chat → 8091
+#                           and /v1/images → 8092; runs undertow/scaffolds)
+# ---------------------------------------------------------------------------
 
-if ! check_model; then
-  # Find llama-server — check common locations
-  LLAMA=""
-  for p in \
-    "$(which llama-server 2>/dev/null)" \
-    "$DIR/llama-server/llama-server" \
-    "$DIR/llama.cpp/build/bin/llama-server" \
-    "$HOME/tsunami/llama-server/llama-server" \
-    "$HOME/llama.cpp/build/bin/llama-server" \
-    "/usr/local/bin/llama-server"; do
-    [ -x "$p" ] && LLAMA="$p" && break
+# Binary discovery — installer drops these in bin/, or user has them in PATH,
+# or they built locally.
+find_bin() {
+  local name="$1"; shift
+  for p in "$(which "$name" 2>/dev/null)" "$@"; do
+    [ -n "$p" ] && [ -x "$p" ] && echo "$p" && return
   done
+}
+LLAMA_BIN=$(find_bin llama-server \
+  "$DIR/bin/llama-server" \
+  "$HOME/tsunami/llama-server/llama-server" \
+  "$HOME/llama.cpp/build/bin/llama-server" \
+  "/tmp/llamacpp/build/bin/llama-server")
+SD_BIN=$(find_bin sd-server \
+  "$DIR/bin/sd-server" \
+  "$HOME/tsunami/sd-server/sd-server" \
+  "$HOME/stable-diffusion.cpp/build/bin/sd-server" \
+  "/tmp/sdcpp/build/bin/sd-server")
 
-  # Detect available memory — VRAM if GPU, RAM otherwise
-  VRAM_GB=0
-  if command -v nvidia-smi &>/dev/null; then
-    VRAM_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')
-    [ -n "$VRAM_MB" ] && [ "$VRAM_MB" != "[N/A]" ] && VRAM_GB=$(( (VRAM_MB + 1023) / 1024 ))
-  fi
-  if [ "$VRAM_GB" -eq 0 ] 2>/dev/null; then
-    # No GPU or unified memory — use RAM
-    if [ "$(uname -s)" = "Darwin" ]; then
-      VRAM_GB=$(sysctl -n hw.memsize 2>/dev/null | awk '{print int($1/1073741824)}')
-    else
-      VRAM_GB=$(free -g 2>/dev/null | awk '/^Mem:/{print $2}')
-    fi
-  fi
-  VRAM_GB=${VRAM_GB:-8}
-  DEGRADED=false
-  if [ "$VRAM_GB" -lt 8 ] 2>/dev/null; then
-    DEGRADED=true
-    echo "  ${VRAM_GB}GB available — degraded mode (reduced context)"
-  else
-    echo "  ${VRAM_GB}GB available — full mode"
-  fi
+# Model discovery — honor $TSUNAMI_MODELS_DIR, else check common locations.
+MODELS_DIR="${TSUNAMI_MODELS_DIR:-$HOME/models_gguf}"
+[ -d "$MODELS_DIR" ] || MODELS_DIR="$DIR/models"
+GEMMA_MOE=$(ls "$MODELS_DIR"/gemma-4-26B-A4B*MXFP4*.gguf 2>/dev/null | head -1)
+MMPROJ=$(ls "$MODELS_DIR"/mmproj*.gguf 2>/dev/null | head -1)
+ZIMAGE=$(ls "$MODELS_DIR"/z_image*Q4*.gguf 2>/dev/null | head -1)
+VAE=$(ls "$MODELS_DIR"/ae.safetensors 2>/dev/null | head -1)
+QWEN_ENC=$(ls "$MODELS_DIR"/Qwen3-4B*Q4_K_M*.gguf 2>/dev/null | head -1)
 
-  # Model: Gemma 4 E4B (single model for all roles)
-  GEMMA_MODEL=$(ls models/gemma-4-E4B*.gguf 2>/dev/null | head -1)
-  # Fallback: any .gguf model
-  if [ -z "$GEMMA_MODEL" ]; then
-    GEMMA_MODEL=$(ls models/gemma*.gguf models/Qwen*.gguf 2>/dev/null | head -1)
-  fi
+echo "  models:"
+echo "    LM:  $(basename "${GEMMA_MOE:-(missing)}")"
+echo "    DiT: $(basename "${ZIMAGE:-(missing)}")"
 
-  if [ -n "$GEMMA_MODEL" ] && [ -f "$LLAMA" ]; then
-    CTX_SIZE=16384
-    [ "$DEGRADED" = "true" ] && CTX_SIZE=8192
-    echo "  starting $(basename $GEMMA_MODEL)"
-    "$LLAMA" --model "$GEMMA_MODEL" \
-      --host 0.0.0.0 --port 8090 \
-      --ctx-size $CTX_SIZE --parallel 2 --n-gpu-layers 99 -fa on \
-      > /tmp/llama-server.log 2>&1 &
-    MODEL_PID=$!
-  fi
-
-  if [ -n "$MODEL_PID" ]; then
-    echo "  waiting for model to load..."
-    for i in $(seq 1 120); do check_model && break; sleep 1; done
-  fi
+# --- Tier 1: llama-server on :8091 (chat) ---
+if [ -n "$LLAMA_BIN" ] && [ -n "$GEMMA_MOE" ] && ! curl -sf http://localhost:8091/health >/dev/null 2>&1; then
+  echo "  starting llama-server → :8091"
+  MMPROJ_ARG=""
+  [ -n "$MMPROJ" ] && MMPROJ_ARG="--mmproj $MMPROJ"
+  nohup "$LLAMA_BIN" -m "$GEMMA_MOE" $MMPROJ_ARG \
+    --port 8091 --host 0.0.0.0 -ngl 999 -c 32768 --jinja \
+    > /tmp/tsu-llama.log 2>&1 &
 fi
+
+# --- Tier 2: sd-server on :8092 (image gen) ---
+if [ -n "$SD_BIN" ] && [ -n "$ZIMAGE" ] && [ -n "$VAE" ] && [ -n "$QWEN_ENC" ] \
+   && ! curl -sf http://localhost:8092/ >/dev/null 2>&1; then
+  echo "  starting sd-server → :8092"
+  nohup "$SD_BIN" \
+    --diffusion-model "$ZIMAGE" --vae "$VAE" --llm "$QWEN_ENC" \
+    --listen-port 8092 --listen-ip 0.0.0.0 \
+    --diffusion-fa --cfg-scale 1.0 \
+    > /tmp/tsu-sd.log 2>&1 &
+fi
+
+# --- Tier 3: tsunami Python proxy on :8090 (forwards to tier 1/2, hosts undertow) ---
+check_proxy() { curl -sf http://localhost:8090/health >/dev/null 2>&1; }
+if ! check_proxy; then
+  echo "  starting tsunami proxy → :8090"
+  LLAMA_SERVER_URL=http://localhost:8091 \
+  SD_SERVER_URL=http://localhost:8092 \
+  PYTHONPATH="$DIR" \
+  nohup python3 -u "$DIR/tsunami/serve_transformers.py" \
+    --model none --image-model none \
+    --port 8090 --host 0.0.0.0 \
+    > /tmp/tsu-proxy.log 2>&1 &
+fi
+
+# Wait for all three tiers to come up (120s ceiling).
+echo "  waiting for stack..."
+for i in $(seq 1 120); do
+  curl -sf http://localhost:8091/health >/dev/null 2>&1 && \
+  curl -sf http://localhost:8092/ >/dev/null 2>&1 && \
+  check_proxy && break
+  sleep 1
+done
 
 # Start Python WebSocket backend if not running
 if ! curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
