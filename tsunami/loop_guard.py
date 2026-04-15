@@ -107,21 +107,40 @@ class LoopGuard:
         return LoopDetection(detected=False)
 
     def _suggest_break_action(self, stuck_tool: str) -> str:
-        """Suggest which tool to force based on what we're stuck on."""
+        """Suggest which tool to force based on what we're stuck on.
+
+        Project-aware: if project_init already happened (detected by looking at
+        earlier fingerprints), suggesting project_init again is useless —
+        model will either refuse or blow away work. In that case suggest
+        file_edit for read-loops and message_result for write-loops (which
+        usually indicates "task done, just ship it").
+        """
         read_tools = {"file_read", "match_grep", "match_glob", "file_list"}
         search_tools = {"search_web", "browser_navigate"}
 
-        if stuck_tool in read_tools or stuck_tool in search_tools:
-            # Stuck reading/searching → force building
+        # Detect whether project_init already ran — scan tool_names history.
+        project_already_init = "project_init" in self.tool_names
+
+        if stuck_tool in read_tools:
+            # Stuck re-reading files (common after tsc failures) — the model
+            # is looking for answers in source it's already seen. Force it
+            # to use file_edit to ACT on the error instead of looking more.
+            if project_already_init:
+                return "file_edit"
+            return "project_init"
+        elif stuck_tool in search_tools:
             return "project_init"
         elif stuck_tool == "shell_exec":
             # Stuck running commands → force writing code
             return "file_write"
         elif stuck_tool == "file_write":
-            # Stuck writing the same file → force build check
+            # Stuck writing the same file → force build check, OR if the
+            # model has already run builds, just ship what it has.
+            if "shell_exec" in self.tool_names:
+                return "message_result"
             return "shell_exec"
         else:
-            return "project_init"
+            return "project_init" if not project_already_init else "file_edit"
 
     def reset(self):
         """Reset after a successful delivery."""
