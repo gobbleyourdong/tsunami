@@ -8,7 +8,7 @@ interface GlowCardProps {
 }
 
 /** Card with a glow effect that follows the mouse cursor. */
-export default function GlowCard({ children, color = "var(--accent, #4a9eff)", style, className }: GlowCardProps) {
+export function GlowCard({ children, color = "var(--accent, #4a9eff)", style, className }: GlowCardProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: 0, y: 0 })
   const [hover, setHover] = useState(false)
@@ -55,3 +55,5 @@ export default function GlowCard({ children, color = "var(--accent, #4a9eff)", s
     </div>
   )
 }
+
+export default GlowCard

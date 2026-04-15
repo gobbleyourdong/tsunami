@@ -7,7 +7,7 @@ interface ProgressProps {
   className?: string
 }
 
-export default function Progress({ value, color, height = 6, showLabel = false, variant = "default", className }: ProgressProps) {
+export function Progress({ value, color, height = 6, showLabel = false, variant = "default", className }: ProgressProps) {
   const clamped = Math.max(0, Math.min(100, value))
   const bg = color || 'var(--accent, #4a9eff)'
 
@@ -44,3 +44,5 @@ export default function Progress({ value, color, height = 6, showLabel = false, 
     </div>
   )
 }
+
+export default Progress

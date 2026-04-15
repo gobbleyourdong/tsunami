@@ -19,7 +19,7 @@ function formatTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`
 }
 
-export default function AudioPlayer({ tracks, autoPlay = false, onTrackChange }: AudioPlayerProps) {
+export function AudioPlayer({ tracks, autoPlay = false, onTrackChange }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [playing, setPlaying] = useState(false)
@@ -179,3 +179,5 @@ export default function AudioPlayer({ tracks, autoPlay = false, onTrackChange }:
     </div>
   )
 }
+
+export default AudioPlayer

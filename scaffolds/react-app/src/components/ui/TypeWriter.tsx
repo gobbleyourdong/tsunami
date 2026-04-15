@@ -9,7 +9,7 @@ interface TypeWriterProps {
 }
 
 /** Typewriter effect — cycles through text strings. */
-export default function TypeWriter({ texts, speed = 60, pause = 2000, cursor = true, style }: TypeWriterProps) {
+export function TypeWriter({ texts, speed = 60, pause = 2000, cursor = true, style }: TypeWriterProps) {
   const [textIndex, setTextIndex] = useState(0)
   const [charIndex, setCharIndex] = useState(0)
   const [deleting, setDeleting] = useState(false)
@@ -40,3 +40,5 @@ export default function TypeWriter({ texts, speed = 60, pause = 2000, cursor = t
     </span>
   )
 }
+
+export default TypeWriter

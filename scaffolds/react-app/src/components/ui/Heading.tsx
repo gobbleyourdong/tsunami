@@ -14,7 +14,7 @@ const SIZE: Record<NonNullable<HeadingProps["size"]>, string> = {
   "3xl": "text-5xl",
 }
 
-export default function Heading({ level = 2, size = "lg", className = "", children, ...props }: HeadingProps) {
+export function Heading({ level = 2, size = "lg", className = "", children, ...props }: HeadingProps) {
   const Tag = `h${level}` as any
   return (
     <Tag className={`font-bold tracking-tight ${SIZE[size]} ${className}`} {...props}>
@@ -22,3 +22,5 @@ export default function Heading({ level = 2, size = "lg", className = "", childr
     </Tag>
   )
 }
+
+export default Heading

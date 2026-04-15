@@ -46,7 +46,7 @@ function resolveCssVar(v: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || v
 }
 
-export default function Chart({
+export function Chart({
   type = "line",
   data,
   height = 280,
@@ -130,3 +130,5 @@ export default function Chart({
     </div>
   )
 }
+
+export default Chart

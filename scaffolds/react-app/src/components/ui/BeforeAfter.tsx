@@ -7,7 +7,7 @@ interface BeforeAfterProps {
 }
 
 /** Drag slider to compare two images. */
-export default function BeforeAfter({ before, after, height = 400 }: BeforeAfterProps) {
+export function BeforeAfter({ before, after, height = 400 }: BeforeAfterProps) {
   const [pos, setPos] = useState(50)
   const ref = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
@@ -34,3 +34,5 @@ export default function BeforeAfter({ before, after, height = 400 }: BeforeAfter
     </div>
   )
 }
+
+export default BeforeAfter

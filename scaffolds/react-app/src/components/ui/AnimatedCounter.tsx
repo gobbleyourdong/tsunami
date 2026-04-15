@@ -11,7 +11,7 @@ interface AnimatedCounterProps {
 }
 
 /** Animated number counter — scrolls from 0 to value. */
-export default function AnimatedCounter({
+export function AnimatedCounter({
   value,
   duration = 1000,
   prefix = "",
@@ -49,3 +49,5 @@ export default function AnimatedCounter({
 
   return <span ref={ref} className={className} style={style}>{prefix}{formatted}{suffix}</span>
 }
+
+export default AnimatedCounter

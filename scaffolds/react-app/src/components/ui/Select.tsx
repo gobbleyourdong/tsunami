@@ -6,7 +6,7 @@ interface SelectProps {
   label?: string
 }
 
-export default function Select({ value, onChange, options, placeholder, label }: SelectProps) {
+export function Select({ value, onChange, options, placeholder, label }: SelectProps) {
   return (
     <div>
       {label && (
@@ -58,3 +58,5 @@ export default function Select({ value, onChange, options, placeholder, label }:
     </div>
   )
 }
+
+export default Select

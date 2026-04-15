@@ -9,7 +9,7 @@ interface AnnouncementBarProps {
 }
 
 /** Sticky announcement bar with optional countdown + dismiss. */
-export default function AnnouncementBar({ text, link, countdownTo, dismissable = true, variant = "default" }: AnnouncementBarProps) {
+export function AnnouncementBar({ text, link, countdownTo, dismissable = true, variant = "default" }: AnnouncementBarProps) {
   const [dismissed, setDismissed] = useState(false)
   const [countdown, setCountdown] = useState("")
 
@@ -43,3 +43,5 @@ export default function AnnouncementBar({ text, link, countdownTo, dismissable =
     </div>
   )
 }
+
+export default AnnouncementBar

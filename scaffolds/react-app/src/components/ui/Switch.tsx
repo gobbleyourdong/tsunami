@@ -5,7 +5,7 @@ interface SwitchProps {
   size?: "sm" | "md"
 }
 
-export default function Switch({ checked, onChange, label, size = "md" }: SwitchProps) {
+export function Switch({ checked, onChange, label, size = "md" }: SwitchProps) {
   const w = size === "sm" ? 36 : 44
   const h = size === "sm" ? 20 : 24
   const thumb = size === "sm" ? 16 : 20
@@ -39,3 +39,5 @@ export default function Switch({ checked, onChange, label, size = "md" }: Switch
     </label>
   )
 }
+
+export default Switch

@@ -10,7 +10,7 @@ interface ScrollRevealProps {
 }
 
 /** Reveal content on scroll into viewport. */
-export default function ScrollReveal({
+export function ScrollReveal({
   children,
   direction = "up",
   delay = 0,
@@ -55,3 +55,5 @@ export default function ScrollReveal({
     </div>
   )
 }
+
+export default ScrollReveal

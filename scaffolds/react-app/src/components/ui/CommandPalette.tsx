@@ -25,7 +25,7 @@ function fuzzyMatch(query: string, text: string): boolean {
   return qi === q.length
 }
 
-export default function CommandPalette({ commands, placeholder = "Type a command...", trigger = "k" }: CommandPaletteProps) {
+export function CommandPalette({ commands, placeholder = "Type a command...", trigger = "k" }: CommandPaletteProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [selected, setSelected] = useState(0)
@@ -156,3 +156,5 @@ export default function CommandPalette({ commands, placeholder = "Type a command
     </div>
   )
 }
+
+export default CommandPalette

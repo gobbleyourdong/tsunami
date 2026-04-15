@@ -23,7 +23,7 @@ interface StatGridProps {
   style?: React.CSSProperties
 }
 
-export default function StatGrid({
+export function StatGrid({
   stats,
   columns,
   minWidth = 220,
@@ -52,3 +52,5 @@ export default function StatGrid({
     </div>
   )
 }
+
+export default StatGrid

@@ -6,7 +6,7 @@ interface StarRatingProps {
   onChange?: (rating: number) => void
 }
 
-export default function StarRating({ rating, max = 5, size = 20, color = "#ffaa00", onChange }: StarRatingProps) {
+export function StarRating({ rating, max = 5, size = 20, color = "#ffaa00", onChange }: StarRatingProps) {
   return (
     <div style={{ display: "flex", gap: 2 }}>
       {Array.from({ length: max }, (_, i) => (
@@ -23,3 +23,5 @@ export default function StarRating({ rating, max = 5, size = 20, color = "#ffaa0
     </div>
   )
 }
+
+export default StarRating

@@ -5,7 +5,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: "sm" | "md" | "lg"
 }
 
-export default function Button({ variant = "primary", size = "md", className = "", children, ...props }: ButtonProps) {
+export function Button({ variant = "primary", size = "md", className = "", children, ...props }: ButtonProps) {
   const base = "rounded font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50"
   const variants = {
     primary: "bg-accent text-white hover:bg-accent/80",
@@ -22,3 +22,5 @@ export default function Button({ variant = "primary", size = "md", className = "
     </button>
   )
 }
+
+export default Button

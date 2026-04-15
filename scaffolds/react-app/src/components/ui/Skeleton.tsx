@@ -7,7 +7,7 @@ interface SkeletonProps {
   style?: React.CSSProperties
 }
 
-export default function Skeleton({ width = "100%", height = 20, radius = 6, circle, className = "", style }: SkeletonProps) {
+export function Skeleton({ width = "100%", height = 20, radius = 6, circle, className = "", style }: SkeletonProps) {
   const size = circle ? (typeof height === 'number' ? height : 40) : undefined
 
   return (
@@ -22,3 +22,5 @@ export default function Skeleton({ width = "100%", height = 20, radius = 6, circ
     />
   )
 }
+
+export default Skeleton

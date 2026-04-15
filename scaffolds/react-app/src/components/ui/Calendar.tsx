@@ -29,7 +29,7 @@ function formatDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function Calendar({ value, onChange, events = [], rangeStart, rangeEnd }: CalendarProps) {
+export function Calendar({ value, onChange, events = [], rangeStart, rangeEnd }: CalendarProps) {
   const today = new Date()
   const [viewYear, setViewYear] = useState(value?.getFullYear() ?? today.getFullYear())
   const [viewMonth, setViewMonth] = useState(value?.getMonth() ?? today.getMonth())
@@ -121,3 +121,5 @@ export default function Calendar({ value, onChange, events = [], rangeStart, ran
     </div>
   )
 }
+
+export default Calendar

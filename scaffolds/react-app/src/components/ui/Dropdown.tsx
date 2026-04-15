@@ -14,7 +14,7 @@ interface DropdownProps {
   align?: "left" | "right"
 }
 
-export default function Dropdown({ trigger, items, align = "right" }: DropdownProps) {
+export function Dropdown({ trigger, items, align = "right" }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -74,3 +74,5 @@ export default function Dropdown({ trigger, items, align = "right" }: DropdownPr
     </div>
   )
 }
+
+export default Dropdown

@@ -9,7 +9,7 @@ interface DialogProps {
   actions?: ReactNode
 }
 
-export default function Dialog({ open, onClose, title, description, children, actions }: DialogProps) {
+export function Dialog({ open, onClose, title, description, children, actions }: DialogProps) {
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -71,3 +71,5 @@ export default function Dialog({ open, onClose, title, description, children, ac
     </div>
   )
 }
+
+export default Dialog

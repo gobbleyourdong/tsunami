@@ -94,7 +94,7 @@ const POSITION_STYLES = {
   "bottom-left": { bottom: 16, left: 16 },
 } as const
 
-export default function NotificationCenter({ notifications, onDismiss, position = "top-right", maxVisible = 5 }: NotificationCenterProps) {
+export function NotificationCenter({ notifications, onDismiss, position = "top-right", maxVisible = 5 }: NotificationCenterProps) {
   const visible = notifications.slice(-maxVisible)
   const pos = POSITION_STYLES[position]
 
@@ -112,3 +112,5 @@ export default function NotificationCenter({ notifications, onDismiss, position 
     </div>
   )
 }
+
+export default NotificationCenter

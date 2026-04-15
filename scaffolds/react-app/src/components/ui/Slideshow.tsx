@@ -9,7 +9,7 @@ interface SlideshowProps {
 }
 
 /** Auto-advancing image slideshow with dots and arrows. */
-export default function Slideshow({ images, interval = 4000, height = 400, showDots = true, showArrows = true }: SlideshowProps) {
+export function Slideshow({ images, interval = 4000, height = 400, showDots = true, showArrows = true }: SlideshowProps) {
   const [current, setCurrent] = useState(0)
 
   useEffect(() => {
@@ -45,3 +45,5 @@ export default function Slideshow({ images, interval = 4000, height = 400, showD
     </div>
   )
 }
+
+export default Slideshow

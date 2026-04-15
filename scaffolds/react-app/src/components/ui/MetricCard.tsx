@@ -20,7 +20,7 @@ function formatDelta(n: number): string {
   return `${sign}${n.toFixed(1)}`
 }
 
-export default function MetricCard({
+export function MetricCard({
   label,
   value,
   delta,
@@ -130,3 +130,5 @@ export default function MetricCard({
     </div>
   )
 }
+
+export default MetricCard

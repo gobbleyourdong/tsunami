@@ -12,7 +12,7 @@ const DEFAULT_PRESETS = [
   "#21252f", "#08090d",
 ]
 
-export default function ColorPicker({ value, onChange, presets = DEFAULT_PRESETS }: ColorPickerProps) {
+export function ColorPicker({ value, onChange, presets = DEFAULT_PRESETS }: ColorPickerProps) {
   const [show, setShow] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -79,3 +79,5 @@ export default function ColorPicker({ value, onChange, presets = DEFAULT_PRESETS
     </div>
   )
 }
+
+export default ColorPicker

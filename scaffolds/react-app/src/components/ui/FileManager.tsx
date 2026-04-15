@@ -81,7 +81,7 @@ function FileTree({ node, path, depth, onSelect, onRename, onDelete }: {
   )
 }
 
-export default function FileManager({ files, onSelect, onRename, onDelete, onUpload }: FileManagerProps) {
+export function FileManager({ files, onSelect, onRename, onDelete, onUpload }: FileManagerProps) {
   const [dragOver, setDragOver] = useState(false)
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -126,3 +126,5 @@ export default function FileManager({ files, onSelect, onRename, onDelete, onUpl
     </div>
   )
 }
+
+export default FileManager

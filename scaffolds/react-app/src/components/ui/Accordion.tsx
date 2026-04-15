@@ -10,7 +10,7 @@ interface AccordionProps {
   multiple?: boolean
 }
 
-export default function Accordion({ items, multiple = false }: AccordionProps) {
+export function Accordion({ items, multiple = false }: AccordionProps) {
   const [open, setOpen] = useState<Set<number>>(new Set())
 
   const toggle = (i: number) => {
@@ -76,3 +76,5 @@ export default function Accordion({ items, multiple = false }: AccordionProps) {
     </div>
   )
 }
+
+export default Accordion

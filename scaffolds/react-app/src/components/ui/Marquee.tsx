@@ -8,7 +8,7 @@ interface MarqueeProps {
 }
 
 /** CSS-only infinite scrolling marquee — logos, testimonials, etc. */
-export default function Marquee({ children, speed = 20, direction = "left", pauseOnHover = true }: MarqueeProps) {
+export function Marquee({ children, speed = 20, direction = "left", pauseOnHover = true }: MarqueeProps) {
   const dir = direction === "left" ? "marquee-left" : "marquee-right"
 
   return (
@@ -30,3 +30,5 @@ export default function Marquee({ children, speed = 20, direction = "left", paus
     </div>
   )
 }
+
+export default Marquee

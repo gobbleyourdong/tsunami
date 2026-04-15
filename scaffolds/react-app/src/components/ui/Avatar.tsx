@@ -6,7 +6,7 @@ interface AvatarProps {
   className?: string
 }
 
-export default function Avatar({ src, name = "?", size = 40, color = "var(--accent)", className }: AvatarProps) {
+export function Avatar({ src, name = "?", size = 40, color = "var(--accent)", className }: AvatarProps) {
   const initials = name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)
 
   if (src) {
@@ -24,3 +24,5 @@ export default function Avatar({ src, name = "?", size = 40, color = "var(--acce
     </div>
   )
 }
+
+export default Avatar

@@ -16,7 +16,7 @@ interface KanbanProps {
   onMove?: (cardId: string, fromCol: string, toCol: string) => void
 }
 
-export default function Kanban({ columns, onMove }: KanbanProps) {
+export function Kanban({ columns, onMove }: KanbanProps) {
   return (
     <div style={{ display: 'flex', gap: 14, overflow: 'auto', minHeight: 400, padding: '2px 0' }}>
       {columns.map((col, ci) => (
@@ -108,3 +108,5 @@ export default function Kanban({ columns, onMove }: KanbanProps) {
     </div>
   )
 }
+
+export default Kanban

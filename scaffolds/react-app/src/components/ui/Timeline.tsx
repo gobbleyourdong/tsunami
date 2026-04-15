@@ -12,7 +12,7 @@ interface TimelineProps {
   items: TimelineItem[]
 }
 
-export default function Timeline({ items }: TimelineProps) {
+export function Timeline({ items }: TimelineProps) {
   return (
     <div style={{ position: 'relative', paddingLeft: 36 }}>
       {/* Vertical line */}
@@ -57,3 +57,5 @@ export default function Timeline({ items }: TimelineProps) {
     </div>
   )
 }
+
+export default Timeline

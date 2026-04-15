@@ -9,7 +9,7 @@ interface ScrollAreaProps extends React.HTMLAttributes<HTMLDivElement> {
  * Scrollable container with styled thin scrollbars that match the design
  * system (see ::-webkit-scrollbar rules in index.css). shadcn/Radix convention.
  */
-export default function ScrollArea({
+export function ScrollArea({
   maxHeight = 400,
   orientation = "vertical",
   className = "",
@@ -40,3 +40,5 @@ export default function ScrollArea({
     </div>
   )
 }
+
+export default ScrollArea

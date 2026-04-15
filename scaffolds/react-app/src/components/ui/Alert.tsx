@@ -15,7 +15,7 @@ const config = {
   error:   { color: 'var(--danger, #f06060)',  bg: 'rgba(240, 96, 96, 0.08)',  border: 'rgba(240, 96, 96, 0.2)',   icon: '✕' },
 }
 
-export default function Alert({ type = "info", title, children, onDismiss, className }: AlertProps) {
+export function Alert({ type = "info", title, children, onDismiss, className }: AlertProps) {
   const c = config[type]
   return (
     <div className={className} style={{
@@ -53,3 +53,5 @@ export default function Alert({ type = "info", title, children, onDismiss, class
     </div>
   )
 }
+
+export default Alert

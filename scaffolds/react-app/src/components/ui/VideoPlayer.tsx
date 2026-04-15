@@ -17,7 +17,7 @@ function formatTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`
 }
 
-export default function VideoPlayer({ src, poster, autoPlay = false, loop = false, subtitles = [], onTimeUpdate }: VideoPlayerProps) {
+export function VideoPlayer({ src, poster, autoPlay = false, loop = false, subtitles = [], onTimeUpdate }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [playing, setPlaying] = useState(false)
@@ -156,3 +156,5 @@ export default function VideoPlayer({ src, poster, autoPlay = false, loop = fals
     </div>
   )
 }
+
+export default VideoPlayer

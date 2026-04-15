@@ -9,7 +9,7 @@ interface GradientTextProps {
   style?: React.CSSProperties
 }
 
-export default function GradientText({
+export function GradientText({
   children,
   from = "#4a9eff",
   to = "#60a0f0",
@@ -36,3 +36,5 @@ export default function GradientText({
     </span>
   )
 }
+
+export default GradientText

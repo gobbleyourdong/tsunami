@@ -8,7 +8,7 @@ interface FlexProps extends React.HTMLAttributes<HTMLDivElement> {
   wrap?: boolean
 }
 
-export default function Flex({
+export function Flex({
   direction = "row",
   align,
   justify,
@@ -35,3 +35,5 @@ export default function Flex({
     </div>
   )
 }
+
+export default Flex

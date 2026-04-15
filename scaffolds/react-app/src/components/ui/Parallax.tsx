@@ -7,7 +7,7 @@ interface ParallaxProps {
 }
 
 /** Parallax scrolling section — content moves at a different speed than scroll. */
-export default function Parallax({ children, speed = 0.5, style }: ParallaxProps) {
+export function Parallax({ children, speed = 0.5, style }: ParallaxProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [offset, setOffset] = useState(0)
 
@@ -32,3 +32,5 @@ export default function Parallax({ children, speed = 0.5, style }: ParallaxProps
     </div>
   )
 }
+
+export default Parallax

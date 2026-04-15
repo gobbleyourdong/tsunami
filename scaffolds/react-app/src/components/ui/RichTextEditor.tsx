@@ -20,7 +20,7 @@ const TOOLBAR_BUTTONS = [
   { cmd: "removeFormat", icon: "✕", title: "Clear formatting" },
 ] as const
 
-export default function RichTextEditor({ value = "", onChange, placeholder = "Start typing...", minHeight = 200 }: RichTextEditorProps) {
+export function RichTextEditor({ value = "", onChange, placeholder = "Start typing...", minHeight = 200 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const [focused, setFocused] = useState(false)
 
@@ -88,3 +88,5 @@ export default function RichTextEditor({ value = "", onChange, placeholder = "St
     </div>
   )
 }
+
+export default RichTextEditor

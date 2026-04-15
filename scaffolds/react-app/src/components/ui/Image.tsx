@@ -4,6 +4,8 @@ interface ImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   alt?: string
 }
 
-export default function Image({ alt = "", className = "", ...props }: ImageProps) {
+export function Image({ alt = "", className = "", ...props }: ImageProps) {
   return <img alt={alt} className={className} {...props} />
 }
+
+export default Image

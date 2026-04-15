@@ -13,7 +13,7 @@ const positions = {
   right:  { left: 'calc(100% + 8px)', top: '50%', transform: 'translateY(-50%)' },
 } as const
 
-export default function Tooltip({ text, children, position = "top" }: TooltipProps) {
+export function Tooltip({ text, children, position = "top" }: TooltipProps) {
   const [show, setShow] = useState(false)
 
   return (
@@ -46,3 +46,5 @@ export default function Tooltip({ text, children, position = "top" }: TooltipPro
     </div>
   )
 }
+
+export default Tooltip
