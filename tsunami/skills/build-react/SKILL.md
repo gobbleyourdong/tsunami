@@ -53,6 +53,15 @@ Import from `./components/ui` — these are the only exports:
 
 **Interactive:** `Button`, `Input`, `Select`, `Switch`, `Dropdown`, `Dialog`, `Tooltip`, `Accordion`, `Alert`, `Badge`, `Progress`, `Skeleton`.
 
+**Prop signatures** (scaffold APIs — NOT Radix/shadcn/Headless conventions). Getting these wrong triggers TS2322 and a fix-loop that burns 4+ iters — seen in chiptune session `tsu_prog_chiptune_1776231968`:
+
+| Component | Props |
+|---|---|
+| `Switch` | `{ checked: boolean, onChange: (b: boolean) => void, label?, size? }` — **NOT** `onCheckedChange` (Radix) or `onValueChange` |
+| `Select` | `{ value: string, onChange: (v: string) => void, options: {value, label}[], placeholder?, label? }` — **NOT** `onValueChange`, and options are objects, not children |
+| `Dialog` | `{ open: boolean, onClose: () => void, title?, description?, children? }` — **NOT** `onOpenChange` |
+| `Dropdown` | `{ items: {label, onClick, icon?, danger?, divider?}[], children? }` — items as array, trigger as children |
+
 **Rich widgets:** `Card`, `Avatar`, `StarRating`, `GlowCard`, `Parallax`, `AnimatedCounter`, `BeforeAfter`, `ColorPicker`, `Timeline`, `Kanban`, `AnnouncementBar`, `Marquee`, `TypeWriter`, `GradientText`, `ScrollReveal`, `Slideshow`, `RichTextEditor`, `FileManager`, `CommandPalette`, `Calendar`, `NotificationCenter`, `AudioPlayer`, `VideoPlayer`.
 
 **If you need anything else** (e.g. a tab bar, a table, a menubar): use raw HTML + Tailwind, don't import a name you haven't seen above. The scaffold has no `Tabs`, `Table`, `Menu`, `Drawer`, `Sheet`, `Popover`, `Carousel`, `Slider`, `Checkbox`, `Radio`, `Form`, `Label`, `Separator`, `Spinner`, `Pagination`. Build them from `<div>` / `<button>` / `<input>` + classes.
