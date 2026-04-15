@@ -168,14 +168,29 @@ class TsunamiModel:
                     args = json.loads(args)
                 except json.JSONDecodeError:
                     import re as _re
+                    # Truncated-JSON recovery. Common pattern with large writes
+                    # (Gemma-4-26B on llama-server emits {"content": "6KB...",
+                    # "path": "..."} — the content string overflows the
+                    # tool-call buffer before `path` is written). Extract what
+                    # we can; if path is missing the agent's path-inference
+                    # guard (agent.py:1497) fills it from the active project.
                     path_m = _re.search(r'"path"\s*:\s*"([^"]+)"', args)
                     content_m = _re.search(r'"content"\s*:\s*"(.*)', args, _re.DOTALL)
-                    if path_m and content_m:
+                    recovered: dict = {}
+                    if content_m:
                         raw_content = content_m.group(1)
                         raw_content = raw_content.rstrip().rstrip('}"').rstrip()
                         raw_content = raw_content.replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
-                        args = {"path": path_m.group(1), "content": raw_content}
-                        log.info(f"Recovered malformed JSON args: path={path_m.group(1)} content_len={len(raw_content)}")
+                        recovered["content"] = raw_content
+                    if path_m:
+                        recovered["path"] = path_m.group(1)
+                    if recovered:
+                        log.info(
+                            f"Recovered malformed JSON args: "
+                            f"{'path=' + recovered['path'] + ' ' if 'path' in recovered else ''}"
+                            f"{'content_len=' + str(len(recovered['content'])) if 'content' in recovered else ''}"
+                        )
+                        args = recovered
                     else:
                         log.warning(f"Failed to parse tool args JSON: {args[:200]}")
                         args = {}
