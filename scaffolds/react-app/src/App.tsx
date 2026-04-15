@@ -1,6 +1,8 @@
 import "./index.css"
 import { useState } from 'react'
 import { Card, Button, Badge } from './components/ui'
+// Hooks available from './hooks': useLocalStorage, useDebounce, useMediaQuery,
+// useMobile, useInterval. Prefer them over rolling raw localStorage / setInterval.
 
 export default function App() {
   const [count, setCount] = useState(0)

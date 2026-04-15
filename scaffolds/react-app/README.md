@@ -61,6 +61,17 @@ Build: `npx vite build`
 | ScrollReveal | Fade-in on scroll |
 | Slideshow | Image carousel |
 
+## Available Hooks (import from `./hooks`)
+| Hook | What | Example |
+|------|------|---------|
+| useLocalStorage | Persist state to localStorage, syncs across tabs | `const [tasks, setTasks] = useLocalStorage<Task[]>("tasks", [])` |
+| useDebounce | Debounce a value (e.g. search input) | `const debouncedQuery = useDebounce(query, 300)` |
+| useMediaQuery | Reactive media query match | `const isDark = useMediaQuery("(prefers-color-scheme: dark)")` |
+| useMobile | Reactive mobile viewport match | `const isMobile = useMobile()` |
+| useInterval | Declarative setInterval (null to pause). Use for timers/pollers — NEVER roll raw setInterval+useRef | `useInterval(() => tick(), running ? 1000 : null)` |
+
+**Prefer these hooks over rolling your own** — they handle cleanup, cross-tab sync, and stale-closure bugs correctly. Reach for `useLocalStorage` before writing `localStorage.getItem`, and `useInterval` before writing `setInterval` + `clearInterval` + `useRef`.
+
 ## Rules
 - Don't overwrite `main.tsx`, `vite.config.ts`, or `index.css`
 - Write your components in `src/components/`
