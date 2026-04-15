@@ -71,3 +71,4 @@ Only AFTER auth works. Otherwise you'll rebuild when auth assumptions change.
   <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
   ```
   Don't invent alternative patterns; this one works.
+- **Always import UI from the barrel `./components/ui`, never a direct subpath.** Subpaths like `./components/ui/Button` fail because the components only have `export default`, no named export — `import { Button } from "./components/ui/Button"` triggers TS2307. Also, from inside `src/components/Layout.tsx`, the correct relative path is `./ui` or `../components/ui`, not `./components/ui` (that path is wrong from inside `components/`). Lunchvote session `tsu_prog_lunchvote_1776246326` regressed 20 iters on this exact mistake. Pattern that always works from any file under `src/`: `import { Button, Card, Input } from "@/components/ui"` (the `@` alias is configured in vite.config.ts).
