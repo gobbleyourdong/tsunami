@@ -41,8 +41,13 @@ class LoopDetection:
 
 
 def _fingerprint(tool_name: str, args: dict) -> str:
-    """Hash a tool call for dedup detection."""
-    args_str = str(sorted(args.items()))[:200]
+    """Hash a tool call for dedup detection. Hashes the FULL args — truncating
+    misfires on file_write/file_edit where successive rewrites share the first
+    200 chars (path + `import React...`) but have substantially different
+    bodies. Pomodoro eval pre-fix: three ~180-line App.tsx rewrites with
+    different internal logic all hashed identical, tripping the 3x hard-loop
+    and killing the run at 600s. md5 on 6 KB of args is trivially cheap."""
+    args_str = str(sorted(args.items()))
     return hashlib.md5(f"{tool_name}:{args_str}".encode()).hexdigest()[:12]
 
 
