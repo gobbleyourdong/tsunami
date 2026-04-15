@@ -5,13 +5,23 @@ interface AnimatedCounterProps {
   duration?: number  // ms
   prefix?: string
   suffix?: string
+  precision?: number  // decimal places
+  className?: string
   style?: React.CSSProperties
 }
 
 /** Animated number counter — scrolls from 0 to value. */
-export default function AnimatedCounter({ value, duration = 1000, prefix = "", suffix = "", style }: AnimatedCounterProps) {
+export default function AnimatedCounter({
+  value,
+  duration = 1000,
+  prefix = "",
+  suffix = "",
+  precision = 0,
+  className = "",
+  style,
+}: AnimatedCounterProps) {
   const [display, setDisplay] = useState(0)
-  const ref = useRef<HTMLDivElement>(null)
+  const ref = useRef<HTMLSpanElement>(null)
   const started = useRef(false)
 
   useEffect(() => {
@@ -22,8 +32,9 @@ export default function AnimatedCounter({ value, duration = 1000, prefix = "", s
         const animate = (now: number) => {
           const progress = Math.min((now - start) / duration, 1)
           const eased = 1 - Math.pow(1 - progress, 3)  // ease-out cubic
-          setDisplay(Math.round(eased * value))
+          setDisplay(eased * value)
           if (progress < 1) requestAnimationFrame(animate)
+          else setDisplay(value)
         }
         requestAnimationFrame(animate)
       }
@@ -32,5 +43,9 @@ export default function AnimatedCounter({ value, duration = 1000, prefix = "", s
     return () => observer.disconnect()
   }, [value, duration])
 
-  return <span ref={ref} style={style}>{prefix}{display.toLocaleString()}{suffix}</span>
+  const formatted = precision > 0
+    ? display.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision })
+    : Math.round(display).toLocaleString()
+
+  return <span ref={ref} className={className} style={style}>{prefix}{formatted}{suffix}</span>
 }
