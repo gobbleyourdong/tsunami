@@ -2206,8 +2206,40 @@ class Agent:
                                                 "\n".join(f"  {e}" for e in errors2)
                                             )
                                     else:
+                                        # Include surrounding source context so the model can
+                                        # file_edit directly without re-reading the file. Parse
+                                        # "src/App.tsx(163,6): error TSNNNN: msg" into (path,
+                                        # line, message) then pull ±3 lines from the file.
+                                        import re as _re
+                                        err_re = _re.compile(
+                                            r"^(?:.*?)(?P<path>[\w./-]+?)\((?P<line>\d+),\d+\):\s*(?P<msg>.*)$"
+                                        )
+                                        enriched = []
+                                        for e in errors:
+                                            m = err_re.match(e)
+                                            if not m:
+                                                enriched.append(e); continue
+                                            rel_path = m.group("path")
+                                            ln = int(m.group("line"))
+                                            src_file = project_dir / rel_path
+                                            snippet = ""
+                                            try:
+                                                lines = src_file.read_text().splitlines()
+                                                lo = max(0, ln - 4)
+                                                hi = min(len(lines), ln + 3)
+                                                snippet = "\n".join(
+                                                    f"    {i+1:4d} | {lines[i]}"
+                                                    + ("  ← HERE" if i + 1 == ln else "")
+                                                    for i in range(lo, hi)
+                                                )
+                                            except Exception:
+                                                pass
+                                            enriched.append(f"{e}\n{snippet}" if snippet else e)
                                         self.state.add_system_note(
-                                            f"COMPILE ERROR:\n" + "\n".join(f"  {e}" for e in errors)
+                                            "COMPILE ERROR — use file_edit on the specific line "
+                                            "shown below (do NOT file_read or file_write the whole "
+                                            "file, target the exact broken region):\n\n"
+                                            + "\n\n".join(enriched)
                                         )
                                         log.info(f"Auto-compile: FAIL ({len(errors)} errors)")
                             else:
