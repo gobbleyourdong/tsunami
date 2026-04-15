@@ -1,7 +1,10 @@
 import { ReactNode } from "react"
 
+type AlertKind = "info" | "success" | "warning" | "error" | "default" | "destructive"
+
 interface AlertProps {
-  type?: "info" | "success" | "warning" | "error"
+  type?: AlertKind
+  variant?: AlertKind  // shadcn-convention alias for `type`
   title?: string
   children: ReactNode
   onDismiss?: () => void
@@ -15,8 +18,14 @@ const config = {
   error:   { color: 'var(--danger, #f06060)',  bg: 'rgba(240, 96, 96, 0.08)',  border: 'rgba(240, 96, 96, 0.2)',   icon: '✕' },
 }
 
-export function Alert({ type = "info", title, children, onDismiss, className }: AlertProps) {
-  const c = config[type]
+const ALIAS: Record<AlertKind, keyof typeof config> = {
+  info: "info", success: "success", warning: "warning", error: "error",
+  default: "info", destructive: "error",
+}
+
+export function Alert({ type, variant, title, children, onDismiss, className }: AlertProps) {
+  const kind = variant ?? type ?? "info"
+  const c = config[ALIAS[kind]]
   return (
     <div className={className} style={{
       display: 'flex', gap: 12, alignItems: 'flex-start',
