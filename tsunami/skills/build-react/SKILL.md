@@ -61,6 +61,9 @@ Import from `./components/ui` — these are the only exports:
 | `Select` | `{ value: string, onChange: (v: string) => void, options: {value, label}[], placeholder?, label? }` — **NOT** `onValueChange`, and options are objects, not children |
 | `Dialog` | `{ open: boolean, onClose: () => void, title?, description?, children? }` — **NOT** `onOpenChange` |
 | `Dropdown` | `{ items: {label, onClick, icon?, danger?, divider?}[], children? }` — items as array, trigger as children |
+| `Chart` | `{ type?: "line"\|"bar"\|"pie", data: {x: string\|number, y: number}[], height?, color?, palette?, showGrid?, showLegend?, showTooltip? }` — **data MUST be `{x, y}[]` objects** — `{value: n}[]` / `number[]` / `{name, count}[]` all fail TS2739. Map first: `data.map(p => ({x: p.name, y: p.count}))`. Seen in crypto session `tsu_prog_crypto_1776237712` — 21-iter regression |
+| `MetricCard` | `{ label, value, delta?, deltaLabel?, prefix?, suffix?, hint?, icon?, invertDelta?, className?, style? }` — `value` is ReactNode (can be number, string, or JSX) |
+| `StatGrid` | `{ stats?: {label, value, delta?, ...}[], columns?, minWidth?, gap?, children?, className? }` — pass `stats` array OR `children` (MetricCards) |
 
 **Rich widgets:** `Card`, `Avatar`, `StarRating`, `GlowCard`, `Parallax`, `AnimatedCounter`, `BeforeAfter`, `ColorPicker`, `Timeline`, `Kanban`, `AnnouncementBar`, `Marquee`, `TypeWriter`, `GradientText`, `ScrollReveal`, `Slideshow`, `RichTextEditor`, `FileManager`, `CommandPalette`, `Calendar`, `NotificationCenter`, `AudioPlayer`, `VideoPlayer`.
 
