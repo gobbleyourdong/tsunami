@@ -167,11 +167,11 @@ def run_workflow(img: Image.Image, kind: str, **overrides) -> tuple[Image.Image,
     """Apply a named workflow to a generated image.
 
     Workflows:
-      scene   — pass-through (no post-processing)
-      banner  — pixelize @ 120 rows, 32 colors, 8× upscale
-      logo    — extract_bg only (transparent PNG, no pixelization, keep_largest_only=False so wordmarks survive)
-      icon    — extract_bg only (transparent PNG, no pixelization, keep_largest_only=True single-subject)
-      sprite  — extract_bg + pixelize @ 64 rows, 16 colors, 8× upscale (the only workflow that pixelizes after bg extract)
+      scene    — pass-through (no post-processing)
+      pixelize — gen → pixelize @ 270 rows, 32 colors, 4× upscale (270p pixel-art look)
+      logo     — extract_bg only (transparent PNG, keep_largest_only=False so wordmarks survive)
+      icon     — extract_bg only (transparent PNG, keep_largest_only=True single-subject)
+      sprite   — extract_bg + pixelize @ 64 rows, 16 colors, 8× upscale (only workflow combining both)
 
     `overrides` lets callers tune any pipeline knob:
       pixel_rows, palette, upscale, bg_color, fringe_tolerance,
@@ -186,9 +186,9 @@ def run_workflow(img: Image.Image, kind: str, **overrides) -> tuple[Image.Image,
     # Canonical-size table is in the module docstring at the top.
     presets = {
         "scene":       {},
-        # banner: 270p (Hyper-Light-Drifter base, 480×270, 4× scale to 1080p).
+        # pixelize: 270p (Hyper-Light-Drifter base, 480×270, 4× scale to 1080p).
         # Sweet spot for text legibility + obvious pixel-art feel.
-        "banner":      {"pixel_rows": 270, "palette": 32, "upscale": 4},
+        "pixelize":    {"pixel_rows": 270, "palette": 32, "upscale": 4},
         "logo":        {"keep_largest_only": False},
         # sprite: 64×64 — HD-tier sprite. Use SQUARE source (gen at 1024²).
         # 8× upscale → 512×512 final. Drop to pixel_rows=32 for standard sprite.
@@ -205,7 +205,7 @@ def run_workflow(img: Image.Image, kind: str, **overrides) -> tuple[Image.Image,
 
     params = {**presets[kind], **overrides}
     needs_bg = kind in ("logo", "icon", "sprite") or "bg_color" in overrides
-    needs_px = kind in ("banner", "sprite")
+    needs_px = kind in ("pixelize", "sprite")
 
     out = img
     if needs_bg:

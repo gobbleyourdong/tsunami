@@ -66,13 +66,13 @@ PE_SYSTEM_PROMPT = (
 
 # Per-workflow gen-side defaults: model + sampler. The Turbo class is the
 # everyday driver (8 steps, ~20s, "good enough" for icons/sprites/logos
-# and a draft of any banner). Infographic is the keeper class — Base DiT
-# at 50 steps, ~4 min, dramatically better LAYOUT and reliable text
-# rendering of dense compound strings. Caller can still override any of
-# these per-request.
+# and a draft of any pixelized scene). Infographic is the keeper class —
+# Base DiT at 50 steps, ~4 min, dramatically better LAYOUT and reliable
+# text rendering of dense compound strings. Caller can still override any
+# of these per-request.
 WORKFLOW_GEN_DEFAULTS = {
     "scene":       {"model_kind": "Turbo", "steps": 8,  "cfg": 1.0},
-    "banner":      {"model_kind": "Turbo", "steps": 8,  "cfg": 1.0},
+    "pixelize":    {"model_kind": "Turbo", "steps": 8,  "cfg": 1.0},
     "logo":        {"model_kind": "Turbo", "steps": 8,  "cfg": 1.0},
     "sprite":      {"model_kind": "Turbo", "steps": 8,  "cfg": 1.0},
     "icon":        {"model_kind": "Turbo", "steps": 8,  "cfg": 1.0},
@@ -144,8 +144,8 @@ class ExtractBgRequest(ImageInput):
 
 class WorkflowRequest(GenRequest):
     """Compose gen + post-processing in one call.
-    `kind` selects pipeline: scene | banner | logo | sprite | icon."""
-    kind: str = Field("scene", description="scene|banner|logo|sprite|icon")
+    `kind` selects pipeline: scene | pixelize | logo | icon | sprite | infographic."""
+    kind: str = Field("scene", description="scene|pixelize|logo|icon|sprite|infographic")
     # Optional overrides for any post-processing knob
     overrides: dict = Field(default_factory=dict)
 
@@ -431,11 +431,15 @@ async def workflow(kind: str, req: WorkflowRequest):
     """Gen + (optional) extract_bg + (optional) pixelize, gated by kind:
 
       scene       = Turbo gen only (raw cartoon, ~20s)
-      banner      = Turbo gen → pixelize(120 rows, 32 colors, 8× upscale)
+      pixelize    = Turbo gen → pixelize(270 rows, 32 colors, 4× upscale) — pixel-art look
       logo        = Turbo gen → extract_bg (transparent PNG; keep_largest_only=False for wordmarks)
       icon        = Turbo gen → extract_bg (transparent PNG; keep_largest_only=True single-subject)
-      sprite      = Turbo gen → extract_bg → pixelize(64 rows, 16 colors, 8×) — only workflow that pixelizes after bg-extract
+      sprite      = Turbo gen → extract_bg → pixelize(64 rows, 16 colors, 8×) — only workflow that combines both
       infographic = BASE gen (50 steps, cfg=4.0, ~4 min) — keeper-quality
+
+    For pixelizing an existing image (photo or generated output), POST to
+    /v1/images/pixelize directly instead — this /v1/workflows/pixelize route
+    is the gen+pixelize composed version.
                     layout + reliable text rendering. No post-processing.
 
     Per-request `model_kind`, `num_inference_steps`, `guidance_scale` overrides
