@@ -147,7 +147,7 @@ class TestLogFormat:
     def test_src_in_log(self, caplog):
         import logging
 
-        caplog.set_level(logging.WARNING, logger="tsunami.wilson_loop")
+        caplog.set_level(logging.INFO, logger="tsunami.wilson_loop")
         w = WilsonLoop(goal_anchor="counter")
         w.probe(15, "counter increment")
         assert any("src=tokens" in rec.message for rec in caplog.records), (

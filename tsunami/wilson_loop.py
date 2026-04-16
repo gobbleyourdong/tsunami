@@ -238,7 +238,7 @@ class WilsonLoop:
                 # Null out so probe() skips embed attempts entirely — avoids
                 # repeated 2s timeouts per probe when the server is down.
                 self.embedding_endpoint = None
-        log.warning(
+        log.info(
             f"wilson_loop: anchored on {len(self._anchor_tokens)} content tokens "
             f"(probe_every={self.probe_every}, drift_threshold={self.drift_threshold}, "
             f"embed={'on' if self._anchor_embed is not None else 'off'})"
@@ -281,11 +281,7 @@ class WilsonLoop:
             src=src,
         )
         self._probes.append(p)
-        # log.warning during v1 telemetry window — default Python log level
-        # filters INFO; this is what makes the metric visible. Demote to .info
-        # once the metric graduates to interventions and we don't need the
-        # raw signal in eval logs anymore.
-        log.warning(
+        log.info(
             f"wilson_loop: probe iter={iter_n} src={src} sim={sim:.3f} "
             f"holonomy={holonomy:.3f} (consec_drift={self._consecutive_drift}, "
             f"anchor_overlap={len(toks & self._anchor_tokens)})"
