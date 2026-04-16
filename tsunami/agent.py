@@ -156,6 +156,19 @@ class Agent:
             recovery_iters=5,
         )
 
+        # Context-overflow circulation — mirrors read_spiral pattern. Counts
+        # cumulative 400 Bad Request exceptions; at threshold=3 the event
+        # site force-delivers + exits (preserves 7bb7604 semantics). on_eddy
+        # and on_trip both None because compress_context is async and must
+        # await on the agent task, not a sync callback. See
+        # /tmp/tech_debt_cat2_site_a_patch.md §3 for the direct-call rationale.
+        self.context_overflow = Circulation(
+            name="context_overflow",
+            threshold=3,
+            cooldown_iters=2,
+            recovery_iters=5,
+        )
+
         # Auto-compact circuit breaker
         # Stops retrying compression after N consecutive failures
         self._compact_consecutive_failures = 0
@@ -1069,9 +1082,10 @@ class Agent:
 
                 # Auto-compress on context overflow (400 Bad Request)
                 if "400" in error_str:
-                    self._total_400s = getattr(self, '_total_400s', 0) + 1
-                if "400" in error_str and consecutive_errors <= 2 and getattr(self, '_total_400s', 0) < 3:
-                    log.info(f"Context overflow #{self._total_400s} — force compressing...")
+                    self.context_overflow.event(self.state.iteration)
+                total_400s = self.context_overflow.count
+                if "400" in error_str and consecutive_errors <= 2 and total_400s < 3:
+                    log.info(f"Context overflow #{total_400s} — force compressing...")
                     try:
                         await compress_context(self.state, self.model, max_tokens=8000, keep_recent=4)
                         log.info("Force compression done, retrying...")
@@ -1083,7 +1097,9 @@ class Agent:
                 # Chiptune target hit 400s at iter 7/31/58 sparsely → handler
                 # never fired because consecutive count reset. Total counter
                 # catches the cumulative case.
-                if "400" in error_str and (consecutive_errors > 2 or getattr(self, '_total_400s', 0) >= 3):
+                # Site A (Cat 2 wiring): counter owned by Circulation(name=context_overflow).
+                # Auto-deliver + log block kept inline for signature parity with 4a08316.
+                if "400" in error_str and (consecutive_errors > 2 or total_400s >= 3):
                     from pathlib import Path as _P
                     deliverables = _P(self.config.workspace_dir) / "deliverables"
                     if deliverables.exists():
@@ -1116,6 +1132,7 @@ class Agent:
             # Advance circulation bookkeeping (cool-down / recovery).
             # Must run every iter so probe-recovery streak tracks real iters.
             self.read_spiral.tick(self.state.iteration)
+            self.context_overflow.tick(self.state.iteration)
 
             if self.state.task_complete:
                 log.info(f"Task complete after {self.state.iteration} iterations")

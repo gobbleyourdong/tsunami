@@ -201,3 +201,17 @@ class TestSiteParityWithCurrentBehavior:
         # the 3rd event. Conversion in agent.py is strictly a behavioral
         # change (adds eddying warning before trip) — documented in design §3.
         assert c.state == PROBING
+
+    def test_site_a_context_overflow_three_events_trips(self):
+        # Site A mirrors Site B exactly — same threshold, inline action.
+        # This test documents that the refactor did not diverge params.
+        # agent.py uses `self.context_overflow.count >= 3` inline; verify
+        # the invariants match Site B.
+        c, _ = _make(threshold=3, cooldown_iters=2, recovery_iters=5)
+        c.event(iter_n=1)
+        c.event(iter_n=2)
+        c.event(iter_n=3)
+        assert c.state == EDDYING
+        assert c.count == 3
+        # Inline guard in agent.py uses `count >= threshold` — verify.
+        assert c.count >= c.threshold
