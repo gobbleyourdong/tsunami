@@ -121,3 +121,26 @@ useEffect(() => {
 ```
 
 Only mock when: (a) the prompt explicitly says "mocked" or "fake", (b) no free public API exists for that data domain, or (c) the API requires a key we don't have. When you do mock, say so in the UI ("mock data; refresh to see variance") — don't let it LOOK live when it isn't.
+
+## Web Audio API (for synth, sequencer, chiptune, sound-FX builds)
+
+`OscillatorNode.type` is a strict union: **`"sine" | "square" | "sawtooth" | "triangle" | "custom"`**. Any other string fails TS2322 ("Type 'string' is not assignable to type 'OscillatorType'"). Common slips:
+
+- ❌ `osc.type = "noise"` — there is no noise oscillator type
+- ❌ `osc.type = "white_noise"` / `"pink_noise"` — no
+- ❌ `osc.type = "pulse"` — no (use square + duty-cycle workaround if needed)
+
+**For noise channels** (chiptune NES-style), use `AudioBufferSourceNode` with a random-filled buffer:
+
+```ts
+function makeNoise(ctx: AudioContext, durationSec = 1) {
+  const buf = ctx.createBuffer(1, ctx.sampleRate * durationSec, ctx.sampleRate)
+  const data = buf.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const src = ctx.createBufferSource()
+  src.buffer = buf
+  return src  // connect to gain → destination, then src.start()
+}
+```
+
+For pitched noise (snare-like), filter the noise with a `BiquadFilterNode` (bandpass, Q=10).

@@ -116,9 +116,13 @@ class WilsonLoop:
     """
 
     goal_anchor: str
-    probe_every: int = 10
+    # Tuned 2026-04-16 (post-telemetry calibration): K=10/threshold=2 was
+    # firing at iter 20 — too early, before agent had emitted enough
+    # goal-related content for the cosine to stabilize. K=15/threshold=3
+    # means drift must persist for 45 iters before on_drift fires.
+    probe_every: int = 15
     drift_threshold: float = 0.7
-    consecutive_drift_to_fire: int = 2
+    consecutive_drift_to_fire: int = 3
     on_drift: Callable[["WilsonLoop", "Probe"], None] | None = None
 
     _anchor_tokens: set[str] = field(init=False, repr=False)
