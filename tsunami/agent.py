@@ -1244,6 +1244,26 @@ class Agent:
                         "STALL: You've made 8 tool calls without writing any files. "
                         "Stop researching and start building. Write code now."
                     )
+                    # [race-mode] Hard escalation: if read-spiral repeats 3+
+                    # times, auto-deliver latest dist and exit. Lunchvote
+                    # regression at 53 iters/600s timeout was 4+ stalls then
+                    # timed out. Better to ship a (possibly broken) build than
+                    # burn the timeout slot.
+                    self._stall_count = getattr(self, '_stall_count', 0) + 1
+                    if self._stall_count >= 3:
+                        log.warning(f"Read-spiral hard-exit: {self._stall_count} stalls — auto-deliver")
+                        from pathlib import Path as _P
+                        deliverables = _P(self.config.workspace_dir) / "deliverables"
+                        if deliverables.exists():
+                            projects = sorted(
+                                [d for d in deliverables.iterdir() if d.is_dir()],
+                                key=lambda p: p.stat().st_mtime, reverse=True,
+                            )
+                            if projects and (projects[0] / "dist" / "index.html").exists():
+                                self.state.task_complete = True
+                                self._tool_history.append("message_result")
+                                log.warning(f"loop_exit path=read_spiral_hard_exit turn={self.state.iteration}")
+                                # Falls through; loop checks task_complete next iter
 
         # 3c0. Pre-execution validation — skip duplicate/wasteful tool calls
         if tool_call.name == "search_web":
