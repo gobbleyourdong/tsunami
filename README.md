@@ -34,7 +34,7 @@ you type a prompt. tsunami does the rest.
 
 - **"build me a calculator"** — writes it, tests it, verifies it renders, delivers
 - **"build a 3D pinball game"** — uses the Tsunami Engine (WebGPU), builds 869 lines, tests every key binding
-- **"replicate the Game Boy UI"** — searches for reference images, generates a reference via Z-Image-Turbo, extracts element positions with vision grounding, builds to match
+- **"replicate the Game Boy UI"** — searches for reference images, generates a reference via ERNIE-Image, extracts element positions with vision grounding, builds to match
 - **"analyze these 500 files"** — dispatches parallel workers, reads everything, synthesizes findings
 
 no cloud. no api keys. everything runs locally on your hardware.
@@ -57,7 +57,7 @@ you → wave → understands intent, picks tools, coordinates
          wave reads QA report → fixes issues → delivers
 ```
 
-one language model does everything: **Gemma 4 E4B** (bf16, ~10GB). native tool calling, built-in thinking, multimodal vision. wave, eddies, and watcher all run on the same server. scale parallel instances by VRAM.
+one language model does the reasoning: **Gemma-4-26B-A4B** (MXFP4, ~15GB via llama.cpp). native tool calling, built-in thinking, multimodal vision. wave, eddies, and watcher all talk to the same LM. **ERNIE-Image** (separate server) handles generation. scale parallel instances by VRAM.
 
 **wave** — the brain. reasons, plans, researches, builds.
 **eddies** — fast parallel workers. read, search, execute, judge.
@@ -72,8 +72,8 @@ one language model does everything: **Gemma 4 E4B** (bf16, ~10GB). native tool c
 tsunami doesn't just write code and ship it. it follows a pipeline:
 
 1. **research** — searches for reference images and code examples before writing anything
-2. **generate** — creates reference images via Z-Image-Turbo (in-process, no separate server)
-3. **ground** — extracts element positions from reference images using vision (Gemma 4 E4B multimodal). outputs ratio-based CSS positioning
+2. **generate** — creates reference images via ERNIE-Image (dedicated server, three-path pipeline: GENERATE / BG_EXTRACT / PIXELIZE, composable into workflows like `logo` / `icon` / `sprite` / `pixelize` / `infographic`)
+3. **ground** — extracts element positions from reference images using vision (Gemma 4 multimodal). outputs ratio-based CSS positioning
 4. **build** — writes React components using the grounded positions. auto-wires App.tsx mid-loop
 5. **compile** — vite build must pass. auto-checks after every .tsx write
 6. **test** — undertow QA: screenshots, key presses, click tests, console error checks
@@ -102,19 +102,27 @@ undertow auto-injects interactions — you don't tell it which button to click. 
 
 ## what you need
 
-**16GB+ GPU.** one setup, one path. no tiers, no toggles.
+**24GB+ GPU minimum; 40GB+ recommended.** three-tier stack, one `tsu` command.
 
-Gemma 4 E4B (bf16, ~10GB) + Z-Image-Turbo (~6GB) load on the same GPU via one server on port 8090. consumer cards (4080/4090/5090), workstation cards (A6000, L40), and Blackwell data center (H100, B100) all work. macs with 16GB+ unified memory work via the same code path. windows, linux, macOS — no cloud required.
+| tier | model | port | VRAM | cold load |
+|---|---|---|---|---|
+| LM | Gemma-4-26B-A4B MXFP4 (llama.cpp GGUF) | :8091 | ~15 GB | ~10s |
+| image | ERNIE-Image-Turbo (bf16 swap-capable) | :8092 | ~25 GB peak | ~50s |
+| proxy | tsunami FastAPI (forwards /v1/chat + /v1/images) | :8090 | trivial | <1s |
 
-`--load-in-4bit` runs against upstream `google/gemma-4-e4b-it` directly via bitsandbytes NF4 if you want to cut the LM to ~3GB (keeps vision, same pure-torch path). only worth doing to fit alongside other workloads; 16GB is enough without it.
+ports 8093–8095 are reserved for future animation backends (SDXL+ControlNet for rigid motion libraries, Qwen-Edit for rotation sprite sheets, Wan Animate for unique effect animations).
+
+**for ≤24 GB cards**, set `ERNIE_MODE=gguf` before `tsu up` — runs the Q4_K_M Turbo DiT (~5 GB VRAM) instead of bf16. Loses the Turbo↔Base swap but fits on consumer hardware comfortably.
+
+supported hardware: Blackwell (GB10, B100, 5090) gets MXFP4 native tensor cores; Ada (4080/4090, L40, H100) runs fine on bf16/Q4_K_M; macs with 40GB+ unified memory work via the same code path. Windows, Linux, macOS — no cloud, no API keys.
 
 ---
 
 ## what's inside
 
-**Gemma 4 E4B** — the single language model powering everything. bf16 (~10GB) by default; `--load-in-4bit` for ~3GB via bitsandbytes NF4, `--load-in-8bit` for ~6GB. quantization runs against the upstream `google/gemma-4-e4b-it` weights — no intermediate repo, multimodal vision preserved (mmproj stays fp16), same pure-torch code path. native tool calling, built-in thinking. one server on port 8090 handles wave, eddy, and watcher roles.
+**Gemma-4-26B-A4B MXFP4** — the language model. 26B MoE with 4B active params, MXFP4 quantization native to Blackwell's fp4 tensor cores. ~15GB VRAM, ~48 tok/s decode. Native tool calling, built-in thinking, multimodal vision via mmproj-26B-F16. Served by llama.cpp's llama-server on :8091. One model handles wave, eddy, and watcher roles.
 
-**the wave** — reasons, plans, calls tools, dispatches eddies, synthesizes results. generates images via Z-Image-Turbo. builds websites, writes code, does research. no iteration limit.
+**the wave** — reasons, plans, calls tools, dispatches eddies, synthesizes results. generates images via ERNIE-Image. builds websites, writes code, does research. no iteration limit.
 
 **the eddies** — parallel workers with their own agent loops. each eddy can read files, run shell commands, search code.
 
@@ -124,7 +132,24 @@ Gemma 4 E4B (bf16, ~10GB) + Z-Image-Turbo (~6GB) load on the same GPU via one se
 
 **vision grounding** — extracts UI element positions from reference images. returns ratio-based CSS (percentages, aspect-ratio). resolution-independent.
 
-**Z-Image-Turbo** — in-process image generation on the same port as the LM. ~6GB, auto-downloads on first use, 9-step sampler at guidance=0 (official recipe). supports `mode="alpha"` (feathered luminance alpha for glows) and `mode="icon"` (magenta color-key for hard-edged sprites).
+**ERNIE-Image** — dedicated image-gen server on :8092 (own process so LM + image can coexist on one GPU cleanly). Three precision modes via `ERNIE_MODE` env var:
+- `gguf` (Q4_K_M Turbo, ~5GB) — fastest, fits on 24GB consumer cards
+- `bf16` (Turbo bf16, ~25GB) — best text rendering, supports live Turbo↔Base swap without restart via `tsu swap base`
+- `base` (ERNIE-Image Base, ~25GB) — 50-step keeper quality for infographics and hero imagery
+
+**three-path image pipeline** — primitives are composable: `GENERATE`, `BG_EXTRACT`, `PIXELIZE`. Workflows at `/v1/workflows/{kind}` compose them: `logo` = gen+bg_extract (wordmarks survive), `icon` = gen+bg_extract (single-subject), `sprite` = gen+bg_extract+pixelize, `pixelize` = gen+pixelize, `infographic` = Base-quality gen only. Standalone endpoints (`/v1/images/pixelize`, `/v1/images/extract-bg`) work on existing images too (user photos, not just gen output).
+
+**observable gates** — scaffold-unchanged, compile, runtime, undertow. every delivery runs through all four. no prose heuristics.
+
+**auto-install** — file_write scans imports, runs `npm install` for anything missing. saves 2-3 iterations per build.
+
+**component library** — 45+ shadcn-style components pre-exported (Card with compound subcomponents, Box/Flex/Heading/Text/Image primitives, interactive widgets). project_init surfaces the exact export list on scaffold so the model can't hallucinate an import.
+
+**context management** — three-tier compaction. large tool results saved to disk with previews. auto-compact circuit breaker.
+
+**auto-deliver** — if the build is green but the model keeps trying to rebuild (stuck in post-build loop), tsunami synthesizes the delivery itself. better to ship a working build than loop until timeout.
+
+**stack lifecycle** — `tsu up` brings everything online (idempotent, skips tiers already listening). `tsu down` does SIGTERM→SIGKILL-after-20s graceful teardown. `tsu swap <base|turbo>` switches ERNIE mode at runtime (bf16 only).
 
 **observable gates** — scaffold-unchanged, compile, runtime, undertow. every delivery runs through all four. no prose heuristics.
 
