@@ -191,7 +191,11 @@ class WilsonLoop:
     # Default None means: read ``TSUNAMI_EMBED_ENDPOINT`` env var in
     # __post_init__; if that's also unset, stay on the token-cosine path.
     embedding_endpoint: str | None = None
-    embed_timeout_sec: float = 2.0
+    # Anchor embed (one-shot at construction) gets a generous timeout because
+    # the same llama-server is also serving /v1/chat/completions — those
+    # requests block embedding slots. Per-probe embeds reuse this same value
+    # (probes are infrequent enough that 10s headroom is fine).
+    embed_timeout_sec: float = 10.0
 
     _anchor_tokens: set[str] = field(init=False, repr=False)
     _anchor_text: str = field(init=False, repr=False, default="")
