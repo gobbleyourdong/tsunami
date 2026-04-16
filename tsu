@@ -148,7 +148,7 @@ echo "    DiT:  ERNIE-Image-Turbo (bf16, swap-capable → Base)"
 if [ -n "$LLAMA_BIN" ] && [ -n "$LM_GGUF" ] && ! curl -sf http://localhost:8091/health >/dev/null 2>&1; then
   echo "  starting llama-server → :8091"
   nohup "$LLAMA_BIN" -m "$LM_GGUF" \
-    --port 8091 --host 0.0.0.0 -ngl 999 -c 16384 --jinja \
+    --port 8091 --host 0.0.0.0 -ngl 999 -c 16384 --jinja -fa on \
     > /tmp/tsu-llama.log 2>&1 &
 fi
 
