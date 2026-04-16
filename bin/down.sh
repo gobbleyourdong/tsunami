@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Bring down the consolidated Spark inference stack.
-# Targets only services started by bin/up.sh; never touches warp-terminal
-# or other GPU clients. Polls until each port stops listening.
+# Teardown the inference stack. SIGTERM first, SIGKILL after 20s of stragglers.
+# Targets only the canonical tsunami ports; never touches unrelated GPU clients.
 
 set -uo pipefail
 
-PORTS=(8091 8094 8093 8092 8090)  # agent, pe, ernie + legacy sd/serve_transformers if up
-NAMES=("Gemma"  "Ministral" "ERNIE" "sd-server" "serve_transformers")
+# Canonical tsunami ports + future animation reservations. Only ports
+# actually in use at teardown time get acted on; others are skipped.
+PORTS=(8090 8091 8092 8093 8094 8095)
+NAMES=("proxy" "llama" "ernie" "controlnet" "qwen-edit" "wan-animate")
 
 for i in "${!PORTS[@]}"; do
     port="${PORTS[$i]}"
@@ -23,6 +24,7 @@ for i in "${!PORTS[@]}"; do
 done
 
 # Wait up to 20s for graceful exit, then SIGKILL stragglers
+still_up=""
 for _ in $(seq 1 20); do
     still_up=""
     for port in "${PORTS[@]}"; do
@@ -34,7 +36,7 @@ for _ in $(seq 1 20); do
     sleep 1
 done
 
-if [ -n "${still_up:-}" ]; then
+if [ -n "$still_up" ]; then
     echo "[force] still listening on:$still_up — SIGKILL"
     for port in $still_up; do
         pids=$(ss -tlnp 2>/dev/null | awk -v p=":$port" '$4 ~ p {print $NF}' | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
@@ -46,6 +48,11 @@ fi
 sleep 2
 echo
 echo "─── after teardown ───────────────────────────────────────────"
-ss -tln 2>/dev/null | awk '{print $4}' | grep -E ':(8090|8091|8092|8093|8094)$' || echo "  (no target ports listening)"
+listening=$(ss -tln 2>/dev/null | awk '{print $4}' | grep -E ':(8090|8091|8092|8093|8094|8095)$' || true)
+if [ -z "$listening" ]; then
+    echo "  (no target ports listening)"
+else
+    echo "$listening"
+fi
 echo
 nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader 2>&1 | grep -v warp || true
