@@ -322,23 +322,31 @@ class WilsonLoop:
         return sum(p.holonomy for p in self._probes)
 
 
-def synthesize_intent(recent_tool_calls: list[tuple[str, dict]], assistant_text: str = "") -> str:
-    """Build the 'what is the agent doing now' string from recent state.
+def synthesize_intent_from_messages(
+    conversation, limit: int = 6, content_cap: int = 300
+) -> str:
+    """Build the 'what is the agent doing now' string from recent conversation.
 
-    Synthesis rule v1: concatenate (tool_name + key arg values) for the last
-    few calls, plus any free-text assistant message. Keep it short — token
-    cosine is sensitive to dilution.
+    The agent's Message dataclass carries (role, content, tool_call, timestamp).
+    Tool results have content prefixed ``[tool_name] ...``, which already
+    captures call shape; assistant content is the model's own text. Taking
+    both together describes behavior better than reconstructing tool args.
 
-    ``recent_tool_calls`` should be in chronological order; caller slices.
+    Walks ``conversation`` newest-first, takes up to ``limit`` entries with
+    role in {tool_result, assistant} and non-empty content, caps each content
+    to ``content_cap`` chars (token cosine is sensitive to dilution), then
+    returns them in chronological order joined by " | ".
+
+    Returns "" if no usable messages — probe() treats that as holonomy=1.0.
     """
     parts: list[str] = []
-    for name, args in recent_tool_calls:
-        # Surface only string-valued args (path, command, query, content[:80]).
-        snippet_parts = [name]
-        for k, v in args.items():
-            if isinstance(v, str):
-                snippet_parts.append(f"{k}={v[:80]}")
-        parts.append(" ".join(snippet_parts))
-    if assistant_text:
-        parts.append(assistant_text[:200])
+    for msg in reversed(conversation):
+        role = getattr(msg, "role", "")
+        if role in ("tool_result", "assistant"):
+            c = getattr(msg, "content", "") or ""
+            if c:
+                parts.append(c[:content_cap])
+                if len(parts) >= limit:
+                    break
+    parts.reverse()
     return " | ".join(parts)

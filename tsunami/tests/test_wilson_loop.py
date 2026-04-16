@@ -13,7 +13,7 @@ from tsunami.wilson_loop import (
     _embed,
     _tokens,
     _vec_cosine,
-    synthesize_intent,
+    synthesize_intent_from_messages,
 )
 
 
@@ -121,24 +121,66 @@ class TestProbeTrajectory:
         assert fired == [], f"should not fire after reset, got {fired}"
 
 
-class TestSynthesizeIntent:
-    """String-args-only synthesis is preserved."""
+class TestSynthesizeIntentFromMessages:
+    """Pins the post-835d238 contract: intent is built from raw message
+    contents rather than reconstructed tool args. The walker takes up to
+    ``limit`` recent non-system messages in chronological order."""
 
-    def test_concatenates_tool_calls(self):
-        calls = [
-            ("file_write", {"path": "App.tsx", "content": "export default"}),
-            ("shell_exec", {"cmd": "npm run build"}),
+    class _Msg:
+        """Duck-typed stand-in for the agent's Message dataclass."""
+
+        def __init__(self, role, content):
+            self.role = role
+            self.content = content
+
+    def test_concatenates_assistant_and_tool_result(self):
+        conv = [
+            self._Msg("system", "You are Tsunami."),
+            self._Msg("user", "build a pomodoro timer"),
+            self._Msg("assistant", "I will write App.tsx."),
+            self._Msg("tool_result", "[file_write] Wrote 42 lines to App.tsx"),
+            self._Msg("assistant", "Now run the build."),
+            self._Msg("tool_result", "[shell_exec] BUILD PASSED."),
         ]
-        s = synthesize_intent(calls, "Ready to deliver")
-        assert "file_write" in s
-        assert "shell_exec" in s
-        assert "Ready to deliver" in s
+        s = synthesize_intent_from_messages(conv)
+        assert "I will write App.tsx." in s
+        assert "[file_write] Wrote 42 lines to App.tsx" in s
+        assert "[shell_exec] BUILD PASSED." in s
+        # Order preserved (chronological)
+        assert s.index("App.tsx.") < s.index("BUILD PASSED.")
+        # System/user messages excluded
+        assert "You are Tsunami." not in s
+        assert "build a pomodoro timer" not in s
 
-    def test_skips_non_string_args(self):
-        calls = [("tool_x", {"n": 42, "path": "x.ts"})]
-        s = synthesize_intent(calls)
-        assert "path=x.ts" in s
-        assert "n=" not in s  # numeric arg skipped
+    def test_skips_empty_content(self):
+        conv = [
+            self._Msg("assistant", ""),
+            self._Msg("tool_result", "[file_read] ok"),
+            self._Msg("assistant", None),
+        ]
+        s = synthesize_intent_from_messages(conv)
+        assert s == "[file_read] ok"
+
+    def test_limit_takes_most_recent(self):
+        conv = [self._Msg("assistant", f"step{i}") for i in range(10)]
+        s = synthesize_intent_from_messages(conv, limit=3)
+        assert "step9" in s and "step8" in s and "step7" in s
+        assert "step6" not in s
+        # Chronological: step7 before step9
+        assert s.index("step7") < s.index("step9")
+
+    def test_caps_each_content(self):
+        conv = [self._Msg("assistant", "x" * 1000)]
+        s = synthesize_intent_from_messages(conv, content_cap=50)
+        assert len(s) == 50
+        assert set(s) == {"x"}
+
+    def test_empty_conversation_returns_empty(self):
+        assert synthesize_intent_from_messages([]) == ""
+
+    def test_no_usable_messages_returns_empty(self):
+        conv = [self._Msg("system", "hi"), self._Msg("user", "task")]
+        assert synthesize_intent_from_messages(conv) == ""
 
 
 class TestLogFormat:

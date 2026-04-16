@@ -927,7 +927,7 @@ class Agent:
         # system_note when consec_drift_to_fire is reached. Soft intervention
         # — model can ignore — but high-salience reset toward the goal.
         # 0.4 threshold was empirically calibrated to the one-shot pass cleave.
-        from .wilson_loop import WilsonLoop, synthesize_intent
+        from .wilson_loop import WilsonLoop, synthesize_intent_from_messages
         # Bounded WIPEOUT recovery: when wilson detects sustained drift
         #   1. Erase the current deliverables/<project>/ scaffold
         #   2. Reset _project_init_called + Circulation counters (clean slate)
@@ -982,7 +982,6 @@ class Agent:
                 f"holonomy={probe.holonomy:.3f}"
             )
         self._wilson = WilsonLoop(goal_anchor=user_message, on_drift=_on_wilson_drift)
-        self._synthesize_intent = synthesize_intent
 
         while True:
             self.state.iteration += 1
@@ -991,23 +990,7 @@ class Agent:
             # WilsonLoop probe — telemetry-only. See tsunami/wilson_loop.py.
             if self._wilson.should_probe(self.state.iteration):
                 try:
-                    # Synthesize intent from the last 6 non-system message
-                    # contents. Use raw content rather than tool_name/tool_args:
-                    # Message dataclass only carries (role, content, tool_call,
-                    # timestamp). tool_result content is "[tool_name] ..." and
-                    # assistant content is the model's text — together they
-                    # describe what's happening better than parsing args.
-                    parts: list[str] = []
-                    for msg in reversed(self.state.conversation):
-                        role = getattr(msg, "role", "")
-                        if role in ("tool_result", "assistant"):
-                            c = getattr(msg, "content", "") or ""
-                            if c:
-                                parts.append(c[:300])
-                                if len(parts) >= 6:
-                                    break
-                    parts.reverse()
-                    intent = " | ".join(parts)
+                    intent = synthesize_intent_from_messages(self.state.conversation)
                     self._wilson.probe(self.state.iteration, intent)
                 except Exception as e:
                     log.debug(f"wilson_loop probe failed (non-fatal): {e}")
