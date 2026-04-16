@@ -184,6 +184,44 @@ class Agent:
         self.active_project: str | None = None
         self.project_context: str = ""
 
+    def _on_context_overflow_trip(self, consecutive_errors: int) -> str:
+        """Site A (context_overflow) trip handler — symmetric with
+        ``_on_read_spiral_trip``. Returns the exit message; caller (the
+        exception handler in ``run()``) returns it up to the eval driver.
+
+        Kept as a direct helper rather than wired through
+        ``Circulation.on_eddy`` because the upstream code path awaits on
+        ``compress_context`` before we reach this trip point. ``on_eddy``
+        is a sync callback, so restructuring would require moving the
+        compression logic out of the ``except`` branch — out of scope
+        for this debt retire.
+
+        Log signatures byte-identical to the prior inline block (matches
+        ``4a08316``/``7bb7604`` commit history for eval-grep parity):
+
+            loop_exit path=context_overflow_exit    turn=X dist=...
+            loop_exit path=context_overflow_no_dist turn=X
+        """
+        from pathlib import Path as _P
+        deliverables = _P(self.config.workspace_dir) / "deliverables"
+        if deliverables.exists():
+            projects = sorted(
+                [d for d in deliverables.iterdir() if d.is_dir()],
+                key=lambda p: p.stat().st_mtime, reverse=True,
+            )
+            if projects and (projects[0] / "dist" / "index.html").exists():
+                self.state.task_complete = True
+                self._tool_history.append("message_result")
+                log.warning(
+                    f"loop_exit path=context_overflow_exit "
+                    f"turn={self.state.iteration} dist={projects[0].name}/dist"
+                )
+                return f"Build delivered at {projects[0].name}/dist after context overflow."
+        log.warning(
+            f"loop_exit path=context_overflow_no_dist turn={self.state.iteration}"
+        )
+        return f"Context overflow after {consecutive_errors} 400s, no dist available."
+
     def _on_read_spiral_trip(self) -> None:
         """Circulation on_eddy callback for Site B (read-spiral).
 
@@ -1195,28 +1233,15 @@ class Agent:
                     except Exception:
                         pass  # compression failed, will retry anyway
                     continue
-                # [race-mode] After 3 total OR 2 consecutive 400s, exit —
-                # context is permanently overflowed. Auto-deliver if dist exists.
-                # Chiptune target hit 400s at iter 7/31/58 sparsely → handler
-                # never fired because consecutive count reset. Total counter
-                # catches the cumulative case.
-                # Site A (Cat 2 wiring): counter owned by Circulation(name=context_overflow).
-                # Auto-deliver + log block kept inline for signature parity with 4a08316.
+                # Site A (context_overflow) trip condition: after 3 total
+                # OR 2 consecutive 400s, exit — context is permanently
+                # overflowed. Auto-deliver if dist exists. Chiptune target
+                # hit 400s at iter 7/31/58 sparsely → consecutive-count
+                # handler never fired; total counter catches the cumulative
+                # case (7bb7604). See ``_on_context_overflow_trip`` for
+                # symmetry rationale with Site B.
                 if "400" in error_str and (consecutive_errors > 2 or total_400s >= 3):
-                    from pathlib import Path as _P
-                    deliverables = _P(self.config.workspace_dir) / "deliverables"
-                    if deliverables.exists():
-                        projects = sorted(
-                            [d for d in deliverables.iterdir() if d.is_dir()],
-                            key=lambda p: p.stat().st_mtime, reverse=True,
-                        )
-                        if projects and (projects[0] / "dist" / "index.html").exists():
-                            self.state.task_complete = True
-                            self._tool_history.append("message_result")
-                            log.warning(f"loop_exit path=context_overflow_exit turn={self.state.iteration} dist={projects[0].name}/dist")
-                            return f"Build delivered at {projects[0].name}/dist after context overflow."
-                    log.warning(f"loop_exit path=context_overflow_no_dist turn={self.state.iteration}")
-                    return f"Context overflow after {consecutive_errors} 400s, no dist available."
+                    return self._on_context_overflow_trip(consecutive_errors)
 
                 self.state.add_system_note(f"Loop error: {e}")
                 save_session(self.state, self.session_dir, self.session_id)
