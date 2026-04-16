@@ -672,6 +672,37 @@ class MessageResult(BaseTool):
             "required": [],
         }
 
+    def _resolve_active_project(self) -> Path | None:
+        """Best-guess path of the project this session is about.
+
+        Priority:
+          1. ``fs_state.get_effective_target_project()`` — the canonical
+             accessor. Tracks which project the agent's last file_write /
+             project_init touched, which matches "what to deliver" better
+             than any filesystem heuristic.
+          2. mtime-sort fallback for sessions where that accessor returns
+             None (fresh boot, or a session that hasn't written yet but is
+             somehow in message_result — rare, defensive).
+
+        Returns None when ``deliverables/`` doesn't exist or is empty.
+        """
+        from . import filesystem as _fs_state
+
+        deliverables = Path(self.config.workspace_dir) / "deliverables"
+        if not deliverables.is_dir():
+            return None
+        name = _fs_state.get_effective_target_project()
+        if name:
+            candidate = deliverables / name
+            if candidate.is_dir():
+                return candidate
+        # Accessor didn't resolve; mtime-sort the directory.
+        projects = [d for d in deliverables.iterdir() if d.is_dir()]
+        if not projects:
+            return None
+        projects.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return projects[0]
+
     def _synthesize_default_text(self) -> str:
         """Build a default delivery message when the model forgot to fill
         `text` — typically after the #14 deliver-gate force-override where
@@ -681,18 +712,13 @@ class MessageResult(BaseTool):
         graders stay happy. Falls back to a plain "Delivered." if no dist
         can be located (non-react / api-only scaffold).
         """
-        deliverables = Path(self.config.workspace_dir) / "deliverables"
-        if deliverables.is_dir():
-            projects = sorted(
-                (d for d in deliverables.iterdir() if d.is_dir()),
-                key=lambda p: p.stat().st_mtime, reverse=True,
-            )
-            for proj in projects[:1]:
-                dist = proj / "dist" / "index.html"
-                if dist.exists():
-                    return f"Build passed. App delivered at {dist}."
-                return f"Delivered {proj.name}."
-        return "Delivered."
+        proj = self._resolve_active_project()
+        if proj is None:
+            return "Delivered."
+        dist = proj / "dist" / "index.html"
+        if dist.exists():
+            return f"Build passed. App delivered at {dist}."
+        return f"Delivered {proj.name}."
 
     async def execute(self, text: str = "", attachments: list[str] | None = None, **kw) -> ToolResult:
         global _last_displayed
