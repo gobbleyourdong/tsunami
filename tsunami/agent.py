@@ -144,16 +144,17 @@ class Agent:
 
         # Read-spiral circulation — circuit-breaker over the 8-read-only stall
         # counter. threshold=3 preserves prior cb34297 hard-exit semantics.
-        # on_trip captures `self` lazily; the actual auto-deliver + log are
-        # kept inline at the event site so log signature stays byte-identical
-        # (design §5 verification). on_eddy left None — earlier stalls still
-        # emit their existing system_note; Circulation only takes over the
-        # count+threshold bookkeeping.
+        # on_eddy fires the hard-exit once, on the flowing→eddying transition
+        # (the prior inline guard was `if count >= threshold` at the event
+        # site — semantically identical to on_eddy per Circulation's state
+        # machine). Log signatures inside the callback are byte-identical to
+        # the pre-refactor inline block (design §5 verification).
         self.read_spiral = Circulation(
             name="read_spiral",
             threshold=3,
             cooldown_iters=2,
             recovery_iters=5,
+            on_eddy=self._on_read_spiral_trip,
         )
 
         # Context-overflow circulation — mirrors read_spiral pattern. Counts
@@ -180,6 +181,35 @@ class Agent:
         # Active project context
         self.active_project: str | None = None
         self.project_context: str = ""
+
+    def _on_read_spiral_trip(self) -> None:
+        """Circulation on_eddy callback for Site B (read-spiral).
+
+        Fires exactly once on the flowing→eddying transition (i.e. when the
+        read-spiral counter hits threshold). Equivalent in behavior to the
+        prior inline `if self.read_spiral.count >= self.read_spiral.threshold`
+        block at the event site. Log signatures verbatim for eval-grep parity:
+
+            Read-spiral hard-exit: N stalls — forcing task_complete
+            loop_exit path=read_spiral_hard_exit turn=X has_dist=(True|False)
+        """
+        log.warning(f"Read-spiral hard-exit: {self.read_spiral.count} stalls — forcing task_complete")
+        self.state.task_complete = True
+        # Only mark as delivered if dist actually exists.
+        # Otherwise let eval-driver record as not-delivered.
+        from pathlib import Path as _P
+        deliverables = _P(self.config.workspace_dir) / "deliverables"
+        has_dist = False
+        if deliverables.exists():
+            projects = sorted(
+                [d for d in deliverables.iterdir() if d.is_dir()],
+                key=lambda p: p.stat().st_mtime, reverse=True,
+            )
+            if projects and (projects[0] / "dist" / "index.html").exists():
+                has_dist = True
+                self._tool_history.append("message_result")
+        log.warning(f"loop_exit path=read_spiral_hard_exit turn={self.state.iteration} has_dist={has_dist}")
+        # Falls through; loop checks task_complete next iter
 
     def _detect_existing_project(self, user_message: str) -> str:
         """Check if an existing project matches this prompt.
@@ -1345,29 +1375,13 @@ class Agent:
                     # regression at 53 iters/600s timeout was 4+ stalls then
                     # timed out. Better to ship a (possibly broken) build than
                     # burn the timeout slot.
-                    # Site B (Cat 2 wiring): counter owned by Circulation. The
-                    # threshold-trip log + auto-deliver block below stays inline
-                    # so the `loop_exit path=read_spiral_hard_exit ...` log
-                    # signature is byte-identical to pre-wiring behavior.
+                    # Site B (Cat 2 wiring): counter owned by Circulation.
+                    # `event()` internally fires `on_eddy` = `_on_read_spiral_trip`
+                    # at the flowing→eddying transition (count >= threshold),
+                    # which emits the `Read-spiral hard-exit: N stalls ...` +
+                    # `loop_exit path=read_spiral_hard_exit ...` log signatures
+                    # byte-identical to the prior inline block.
                     self.read_spiral.event(self.state.iteration)
-                    if self.read_spiral.count >= self.read_spiral.threshold:
-                        log.warning(f"Read-spiral hard-exit: {self.read_spiral.count} stalls — forcing task_complete")
-                        self.state.task_complete = True
-                        # Only mark as delivered if dist actually exists.
-                        # Otherwise let eval-driver record as not-delivered.
-                        from pathlib import Path as _P
-                        deliverables = _P(self.config.workspace_dir) / "deliverables"
-                        has_dist = False
-                        if deliverables.exists():
-                            projects = sorted(
-                                [d for d in deliverables.iterdir() if d.is_dir()],
-                                key=lambda p: p.stat().st_mtime, reverse=True,
-                            )
-                            if projects and (projects[0] / "dist" / "index.html").exists():
-                                has_dist = True
-                                self._tool_history.append("message_result")
-                        log.warning(f"loop_exit path=read_spiral_hard_exit turn={self.state.iteration} has_dist={has_dist}")
-                        # Falls through; loop checks task_complete next iter
 
         # 3c0. Pre-execution validation — skip duplicate/wasteful tool calls
         if tool_call.name == "search_web":
