@@ -24,8 +24,8 @@ Each phase MUST complete + compile cleanly before the next. Don't skip ahead.
 ### Phase 2 — Layout & Navigation (ROUTING FIRST)
 Write in this order — routing before pages:
 1. `file_write` `src/App.tsx` with `<BrowserRouter>` + `<Routes>` + `<Route>` declarations for every page you plan. Use stub components (`const Home = () => <div>Home</div>`) — they'll be filled in later.
-2. `file_write` `src/components/Layout.tsx` with sidebar/header + `{children}` slot
-3. `file_write` `src/components/Navigation.tsx` with `<Link>` elements matching the routes from step 1
+2. `file_write` `src/components/Layout.tsx` with sidebar/header + `{children}` slot. **When a nav link looks like a button, DO NOT write `<Button as={Link} to="/foo">Label</Button>` — `Button` has no `as` prop (TS2322). Use the wrap pattern: `<Link to="/foo"><Button variant="ghost">Label</Button></Link>`.** See Gotchas for full rule.
+3. `file_write` `src/components/Navigation.tsx` with `<Link>` elements matching the routes from step 1. **Same rule as step 2 — Button is NOT polymorphic; only `Heading` is. Wrap `<Button>` inside `<Link>`, never `<Button as={Link}>`.**
 4. `shell_exec` `npm run build` — MUST compile before moving on
 
 ### Phase 3 — Public pages (Home, Login, Signup)
