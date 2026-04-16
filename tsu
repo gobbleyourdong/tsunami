@@ -46,17 +46,51 @@ case "${1:-}" in
     python3 -m tsunami.orchestrate "$TASK" "$WORKERS"
     exit $?
     ;;
-  kill|stop)
-    echo "  Killing all Tsunami processes..."
-    for port in 8090 8091 8092 3000 3002 3003 9876 9200; do
-      lsof -ti:$port 2>/dev/null | xargs kill -9 2>/dev/null
+  kill|stop|down)
+    echo "  Tearing down Tsunami stack..."
+    # SIGTERM first, give 20s to exit gracefully, then SIGKILL stragglers
+    for port in 8090 8091 8092 8093 8094 8095 3000 3002 3003 9876 9200; do
+      pids=$(lsof -ti:$port 2>/dev/null)
+      [ -n "$pids" ] && kill $pids 2>/dev/null
+    done
+    for i in $(seq 1 20); do
+      any_up=""
+      for port in 8090 8091 8092 8093 8094 8095; do
+        lsof -ti:$port >/dev/null 2>&1 && any_up=1
+      done
+      [ -z "$any_up" ] && break
+      sleep 1
+    done
+    for port in 8090 8091 8092 8093 8094 8095 3000 3002 3003 9876 9200; do
+      lsof -ti:$port 2>/dev/null | xargs -r kill -9 2>/dev/null
     done
     pkill -f "llama-server" 2>/dev/null
     pkill -f "tsunami.tools.ernie_server" 2>/dev/null
     pkill -f "serve_transformers" 2>/dev/null
-    pkill -f "tsunami" 2>/dev/null
     echo "  ✓ All processes killed"
     exit 0
+    ;;
+  swap)
+    kind="${2:-}"
+    case "$kind" in
+      turbo|Turbo) kind="Turbo" ;;
+      base|Base)   kind="Base" ;;
+      *) echo "Usage: tsu swap <turbo|base>"; exit 1 ;;
+    esac
+    resp=$(curl -sf -X POST "http://localhost:8092/v1/admin/swap?kind=$kind" 2>&1)
+    if [ $? -eq 0 ]; then
+      echo "  ✓ ERNIE swapped to $kind"
+      echo "  $resp"
+    else
+      echo "  ✗ Swap failed — is ernie_server running in bf16 mode? (ERNIE_MODE=bf16 tsu up)"
+      exit 1
+    fi
+    exit 0
+    ;;
+  up)
+    # Bring services up, then exit (no REPL). Implemented by falling through
+    # the rest of the startup code with a flag set to skip the interactive frontend.
+    TSU_UP_ONLY=1
     ;;
 esac
 
@@ -118,13 +152,25 @@ if [ -n "$LLAMA_BIN" ] && [ -n "$GEMMA_MOE" ] && ! curl -sf http://localhost:809
 fi
 
 # --- :8092 ernie_server (image gen) ---
-# --no-gguf keeps bf16 DiT loaded so /v1/admin/swap?kind=Base works without
-# restart (Turbo/Base share text_encoder/VAE/scheduler; only transformer swaps).
+# ERNIE_MODE knob:
+#   gguf   = Q4_K_M Turbo DiT (~5 GB, fastest)
+#   bf16   = bf16 Turbo DiT (~16 GB, /v1/admin/swap → Base works)
+#   base   = bf16 ERNIE-Image Base (~16 GB, 50-step keeper quality)
+# Default bf16 because swap-capable wins for everyday use.
+ERNIE_MODE="${ERNIE_MODE:-bf16}"
+case "$ERNIE_MODE" in
+  bf16)  ERNIE_ARGS="--no-gguf --model Turbo"; ERNIE_DESC="Turbo bf16 (16 GB, swap-capable)" ;;
+  base)  ERNIE_ARGS="--no-gguf --model Base";  ERNIE_DESC="Base (16 GB, 50-step keeper)" ;;
+  gguf)  ERNIE_GGUF_FILE="${MODELS_DIR}/ernie-image-turbo-Q4_K_M.gguf"
+         ERNIE_ARGS="--gguf $ERNIE_GGUF_FILE --model Turbo"
+         ERNIE_DESC="Turbo Q4_K_M (5 GB)" ;;
+  *)     echo "  unknown ERNIE_MODE=$ERNIE_MODE (pick gguf|bf16|base)"; exit 1 ;;
+esac
 if ! curl -sf http://localhost:8092/healthz >/dev/null 2>&1; then
-  echo "  starting ernie_server → :8092 (Turbo, swap-capable)"
+  echo "  starting ernie_server → :8092 ($ERNIE_DESC)"
   PYTHONPATH="$DIR" \
   nohup "$ERNIE_PYTHON" -m tsunami.tools.ernie_server \
-    --no-gguf --model Turbo \
+    $ERNIE_ARGS \
     --port 8092 --host 0.0.0.0 \
     --pe-url "" \
     > /tmp/tsu-ernie.log 2>&1 &
@@ -151,6 +197,21 @@ for i in $(seq 1 120); do
   check_proxy && break
   sleep 1
 done
+
+# `tsu up` → skip REPL launch, just report stack state and exit.
+if [ -n "${TSU_UP_ONLY:-}" ]; then
+  echo ""
+  echo "─── Stack ready ───────────────────────────────────────────────"
+  echo "  :8090  tsunami proxy              tail -f /tmp/tsu-proxy.log"
+  echo "  :8091  Gemma-4-26B-A4B (LM)       tail -f /tmp/tsu-llama.log"
+  echo "  :8092  ERNIE-Image ($ERNIE_MODE)  tail -f /tmp/tsu-ernie.log"
+  echo ""
+  echo "  Health:  curl :8090/health   curl :8091/health   curl :8092/healthz"
+  echo "  Swap :   tsu swap base       tsu swap turbo       (bf16 mode only)"
+  echo "  Down :   tsu down"
+  echo ""
+  exit 0
+fi
 
 # Start Python WebSocket backend if not running
 if ! curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
