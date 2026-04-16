@@ -137,6 +137,37 @@ Only mock when: (a) the prompt explicitly says "mocked" or "fake", (b) no free p
 - ❌ `osc.type = "white_noise"` / `"pink_noise"` — no
 - ❌ `osc.type = "pulse"` — no (use square + duty-cycle workaround if needed)
 
+**Indirect / conceptual form (distinct from the direct-form cases above)** — defining your own `Waveform`/`ChannelType` that includes `"noise"` and then assigning it to `osc.type` fails the same way, just with a widened error message. The type inclusion is the trap, not the specific string literal:
+
+```ts
+type Waveform = "square" | "triangle" | "noise"   // ← the widening lives here
+interface Channel { id: number; type: Waveform }
+// ...
+osc.type = channel.type   // ❌ TS2322: Type 'Waveform' is not assignable to type 'OscillatorType'
+                          //          Type '"noise"' is not assignable to type 'OscillatorType'
+```
+
+Seen in chiptune sessions `tsu_prog_chiptune_1776349531` (`ChannelType` → `OscillatorType`), `1776353247` (`Waveform` → `OscillatorType` via `osc.type = channel.type`), plus direct-form repros s24/s28/s30/s35. Fix the **shape**, not the symptom: don't include `"noise"` in the waveform union at all — make the noise channel a distinct code path, not a distinct waveform string. Canonical pattern:
+
+```ts
+type OscWaveform = "square" | "triangle" | "sawtooth" | "sine"   // OscillatorType-compatible only
+type ChannelKind = OscWaveform | "noise"                         // app-domain superset
+interface Channel { id: number; kind: ChannelKind }
+
+function playChannel(ctx: AudioContext, ch: Channel, dest: AudioNode) {
+  if (ch.kind === "noise") {
+    const src = makeNoise(ctx)          // AudioBufferSourceNode path
+    src.connect(dest); src.start()
+    return
+  }
+  const osc = ctx.createOscillator()
+  osc.type = ch.kind                    // narrowed to OscWaveform by the branch — no cast needed
+  osc.connect(dest); osc.start()
+}
+```
+
+If you truly can't restructure (e.g. mid-build compile-fix only), the one-line rescue is `osc.type = ch.kind as OscillatorType` **guarded** by `if (ch.kind !== "noise")` — the cast alone is unsafe because runtime `"noise"` will silently produce an `InvalidStateError` from the Web Audio engine.
+
 **For noise channels** (chiptune NES-style), use `AudioBufferSourceNode` with a random-filled buffer:
 
 ```ts
