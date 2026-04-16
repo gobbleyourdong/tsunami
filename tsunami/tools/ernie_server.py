@@ -1,14 +1,14 @@
-"""ERNIE-Image-Turbo HTTP server.
+"""ERNIE-Image HTTP server (BF16 pipeline, Turbo + Base DiT swap).
 
-Loads the pipeline once at startup (DiT GGUF + Mistral3 TE + VAE), holds it
-warm, serves /v1/images/generate (OpenAI-shape) and /healthz. Single worker,
-single GPU — Spark's GB10 unified memory.
+Loads the pipeline once at startup (DiT + Mistral3 TE + VAE all bf16 from
+Baidu HF snapshot), holds it warm, serves /v1/images/generate (OpenAI-shape)
+and /healthz. Single worker, single GPU — Spark's GB10 unified memory.
 
-  python -m tsunami.tools.ernie_server --port 8093 --gguf <DiT> [--te-gguf <TE>]
+  python -m tsunami.tools.ernie_server --port 8092 --model Turbo
 
-Defaults to bf16 TE for speed on Spark (108 GB free, peak 14.5 GB/gen, 29s).
-Pass --te-gguf to swap in Q4_K_M Mistral3 (peak 9.4 GB, 45s — pick on 24 GB
-consumer cards).
+Swap Turbo ↔ Base at runtime via POST /v1/admin/swap?kind=Base — only the
+DiT changes, TE/VAE/scheduler stay resident. BF16 throughout — GGUF path
+removed 2026-04-16 because text rendering quality was unusable at Q4_K_M.
 """
 from __future__ import annotations
 
@@ -217,16 +217,16 @@ app = FastAPI(title="ERNIE-Image-Turbo server")
 @app.on_event("startup")
 def _load_pipe():
     global _pipe, _loaded_kind
-    log.info(f"Loading pipeline (model={_args.model}, no_gguf={_args.no_gguf}) ...")
+    log.info(f"Loading pipeline (model={_args.model}, bf16) ...")
     t0 = time.time()
     # text_encoder/vae/scheduler always loaded from Turbo snapshot (those
     # components are shared between Turbo and Base — only the DiT differs).
     _pipe = build_pipeline(
-        gguf_path=None if _args.no_gguf else Path(_args.gguf),
+        gguf_path=None,  # BF16-only; GGUF path removed 2026-04-16
         baidu_snapshot=_find_baidu_snapshot("Turbo"),
         transformer_snapshot=_find_baidu_snapshot(_args.model),
         device=_args.device,
-        te_gguf=Path(_args.te_gguf) if _args.te_gguf else None,
+        te_gguf=None,  # BF16-only
     )
     _loaded_kind = _args.model
     torch.cuda.synchronize()
@@ -244,10 +244,6 @@ def _swap_dit(target_kind: str) -> dict:
         return {"swapped": False, "kind": _loaded_kind, "elapsed_s": 0.0}
     if target_kind not in ("Turbo", "Base"):
         raise HTTPException(400, f"unknown kind {target_kind!r}; pick Turbo or Base")
-    if _args.no_gguf is False:
-        # GGUF path is Turbo-only (we only have a GGUF for Turbo). Swap requires bf16 mode.
-        raise HTTPException(409, "swap requires server started with --no-gguf (bf16 mode)")
-
     import gc
     from diffusers import ErnieImageTransformer2DModel
     log.info(f"Swap: {_loaded_kind} → {target_kind} ...")
@@ -276,10 +272,10 @@ def healthz():
         "status": "ok",
         "pipe_loaded": _pipe is not None,
         "loaded_kind": _loaded_kind,
-        "swap_supported": _args.no_gguf,
+        "swap_supported": True,  # always bf16 now
         "vram_gb": torch.cuda.memory_allocated() / (1024**3),
         "vram_peak_gb": torch.cuda.max_memory_allocated() / (1024**3),
-        "te_mode": "gguf" if _args.te_gguf else "bf16",
+        "te_mode": "bf16",
     }
 
 
@@ -487,15 +483,10 @@ async def workflow(kind: str, req: WorkflowRequest):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--gguf", default="/home/jb/models_gguf/ernie-image-turbo-Q4_K_M.gguf",
-                   type=Path, help="ERNIE DiT GGUF (or pass --no-gguf to use bf16 from Baidu snapshot)")
-    p.add_argument("--no-gguf", action="store_true",
-                   help="Force bf16 DiT from Baidu snapshot (16 GB) — best text rendering")
     p.add_argument("--model", choices=("Turbo", "Base"), default="Turbo",
-                   help="ERNIE-Image-Turbo (8 steps, distilled) or ERNIE-Image (50 steps, full)")
-    p.add_argument("--te-gguf", type=Path, default=None,
-                   help="optional Mistral3 TE GGUF (smaller VRAM, slower)")
-    p.add_argument("--port", type=int, default=8093)
+                   help="ERNIE-Image-Turbo (8 steps, distilled) or ERNIE-Image (50 steps, full). "
+                        "Swap at runtime via POST /v1/admin/swap?kind=Base.")
+    p.add_argument("--port", type=int, default=8092)
     p.add_argument("--host", default="0.0.0.0")
     p.add_argument("--device", default="cuda")
     p.add_argument("--pe-url", default="http://localhost:8094",
