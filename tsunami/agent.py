@@ -928,16 +928,12 @@ class Agent:
         from .wilson_loop import WilsonLoop, synthesize_intent
         def _on_wilson_drift(wilson, probe):
             self.state.add_system_note(
-                f"[WIPEOUT — Wilson Drift]\n"
-                f"You wiped out: holonomy {probe.holonomy:.2f} > 0.4 "
-                f"(drifted from \"{wilson.goal_anchor[:120]}\").\n"
-                f"Recent activity: {probe.text[:160]}\n"
-                f"RECONSIDER: re-read the original task. Next tool call "
-                f"must directly produce the user's deliverable — not "
-                f"internal cleanup, not exploration, not rebuilding."
+                f"You wiped out. Here's the last log: \"{probe.text[:200]}\". "
+                f"Reconsider your approach. "
+                f"Original task: \"{wilson.goal_anchor[:160]}\"."
             )
             log.warning(
-                f"wilson on_drift: WIPEOUT injected at iter={probe.iter_n}, "
+                f"wilson on_drift: WIPEOUT at iter={probe.iter_n}, "
                 f"holonomy={probe.holonomy:.3f}"
             )
         self._wilson = WilsonLoop(goal_anchor=user_message, on_drift=_on_wilson_drift)
