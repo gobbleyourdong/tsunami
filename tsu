@@ -132,6 +132,9 @@ MODELS_DIR="${TSUNAMI_MODELS_DIR:-$HOME/models_gguf}"
 LM_GGUF=$(ls "$MODELS_DIR"/MXFP4_MOE/Qwen3.5-122B-A10B*-00001-of-*.gguf 2>/dev/null | head -1)
 [ -z "$LM_GGUF" ] && LM_GGUF=$(ls "$MODELS_DIR"/gemma-4-26B-A4B*MXFP4*.gguf 2>/dev/null | head -1)
 
+# mmproj for vision (Qwen3.5 native multimodal via separate projector)
+MMPROJ=$(ls "$MODELS_DIR"/mmproj*.gguf 2>/dev/null | head -1)
+
 # ERNIE uses Baidu snapshot + in-process Mistral3 TE — resolved by the
 # ernie_server module via its _find_baidu_snapshot helper (HF cache or
 # ~/models_hf). No $MODELS_DIR GGUF lookup needed in --no-gguf mode.
@@ -147,7 +150,9 @@ echo "    DiT:  ERNIE-Image-Turbo (bf16, swap-capable → Base)"
 # top_p=0.95, presence_penalty=0.0 for coding tasks.
 if [ -n "$LLAMA_BIN" ] && [ -n "$LM_GGUF" ] && ! curl -sf http://localhost:8091/health >/dev/null 2>&1; then
   echo "  starting llama-server → :8091"
-  nohup "$LLAMA_BIN" -m "$LM_GGUF" \
+  MMPROJ_ARG=""
+  [ -n "$MMPROJ" ] && MMPROJ_ARG="--mmproj $MMPROJ"
+  nohup "$LLAMA_BIN" -m "$LM_GGUF" $MMPROJ_ARG \
     --port 8091 --host 0.0.0.0 -ngl 999 -c 16384 --jinja -fa on \
     > /tmp/tsu-llama.log 2>&1 &
 fi
