@@ -73,7 +73,7 @@ class ChatRequest(BaseModel):
     model: str = "tsunami"
     messages: list
     tools: list = []
-    tool_choice: str = "auto"
+    tool_choice: str | dict = "auto"  # str ("auto"|"none"|"required") or {"type":"function","function":{"name":"..."}}
     max_tokens: int = 2048
     temperature: float = 0.3
     top_p: float = 0.95
