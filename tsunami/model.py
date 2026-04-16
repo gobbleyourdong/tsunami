@@ -51,8 +51,8 @@ class TsunamiModel:
     """Talks to serve_transformers.py via OpenAI-compatible /v1/chat/completions."""
 
     def __init__(self, model: str = "tsunami", endpoint: str = "http://localhost:8090",
-                 temperature: float = 0.6, max_tokens: int = 32768,
-                 top_p: float = 0.95, top_k: int = 20, presence_penalty: float = 0.0,
+                 temperature: float = 1.0, max_tokens: int = 65536,
+                 top_p: float = 0.95, top_k: int = 40, presence_penalty: float = 0.0,
                  client_id: str = "", adapter: str = "", **kwargs):
         self.model = model
         self.endpoint = endpoint.rstrip("/")
