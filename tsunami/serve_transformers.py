@@ -182,15 +182,31 @@ async def chat_completions(req: ChatRequest):
     async with _user_sem:
         import os as _os
         llama_url = _os.environ.get("LLAMA_SERVER_URL")
+        vl_url = _os.environ.get("VL_SERVER_URL")
         if llama_url:
-            return await _proxy_chat_completions(req, llama_url)
+            # Coder + VL split: requests with image content route to VL backend
+            # (which has mmproj loaded), text-only requests stay on coder.
+            target_url = vl_url if (vl_url and _request_has_images(req)) else llama_url
+            return await _proxy_chat_completions(req, target_url)
         return await _chat_completions_impl(req)
+
+
+def _request_has_images(req: ChatRequest) -> bool:
+    """Scan messages for image_url content parts. Used to route multimodal
+    requests to the VL backend in the coder+VL split architecture."""
+    for msg in req.messages:
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "image_url":
+                    return True
+    return False
 
 
 async def _proxy_chat_completions(req: ChatRequest, base_url: str):
     """Forward an OpenAI ChatCompletion request to an external llama-server.
-    Strips multimodal image parts if present (llama.cpp handles them via
-    separate /mtmd endpoints). Everything else passes through untouched."""
+    Multimodal requests are routed to the VL backend upstream; coder backend
+    is text-only. Body passes through untouched."""
     import httpx
     body = req.model_dump(exclude_none=True)
     endpoint = base_url.rstrip("/") + "/v1/chat/completions"

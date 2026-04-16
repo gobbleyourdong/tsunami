@@ -196,6 +196,7 @@ check_proxy() { curl -sf http://localhost:8090/health >/dev/null 2>&1; }
 if ! check_proxy; then
   echo "  starting tsunami proxy → :8090"
   LLAMA_SERVER_URL=http://localhost:8091 \
+  VL_SERVER_URL=http://localhost:8094 \
   SD_SERVER_URL=http://localhost:8092 \
   PYTHONPATH="$DIR" \
   nohup python3 -u "$DIR/tsunami/serve_transformers.py" \
