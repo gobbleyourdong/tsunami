@@ -53,6 +53,12 @@ Import from `./components/ui` — these are the only exports:
 
 **Interactive:** `Button`, `Input`, `Select`, `Switch`, `Dropdown`, `Dialog`, `Tooltip`, `Accordion`, `Alert`, `Badge`, `Progress`, `Skeleton`.
 
+**Cross-scaffold divergence — prop tables below describe the `react-app` scaffold specifically.** When `project_init` picks a different scaffold (`dashboard` / `data-viz` / `form-app` / `fullstack` / `landing` / `realtime`), these components have narrower APIs:
+
+- **`Button`** on non-react-app scaffolds: `variant = "primary" | "secondary" | "ghost"` and `size = "sm" | "md" | "lg"` only. `<Button variant="outline">` / `"danger"` / `"destructive"` / `"link"` / `"default"` and `<Button size="icon">` all fail TS2322 outside react-app. Source: `scaffolds/dashboard/src/components/ui/Button.tsx` (identical file across all 6 non-react-app scaffolds, md5 `65a67aba...`).
+- **`Alert`** on non-react-app scaffolds: `type?: "info" | "success" | "warning" | "error"` only — **NO `variant` prop**, **NO `destructive` / `default` kinds**. `<Alert variant="info">` / `<Alert type="destructive">` fail TS2322 outside react-app. Source: `scaffolds/dashboard/src/components/ui/Alert.tsx` (identical across all 6 non-react-app scaffolds).
+- **`Chart`, `StatGrid`, `MetricCard`, `Image`** do NOT exist in dashboard/data-viz/form-app/fullstack/landing/realtime. `import { Chart } from "./components/ui"` fails TS2307 there. `dashboard` and `data-viz` ship `recharts` as a direct dep — use `import { LineChart, Bar, XAxis, ... } from "recharts"` for charting. `react-app` has `Chart` as a recharts wrapper + `StatGrid`/`MetricCard` for metric dashboards.
+
 **Prop signatures** (scaffold APIs — NOT Radix/shadcn/Headless conventions). Getting these wrong triggers TS2322 and a fix-loop that burns 4+ iters — seen in chiptune session `tsu_prog_chiptune_1776231968`:
 
 | Component | Props |
