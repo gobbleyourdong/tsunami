@@ -35,8 +35,13 @@ once telemetry shows the metric correlates with downstream failures.
 
 from __future__ import annotations
 
+import json
 import logging
+import math
+import os
 import re
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -76,6 +81,60 @@ def _cosine(a: set[str], b: set[str]) -> float:
     return inter / denom if denom else 0.0
 
 
+def _embed(endpoint: str, text: str, timeout: float = 2.0) -> list[float] | None:
+    """POST {endpoint}/v1/embeddings with a short timeout. Return None on any failure.
+
+    Designed to be a non-breaking upgrade path for WilsonLoop v2: when the
+    eddy/coder llama-server is launched with ``--embeddings``, this returns
+    a real dense vector and ``probe()`` uses it for cosine. Otherwise returns
+    None and ``probe()`` transparently falls back to token-set cosine.
+
+    Failure modes folded into None return (all non-fatal):
+        - endpoint empty / unset
+        - connection refused / DNS failure
+        - HTTP 501 "This server does not support embeddings"
+        - malformed JSON / missing ``data[0].embedding`` key
+        - timeout
+    """
+    if not endpoint or not text:
+        return None
+    url = endpoint.rstrip("/") + "/v1/embeddings"
+    payload = json.dumps({"input": text[:2048]}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8", errors="replace"))
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError):
+        return None
+    try:
+        vec = body["data"][0]["embedding"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    if not isinstance(vec, list) or not vec:
+        return None
+    return [float(x) for x in vec]
+
+
+def _vec_cosine(a: list[float], b: list[float]) -> float:
+    """Dense-vector cosine. Returns 0.0 on zero-norm or length mismatch."""
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = 0.0
+    na = 0.0
+    nb = 0.0
+    for x, y in zip(a, b):
+        dot += x * y
+        na += x * x
+        nb += y * y
+    denom = math.sqrt(na) * math.sqrt(nb)
+    return dot / denom if denom else 0.0
+
+
 @dataclass
 class Probe:
     """One snapshot of the agent's apparent intent at iter_n."""
@@ -83,6 +142,7 @@ class Probe:
     text: str                       # synthesized intent string
     tokens: set[str] = field(default_factory=set)
     holonomy: float = 0.0           # 1 - cos(probe.tokens, anchor.tokens)
+    src: str = "tokens"             # "tokens" (set-cosine) or "embed" (vector-cosine)
 
 
 @dataclass
@@ -124,17 +184,49 @@ class WilsonLoop:
     drift_threshold: float = 0.7
     consecutive_drift_to_fire: int = 3
     on_drift: Callable[["WilsonLoop", "Probe"], None] | None = None
+    # v2 embedding swap (debt entry 0c34e8c). When set to a reachable
+    # llama-server endpoint that was launched with ``--embeddings``, probe()
+    # uses real vector cosine. When None/empty/unreachable/501, probe()
+    # transparently falls back to token-set cosine — byte-identical to v1.
+    # Default None means: read ``TSUNAMI_EMBED_ENDPOINT`` env var in
+    # __post_init__; if that's also unset, stay on the token-cosine path.
+    embedding_endpoint: str | None = None
+    embed_timeout_sec: float = 2.0
 
     _anchor_tokens: set[str] = field(init=False, repr=False)
+    _anchor_text: str = field(init=False, repr=False, default="")
+    _anchor_embed: list[float] | None = field(init=False, repr=False, default=None)
     _probes: list[Probe] = field(default_factory=list, init=False, repr=False)
     _consecutive_drift: int = field(default=0, init=False, repr=False)
     _fired: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self):
         self._anchor_tokens = _tokens(self.goal_anchor)
+        self._anchor_text = self.goal_anchor
+        # Resolve endpoint from env if caller didn't pass one. Empty string
+        # is treated as "off" (no-op). Live agent.py constructs WilsonLoop
+        # without this kwarg, so today's default path is env-driven only.
+        if self.embedding_endpoint is None:
+            self.embedding_endpoint = os.environ.get("TSUNAMI_EMBED_ENDPOINT", "") or None
+        # Warm the anchor embedding ONCE at construction. If the server
+        # doesn't support embeddings, _anchor_embed stays None and every
+        # probe takes the token-cosine path without retrying the server.
+        if self.embedding_endpoint:
+            self._anchor_embed = _embed(
+                self.embedding_endpoint, self._anchor_text, self.embed_timeout_sec
+            )
+            if self._anchor_embed is None:
+                log.warning(
+                    f"wilson_loop: embedding_endpoint={self.embedding_endpoint} "
+                    f"unreachable or lacks /v1/embeddings; falling back to token cosine"
+                )
+                # Null out so probe() skips embed attempts entirely — avoids
+                # repeated 2s timeouts per probe when the server is down.
+                self.embedding_endpoint = None
         log.warning(
             f"wilson_loop: anchored on {len(self._anchor_tokens)} content tokens "
-            f"(probe_every={self.probe_every}, drift_threshold={self.drift_threshold})"
+            f"(probe_every={self.probe_every}, drift_threshold={self.drift_threshold}, "
+            f"embed={'on' if self._anchor_embed is not None else 'off'})"
         )
 
     def should_probe(self, iter_n: int) -> bool:
@@ -146,19 +238,42 @@ class WilsonLoop:
 
         Returns the Probe (caller may inspect ``probe.holonomy``). Side effect:
         appends to internal trajectory and may fire ``on_drift``.
+
+        Path selection:
+            - If ``embedding_endpoint`` was set and the anchor embedding
+              succeeded at construction, try real vector cosine. On any
+              per-probe failure (timeout, 501, malformed response), fall
+              through to token cosine WITHOUT disabling future attempts —
+              transient failures shouldn't lose telemetry for the session.
+            - Otherwise (default), token cosine. Byte-identical to v1.
         """
         toks = _tokens(intent_text)
-        sim = _cosine(toks, self._anchor_tokens)
+        sim: float | None = None
+        src = "tokens"
+        if self.embedding_endpoint is not None and self._anchor_embed is not None:
+            vec = _embed(self.embedding_endpoint, intent_text, self.embed_timeout_sec)
+            if vec is not None:
+                sim = _vec_cosine(vec, self._anchor_embed)
+                src = "embed"
+        if sim is None:
+            sim = _cosine(toks, self._anchor_tokens)
         holonomy = 1.0 - sim
-        p = Probe(iter_n=iter_n, text=intent_text[:200], tokens=toks, holonomy=holonomy)
+        p = Probe(
+            iter_n=iter_n,
+            text=intent_text[:200],
+            tokens=toks,
+            holonomy=holonomy,
+            src=src,
+        )
         self._probes.append(p)
         # log.warning during v1 telemetry window — default Python log level
         # filters INFO; this is what makes the metric visible. Demote to .info
         # once the metric graduates to interventions and we don't need the
         # raw signal in eval logs anymore.
         log.warning(
-            f"wilson_loop: probe iter={iter_n} sim={sim:.3f} holonomy={holonomy:.3f} "
-            f"(consec_drift={self._consecutive_drift}, anchor_overlap={len(toks & self._anchor_tokens)})"
+            f"wilson_loop: probe iter={iter_n} src={src} sim={sim:.3f} "
+            f"holonomy={holonomy:.3f} (consec_drift={self._consecutive_drift}, "
+            f"anchor_overlap={len(toks & self._anchor_tokens)})"
         )
 
         # Drift accounting
