@@ -926,14 +926,57 @@ class Agent:
         # — model can ignore — but high-salience reset toward the goal.
         # 0.4 threshold was empirically calibrated to the one-shot pass cleave.
         from .wilson_loop import WilsonLoop, synthesize_intent
+        # Bounded WIPEOUT recovery: when wilson detects sustained drift
+        #   1. Erase the current deliverables/<project>/ scaffold
+        #   2. Reset _project_init_called + Circulation counters (clean slate)
+        #   3. Hint the agent at scaffold variety so it can pick differently
+        #   4. Cap at 2 wipeouts per session — third drift = no intervention
+        #      (let session naturally fail-out via Circulation/safety-valve)
+        self._wipeout_count = 0
+        self._wipeout_max = 2
         def _on_wilson_drift(wilson, probe):
+            self._wipeout_count += 1
+            if self._wipeout_count > self._wipeout_max:
+                log.warning(
+                    f"wilson on_drift: SKIPPED — already used "
+                    f"{self._wipeout_count - 1}/{self._wipeout_max} wipeouts"
+                )
+                return
+            erased = None
+            if self.active_project:
+                from pathlib import Path as _P
+                proj_path = _P(self.config.workspace_dir) / "deliverables" / self.active_project
+                if proj_path.exists():
+                    import shutil
+                    shutil.rmtree(proj_path, ignore_errors=True)
+                    erased = self.active_project
+                    log.warning(
+                        f"wilson WIPEOUT #{self._wipeout_count}: erased "
+                        f"deliverables/{erased}"
+                    )
+            # Clean slate so the agent can re-scaffold
+            self.active_project = None
+            self._project_init_called = False
+            self._build_passed_at = None
+            try:
+                self.read_spiral.reset()
+                self.context_overflow.reset()
+            except Exception:
+                pass  # Circulation reset is best-effort
+            scaffold_hint = (
+                f" Scaffold '{erased}' has been erased — call project_init "
+                f"with a different name to pick a different scaffold "
+                f"(react-app | fullstack | dashboard | data-viz | landing | "
+                f"realtime | game | electron-app)."
+            ) if erased else ""
             self.state.add_system_note(
-                f"You wiped out. Here's the last log: \"{probe.text[:200]}\". "
-                f"Reconsider your approach. "
+                f"You wiped out (attempt {self._wipeout_count}/{self._wipeout_max}). "
+                f"Last log: \"{probe.text[:200]}\". "
+                f"Reconsider your approach.{scaffold_hint} "
                 f"Original task: \"{wilson.goal_anchor[:160]}\"."
             )
             log.warning(
-                f"wilson on_drift: WIPEOUT at iter={probe.iter_n}, "
+                f"wilson on_drift: WIPEOUT #{self._wipeout_count} at iter={probe.iter_n}, "
                 f"holonomy={probe.holonomy:.3f}"
             )
         self._wilson = WilsonLoop(goal_anchor=user_message, on_drift=_on_wilson_drift)
