@@ -184,9 +184,10 @@ class WilsonLoop:
     # Calibrated 2026-04-16 from 5 embed=on probes:
     #   chiptune ✓ 0.30 | crypto-reg 0.37 | leads-fail 0.40 | leads-fail 0.43 |
     #   crypto-fail 0.49.
-    # Cleave point at ~0.40 — beyond that the agent has lost balance and the
-    # session will fail. v1's 0.7 was set conservatively when only token-cosine
-    # was available (token-mode reads ~0.85 on every session, including ✓ ones).
+    # Healthy band: 0.2–0.4, target ~0.3 (where chiptune ✓ landed). Below 0.2
+    # is suspiciously close-to-anchor (likely measurement artifact). Above 0.4
+    # the agent has lost balance and the session will fail. Threshold pinned
+    # to the failure-side edge of the band.
     drift_threshold: float = 0.4
     consecutive_drift_to_fire: int = 3
     on_drift: Callable[["WilsonLoop", "Probe"], None] | None = None
