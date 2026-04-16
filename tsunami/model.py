@@ -59,6 +59,7 @@ class TsunamiModel:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.top_p = top_p
+        self.top_k = top_k  # Qwen3-Coder-Next README: top_k=40
         self.presence_penalty = presence_penalty
         # Identity for the server's per-user fairness queue (TSUNAMI_USER env).
         # Kept nonempty if set; the server treats "" as a shared "default" user.
@@ -130,6 +131,7 @@ class TsunamiModel:
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "top_p": self.top_p,
+            "top_k": self.top_k,
             "presence_penalty": self.presence_penalty,
         }
         if self.client_id:

@@ -16,11 +16,15 @@ class TsunamiConfig:
     model_name: str = "tsunami"
     model_endpoint: str = "http://localhost:8090"
     api_key: str | None = None
-    temperature: float = 0.7
-    top_p: float = 0.8
-    top_k: int = 20
-    presence_penalty: float = 1.5
-    max_tokens: int = 2048
+    # Qwen3-Coder-Next README: temperature=1.0, top_p=0.95, top_k=40,
+    # max_tokens=65536 (64K). Native context 256K, recommends ≥32K.
+    # Older defaults (temp=0.7, top_p=0.8, top_k=20, presence=1.5) were
+    # tuned for Qwen3.5-4B and bled into the coder's calls.
+    temperature: float = 1.0
+    top_p: float = 0.95
+    top_k: int = 40
+    presence_penalty: float = 0.0
+    max_tokens: int = 65536
     client_id: str = ""  # set via TSUNAMI_USER env var; feeds the `user` field of
                          # /v1/chat/completions so the server can enforce per-user
                          # fairness. Leave empty on single-user setups — the server
