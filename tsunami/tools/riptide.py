@@ -110,25 +110,19 @@ class Riptide(BaseTool):
 async def _ground_elements(endpoint: str, image_b64: str, elements: list[str], image_path: str) -> str | None:
     """Ask Qwen-VL to locate elements in the image.
 
-    Uses the grounding prompt format that triggers bbox output:
-    <img>base64...</img>Locate these elements: A button, B button, screen
+    Uses a pixel-bbox prompt that works across Qwen-VL generations:
+    Qwen3.5 outputs `[x1, y1, x2, y2]` in source-image pixel coords.
+    We normalize to percentages using the actual image dimensions.
     """
-    # Build the grounding prompt
-    element_list = ", ".join(elements)
+    # Build element bullet list
+    element_bullets = "\n".join(f"- {e}" for e in elements)
     prompt = (
-        f"Look at this UI/device image. For each element listed below, "
-        f"describe its position as a RATIO of the total image dimensions "
-        f"(left%, top%, width%, height%). These are proportional — "
-        f"50% means halfway across. Be precise.\n\n"
-        f"Also note the overall aspect ratio of the device "
-        f"(e.g. portrait 7:12 for a Game Boy, landscape 16:9 for a monitor).\n\n"
-        f"Elements to locate: {element_list}\n\n"
-        f"For each element, respond in this exact format:\n"
-        f"ASPECT_RATIO: <W>:<H>\n"
-        f"ELEMENT: <name>\n"
-        f"POSITION: left=<X>% top=<Y>% width=<W>% height=<H>%\n"
-        f"COLOR: <dominant color hex>\n"
-        f"NOTES: <shape, style details>\n"
+        f"Locate each of these elements in the image and output its bounding box "
+        f"as [x1, y1, x2, y2] in pixel coordinates of the source image.\n\n"
+        f"Elements:\n{element_bullets}\n\n"
+        f"For each element, respond on its own line in this format:\n"
+        f"ELEMENT: <name> BBOX: [x1, y1, x2, y2]\n"
+        f"If an element is not visible, output: ELEMENT: <name> BBOX: null"
     )
 
     try:
@@ -169,7 +163,9 @@ async def _ground_elements(endpoint: str, image_b64: str, elements: list[str], i
                         }
                     ],
                     "max_tokens": 1500,
-                    "temperature": 0.1,
+                    "temperature": 0.7,
+                    "top_p": 0.8,
+                    "top_k": 20,
                 },
                 headers={"Authorization": "Bearer not-needed"},
             )
@@ -181,8 +177,16 @@ async def _ground_elements(endpoint: str, image_b64: str, elements: list[str], i
             data = resp.json()
             content = data["choices"][0]["message"]["content"]
 
+            # Image dimensions (for pixel→percentage conversion)
+            try:
+                from PIL import Image as _PILImage
+                with _PILImage.open(image_path) as _img:
+                    img_w, img_h = _img.size
+            except Exception:
+                img_w, img_h = 0, 0
+
             # Parse the response into structured data
-            parsed = _parse_grounding_response(content, elements)
+            parsed = _parse_grounding_response(content, elements, img_w, img_h)
 
             # Format output
             lines = [f"Vision grounding for: {image_path}"]
@@ -219,11 +223,38 @@ async def _ground_elements(endpoint: str, image_b64: str, elements: list[str], i
         return None
 
 
-def _parse_grounding_response(content: str, elements: list[str]) -> list[dict]:
-    """Parse the VL model's element position response into structured data."""
+def _parse_grounding_response(content: str, elements: list[str], img_w: int = 0, img_h: int = 0) -> list[dict]:
+    """Parse the VL model's element position response into structured data.
+
+    Supports three formats across Qwen-VL generations:
+    1. Qwen3.5 native: `ELEMENT: <name> BBOX: [x1, y1, x2, y2]` (pixel coords)
+    2. Qwen2-VL: `<ref>name</ref><box>(x1,y1),(x2,y2)</box>` (0-1000 normalized)
+    3. Structured prose: `ELEMENT: ... POSITION: left=X% top=Y% width=W% height=H%`
+    """
     results = []
 
-    # Try structured format first: ELEMENT: ... POSITION: left=X% top=Y%...
+    # --- Format 1: pixel bbox (Qwen3.5-4B native) ---
+    # `ELEMENT: foo BBOX: [x1, y1, x2, y2]` — convert pixels → percentages
+    if img_w > 0 and img_h > 0:
+        pixel_pattern = re.findall(
+            r'ELEMENT:\s*(.+?)\s+BBOX:\s*\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]',
+            content, re.IGNORECASE,
+        )
+        for name, x1, y1, x2, y2 in pixel_pattern:
+            x1f, y1f = float(x1) / img_w * 100, float(y1) / img_h * 100
+            x2f, y2f = float(x2) / img_w * 100, float(y2) / img_h * 100
+            results.append({
+                "name": name.strip(),
+                "left": round(x1f, 1),
+                "top": round(y1f, 1),
+                "width": round(x2f - x1f, 1),
+                "height": round(y2f - y1f, 1),
+                "color": "",
+                "notes": "",
+            })
+
+    # --- Format 3: structured prose (legacy, keeps Gemma-era compat) ---
+    # Try structured format: ELEMENT: ... POSITION: left=X% top=Y%...
     blocks = re.split(r'(?=ELEMENT:)', content, flags=re.IGNORECASE)
     for block in blocks:
         if not block.strip():
