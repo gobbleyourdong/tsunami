@@ -888,9 +888,38 @@ class Agent:
         log.info(f"Starting agent loop: {user_message[:100]}")
         consecutive_errors = 0
 
+        # WilsonLoop — high-level semantic drift detector. Telemetry-only
+        # in v1: every ``probe_every`` iters, synthesize "what is the agent
+        # doing now" and measure cosine to the user's original task. Logs
+        # holonomy (1 - cos); WARNs on sustained drift. No interventions yet.
+        # Sits ABOVE Circulation: catches macro drift the count-based circuit
+        # breaker can't see (productive iters that have rotated off-goal).
+        from .wilson_loop import WilsonLoop, synthesize_intent
+        self._wilson = WilsonLoop(goal_anchor=user_message)
+        self._synthesize_intent = synthesize_intent
+
         while True:
             self.state.iteration += 1
             iter_start = time.time()
+
+            # WilsonLoop probe — telemetry-only. See tsunami/wilson_loop.py.
+            if self._wilson.should_probe(self.state.iteration):
+                try:
+                    # Synthesize from last 3 (tool_name, args) pairs we ran.
+                    recent_calls: list[tuple[str, dict]] = []
+                    for msg in reversed(self.state.conversation):
+                        if getattr(msg, "role", "") == "tool_result":
+                            tname = getattr(msg, "tool_name", "") or ""
+                            targs = getattr(msg, "tool_args", {}) or {}
+                            if tname:
+                                recent_calls.append((tname, targs if isinstance(targs, dict) else {}))
+                                if len(recent_calls) >= 3:
+                                    break
+                    recent_calls.reverse()
+                    intent = self._synthesize_intent(recent_calls)
+                    self._wilson.probe(self.state.iteration, intent)
+                except Exception as e:
+                    log.debug(f"wilson_loop probe failed (non-fatal): {e}")
 
             # Delivery deadline — if build passed 10+ iterations ago, force delivery
             build_passed_at = getattr(self, '_build_passed_at', None)
