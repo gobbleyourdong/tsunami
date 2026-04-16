@@ -1111,10 +1111,31 @@ class Agent:
             # Need assistant response to maintain alternation
             messages.insert(2, {"role": "assistant", "content": "Acknowledged — session context loaded."})
 
+        # #14 deliver-gate: after BUILD PASSED, if the model took another
+        # non-delivery tool call instead of message_result, force its hand on
+        # the NEXT turn. Breaks the 222-streak rebuild loop across every
+        # model we've tested (Gemma, Qwen3.5-122B, Qwen3-Coder-Next).
+        force_tool = None
+        build_passed_at = getattr(self, "_build_passed_at", None)
+        if build_passed_at is not None:
+            last_tool = self._tool_history[-1] if self._tool_history else None
+            # One grace iteration — if still not message_result on the iter
+            # AFTER build passed, force it.
+            if (self.state.iteration > build_passed_at
+                and last_tool is not None
+                and last_tool != "message_result"):
+                force_tool = "message_result"
+                log.warning(
+                    f"#14 deliver-gate FIRE: iter {self.state.iteration}, "
+                    f"build passed at {build_passed_at}, last tool {last_tool!r} "
+                    f"— forcing message_result"
+                )
+
         # 2. Call the reasoning core — get exactly one tool call
         response = await self.model.generate(
             messages=messages,
             tools=self.registry.schemas(),
+            force_tool=force_tool,
         )
 
         # 2b. Track LLM usage + cost

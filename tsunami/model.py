@@ -87,12 +87,17 @@ class TsunamiModel:
         return converted
 
     async def generate(self, messages: list[dict[str, str]],
-                       tools: list[dict] | None = None) -> LLMResponse:
-        """Generate with retry logic and exponential backoff."""
+                       tools: list[dict] | None = None,
+                       force_tool: str | None = None) -> LLMResponse:
+        """Generate with retry logic and exponential backoff.
+
+        force_tool: when set, forces the model to emit a tool_call for this
+        specific tool name (used for deliver-gate intervention — #14 fix).
+        """
         last_error = None
         for attempt in range(MAX_RETRIES):
             try:
-                return await self._call(messages, tools)
+                return await self._call(messages, tools, force_tool=force_tool)
             except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
                 last_error = e
                 wait = get_retry_delay(attempt)
@@ -116,7 +121,7 @@ class TsunamiModel:
 
         raise ConnectionError(f"Model unreachable after {MAX_RETRIES} attempts: {last_error}")
 
-    async def _call(self, messages, tools=None) -> LLMResponse:
+    async def _call(self, messages, tools=None, force_tool: str | None = None) -> LLMResponse:
         headers = {"Content-Type": "application/json"}
 
         payload: dict[str, Any] = {
@@ -133,7 +138,15 @@ class TsunamiModel:
             payload["adapter"] = self.adapter
         if tools:
             payload["tools"] = self._convert_tools(tools)
-            payload["tool_choice"] = "auto"
+            if force_tool:
+                # #14 deliver-gate — force a specific tool call (e.g.,
+                # message_result after BUILD PASSED to break the rebuild loop).
+                payload["tool_choice"] = {
+                    "type": "function",
+                    "function": {"name": force_tool},
+                }
+            else:
+                payload["tool_choice"] = "auto"
 
         async with httpx.AsyncClient(timeout=900) as client:
             for attempt in range(3):
