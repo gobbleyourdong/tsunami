@@ -4,6 +4,9 @@ Port of the relevant pieces of city96/ComfyUI-GGUF loader.py (Apache-2.0).
 Supports:
   - qwen3    → Qwen3Model  (Z-Image text encoder, standalone)
   - lumina2  → Z-Image DiT  (native GGUF naming preserved)
+  - ernie_image → ErnieImageTransformer2DModel (Unsloth's GGUFs label the
+                  arch as "wan" but tensor names are ERNIE-native and match
+                  diffusers.ErnieImageTransformer2DModel.state_dict() 1:1)
   - gemma3   → Gemma3ForCausalLM  (via the GEMMA3_SD_MAP)
   - gemma4   → HAS EXTRA TENSORS not handled yet — see GEMMA4_EXTRA
 
@@ -56,6 +59,25 @@ GEMMA3_SD_MAP = {
 }
 
 QWEN3_SD_MAP = dict(LLAMA_SD_MAP)
+
+# MistralModel (used as Mistral3Model.language_model child) — no "model." prefix
+# in its state_dict keys, so we drop that piece of the LLAMA map.
+MISTRAL_LANG_SD_MAP = {
+    "blk.": "layers.",
+    "attn_norm": "input_layernorm",
+    "attn_q": "self_attn.q_proj",
+    "attn_k": "self_attn.k_proj",
+    "attn_v": "self_attn.v_proj",
+    "attn_output": "self_attn.o_proj",
+    "ffn_up": "mlp.up_proj",
+    "ffn_down": "mlp.down_proj",
+    "ffn_gate": "mlp.gate_proj",
+    "ffn_norm": "post_attention_layernorm",
+    "token_embd": "embed_tokens",
+    "output_norm": "norm",
+    # No "output.weight" → "lm_head.weight" — tied embeddings; no lm_head tensor
+    # in the GGUF, no lm_head needed for text-encoder use.
+}
 
 # Gemma-4 has extra tensors that Gemma-3 doesn't. Without HF-side naming
 # verified against transformers.Gemma4ForCausalLM, do NOT auto-remap these
@@ -149,6 +171,12 @@ def _load_raw_gguf(path: str | Path, handle_prefix: str | None = None) -> tuple[
 
         if t.tensor_type in (gguf.GGMLQuantizationType.F32, gguf.GGMLQuantizationType.F16):
             raw = raw.view(*shape)
+        elif t.tensor_type == gguf.GGMLQuantizationType.BF16:
+            # numpy has no native bf16 → gguf returns uint8 with the last axis
+            # doubled (bf16 = 2 bytes). Reinterpret bytes as bf16 and reshape
+            # to the logical shape so non-GGMLLinear consumers (Conv2d,
+            # LayerNorm, etc.) see the right tensor.
+            raw = raw.view(torch.bfloat16).view(*shape)
 
         tensor = GGMLTensor(raw, tensor_type=t.tensor_type, tensor_shape=shape)
 
@@ -318,6 +346,49 @@ def describe_gguf(path: str | Path) -> dict:
         "quant_histogram": dict(sorted(qtypes.items(), key=lambda kv: -kv[1])),
         "mb": round(total_bytes / (1024 * 1024), 1),
     }
+
+
+def load_mistral3_lang_gguf(
+    path: str | Path,
+    n_head: int = 32,
+    n_head_kv: int = 8,
+) -> dict[str, GGMLTensor]:
+    """Mistral3 / Ministral text-body GGUF → MistralModel state dict.
+
+    Targets the .language_model child of transformers.Mistral3Model (which is
+    just a MistralModel — `embed_tokens`, `layers.N.{self_attn,mlp,…}`, `norm`,
+    no leading `model.` prefix). q/k tensors are llama.cpp-permuted; we
+    reverse the permute so HF's rotary application matches.
+
+    Tied embeddings: GGUF has no `output.weight` and we don't add `lm_head` —
+    the text-encoder use never calls .generate(), only .forward to grab
+    hidden_states[-2].
+    """
+    sd, arch, _ = _load_raw_gguf(path)
+    if arch != "mistral3":
+        log.warning(f"Expected arch=mistral3, got {arch}")
+    sd = _sd_map_replace(sd, MISTRAL_LANG_SD_MAP)
+    sd = _llama_permute(sd, n_head, n_head_kv)
+    return sd
+
+
+def load_ernie_image_gguf(path: str | Path) -> dict[str, GGMLTensor]:
+    """ERNIE-Image-Turbo DiT GGUF → diffusers ErnieImageTransformer2DModel
+    state dict.
+
+    No remapping needed — verified 409/409 bijective match between GGUF
+    tensor names and `ErnieImageTransformer2DModel(hidden_size=4096,
+    num_layers=36, num_attention_heads=32, ffn_hidden_size=12288, ...)`.
+    q/k/v are already split, attention.out is already to_out.0, mlp uses
+    gate_proj/up_proj/linear_fc2 (SwiGLU), adaLN pieces match.
+
+    Unsloth's packer writes `general.architecture = wan` in the GGUF
+    metadata — that's the only quirk. The tensor payload is ERNIE's.
+    """
+    sd, arch, _ = _load_raw_gguf(path)
+    if arch not in ("ernie_image", "wan"):
+        log.warning(f"Expected arch=ernie_image/wan, got {arch}")
+    return sd
 
 
 def load_gguf(path):

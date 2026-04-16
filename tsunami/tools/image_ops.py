@@ -66,26 +66,27 @@ from PIL import Image
 
 def pixelize(
     img: Image.Image,
-    pixel_rows: int = 270,
-    palette: int = 32,
-    upscale: int = 4,
+    pixel_rows: int = 360,
+    palette: int = 256,
+    upscale: int = 3,
 ) -> Image.Image:
     """Block-downsample the entire image to a chunky `pixel_rows × cols`
-    grid, then palette-quantize to `palette` colors.
+    grid, then palette-quantize to `palette` colors via Pillow's median-cut.
 
     Preserves background — if you want the bg gone, run `extract_bg` FIRST.
 
     `pixel_rows`  vertical resolution of the logical pixel grid (cols
-                  derived from aspect). See module docstring for the table
-                  of canonical sizes:
+                  derived from aspect). Canonical sizes:
                     180 → Celeste (chunky 8-bit)
                     216 → middle-ground
-                    270 → Hyper Light Drifter (default — sharp + readable)
-                    360 → Dead Cells / modern (barely pixelated)
-                  For SQUARE square sprites (gen at 1024²): rows IS the
-                  sprite size → 16 / 32 / 64.
-    `palette`     number of distinct colors after quantization. 16 ≈ NES,
-                  24-32 ≈ Genesis/SNES, 48-64 ≈ modern indie.
+                    270 → Hyper Light Drifter
+                    360 → Dead Cells / modern (DEFAULT — preserves small
+                          features like eye highlights)
+                  For SQUARE sprites (gen at 1024²): rows IS the sprite
+                  size → 16 / 32 / 64.
+    `palette`     number of distinct colors after quantization. Pillow
+                  adaptive maxes at 256. 256 (default) preserves the full
+                  color range; 64-128 for chunkier Genesis-tier feel.
     `upscale`     if >1, nearest-neighbor upscale the result so each
                   logical pixel is `upscale × upscale` in the saved file.
                   Match to the canonical scale for clean integer scaling
@@ -101,13 +102,12 @@ def pixelize(
     # BOX = mean of pixels in each block — the truest "snap to grid" downsample
     small = src.resize((cols, rows), Image.BOX)
 
-    # Palette-quantize for the retro look. Quantization in 'P' mode handles
-    # RGB only; for RGBA we strip alpha, quantize, then reattach.
+    # Pillow median-cut palette quantization. RGBA path strips alpha,
+    # quantizes RGB, then reattaches.
     if has_alpha:
-        rgb = small.convert("RGB")
-        quant = rgb.convert("P", palette=Image.ADAPTIVE, colors=palette).convert("RGB")
-        a = small.split()[-1]
-        out = Image.merge("RGBA", (*quant.split(), a))
+        quant_rgb = small.convert("RGB").convert(
+            "P", palette=Image.ADAPTIVE, colors=palette).convert("RGB")
+        out = Image.merge("RGBA", (*quant_rgb.split(), small.split()[-1]))
     else:
         out = small.convert("P", palette=Image.ADAPTIVE, colors=palette).convert("RGB")
 

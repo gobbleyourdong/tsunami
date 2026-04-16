@@ -19,6 +19,13 @@ cli/package-lock.json
 # now train their own via training/train.py or pull from HuggingFace.
 models/
 
+# Per-machine binary symlinks (point at local build dirs under /tmp on Spark)
+bin/llama-server
+bin/sd-server
+
+# Generated app outputs from agent runs — regenerable, not source
+deliverables/
+
 # Workspace (runtime artifacts)
 workspace/.history/
 workspace/notes/
