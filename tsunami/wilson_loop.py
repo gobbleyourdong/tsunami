@@ -128,7 +128,7 @@ class WilsonLoop:
 
     def __post_init__(self):
         self._anchor_tokens = _tokens(self.goal_anchor)
-        log.info(
+        log.warning(
             f"wilson_loop: anchored on {len(self._anchor_tokens)} content tokens "
             f"(probe_every={self.probe_every}, drift_threshold={self.drift_threshold})"
         )
@@ -148,7 +148,11 @@ class WilsonLoop:
         holonomy = 1.0 - sim
         p = Probe(iter_n=iter_n, text=intent_text[:200], tokens=toks, holonomy=holonomy)
         self._probes.append(p)
-        log.info(
+        # log.warning during v1 telemetry window — default Python log level
+        # filters INFO; this is what makes the metric visible. Demote to .info
+        # once the metric graduates to interventions and we don't need the
+        # raw signal in eval logs anymore.
+        log.warning(
             f"wilson_loop: probe iter={iter_n} sim={sim:.3f} holonomy={holonomy:.3f} "
             f"(consec_drift={self._consecutive_drift}, anchor_overlap={len(toks & self._anchor_tokens)})"
         )
