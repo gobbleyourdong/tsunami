@@ -1061,6 +1061,24 @@ class Agent:
                     except Exception:
                         pass  # compression failed, will retry anyway
                     continue
+                # [race-mode] After 2 consecutive 400s, just exit — context is
+                # likely permanently overflowed for this prompt. Auto-deliver
+                # if dist exists. Chiptune target died here at iter 9-13.
+                if "400" in error_str and consecutive_errors > 2:
+                    from pathlib import Path as _P
+                    deliverables = _P(self.config.workspace_dir) / "deliverables"
+                    if deliverables.exists():
+                        projects = sorted(
+                            [d for d in deliverables.iterdir() if d.is_dir()],
+                            key=lambda p: p.stat().st_mtime, reverse=True,
+                        )
+                        if projects and (projects[0] / "dist" / "index.html").exists():
+                            self.state.task_complete = True
+                            self._tool_history.append("message_result")
+                            log.warning(f"loop_exit path=context_overflow_exit turn={self.state.iteration} dist={projects[0].name}/dist")
+                            return f"Build delivered at {projects[0].name}/dist after context overflow."
+                    log.warning(f"loop_exit path=context_overflow_no_dist turn={self.state.iteration}")
+                    return f"Context overflow after {consecutive_errors} 400s, no dist available."
 
                 self.state.add_system_note(f"Loop error: {e}")
                 save_session(self.state, self.session_dir, self.session_id)
