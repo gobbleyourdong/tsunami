@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 
 from .abort import AbortSignal
+from .circulation import Circulation
 from .compression import compress_context, needs_compression, fast_prune
 from .config import TsunamiConfig
 from .cost_tracker import CostTracker
@@ -140,6 +141,20 @@ class Agent:
         self._tool_history: list[str] = []  # last N tool calls
         self._project_init_called = False  # block repeated scaffold
         self._has_researched = False  # research gate — must search before writing
+
+        # Read-spiral circulation — circuit-breaker over the 8-read-only stall
+        # counter. threshold=3 preserves prior cb34297 hard-exit semantics.
+        # on_trip captures `self` lazily; the actual auto-deliver + log are
+        # kept inline at the event site so log signature stays byte-identical
+        # (design §5 verification). on_eddy left None — earlier stalls still
+        # emit their existing system_note; Circulation only takes over the
+        # count+threshold bookkeeping.
+        self.read_spiral = Circulation(
+            name="read_spiral",
+            threshold=3,
+            cooldown_iters=2,
+            recovery_iters=5,
+        )
 
         # Auto-compact circuit breaker
         # Stops retrying compression after N consecutive failures
@@ -1098,6 +1113,10 @@ class Agent:
             if self.state.iteration % 5 == 0:
                 save_session(self.state, self.session_dir, self.session_id)
 
+            # Advance circulation bookkeeping (cool-down / recovery).
+            # Must run every iter so probe-recovery streak tracks real iters.
+            self.read_spiral.tick(self.state.iteration)
+
             if self.state.task_complete:
                 log.info(f"Task complete after {self.state.iteration} iterations")
                 save_session(self.state, self.session_dir, self.session_id)
@@ -1275,9 +1294,13 @@ class Agent:
                     # regression at 53 iters/600s timeout was 4+ stalls then
                     # timed out. Better to ship a (possibly broken) build than
                     # burn the timeout slot.
-                    self._stall_count = getattr(self, '_stall_count', 0) + 1
-                    if self._stall_count >= 3:
-                        log.warning(f"Read-spiral hard-exit: {self._stall_count} stalls — forcing task_complete")
+                    # Site B (Cat 2 wiring): counter owned by Circulation. The
+                    # threshold-trip log + auto-deliver block below stays inline
+                    # so the `loop_exit path=read_spiral_hard_exit ...` log
+                    # signature is byte-identical to pre-wiring behavior.
+                    self.read_spiral.event(self.state.iteration)
+                    if self.read_spiral.count >= self.read_spiral.threshold:
+                        log.warning(f"Read-spiral hard-exit: {self.read_spiral.count} stalls — forcing task_complete")
                         self.state.task_complete = True
                         # Only mark as delivered if dist actually exists.
                         # Otherwise let eval-driver record as not-delivered.
