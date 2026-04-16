@@ -103,7 +103,7 @@ done
 # Inference stack — sequential ports, one role each:
 #   8090 — tsunami proxy   (FastAPI front-end, forwards /v1/chat → 8091
 #                           and /v1/images → 8092; runs undertow/scaffolds)
-#   8091 — llama-server    (chat LM, Gemma-4-26B-A4B MXFP4 via llama.cpp)
+#   8091 — llama-server    (chat LM, Qwen3.5-122B-A10B MXFP4 via llama.cpp)
 #   8092 — ernie_server    (image gen, ERNIE-Image-Turbo bf16 swap-capable;
 #                           /v1/admin/swap?kind=Base for infographics mode)
 #   8093 — reserved        (future: SDXL+ControlNet for rigid motion library)
@@ -128,8 +128,9 @@ LLAMA_BIN=$(find_bin llama-server \
 # Model discovery — honor $TSUNAMI_MODELS_DIR, else check common locations.
 MODELS_DIR="${TSUNAMI_MODELS_DIR:-$HOME/models_gguf}"
 [ -d "$MODELS_DIR" ] || MODELS_DIR="$DIR/models"
-GEMMA_MOE=$(ls "$MODELS_DIR"/gemma-4-26B-A4B*MXFP4*.gguf 2>/dev/null | head -1)
-MMPROJ=$(ls "$MODELS_DIR"/mmproj*.gguf 2>/dev/null | head -1)
+# LM model discovery — Qwen3.5-122B-A10B MXFP4 (primary), fallback to Gemma
+LM_GGUF=$(ls "$MODELS_DIR"/MXFP4_MOE/Qwen3.5-122B-A10B*-00001-of-*.gguf 2>/dev/null | head -1)
+[ -z "$LM_GGUF" ] && LM_GGUF=$(ls "$MODELS_DIR"/gemma-4-26B-A4B*MXFP4*.gguf 2>/dev/null | head -1)
 
 # ERNIE uses Baidu snapshot + in-process Mistral3 TE — resolved by the
 # ernie_server module via its _find_baidu_snapshot helper (HF cache or
@@ -137,16 +138,17 @@ MMPROJ=$(ls "$MODELS_DIR"/mmproj*.gguf 2>/dev/null | head -1)
 ERNIE_PYTHON="${ERNIE_PYTHON:-python3}"
 
 echo "  models:"
-echo "    LM:   $(basename "${GEMMA_MOE:-(missing)}")"
+echo "    LM:   $(basename "${LM_GGUF:-(missing)}")"
 echo "    DiT:  ERNIE-Image-Turbo (bf16, swap-capable → Base)"
 
 # --- :8091 llama-server (LLM) ---
-if [ -n "$LLAMA_BIN" ] && [ -n "$GEMMA_MOE" ] && ! curl -sf http://localhost:8091/health >/dev/null 2>&1; then
+# Qwen3.5-122B-A10B: native vision+text, no mmproj needed. 16K context
+# keeps KV cache manageable alongside ERNIE. Qwen recommended: temp=0.6,
+# top_p=0.95, presence_penalty=0.0 for coding tasks.
+if [ -n "$LLAMA_BIN" ] && [ -n "$LM_GGUF" ] && ! curl -sf http://localhost:8091/health >/dev/null 2>&1; then
   echo "  starting llama-server → :8091"
-  MMPROJ_ARG=""
-  [ -n "$MMPROJ" ] && MMPROJ_ARG="--mmproj $MMPROJ"
-  nohup "$LLAMA_BIN" -m "$GEMMA_MOE" $MMPROJ_ARG \
-    --port 8091 --host 0.0.0.0 -ngl 999 -c 32768 --jinja \
+  nohup "$LLAMA_BIN" -m "$LM_GGUF" \
+    --port 8091 --host 0.0.0.0 -ngl 999 -c 16384 --jinja \
     > /tmp/tsu-llama.log 2>&1 &
 fi
 
