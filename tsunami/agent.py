@@ -905,18 +905,23 @@ class Agent:
             # WilsonLoop probe — telemetry-only. See tsunami/wilson_loop.py.
             if self._wilson.should_probe(self.state.iteration):
                 try:
-                    # Synthesize from last 3 (tool_name, args) pairs we ran.
-                    recent_calls: list[tuple[str, dict]] = []
+                    # Synthesize intent from the last 6 non-system message
+                    # contents. Use raw content rather than tool_name/tool_args:
+                    # Message dataclass only carries (role, content, tool_call,
+                    # timestamp). tool_result content is "[tool_name] ..." and
+                    # assistant content is the model's text — together they
+                    # describe what's happening better than parsing args.
+                    parts: list[str] = []
                     for msg in reversed(self.state.conversation):
-                        if getattr(msg, "role", "") == "tool_result":
-                            tname = getattr(msg, "tool_name", "") or ""
-                            targs = getattr(msg, "tool_args", {}) or {}
-                            if tname:
-                                recent_calls.append((tname, targs if isinstance(targs, dict) else {}))
-                                if len(recent_calls) >= 3:
+                        role = getattr(msg, "role", "")
+                        if role in ("tool_result", "assistant"):
+                            c = getattr(msg, "content", "") or ""
+                            if c:
+                                parts.append(c[:300])
+                                if len(parts) >= 6:
                                     break
-                    recent_calls.reverse()
-                    intent = self._synthesize_intent(recent_calls)
+                    parts.reverse()
+                    intent = " | ".join(parts)
                     self._wilson.probe(self.state.iteration, intent)
                 except Exception as e:
                     log.debug(f"wilson_loop probe failed (non-fatal): {e}")
