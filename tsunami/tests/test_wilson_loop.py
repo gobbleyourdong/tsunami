@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from tsunami.wilson_loop import (
     WilsonLoop,
+    _DEFAULT_EMBED_TIMEOUT_SEC,
     _cosine,
     _embed,
+    _resolve_embed_timeout_sec,
     _tokens,
     _vec_cosine,
     synthesize_intent_from_messages,
@@ -46,6 +48,60 @@ class TestTokenCosineFallback:
         assert w._anchor_embed is None
         p = w.probe(15, "clock tick")
         assert p.src == "tokens"
+
+
+class TestEmbedTimeoutEnv:
+    """Pins the env-var contract for ``TSUNAMI_EMBED_TIMEOUT_SEC`` — the
+    principled replacement for e5d0620's hard-coded 10.0. Kept defensive:
+    this is observability infra and must never crash agent construction
+    on a malformed env value."""
+
+    def test_unset_uses_default(self, monkeypatch):
+        monkeypatch.delenv("TSUNAMI_EMBED_TIMEOUT_SEC", raising=False)
+        assert _resolve_embed_timeout_sec() == _DEFAULT_EMBED_TIMEOUT_SEC
+
+    def test_empty_string_uses_default(self, monkeypatch):
+        monkeypatch.setenv("TSUNAMI_EMBED_TIMEOUT_SEC", "")
+        assert _resolve_embed_timeout_sec() == _DEFAULT_EMBED_TIMEOUT_SEC
+
+    def test_valid_float_overrides(self, monkeypatch):
+        monkeypatch.setenv("TSUNAMI_EMBED_TIMEOUT_SEC", "2.5")
+        assert _resolve_embed_timeout_sec() == 2.5
+
+    def test_valid_int_string_overrides(self, monkeypatch):
+        monkeypatch.setenv("TSUNAMI_EMBED_TIMEOUT_SEC", "30")
+        assert _resolve_embed_timeout_sec() == 30.0
+
+    def test_whitespace_tolerated(self, monkeypatch):
+        monkeypatch.setenv("TSUNAMI_EMBED_TIMEOUT_SEC", "  5.0  ")
+        assert _resolve_embed_timeout_sec() == 5.0
+
+    def test_unparseable_falls_back(self, monkeypatch):
+        monkeypatch.setenv("TSUNAMI_EMBED_TIMEOUT_SEC", "fast")
+        assert _resolve_embed_timeout_sec() == _DEFAULT_EMBED_TIMEOUT_SEC
+
+    def test_zero_falls_back(self, monkeypatch):
+        """Zero would disable the request entirely; reject it."""
+        monkeypatch.setenv("TSUNAMI_EMBED_TIMEOUT_SEC", "0")
+        assert _resolve_embed_timeout_sec() == _DEFAULT_EMBED_TIMEOUT_SEC
+
+    def test_negative_falls_back(self, monkeypatch):
+        monkeypatch.setenv("TSUNAMI_EMBED_TIMEOUT_SEC", "-3.0")
+        assert _resolve_embed_timeout_sec() == _DEFAULT_EMBED_TIMEOUT_SEC
+
+    def test_constructor_default_reads_env(self, monkeypatch):
+        """The dataclass field uses default_factory=_resolve_embed_timeout_sec,
+        so env changes at construction time should land on the instance."""
+        monkeypatch.setenv("TSUNAMI_EMBED_TIMEOUT_SEC", "4.2")
+        w = WilsonLoop(goal_anchor="x")
+        assert w.embed_timeout_sec == 4.2
+
+    def test_explicit_kwarg_wins_over_env(self, monkeypatch):
+        """Explicit construction arg still takes precedence — the env var
+        is a default, not a forced override."""
+        monkeypatch.setenv("TSUNAMI_EMBED_TIMEOUT_SEC", "4.2")
+        w = WilsonLoop(goal_anchor="x", embed_timeout_sec=0.5)
+        assert w.embed_timeout_sec == 0.5
 
 
 class TestVecCosine:

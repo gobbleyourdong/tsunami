@@ -135,6 +135,35 @@ def _vec_cosine(a: list[float], b: list[float]) -> float:
     return dot / denom if denom else 0.0
 
 
+_DEFAULT_EMBED_TIMEOUT_SEC = 10.0
+
+
+def _resolve_embed_timeout_sec() -> float:
+    """Resolve the /v1/embeddings request timeout from env, with a 10s
+    default. Matches the symmetry of ``TSUNAMI_EMBED_ENDPOINT`` resolution
+    in ``__post_init__``.
+
+    Why 10s as the default (rationale from race-mode commit e5d0620): the
+    same llama-server serves ``/v1/chat/completions``, and those requests
+    block embedding slots on the shared KV cache. The anchor embed is
+    one-shot at agent construction, and per-probe embeds are infrequent
+    (every ``probe_every`` iters), so a generous timeout only trades
+    latency against telemetry-on-cold-start.
+
+    Override with ``TSUNAMI_EMBED_TIMEOUT_SEC=<float>``. Values <=0 or
+    unparseable strings fall back to the default silently — this is
+    observability infra; it must never crash agent construction.
+    """
+    raw = os.environ.get("TSUNAMI_EMBED_TIMEOUT_SEC", "").strip()
+    if not raw:
+        return _DEFAULT_EMBED_TIMEOUT_SEC
+    try:
+        v = float(raw)
+    except ValueError:
+        return _DEFAULT_EMBED_TIMEOUT_SEC
+    return v if v > 0 else _DEFAULT_EMBED_TIMEOUT_SEC
+
+
 @dataclass
 class Probe:
     """One snapshot of the agent's apparent intent at iter_n."""
@@ -205,8 +234,10 @@ class WilsonLoop:
     # Anchor embed (one-shot at construction) gets a generous timeout because
     # the same llama-server is also serving /v1/chat/completions — those
     # requests block embedding slots. Per-probe embeds reuse this same value
-    # (probes are infrequent enough that 10s headroom is fine).
-    embed_timeout_sec: float = 10.0
+    # (probes are infrequent enough that headroom doesn't hurt latency).
+    # Default resolves from TSUNAMI_EMBED_TIMEOUT_SEC env, else 10.0 —
+    # see ``_resolve_embed_timeout_sec`` for the rationale.
+    embed_timeout_sec: float = field(default_factory=_resolve_embed_timeout_sec)
 
     _anchor_tokens: set[str] = field(init=False, repr=False)
     _anchor_text: str = field(init=False, repr=False, default="")
