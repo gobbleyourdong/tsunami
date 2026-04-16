@@ -325,9 +325,9 @@ class ProjectInit(BaseTool):
                     # export { Name, Name2 } from "./X"
                     for m in _re.findall(r"export\s+\{\s*([^}]+)\s*\}\s+from", idx_text):
                         for part in m.split(","):
-                            name = part.strip().split(" as ")[-1].strip()
-                            if name and not name.startswith("default"):
-                                exports.add(name)
+                            export_name = part.strip().split(" as ")[-1].strip()
+                            if export_name and not export_name.startswith("default"):
+                                exports.add(export_name)
                     if exports:
                         exports_note = (
                             "\n\nAvailable imports from ./components/ui "

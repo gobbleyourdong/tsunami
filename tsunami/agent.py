@@ -880,6 +880,7 @@ class Agent:
                     if dist.exists():
                         msg += f" Dist at {dist}."
                 self.state.task_complete = True
+                log.warning(f"loop_exit path=safety_valve_deliver turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
                 break
 
             # Detect pre-scaffold at iter 1 — only if the user is iterating on an existing project.
@@ -956,10 +957,12 @@ class Agent:
                 if recent_writes == 0:
                     log.warning(f"Safety valve: {self.state.iteration} iters, 0 writes in last 20 — forcing exit")
                     self.state.task_complete = True
+                    log.warning(f"loop_exit path=no_progress_30 turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
                     return "Task ended — no progress detected." + self._exit_gate_suffix()
             if self.state.iteration > 60:
                 log.warning(f"Hard cap: {self.state.iteration} iterations — forcing exit")
                 self.state.task_complete = True
+                log.warning(f"loop_exit path=hard_cap_60 turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
                 return f"Task ended after {self.state.iteration} iterations." + self._exit_gate_suffix()
 
             # Check abort signal
@@ -969,6 +972,7 @@ class Agent:
                 save_session(self.state, self.session_dir, self.session_id)
                 save_session_summary(self.state, self.session_dir, self.session_id)
                 self.cost_tracker.save(self.config.workspace_dir)
+                log.warning(f"loop_exit path=abort_signal turn={self.state.iteration} reason={self.abort_signal.reason} last_tool={self._tool_history[-1] if self._tool_history else None}")
                 return f"Aborted: {self.abort_signal.reason}" + self._exit_gate_suffix()
 
             # Incremental session memory — running summary every 10 iterations
@@ -1061,6 +1065,7 @@ class Agent:
                 self.state.add_system_note(f"Loop error: {e}")
                 save_session(self.state, self.session_dir, self.session_id)
                 if consecutive_errors >= 5:
+                    log.warning(f"loop_exit path=consecutive_errors turn={self.state.iteration} errors={consecutive_errors} last_error={str(e)[:100]} last_tool={self._tool_history[-1] if self._tool_history else None}")
                     return f"Agent encountered {consecutive_errors} consecutive errors. Last: {e}"
                 continue
 
@@ -1088,6 +1093,7 @@ class Agent:
                 # Appending the suffix here covers that path. For message_result
                 # and conversational returns the gate already passed (or there's
                 # no deliverable to check), so the suffix is empty — idempotent.
+                log.warning(f"loop_exit path=task_complete turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
                 return result + self._exit_gate_suffix()
 
         # Should never reach here — loop exits via task_complete, abort, or error
@@ -1095,6 +1101,7 @@ class Agent:
         save_session(self.state, self.session_dir, self.session_id)
         save_session_summary(self.state, self.session_dir, self.session_id)
         self.cost_tracker.save(self.config.workspace_dir)
+        log.warning(f"loop_exit path=unexpected_fallthrough turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
         return f"Agent loop exited unexpectedly after {self.state.iteration} iterations. Session saved: {self.session_id}"
 
     async def _step(self, _watcher_depth: int = 0) -> str:
