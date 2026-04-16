@@ -1114,12 +1114,16 @@ class Agent:
                 log.warning(f"loop_exit path=task_complete turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
                 return result + self._exit_gate_suffix()
 
-        # Should never reach here — loop exits via task_complete, abort, or error
+        # Reachable via the safety_valve_deliver `break` at line ~883.
+        # That path sets task_complete=True; downgrade log accordingly.
         self._auto_wire_on_exit()
         save_session(self.state, self.session_dir, self.session_id)
         save_session_summary(self.state, self.session_dir, self.session_id)
         self.cost_tracker.save(self.config.workspace_dir)
-        log.warning(f"loop_exit path=unexpected_fallthrough turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
+        if self.state.task_complete:
+            log.info(f"loop_exit path=safety_valve_break turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
+        else:
+            log.warning(f"loop_exit path=unexpected_fallthrough turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
         return f"Agent loop exited unexpectedly after {self.state.iteration} iterations. Session saved: {self.session_id}"
 
     async def _step(self, _watcher_depth: int = 0) -> str:
