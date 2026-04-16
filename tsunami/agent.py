@@ -1251,19 +1251,23 @@ class Agent:
                     # burn the timeout slot.
                     self._stall_count = getattr(self, '_stall_count', 0) + 1
                     if self._stall_count >= 3:
-                        log.warning(f"Read-spiral hard-exit: {self._stall_count} stalls — auto-deliver")
+                        log.warning(f"Read-spiral hard-exit: {self._stall_count} stalls — forcing task_complete")
+                        self.state.task_complete = True
+                        # Only mark as delivered if dist actually exists.
+                        # Otherwise let eval-driver record as not-delivered.
                         from pathlib import Path as _P
                         deliverables = _P(self.config.workspace_dir) / "deliverables"
+                        has_dist = False
                         if deliverables.exists():
                             projects = sorted(
                                 [d for d in deliverables.iterdir() if d.is_dir()],
                                 key=lambda p: p.stat().st_mtime, reverse=True,
                             )
                             if projects and (projects[0] / "dist" / "index.html").exists():
-                                self.state.task_complete = True
+                                has_dist = True
                                 self._tool_history.append("message_result")
-                                log.warning(f"loop_exit path=read_spiral_hard_exit turn={self.state.iteration}")
-                                # Falls through; loop checks task_complete next iter
+                        log.warning(f"loop_exit path=read_spiral_hard_exit turn={self.state.iteration} has_dist={has_dist}")
+                        # Falls through; loop checks task_complete next iter
 
         # 3c0. Pre-execution validation — skip duplicate/wasteful tool calls
         if tool_call.name == "search_web":
