@@ -918,14 +918,29 @@ class Agent:
         log.info(f"Starting agent loop: {user_message[:100]}")
         consecutive_errors = 0
 
-        # WilsonLoop — high-level semantic drift detector. Telemetry-only
-        # in v1: every ``probe_every`` iters, synthesize "what is the agent
-        # doing now" and measure cosine to the user's original task. Logs
-        # holonomy (1 - cos); WARNs on sustained drift. No interventions yet.
-        # Sits ABOVE Circulation: catches macro drift the count-based circuit
-        # breaker can't see (productive iters that have rotated off-goal).
+        # WilsonLoop — high-level semantic drift detector. Sits ABOVE
+        # Circulation: catches macro drift the count-based circuit breaker
+        # can't see (productive iters that have rotated off-goal).
+        # v3 (2026-04-16): on_drift wired to inject a WIPEOUT REFOCUS
+        # system_note when consec_drift_to_fire is reached. Soft intervention
+        # — model can ignore — but high-salience reset toward the goal.
+        # 0.4 threshold was empirically calibrated to the one-shot pass cleave.
         from .wilson_loop import WilsonLoop, synthesize_intent
-        self._wilson = WilsonLoop(goal_anchor=user_message)
+        def _on_wilson_drift(wilson, probe):
+            self.state.add_system_note(
+                f"[WIPEOUT — Wilson Drift]\n"
+                f"You wiped out: holonomy {probe.holonomy:.2f} > 0.4 "
+                f"(drifted from \"{wilson.goal_anchor[:120]}\").\n"
+                f"Recent activity: {probe.text[:160]}\n"
+                f"RECONSIDER: re-read the original task. Next tool call "
+                f"must directly produce the user's deliverable — not "
+                f"internal cleanup, not exploration, not rebuilding."
+            )
+            log.warning(
+                f"wilson on_drift: WIPEOUT injected at iter={probe.iter_n}, "
+                f"holonomy={probe.holonomy:.3f}"
+            )
+        self._wilson = WilsonLoop(goal_anchor=user_message, on_drift=_on_wilson_drift)
         self._synthesize_intent = synthesize_intent
 
         while True:

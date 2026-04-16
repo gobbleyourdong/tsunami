@@ -189,7 +189,11 @@ class WilsonLoop:
     # the agent has lost balance and the session will fail. Threshold pinned
     # to the failure-side edge of the band.
     drift_threshold: float = 0.4
-    consecutive_drift_to_fire: int = 3
+    # 3-consecutive (45 iters) was too slow — most failing sessions hit
+    # read-spiral hard-exit by iter 25. 2-consecutive (30 iters) fires
+    # while there's still time for the model to course-correct on the
+    # REFOCUS system_note.
+    consecutive_drift_to_fire: int = 2
     on_drift: Callable[["WilsonLoop", "Probe"], None] | None = None
     # v2 embedding swap (debt entry 0c34e8c). When set to a reachable
     # llama-server endpoint that was launched with ``--embeddings``, probe()
