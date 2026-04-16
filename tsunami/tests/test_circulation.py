@@ -215,3 +215,50 @@ class TestSiteParityWithCurrentBehavior:
         assert c.count == 3
         # Inline guard in agent.py uses `count >= threshold` — verify.
         assert c.count >= c.threshold
+
+    def test_site_a_matches_agent_wiring_no_callbacks(self):
+        # Exact parity with agent.py:166-171 wiring:
+        #   Circulation(name="context_overflow", threshold=3,
+        #               cooldown_iters=2, recovery_iters=5)
+        # with on_eddy=None, on_trip=None (async compress_context can't be
+        # a sync callback — see agent.py:160-165 comment). The inline site
+        # at agent.py:1203-1233 drives force-deliver on `count >= 3`, and
+        # agent.py:1253 calls tick() every iter for cool-down bookkeeping.
+        # This test verifies the no-callback variant behaves correctly
+        # through a full event → eddying → cool-down → probing cycle.
+        fire_log = {"eddy": 0, "trip": 0}
+        c = Circulation(
+            name="context_overflow",
+            threshold=3,
+            cooldown_iters=2,
+            recovery_iters=5,
+            # on_eddy / on_trip intentionally unset — mirrors agent.py.
+        )
+        # Three 400s arriving at sparse iters (matches chiptune 7/31/58
+        # pattern cited in tech_debt #7bb7604).
+        c.event(iter_n=7)
+        assert c.state == FLOWING
+        c.event(iter_n=31)
+        assert c.state == FLOWING
+        c.event(iter_n=58)
+        # 3rd event — enters eddying at flowing→eddying transition.
+        # agent.py inline guard `count >= 3` fires here and exits loop.
+        assert c.state == EDDYING
+        assert c.count == 3
+        assert c.count >= c.threshold
+        # No callbacks should have fired (on_eddy/on_trip are None).
+        # Assert via the Circulation's own state — no AttributeError on
+        # missing callbacks, no side-effects. fire_log stays zero by
+        # construction (nothing to increment), verified by the absence
+        # of a crash during event().
+        assert fire_log == {"eddy": 0, "trip": 0}
+        # tick() with cooldown_iters=2: +2 iters after eddying → probing.
+        c.tick(iter_n=59)           # 1 iter elapsed
+        assert c.state == EDDYING
+        c.tick(iter_n=60)           # 2 iters elapsed -> probing
+        assert c.state == PROBING
+        # Late event in probing → broken. agent.py exits before this in
+        # practice (return at line 1232/1234), but the state machine
+        # must still handle it safely with no callbacks registered.
+        c.event(iter_n=61)
+        assert c.state == BROKEN
