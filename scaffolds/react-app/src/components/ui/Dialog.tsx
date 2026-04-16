@@ -1,32 +1,36 @@
 import { ReactNode, useEffect } from "react"
 
 interface DialogProps {
-  open: boolean
-  onClose: () => void
+  open?: boolean
+  isOpen?: boolean
+  onClose?: () => void
+  onOpenChange?: (open: boolean) => void
   title?: string
   description?: string
   children?: ReactNode
   actions?: ReactNode
 }
 
-export function Dialog({ open, onClose, title, description, children, actions }: DialogProps) {
+export function Dialog({ open, isOpen, onClose, onOpenChange, title, description, children, actions }: DialogProps) {
+  const isVisible = open ?? isOpen ?? false
+  const close = onClose ?? (onOpenChange ? () => onOpenChange(false) : () => {})
   useEffect(() => {
-    if (!open) return
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    if (!isVisible) return
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") close() }
     document.addEventListener("keydown", handler)
     return () => document.removeEventListener("keydown", handler)
   }, [open, onClose])
 
   useEffect(() => {
-    if (open) document.body.style.overflow = "hidden"
+    if (isVisible) document.body.style.overflow = "hidden"
     return () => { document.body.style.overflow = "" }
   }, [open])
 
-  if (!open) return null
+  if (!isVisible) return null
 
   return (
     <div
-      onClick={onClose}
+      onClick={close}
       style={{
         position: 'fixed', inset: 0, zIndex: 100,
         background: 'rgba(8, 9, 13, 0.8)',
@@ -50,7 +54,7 @@ export function Dialog({ open, onClose, title, description, children, actions }:
             {description && <p style={{ color: 'var(--text-muted, #7a7f8e)', fontSize: 'var(--text-sm, 0.875rem)', marginBottom: 16, lineHeight: 1.6 }}>{description}</p>}
           </div>
           <button
-            onClick={onClose}
+            onClick={close}
             aria-label="Close"
             style={{
               background: 'none', border: 'none', color: 'var(--text-dim, #4a4f5e)',

@@ -1,12 +1,14 @@
 interface SelectProps {
   value: string
-  onChange: (value: string) => void
+  onChange?: (value: string) => void
+  onValueChange?: (value: string) => void
   options: { value: string; label: string }[]
   placeholder?: string
   label?: string
 }
 
-export default function Select({ value, onChange, options, placeholder, label }: SelectProps) {
+export function Select({ value, onChange, onValueChange, options, placeholder, label }: SelectProps) {
+  const handler = onChange ?? onValueChange ?? (() => {})
   return (
     <div>
       {label && (
@@ -24,7 +26,7 @@ export default function Select({ value, onChange, options, placeholder, label }:
       )}
       <select
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => handler(e.target.value)}
         style={{
           background: 'var(--bg-1, #111318)',
           color: 'var(--text, #e2e4e9)',
@@ -58,3 +60,5 @@ export default function Select({ value, onChange, options, placeholder, label }:
     </div>
   )
 }
+
+export default Select

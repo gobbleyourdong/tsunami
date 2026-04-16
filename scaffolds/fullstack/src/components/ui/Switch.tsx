@@ -1,11 +1,17 @@
 interface SwitchProps {
-  checked: boolean
-  onChange: (checked: boolean) => void
+  checked?: boolean
+  value?: boolean
+  onChange?: (checked: boolean) => void
+  onCheckedChange?: (checked: boolean) => void
+  onValueChange?: (checked: boolean) => void
   label?: string
   size?: "sm" | "md"
 }
 
-export default function Switch({ checked, onChange, label, size = "md" }: SwitchProps) {
+export function Switch({ checked, value, onChange, onCheckedChange, onValueChange, label, size = "md" }: SwitchProps) {
+  const isChecked = checked ?? value ?? false
+  const handler = onChange ?? onCheckedChange ?? onValueChange ?? (() => {})
+  // Below, references use isChecked/handler instead of checked/onChange
   const w = size === "sm" ? 36 : 44
   const h = size === "sm" ? 20 : 24
   const thumb = size === "sm" ? 16 : 20
@@ -14,16 +20,16 @@ export default function Switch({ checked, onChange, label, size = "md" }: Switch
     <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
       <div
         role="switch"
-        aria-checked={checked}
+        aria-checked={isChecked}
         tabIndex={0}
-        onClick={() => onChange(!checked)}
-        onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onChange(!checked) } }}
+        onClick={() => handler(!isChecked)}
+        onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); handler(!isChecked) } }}
         style={{
           width: w, height: h, borderRadius: h, padding: 2,
-          background: checked ? 'var(--accent, #4a9eff)' : 'var(--bg-4, #2a2f3b)',
+          background: isChecked ? 'var(--accent, #4a9eff)' : 'var(--bg-4, #2a2f3b)',
           transition: 'background 200ms cubic-bezier(0.16, 1, 0.3, 1)',
           cursor: 'pointer',
-          boxShadow: checked ? '0 0 8px rgba(74, 158, 255, 0.25)' : 'none',
+          boxShadow: isChecked ? '0 0 8px rgba(74, 158, 255, 0.25)' : 'none',
           flexShrink: 0,
         }}
       >
@@ -31,7 +37,7 @@ export default function Switch({ checked, onChange, label, size = "md" }: Switch
           width: thumb, height: thumb, borderRadius: '50%',
           background: '#fff',
           transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)',
-          transform: checked ? `translateX(${w - thumb - 4}px)` : 'translateX(0)',
+          transform: isChecked ? `translateX(${w - thumb - 4}px)` : 'translateX(0)',
           boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
         }} />
       </div>
@@ -39,3 +45,5 @@ export default function Switch({ checked, onChange, label, size = "md" }: Switch
     </label>
   )
 }
+
+export default Switch
