@@ -16,15 +16,17 @@ class TsunamiConfig:
     model_name: str = "tsunami"
     model_endpoint: str = "http://localhost:8090"
     api_key: str | None = None
-    # Qwen3-Coder-Next README: temperature=1.0, top_p=0.95, top_k=40,
-    # max_tokens=65536 (64K). Native context 256K, recommends ≥32K.
-    # Older defaults (temp=0.7, top_p=0.8, top_k=20, presence=1.5) were
-    # tuned for Qwen3.5-4B and bled into the coder's calls.
-    temperature: float = 1.0
+    # Qwen3.6-35B-A3B README (Thinking mode — Precise Coding / WebDev):
+    #   temperature=0.6, top_p=0.95, top_k=20, min_p=0.0,
+    #   presence_penalty=0.0, repetition_penalty=1.0, max_tokens=81920.
+    # Native context 262144 (256K). enable_thinking=True (default).
+    temperature: float = 0.6
     top_p: float = 0.95
-    top_k: int = 40
+    top_k: int = 20
+    min_p: float = 0.0
     presence_penalty: float = 0.0
-    max_tokens: int = 65536
+    repetition_penalty: float = 1.0
+    max_tokens: int = 81920
     client_id: str = ""  # set via TSUNAMI_USER env var; feeds the `user` field of
                          # /v1/chat/completions so the server can enforce per-user
                          # fairness. Leave empty on single-user setups — the server

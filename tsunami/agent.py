@@ -71,7 +71,9 @@ class Agent:
             max_tokens=config.max_tokens,
             top_p=config.top_p,
             top_k=config.top_k,
+            min_p=config.min_p,
             presence_penalty=config.presence_penalty,
+            repetition_penalty=config.repetition_penalty,
             client_id=config.client_id,
             adapter=config.adapter,
         )

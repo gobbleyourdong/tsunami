@@ -28,7 +28,7 @@ from .base import BaseTool, ToolResult
 log = logging.getLogger("tsunami.riptide")
 
 # Vision model endpoint — separate from the text wave
-VL_ENDPOINT = os.environ.get("TSUNAMI_VL_ENDPOINT", "http://localhost:8094")
+VL_ENDPOINT = os.environ.get("TSUNAMI_VL_ENDPOINT", "http://localhost:8091")
 
 
 class Riptide(BaseTool):

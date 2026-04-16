@@ -31,7 +31,7 @@ import httpx
 
 log = logging.getLogger("tsunami.undertow")
 
-BEE_ENDPOINT = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092")
+BEE_ENDPOINT = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8091")
 
 
 # ──────────────────── data types ────────────────────
@@ -889,6 +889,8 @@ async def _vlm_describe_screenshot(screenshot_bytes: bytes) -> str | None:
                     "max_tokens": 120,
                     "temperature": 0.1,
                     "adapter": "none",  # base-model chat; no lora for describe
+                    # Qwen3.6 thinking mode eats budget on short QA — disable.
+                    "chat_template_kwargs": {"enable_thinking": False},
                 },
                 headers={"Authorization": "Bearer not-needed"},
             )
@@ -927,6 +929,8 @@ FAIL: [what's wrong]"""
                     ],
                     "max_tokens": 80,
                     "temperature": 0.1,
+                    # Qwen3.6 thinking eats short QA budget — disable.
+                    "chat_template_kwargs": {"enable_thinking": False},
                 },
                 headers={"Authorization": "Bearer not-needed"},
             )

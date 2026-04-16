@@ -51,16 +51,21 @@ class TsunamiModel:
     """Talks to serve_transformers.py via OpenAI-compatible /v1/chat/completions."""
 
     def __init__(self, model: str = "tsunami", endpoint: str = "http://localhost:8090",
-                 temperature: float = 1.0, max_tokens: int = 65536,
-                 top_p: float = 0.95, top_k: int = 40, presence_penalty: float = 0.0,
+                 temperature: float = 0.6, max_tokens: int = 81920,
+                 top_p: float = 0.95, top_k: int = 20,
+                 min_p: float = 0.0,
+                 presence_penalty: float = 0.0,
+                 repetition_penalty: float = 1.0,
                  client_id: str = "", adapter: str = "", **kwargs):
         self.model = model
         self.endpoint = endpoint.rstrip("/")
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.top_p = top_p
-        self.top_k = top_k  # Qwen3-Coder-Next README: top_k=40
+        self.top_k = top_k  # Qwen3.6 README: top_k=20 (Precise Coding)
+        self.min_p = min_p  # Qwen3.6 README: min_p=0.0
         self.presence_penalty = presence_penalty
+        self.repetition_penalty = repetition_penalty  # Qwen3.6 README: 1.0
         # Identity for the server's per-user fairness queue (TSUNAMI_USER env).
         # Kept nonempty if set; the server treats "" as a shared "default" user.
         self.client_id = client_id
@@ -132,7 +137,11 @@ class TsunamiModel:
             "max_tokens": self.max_tokens,
             "top_p": self.top_p,
             "top_k": self.top_k,
+            "min_p": self.min_p,
             "presence_penalty": self.presence_penalty,
+            "repetition_penalty": self.repetition_penalty,
+            # Qwen3.6 thinking mode — README-recommended for precise coding.
+            "chat_template_kwargs": {"enable_thinking": True},
         }
         if self.client_id:
             payload["user"] = self.client_id
