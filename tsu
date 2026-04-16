@@ -134,8 +134,7 @@ MMPROJ=$(ls "$MODELS_DIR"/mmproj*.gguf 2>/dev/null | head -1)
 # ERNIE uses Baidu snapshot + in-process Mistral3 TE — resolved by the
 # ernie_server module via its _find_baidu_snapshot helper (HF cache or
 # ~/models_hf). No $MODELS_DIR GGUF lookup needed in --no-gguf mode.
-ERNIE_PYTHON="${ERNIE_PYTHON:-/home/jb/ComfyUI/comfyui-env/bin/python}"
-[ -x "$ERNIE_PYTHON" ] || ERNIE_PYTHON="python3"
+ERNIE_PYTHON="${ERNIE_PYTHON:-python3}"
 
 echo "  models:"
 echo "    LM:   $(basename "${GEMMA_MOE:-(missing)}")"

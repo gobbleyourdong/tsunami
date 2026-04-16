@@ -13,13 +13,8 @@ $ErrorActionPreference = "Stop"
 $ARK = (Resolve-Path "$PSScriptRoot\..").Path
 $MODELS = if ($env:TSUNAMI_MODELS_DIR) { $env:TSUNAMI_MODELS_DIR } else { "$env:USERPROFILE\models_gguf" }
 $LLAMA = "$ARK\bin\llama-server.exe"
-$VENV_PY = if ($env:TSUNAMI_VENV) { "$env:TSUNAMI_VENV\Scripts\python.exe" } else { "$env:USERPROFILE\ComfyUI\comfyui-env\Scripts\python.exe" }
+$VENV_PY = if ($env:TSUNAMI_VENV) { "$env:TSUNAMI_VENV\Scripts\python.exe" } else { (Get-Command python -ErrorAction SilentlyContinue).Source }
 $LOG_DIR = $env:TEMP
-
-# Fallback to python3/python on PATH if venv not found
-if (-not (Test-Path $VENV_PY)) {
-    $VENV_PY = (Get-Command python -ErrorAction SilentlyContinue).Source
-}
 
 $GEMMA_GGUF   = "$MODELS\gemma-4-26B-A4B-it-MXFP4_MOE.gguf"
 $GEMMA_MMPROJ = "$MODELS\mmproj-26B-F16.gguf"
