@@ -181,7 +181,13 @@ class WilsonLoop:
     # goal-related content for the cosine to stabilize. K=15/threshold=3
     # means drift must persist for 45 iters before on_drift fires.
     probe_every: int = 15
-    drift_threshold: float = 0.7
+    # Calibrated 2026-04-16 from 5 embed=on probes:
+    #   chiptune ✓ 0.30 | crypto-reg 0.37 | leads-fail 0.40 | leads-fail 0.43 |
+    #   crypto-fail 0.49.
+    # Cleave point at ~0.40 — beyond that the agent has lost balance and the
+    # session will fail. v1's 0.7 was set conservatively when only token-cosine
+    # was available (token-mode reads ~0.85 on every session, including ✓ ones).
+    drift_threshold: float = 0.4
     consecutive_drift_to_fire: int = 3
     on_drift: Callable[["WilsonLoop", "Probe"], None] | None = None
     # v2 embedding swap (debt entry 0c34e8c). When set to a reachable
