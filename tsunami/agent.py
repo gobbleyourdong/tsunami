@@ -1053,18 +1053,22 @@ class Agent:
                 log.error(f"Agent loop error at iteration {self.state.iteration}: {e}")
 
                 # Auto-compress on context overflow (400 Bad Request)
-                if "400" in error_str and consecutive_errors <= 2:
-                    log.info("Context overflow detected — force compressing...")
+                if "400" in error_str:
+                    self._total_400s = getattr(self, '_total_400s', 0) + 1
+                if "400" in error_str and consecutive_errors <= 2 and getattr(self, '_total_400s', 0) < 3:
+                    log.info(f"Context overflow #{self._total_400s} — force compressing...")
                     try:
                         await compress_context(self.state, self.model, max_tokens=8000, keep_recent=4)
                         log.info("Force compression done, retrying...")
                     except Exception:
                         pass  # compression failed, will retry anyway
                     continue
-                # [race-mode] After 2 consecutive 400s, just exit — context is
-                # likely permanently overflowed for this prompt. Auto-deliver
-                # if dist exists. Chiptune target died here at iter 9-13.
-                if "400" in error_str and consecutive_errors > 2:
+                # [race-mode] After 3 total OR 2 consecutive 400s, exit —
+                # context is permanently overflowed. Auto-deliver if dist exists.
+                # Chiptune target hit 400s at iter 7/31/58 sparsely → handler
+                # never fired because consecutive count reset. Total counter
+                # catches the cumulative case.
+                if "400" in error_str and (consecutive_errors > 2 or getattr(self, '_total_400s', 0) >= 3):
                     from pathlib import Path as _P
                     deliverables = _P(self.config.workspace_dir) / "deliverables"
                     if deliverables.exists():
