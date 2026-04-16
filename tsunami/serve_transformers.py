@@ -56,6 +56,7 @@ import torch
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from typing import Literal, Union
 from transformers import AutoProcessor, AutoModelForImageTextToText
 import uvicorn
 
@@ -69,11 +70,28 @@ image_pipe = None
 image_model_id = None
 _low_vram = False  # if True, swap language/image models to save memory
 
+# tool_choice payload shape. OpenAI chat-completions API accepts either a
+# string sentinel ("auto" | "none" | "required") or an object forcing a
+# specific function call. We validate the object form structurally so a
+# typo in {"type": "func"} or a missing function.name fails at request
+# parse time rather than getting passed through as an opaque dict.
+class _ToolChoiceFunction(BaseModel):
+    name: str
+
+
+class ForceToolChoice(BaseModel):
+    type: Literal["function"] = "function"
+    function: _ToolChoiceFunction
+
+
+ToolChoice = Union[Literal["auto", "none", "required"], ForceToolChoice]
+
+
 class ChatRequest(BaseModel):
     model: str = "tsunami"
     messages: list
     tools: list = []
-    tool_choice: str | dict = "auto"  # str ("auto"|"none"|"required") or {"type":"function","function":{"name":"..."}}
+    tool_choice: ToolChoice = "auto"
     max_tokens: int = 2048
     temperature: float = 0.3
     top_p: float = 0.95
