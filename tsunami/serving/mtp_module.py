@@ -28,6 +28,14 @@ import torch
 import torch.nn as nn
 from safetensors import safe_open
 
+# Iter-38 probe: iter-37's fp32-fc cast had no measurable effect on accept
+# rate. Diagnosis is that F.linear(bf16.float(), bf16.float()) dispatches
+# through TF32 tensor cores on Blackwell, which round back to bf16 precision
+# when cast back. To test whether true-FP32 fc (no TF32) eliminates the
+# slot-13 drift, disable TF32 for fp32 matmuls. Scoped global — main still
+# uses bf16 compute so this shouldn't slow it.
+torch.backends.cuda.matmul.allow_tf32 = False
+
 
 def fuse_mtp_experts(snapshot: Path, device: str = "cuda:0") -> dict:
     """Same fuser logic as the main model's expert fuser, restricted to the
