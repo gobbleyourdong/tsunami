@@ -4,7 +4,7 @@ Loads the pipeline once at startup (DiT + Mistral3 TE + VAE all bf16 from
 Baidu HF snapshot), holds it warm, serves /v1/images/generate (OpenAI-shape)
 and /healthz. Single worker, single GPU — Spark's GB10 unified memory.
 
-  python -m tsunami.tools.ernie_server --port 8092 --model Turbo
+  python -m tsunami.serving.ernie_server --port 8092 --model Turbo
 
 Swap Turbo ↔ Base at runtime via POST /v1/admin/swap?kind=Base — only the
 DiT changes, TE/VAE/scheduler stay resident. BF16 throughout — GGUF path

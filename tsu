@@ -64,7 +64,7 @@ case "${1:-}" in
     for port in 8090 8091 8092 8093 8094 8095 3000 3002 3003 9876 9200; do
       lsof -ti:$port 2>/dev/null | xargs -r kill -9 2>/dev/null
     done
-    pkill -f "tsunami.tools.ernie_server" 2>/dev/null
+    pkill -f "tsunami.serving.ernie_server" 2>/dev/null
     pkill -f "serve_transformers" 2>/dev/null   # the :8090 proxy
     pkill -f "serving/serve_qwen36_fp8" 2>/dev/null  # :8095 Qwen3.6 transformers
     pkill -f "serving/embed_server" 2>/dev/null      # :8093 Qwen3-Embedding
@@ -161,7 +161,7 @@ esac
 if ! curl -sf http://localhost:8092/healthz >/dev/null 2>&1; then
   echo "  starting ernie_server → :8092 ($ERNIE_DESC)"
   PYTHONPATH="$DIR" \
-  nohup "$ERNIE_PYTHON" -m tsunami.tools.ernie_server \
+  nohup "$ERNIE_PYTHON" -m tsunami.serving.ernie_server \
     $ERNIE_ARGS \
     --port 8092 --host 0.0.0.0 \
     --pe-url "" \

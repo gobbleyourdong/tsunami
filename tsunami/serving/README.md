@@ -9,7 +9,7 @@ top-level `tsu` script; none use GGUF or llama-server.
 |------|------|-------|---------|
 | `serve_qwen36_fp8.py` | :8095 | Qwen/Qwen3.6-35B-A3B-FP8 | Text + vision + coding + tool-calling |
 | `embed_server.py` | :8093 | Qwen/Qwen3-Embedding-0.6B | OpenAI `/v1/embeddings` |
-| *(external)* `tsunami/tools/ernie_server.py` | :8092 | baidu/ERNIE-Image-Turbo | Image generation (swap-capable to Base) |
+| `ernie_server.py` | :8092 | baidu/ERNIE-Image-Turbo | Image generation (swap-capable to Base) |
 
 The `:8090` tsunami proxy (`tsunami/serve_transformers.py`) fans requests
 out to these three and stays outside this directory because it also

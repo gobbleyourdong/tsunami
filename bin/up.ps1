@@ -76,7 +76,7 @@ if (Test-PortListening 8092) {
     }
     Write-Host "[up]  :8092 ernie_server ($desc)"
     $env:PYTHONPATH = $ARK
-    $eArgs = @("-m", "tsunami.tools.ernie_server") + $ernieArgs + @(
+    $eArgs = @("-m", "tsunami.serving.ernie_server") + $ernieArgs + @(
         "--port", "8092", "--host", "0.0.0.0", "--pe-url", ""
     )
     Start-BackgroundService -Exe $VENV_PY -Args $eArgs -LogName "tsu-ernie.log" | Out-Null
