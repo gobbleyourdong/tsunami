@@ -85,12 +85,17 @@ class Tier:
 
 
 def build_tiers(calc_ref: Path) -> list[Tier]:
+    # required_tools = must appear for the tier to pass. undertow is mandatory
+    # everywhere (the point of the eval is exercising every tool), so the
+    # prompts explicitly say to run it after the build. introduces is
+    # cumulative-coverage accounting — the new tool first needed at this tier.
+    verify = " After the build passes, run undertow on the deliverable to verify the page renders without console errors."
     return [
         Tier(
             id="T1",
             name="counter",
             budget_s=300,
-            prompt="Build a counter app with plus and minus buttons.",
+            prompt="Build a counter app with plus and minus buttons." + verify,
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
             introduces=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
         ),
@@ -98,7 +103,11 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
             id="T2",
             name="pomodoro",
             budget_s=600,
-            prompt="Build a Pomodoro timer with start, pause, and reset buttons. Include a task list where each task tracks how many pomodoros it took.",
+            prompt=(
+                "Build a Pomodoro timer with start, pause, and reset buttons. "
+                "Include a task list where each task tracks how many pomodoros it took."
+                + verify
+            ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
             introduces=["file_edit", "file_read"],
         ),
@@ -106,7 +115,12 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
             id="T3",
             name="birthday",
             budget_s=900,
-            prompt="Build a birthday card maker. User types a name and a short message, clicks Generate, and the page shows a festive card with a generated birthday image as the backdrop. Use generate_image for the backdrop.",
+            prompt=(
+                "Build a birthday card maker. User types a name and a short message, "
+                "clicks Generate, and the page shows a festive card with a generated "
+                "birthday image as the backdrop. Use generate_image for the backdrop."
+                + verify
+            ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result", "generate_image"],
             introduces=["generate_image"],
         ),
@@ -118,6 +132,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
                 "Build a calculator HTML page that matches this reference layout: "
                 f"{calc_ref}. Use riptide to extract the positions of the display "
                 "and the equals button before writing any code so your layout matches."
+                + verify
             ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result", "riptide"],
             introduces=["riptide"],
@@ -130,6 +145,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
                 "Build a crypto price tracker that shows current prices for Bitcoin, "
                 "Ethereum, and Solana. Use search_web to look up today's approximate "
                 "prices and hard-code them as sensible defaults in the UI."
+                + verify
             ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result", "search_web"],
             introduces=["search_web"],
@@ -141,7 +157,9 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
 class TierResult:
     id: str
     name: str
-    delivered: bool
+    delivered: bool          # agent.state.task_complete — agent says it shipped
+    tools_covered: bool      # all required_tools appeared in the run
+    passed: bool             # delivered AND tools_covered
     iterations: int
     wall_s: float
     tools_used: list[str]
@@ -176,14 +194,18 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
     tools_used = list(agent._tool_history)
     tools_used_set = set(tools_used)
     missing = [t for t in tier.required_tools if t not in tools_used_set]
-    delivered = agent.state.task_complete and not missing
+    delivered = bool(agent.state.task_complete)
+    tools_covered = not missing
+    passed = delivered and tools_covered
 
-    print(f"  result: delivered={delivered}  iters={agent.state.iteration}  {dt:.1f}s")
-    print(f"  tools used: {', '.join(tools_used[:20])}{'...' if len(tools_used) > 20 else ''}")
+    flag = "✓" if passed else ("△" if delivered else "✗")
+    print(f"  {flag} result: delivered={delivered}  tools_covered={tools_covered}  "
+          f"iters={agent.state.iteration}  {dt:.1f}s")
+    print(f"    tools used: {', '.join(tools_used[:20])}{'...' if len(tools_used) > 20 else ''}")
     if missing:
-        print(f"  missing required: {missing}")
+        print(f"    missing required: {missing}")
     if failure:
-        print(f"  failure: {failure}")
+        print(f"    failure: {failure}")
 
     # Tidy up temp workspace to avoid disk fill over many cron runs.
     shutil.rmtree(ws_base, ignore_errors=True)
@@ -192,6 +214,8 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
         id=tier.id,
         name=tier.name,
         delivered=delivered,
+        tools_covered=tools_covered,
+        passed=passed,
         iterations=agent.state.iteration,
         wall_s=round(dt, 1),
         tools_used=tools_used,
@@ -202,6 +226,7 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
 
 def write_report(tiers: list[Tier], results: list[TierResult]):
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    passed = sum(1 for r in results if r.passed)
     delivered = sum(1 for r in results if r.delivered)
     all_tools_used = set()
     for r in results:
@@ -216,6 +241,7 @@ def write_report(tiers: list[Tier], results: list[TierResult]):
     # JSON
     detail = {
         "endpoint": ENDPOINT,
+        "passed": passed,
         "delivered": delivered,
         "total": len(results),
         "tool_coverage_pct": round(coverage_pct, 1),
@@ -230,16 +256,23 @@ def write_report(tiers: list[Tier], results: list[TierResult]):
     lines = []
     lines.append(f"# Tsunami Tiered Eval")
     lines.append("")
-    lines.append(f"Endpoint: `{ENDPOINT}`  Delivered: **{delivered}/{len(results)}**  "
-                 f"Tool coverage: **{coverage_pct:.0f}%** ({len(all_tools_used & full_set)}/{len(full_set)})")
+    lines.append(f"Endpoint: `{ENDPOINT}`")
     lines.append("")
-    lines.append("| Tier | App | Delivered | Iters | Time | Missing | Failure |")
-    lines.append("|------|-----|-----------|-------|------|---------|---------|")
+    lines.append(f"- **Passed**: {passed}/{len(results)} (delivered AND all required tools used)")
+    lines.append(f"- **Delivered**: {delivered}/{len(results)} (agent marked task complete)")
+    lines.append(f"- **Tool coverage**: {coverage_pct:.0f}% ({len(all_tools_used & full_set)}/{len(full_set)})")
+    lines.append("")
+    lines.append("| Tier | App | Pass | Delivered | Tools | Iters | Time | Missing | Failure |")
+    lines.append("|------|-----|------|-----------|-------|-------|------|---------|---------|")
     for t, r in zip(tiers, results):
-        tag = "✓" if r.delivered else "✗"
+        p = "✓" if r.passed else ("△" if r.delivered else "✗")
+        d = "✓" if r.delivered else "✗"
+        tc = "✓" if r.tools_covered else "✗"
         miss = ", ".join(r.tools_missing) if r.tools_missing else "—"
         fail = r.failure_mode or "—"
-        lines.append(f"| {r.id} | {r.name} | {tag} | {r.iterations} | {r.wall_s}s | {miss} | {fail} |")
+        lines.append(f"| {r.id} | {r.name} | {p} | {d} | {tc} | {r.iterations} | {r.wall_s}s | {miss} | {fail} |")
+    lines.append("")
+    lines.append("△ = delivered but a required tool was skipped.")
     lines.append("")
     lines.append("## Tool coverage")
     lines.append("")
@@ -252,6 +285,7 @@ def write_report(tiers: list[Tier], results: list[TierResult]):
     (OUT_DIR / "eval_tiered.md").write_text("\n".join(lines) + "\n")
 
     print(f"\n=== SUMMARY ===")
+    print(f"  passed:    {passed}/{len(results)}")
     print(f"  delivered: {delivered}/{len(results)}")
     print(f"  tool coverage: {coverage_pct:.0f}% ({len(all_tools_used & full_set)}/{len(full_set)})")
     print(f"  report: {OUT_DIR}/eval_tiered.md")
@@ -280,7 +314,7 @@ async def amain(args):
         results.append(r)
 
     write_report(tiers, results)
-    return 0 if all(r.delivered for r in results) else 1
+    return 0 if all(r.passed for r in results) else 1
 
 
 def main():
