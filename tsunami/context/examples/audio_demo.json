@@ -1,0 +1,310 @@
+{
+  "meta": {
+    "title": "Audio Demo Arena",
+    "shape": "action",
+    "vibe": ["topdown", "chiptune", "wave-based", "retro"],
+    "target_session_sec": 120
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": {
+      "kind": "continuous",
+      "arena": { "shape": "rect", "size": 16 }
+    }
+  },
+  "singletons": {},
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Health(100)", "Score"],
+      "tags": ["player"]
+    },
+    "enemy": {
+      "mesh": "sphere",
+      "ai": "chase",
+      "components": ["Health(12)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": {
+          "kind": "sequence",
+          "actions": [
+            { "kind": "damage", "archetype": "player", "amount": 10 },
+            { "kind": "play_sfx_ref", "library_ref": "sfx", "preset": "hit" }
+          ]
+        }
+      }
+    },
+    "coin": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": {
+          "kind": "sequence",
+          "actions": [
+            { "kind": "award_score", "amount": 10 },
+            { "kind": "play_sfx_ref", "library_ref": "sfx", "preset": "coin",
+              "quantize_to": "beat", "quantize_source": "music" }
+          ]
+        }
+      }
+    },
+    "powerup": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": {
+          "kind": "sequence",
+          "actions": [
+            { "kind": "heal", "archetype": "player", "amount": 20 },
+            { "kind": "play_sfx_ref", "library_ref": "sfx", "preset": "powerup" }
+          ]
+        }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "wave_index",
+        "easy": { "spawnRateMul": 0.6 },
+        "hard": { "spawnRateMul": 1.8 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "music",
+      "type": "ChipMusic",
+      "params": {
+        "base_track": {
+          "bpm": 128,
+          "bars": 4,
+          "loop": true,
+          "channels": {
+            "pulse1": [
+              { "time": 0.0, "note": "C4", "duration": 0.5 },
+              { "time": 0.5, "note": "E4", "duration": 0.5 },
+              { "time": 1.0, "note": "G4", "duration": 0.5 },
+              { "time": 1.5, "note": "E4", "duration": 0.5 },
+              { "time": 2.0, "note": "C4", "duration": 0.5 },
+              { "time": 2.5, "note": "E4", "duration": 0.5 },
+              { "time": 3.0, "note": "G4", "duration": 1.0 }
+            ],
+            "pulse2": [
+              { "time": 0.0, "note": "C3", "duration": 2.0, "dutyCycle": 0.25 },
+              { "time": 2.0, "note": "G2", "duration": 2.0, "dutyCycle": 0.25 }
+            ],
+            "triangle": [
+              { "time": 0.0, "note": "C2", "duration": 1.0 },
+              { "time": 1.0, "note": "G2", "duration": 1.0 },
+              { "time": 2.0, "note": "F2", "duration": 1.0 },
+              { "time": 3.0, "note": "G2", "duration": 1.0 }
+            ],
+            "noise": [
+              { "time": 0.0, "note": "kick",  "duration": 0.25 },
+              { "time": 0.5, "note": "hat",   "duration": 0.125 },
+              { "time": 1.0, "note": "snare", "duration": 0.25 },
+              { "time": 1.5, "note": "hat",   "duration": 0.125 },
+              { "time": 2.0, "note": "kick",  "duration": 0.25 },
+              { "time": 2.5, "note": "hat",   "duration": 0.125 },
+              { "time": 3.0, "note": "snare", "duration": 0.25 },
+              { "time": 3.5, "note": "hat",   "duration": 0.125 }
+            ]
+          }
+        },
+        "overlay_tracks": [
+          {
+            "bpm": 128,
+            "bars": 4,
+            "loop": true,
+            "channels": {
+              "pulse2": [
+                { "time": 0.0, "note": "G5", "duration": 0.25, "dutyCycle": 0.125 },
+                { "time": 0.5, "note": "B5", "duration": 0.25, "dutyCycle": 0.125 },
+                { "time": 1.0, "note": "D5", "duration": 0.25, "dutyCycle": 0.125 },
+                { "time": 1.5, "note": "G5", "duration": 0.25, "dutyCycle": 0.125 }
+              ]
+            }
+          }
+        ],
+        "overlay_conditions": ["boss_alive"],
+        "channel": "music",
+        "beat_tolerance_ms": 100
+      }
+    },
+    {
+      "id": "sfx",
+      "type": "SfxLibrary",
+      "params": {
+        "sfx": {
+          "coin": {
+            "waveType": "square",
+            "envelopeAttack": 0.0, "envelopeSustain": 0.05,
+            "envelopePunch": 0.4, "envelopeDecay": 0.2,
+            "baseFreq": 0.6, "freqLimit": 0, "freqRamp": 0.3,
+            "freqDeltaRamp": 0,
+            "vibratoStrength": 0, "vibratoSpeed": 0,
+            "arpMod": 0.5, "arpSpeed": 0.6,
+            "duty": 0.5, "dutyRamp": 0, "repeatSpeed": 0,
+            "flangerOffset": 0, "flangerRamp": 0,
+            "lpFilterCutoff": 1, "lpFilterCutoffRamp": 0,
+            "lpFilterResonance": 0,
+            "hpFilterCutoff": 0, "hpFilterCutoffRamp": 0,
+            "masterVolume": 0.25,
+            "sampleRate": 44100, "sampleSize": 16
+          },
+          "hit": {
+            "waveType": "sawtooth",
+            "envelopeAttack": 0, "envelopeSustain": 0.05,
+            "envelopePunch": 0.6, "envelopeDecay": 0.15,
+            "baseFreq": 0.3, "freqLimit": 0, "freqRamp": -0.4,
+            "freqDeltaRamp": 0,
+            "vibratoStrength": 0, "vibratoSpeed": 0,
+            "arpMod": 0, "arpSpeed": 0,
+            "duty": 0.5, "dutyRamp": 0, "repeatSpeed": 0,
+            "flangerOffset": 0, "flangerRamp": 0,
+            "lpFilterCutoff": 0.8, "lpFilterCutoffRamp": 0,
+            "lpFilterResonance": 0.2,
+            "hpFilterCutoff": 0, "hpFilterCutoffRamp": 0,
+            "masterVolume": 0.25,
+            "sampleRate": 44100, "sampleSize": 16
+          },
+          "powerup": {
+            "waveType": "sine",
+            "envelopeAttack": 0, "envelopeSustain": 0.15,
+            "envelopePunch": 0.3, "envelopeDecay": 0.35,
+            "baseFreq": 0.4, "freqLimit": 0, "freqRamp": 0.5,
+            "freqDeltaRamp": 0,
+            "vibratoStrength": 0.2, "vibratoSpeed": 0.4,
+            "arpMod": 0.3, "arpSpeed": 0.4,
+            "duty": 0.5, "dutyRamp": 0, "repeatSpeed": 0,
+            "flangerOffset": 0, "flangerRamp": 0,
+            "lpFilterCutoff": 1, "lpFilterCutoffRamp": 0,
+            "lpFilterResonance": 0,
+            "hpFilterCutoff": 0, "hpFilterCutoffRamp": 0,
+            "masterVolume": 0.25,
+            "sampleRate": 44100, "sampleSize": 16
+          },
+          "laser": {
+            "waveType": "sawtooth",
+            "envelopeAttack": 0, "envelopeSustain": 0.1,
+            "envelopePunch": 0.3, "envelopeDecay": 0.15,
+            "baseFreq": 0.5, "freqLimit": 0.2, "freqRamp": -0.5,
+            "freqDeltaRamp": 0,
+            "vibratoStrength": 0, "vibratoSpeed": 0,
+            "arpMod": 0, "arpSpeed": 0,
+            "duty": 0.5, "dutyRamp": 0, "repeatSpeed": 0,
+            "flangerOffset": 0, "flangerRamp": 0,
+            "lpFilterCutoff": 1, "lpFilterCutoffRamp": 0,
+            "lpFilterResonance": 0.1,
+            "hpFilterCutoff": 0, "hpFilterCutoffRamp": 0,
+            "masterVolume": 0.25,
+            "sampleRate": 44100, "sampleSize": 16
+          },
+          "explosion": {
+            "waveType": "noise",
+            "envelopeAttack": 0, "envelopeSustain": 0.05,
+            "envelopePunch": 0.7, "envelopeDecay": 0.5,
+            "baseFreq": 0.2, "freqLimit": 0, "freqRamp": -0.2,
+            "freqDeltaRamp": 0,
+            "vibratoStrength": 0, "vibratoSpeed": 0,
+            "arpMod": 0, "arpSpeed": 0,
+            "duty": 0.5, "dutyRamp": 0, "repeatSpeed": 0,
+            "flangerOffset": 0, "flangerRamp": 0,
+            "lpFilterCutoff": 0.4, "lpFilterCutoffRamp": 0,
+            "lpFilterResonance": 0.3,
+            "hpFilterCutoff": 0, "hpFilterCutoffRamp": 0,
+            "masterVolume": 0.3,
+            "sampleRate": 44100, "sampleSize": 16
+          }
+        }
+      }
+    },
+    {
+      "id": "waves",
+      "type": "WaveSpawner",
+      "params": {
+        "archetype": "enemy",
+        "difficulty_ref": "difficulty",
+        "base_count": 4,
+        "rest_sec": 3,
+        "arena_radius": 8
+      }
+    },
+    {
+      "id": "coins",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "coin",
+        "reward_field": "Score",
+        "reward_amount": 10,
+        "respawn": { "sec": 8 },
+        "max_simultaneous": 3
+      }
+    },
+    {
+      "id": "powerups",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "powerup",
+        "reward_field": "Health",
+        "reward_amount": 20,
+        "respawn": { "sec": 20 },
+        "max_simultaneous": 1
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Health", "label": "HP" },
+          { "archetype": "player", "component": "Score", "label": "Score" },
+          { "mechanic": "difficulty", "field": "level", "label": "Level" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": {
+        "archetype": "player",
+        "field": "Health",
+        "emit_condition": "player_dead"
+      }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": {
+        "target_archetype": "player",
+        "mode": "topdown",
+        "offset": [0, 12, 0],
+        "ease": 0.5
+      }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "run",
+    "steps": [
+      { "scene": "gameplay" },
+      { "scene": "game_over", "condition": "player_dead" }
+    ]
+  }
+}

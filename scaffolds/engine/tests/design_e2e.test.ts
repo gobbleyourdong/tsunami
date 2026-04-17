@@ -100,9 +100,42 @@ describe('e2e: narrative.json', () => {
   })
 })
 
-describe('e2e: all three compile cleanly (ship-gate #13 headless variant)', () => {
-  it('three examples validate + compile without throwing', () => {
-    for (const f of ['arena_shooter.json', 'rhythm.json', 'narrative.json']) {
+describe('e2e: audio_demo.json (Phase 8 ship-gate for v1.1 audio)', () => {
+  const game = validateThenCompile(loadExample('audio_demo.json'))
+
+  it('produces a GameDefinition with 3d config', () => {
+    expect(game.config.mode).toBe('3d')
+  })
+
+  it('attaches ChipMusic + SfxLibrary alongside gameplay mechanics', () => {
+    const sceneName = Object.keys(game.scenes)[0]
+    const props = (game.scenes[sceneName] as unknown as Record<string, unknown>).properties as
+      Record<string, unknown> | undefined
+    const mechanicIds = (props?.mechanics ?? []) as string[]
+    for (const required of ['music', 'sfx', 'waves', 'coins', 'powerups', 'hud']) {
+      expect(mechanicIds).toContain(required)
+    }
+  })
+
+  it('preserves audio ActionRefs on archetype triggers', () => {
+    const design = loadExample('audio_demo.json')
+    const coin = design.archetypes?.coin as unknown as Record<string, unknown>
+    const trig = coin.trigger as Record<string, unknown>
+    const act = trig.on_contact as Record<string, unknown>
+    expect(act.kind).toBe('sequence')
+    const actions = act.actions as Array<Record<string, unknown>>
+    const sfx = actions.find(a => a.kind === 'play_sfx_ref')
+    expect(sfx).toBeDefined()
+    expect(sfx!.library_ref).toBe('sfx')
+    expect(sfx!.preset).toBe('coin')
+    expect(sfx!.quantize_to).toBe('beat')
+    expect(sfx!.quantize_source).toBe('music')
+  })
+})
+
+describe('e2e: all four compile cleanly (ship-gate #13 headless variant)', () => {
+  it('four examples validate + compile without throwing', () => {
+    for (const f of ['arena_shooter.json', 'rhythm.json', 'narrative.json', 'audio_demo.json']) {
       const d = loadExample(f)
       const r = validate(d)
       expect(r.ok, `validator failed on ${f}`).toBe(true)
