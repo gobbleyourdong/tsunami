@@ -115,6 +115,83 @@ def main_entrypoint():
         dmax = float((ob - os).abs().max().item())
         print(f"{pname}: overall |Δ|∞ = {dmax:.3e}")
 
+    # Iter-37 probes: fc (bf16 Linear, 2H→H) and input_layernorm.
+    # If fc is M-dependent, the drifted x propagates into all downstream
+    # compute — that would be the source. If fc is clean, the drift must
+    # be inside the decoder layer itself.
+    print("\n--- iter-37: upstream probes ---")
+    X2H = torch.randn(1, N, 2 * H, dtype=torch.bfloat16, device="cuda:0")
+    fc_batched = mtp.fc(X2H)
+    fc_single = torch.cat([mtp.fc(X2H[:, i:i+1, :]) for i in range(N)], dim=1)
+    dfc = float((fc_batched - fc_single).abs().max().item())
+    print(f"fc (bf16 Linear 2H→H): overall |Δ|∞ = {dfc:.3e}")
+
+    # input_layernorm on the decoder layer
+    iln = mtp.layer.input_layernorm
+    iln_batched = iln(X)
+    iln_single = torch.cat([iln(X[:, i:i+1, :]) for i in range(N)], dim=1)
+    diln = float((iln_batched - iln_single).abs().max().item())
+    print(f"input_layernorm (Qwen3_5MoeRMSNorm): overall |Δ|∞ = {diln:.3e}")
+
+    # Post_attention_layernorm (also RMSNorm, in the residual branch).
+    paln = mtp.layer.post_attention_layernorm
+    paln_batched = paln(X)
+    paln_single = torch.cat([paln(X[:, i:i+1, :]) for i in range(N)], dim=1)
+    dpaln = float((paln_batched - paln_single).abs().max().item())
+    print(f"post_attention_layernorm: overall |Δ|∞ = {dpaln:.3e}")
+
+    # Full decoder-layer call — compare K/V written to cache at slot i
+    # between batched and single-row calls.
+    from transformers import DynamicCache
+    # Build fresh caches; call the layer batched and single-row, extract
+    # the resulting K/V at slot 13 from each.
+    pos_batched = torch.arange(N, device="cuda:0")[None, :]
+    # Need position_embeddings; construct via mtp.rotary_emb
+    pos_emb_batched = mtp.rotary_emb(X, pos_batched)
+    cache_b = DynamicCache()
+    _ = mtp.layer(X, position_ids=pos_batched, position_embeddings=pos_emb_batched,
+                  past_key_values=cache_b, use_cache=True)
+    # Extract slot 13 K/V from cache_b
+    lyr_b = cache_b.layers[0]
+    k_b = getattr(lyr_b, "keys", None)
+    if k_b is None:
+        k_b = getattr(lyr_b, "key_cache", None)
+    v_b = getattr(lyr_b, "values", None)
+    if v_b is None:
+        v_b = getattr(lyr_b, "value_cache", None)
+    k_b_13 = k_b[..., 13, :]
+    v_b_13 = v_b[..., 13, :]
+
+    # Now per-row: build cache by streaming rows 0..13 one at a time
+    cache_s = DynamicCache()
+    for i in range(N):
+        xi = X[:, i:i+1, :]
+        pos_i = torch.tensor([[i]], device="cuda:0")
+        pe_i = mtp.rotary_emb(xi, pos_i)
+        _ = mtp.layer(xi, position_ids=pos_i, position_embeddings=pe_i,
+                      past_key_values=cache_s, use_cache=True)
+    lyr_s = cache_s.layers[0]
+    k_s = getattr(lyr_s, "keys", None)
+    if k_s is None:
+        k_s = getattr(lyr_s, "key_cache", None)
+    v_s = getattr(lyr_s, "values", None)
+    if v_s is None:
+        v_s = getattr(lyr_s, "value_cache", None)
+    k_s_13 = k_s[..., 13, :]
+    v_s_13 = v_s[..., 13, :]
+
+    dk13 = float((k_b_13 - k_s_13).abs().max().item())
+    dv13 = float((v_b_13 - v_s_13).abs().max().item())
+    print(f"full decoder_layer slot 13 |ΔK|∞ = {dk13:.3e}, |ΔV|∞ = {dv13:.3e}")
+
+    print("\nSUMMARY:")
+    print(f"  fc bf16 GEMM:            {dfc:.3e}")
+    print(f"  input_layernorm:         {diln:.3e}")
+    print(f"  post_attention_layernorm:{dpaln:.3e}")
+    print(f"  decoder_layer slot 13 K: {dk13:.3e}")
+    print(f"  decoder_layer slot 13 V: {dv13:.3e}")
+    print(f"  (target reproduces H2 slot-13 drift: ~1.953e-3 / ~3.906e-3)")
+
 
 if __name__ == "__main__":
     main_entrypoint()
