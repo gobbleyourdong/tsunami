@@ -68,3 +68,7 @@ import './dialog_tree'
 import './procedural_room_chain'
 import './bullet_pattern'
 import './puzzle_object'
+// Phase 2
+import './embedded_minigame'
+// world_flags is a helper module, not a mechanic — import its exports
+// from mechanics/world_flags.ts directly when needed.

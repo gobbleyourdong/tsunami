@@ -1,0 +1,86 @@
+{
+  "meta": {
+    "title": "Sokoban Variant",
+    "shape": "puzzle",
+    "vibe": ["grid", "deliberate", "bite-sized"],
+    "target_session_sec": 300
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": {
+      "kind": "grid",
+      "width": 12,
+      "height": 10,
+      "cell_size": 64,
+      "diagonal_movement": false
+    },
+    "sandbox": false
+  },
+  "singletons": {
+    "board": {
+      "components": ["GridPlayfield"],
+      "exposes": { "goal_count": "number", "goals_covered": "number" }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "box",
+      "controller": "grid",
+      "components": [],
+      "tags": ["player"]
+    }
+  },
+  "mechanics": [
+    { "id": "grid", "type": "GridPlayfield",
+      "params": { "tiles": ["empty", "wall", "player", "box", "goal", "box_on_goal"],
+                  "initial_layout":
+                    "############\n" +
+                    "#..........#\n" +
+                    "#..g..b.p..#\n" +
+                    "#..........#\n" +
+                    "#..b..g....#\n" +
+                    "#..........#\n" +
+                    "#..g......b#\n" +
+                    "#..........#\n" +
+                    "#..........#\n" +
+                    "############" } },
+    { "id": "move", "type": "GridController",
+      "params": { "archetype": "player",
+                  "move_keys": { "up": "ArrowUp", "down": "ArrowDown",
+                                 "left": "ArrowLeft", "right": "ArrowRight" },
+                  "step_time_ms": 120 } },
+    { "id": "rules", "type": "TileRewriteMechanic",
+      "params": { "grid_ref": "grid",
+                  "rules": [
+                    { "pattern": "[player][box][empty]",
+                      "result":  "[empty][player][box]" },
+                    { "pattern": "[player][box][goal]",
+                      "result":  "[empty][player][box_on_goal]" },
+                    { "pattern": "[player][box_on_goal][empty]",
+                      "result":  "[empty][player][box]" },
+                    { "pattern": "[player][empty]",
+                      "result":  "[empty][player]" },
+                    { "pattern": "[player][goal]",
+                      "result":  "[empty][player]" }
+                  ] } },
+    { "id": "hud", "type": "HUD",
+      "params": { "fields": [
+                    { "singleton": "board", "field": "goals_covered", "label": "Solved" },
+                    { "singleton": "board", "field": "goal_count",    "label": "Total" }
+                  ],
+                  "layout": "top" } },
+    { "id": "win", "type": "WinOnCount",
+      "params": { "archetype": "box_on_goal", "count": 3,
+                  "comparison": "gte", "emit_condition": "all_solved" } }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "main",
+    "steps": [
+      { "scene": "title" },
+      { "scene": "puzzle", "condition": "start_pressed" },
+      { "scene": "win_screen", "condition": "all_solved" }
+    ]
+  }
+}

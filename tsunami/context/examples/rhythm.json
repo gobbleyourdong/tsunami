@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "title": "Rhythm Hit",
+    "shape": "rhythm",
+    "vibe": ["music", "timing", "neon", "cascading-beats"],
+    "target_session_sec": 90
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": {
+      "kind": "continuous",
+      "arena": { "shape": "rect", "size": 16 }
+    }
+  },
+  "singletons": {},
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "none",
+      "components": ["Score"],
+      "tags": ["player"]
+    },
+    "beat": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["beat"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "track",
+      "type": "RhythmTrack",
+      "params": {
+        "bpm": 128,
+        "audio_ref": "music/track_01.ogg",
+        "beat_spawn_archetype": "beat",
+        "measure": { "beats": 4, "note_value": 4 },
+        "hit_window_ms": 140
+      }
+    },
+    {
+      "id": "combos",
+      "type": "ScoreCombos",
+      "params": {
+        "archetype": "player",
+        "window_sec": 2,
+        "curve": "linear",
+        "max_multiplier": 8,
+        "commit": "window"
+      },
+      "requires": ["track"]
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "mechanic": "track", "field": "hits", "label": "Hits" },
+          { "mechanic": "track", "field": "misses", "label": "Misses" },
+          { "mechanic": "track", "field": "combo", "label": "Combo" },
+          { "archetype": "player", "component": "Score", "label": "Score" }
+        ],
+        "layout": "top"
+      }
+    }
+  ],
+  "flow": {
+    "kind": "scene",
+    "name": "stage"
+  }
+}

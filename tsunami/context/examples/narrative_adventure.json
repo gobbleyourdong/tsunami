@@ -1,0 +1,110 @@
+{
+  "meta": {
+    "title": "The Cartographer's Apprentice",
+    "shape": "narrative_adjacent",
+    "vibe": ["cozy", "point-and-click", "illustrated"],
+    "target_session_sec": 600
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 100 } },
+    "sandbox": false
+  },
+  "singletons": {
+    "world": {
+      "components": ["WorldFlags"],
+      "exposes": {
+        "found_map_piece_a": "boolean",
+        "found_map_piece_b": "boolean",
+        "spoke_to_librarian": "boolean",
+        "map_assembled": "boolean"
+      }
+    }
+  },
+  "archetypes": {
+    "cursor": {
+      "controller": "pointer",
+      "components": ["Inventory"],
+      "tags": ["player"]
+    },
+    "librarian": {
+      "mesh": "plane",
+      "components": [],
+      "tags": ["npc"]
+    }
+  },
+  "mechanics": [
+    { "id": "study_room", "type": "HotspotMechanic",
+      "params": { "scene": "study",
+                  "hotspots": [
+                    { "name": "bookshelf",
+                      "region": { "x": 80, "y": 200, "w": 120, "h": 300 },
+                      "on_examine": { "kind": "dialog", "tree_ref": "bookshelf_desc" },
+                      "on_use": { "kind": "give_item", "archetype": "cursor",
+                                  "item": "dusty_book" } },
+                    { "name": "rolled_map",
+                      "region": { "x": 400, "y": 250, "w": 80, "h": 40 },
+                      "on_pickup": { "kind": "set_flag", "world_flag": "found_map_piece_a",
+                                     "value": true },
+                      "unlock_condition": "room_entered" },
+                    { "name": "librarian_npc",
+                      "region": { "x": 600, "y": 180, "w": 100, "h": 300 },
+                      "on_examine": { "kind": "dialog", "tree_ref": "librarian_intro" } },
+                    { "name": "exit_to_library",
+                      "region": { "x": 1100, "y": 100, "w": 80, "h": 500 },
+                      "on_use": { "kind": "scene_goto", "scene": "library" } }
+                  ] } },
+    { "id": "librarian_intro", "type": "DialogTree",
+      "params": { "trigger_archetype": "librarian",
+                  "tree": {
+                    "id": "root",
+                    "line": "Ah — the apprentice. Did the master send you for the atlas?",
+                    "speaker": "Librarian",
+                    "choices": [
+                      { "text": "Yes, I'm looking for map pieces.",
+                        "goto": "helpful",
+                        "effect": { "kind": "set_flag",
+                                    "world_flag": "spoke_to_librarian", "value": true } },
+                      { "text": "I'm just browsing.",
+                        "goto": "dismissive" }
+                    ]
+                  } } },
+    { "id": "assemble", "type": "InventoryCombine",
+      "params": { "archetype": "cursor",
+                  "recipes": [
+                    { "ingredients": ["map_piece_a", "map_piece_b"],
+                      "result": "assembled_map",
+                      "consumes": "all" }
+                  ] } },
+    { "id": "gate_door", "type": "GatedTrigger",
+      "params": { "gate_archetype": "locked_tower_door",
+                  "opens_when": { "has_item": "assembled_map" },
+                  "open_effect": { "kind": "play_sound", "asset": "unlock" } } },
+    { "id": "endings", "type": "EndingBranches",
+      "params": { "endings": [
+                    { "id": "good",    "scene": "ending_good", "priority": 100,
+                      "requires": [{ "world_flag": "map_assembled", "value": true },
+                                   { "world_flag": "spoke_to_librarian", "value": true }] },
+                    { "id": "neutral", "scene": "ending_neutral", "priority": 50,
+                      "requires": [{ "world_flag": "map_assembled", "value": true }] }
+                  ],
+                  "default_ending": "bad" } },
+    { "id": "hud", "type": "HUD",
+      "params": { "fields": [
+                    { "archetype": "cursor", "component": "Inventory", "label": "Satchel" }
+                  ],
+                  "layout": "minimal" } }
+  ],
+  "flow": {
+    "kind": "scene",
+    "name": "title",
+    "children": [
+      { "kind": "scene", "name": "study" },
+      { "kind": "scene", "name": "library" },
+      { "kind": "scene", "name": "ending_good" },
+      { "kind": "scene", "name": "ending_neutral" },
+      { "kind": "scene", "name": "ending_bad" }
+    ]
+  }
+}

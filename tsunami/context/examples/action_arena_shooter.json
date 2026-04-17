@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "title": "Arena Shooter",
+    "shape": "action",
+    "vibe": ["arcade", "fast-paced", "wave-based"],
+    "target_session_sec": 180
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -20, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "disk", "size": 25 } },
+    "sandbox": false
+  },
+  "singletons": {},
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Health(100)", "Score"],
+      "tags": ["player"]
+    },
+    "grunt": {
+      "mesh": "box",
+      "ai": "chase",
+      "components": ["Health(20)"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player", "amount": 5 },
+        "on_reverse": { "kind": "damage", "archetype": "grunt", "amount": 999 }
+      },
+      "tags": ["enemy"]
+    },
+    "health_pack": {
+      "mesh": "sphere",
+      "trigger": { "kind": "pickup", "exclusive": true,
+                   "on_contact": { "kind": "heal", "archetype": "player", "amount": 25 } },
+      "tags": ["pickup"]
+    }
+  },
+  "mechanics": [
+    { "id": "diff", "type": "Difficulty",
+      "params": { "drive": "wave_index",
+                  "easy": { "spawnRateMul": 0.6, "enemyHealthMul": 0.8 },
+                  "hard": { "spawnRateMul": 2.0, "enemyHealthMul": 1.5 },
+                  "max_level": 10 },
+      "exposes": { "level": "number", "spawnRateMul": "number", "enemyHealthMul": "number" } },
+    { "id": "waves", "type": "WaveSpawner",
+      "params": { "archetype": "grunt", "difficulty_ref": "diff",
+                  "base_count": 4, "rest_sec": 6, "arena_radius": 20,
+                  "intro_delay_sec": 2 },
+      "exposes": { "wave_index": "number", "alive_count": "number" } },
+    { "id": "packs", "type": "PickupLoop",
+      "params": { "archetype": "health_pack", "reward_field": "Health",
+                  "reward_amount": 25, "respawn": { "sec": 15 },
+                  "max_simultaneous": 2 } },
+    { "id": "combo", "type": "ScoreCombos",
+      "params": { "archetype": "player", "window_sec": 2.5,
+                  "curve": "quadratic", "max_multiplier": 8 } },
+    { "id": "cam", "type": "CameraFollow",
+      "params": { "target_archetype": "player", "mode": "topdown",
+                  "offset": [0, 15, 0], "ease": 0.3 } },
+    { "id": "hud", "type": "HUD",
+      "params": { "fields": [
+                    { "archetype": "player", "component": "Health", "label": "HP" },
+                    { "archetype": "player", "component": "Score", "label": "Score" },
+                    { "mechanic": "waves", "field": "wave_index", "label": "Wave" }
+                  ],
+                  "layout": "corners" } },
+    { "id": "lose", "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Health",
+                  "emit_condition": "player_dead" } }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "main",
+    "steps": [
+      { "scene": "title" },
+      { "scene": "arena", "condition": "start_pressed" },
+      { "scene": "gameover", "condition": "player_dead" }
+    ]
+  }
+}

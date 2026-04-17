@@ -1,0 +1,85 @@
+{
+  "meta": {
+    "title": "Old Lighthouse",
+    "shape": "narrative_adjacent",
+    "vibe": ["cozy", "click-to-interact", "branching-dialog", "short-session"],
+    "target_session_sec": 240
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": {
+      "kind": "continuous",
+      "arena": { "shape": "rect", "size": 12 }
+    }
+  },
+  "singletons": {},
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "pointer",
+      "components": ["Inventory"],
+      "tags": ["player"]
+    },
+    "keeper": {
+      "mesh": "capsule",
+      "controller": "none",
+      "components": [],
+      "tags": ["npc"],
+      "trigger": {
+        "kind": "hit",
+        "contact_side": "any",
+        "on_contact": {
+          "kind": "dialog",
+          "tree_ref": "keeper_dialog",
+          "entry_node": "root"
+        }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "keeper_dialog",
+      "type": "DialogTree",
+      "params": {
+        "trigger_archetype": "keeper",
+        "tree": {
+          "id": "root",
+          "speaker": "Keeper",
+          "line": "The lamp hasn't turned since the storm. Will you help?",
+          "choices": [
+            {
+              "text": "What happened?",
+              "goto": "lore",
+              "effect": { "kind": "set_flag", "world_flag": "heard_lore", "value": true }
+            },
+            {
+              "text": "I'll fix it.",
+              "goto": "task",
+              "effect": { "kind": "set_flag", "world_flag": "accepted_task", "value": true }
+            },
+            {
+              "text": "Maybe later.",
+              "goto": "root"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Inventory", "label": "Bag" }
+        ],
+        "layout": "bottom"
+      }
+    }
+  ],
+  "flow": {
+    "kind": "scene",
+    "name": "lighthouse"
+  }
+}
