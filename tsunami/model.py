@@ -140,8 +140,15 @@ class TsunamiModel:
             "min_p": self.min_p,
             "presence_penalty": self.presence_penalty,
             "repetition_penalty": self.repetition_penalty,
-            # Qwen3.6 thinking mode — README-recommended for precise coding.
-            "chat_template_kwargs": {"enable_thinking": True},
+            # Qwen3.6 README — Thinking mode / Precise Coding recommends BOTH:
+            #   enable_thinking=True   (default; lets DiT+reasoning fire)
+            #   preserve_thinking=True (keeps reasoning from prior turns, so
+            #                           multi-turn tool sessions don't lose
+            #                           the agent's mental state mid-chain)
+            "chat_template_kwargs": {
+                "enable_thinking": True,
+                "preserve_thinking": True,
+            },
         }
         if self.client_id:
             payload["user"] = self.client_id
