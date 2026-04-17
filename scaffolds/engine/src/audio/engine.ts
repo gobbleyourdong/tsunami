@@ -263,4 +263,34 @@ export class AudioEngine {
     this.activeSources.clear()
     this.initialized = false
   }
+
+  // ── v1.1 audio-extension accessors ─────────────────────────────
+  //
+  // Phase 1 of the audio v1.1 extension (procedural chiptune + sfxr
+  // retro SFX). These three methods are strictly additive so existing
+  // AudioEngine consumers are unaffected. Extensions (ChipSynth, Sfxr)
+  // connect their own oscillators / pre-rendered buffers via these
+  // hooks rather than reimplementing the routing graph.
+
+  /** Public accessor for the underlying AudioContext — extensions
+   *  instantiate OscillatorNodes / PeriodicWaves / AudioBuffers
+   *  through `engine.context`. Returns null before init() has fired. */
+  get context(): AudioContext | null { return this.ctx }
+
+  /** Register a pre-rendered AudioBuffer under `id` without going
+   *  through decodeAudioData. Used by Sfxr to skip the decode step
+   *  (we generate the PCM directly) and by any future buffer-
+   *  producing extension. Triggers init() on first call. */
+  loadRawBuffer(id: string, buffer: AudioBuffer): void {
+    if (!this.ctx) this.init()
+    this.buffers.set(id, buffer)
+  }
+
+  /** Named GainNode for a channel — extensions route their outputs
+   *  here so setVolume / muted state apply uniformly. Falls back to
+   *  masterGain when the channel isn't registered (e.g. engine not
+   *  yet initialized). */
+  channelGain(channel: AudioChannel): GainNode | null {
+    return this.channelGains.get(channel) ?? this.masterGain
+  }
 }
