@@ -864,17 +864,20 @@ class Agent:
         Minimized-model-work design: the system decides to run undertow,
         the system picks the levers, the model is only consulted when
         there's a concrete failure to fix.
+
+        Lever set is intentionally narrow: just `console`. Screenshot
+        blank-detect and ghost_classes produce false positives on minimal
+        apps (a counter with `+`/`-` reads as "near-blank" to the pixel
+        analyzer) which trap the model in a no-win retry loop. Console
+        errors are unambiguous ship-blockers — if they fire, the model
+        has a concrete thing to fix.
         """
         try:
             from .undertow import Lever, pull_levers
         except Exception as e:
             log.warning(f"force-undertow: undertow import failed: {e}")
             return None
-        levers = [
-            Lever(action="console"),
-            Lever(action="screenshot"),
-            Lever(action="ghost_classes"),
-        ]
+        levers = [Lever(action="console")]
         try:
             return await pull_levers(str(html_path), levers)
         except Exception as e:
@@ -1387,6 +1390,12 @@ class Agent:
                                 f"bouncing back to the model to fix"
                             )
                             self.state.task_complete = False
+                            # Clear build_passed_at so the #14 deliver-gate doesn't
+                            # immediately force message_result on the next iter
+                            # while the model is legitimately iterating on fixes.
+                            # The deliver-gate will re-arm when shell_exec passes
+                            # again after the fix.
+                            self._build_passed_at = None
                             self.state.add_user(
                                 "I ran undertow on the deliverable and it reported these issues:\n"
                                 + "\n".join(failures[:10])
