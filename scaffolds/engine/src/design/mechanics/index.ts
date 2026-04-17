@@ -72,3 +72,9 @@ import './puzzle_object'
 import './embedded_minigame'
 // world_flags is a helper module, not a mechanic — import its exports
 // from mechanics/world_flags.ts directly when needed.
+// Phase 3 — action-core (13 mechanics, batched across commits)
+import './difficulty'
+import './wave_spawner'
+import './hud'
+import './lose_on_zero'
+import './win_on_count'
