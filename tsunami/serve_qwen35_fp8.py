@@ -85,6 +85,28 @@ def _static_init_with_default(self, max_cache_len: int):
     self.max_batch_size = None
 _cu.StaticLayer.__init__ = _static_init_with_default
 
+# On the SECOND `generate()` call, `_prepare_static_cache` reuses `self._cache`
+# and reads `cache_to_check.max_cache_len` / `.max_batch_size`. Those properties
+# do `max(layer.max_cache_len for layer in self.layers)` / `set(values)` — but
+# linear-attention layers never populate these attributes (they're recurrent,
+# not ring-buffer), and our defaults above leave them at None. `max(None, int)`
+# and `set([None, int])` then crash. Override both properties to skip linear
+# layers (None values) so the comparison uses only the real cache layers.
+def _max_cache_len_filtered(self):
+    values = [l.max_cache_len for l in self.layers
+              if getattr(l, "max_cache_len", None) is not None]
+    return max(values) if values else 0
+
+def _max_batch_size_filtered(self):
+    values = [l.max_batch_size for l in self.layers
+              if getattr(l, "max_batch_size", None) is not None]
+    if len(set(values)) > 1:
+        raise ValueError(f"Max batch size is not consistent across layers: {values}")
+    return values[0] if values else 1
+
+_cu.Cache.max_cache_len = property(_max_cache_len_filtered)
+_cu.Cache.max_batch_size = property(_max_batch_size_filtered)
+
 # generate()'s mask builder iterates `config.layer_types` and looks up each
 # pattern in LAYER_PATTERN_TO_MASK_FUNCTION_MAPPING. Linear-attention layers
 # use a 2D padding mask (batch, seq) or None — not a 4D causal mask. Model
@@ -180,6 +202,14 @@ import uvicorn
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("qwen35_fp8")
 
+# Static-cache size ceiling. generate() pays a Triton autotune + cache realloc
+# the first time it sees a max_cache_len larger than the existing cache — we
+# measured a 250× slowdown (30 → 0.15 tok/s) going from a 230-tok prompt to a
+# 1461-tok prompt. Forcing every request to claim at least this many tokens
+# pins the allocation up front so subsequent requests reuse it. Raise if you
+# expect longer contexts (each extra 1K costs ~300 MB KV VRAM).
+_CACHE_CEILING = 8192
+
 app = FastAPI()
 model = None
 processor = None
@@ -226,6 +256,26 @@ class ChatRequest(BaseModel):
 _user_sems: dict[str, asyncio.Semaphore] = {}
 _gpu_sem = asyncio.Semaphore(1)
 
+# Dedicated single-thread executor for every GPU call (generate + warmup).
+# `asyncio.to_thread` uses a shared pool and may pick *any* idle worker per
+# call. That's fine for stateless work, but HF's static-cache path routes
+# through inductor's `cudagraph_trees`, whose tree-manager sits in
+# `threading.local()` — a request landing on a worker that hasn't served a
+# generate before hits `AssertionError: torch._C._is_key_in_tls(attr_name)`
+# (iteration 10 failure). Pinning to one worker makes TLS persist across
+# calls, which also lets a boot-time warmup compile kernels once on that
+# thread and have every subsequent request reuse the compiled state.
+from concurrent.futures import ThreadPoolExecutor as _TPE
+_gpu_executor = _TPE(max_workers=1, thread_name_prefix="gpu")
+
+
+async def _run_on_gpu_thread(fn, *args, **kwargs):
+    loop = asyncio.get_running_loop()
+    if args or kwargs:
+        import functools as _ft
+        return await loop.run_in_executor(_gpu_executor, _ft.partial(fn, *args, **kwargs))
+    return await loop.run_in_executor(_gpu_executor, fn)
+
 
 def _get_user_sem(user: str) -> asyncio.Semaphore:
     sem = _user_sems.get(user)
@@ -233,6 +283,69 @@ def _get_user_sem(user: str) -> asyncio.Semaphore:
         sem = asyncio.Semaphore(1)
         _user_sems[user] = sem
     return sem
+
+
+def _gpu_warmup_sync():
+    """Blocking warmup on the pinned GPU thread. Each Triton kernel is compiled
+    per (prompt_len, cache_len) shape, so covering multiple prompt lengths
+    during warmup keeps first-user latency low across common request sizes.
+    Ceiling stays fixed at _CACHE_CEILING — only prompt_len varies. The chat
+    template is applied so attention is also routed through the same mask
+    builders the real request path uses.
+    Must run on the same thread that serves requests — see
+    `_run_on_gpu_thread` rationale."""
+    if tokenizer is None or model is None:
+        return
+    import time as _t
+    log.info("Boot warmup: compiling Triton kernels on pinned GPU thread …")
+    t0 = _t.time()
+    # A short, medium, and longish prompt cover the bulk of real-world sizes.
+    # The chat template ends up adding ~10-20 tokens of Qwen boilerplate so
+    # the effective prompt lengths are ~20/80/300 — roughly matching the
+    # typical short-QA / mid-coding / long-context brackets we've benched.
+    warm_prompts = [
+        "Hello.",                                            # ~5 raw → ~20 templated
+        " ".join("The quick brown fox jumps over the lazy dog.".split() * 6),  # ~60 → ~80
+        " ".join(f"Line {i:03d}." for i in range(60)),       # ~180 → ~200
+    ]
+    for i, p in enumerate(warm_prompts):
+        msgs = [{"role": "user", "content": p}]
+        # `apply_chat_template(tokenize=True, return_tensors="pt")` returns a
+        # BatchEncoding (dict-like) with the newer tokenizers; older versions
+        # returned the raw tensor. Extract `input_ids` defensively so we work
+        # either way.
+        out = tokenizer.apply_chat_template(
+            msgs, add_generation_prompt=True, tokenize=True,
+            return_tensors="pt",
+        )
+        ids = out["input_ids"] if hasattr(out, "keys") and "input_ids" in out else out
+        ids = ids.to(model.device)
+        n_in = ids.shape[-1]
+        ts = _t.time()
+        with torch.no_grad():
+            model.generate(
+                input_ids=ids,
+                max_new_tokens=8,
+                max_length=_CACHE_CEILING,
+                use_cache=True,
+                cache_implementation="static",
+                do_sample=False,
+            )
+        torch.cuda.synchronize()
+        log.info(f"  warmup shape {i+1}/{len(warm_prompts)}: prompt={n_in} "
+                 f"compiled in {_t.time()-ts:.1f}s")
+    log.info(f"Boot warmup done in {_t.time()-t0:.1f}s on pinned GPU thread")
+
+
+@app.on_event("startup")
+async def _warmup_on_startup():
+    # Delegate to the pinned executor so TLS (inductor cudagraph_trees etc.)
+    # is initialised on the same worker that will serve every subsequent
+    # request. Any exception is caught and logged — warmup is best-effort.
+    try:
+        await _run_on_gpu_thread(_gpu_warmup_sync)
+    except Exception as _e:
+        log.warning(f"Boot warmup skipped ({type(_e).__name__}: {_e}) — first request pays cold-start")
 
 
 @app.get("/health")
@@ -287,6 +400,21 @@ def _normalize_messages(messages_in: list) -> tuple[list, list]:
                         b64 = url.split(",", 1)[1]
                         from PIL import Image
                         img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+                        # Clamp oversized images. Qwen3VLProcessor emits ~1
+                        # token per 28×28 patch, so a 4000×3000 photo alone
+                        # spends ~15K tokens — exceeding our 8K static-cache
+                        # ceiling forces a realloc + Triton re-autotune on
+                        # the new shape. Max side 1280 keeps a full-resolution
+                        # image under ~2K tokens and preserves enough detail
+                        # for OCR/scene recognition (verified against
+                        # real-photo bench). Use LANCZOS — bilinear softens
+                        # small text.
+                        if max(img.size) > 1280:
+                            ratio = 1280 / max(img.size)
+                            img = img.resize(
+                                (int(img.size[0] * ratio), int(img.size[1] * ratio)),
+                                Image.Resampling.LANCZOS,
+                            )
                         images.append(img)
                         parts.append({"type": "image", "image": img})
                 else:
@@ -371,11 +499,23 @@ async def _chat_completions_impl(req: ChatRequest):
     # need to strip `mm_token_type_ids` because that class's forward rejected
     # it; we no longer take that path, so the strip is gone.)
 
+    # Force every request to claim at least _CACHE_CEILING tokens of cache —
+    # `_prepare_static_cache` reuses the existing StaticCache when its
+    # `max_cache_len >= requested`, and allocates a new one (plus a fresh
+    # Triton autotune pass over all the new shapes) otherwise. Without this
+    # ceiling, a prompt that's larger than the previous high-water mark
+    # triggers a full realloc + recompile — we measured a 250× slowdown
+    # (30 tok/s → 0.15 tok/s) going from a 230-token prompt to 1461 tokens
+    # after the static cache was sized for the former. 8192 covers typical
+    # document-grade prompts at ~2.5 GB KV-cache VRAM cost.
+    _force_max_length = max(prompt_len + req.max_tokens, _CACHE_CEILING)
+
     def _generate():
         with torch.no_grad():
             return model.generate(
                 **inputs,
                 max_new_tokens=req.max_tokens,
+                max_length=_force_max_length,
                 use_cache=True,
                 # Static cache + CUDA graphs path: needs the four hybrid-
                 # attention patches above (LinearAttentionLayer.max_batch_size,
@@ -391,7 +531,10 @@ async def _chat_completions_impl(req: ChatRequest):
             )
 
     async with _gpu_sem:
-        output = await asyncio.to_thread(_generate)
+        # Route through the pinned single-thread GPU executor (see
+        # `_run_on_gpu_thread` — keeps inductor cudagraph_trees TLS stable
+        # across requests and allows a safe boot warmup).
+        output = await _run_on_gpu_thread(_generate)
 
     new_tokens = output[0][prompt_len:]
     text = _decode(new_tokens)
@@ -468,19 +611,104 @@ def _fuse_cache_path(snapshot: _Path, cache_root: _Path) -> _Path:
     return cache_root / repo_key / f"{sha}.safetensors"
 
 
-def _load_fused_from_cache(cache_file: _Path, device: str) -> dict:
-    """Re-hydrate a fused state_dict straight to GPU from a safetensors cache
-    file produced by a prior fuse pass. Near-instant vs re-running the full
-    concat/stack over 256 experts × 40 layers."""
-    from safetensors import safe_open
+class _LazyFusedStateDict:
+    """Dict-like view over a fused safetensors file that only materializes a
+    tensor when transformers' loader actually asks for it. Eliminates the
+    ~35 GB transient spike that happens when `_load_fused_from_cache` builds
+    the whole sd up front just to hand it to `from_pretrained(state_dict=…)`
+    which then iterates-and-assigns key-by-key.
+
+    Contract we need to satisfy (discovered empirically against transformers v5):
+      • iter / keys / len / __contains__ — used during the initial scan
+      • __getitem__ / get / pop — used during the assign loop
+      • items — used when transformers wants to round-trip the dict
+
+    Every materialization goes straight to GPU (device="cuda:0") so the tensor
+    lands in one place and the caller's assign path is a pointer swap, not a
+    copy. Peak memory becomes O(single-tensor) instead of O(full-model)."""
+
+    def __init__(self, cache_file: _Path, device: str):
+        from safetensors import safe_open
+        self._cache_file = cache_file
+        self._device = device
+        self._handle_ctx = safe_open(str(cache_file), framework="pt", device=device)
+        self._handle = self._handle_ctx.__enter__()
+        self._keys = list(self._handle.keys())
+        self._keyset = set(self._keys)
+
+    # --- identity / debugging ---
+    def __repr__(self) -> str:
+        return f"_LazyFusedStateDict(file={self._cache_file.name}, n={len(self._keys)})"
+
+    # --- container protocol ---
+    def __len__(self) -> int:
+        return len(self._keys)
+
+    def __iter__(self):
+        return iter(self._keys)
+
+    def __contains__(self, k) -> bool:
+        return k in self._keyset
+
+    def keys(self):
+        return list(self._keys)
+
+    def values(self):
+        return (self._handle.get_tensor(k) for k in self._keys)
+
+    def items(self):
+        return ((k, self._handle.get_tensor(k)) for k in self._keys)
+
+    # --- mapping access ---
+    def __getitem__(self, k):
+        if k not in self._keyset:
+            raise KeyError(k)
+        return self._handle.get_tensor(k)
+
+    def get(self, k, default=None):
+        if k not in self._keyset:
+            return default
+        return self._handle.get_tensor(k)
+
+    def pop(self, k, *default):
+        if k in self._keyset:
+            t = self._handle.get_tensor(k)
+            self._keys.remove(k)
+            self._keyset.discard(k)
+            return t
+        if default:
+            return default[0]
+        raise KeyError(k)
+
+    # --- safety nets for corners of the loader we haven't seen yet ---
+    def copy(self):
+        # Most callers want a shallow dict copy — materialize every tensor
+        # eagerly, which negates the whole point. Log the event and do it.
+        log.warning("_LazyFusedStateDict.copy() called — materializing all tensors")
+        return {k: self._handle.get_tensor(k) for k in self._keys}
+
+    def update(self, other):
+        raise NotImplementedError("_LazyFusedStateDict is read-only")
+
+    def close(self):
+        try:
+            self._handle_ctx.__exit__(None, None, None)
+        except Exception:
+            pass
+
+
+def _load_fused_from_cache(cache_file: _Path, device: str):
+    """Return a lazy view over the fused safetensors cache. Reading is deferred
+    until transformers' from_pretrained actually asks for each tensor, at which
+    point it lands straight on `device` via safetensors' GPU-native open. This
+    replaces an earlier eager path that built a full ~35 GB dict up front and
+    caused transient double-memory during the assign loop. See
+    `_LazyFusedStateDict` docstring for the loader-contract surface."""
     t0 = time.time()
-    sd: dict[str, "torch.Tensor"] = {}
-    with safe_open(str(cache_file), framework="pt", device=device) as f:
-        for name in f.keys():
-            sd[name] = f.get_tensor(name)
-    log.info(f"fuser: loaded cached fused state_dict from {cache_file.name} "
-             f"in {time.time() - t0:.1f}s ({len(sd)} tensors)")
-    return sd
+    view = _LazyFusedStateDict(cache_file, device=device)
+    log.info(f"fuser: opened cached fused state_dict view over {cache_file.name} "
+             f"in {time.time() - t0:.2f}s ({len(view)} tensors, lazy)")
+    return view
 
 
 def _save_fused_to_cache(state_dict: dict, cache_file: _Path) -> None:
@@ -672,6 +900,14 @@ def _load_model(model_id: str, max_memory_gb: float | None):
                         _save_fused_to_cache(sd, cache_file)
                     except Exception as _e:
                         log.warning(f"fuse cache save failed ({_e}) — continuing without cache")
+                # low_cpu_mem_usage=True routes through _load_state_dict_into_meta_model,
+                # which *assigns* tensors (param.data = sd[k]) instead of copying
+                # (param.data.copy_(sd[k])). Without this, from_pretrained duplicates
+                # every weight on GPU during load — our 35 GB fused sd → ~70 GB peak
+                # VRAM for the 5-10s copy window. On unified-memory GB10 that spike
+                # lands in the shared pool and nvidia-smi briefly reports ~65 GB.
+                # With assign, from_pretrained reuses the exact GPU tensors we fused
+                # and peak stays ≈ 35 GB.
                 model = loader.from_pretrained(
                     None,
                     config=cfg,
@@ -679,8 +915,9 @@ def _load_model(model_id: str, max_memory_gb: float | None):
                     dtype="auto",
                     device_map="cuda:0",
                     trust_remote_code=True,
+                    low_cpu_mem_usage=True,
                 )
-                sd = None  # drop the CPU copy now the weights live on GPU
+                sd = None  # pointer only — tensors now owned by the model
             else:
                 model = loader.from_pretrained(model_id, **load_kwargs)
             log.info(f"Loaded via {loader_name}")
@@ -714,10 +951,13 @@ def _load_model(model_id: str, max_memory_gb: float | None):
     torch.cuda.synchronize()
     torch.cuda.empty_cache()
 
-    # torch.compile(reduce-overhead) crashes the inductor on torch 2.13-nightly
-    # with a `KeyError: 'op6'` during scheduler build — a known upstream regression
-    # we hit around the hybrid linear-attention path. Leave the forward eager until
-    # we pin a working torch or adopt a hand-rolled CUDA-graph capture.
+    # torch.compile is a dead-end on this torch nightly for Qwen3.5-MoE FP8:
+    # Dynamo cannot trace the Blackwell FP sub-byte dtypes (float4_e2m1fn,
+    # float6_e2m3fn, float8_e5m2fnuz, …) that the FP8 kernels emit, so the
+    # whole forward degrades to graph-break on every matmul — and even when
+    # tolerating breaks, the scheduler build hits `KeyError: 'op6'` around the
+    # hybrid linear/full attention path. Leave the forward eager; we pick up
+    # the 1.5-2× elsewhere (static-cache path is already a +57% win).
     # Python's obmalloc and glibc retain freed heap for reuse, so the ~35 GB
     # fusion buffer sticks in RSS even after gc.collect(). On unified-memory
     # boxes like GB10 that directly inflates the shared pool → nvidia-smi
@@ -737,6 +977,19 @@ def _load_model(model_id: str, max_memory_gb: float | None):
         cpu_rss = -1.0
     log.info(f"Model resident in {time.time()-t0:.1f}s, VRAM {vram:.2f} GB "
              f"/ CPU RSS peak {cpu_rss:.2f} GB on {model.device}")
+
+    # Boot warmup attempted in iteration 10 — running generate() in the main
+    # thread before uvicorn so Triton autotune costs don't land on the first
+    # user. Broke because `cache_implementation="static"` routes through
+    # inductor's cudagraph_trees, whose tree-manager lives in threading.local();
+    # the asyncio.to_thread worker that serves requests has no tree-manager
+    # key set, so it hits `AssertionError` in `get_container`. Setting
+    # `torch._inductor.config.triton.cudagraphs = False` did not short-circuit
+    # the path (HF's compile hook re-enables it). Warmup left out of this
+    # build — first request pays ~35s of Triton autotune per unique shape.
+    # Candidate fix for a future session: run the actual request handler in
+    # the main thread (drop asyncio.to_thread), or set up the tree-manager
+    # key on the asyncio worker before the first generate call.
 
 
 def main():

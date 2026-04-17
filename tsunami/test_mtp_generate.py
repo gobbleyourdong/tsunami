@@ -37,12 +37,23 @@ SNAP = Path(
     "snapshots/61a5771f218894aaacf97551e24a25b866750fc2"
 )
 
-from serve_qwen35_fp8 import _build_fused_state_dict
+from serve_qwen35_fp8 import _build_fused_state_dict, _load_fused_from_cache, _fuse_cache_path
+from pathlib import Path as _P
 
 print("loading main model…")
 cfg = AutoConfig.from_pretrained(MID, trust_remote_code=True)
 cfg.text_config.intermediate_size = cfg.text_config.moe_intermediate_size
-sd = _build_fused_state_dict(SNAP)
+# Prefer the on-disk fused cache (built by the server) to avoid re-running the
+# ~4 min expert fusion on every MTP test invocation. The cache is keyed by
+# snapshot commit sha so staleness is impossible.
+_cache_root = _P.home() / ".cache" / "sigma_fuse"
+_cache_file = _fuse_cache_path(SNAP, _cache_root)
+if _cache_file.exists():
+    print(f"using fused cache {_cache_file.name}")
+    sd = _load_fused_from_cache(_cache_file, device="cuda:0")
+else:
+    print("fused cache miss — rebuilding (slow)")
+    sd = _build_fused_state_dict(SNAP)
 main = Qwen3_5MoeForConditionalGeneration.from_pretrained(
     None, config=cfg, state_dict=sd,
     dtype="auto", device_map="cuda:0", trust_remote_code=True,

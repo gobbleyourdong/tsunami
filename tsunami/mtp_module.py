@@ -108,20 +108,51 @@ class MTPHead(nn.Module):
                 or "eager"
             )
         self.hidden_size = text_config.hidden_size
-        # mtp.fc maps 2*hidden → hidden (concat of normalised hidden + embed)
-        self.pre_fc_norm_hidden = nn.RMSNorm(self.hidden_size, eps=text_config.rms_norm_eps)
-        self.pre_fc_norm_embedding = nn.RMSNorm(self.hidden_size, eps=text_config.rms_norm_eps)
+        # mtp.fc maps 2*hidden → hidden (concat of normalised hidden + embed).
+        # CRITICAL: use the model's native RMSNorm, not torch.nn.RMSNorm.
+        # Qwen3_5MoeRMSNorm computes `output * (1.0 + self.weight)` — its
+        # weights are stored as delta-from-1 (init zeros() = scale 1.0). The
+        # stock torch.nn.RMSNorm does `output * self.weight`, so loading the
+        # checkpoint into it inverts the sign and shifts the magnitude.
+        # Diagnostic: weight mean for pre_fc_norm_hidden was -0.506 → Qwen
+        # applies scale 0.494; nn.RMSNorm applied -0.506, which explains
+        # every iteration's 0% accept rate (and the entropy-only-halfway-
+        # down-from-uniform signature after the cache-write fix).
+        from transformers.models.qwen3_5_moe.modeling_qwen3_5_moe import (
+            Qwen3_5MoeRMSNorm,
+        )
+        self.pre_fc_norm_hidden = Qwen3_5MoeRMSNorm(self.hidden_size, eps=text_config.rms_norm_eps)
+        self.pre_fc_norm_embedding = Qwen3_5MoeRMSNorm(self.hidden_size, eps=text_config.rms_norm_eps)
         self.fc = nn.Linear(2 * self.hidden_size, self.hidden_size, bias=False)
 
-        # The one decoder layer. layer_idx corresponds to the first full-
-        # attention layer in the main model (MTP uses full attention per the
-        # weight shapes we inspected — q_proj 8192 == 32*256 not linear-attn).
+        # Two separate concerns:
+        #   (1) Layer-type selection happens at init via layer_idx indexing
+        #       into config.layer_types. First full_attention index picks
+        #       the full-attention variant (weight shapes q_proj 8192
+        #       == 32*256 confirm this matches the checkpoint).
+        #   (2) KV-cache slot key is `self_attn.layer_idx` at runtime.
+        #       Diagnostic on layer_idx=first_full proved that cache writes
+        #       landed in slot N but `cache.get_seq_length()` reads slot 0
+        #       → decode sees an empty context, MTP logits are ~84% of
+        #       uniform entropy, 0% accept.
+        # Fix: init with the correct layer-type index, then rewire the
+        # self_attn instance's layer_idx to 0 so the single-layer MTP cache
+        # writes/reads the same slot.
         layer_type_full = next(
             (i for i, t in enumerate(text_config.layer_types) if t == "full_attention"),
             0,
         )
         self.layer = Qwen3_5MoeDecoderLayer(text_config, layer_idx=layer_type_full)
-        self.norm = nn.RMSNorm(self.hidden_size, eps=text_config.rms_norm_eps)
+        # Force every cache interaction to use slot 0. Qwen3.5-MoE's
+        # self_attn stores its layer_idx as an attribute and passes it to
+        # past_key_values.update(... layer_idx=self.layer_idx ...).
+        if hasattr(self.layer, "self_attn") and hasattr(self.layer.self_attn, "layer_idx"):
+            self.layer.self_attn.layer_idx = 0
+        # Some Qwen3_5Moe builds also stash a top-level layer_idx; keep it in
+        # sync so any helpers that read the outer attr see 0 too.
+        if hasattr(self.layer, "layer_idx"):
+            self.layer.layer_idx = 0
+        self.norm = Qwen3_5MoeRMSNorm(self.hidden_size, eps=text_config.rms_norm_eps)
         # The decoder layer expects pre-computed rotary cos/sin (passed as
         # `position_embeddings`) rather than raw position_ids. Mirror what the
         # main model does at the outer level.
@@ -150,17 +181,20 @@ class MTPHead(nn.Module):
         emb = self.embed_tokens(next_token_ids)  # (B,1,H)
         # Concat order matters: DeepSeek-V3 MTP (Qwen's ancestor) uses
         # [embed, hidden] → fc expects embedding in the first half and hidden
-        # in the second. Flipping produces coherent tokens vs gibberish.
+        # in the second. Flipping was tried in iteration 7 and also produced
+        # 0% accept, so the order is not the bug. Reverted to [embed, hidden].
         x = torch.cat([self.pre_fc_norm_embedding(emb),
                        self.pre_fc_norm_hidden(last)], dim=-1)  # (B,1,2H)
         x = self.fc(x)  # (B,1,H)
 
         pos_emb = self.rotary_emb(x, position_ids)
+        # Transformers v5 signature: past_key_values (plural). See mtp_prefill
+        # comment — the old singular name silently dropped through **kwargs.
         out = self.layer(
             x,
             position_ids=position_ids,
             position_embeddings=pos_emb,
-            past_key_value=past_key_values,
+            past_key_values=past_key_values,
             use_cache=past_key_values is not None,
         )
         h = out[0] if isinstance(out, tuple) else out
@@ -210,19 +244,41 @@ def mtp_prefill(
     h_shift = main_hidden[:, :-1, :]       # (1, S-1, H) hidden_0..S-2
     t_shift = input_ids[:, 1:]              # (1, S-1) tokens_1..S-1
     emb = mtp_head.embed_tokens(t_shift)    # (1, S-1, H)
+    # Concat order reverted to [embed, hidden] after iteration 8 showed the
+    # flipped variant also yielded 0% accept — the concat order is not the
+    # root cause. Must match MTPHead.forward; both paths write/read the same
+    # cache so they must agree on layout, whatever the layout is.
     x = torch.cat([
         mtp_head.pre_fc_norm_embedding(emb),
         mtp_head.pre_fc_norm_hidden(h_shift),
-    ], dim=-1)                              # (1, S-1, 2H) — [emb, hidden] order
+    ], dim=-1)                              # (1, S-1, 2H) — [emb, hidden]
     x = mtp_head.fc(x)                      # (1, S-1, H)
     pos_ids = torch.arange(S - 1, device=main_hidden.device)[None, :]  # (1, S-1)
     pos_emb = mtp_head.rotary_emb(x, pos_ids)
     cache = DynamicCache()
+    # Without an explicit attention_mask the decoder layer may attend
+    # bidirectionally across the prefill (transformers' DecoderLayer forward
+    # propagates whatever is passed — None often means "no masking" in the
+    # SDPA path). That would poison the cached K/V: each entry's K at
+    # position j would have been formed attending to future positions j+1..S-2,
+    # so decode-time causal attention reads these "from the future" states and
+    # gets garbage. Build a lower-triangular 4D bool mask (batch=1, heads=1,
+    # q=S-1, k=S-1) so broadcasting fills the rest — same shape transformers'
+    # own mask builder produces for causal attention.
+    seq = S - 1
+    causal = torch.ones((seq, seq), dtype=torch.bool, device=main_hidden.device).tril_()
+    attn_mask_4d = causal[None, None, :, :]  # (1, 1, S-1, S-1)
+    # Transformers v5 renamed the cache kwarg on Qwen3_5MoeDecoderLayer.forward
+    # from `past_key_value` to `past_key_values` (plural). Using the old name
+    # silently dropped the cache — self_attn received None and never called
+    # update(), leaving the DynamicCache empty (layers len=0) despite our
+    # prefill pass. Confirmed via test_mtp_diagnose.py (cache internals dump).
     mtp_head.layer(
         x,
+        attention_mask=attn_mask_4d,
         position_ids=pos_ids,
         position_embeddings=pos_emb,
-        past_key_value=cache,
+        past_key_values=cache,
         use_cache=True,
     )
     return cache
@@ -266,7 +322,12 @@ def generate_with_mtp(
         **extra_inputs,
     )
     main_past = out.past_key_values
-    last_hidden = out.hidden_states[-2]  # last decoder layer output, pre-final-norm (MTP convention)  # (1, S, H)
+    # Iteration 26 measured: hidden[-2] (pre-final-norm) gives 9% greedy
+    # accept vs hidden[-1]'s 3%. The diagnostic (test_mtp_diagnose.py) shows
+    # 83% top-1 alignment with [-1] because it rebuilds cache per position;
+    # the generate loop accumulates and the two paths diverge. [-2] is the
+    # empirically-better convention for streaming decode, so keep it.
+    last_hidden = out.hidden_states[-2]  # pre-final-norm  # (1, S, H)
     next_tok = _sample(out.logits[:, -1, :], temperature, top_p, top_k)
     generated = [next_tok]
     seq_len = input_ids.shape[1] + 1  # positions consumed so far
@@ -295,8 +356,13 @@ def generate_with_mtp(
         speculated = _sample(mtp_logits[:, 0, :], temperature, top_p, top_k)
 
         # --- 2. Main forward on BOTH tokens ---
+        # `last_tok` already has absolute position (seq_len - 1); the speculated
+        # token sits at seq_len. An earlier off-by-one (seq_len, seq_len+1) put
+        # RoPE rotations one position ahead of the cached K tokens, which is the
+        # chief suspect behind the 2% observed accept rate — cached K embeds
+        # positions 0..seq_len-2, but Q was rotated for positions seq_len..seq_len+1.
         two_tok = torch.cat([last_tok, speculated], dim=1)  # (1, 2)
-        pos_ids = torch.tensor([[seq_len, seq_len + 1]], device=device)
+        pos_ids = torch.tensor([[seq_len - 1, seq_len]], device=device)
         out = main_model(
             input_ids=two_tok,
             position_ids=pos_ids,
@@ -311,26 +377,40 @@ def generate_with_mtp(
         main_at_draft_pos = _sample(logits_both[:, 0, :], temperature, top_p, top_k)
 
         stats["steps"] += 1
+        full_hidden = out.hidden_states[-2]  # (1, 2, H) — pre-final-norm (see prefill comment)
         if main_at_draft_pos.item() == speculated.item():
-            # Accept MTP: we got 2 tokens out of 1 main forward
+            # Accept MTP: we got 2 tokens out of 1 main forward.
             stats["accepts"] += 1
             generated.append(speculated)
-            # Main's logit at position 1 gives us the next token to emit.
             nxt = _sample(logits_both[:, 1, :], temperature, top_p, top_k)
             generated.append(nxt)
-            last_hidden = out.hidden_states[-2]  # last decoder layer output, pre-final-norm (MTP convention)[:, 1:2, :]
+            # Iteration 27: tried adding an extra MTP call here to populate
+            # the "skipped" cache entry (convention says cache slot N holds
+            # fusion(hidden_N, token_{N+1}); on accept we skip writing slot N
+            # → off-by-one drift). Benchmark went 9% → 6% greedy, so the
+            # extra write actively hurt — MTP was apparently trained with
+            # the one-write-per-iteration layout regardless of accept count.
+            # Reverted; cache stays "behind" by accept-count but MTP handles
+            # it internally better than the externally-corrected version.
+            # Next MTP draft pairs embed(nxt) with hidden at nxt's slot, i.e.
+            # position 1 in this 2-token forward.
+            last_hidden = full_hidden[:, 1:2, :]
             seq_len += 2
         else:
             # Reject MTP: keep main's correction, roll back both caches by 1.
             # Main: we fed 2 tokens this step; only the first lands, so crop
-            # main KV back to (seq_len+1) positions. MTP: the speculation we
-            # just appended is stale; crop one entry back.
+            # main KV back to its length before this call (seq_len entries —
+            # positions 0..seq_len-1). MTP: the speculation we just appended is
+            # stale; crop one entry back.
+            # The next MTP draft pairs embed(main_at_draft_pos) with hidden at
+            # the accepted slot — position 0 in this 2-token forward — not the
+            # rejected speculation's slot at position 1.
             generated.append(main_at_draft_pos)
             if hasattr(main_past, "crop"):
-                main_past.crop(seq_len + 1)
+                main_past.crop(seq_len)
             if hasattr(mtp_past, "crop"):
                 mtp_past.crop(mtp_pos.item())  # undo the step we just added
-            last_hidden = out.hidden_states[-2]  # last decoder layer output, pre-final-norm (MTP convention)[:, 0:1, :]
+            last_hidden = full_hidden[:, 0:1, :]
             seq_len += 1
 
     stats["tokens_out"] = sum(t.numel() for t in generated)
