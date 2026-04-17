@@ -255,15 +255,46 @@ def _request_has_images(req: ChatRequest) -> bool:
 
 
 async def _proxy_chat_completions(req: ChatRequest, base_url: str):
-    """Forward an OpenAI ChatCompletion request to an external llama-server.
-    Multimodal requests are routed to the VL backend upstream; coder backend
-    is text-only. Body passes through untouched."""
+    """Forward an OpenAI ChatCompletion request to the upstream LM server.
+    Multimodal requests are routed to the VL backend upstream; text backend
+    is text-only. Body passes through untouched (extra="allow" on ChatRequest).
+    """
     import httpx
     body = req.model_dump(exclude_none=True)
     endpoint = base_url.rstrip("/") + "/v1/chat/completions"
-    async with httpx.AsyncClient(timeout=600) as client:
-        resp = await client.post(endpoint, json=body)
-    return JSONResponse(resp.json(), status_code=resp.status_code)
+    try:
+        async with httpx.AsyncClient(timeout=600) as client:
+            resp = await client.post(endpoint, json=body)
+    except httpx.HTTPError as e:
+        log.warning(f"proxy chat: upstream request failed: {type(e).__name__}: {e}")
+        return JSONResponse(
+            {"error": {"message": f"upstream unreachable: {e}", "type": "proxy_error"}},
+            status_code=502,
+        )
+    # Upstream can return non-JSON on timeouts / partial responses. Falling
+    # through resp.json() raises JSONDecodeError → FastAPI 500 → clients
+    # (agent retry loop, test harnesses) see an opaque failure with no hint
+    # of what happened. Try json, fall back to raw text with a 502 so the
+    # caller knows the upstream flaked rather than the proxy itself.
+    try:
+        payload = resp.json()
+    except Exception as e:
+        body_snippet = resp.text[:400] if resp.text else "(empty)"
+        log.warning(
+            f"proxy chat: upstream returned non-JSON (status={resp.status_code}, "
+            f"content-length={len(resp.content)}): {body_snippet!r}"
+        )
+        return JSONResponse(
+            {
+                "error": {
+                    "message": f"upstream returned non-JSON body: {body_snippet}",
+                    "type": "proxy_error",
+                    "upstream_status": resp.status_code,
+                }
+            },
+            status_code=502,
+        )
+    return JSONResponse(payload, status_code=resp.status_code)
 
 
 from tsunami.chat_template_safety import escape_role_tokens as _escape_role_tokens
