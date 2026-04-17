@@ -64,9 +64,10 @@ case "${1:-}" in
     for port in 8090 8091 8092 8093 8094 8095 3000 3002 3003 9876 9200; do
       lsof -ti:$port 2>/dev/null | xargs -r kill -9 2>/dev/null
     done
-    pkill -f "llama-server" 2>/dev/null
+    pkill -f "llama-server" 2>/dev/null         # embedding tier (:8093)
     pkill -f "tsunami.tools.ernie_server" 2>/dev/null
-    pkill -f "serve_transformers" 2>/dev/null
+    pkill -f "serve_transformers" 2>/dev/null   # the :8090 proxy
+    pkill -f "serve_qwen36_fp8" 2>/dev/null     # :8095 Qwen3.6 native transformers
     echo "  ✓ All processes killed"
     exit 0
     ;;
@@ -94,25 +95,27 @@ case "${1:-}" in
     ;;
 esac
 
-# Stale-port cleanup (per-tier).
-for port in 3000 9876 8090 8091 8092 8094; do
+# Stale-port cleanup (per-tier). Only touch ports we actively use now:
+# proxy/backend infra + the three model tiers (8092 ERNIE, 8093 embed, 8095 Qwen3.6).
+for port in 3000 9876 8090 8092 8093 8095; do
   lsof -ti:$port 2>/dev/null | xargs kill -9 2>/dev/null
 done
 
 # ---------------------------------------------------------------------------
-# Inference stack — coder + VL split:
-#   8090 — tsunami proxy   (FastAPI front-end, forwards /v1/chat → 8091,
-#                           /v1/images → 8092, undertow vision → 8094)
-#   8091 — llama-server    (Qwen3-Coder-Next Q4_K_M — 80B MoE, 3B active,
-#                           text-only, coder-specialized)
-#   8092 — ernie_server    (image gen, ERNIE-Image-Turbo bf16 swap-capable)
-#   8093 — reserved        (future: SDXL+ControlNet for rigid motion library)
-#   8094 — llama-server    (Qwen3.5-4B + mmproj — undertow vision QA)
-#   8095 — reserved        (future: Wan Animate for unique effect animations)
+# Inference stack — three-tier: text/vision LM + image gen + embeddings.
+#   8090 — tsunami proxy   (FastAPI front-end, forwards /v1/chat → 8095,
+#                           /v1/images → 8092, /v1/embeddings → 8093)
+#   8092 — ernie_server    (ERNIE-Image-Turbo bf16 swap-capable)
+#   8093 — llama-server    (embedding model, --embeddings mode, opt-in via
+#                           EMBED=on — skipped if no embed GGUF found)
+#   8095 — serve_qwen36_fp8 (Qwen3.6-35B-A3B-FP8 hybrid linear/full-attn
+#                           MoE via transformers, handles both text and
+#                           vision. MTP-capable, static cache, pinned-thread
+#                           warmup. ~35 GB unified memory.)
 # ---------------------------------------------------------------------------
 
 # Binary discovery — installer drops these in bin/, or user has them in PATH,
-# or they built locally.
+# or they built locally. Only needed for the embed tier now.
 find_bin() {
   local name="$1"; shift
   for p in "$(which "$name" 2>/dev/null)" "$@"; do
@@ -128,12 +131,11 @@ LLAMA_BIN=$(find_bin llama-server \
 # Model discovery — honor $TSUNAMI_MODELS_DIR, else check common locations.
 MODELS_DIR="${TSUNAMI_MODELS_DIR:-$HOME/models_gguf}"
 [ -d "$MODELS_DIR" ] || MODELS_DIR="$DIR/models"
-# LM model discovery — coder + VL split architecture
-#   :8091 — Qwen3-Coder-Next Q4_K_M (80B MoE, 3B active) — text-only, coder-specialized
-#   :8094 — Qwen3.5-4B Q4_K_M + mmproj — undertow vision QA
-LM_GGUF=$(ls "$MODELS_DIR"/Qwen3-Coder-Next*.gguf 2>/dev/null | head -1)
-VL_GGUF=$(ls "$MODELS_DIR"/Qwen3.5-4B-Q4_K_M.gguf 2>/dev/null | head -1)
-VL_MMPROJ=$(ls "$MODELS_DIR"/mmproj-qwen35-4B*.gguf 2>/dev/null | head -1)
+
+# Embed model lookup — pattern matches Qwen3-Embedding (same-family fit) or
+# generic bge/gte fallbacks.
+EMBED_GGUF=$(ls "$MODELS_DIR"/Qwen3-Embedding*.gguf 2>/dev/null | head -1)
+[ -z "$EMBED_GGUF" ] && EMBED_GGUF=$(ls "$MODELS_DIR"/{bge,gte,e5}-*.gguf 2>/dev/null | head -1)
 
 # ERNIE uses Baidu snapshot + in-process Mistral3 TE — resolved by the
 # ernie_server module via its _find_baidu_snapshot helper (HF cache or
@@ -141,29 +143,21 @@ VL_MMPROJ=$(ls "$MODELS_DIR"/mmproj-qwen35-4B*.gguf 2>/dev/null | head -1)
 ERNIE_PYTHON="${ERNIE_PYTHON:-python3}"
 
 echo "  models:"
-echo "    LM:   $(basename "${LM_GGUF:-(missing)}")  (coder)"
-echo "    VL:   $(basename "${VL_GGUF:-(missing)}")  (undertow vision)"
-echo "    DiT:  ERNIE-Image-Turbo (bf16, swap-capable → Base)"
+echo "    LM/VL: Qwen3.6-35B-A3B-FP8 (native transformers, MTP-capable)"
+echo "    DiT:   ERNIE-Image-Turbo (bf16, swap-capable → Base)"
+echo "    Embed: $(basename "${EMBED_GGUF:-(missing — set EMBED=on with Qwen3-Embedding*.gguf in $MODELS_DIR)}")"
 
-# --- :8091 llama-server (coder, text-only) ---
-# Qwen3-Coder-Next: 80B MoE, 3B active, text-only, no thinking mode.
-# README recommended: temp=1.0, top_p=0.95, top_k=40, max_tokens=65536.
-# -c 16384 keeps KV cache manageable alongside ERNIE + VL.
-if [ -n "$LLAMA_BIN" ] && [ -n "$LM_GGUF" ] && ! curl -sf http://localhost:8091/health >/dev/null 2>&1; then
-  echo "  starting coder llama-server → :8091"
-  nohup "$LLAMA_BIN" -m "$LM_GGUF" \
-    --port 8091 --host 0.0.0.0 -ngl 999 -c 16384 --jinja -fa on \
-    > /tmp/tsu-llama.log 2>&1 &
-fi
-
-# --- :8094 llama-server (VL model for undertow vision QA) ---
-# Qwen3.5-4B Q4_K_M + mmproj — natively multimodal. Handles image inputs
-# from undertow screenshots. -c 8192 small context, -ngl 999 full offload.
-if [ -n "$LLAMA_BIN" ] && [ -n "$VL_GGUF" ] && [ -n "$VL_MMPROJ" ] && ! curl -sf http://localhost:8094/health >/dev/null 2>&1; then
-  echo "  starting VL llama-server → :8094"
-  nohup "$LLAMA_BIN" -m "$VL_GGUF" --mmproj "$VL_MMPROJ" \
-    --port 8094 --host 0.0.0.0 -ngl 999 -c 8192 --jinja -fa on \
-    > /tmp/tsu-vl.log 2>&1 &
+# --- :8095 serve_qwen36_fp8 (Qwen3.6-35B-A3B-FP8 — text + vision) ---
+# All perf patches from the tsunami session: dict-aware static-cache masks,
+# lazy mmap fuse cache, 8K static cache ceiling, pinned-thread boot warmup,
+# image auto-downscale, MTP head wired (stochastic accept, ~32% sample rate).
+if ! curl -sf http://localhost:8095/health >/dev/null 2>&1; then
+  echo "  starting Qwen3.6-35B-A3B-FP8 → :8095  (~35 GB, ~2 min boot + warmup)"
+  PYTHONPATH="$DIR" \
+  nohup python3 -u "$DIR/tsunami/serve_qwen36_fp8.py" \
+    --model Qwen/Qwen3.6-35B-A3B-FP8 \
+    --port 8095 --host 0.0.0.0 \
+    > /tmp/tsu-qwen36.log 2>&1 &
 fi
 
 # --- :8092 ernie_server (image gen) ---
@@ -191,13 +185,30 @@ if ! curl -sf http://localhost:8092/healthz >/dev/null 2>&1; then
     > /tmp/tsu-ernie.log 2>&1 &
 fi
 
-# --- :8090 tsunami proxy (forwards to LM + image gen, hosts undertow) ---
+# --- :8093 llama-server (embedding model) ---
+# Opt-in via EMBED=on; skipped silently if no model found. llama-server in
+# --embeddings mode exposes OpenAI-compatible POST /v1/embeddings. Small
+# (Qwen3-Embedding-0.6B is ~600 MB Q8), negligible memory alongside the
+# heavier tiers. -c 8192 is more than any realistic embedding prompt.
+EMBED="${EMBED:-on}"
+if [ "$EMBED" = "on" ] && [ -n "$LLAMA_BIN" ] && [ -n "$EMBED_GGUF" ] \
+    && ! curl -sf http://localhost:8093/health >/dev/null 2>&1; then
+  echo "  starting embedding llama-server → :8093"
+  nohup "$LLAMA_BIN" -m "$EMBED_GGUF" \
+    --port 8093 --host 0.0.0.0 -ngl 999 -c 8192 --embeddings \
+    > /tmp/tsu-embed.log 2>&1 &
+elif [ "$EMBED" = "on" ] && [ -z "$EMBED_GGUF" ]; then
+  echo "  embed model not found in $MODELS_DIR — skipping :8093 (drop a Qwen3-Embedding*.gguf to enable)"
+fi
+
+# --- :8090 tsunami proxy (forwards /v1/chat→8095, /v1/images→8092, embed→8093) ---
 check_proxy() { curl -sf http://localhost:8090/health >/dev/null 2>&1; }
 if ! check_proxy; then
   echo "  starting tsunami proxy → :8090"
-  LLAMA_SERVER_URL=http://localhost:8091 \
-  VL_SERVER_URL=http://localhost:8094 \
+  LLAMA_SERVER_URL=http://localhost:8095 \
+  VL_SERVER_URL=http://localhost:8095 \
   SD_SERVER_URL=http://localhost:8092 \
+  EMBED_SERVER_URL=http://localhost:8093 \
   PYTHONPATH="$DIR" \
   nohup python3 -u "$DIR/tsunami/serve_transformers.py" \
     --model none --image-model none \
@@ -205,12 +216,14 @@ if ! check_proxy; then
     > /tmp/tsu-proxy.log 2>&1 &
 fi
 
-# Wait for all tiers (180s ceiling — ERNIE bf16 + Coder-Next + VL cold-loads in parallel).
+# Wait for all tiers (240s ceiling — Qwen3.6-35B-A3B-FP8 boot is ~110s load
+# + ~90s multi-shape warmup; ERNIE bf16 cold-loads in parallel; embed is
+# seconds). We require :8095 + :8092 + proxy; :8093 is opt-in and may
+# silently skip.
 echo "  waiting for stack..."
-for i in $(seq 1 180); do
-  curl -sf http://localhost:8091/health  >/dev/null 2>&1 && \
+for i in $(seq 1 240); do
+  curl -sf http://localhost:8095/health  >/dev/null 2>&1 && \
   curl -sf http://localhost:8092/healthz >/dev/null 2>&1 && \
-  curl -sf http://localhost:8094/health  >/dev/null 2>&1 && \
   check_proxy && break
   sleep 1
 done
@@ -219,13 +232,16 @@ done
 if [ -n "${TSU_UP_ONLY:-}" ]; then
   echo ""
   echo "─── Stack ready ───────────────────────────────────────────────"
-  echo "  :8090  tsunami proxy              tail -f /tmp/tsu-proxy.log"
-  echo "  :8091  Gemma-4-26B-A4B (LM)       tail -f /tmp/tsu-llama.log"
-  echo "  :8092  ERNIE-Image ($ERNIE_MODE)  tail -f /tmp/tsu-ernie.log"
+  echo "  :8090  tsunami proxy                tail -f /tmp/tsu-proxy.log"
+  echo "  :8092  ERNIE-Image ($ERNIE_MODE)    tail -f /tmp/tsu-ernie.log"
+  if curl -sf http://localhost:8093/health >/dev/null 2>&1; then
+    echo "  :8093  llama-server (embeddings)   tail -f /tmp/tsu-embed.log"
+  fi
+  echo "  :8095  Qwen3.6-35B-A3B-FP8 (LM/VL)  tail -f /tmp/tsu-qwen36.log"
   echo ""
-  echo "  Health:  curl :8090/health   curl :8091/health   curl :8092/healthz"
-  echo "  Swap :   tsu swap base       tsu swap turbo       (bf16 mode only)"
-  echo "  Down :   tsu down"
+  echo "  Health: curl :8090/health  curl :8092/healthz  curl :8095/health"
+  echo "  Swap :  tsu swap base      tsu swap turbo       (ERNIE bf16 only)"
+  echo "  Down :  tsu down"
   echo ""
   exit 0
 fi
