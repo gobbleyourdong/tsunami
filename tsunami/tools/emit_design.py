@@ -64,6 +64,7 @@ def emit_design(
     project_name: str,
     deliverables_dir: Union[str, Path] = "deliverables",
     timeout_sec: int = 30,
+    auto_fix: bool = True,
 ) -> Dict[str, Any]:
     """Validate + compile a design, write to deliverables/<project_name>/.
 
@@ -74,17 +75,33 @@ def emit_design(
             the current working directory.
         timeout_sec: subprocess timeout; validator + compiler are both
             O(N) in design size so 30s is generous for v1 designs.
+        auto_fix: when True (default), validation failures are run
+            through error_fixer.fix_design_validation_errors for a
+            single deterministic-patch pass, then re-compiled. Measurement
+            harnesses can disable this to observe raw LLM one-shot
+            validity. When the fix succeeds, the returned result has
+            `auto_fixed: True`; when the fix leaves unresolved errors,
+            those are returned as usual with `auto_fixed: False`.
     """
     # Normalise design → JSON string on stdin.
     if isinstance(design, (str, Path)):
         p = Path(design)
         if p.exists():
             raw_json = p.read_text()
+            try:
+                design_obj: Optional[Dict[str, Any]] = json.loads(raw_json)
+            except Exception:
+                design_obj = None
         else:
-            raw_json = str(design)  # treat as raw JSON string
+            raw_json = str(design)
+            try:
+                design_obj = json.loads(raw_json)
+            except Exception:
+                design_obj = None
     else:
         try:
             raw_json = json.dumps(design)
+            design_obj = design if isinstance(design, dict) else None
         except Exception as e:
             return {"ok": False, "stage": "parse",
                     "message": f"design dict is not JSON-serialisable: {e}"}
@@ -120,8 +137,32 @@ def emit_design(
                     "message": f"compiler exited {proc.returncode}: {stderr[:500]}"}
         # Canonical shape: {stage, errors?, message?, ...}
         if payload.get("stage") == "validate":
+            errors = payload.get("errors", [])
+            # One-shot auto-repair: deterministic patches for the known
+            # error classes (currently 14 across v1.0 + audio v1.1).
+            if auto_fix and design_obj is not None and errors:
+                try:
+                    from tsunami.error_fixer import fix_design_validation_errors
+                except Exception:
+                    fix_design_validation_errors = None  # type: ignore[assignment]
+                if fix_design_validation_errors is not None:
+                    patched, unresolved = fix_design_validation_errors(
+                        design_obj, errors,
+                    )
+                    if len(unresolved) < len(errors):
+                        retry = emit_design(
+                            patched,
+                            project_name=project_name,
+                            deliverables_dir=deliverables_dir,
+                            timeout_sec=timeout_sec,
+                            auto_fix=False,  # single pass only
+                        )
+                        retry["auto_fixed"] = retry.get("ok") is True
+                        if not retry.get("ok"):
+                            retry.setdefault("errors", unresolved)
+                        return retry
             return {"ok": False, "stage": "validate",
-                    "errors": payload.get("errors", [])}
+                    "errors": errors, "auto_fixed": False}
         return {"ok": False, "stage": payload.get("stage", "emit"),
                 "message": payload.get("message", stderr[:500])}
 

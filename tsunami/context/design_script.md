@@ -273,6 +273,49 @@ closest in-scope match.
   "v2 — requires persistent timeline + save system. Short-session
   sandbox (sandbox flag) IS supported."
 
+## Conditions must be emitted
+
+Every `condition` key you reference in `flow.linear.steps[*].condition`
+or in a trigger's `when_state` / `on_contact { kind: 'emit' }` etc.
+MUST be emitted by a mechanic in the same design. Emitters are:
+
+- `LoseOnZero { emit_condition: "player_dead" }` → emits when its
+  field hits 0
+- `WinOnCount { emit_condition: "all_collected" }` → emits when count
+  matches target
+- `CheckpointProgression { emit_condition_on_reach: "checkpoint_1" }`
+- An explicit `{ "kind": "emit", "condition": "key" }` ActionRef
+  dispatched from a trigger or timeline event
+
+**Do NOT invent bare condition keys** (e.g. `start_pressed`,
+`menu_dismissed`) expecting input-handling mechanics to exist — they
+don't. If a scene needs to auto-advance, leave off `condition`; the
+linear flow steps through in order. Dangling conditions are the #1
+validator failure.
+
+Good:
+```jsonc
+"flow": { "kind": "linear", "name": "run",
+  "steps": [
+    { "scene": "gameplay" },
+    { "scene": "game_over", "condition": "player_dead" }
+  ]
+}
+// + a LoseOnZero mechanic with emit_condition: "player_dead"
+```
+
+Bad:
+```jsonc
+"flow": { "kind": "linear", "name": "run",
+  "steps": [
+    { "scene": "title" },
+    { "scene": "arena", "condition": "start_pressed" },  // ← dangling!
+    { "scene": "game_over", "condition": "player_dead" }
+  ]
+}
+// No mechanic emits "start_pressed" → validator kills this design.
+```
+
 ## Error feedback protocol
 
 When validation fails:
