@@ -149,14 +149,14 @@ fi
 #   bf16   = bf16 Turbo DiT (~16 GB, /v1/admin/swap → Base works)
 #   base   = bf16 ERNIE-Image Base (~16 GB, 50-step keeper quality)
 # Default bf16 because swap-capable wins for everyday use.
+# ERNIE is native transformers only (anti-GGUF repo policy). The old
+# --gguf / --no-gguf flags were removed from ernie_server.py; now it's
+# just --model {Turbo,Base}.
 ERNIE_MODE="${ERNIE_MODE:-bf16}"
 case "$ERNIE_MODE" in
-  bf16)  ERNIE_ARGS="--no-gguf --model Turbo"; ERNIE_DESC="Turbo bf16 (16 GB, swap-capable)" ;;
-  base)  ERNIE_ARGS="--no-gguf --model Base";  ERNIE_DESC="Base (16 GB, 50-step keeper)" ;;
-  gguf)  ERNIE_GGUF_FILE="${MODELS_DIR}/ernie-image-turbo-Q4_K_M.gguf"
-         ERNIE_ARGS="--gguf $ERNIE_GGUF_FILE --model Turbo"
-         ERNIE_DESC="Turbo Q4_K_M (5 GB)" ;;
-  *)     echo "  unknown ERNIE_MODE=$ERNIE_MODE (pick gguf|bf16|base)"; exit 1 ;;
+  bf16)  ERNIE_ARGS="--model Turbo"; ERNIE_DESC="Turbo bf16 (16 GB, swap-capable)" ;;
+  base)  ERNIE_ARGS="--model Base";  ERNIE_DESC="Base (16 GB, 50-step keeper)" ;;
+  *)     echo "  unknown ERNIE_MODE=$ERNIE_MODE (pick bf16|base)"; exit 1 ;;
 esac
 if ! curl -sf http://localhost:8092/healthz >/dev/null 2>&1; then
   echo "  starting ernie_server → :8092 ($ERNIE_DESC)"

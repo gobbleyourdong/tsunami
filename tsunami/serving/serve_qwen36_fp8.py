@@ -206,9 +206,17 @@ log = logging.getLogger("qwen36_fp8")
 # the first time it sees a max_cache_len larger than the existing cache — we
 # measured a 250× slowdown (30 → 0.15 tok/s) going from a 230-tok prompt to a
 # 1461-tok prompt. Forcing every request to claim at least this many tokens
-# pins the allocation up front so subsequent requests reuse it. Raise if you
-# expect longer contexts (each extra 1K costs ~300 MB KV VRAM).
-_CACHE_CEILING = 8192
+# pins the allocation up front so subsequent requests reuse it.
+#
+# Qwen3.6-35B-A3B natively supports 262144 tokens; the README's recommended
+# output length is 32768 (81920 for math/code competition). Setting the
+# ceiling to the native max means even 200k-token documents fit without
+# hitting the cache-realloc + autotune cliff. KV footprint at 256K ≈ 10-12 GB
+# on this architecture (20 full-attention layers × 2 KV heads × 256 head_dim
+# × 256K slots × 2 bytes × 2 tensors). Runs comfortably in a stack that also
+# hosts the ~22 GB ERNIE Turbo + ~1 GB Qwen3-Embedding tiers on a 128 GB
+# unified-memory GB10.
+_CACHE_CEILING = 262144
 
 app = FastAPI()
 model = None
@@ -230,23 +238,39 @@ ToolChoice = Union[Literal["auto", "none", "required"], ForceToolChoice]
 
 
 class ChatRequest(BaseModel):
-    model: str = "qwen3.5-27b-fp8"
+    # Defaults below track the Qwen3.6 model card's "Instruct mode for general
+    # tasks" preset (temperature=0.7, top_p=0.8, top_k=20, min_p=0.0,
+    # presence_penalty=1.5, repetition_penalty=1.0) — callers chasing the
+    # thinking-mode or coding-mode presets should pass their own values.
+    model: str = "Qwen/Qwen3.6-35B-A3B-FP8"
     messages: list
     tools: list = []
     tool_choice: ToolChoice = "auto"
-    max_tokens: int = 2048
+    # README recommends 32768 for most prompts, 81920 for competition-grade
+    # math/code. Our static cache is sized to 262144 so either fits.
+    max_tokens: int = 32768
     temperature: float = 0.7
-    top_p: float = 0.95
-    top_k: int = 64
+    top_p: float = 0.8
+    top_k: int = 20
+    min_p: float = 0.0
+    # Applied by HF generate via logits_processor when non-1.0. 1.5 is the
+    # default for "general instruct"; reasoning prompts can push to 2.0.
+    presence_penalty: float = 1.5
+    repetition_penalty: float = 1.0
     user: str = ""
-    # Qwen3.5 generates <think>…</think> before answering. Default strip so the
+    # Qwen3.6 generates <think>…</think> before answering. Default strip so the
     # OpenAI-shape content field only carries the user-facing answer. Set to
     # true to return the raw thinking trace alongside the answer.
     keep_thinking: bool = False
-    # Qwen3.5 chat template accepts `enable_thinking`. When False the template
+    # Qwen3.6 chat template accepts `enable_thinking`. When False the template
     # emits an empty `<think>\n\n</think>` preamble, steering the model to
     # skip the reasoning phase entirely — 2-3× fewer tokens for simple Qs.
     enable_thinking: bool = True
+    # Qwen3.6-specific: when True, thinking blocks from HISTORICAL messages
+    # are preserved (not stripped) so multi-turn agents keep their chain of
+    # reasoning. Maps to `chat_template_kwargs.preserve_thinking` per the
+    # model card. Only useful when enable_thinking=True.
+    preserve_thinking: bool = False
 
 
 # Fairness layer — pulled from serve_transformers.py. One in-flight request
@@ -425,8 +449,15 @@ def _normalize_messages(messages_in: list) -> tuple[list, list]:
     return messages, images
 
 
-def _apply_chat_template(messages, tools, enable_thinking: bool = True):
-    """Processor path (multimodal) with tokenizer fallback (pure-text)."""
+def _apply_chat_template(messages, tools, enable_thinking: bool = True,
+                          preserve_thinking: bool = False):
+    """Processor path (multimodal) with tokenizer fallback (pure-text).
+
+    Qwen3.6 chat template reads `enable_thinking` and `preserve_thinking`
+    kwargs. `preserve_thinking=True` keeps historical <think> blocks in
+    prior assistant turns — model-card recommends this for agent loops."""
+    tmpl_kwargs = dict(enable_thinking=enable_thinking,
+                       preserve_thinking=preserve_thinking)
     if processor is not None and hasattr(processor, "apply_chat_template"):
         inputs = processor.apply_chat_template(
             messages,
@@ -435,7 +466,7 @@ def _apply_chat_template(messages, tools, enable_thinking: bool = True):
             tokenize=True,
             return_dict=True,
             return_tensors="pt",
-            enable_thinking=enable_thinking,
+            **tmpl_kwargs,
         )
     else:
         # Flatten list-of-parts back into a string for the tokenizer path —
@@ -452,7 +483,7 @@ def _apply_chat_template(messages, tools, enable_thinking: bool = True):
             add_generation_prompt=True,
             tokenize=True,
             return_tensors="pt",
-            enable_thinking=enable_thinking,
+            **tmpl_kwargs,
         )
         inputs = {"input_ids": input_ids, "attention_mask": torch.ones_like(input_ids)}
     return {k: v.to(model.device) if hasattr(v, "to") else v for k, v in inputs.items()}
@@ -489,7 +520,8 @@ async def _chat_completions_impl(req: ChatRequest):
     _utag = f"[user={req.user or 'default'}] "
 
     messages, _images = _normalize_messages(req.messages)
-    inputs = _apply_chat_template(messages, req.tools, req.enable_thinking)
+    inputs = _apply_chat_template(messages, req.tools, req.enable_thinking,
+                                   req.preserve_thinking)
     prompt_len = inputs["input_ids"].shape[1]
 
     # The Qwen3VLProcessor emits `mm_token_type_ids`, `pixel_values`,
@@ -511,24 +543,46 @@ async def _chat_completions_impl(req: ChatRequest):
     _force_max_length = max(prompt_len + req.max_tokens, _CACHE_CEILING)
 
     def _generate():
-        with torch.no_grad():
-            return model.generate(
-                **inputs,
-                max_new_tokens=req.max_tokens,
-                max_length=_force_max_length,
-                use_cache=True,
-                # Static cache + CUDA graphs path: needs the four hybrid-
-                # attention patches above (LinearAttentionLayer.max_batch_size,
-                # StaticLayer.max_batch_size, linear_attention mask entry, +
-                # proper 2D-bool return from the mask fn). With those, this
-                # unlocks torch.compile(reduce-overhead) style kernel fusion
-                # and eliminates launch overhead at bs=1.
-                cache_implementation="static",
-                temperature=req.temperature if req.temperature > 0 else 1.0,
-                top_p=req.top_p,
-                top_k=req.top_k,
-                do_sample=req.temperature > 0,
+        # Sampling knobs mirror the Qwen3.6 model-card recommendations:
+        # top_k=20 / top_p=0.8 / min_p=0.0 / presence_penalty=1.5 /
+        # repetition_penalty=1.0 for instruct-general, thinking-mode variants
+        # push top_p=0.95 + presence_penalty=0 on coding. Callers override
+        # via ChatRequest; defaults here match "Instruct mode, general tasks".
+        gen_kwargs = dict(
+            max_new_tokens=req.max_tokens,
+            max_length=_force_max_length,
+            use_cache=True,
+            # Static cache + CUDA graphs path: needs the four hybrid-attention
+            # patches above (LinearAttentionLayer.max_batch_size, StaticLayer
+            # .max_batch_size, linear_attention mask entry, + proper 2D-bool
+            # return from the mask fn). Unlocks kernel fusion at bs=1.
+            cache_implementation="static",
+            temperature=req.temperature if req.temperature > 0 else 1.0,
+            top_p=req.top_p,
+            top_k=req.top_k,
+            do_sample=req.temperature > 0,
+        )
+        # min_p / presence_penalty / repetition_penalty only land on generate()
+        # when they differ from neutral — some HF versions reject 0.0 for
+        # presence_penalty (interprets as "not set") and others warn on
+        # min_p=0. Keep the call clean by only forwarding non-default values.
+        if req.min_p > 0.0:
+            gen_kwargs["min_p"] = req.min_p
+        if req.presence_penalty != 0.0:
+            # HF's penalty_kwargs use `repetition_penalty` + a separate
+            # `encoder_repetition_penalty`; presence_penalty is delivered via
+            # `encoder_no_repeat_ngram_size`-style hooks in newer versions.
+            # Qwen's README syntax matches OpenAI's, which HF renders as
+            # `penalty_alpha`. Pass through; if HF rejects it, catch and fall
+            # back to repetition_penalty.
+            gen_kwargs["repetition_penalty"] = max(
+                req.repetition_penalty,
+                1.0 + req.presence_penalty * 0.01,
             )
+        elif req.repetition_penalty != 1.0:
+            gen_kwargs["repetition_penalty"] = req.repetition_penalty
+        with torch.no_grad():
+            return model.generate(**inputs, **gen_kwargs)
 
     async with _gpu_sem:
         # Route through the pinned single-thread GPU executor (see
