@@ -23,7 +23,7 @@ def _shim(A, B, As, Bs, block_size=None, output_dtype=torch.bfloat16):
 _fgfp8.w8a8_fp8_matmul = _shim
 
 from transformers import AutoConfig, AutoProcessor, Qwen3_5MoeForConditionalGeneration
-from serve_qwen35_fp8 import _build_fused_state_dict
+from serve_qwen36_fp8 import _build_fused_state_dict
 
 MID="Qwen/Qwen3.6-35B-A3B-FP8"
 SNAP=Path("/home/jb/.cache/huggingface/hub/models--Qwen--Qwen3.6-35B-A3B-FP8/snapshots/61a5771f218894aaacf97551e24a25b866750fc2")

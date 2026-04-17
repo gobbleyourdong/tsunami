@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke test for serve_qwen35_fp8.py — /health + /v1/chat/completions."""
+"""Smoke test for serve_qwen36_fp8.py — /health + /v1/chat/completions."""
 import argparse
 import json
 import sys

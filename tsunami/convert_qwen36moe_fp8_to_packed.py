@@ -21,7 +21,7 @@ Packed (transformers expects):
 Streams per-layer so peak RAM = one layer's worth of expert weights.
 
 Usage:
-    python3 convert_qwen35moe_fp8_to_packed.py \
+    python3 convert_qwen36moe_fp8_to_packed.py \
         --src  ~/.cache/huggingface/hub/models--Qwen--Qwen3.6-35B-A3B-FP8/snapshots/<sha> \
         --dst  /home/jb/training_stage/qwen36_a3b_fp8_packed
 """

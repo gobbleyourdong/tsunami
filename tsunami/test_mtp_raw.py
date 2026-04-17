@@ -29,7 +29,7 @@ _fgfp8.w8a8_fp8_matmul = _ds_w8a8_fp8_matmul
 
 from transformers import AutoConfig, AutoProcessor, Qwen3_5MoeForConditionalGeneration, DynamicCache
 from mtp_module import load_mtp_head, mtp_prefill
-from serve_qwen35_fp8 import _build_fused_state_dict
+from serve_qwen36_fp8 import _build_fused_state_dict
 
 MID = "Qwen/Qwen3.6-35B-A3B-FP8"
 SNAP = Path(

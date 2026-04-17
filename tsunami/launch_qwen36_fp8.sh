@@ -6,15 +6,15 @@
 # garbage on Blackwell.
 #
 # Usage:
-#   ./launch_qwen35_fp8.sh                 # runs in foreground, port 8095
-#   ./launch_qwen35_fp8.sh --port 8096     # override port
-#   PORT=8096 ./launch_qwen35_fp8.sh       # same via env
+#   ./launch_qwen36_fp8.sh                 # runs in foreground, port 8095
+#   ./launch_qwen36_fp8.sh --port 8096     # override port
+#   PORT=8096 ./launch_qwen36_fp8.sh       # same via env
 set -euo pipefail
 
 PORT="${PORT:-8095}"
 MODEL="${MODEL:-Qwen/Qwen3.6-35B-A3B-FP8}"
 IMAGE="${IMAGE:-nvcr.io/nvidia/pytorch:26.03-py3}"
-NAME="${NAME:-qwen35-fp8-server}"
+NAME="${NAME:-qwen36-fp8-server}"
 
 # Mount host HF cache so the 55GB download persists across container runs.
 HF_CACHE="${HF_HOME:-$HOME/.cache/huggingface}"
@@ -58,5 +58,5 @@ python -m pip install --no-cache-dir --quiet \
 nohup bash -c \"python -m pip install --no-cache-dir --quiet 'causal-conv1d' 'flash-linear-attention' > /tmp/fla_install.log 2>&1\" &
 echo '=== versions ==='
 python -c 'import torch,transformers,accelerate; print(\"torch\",torch.__version__,\"cuda\",torch.version.cuda); print(\"transformers\",transformers.__version__); print(\"accelerate\",accelerate.__version__)'
-exec python -u serve_qwen35_fp8.py --model '$MODEL' --port '$PORT' --host 0.0.0.0
+exec python -u serve_qwen36_fp8.py --model '$MODEL' --port '$PORT' --host 0.0.0.0
 "

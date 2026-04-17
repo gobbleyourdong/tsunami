@@ -44,7 +44,7 @@ _fgfp8.w8a8_fp8_matmul = _ds_shim
 
 from transformers import AutoConfig, AutoTokenizer, Qwen3_5MoeForConditionalGeneration
 from mtp_module import load_mtp_head, mtp_prefill
-from serve_qwen35_fp8 import (
+from serve_qwen36_fp8 import (
     _load_fused_from_cache, _fuse_cache_path, _build_fused_state_dict,
 )
 

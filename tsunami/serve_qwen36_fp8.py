@@ -6,7 +6,7 @@ Qwen3.5 is a hybrid-attention (linear + full) MoE with native FP8 weights
 nvcr.io/nvidia/pytorch:26.03-py3 container (torch 2.11 / CUDA 13.2).
 
 Usage:
-  python3 serve_qwen35_fp8.py --model Qwen/Qwen3.5-27B-FP8 --port 8095
+  python3 serve_qwen36_fp8.py --model Qwen/Qwen3.6-35B-A3B-FP8 --port 8095
 
 OpenAI-compatible endpoints (mirrors serve_transformers.py):
   POST /v1/chat/completions    — text + vision
@@ -200,7 +200,7 @@ from typing import Literal, Union
 import uvicorn
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-log = logging.getLogger("qwen35_fp8")
+log = logging.getLogger("qwen36_fp8")
 
 # Static-cache size ceiling. generate() pays a Triton autotune + cache realloc
 # the first time it sees a max_cache_len larger than the existing cache — we
@@ -994,7 +994,7 @@ def _load_model(model_id: str, max_memory_gb: float | None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="Qwen/Qwen3.5-27B-FP8",
+    parser.add_argument("--model", default="Qwen/Qwen3.6-35B-A3B-FP8",
                         help="HF repo id or local path (Qwen3.5 native FP8).")
     parser.add_argument("--port", type=int, default=8095)
     parser.add_argument("--host", default="0.0.0.0")

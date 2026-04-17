@@ -6,7 +6,7 @@ Settles two questions at once:
      run this FP8 MoE correctly on GB10 (cc 12.1), or produce garbage?
   2. How fast is host-native decode vs the containered nv-torch 2.11?
 
-Re-uses the same in-memory expert fuser as serve_qwen35_fp8.py.
+Re-uses the same in-memory expert fuser as serve_qwen36_fp8.py.
 """
 import os, sys, time
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
@@ -21,7 +21,7 @@ sys.path.insert(0, "/home/jb/ComfyUI/CelebV-HQ/ark/tsunami")
 # (it skips when `-h`/`--help` is present). We just want the helpers.
 _saved_argv = sys.argv
 sys.argv = [sys.argv[0], "--help"]
-from serve_qwen35_fp8 import _resolve_snapshot_dir, _build_fused_state_dict  # noqa: E402
+from serve_qwen36_fp8 import _resolve_snapshot_dir, _build_fused_state_dict  # noqa: E402
 sys.argv = _saved_argv
 
 import torch

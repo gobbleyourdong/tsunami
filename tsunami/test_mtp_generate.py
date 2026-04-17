@@ -37,7 +37,7 @@ SNAP = Path(
     "snapshots/61a5771f218894aaacf97551e24a25b866750fc2"
 )
 
-from serve_qwen35_fp8 import _build_fused_state_dict, _load_fused_from_cache, _fuse_cache_path
+from serve_qwen36_fp8 import _build_fused_state_dict, _load_fused_from_cache, _fuse_cache_path
 from pathlib import Path as _P
 
 print("loading main model…")
