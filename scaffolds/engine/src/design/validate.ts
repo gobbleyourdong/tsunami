@@ -184,11 +184,19 @@ export function validate(raw: DesignScript): ValidationResult {
     })
   }
 
+  // --- Phase 5 (audio v1.1): per-mechanic audio validation ---
+  // Requires the full mechanic set to be enumerated first for cross-refs.
+  validateAudioMechanics(raw, mechanicIds, errors)
+
   // --- flow tree walk ---
   walkFlow(raw.flow, 'flow', {
     archetypes: archetypeIds, mechanics: mechanicIds,
     singletons: singletonIds, cond, items, errors,
   })
+
+  // --- Phase 5: cross-mechanic audio ActionRef checks (after flow walk
+  // so we've indexed all emitted conditions). ---
+  validateAudioActionRefs(raw, mechanicIds, errors)
 
   // --- dangling conditions ---
   for (const { key, path } of cond.consumed) {
@@ -361,5 +369,301 @@ function walkFlow(node: FlowNode | undefined, path: string, ctx: RefContext): vo
         key: s.condition, path: `${p}.steps[${i}].condition`,
       })
     })
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//   Phase 5 — v1.1 audio validator
+// ─────────────────────────────────────────────────────────────
+//
+// Audio extension adds two MechanicTypes (ChipMusic + SfxLibrary) and
+// 7 ActionRef kinds. Six new error classes (see ValidationError.kind):
+//   unknown_sfx_preset        — play_sfx_ref.preset missing from lib
+//   invalid_chiptune_track    — NoteEvent pitch/duration/time bad
+//   library_ref_not_sfx_library — play_sfx_ref.library_ref not SfxLibrary
+//   unknown_mechanic_field    — bpm/mixer.mechanic_ref.field not in
+//                                target's emits_fields
+//   invalid_quantize_source   — quantize_source not ChipMusic
+//   overlay_condition_mismatch — overlay_tracks.length !==
+//                                overlay_conditions.length
+//
+// Kept in this file (not a sibling module) so the single validator
+// entry point covers every error in the union.
+
+function validateAudioMechanics(
+  raw: DesignScript,
+  mechanicIds: Set<string>,
+  errors: ValidationError[],
+): void {
+  const mechByIdType = new Map<string, string>()
+  for (const m of raw.mechanics ?? []) {
+    mechByIdType.set(m.id as unknown as string, m.type as unknown as string)
+  }
+
+  for (let i = 0; i < (raw.mechanics ?? []).length; i++) {
+    const m = raw.mechanics[i]
+    const p = `mechanics[${i}]`
+
+    if (m.type === 'ChipMusic') {
+      validateChipMusic(m.params as unknown as Record<string, unknown>, p,
+                        mechByIdType, errors)
+    }
+    if (m.type === 'SfxLibrary') {
+      validateSfxLibrary(m.params as unknown as Record<string, unknown>, p, errors)
+    }
+  }
+}
+
+
+function validateChipMusic(
+  params: Record<string, unknown>,
+  path: string,
+  mechByIdType: Map<string, string>,
+  errors: ValidationError[],
+): void {
+  const base = params.base_track as Record<string, unknown> | undefined
+  if (!base) {
+    errors.push(err('invalid_chiptune_track', `${path}.params.base_track`,
+      'ChipMusic requires a base_track'))
+    return
+  }
+  validateTrack(base, `${path}.params.base_track`, mechByIdType, errors)
+
+  const overlays = params.overlay_tracks as unknown[] | undefined
+  const overlayConds = params.overlay_conditions as unknown[] | undefined
+  if (overlays || overlayConds) {
+    const tn = overlays?.length ?? 0
+    const cn = overlayConds?.length ?? 0
+    if (tn !== cn) {
+      errors.push(err('overlay_condition_mismatch',
+        `${path}.params.overlay_tracks`,
+        `overlay_tracks has ${tn} entries but overlay_conditions has ${cn}; ` +
+        `each overlay track requires exactly one gating condition`,
+        { hint: 'add or remove entries so both arrays match 1:1' }))
+    }
+    for (let j = 0; j < tn; j++) {
+      validateTrack(overlays![j] as Record<string, unknown>,
+        `${path}.params.overlay_tracks[${j}]`, mechByIdType, errors)
+    }
+  }
+}
+
+
+function validateTrack(
+  track: Record<string, unknown>,
+  path: string,
+  mechByIdType: Map<string, string>,
+  errors: ValidationError[],
+): void {
+  const bpm = track.bpm
+  if (typeof bpm !== 'number') {
+    // Must be a MechanicRef
+    const br = bpm as Record<string, unknown> | undefined
+    const ref = br?.mechanic_ref as string | undefined
+    const field = br?.field as string | undefined
+    if (!ref || !field) {
+      errors.push(err('invalid_chiptune_track', `${path}.bpm`,
+        'bpm must be a number or {mechanic_ref, field}'))
+    } else {
+      checkMechanicField(ref, field, `${path}.bpm`, mechByIdType, errors)
+    }
+  }
+
+  // Mixer values
+  const mixer = track.mixer as Record<string, unknown> | undefined
+  if (mixer) {
+    for (const [ch, val] of Object.entries(mixer)) {
+      if (typeof val === 'number') continue
+      const v = val as Record<string, unknown>
+      const ref = v?.mechanic_ref as string | undefined
+      const field = v?.field as string | undefined
+      if (ref && field) {
+        checkMechanicField(ref, field, `${path}.mixer.${ch}`, mechByIdType, errors)
+      }
+    }
+  }
+
+  // Note events
+  const channels = track.channels as Record<string, unknown> | undefined
+  if (!channels) return
+  for (const [chName, notes] of Object.entries(channels)) {
+    if (!Array.isArray(notes)) continue
+    (notes as Array<Record<string, unknown>>).forEach((n, ni) => {
+      const np = `${path}.channels.${chName}[${ni}]`
+      const time = n.time
+      const dur = n.duration
+      const note = n.note
+      if (typeof time !== 'number' || time < 0) {
+        errors.push(err('invalid_chiptune_track', `${np}.time`,
+          `note.time must be a non-negative number, got ${JSON.stringify(time)}`))
+      }
+      if (typeof dur !== 'number' || dur <= 0) {
+        errors.push(err('invalid_chiptune_track', `${np}.duration`,
+          `note.duration must be a positive number, got ${JSON.stringify(dur)}`))
+      }
+      if (typeof note !== 'string' || note.length === 0) {
+        errors.push(err('invalid_chiptune_track', `${np}.note`,
+          'note must be a non-empty string (scientific pitch, drum name, or "R")'))
+      }
+    })
+  }
+}
+
+
+function validateSfxLibrary(
+  params: Record<string, unknown>,
+  path: string,
+  errors: ValidationError[],
+): void {
+  const sfx = params.sfx
+  if (!sfx || typeof sfx !== 'object' || Array.isArray(sfx)) {
+    errors.push(err('invalid_chiptune_track',  // reuse — shape issue, no dedicated kind
+      `${path}.params.sfx`,
+      'SfxLibrary.sfx must be an object mapping preset names to SfxrParams'))
+    return
+  }
+  for (const [name, preset] of Object.entries(sfx)) {
+    if (!preset || typeof preset !== 'object') {
+      errors.push(err('invalid_chiptune_track', `${path}.params.sfx.${name}`,
+        'preset must be an object with SfxrParams fields'))
+      continue
+    }
+    const p = preset as Record<string, unknown>
+    const wave = p.waveType
+    if (wave !== 'square' && wave !== 'sawtooth'
+        && wave !== 'sine' && wave !== 'noise') {
+      errors.push(err('invalid_chiptune_track',
+        `${path}.params.sfx.${name}.waveType`,
+        `waveType must be one of: square, sawtooth, sine, noise (got ${JSON.stringify(wave)})`))
+    }
+  }
+}
+
+
+function validateAudioActionRefs(
+  raw: DesignScript,
+  mechanicIds: Set<string>,
+  errors: ValidationError[],
+): void {
+  // Index SfxLibrary presets + ChipMusic ids for quick lookup.
+  const sfxLibraries = new Map<string, Set<string>>()
+  const chipMusicIds = new Set<string>()
+  const mechByIdType = new Map<string, string>()
+  for (const m of raw.mechanics ?? []) {
+    const id = m.id as unknown as string
+    const type = m.type as unknown as string
+    mechByIdType.set(id, type)
+    if (type === 'SfxLibrary') {
+      const sfx = (m.params as unknown as Record<string, unknown>)?.sfx as
+        Record<string, unknown> | undefined
+      sfxLibraries.set(id, new Set(Object.keys(sfx ?? {})))
+    }
+    if (type === 'ChipMusic') chipMusicIds.add(id)
+  }
+
+  // Walk every ActionRef in the design looking for audio kinds.
+  const checkAction = (a: unknown, path: string): void => {
+    if (!a || typeof a !== 'object') return
+    const r = a as Record<string, unknown>
+    const kind = r.kind as string | undefined
+    if (!kind) return
+
+    if (kind === 'play_sfx_ref' || kind === 'play_sfx_loop_ref') {
+      const lib = r.library_ref as string | undefined
+      const preset = r.preset as string | undefined
+      if (lib) {
+        if (!mechanicIds.has(lib)) {
+          errors.push(err('library_ref_not_sfx_library', `${path}.library_ref`,
+            `library_ref ${JSON.stringify(lib)} is not a defined mechanic`))
+        } else if (mechByIdType.get(lib) !== 'SfxLibrary') {
+          errors.push(err('library_ref_not_sfx_library', `${path}.library_ref`,
+            `library_ref ${JSON.stringify(lib)} points to a ${mechByIdType.get(lib)} mechanic, ` +
+            `but play_sfx_ref expects SfxLibrary`,
+            { hint: `change library_ref to a SfxLibrary mechanic id` }))
+        } else if (preset && !sfxLibraries.get(lib)!.has(preset)) {
+          const known = [...sfxLibraries.get(lib)!].slice(0, 5)
+          errors.push(err('unknown_sfx_preset', `${path}.preset`,
+            `preset ${JSON.stringify(preset)} not found in SfxLibrary ${JSON.stringify(lib)}`,
+            { hint: `known presets: ${known.join(', ')}${known.length < sfxLibraries.get(lib)!.size ? ', ...' : ''}` }))
+        }
+      }
+    }
+
+    if (kind === 'play_chiptune' || kind === 'stop_chiptune') {
+      const ref = r.track_ref as string | undefined
+      if (ref && mechByIdType.get(ref) !== 'ChipMusic') {
+        errors.push(err('invalid_quantize_source', `${path}.track_ref`,
+          `${kind} track_ref must point to a ChipMusic mechanic ` +
+          `(got ${mechByIdType.get(ref) ?? 'unknown'})`))
+      }
+    }
+
+    // quantize_source on the 4 sfx kinds must be ChipMusic.
+    const qs = r.quantize_source as string | undefined
+    if (qs) {
+      if (!mechanicIds.has(qs)) {
+        errors.push(err('invalid_quantize_source', `${path}.quantize_source`,
+          `quantize_source ${JSON.stringify(qs)} is not a defined mechanic`))
+      } else if (mechByIdType.get(qs) !== 'ChipMusic') {
+        errors.push(err('invalid_quantize_source', `${path}.quantize_source`,
+          `quantize_source ${JSON.stringify(qs)} is a ${mechByIdType.get(qs)}, ` +
+          `but must be a ChipMusic for beat quantization`))
+      }
+    }
+
+    // Recurse through sequence actions.
+    if (kind === 'sequence' && Array.isArray(r.actions)) {
+      (r.actions as unknown[]).forEach((sa, i) => checkAction(sa, `${path}.actions[${i}]`))
+    }
+  }
+
+  // Walk mechanics' params for ActionRef leaves.
+  const walkNode = (o: unknown, path: string): void => {
+    if (o === null || o === undefined) return
+    if (Array.isArray(o)) {
+      o.forEach((v, i) => walkNode(v, `${path}[${i}]`))
+      return
+    }
+    if (typeof o !== 'object') return
+    // Is this an action-ref-ish object? Check `.kind`.
+    if ((o as Record<string, unknown>).kind && typeof (o as Record<string, unknown>).kind === 'string') {
+      checkAction(o, path)
+    }
+    for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+      walkNode(v, `${path}.${k}`)
+    }
+  }
+  for (let i = 0; i < (raw.mechanics ?? []).length; i++) {
+    walkNode(raw.mechanics[i].params, `mechanics[${i}].params`)
+  }
+  walkNode(raw.flow, 'flow')
+  for (const [aid, arch] of Object.entries(raw.archetypes ?? {})) {
+    walkNode(arch, `archetypes[${JSON.stringify(aid)}]`)
+  }
+}
+
+
+function checkMechanicField(
+  ref: string,
+  field: string,
+  path: string,
+  mechByIdType: Map<string, string>,
+  errors: ValidationError[],
+): void {
+  const type = mechByIdType.get(ref)
+  if (!type) {
+    errors.push(err('unknown_mechanic_field', path,
+      `mechanic_ref ${JSON.stringify(ref)} is not a defined mechanic`))
+    return
+  }
+  const catalogEntry = CATALOG[type as keyof typeof CATALOG]
+  if (!catalogEntry) return  // unknown mechanic type is caught elsewhere
+  const emits = catalogEntry.emits_fields ?? []
+  if (emits.length > 0 && !emits.includes(field)) {
+    errors.push(err('unknown_mechanic_field', path,
+      `field ${JSON.stringify(field)} not in ${type}.emits_fields`,
+      { hint: `emitted fields on ${type}: ${emits.slice(0, 6).join(', ')}`,
+        suggestions: emits.slice(0, 5) }))
   }
 }
