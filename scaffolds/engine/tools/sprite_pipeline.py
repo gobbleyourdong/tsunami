@@ -81,35 +81,20 @@ def generate_image(
     height: int = 512,
     seed: int = -1,
 ) -> Image.Image:
-    """Generate a single image via the tsunami server's Z-Image-Turbo endpoint."""
-    import base64, io, httpx, random
+    """Generate a single image via Z-Image-Turbo.
+
+    v1.1 refactor (Phase 1): delegates to `sprite_backends.ZImageBackend`.
+    Signature + behaviour preserved — existing batch callers
+    (rpg_asset_pack.json / game_sprites.json) keep working unchanged.
+    """
+    from sprite_backends import get_backend
 
     styled_prompt = STYLE_PREFIXES.get(category, "") + prompt
-    # Randomize seed if the caller didn't supply one — Z-Image-Turbo's sampler
-    # is deterministic given a fixed seed, so batch generation returns identical
-    # images without fresh randomness each call.
-    actual_seed = seed if seed >= 0 else random.randint(0, 2**31 - 1)
-    t0 = time.time()
-    # Long timeout: the tsunami server may be busy with LLM inference when a
-    # sprite request arrives. Generation itself is ~3s but queue wait can be
-    # minutes during active app builds.
-    with httpx.Client(timeout=600) as client:
-        resp = client.post(ZIMAGE_ENDPOINT, json={
-            "prompt": styled_prompt,
-            "width": width, "height": height,
-            "steps": ZIMAGE_STEPS, "guidance_scale": ZIMAGE_GUIDANCE,
-            "seed": actual_seed,
-        })
-    elapsed = time.time() - t0
-    if resp.status_code != 200:
-        raise RuntimeError(f"Z-Image server returned {resp.status_code}: {resp.text[:200]}")
-    data = resp.json()
-    if "error" in data:
-        raise RuntimeError(f"Z-Image server error: {data['error']}")
-    b64 = data["data"][0]["b64_json"]
-    img = Image.open(io.BytesIO(base64.b64decode(b64)))
-    print(f"[sprite] Generated in {elapsed:.2f}s ({ZIMAGE_STEPS} steps, via {ZIMAGE_ENDPOINT})")
-    return img
+    backend = get_backend("z_image")
+    return backend.generate(
+        styled_prompt, width, height,
+        seed=seed if seed >= 0 else None,
+    )
 
 
 def generate_variations(
