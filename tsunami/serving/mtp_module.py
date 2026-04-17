@@ -431,14 +431,16 @@ def generate_with_mtp(
             generated.append(speculated)
             nxt = _sample(logits_both[:, 1, :], temperature, top_p, top_k)
             generated.append(nxt)
-            # Iteration 27: tried adding an extra MTP call here to populate
-            # the "skipped" cache entry (convention says cache slot N holds
-            # fusion(hidden_N, token_{N+1}); on accept we skip writing slot N
-            # → off-by-one drift). Benchmark went 9% → 6% greedy, so the
-            # extra write actively hurt — MTP was apparently trained with
-            # the one-write-per-iteration layout regardless of accept count.
-            # Reverted; cache stays "behind" by accept-count but MTP handles
-            # it internally better than the externally-corrected version.
+            # Iteration 27 + 31 (two independent attempts, one with and one
+            # without the matching reject-path crop removal) both measured
+            # 9% → 6% greedy when adding an extra MTP forward to fill the
+            # "skipped" slot. The arithmetic for MTP slot N being
+            # fusion(hidden_N, token_{N+1}) at RoPE N is airtight, but the
+            # trained distribution evidently expects the one-write-per-
+            # main-forward layout — even a semantically correct extra
+            # write is out-of-distribution and degrades future drafts.
+            # Keep streaming cache "behind" by accept-count; MTP tolerates
+            # that drift better than external correction.
             # Next MTP draft pairs embed(nxt) with hidden at nxt's slot, i.e.
             # position 1 in this 2-token forward.
             last_hidden = full_hidden[:, 1:2, :]

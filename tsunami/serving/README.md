@@ -19,7 +19,7 @@ hosts the undertow + daemon logic.
 
 | File | Purpose |
 |------|---------|
-| `mtp_module.py` | Multi-token-prediction head for Qwen3.6-35B-A3B. Wired into `serve_qwen36_fp8.py` for speculative decoding. Greedy 9% / sampling ~32% accept. |
+| `mtp_module.py` | Multi-token-prediction head for Qwen3.6-35B-A3B. **Not yet in prod** — current 9% greedy / 22-37% sample accept combined with the single-layer MoE/LM-head overhead (~25 ms per draft call) makes MTP net-slower than plain `model.generate` (15.6 vs 23.1 tok/s at 9% accept). Kept under `tests/test_mtp_generate.py` as a research target until accept-rate clears ~40% breakeven or per-draft latency drops by 3-5×. |
 | `vendor/deepseek_fp8_kernel.py` | DeepSeek reference Triton FP8 GEMM, replaces the `kernels-community/finegrained-fp8` build which asserts on Qwen3.6's block-128 + `moe_intermediate_size=512` shape. |
 
 ## Tools
