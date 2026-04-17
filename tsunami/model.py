@@ -94,16 +94,29 @@ class TsunamiModel:
 
     async def generate(self, messages: list[dict[str, str]],
                        tools: list[dict] | None = None,
-                       force_tool: str | None = None) -> LLMResponse:
+                       force_tool: str | None = None,
+                       enable_thinking: bool = True) -> LLMResponse:
         """Generate with retry logic and exponential backoff.
 
         force_tool: when set, forces the model to emit a tool_call for this
         specific tool name (used for deliver-gate intervention — #14 fix).
+
+        enable_thinking: Qwen3.6 thinking mode. On (default) for planning
+        turns where the model benefits from reasoning before emitting a
+        tool call. Off for coding turns (file_write / file_edit against an
+        existing scaffold) where the model just needs to emit the tool call
+        quickly — thinking on mid-complexity coding adds 150-200s per turn
+        that blows the budget. Agent.py flips this per-turn based on
+        whether scaffolding has occurred yet.
         """
         last_error = None
         for attempt in range(MAX_RETRIES):
             try:
-                return await self._call(messages, tools, force_tool=force_tool)
+                return await self._call(
+                    messages, tools,
+                    force_tool=force_tool,
+                    enable_thinking=enable_thinking,
+                )
             except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
                 last_error = e
                 wait = get_retry_delay(attempt)
@@ -127,7 +140,8 @@ class TsunamiModel:
 
         raise ConnectionError(f"Model unreachable after {MAX_RETRIES} attempts: {last_error}")
 
-    async def _call(self, messages, tools=None, force_tool: str | None = None) -> LLMResponse:
+    async def _call(self, messages, tools=None, force_tool: str | None = None,
+                    enable_thinking: bool = True) -> LLMResponse:
         headers = {"Content-Type": "application/json"}
 
         payload: dict[str, Any] = {
@@ -141,12 +155,18 @@ class TsunamiModel:
             "presence_penalty": self.presence_penalty,
             "repetition_penalty": self.repetition_penalty,
             # Qwen3.6 README — Thinking mode / Precise Coding recommends BOTH:
-            #   enable_thinking=True   (default; lets DiT+reasoning fire)
-            #   preserve_thinking=True (keeps reasoning from prior turns, so
-            #                           multi-turn tool sessions don't lose
-            #                           the agent's mental state mid-chain)
+            #   enable_thinking      — default on for planning; off for
+            #                          coding turns (caller controls this
+            #                          per-turn via the generate() arg).
+            #   preserve_thinking=True — keeps reasoning from prior turns so
+            #                          multi-turn tool sessions don't lose
+            #                          the agent's mental state mid-chain.
+            # Both top-level (qwen36 ChatRequest field) AND chat_template_kwargs
+            # are set because different inference paths consume different
+            # fields. extra="allow" on the proxy lets top-level pass through.
+            "enable_thinking": enable_thinking,
             "chat_template_kwargs": {
-                "enable_thinking": True,
+                "enable_thinking": enable_thinking,
                 "preserve_thinking": True,
             },
         }

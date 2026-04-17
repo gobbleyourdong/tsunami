@@ -1468,10 +1468,34 @@ class Agent:
                 )
 
         # 2. Call the reasoning core — get exactly one tool call
+        #
+        # Thinking-mode gate: on during planning (the turn that decides
+        # which tool to call next), off during coding (turns where the
+        # model is filling scaffolded chunks with file_write / file_edit).
+        # Qwen3.6 thinking adds ~150-200s per coding turn without changing
+        # the output quality materially — scaffolded templates don't need
+        # the reasoning prefix, just the code. Planning turns still
+        # benefit from reasoning (mechanic selection, archetype layout,
+        # flow structure).
+        #
+        # Heuristic:
+        #   - iter 1 always plans (design decisions)
+        #   - before project_init has fired: still planning (scaffold choice)
+        #   - after project_init + immediately after undertow failures: plan
+        #     (pick the next step given new information)
+        #   - otherwise: coding, thinking off
+        is_first_turn = self.state.iteration <= 1
+        no_scaffold_yet = "project_init" not in self._tool_history
+        last_was_qa_failure = (
+            len(self._tool_history) >= 1 and self._tool_history[-1] == "undertow"
+            and getattr(self, "_forced_undertow_done", False)
+        )
+        enable_thinking = is_first_turn or no_scaffold_yet or last_was_qa_failure
         response = await self.model.generate(
             messages=messages,
             tools=self.registry.schemas(),
             force_tool=force_tool,
+            enable_thinking=enable_thinking,
         )
 
         # 2b. Track LLM usage + cost
