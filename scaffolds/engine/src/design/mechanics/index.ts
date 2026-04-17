@@ -64,3 +64,7 @@ export const mechanicRegistry = new MechanicRegistry()
 // of registering its factory. Add lines here as each Phase 1 mechanic
 // lands. Phase 2+ mechanics auto-register via the same pattern.
 import './rhythm_track'
+import './dialog_tree'
+import './procedural_room_chain'
+import './bullet_pattern'
+import './puzzle_object'
