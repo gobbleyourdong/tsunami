@@ -175,7 +175,14 @@ function lowerFlow(
     for (const step of node.steps) {
       const sname = step.scene as unknown as string
       if (!(sname in ctx.scenes)) {
-        ctx.scenes[sname] = makeEmptyScene(sname, ctx.design)
+        // Linear flows auto-create a scene per step. Mechanics apply
+        // globally (same heuristic as `scene` kind) — attach every
+        // mechanic to every generated step scene so HUD / WaveSpawner /
+        // etc. follow the player through the linear progression.
+        ctx.scenes[sname] = makeScene(sname, ctx.design, {
+          archetypeSpawns: [],
+          mechanicIds: idsForScene(sname, ctx),
+        })
       }
       ctx.flow.push({
         scene: sname,
