@@ -131,6 +131,16 @@ export function validate(raw: DesignScript): ValidationResult {
 
   // --- archetype components + tag collection ---
   const tagUnion = new Set<string>()
+  // v1.1 sprites: the design carries a manifest of sprite_ref → asset
+  // metadata when the game uses the sprite pipeline. Shape is loose on
+  // purpose so the compiler/loader can each slice it differently.
+  // `(raw as any).sprite_manifest` is typed on DesignScript as optional.
+  const spriteManifest =
+    (raw as unknown as { sprite_manifest?: { assets?: Record<string, unknown> } })
+      .sprite_manifest
+  const spriteIds: Set<string> = spriteManifest?.assets
+    ? new Set(Object.keys(spriteManifest.assets))
+    : new Set()
   for (const [aid, arch] of Object.entries(raw.archetypes ?? {})) {
     const p = `archetypes[${JSON.stringify(aid)}]`
     ;(arch.tags ?? []).forEach(t => tagUnion.add(t))
@@ -141,6 +151,21 @@ export function validate(raw: DesignScript): ValidationResult {
           `component ${JSON.stringify(c)} does not match Name or Name(args) grammar`,
           { hint: "e.g. 'Health(100)' or 'Score' — identifier + optional comma-args" }))
       }
+    }
+    // v1.1 sprites: verify sprite_ref points at an entry in the
+    // design's sprite_manifest when one is present. When the manifest
+    // is absent we can't resolve the ref here — the build step
+    // (tools/build_sprites.py) surfaces missing-asset errors there.
+    const spriteRef = (arch as unknown as { sprite_ref?: string }).sprite_ref
+    if (typeof spriteRef === 'string' && spriteRef.length > 0
+        && spriteManifest !== undefined
+        && !spriteIds.has(spriteRef)) {
+      const known = [...spriteIds].slice(0, 5)
+      errors.push(err('sprite_ref_not_in_manifest',
+        `${p}.sprite_ref`,
+        `sprite_ref ${JSON.stringify(spriteRef)} is not declared in design.sprite_manifest.assets`,
+        { hint: 'declare the id in assets.manifest.json, or use a mesh instead',
+          suggestions: known }))
     }
   }
 

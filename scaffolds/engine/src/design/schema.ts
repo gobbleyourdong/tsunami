@@ -90,6 +90,11 @@ export interface Archetype {
   trigger?: TriggerSpec | string                   // string = sugar for {kind: string}
   components: ComponentSpec[]
   tags: string[]
+  // v1.1 sprites extension — id of an entry in public/sprites/
+  // manifest.json (authored as scaffolds/<game>/assets.manifest.json,
+  // compiled by tools/build_sprites.py). In 2d mode sprite_ref takes
+  // precedence over mesh; in 3d mode it's rendered as a billboard.
+  sprite_ref?: string
 }
 
 // NEW v1 — directional trigger (note_003, our tweak: contact_side instead of from_dir)
@@ -741,6 +746,19 @@ export interface ValidationError {
     | 'unknown_mechanic_field'
     | 'invalid_quantize_source'
     | 'overlay_condition_mismatch'
+    // v1.1 sprites extension — 7 additional error kinds. The build-
+    // time ones (metadata/chain/backend/unknown_op/unknown_category/
+    // version) are raised by tools/build_sprites.py and surface
+    // through the CLI's structured JSON stream; `sprite_ref_not_in_manifest`
+    // is a pre-compile check in validate.ts so authors can't ship a
+    // design that references a non-existent sprite id.
+    | 'sprite_ref_not_in_manifest'
+    | 'metadata_schema_violation'
+    | 'chain_fan_out_invalid'
+    | 'backend_unavailable_no_fallback'
+    | 'unknown_op'
+    | 'unknown_category'
+    | 'unsupported_manifest_version'
   path: string
   message: string
   hint?: string
