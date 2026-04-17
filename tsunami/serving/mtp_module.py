@@ -405,6 +405,21 @@ def generate_with_mtp(
         # filter gives 17/27/37; without gives 46/23/27 across three 128-tok
         # sampling runs). The filter eliminates tokens where p and q's top-k
         # sets disagree, which dominates for our draft.
+        #
+        # Re-checked feifeibear/LLMSpeculativeSampling (speculative_sampling_v2)
+        # and EAGLE on 2026-04-17: both filter p and q through norm_logits
+        # before computing the ratio, AND sample rejection corrections from
+        # max(p - q, 0) / Z (the "residual" distribution). For a well-aligned
+        # draft (trained jointly with the target, or a smaller-but-same-arch
+        # model), these pure-protocol choices maximise expected accept rate =
+        # 1 − TV(p, q). For our MTP the diagnostic measures ~83% per-position
+        # top-1 alignment under fresh-cache rebuild yet only 9% under streaming
+        # decode — the streaming TV is large, and both pure-protocol choices
+        # then bias toward low-p tokens that compound mis-alignment. The
+        # raw-softmax ratio + main-direct-reject workaround wins by ~10
+        # percentage points on sample accept. The real win, if it exists, is
+        # closing the diagnostic-vs-streaming gap (structural), not tuning
+        # the acceptance formula further.
         import random as _rand
         if temperature <= 0:
             _accept = main_at_draft_pos.item() == speculated.item()
