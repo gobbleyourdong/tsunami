@@ -358,9 +358,17 @@ def generate_with_mtp(
     # positions with KL > 4 nats vs prefill-equivalent MTP logits on 8 of
     # 11, matching the 9% accept rate. Closing this gap without retraining
     # MTP requires either (a) forcing main onto a cache-invariant attention
-    # kernel (eager — ~10× slower, kills the MTP win), or (b) snapshotting
-    # uncached-prefill hidden at each decode step (~2× compute, also kills
-    # the win). No cheap fix identified.
+    # kernel (eager — only ~5% slower on GB10 because MoE experts dominate
+    # compute, not attention), or (b) snapshotting uncached-prefill hidden at
+    # each decode step (~2× compute, also kills the win).
+    #
+    # Iter-33 validated (a): test_mtp_eager.py measures greedy 9%→13% and
+    # MTP throughput 15.6→17.5 tok/s under attn_implementation="eager" —
+    # 3/3 runs locked at 13%. Sample-path is unchanged (stochastic acceptance
+    # already tolerated the drift). Partial win: cached-path attention drift
+    # accounts for ~half of the streaming-vs-diagnostic gap on greedy, but
+    # not all — remaining gap up to 83% likely lives in residual hidden
+    # drift post-eager or in MTP cache-entry semantics (H2, not yet tested).
     last_hidden = out.hidden_states[-2]  # pre-final-norm  # (1, S, H)
     next_tok = _sample(out.logits[:, -1, :], temperature, top_p, top_k)
     generated = [next_tok]
