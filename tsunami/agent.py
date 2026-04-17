@@ -2833,26 +2833,27 @@ class Agent:
                         comp_dir = proj / "src" / "components"
                         # Engine awareness — fire at iter 1 AND periodically thereafter
                         if self._is_engine_project(proj):
-                            self.state.add_system_note(
-                                "ENGINE API (import from '@engine/...') — USE THIS, NOT react-three-fiber:\n"
-                                "Game({mode:'2d'|'3d'}) — top-level orchestrator\n"
-                                "game.scene(name) — returns SceneBuilder\n"
-                                "level.spawn(name, {mesh,position,controller,ai,mass,...})\n"
-                                "level.camera(pos,target,fov) | level.light(type,opts) | level.ground(size,mat)\n"
-                                "Meshes: box|sphere|capsule|plane\n"
-                                "Controllers: fps|orbit|topdown\n"
-                                "AI: patrol|chase|flee (or BehaviorTree/FSM)\n"
-                                "Physics: PhysicsWorld, RigidBody, Sphere/Box/Capsule shapes, raycast\n"
-                                "Audio: AudioEngine.load()/play(), SpatialAudio\n"
-                                "Input: KeyboardInput, GamepadInput, ActionMap, ComboDetector\n"
-                                "VFX: GPUParticleSystem, ShaderGraph, PostProcess\n"
-                                "Flow: SceneManager, Menu, Dialog, Tutorial, Difficulty\n"
-                                "Systems: HealthSystem, Inventory, Checkpoint, Score\n"
-                                "Write to src/main.ts (NOT App.tsx) using @engine/ imports. "
-                                "DO NOT npm install @react-three/fiber — the engine is already "
-                                "aliased and on disk."
-                            )
-                            log.info(f"Engine awareness: injected tsunami-engine API reference (iter {self.state.iteration})")
+                            # Step 7: replaced the old inline prose dump with a
+                            # loader for tsunami/context/design_script.md. The
+                            # file is the canonical source of truth for the
+                            # design-script workflow (schema summary, emit_design
+                            # usage, mechanic catalog); keeping it in a separate
+                            # file lets authors update it without editing
+                            # agent.py and keeps the system-note budget honest.
+                            try:
+                                ctx_path = Path(__file__).resolve().parent / "context" / "design_script.md"
+                                guide = ctx_path.read_text(encoding="utf-8")
+                            except Exception as e:
+                                log.warning(f"Engine awareness: failed to load design_script.md ({e}); "
+                                             "falling back to minimal hint")
+                                guide = (
+                                    "ENGINE project — use emit_design(name, design) with a JSON "
+                                    "DesignScript matching scaffolds/engine/src/design/schema.ts. "
+                                    "Do NOT hand-write src/main.ts; the compiler emits it."
+                                )
+                            self.state.add_system_note(guide)
+                            log.info(f"Engine awareness: injected design_script.md "
+                                     f"({len(guide)} chars) at iter {self.state.iteration}")
                         # UI-components awareness — periodic only; not time-critical
                         elif _periodic and readme.exists() and ui_dir.exists():
                             ui_components = [f.stem for f in ui_dir.iterdir()

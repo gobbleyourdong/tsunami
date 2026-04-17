@@ -379,6 +379,240 @@ def _classify_and_fix(project_dir: Path, error: str) -> str | None:
     return None
 
 
+# ─────────────────────────────────────────────────────────────
+#   Step 9: design-script validator error patches
+# ─────────────────────────────────────────────────────────────
+#
+# The TS validator emits 12 structured ValidationError kinds (see
+# scaffolds/engine/src/design/schema.ts: ValidationError.kind union).
+# When emit_design fails with stage='validate', Tsunami gets the list
+# back as {kind, path, message, hint?, suggestions?}. Rather than
+# regenerate the whole DesignScript, fix_design_validation_errors
+# patches just the offending fragment — deterministic surgeries for the
+# common cases, LLM fallback for the rest.
+#
+# Returns a dict describing what was patched (or None if no patch
+# applied, caller should regenerate). Callers pass the live design JSON
+# and the list of errors from emit_design's {stage:'validate', errors}
+# return.
+
+def fix_design_validation_errors(
+    design: dict,
+    errors: list[dict],
+) -> tuple[dict, list[dict]]:
+    """Apply deterministic patches for known validator error kinds.
+
+    Returns (patched_design, unresolved_errors). Callers should retry
+    emit_design with the patched design; if unresolved_errors is
+    non-empty, those require LLM regeneration on the specific path.
+    """
+    unresolved: list[dict] = []
+    for err in errors:
+        kind = err.get("kind")
+        path = err.get("path", "")
+        patched = False
+        try:
+            if kind == "duplicate_id":
+                # Rename the second mechanic's id to id + "_2" / "_3" etc.
+                patched = _patch_duplicate_id(design, err)
+            elif kind == "component_parse":
+                # Strip unterminated paren or drop malformed component
+                patched = _patch_component_parse(design, err)
+            elif kind == "dangling_condition":
+                # Inject an emit {condition:...} action in flow's on_enter,
+                # OR remove the consumer if the emitter can't be inferred.
+                patched = _patch_dangling_condition(design, err)
+            elif kind == "unknown_mechanic_type":
+                # Drop the mechanic — safer than guessing a type.
+                patched = _patch_drop_offending(design, err, "mechanic")
+            elif kind == "unknown_archetype_ref":
+                # Can't invent an archetype. Send back to LLM.
+                pass
+            elif kind == "unknown_mechanic_ref":
+                # Drop the `requires` entry that references the missing id.
+                patched = _patch_drop_requires_ref(design, err)
+            elif kind == "unknown_singleton_ref":
+                # HUD field references missing singleton; drop that field.
+                patched = _patch_drop_hud_field(design, err)
+            elif kind == "unknown_item_ref":
+                # Consumer references undeclared item; drop the consumer line.
+                pass
+            elif kind == "tag_requirement":
+                # Add the missing tag to the first archetype that doesn't
+                # already have it. Cheap and almost always correct.
+                patched = _patch_add_tag(design, err)
+            elif kind == "incompatible_combo":
+                # Flip config.sandbox to false (the most common case).
+                patched = _patch_clear_sandbox(design, err)
+            elif kind == "playfield_mismatch":
+                # Can't change the playfield without breaking other
+                # mechanics. Send back to LLM.
+                pass
+            elif kind == "out_of_scope":
+                # v2 placeholder mechanics get dropped.
+                patched = _patch_drop_offending(design, err, "mechanic")
+        except Exception as e:
+            log.warning(f"design error patcher raised on {kind}: {e}")
+        if not patched:
+            unresolved.append(err)
+    return design, unresolved
+
+
+def _path_tail(path: str) -> tuple[str, list[str]]:
+    """Split 'mechanics[3].params.fields[2].singleton' into
+    ('mechanics', ['3', 'params', 'fields', '2', 'singleton']). Tokens
+    are raw — integers still as strings, caller parses ints."""
+    if not path: return ("", [])
+    tokens: list[str] = []
+    cur = ""
+    i = 0
+    # crude tokenizer for dotted paths with [idx] brackets
+    while i < len(path):
+        c = path[i]
+        if c == '.':
+            if cur: tokens.append(cur); cur = ""
+        elif c == '[':
+            if cur: tokens.append(cur); cur = ""
+            j = path.index(']', i)
+            tokens.append(path[i+1:j])
+            i = j
+        else:
+            cur += c
+        i += 1
+    if cur: tokens.append(cur)
+    head = tokens[0] if tokens else ""
+    return (head, tokens[1:])
+
+
+def _patch_duplicate_id(design: dict, err: dict) -> bool:
+    """mechanics[i].id → id + '_dup<n>'. Second+ occurrences get renamed."""
+    _, rest = _path_tail(err.get("path", ""))
+    if not rest or not rest[0].isdigit(): return False
+    idx = int(rest[0])
+    mechs = design.get("mechanics", [])
+    if idx >= len(mechs): return False
+    original = mechs[idx].get("id", "")
+    if not original: return False
+    n = 2
+    while any(m.get("id") == f"{original}_dup{n}" for m in mechs): n += 1
+    mechs[idx]["id"] = f"{original}_dup{n}"
+    log.info(f"design patcher: duplicate_id → renamed mechanics[{idx}].id to {mechs[idx]['id']}")
+    return True
+
+
+def _patch_component_parse(design: dict, err: dict) -> bool:
+    """archetypes[id].components[i] → drop the malformed entry."""
+    _, rest = _path_tail(err.get("path", ""))
+    if len(rest) < 3: return False
+    aid = rest[0].strip('"')
+    if rest[1] != "components" or not rest[2].isdigit(): return False
+    archs = design.get("archetypes", {})
+    if aid not in archs: return False
+    comps = archs[aid].get("components", [])
+    ci = int(rest[2])
+    if ci >= len(comps): return False
+    dropped = comps.pop(ci)
+    log.info(f"design patcher: component_parse → dropped archetypes[{aid}].components[{ci}] = {dropped!r}")
+    return True
+
+
+def _patch_drop_offending(design: dict, err: dict, kind: str) -> bool:
+    """Drop the offending mechanic entirely."""
+    _, rest = _path_tail(err.get("path", ""))
+    if not rest or not rest[0].isdigit(): return False
+    if kind == "mechanic":
+        idx = int(rest[0])
+        mechs = design.get("mechanics", [])
+        if idx >= len(mechs): return False
+        dropped = mechs.pop(idx)
+        log.info(f"design patcher: dropped mechanic {dropped.get('id')!r} ({dropped.get('type')})")
+        return True
+    return False
+
+
+def _patch_drop_requires_ref(design: dict, err: dict) -> bool:
+    """mechanics[i].requires[j] → remove the undefined ref."""
+    _, rest = _path_tail(err.get("path", ""))
+    if len(rest) < 3 or rest[1] != "requires": return False
+    idx, j = int(rest[0]), int(rest[2])
+    mechs = design.get("mechanics", [])
+    if idx >= len(mechs): return False
+    reqs = mechs[idx].get("requires", [])
+    if j >= len(reqs): return False
+    reqs.pop(j)
+    if not reqs: mechs[idx].pop("requires", None)
+    log.info(f"design patcher: dropped mechanics[{idx}].requires[{j}]")
+    return True
+
+
+def _patch_drop_hud_field(design: dict, err: dict) -> bool:
+    """HUD fields[i].singleton references missing singleton — drop that field."""
+    _, rest = _path_tail(err.get("path", ""))
+    # Expected: ['<i>', 'params', 'fields', '<fi>', 'singleton']
+    if len(rest) < 5 or rest[1] != "params" or rest[2] != "fields": return False
+    idx, fi = int(rest[0]), int(rest[3])
+    mechs = design.get("mechanics", [])
+    if idx >= len(mechs): return False
+    fields = mechs[idx].get("params", {}).get("fields", [])
+    if fi >= len(fields): return False
+    fields.pop(fi)
+    log.info(f"design patcher: dropped mechanics[{idx}].params.fields[{fi}] (unknown singleton)")
+    return True
+
+
+def _patch_dangling_condition(design: dict, err: dict) -> bool:
+    """Remove the offending consumer — safer than guessing an emitter.
+    Handles flow.linear.steps[i].condition and on_enter/on_complete
+    ActionRefs. For win/fail conditions, we leave them alone (the game
+    can still run, it just never fires)."""
+    path = err.get("path", "")
+    if "steps[" in path and path.endswith(".condition"):
+        import re as _re
+        m = _re.search(r'steps\[(\d+)\]\.condition$', path)
+        if not m: return False
+        si = int(m.group(1))
+        flow = design.get("flow", {})
+        if flow.get("kind") != "linear": return False
+        steps = flow.get("steps", [])
+        if si >= len(steps): return False
+        steps[si].pop("condition", None)
+        log.info(f"design patcher: dropped flow.linear.steps[{si}].condition (dangling)")
+        return True
+    return False
+
+
+def _patch_add_tag(design: dict, err: dict) -> bool:
+    """Add the missing tag to the first archetype lacking it. The
+    error message format is: '<Type> requires tags t1, t2 on some
+    archetype, none found'. Parse out the first missing tag."""
+    import re as _re
+    msg = err.get("message", "")
+    m = _re.search(r"requires tags ([\w, ]+) on some archetype", msg)
+    if not m: return False
+    tags = [t.strip() for t in m.group(1).split(",") if t.strip()]
+    if not tags: return False
+    archs = design.get("archetypes", {})
+    for _aid, arch in archs.items():
+        arch_tags = arch.setdefault("tags", [])
+        for t in tags:
+            if t not in arch_tags:
+                arch_tags.append(t)
+        log.info(f"design patcher: added tags {tags} to first archetype to satisfy tag_requirement")
+        return True
+    return False
+
+
+def _patch_clear_sandbox(design: dict, err: dict) -> bool:
+    """Flip config.sandbox to false. Most 'incompatible_combo' cases
+    trip on sandbox-incompatible mechanics in a sandbox=true config."""
+    cfg = design.setdefault("config", {})
+    if cfg.get("sandbox"):
+        cfg["sandbox"] = False
+        log.info("design patcher: cleared config.sandbox (incompatible_combo)")
+        return True
+    return False
+
+
 def _resolve_file(project_dir: Path, rel_path: str) -> Path | None:
     """Resolve a file path relative to project or src dir."""
     for base in [project_dir, project_dir / "src"]:

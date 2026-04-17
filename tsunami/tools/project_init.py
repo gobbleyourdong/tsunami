@@ -22,6 +22,86 @@ log = logging.getLogger("tsunami.tools.project_init")
 SCAFFOLDS_DIR = Path(__file__).parent.parent.parent / "scaffolds"
 
 
+# Out-of-scope game genres — each either belongs in a future hand-authored
+# scaffold (per note_013) or is fundamentally not a real-time spatial game
+# the engine scaffold targets. Keyed by a short genre tag; value is the
+# matching keyword set (matched with word-boundary regex).
+_OOS_GENRE_KEYWORDS: dict[str, list[str]] = {
+    "interactive_fiction": [
+        "interactive fiction", "text adventure", "choose your own adventure",
+        "choose-your-own", "parser game", "text-based adventure", "twine game",
+    ],
+    "rts": ["rts", "real-time strategy", "real time strategy", "starcraft-like",
+            "age of empires", "command and conquer"],
+    "tbs": ["turn-based strategy", "turn based strategy", "xcom-like",
+            "civ-style", "civilization-like", "hex strategy"],
+    "card_game": ["deckbuilder", "deck-builder", "card game", "ccg", "trading card",
+                  "slay the spire", "hearthstone-like", "magic the gathering"],
+    "multi_unit_sim": ["simcity", "colony sim", "dwarf fortress", "rimworld",
+                      "base builder", "city builder", "factorio-like",
+                      "multi-unit sim"],
+    "mmo": ["mmo", "mmorpg", "massively multiplayer"],
+    "crpg": ["crpg", "baldur's gate", "divinity original sin", "party-based rpg",
+             "pillars of eternity", "disco elysium"],
+}
+
+_OOS_REDIRECT_MESSAGES: dict[str, str] = {
+    "interactive_fiction":
+        "This looks like interactive fiction (text adventure / CYOA). The "
+        "engine scaffold targets real-time spatial games and the action-blocks "
+        "DSL doesn't cover parser state machines or long-form branching narrative "
+        "at scale. A dedicated IF scaffold (Twine-style or Ink-style) is planned "
+        "but not built yet — for now, either (a) reduce scope to a short "
+        "narrative_adjacent game (use DialogTree + HotspotMechanic) or (b) build "
+        "directly against react-app with a hand-rolled state machine.",
+    "rts":
+        "Real-time strategy isn't in the engine scaffold's scope (no multi-unit "
+        "selection, no unit production economy, no fog-of-war primitives). "
+        "A dedicated RTS scaffold is planned. For now, scope down to a "
+        "single-protagonist tactical game (use WaveSpawner + archetype tags) "
+        "or reject the prompt and ask the user to simplify.",
+    "tbs":
+        "Turn-based strategy needs a TurnManager + grid/hex playfield which were "
+        "scoped out of action-blocks v1 (note_013). A dedicated TBS scaffold is "
+        "planned. For now, reject the prompt or propose a real-time alternative.",
+    "card_game":
+        "Deckbuilders / card games need a card-pool + deck-building UI + hand "
+        "management that the action-blocks DSL doesn't model. A dedicated card "
+        "scaffold is planned. Build against react-app with hand-rolled state, "
+        "or reject the prompt and ask for a non-card framing.",
+    "multi_unit_sim":
+        "Colony sims / base builders need multi-unit AI + resource-flow graphs "
+        "that aren't in the v1 catalog. A dedicated sim scaffold is planned. "
+        "For now, reject the prompt or scope down to a single-agent mechanic.",
+    "mmo":
+        "MMOs require persistent server infra + authoritative multiplayer + "
+        "long-lived world state that the engine scaffold (single-client, "
+        "single-session) doesn't target. No current scaffold fits; build "
+        "directly against fullstack with hand-rolled networking.",
+    "crpg":
+        "CRPG (party-based RPG with branching dialog + inventory depth + "
+        "stat systems) overlaps with IF and the action-blocks narrative subset "
+        "but needs a party abstraction that isn't in v1. For now, scope down "
+        "to a single-protagonist game using DialogTree + Inventory components, "
+        "or build against react-app with a hand-rolled state graph.",
+}
+
+
+def _detect_out_of_scope_genre(all_text: str) -> str:
+    """Return the genre tag if the prompt matches one of the 7 out-of-scope
+    game families, else empty string. Called before the default game
+    scaffold pick so out-of-scope prompts get redirected (not stretched
+    into action-blocks via ad-hoc mechanic fakery)."""
+    for genre, kws in _OOS_GENRE_KEYWORDS.items():
+        for kw in kws:
+            if " " in kw or "-" in kw or "'" in kw:
+                if kw in all_text:
+                    return genre
+            elif re.search(rf'\b{re.escape(kw)}s?\b', all_text):
+                return genre
+    return ""
+
+
 def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
     """Pick scaffold by analyzing what the project REQUIRES.
 
@@ -66,8 +146,20 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
     # 1. Game — unified scaffold with Tsunami Engine (WebGPU, 2D/3D, physics, AI)
     # The model decides 2d vs 3d via Game({ mode: '2d' | '3d' }) in main.ts.
     # No keyword matching for game subgenres — the model knows the engine.
-    if needs("game") and (SCAFFOLDS_DIR / "game").exists():
-        return "game"
+    #
+    # Step 10: out-of-scope genre redirect. note_013 / attempt_007 scope
+    # the action-blocks scaffold to real-time single-protagonist spatial
+    # games. Seven genre families (IF / RTS / TBS / card / multi-unit-sim
+    # / MMO / CRPG) get returned as an "__oos__:<genre>" sentinel; the
+    # ProjectInit.execute wrapper turns that into a redirect message
+    # explaining which scaffold is (or isn't) appropriate — instead of
+    # stretching the engine scaffold to fake the genre.
+    if needs("game"):
+        oos_genre = _detect_out_of_scope_genre(all_text)
+        if oos_genre:
+            return f"__oos__:{oos_genre}"
+        if (SCAFFOLDS_DIR / "game").exists():
+            return "game"
 
     # 3a. AI-powered app (chatbot, LLM interface, streaming chat proxy)
     if needs("ai chatbot", "chatbot app", "ai chat", "llm app", "llm chat",
@@ -227,6 +319,30 @@ class ProjectInit(BaseTool):
                     scaffold_name = _pick_scaffold(name, dependencies, prompt)
             else:
                 scaffold_name = _pick_scaffold(name, dependencies, prompt)
+
+            # Step 10: out-of-scope game genre sentinel. _pick_scaffold
+            # returns "__oos__:<genre>" when the prompt matches one of the 7
+            # game-genre families the action-blocks scaffold isn't designed
+            # for (IF / RTS / TBS / card / multi-unit-sim / MMO / CRPG).
+            # Instead of scaffolding something that will fail to render a
+            # coherent game, surface a redirect message the model can act
+            # on: reduce scope, pick a different scaffold, or reject.
+            if scaffold_name.startswith("__oos__:"):
+                genre = scaffold_name.split(":", 1)[1]
+                msg = _OOS_REDIRECT_MESSAGES.get(
+                    genre,
+                    f"Prompt matches an out-of-scope game genre ({genre}); "
+                    "no action-blocks scaffold is available for this family."
+                )
+                log.info(f"project_init: out-of-scope genre {genre!r} — redirecting")
+                return ToolResult(
+                    f"REDIRECT: {msg}\n\n"
+                    "Do not call project_init again with a game prompt for this "
+                    "genre. Either scope the request down, pick a different "
+                    "scaffold (e.g. 'fullstack' for MMO-lite), or call "
+                    "message_chat to clarify with the user.",
+                    is_error=True,
+                )
 
             if scaffold_name:
                 scaffold_dir = SCAFFOLDS_DIR / scaffold_name
