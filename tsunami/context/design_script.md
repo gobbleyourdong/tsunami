@@ -273,6 +273,71 @@ closest in-scope match.
   "v2 — requires persistent timeline + save system. Short-session
   sandbox (sandbox flag) IS supported."
 
+## Sprites (v1.1 sprite extension)
+
+Archetypes can reference a generated sprite via `sprite_ref`:
+
+```jsonc
+"archetypes": {
+  "player": {
+    "controller": "topdown",
+    "components": ["Health(100)", "Score"],
+    "tags": ["player"],
+    "sprite_ref": "player_hero"      // ← points at assets.manifest.json
+  }
+}
+```
+
+The game's `assets.manifest.json` declares the sprite source alongside
+the design script:
+
+```jsonc
+// scaffolds/<game>/assets.manifest.json
+{
+  "schema_version": "1",
+  "backend": "zimage@turbo-9s",
+  "assets": [
+    {
+      "id": "player_hero",
+      "category": "character",       // one of 8 registered categories
+      "prompt": "pixel art hero with sword, side view, green tunic",
+      "metadata": { "class": "hero", "facing": "side" }
+    },
+    {
+      "id": "grass_tiles",
+      "category": "tileset",
+      "prompt": "pixel art grass tiles, 4x4 grid, overworld, top-down",
+      "metadata": {
+        "biome": "overworld",
+        "tile_grid_w": 4,
+        "tile_grid_h": 4
+      }
+    }
+  ]
+}
+```
+
+**8 categories** (pick the most specific match):
+- `character` — full-body figure, side/front view, one subject
+- `item` — small centered pickupable: coin, potion, key, weapon
+- `texture` — seamless tileable pattern
+- `tileset` — N×N grid of terrain tiles (needs `tile_grid_w`/`tile_grid_h`
+  in metadata; builder splits + emits atlas.json)
+- `background` — wide horizontal parallax layer, no centered subject
+- `ui_element` — flat menu/HUD chrome (button, panel, icon, bar)
+- `effect` — radial visual effect (explosion, magic, impact, glow)
+- `portrait` — JRPG-style head-and-shoulders dialogue portrait
+
+**Every archetype's `sprite_ref` must be declared in the manifest.**
+Missing id → validator fires `sprite_ref_not_in_manifest`. Unknown
+category → `unknown_category`. Metadata type mismatch →
+`metadata_schema_violation`.
+
+For content-heavy designs (metroidvanias, RPGs with many enemies) just
+list every archetype's sprite in the manifest — the pipeline caches
+content-addressably, so a prompt/setting revision re-generates only
+the affected assets.
+
 ## Conditions must be emitted
 
 Every `condition` key you reference in `flow.linear.steps[*].condition`

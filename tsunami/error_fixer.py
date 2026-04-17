@@ -477,6 +477,36 @@ def fix_design_validation_errors(
                 # overlay_tracks and overlay_conditions must align.
                 # Truncate both to the shorter of the two.
                 patched = _patch_align_overlays(design, err)
+            elif kind == "sprite_ref_not_in_manifest":
+                # Drop the dangling sprite_ref — archetype falls back
+                # to mesh rendering.
+                patched = _patch_drop_sprite_ref(design, err)
+            elif kind == "unknown_category":
+                # Asset references a category we don't have. Remap
+                # obvious synonyms, else drop the asset from the
+                # manifest.
+                patched = _patch_remap_category(design, err)
+            elif kind == "metadata_schema_violation":
+                # Field is wrong type / missing. Drop the offending
+                # field; required-missing cases degrade to a
+                # category-minimal metadata stub.
+                patched = _patch_fix_metadata(design, err)
+            elif kind == "chain_fan_out_invalid":
+                # Pipeline-level authoring error — the LLM doesn't
+                # author chains; this is almost always a manifest
+                # handcraft issue. Surface to caller.
+                pass
+            elif kind == "backend_unavailable_no_fallback":
+                # Can't patch the operator's server setup from here.
+                pass
+            elif kind == "unknown_op":
+                # Same — chain authoring is the tool's job, not the
+                # LLM's. Surface.
+                pass
+            elif kind == "unsupported_manifest_version":
+                # Author wrote a bogus schema_version. Set to the
+                # supported one and retry.
+                patched = _patch_set_manifest_version(design, err)
         except Exception as e:
             log.warning(f"design error patcher raised on {kind}: {e}")
         if not patched:
@@ -637,6 +667,178 @@ def _patch_clear_sandbox(design: dict, err: dict) -> bool:
         log.info("design patcher: cleared config.sandbox (incompatible_combo)")
         return True
     return False
+
+
+# ══════════════════════════════════════════════════════════════════
+#   Sprites v1.1 patchers
+# ══════════════════════════════════════════════════════════════════
+
+_CATEGORY_SYNONYMS = {
+    # Legacy / obvious.
+    "object": "item",
+    "prop": "item",
+    "item_sprite": "item",
+    "char": "character",
+    "enemy": "character",
+    "player": "character",
+    "npc": "character",
+    "hero": "character",
+    # UI variants.
+    "ui": "ui_element",
+    "button": "ui_element",
+    "panel": "ui_element",
+    "icon": "ui_element",
+    # Terrain variants.
+    "tile": "tileset",
+    "tiles": "tileset",
+    "terrain": "tileset",
+    "map": "tileset",
+    # Background variants.
+    "bg": "background",
+    "backdrop": "background",
+    "scenery": "background",
+    "landscape": "background",
+    # Effect variants.
+    "fx": "effect",
+    "vfx": "effect",
+    "particle": "effect",
+    "explosion": "effect",
+    # Portrait variants.
+    "face": "portrait",
+    "avatar": "portrait",
+    # Texture variants.
+    "pattern": "texture",
+}
+
+_KNOWN_CATEGORIES = {
+    "character", "item", "texture", "tileset",
+    "background", "ui_element", "effect", "portrait",
+}
+
+
+def _patch_drop_sprite_ref(design: dict, err: dict) -> bool:
+    """sprite_ref_not_in_manifest: clear archetype.sprite_ref so the
+    archetype falls back to its mesh. Leaves the archetype otherwise
+    intact — caller can add the manifest entry later."""
+    _, rest = _path_tail(err.get("path", ""))
+    if len(rest) < 2 or rest[1] != "sprite_ref":
+        return False
+    aid = rest[0].strip('"')
+    archs = design.get("archetypes", {})
+    if aid not in archs:
+        return False
+    if "sprite_ref" not in archs[aid]:
+        return False
+    dropped = archs[aid].pop("sprite_ref", None)
+    log.info(f"design patcher: sprite_ref_not_in_manifest → "
+             f"dropped archetypes[{aid}].sprite_ref={dropped!r}")
+    return True
+
+
+def _patch_remap_category(design: dict, err: dict) -> bool:
+    """unknown_category: remap to a synonym if we have one, else drop
+    the asset from the sprite_manifest. Path is expected to locate
+    the asset entry: sprite_manifest.assets[<id>].category or
+    assets[<i>].category (build-step flat index)."""
+    manifest = design.get("sprite_manifest") or design.get("assets_manifest")
+    if not isinstance(manifest, dict):
+        return False
+    assets = manifest.get("assets")
+
+    path = err.get("path", "")
+    m = re.search(r'\[([^\]]+)\]\.category$', path)
+    if not m:
+        return False
+    key = m.group(1).strip('"')
+
+    # assets may be list (per tools/build_sprites.py authoring) or dict.
+    if isinstance(assets, dict):
+        target = assets.get(key)
+        if not target:
+            return False
+        cur = target.get("category")
+        remap = _CATEGORY_SYNONYMS.get((cur or "").lower())
+        if remap:
+            target["category"] = remap
+            log.info(f"design patcher: unknown_category → remapped "
+                     f"{key!r}.category {cur!r} → {remap!r}")
+            return True
+        assets.pop(key, None)
+        log.info(f"design patcher: unknown_category → dropped asset {key!r}")
+        return True
+
+    if isinstance(assets, list):
+        try:
+            idx = int(key)
+        except ValueError:
+            return False
+        if idx >= len(assets):
+            return False
+        cur = assets[idx].get("category")
+        remap = _CATEGORY_SYNONYMS.get((cur or "").lower())
+        if remap:
+            assets[idx]["category"] = remap
+            log.info(f"design patcher: unknown_category → remapped "
+                     f"assets[{idx}].category {cur!r} → {remap!r}")
+            return True
+        dropped = assets.pop(idx)
+        log.info(f"design patcher: unknown_category → dropped "
+                 f"asset {dropped.get('id')!r}")
+        return True
+
+    return False
+
+
+def _patch_fix_metadata(design: dict, err: dict) -> bool:
+    """metadata_schema_violation: drop the bad field. Required fields
+    we can't invent — surface to caller."""
+    msg = err.get("message") or ""
+    # Message format: "<category>.<field>: expected ..." or
+    # "<category>.<field> is required but missing"
+    m = re.match(r"(\w+)\.(\w+)", msg)
+    if not m:
+        return False
+    field = m.group(2)
+    # Find the metadata dict the error refers to — walk the path.
+    _, rest = _path_tail(err.get("path", ""))
+    manifest = design.get("sprite_manifest") or design.get("assets_manifest")
+    if not isinstance(manifest, dict):
+        return False
+    assets = manifest.get("assets") or {}
+    # Best-effort: search all assets for the offending field + drop.
+    # `is required but missing` can't be fixed here — surface as
+    # unresolved so the caller re-authors.
+    if "required but missing" in msg:
+        return False
+    changed = False
+    if isinstance(assets, dict):
+        for _aid, a in assets.items():
+            md = a.get("metadata")
+            if isinstance(md, dict) and field in md:
+                md.pop(field, None)
+                changed = True
+    elif isinstance(assets, list):
+        for a in assets:
+            md = a.get("metadata")
+            if isinstance(md, dict) and field in md:
+                md.pop(field, None)
+                changed = True
+    if changed:
+        log.info(f"design patcher: metadata_schema_violation → "
+                 f"dropped bad metadata field {field!r}")
+    return changed
+
+
+def _patch_set_manifest_version(design: dict, err: dict) -> bool:
+    """unsupported_manifest_version: clamp to the currently-supported
+    schema_version. v1.1 supports '1'."""
+    manifest = design.get("sprite_manifest") or design.get("assets_manifest")
+    if not isinstance(manifest, dict):
+        return False
+    manifest["schema_version"] = "1"
+    log.info("design patcher: unsupported_manifest_version → "
+             "clamped schema_version to '1'")
+    return True
 
 
 # ══════════════════════════════════════════════════════════════════
