@@ -379,28 +379,28 @@ def generate_with_mtp(
     # of 6.25e-2 (top-1 still matches in-sample).
     #
     # Magnitude lands right at BF16's precision floor (~7.8e-3 per unit),
-    # so this is pure numerical drift. But iter-35 pins it more precisely:
-    # K/V at each slot = W_k/v @ norm(x), rotated to pos — computed BEFORE
-    # attention runs, so passing an explicit attention_mask to the decode
-    # call (matching prefill's 4D mask) doesn't change the cache write
-    # (verified: slot-13 K/V diff unchanged at 1.953e-3 / 3.906e-3 with
-    # mask added). The drift is in the FP8 linear projection (W_k, W_v via
-    # the DeepSeek FP8 GEMM shim) dispatching to different kernel specialisations
-    # for M=1 vs M=N inputs. The 13%→83% gap is the COMPOUNDED version of
-    # this per-slot drift over ~50 decode steps: each new slot contributes
-    # ~2e-3 drift, every subsequent attention read averages over a growing
-    # set of drifted slots, next step's hidden inherits the compounded
-    # drift, and so on.
+    # so this is pure numerical drift. Iter-35 ruled out attention_mask
+    # dispatch (mask was added to the decode call; slot-13 K/V unchanged).
+    # Iter-36 (test_mtp_gemm_m_dep.py) ruled out FP8 GEMM M-dependency:
+    # running k_proj / v_proj / q_proj directly at M=1 vs M=14 with
+    # identical bf16 input produces bit-identical output (|Δ|∞ = 0.000e+00
+    # all rows, all three projections). So the drift lives UPSTREAM of the
+    # FP8 Q/K/V projections — candidates:
+    #   * fc (plain bf16 nn.Linear, 4096→2048): M-dependent bf16 GEMM?
+    #   * decoder layer's input_layernorm: should be M-invariant (RMSNorm)
+    #     but might pick different fused kernels by batch size
+    #   * something in how the decoder layer assembles inputs before the
+    #     attention projections
+    # Next probe should feed the SAME x_13 through the decoder layer in
+    # batched (M=14) vs single-row (M=1) mode and compare K/V written to
+    # cache at the shared position.
     #
-    # Structural fixes (all non-trivial):
-    #   1. Upcast MTP attention Q/K/V compute + cache to FP32. ~2× cache
-    #      mem + ~2× one-decoder-layer compute.
-    #   2. Periodically rebuild MTP cache from (hidden, tokens) snapshots
-    #      every K steps — bounds compounding to K-step windows.
-    #   3. Pad decode-step input to M>=something via a dummy row so W_k/v
-    #      GEMM hits the same FP8 kernel specialisation as prefill. Still
-    #      requires cache-crop bookkeeping for the dummy slot.
-    # Each is a larger change than iterations 26-35 attempted; deferred.
+    # Structural fixes (all non-trivial, awaiting upstream-drift source):
+    #   1. Upcast MTP-layer compute to FP32 end-to-end. ~2× mem + compute.
+    #   2. Periodic cache rebuild every K steps (scales badly — main prefill
+    #      cost grows with S and exceeds accept-rate gain for long context).
+    #   3. Depends on where the drift actually originates, once iter-37+
+    #      isolates it.
     last_hidden = out.hidden_states[-2]  # pre-final-norm  # (1, S, H)
     next_tok = _sample(out.logits[:, -1, :], temperature, top_p, top_k)
     generated = [next_tok]
