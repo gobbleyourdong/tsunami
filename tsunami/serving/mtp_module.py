@@ -379,23 +379,28 @@ def generate_with_mtp(
     # of 6.25e-2 (top-1 still matches in-sample).
     #
     # Magnitude lands right at BF16's precision floor (~7.8e-3 per unit),
-    # so this is pure numerical drift: batched prefill attention and
-    # single-query decode attention use different reduction orders in BF16
-    # and produce slightly different K/V for identical inputs. The 13%→83%
-    # gap is the COMPOUNDED version of this per-slot drift over ~50 decode
-    # steps: each new slot contributes ~2e-3 drift, every subsequent
-    # attention read averages over a growing set of drifted slots, next
-    # step's hidden inherits the compounded drift, and so on. No logic bug
-    # — just BF16 precision.
+    # so this is pure numerical drift. But iter-35 pins it more precisely:
+    # K/V at each slot = W_k/v @ norm(x), rotated to pos — computed BEFORE
+    # attention runs, so passing an explicit attention_mask to the decode
+    # call (matching prefill's 4D mask) doesn't change the cache write
+    # (verified: slot-13 K/V diff unchanged at 1.953e-3 / 3.906e-3 with
+    # mask added). The drift is in the FP8 linear projection (W_k, W_v via
+    # the DeepSeek FP8 GEMM shim) dispatching to different kernel specialisations
+    # for M=1 vs M=N inputs. The 13%→83% gap is the COMPOUNDED version of
+    # this per-slot drift over ~50 decode steps: each new slot contributes
+    # ~2e-3 drift, every subsequent attention read averages over a growing
+    # set of drifted slots, next step's hidden inherits the compounded
+    # drift, and so on.
     #
     # Structural fixes (all non-trivial):
-    #   1. Upcast MTP attention Q/K/V compute + cache to FP32. Biggest
-    #      memory cost ~2× cache and ~2× compute for one decoder layer.
+    #   1. Upcast MTP attention Q/K/V compute + cache to FP32. ~2× cache
+    #      mem + ~2× one-decoder-layer compute.
     #   2. Periodically rebuild MTP cache from (hidden, tokens) snapshots
     #      every K steps — bounds compounding to K-step windows.
-    #   3. Run MTP's decode-step attention as a 2-token batched call
-    #      (dummy + real) so its numerics match prefill reductions.
-    # Each is a larger change than iterations 26-34 attempted; deferred.
+    #   3. Pad decode-step input to M>=something via a dummy row so W_k/v
+    #      GEMM hits the same FP8 kernel specialisation as prefill. Still
+    #      requires cache-crop bookkeeping for the dummy slot.
+    # Each is a larger change than iterations 26-35 attempted; deferred.
     last_hidden = out.hidden_states[-2]  # pre-final-norm  # (1, S, H)
     next_tok = _sample(out.logits[:, -1, :], temperature, top_p, top_k)
     generated = [next_tok]
