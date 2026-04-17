@@ -890,7 +890,9 @@ async def _vlm_describe_screenshot(screenshot_bytes: bytes) -> str | None:
                     "temperature": 0.1,
                     "adapter": "none",  # base-model chat; no lora for describe
                     # Qwen3.6 thinking mode eats budget on short QA — disable.
-                    "chat_template_kwargs": {"enable_thinking": False},
+                    # qwen36 ChatRequest accepts enable_thinking as a
+                    # top-level field, not nested in chat_template_kwargs.
+                    "enable_thinking": False,
                 },
                 headers={"Authorization": "Bearer not-needed"},
             )
@@ -930,7 +932,9 @@ FAIL: [what's wrong]"""
                     "max_tokens": 80,
                     "temperature": 0.1,
                     # Qwen3.6 thinking eats short QA budget — disable.
-                    "chat_template_kwargs": {"enable_thinking": False},
+                    # qwen36 ChatRequest accepts enable_thinking as a
+                    # top-level field, not nested in chat_template_kwargs.
+                    "enable_thinking": False,
                 },
                 headers={"Authorization": "Bearer not-needed"},
             )

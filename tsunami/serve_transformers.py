@@ -53,9 +53,9 @@ import uuid
 from pathlib import Path
 
 import torch
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Literal, Union
 from transformers import AutoProcessor, AutoModelForImageTextToText
 import uvicorn
@@ -88,6 +88,12 @@ ToolChoice = Union[Literal["auto", "none", "required"], ForceToolChoice]
 
 
 class ChatRequest(BaseModel):
+    # Allow unknown fields to pass through so backend-specific knobs like
+    # `chat_template_kwargs`, `enable_thinking`, `preserve_thinking`, `min_p`,
+    # `presence_penalty`, `repetition_penalty`, etc. survive the proxy's
+    # model_dump() and reach the upstream (qwen36) unaltered.
+    model_config = ConfigDict(extra="allow")
+
     model: str = "tsunami"
     messages: list
     tools: list = []
@@ -148,6 +154,33 @@ def _get_user_sem(user: str) -> asyncio.Semaphore:
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ─────────────── /v1/embeddings proxy to :8093 embed_server ───────────────
+# Forwards OpenAI-format embedding requests to the embed backend declared by
+# EMBED_SERVER_URL (set by tsu to http://localhost:8093). Body passes through
+# untouched — embed_server handles the Qwen3-Embedding last-token pool + L2
+# norm + optional Matryoshka dim truncation. Mirrors how /v1/chat/completions
+# forwards to LLAMA_SERVER_URL.
+@app.post("/v1/embeddings")
+async def embeddings(request: Request):
+    import os as _os
+    import httpx
+    embed_url = _os.environ.get("EMBED_SERVER_URL")
+    if not embed_url:
+        return JSONResponse(
+            {"error": "embeddings not configured — set EMBED_SERVER_URL"},
+            status_code=503,
+        )
+    body = await request.body()
+    endpoint = embed_url.rstrip("/") + "/v1/embeddings"
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(
+            endpoint,
+            content=body,
+            headers={"content-type": "application/json"},
+        )
+    return JSONResponse(resp.json(), status_code=resp.status_code)
 
 class AdapterRequest(BaseModel):
     name: str  # adapter name or "none" to disable

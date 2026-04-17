@@ -69,11 +69,13 @@ def gen_chat_through_proxy() -> dict:
         json={
             "model": "Qwen/Qwen3.6-35B-A3B-FP8",
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 128,
+            "max_tokens": 32,
             "temperature": 0.0,
-            # Qwen3.6 thinking eats budget; disable via the same mechanism
-            # undertow itself uses for its eddy-compare calls.
-            "chat_template_kwargs": {"enable_thinking": False},
+            # qwen36 ChatRequest takes enable_thinking as a top-level field.
+            # Proxy forwards unknown fields (extra="allow") so this threads
+            # through to the qwen36 server, suppresses thinking, and gets a
+            # clean one-token answer.
+            "enable_thinking": False,
         },
         timeout=120.0,
     )
@@ -97,12 +99,10 @@ def gen_chat_through_proxy() -> dict:
 
 
 def embed_through_proxy() -> dict:
-    # The proxy exposes /v1/chat/completions and /v1/images/generate only;
-    # embeddings are served by :8093 direct. Hit that endpoint for the smoke.
-    _section("3. Embedding — /v1/embeddings at :8093 direct")
+    _section("3. Embedding — /v1/embeddings via :8090 proxy")
     t0 = time.time()
     r = httpx.post(
-        "http://localhost:8093/v1/embeddings",
+        "http://localhost:8090/v1/embeddings",
         json={
             "model": "Qwen/Qwen3-Embedding-0.6B",
             "input": ["the quick brown fox", "jumps over the lazy dog"],
@@ -138,16 +138,15 @@ def undertow_qa() -> dict:
         "<script>console.log('smoke-ready');</script>"
         "</body></html>"
     )
-    # Keep levers expect=-free: non-empty `expect` triggers _eddy_compare
-    # (an LLM call to TSUNAMI_EDDY_ENDPOINT) that expects a one-line PASS/FAIL
-    # answer. Our qwen36 stack thinks first by default, yielding unparseable
-    # verdicts. Mechanics being exercised: DOM read, DOM mutation via click,
-    # console health, and ghost-class detection — all non-LLM levers.
+    # Mix of expect=-free levers (mechanics) and one expect= lever that
+    # exercises undertow._eddy_compare end-to-end (LLM call to the stack).
+    # The expect= path was broken until we fixed qwen36's enable_thinking
+    # wiring via the proxy in the same batch of fixes as this smoke update.
     levers = [
         Lever(action="read_text", selector="#title"),
         Lever(action="read_text", selector="#out"),
         Lever(action="click",     selector="#go"),
-        Lever(action="read_text", selector="#out"),
+        Lever(action="read_text", selector="#out", expect="clicked"),
         Lever(action="console"),
     ]
     report = asyncio.get_event_loop().run_until_complete(
