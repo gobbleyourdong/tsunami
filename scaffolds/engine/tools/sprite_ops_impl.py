@@ -191,8 +191,13 @@ def op_pack_spritesheet(
                or ctx.metadata.get("tile_grid_w") or 4)
     rows = int(ctx.metadata_updates.get("rows")
                or ctx.metadata.get("tile_grid_h") or 4)
-    tw = int(ctx.metadata_updates.get("tile_width") or tiles[0].size[0])
-    th = int(ctx.metadata_updates.get("tile_height") or tiles[0].size[1])
+    # Tile cell size is the widest / tallest post-chain tile. This lets
+    # intermediate ops (trim_transparent + pixel_snap) set the final
+    # cell size without pack_spritesheet having to know the chain's
+    # intended target. Each tile gets resized to (tw, th) below, so
+    # non-uniform tiles snap to this grid cleanly.
+    tw = max((t.size[0] for t in tiles), default=1)
+    th = max((t.size[1] for t in tiles), default=1)
 
     sheet = Image.new("RGBA", (tw * cols, th * rows), (0, 0, 0, 0))
     tile_entries: list[dict[str, Any]] = []

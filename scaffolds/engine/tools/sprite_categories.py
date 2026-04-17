@@ -17,9 +17,14 @@ chains below — generate_asset would reject them and recipes carried
 them as "architecture thread to add." They re-appear in v1.2 once
 impls land.
 
-Per G2 in START_HERE.md: all 8 categories ship with backend='z_image'
-and backend_fallback=None in the v1.1 MVP, even when a recipe names
-'ernie' as preferred. ERNIE support lands in Phase 6.2.
+Backend policy (post-Phase 6.2): all 8 categories primary on ERNIE-
+Image-Turbo (:8092) with backend_fallback='z_image' (:8090 Z-Image-
+Turbo). ERNIE is the shipping default per operator directive —
+8 steps / CFG 1.0 / use_pe=False — with z_image as the always-
+available fallback when the ERNIE server is mid-swap or offline.
+Recipe settings (gen_size / variations / palette) stay as the
+authors chose them; ERNIE accepts arbitrary aspect ratios so we
+don't force 1024² except where the recipe already specified it.
 """
 from __future__ import annotations
 
@@ -72,8 +77,8 @@ class CategoryConfig:
     scorer: str = "default_scorer"
 
     # Backend.
-    backend: BackendName = "z_image"
-    backend_fallback: Optional[BackendName] = None
+    backend: BackendName = "ernie"
+    backend_fallback: Optional[BackendName] = "z_image"
 
     # Quality (warn-only — below threshold stamps score_warning=True).
     min_acceptable_score: Optional[float] = None
@@ -388,8 +393,8 @@ CATEGORIES: dict[str, CategoryConfig] = {
         variations=4,
         target_size=(128, 128),
         palette_colors=20,
-        backend="z_image",
-        backend_fallback=None,
+        backend="ernie",
+        backend_fallback="z_image",
         post_process=[
             "pixel_extract",
             "isolate_largest",

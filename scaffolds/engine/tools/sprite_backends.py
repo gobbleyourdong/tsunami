@@ -138,13 +138,25 @@ class ZImageBackend(Backend):
 # ── ERNIE-Image-Turbo (Phase 6.2) ────────────────────────────────────
 
 class ErnieBackend(Backend):
-    """ERNIE-Image-Turbo backend — landed in Phase 6.2 after
-    generate_asset() proves out on z_image. Per project memory:
-    ERNIE-Image-Turbo uses 8 steps, CFG 1.0, 1024×1024, and
-    `use_pe=False` forever (pe degrades text rendering + adds
-    decorative artifacts).
+    """ERNIE-Image-Turbo backend against the tsunami `serve_ernie`
+    server on :8092. Endpoint body shape is `GenRequest`:
 
-    Not wired for v1.1 MVP (see G2 in START_HERE.md)."""
+        POST /v1/images/generate
+        {
+          prompt, negative_prompt?, width=1024, height=1024,
+          num_inference_steps=8, guidance_scale=1.0,
+          seed?, n=1, response_format="b64_json",
+          use_pe=False, model_kind?
+        }
+
+    Spec constants (locked):
+      steps = 8, CFG = 1.0, size = 1024×1024, use_pe = False.
+
+    `use_pe=False` is load-bearing — the prompt enhancer LLM degrades
+    text rendering and adds decorative artifacts (literal quotes,
+    asterisks, glitch nudges). Never flip it on without a measured
+    reason.
+    """
 
     name: BackendName = "ernie"
     version = "ernie@turbo-8s"
@@ -153,6 +165,7 @@ class ErnieBackend(Backend):
     default_guidance = 1.0
     default_size = (1024, 1024)
 
+    # Long tail for batch + model-swap cases; short health probe.
     _gen_timeout = 600
     _health_timeout = 2
 
@@ -166,16 +179,61 @@ class ErnieBackend(Backend):
         seed: Optional[int] = None,
         negative_prompt: Optional[str] = None,
     ) -> Image.Image:
-        raise NotImplementedError(
-            "ErnieBackend.generate: deferred to Phase 6.2 "
-            "(see sprites/START_HERE.md G2). Use ZImageBackend for MVP."
-        )
+        actual_seed = seed if (seed is not None and seed >= 0) \
+                      else random.randint(0, 2**31 - 1)
+        body: dict = {
+            "prompt": prompt,
+            "width": width, "height": height,
+            "num_inference_steps": steps if steps is not None else self.default_steps,
+            "guidance_scale": guidance if guidance is not None else self.default_guidance,
+            "seed": actual_seed,
+            "n": 1,
+            "response_format": "b64_json",
+            "use_pe": False,
+        }
+        if negative_prompt:
+            body["negative_prompt"] = negative_prompt
+
+        t0 = time.time()
+        with httpx.Client(timeout=self._gen_timeout) as client:
+            resp = client.post(self.endpoint, json=body)
+        elapsed = time.time() - t0
+
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"{self.version} returned {resp.status_code}: {resp.text[:300]}"
+            )
+        data = resp.json()
+        # The serve_ernie response mirrors OpenAI's image envelope:
+        # { "data": [{"b64_json": "..."}], ... }.
+        if "error" in data:
+            raise RuntimeError(f"{self.version} error: {data['error']}")
+        try:
+            b64 = data["data"][0]["b64_json"]
+        except (KeyError, IndexError, TypeError) as e:
+            raise RuntimeError(
+                f"{self.version} unexpected response shape: "
+                f"{str(data)[:300]} ({e})"
+            )
+        img = Image.open(io.BytesIO(base64.b64decode(b64)))
+        img.load()
+        print(f"[sprite_backends] {self.version} generated in {elapsed:.2f}s "
+              f"(seed={actual_seed}, {body['num_inference_steps']}steps)")
+        return img
 
     def available(self) -> bool:
         try:
             with httpx.Client(timeout=self._health_timeout) as client:
-                resp = client.get(self.endpoint.replace("/v1/images/generate", "/health"))
-            return resp.status_code == 200
+                # serve_ernie uses /healthz (not /health — z=zimage-era
+                # alignment), response body includes {"pipe_loaded": bool}
+                # so we require a truthy pipe_loaded, not just 2xx.
+                resp = client.get(self.endpoint.replace(
+                    "/v1/images/generate", "/healthz",
+                ))
+            if resp.status_code != 200:
+                return False
+            body = resp.json()
+            return bool(body.get("pipe_loaded"))
         except Exception:
             return False
 
