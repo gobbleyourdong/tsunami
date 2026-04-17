@@ -47,6 +47,7 @@ import io
 import json
 import logging
 import time
+import re
 import uuid
 
 import torch
@@ -508,6 +509,106 @@ def _split_thinking(text: str) -> tuple[str, str]:
     return "", text.strip()
 
 
+def _parse_qwen_tool_calls(content: str) -> tuple[list[dict], str]:
+    """Extract Qwen3.6 tool-call emissions from assistant content.
+
+    Qwen3.6's chat template (with tools= passed) has the model emit each
+    tool invocation as an HF-agents-style block:
+
+        <tool_call>
+        <function=NAME>
+        <parameter=KEY>
+        VALUE
+        </parameter>
+        ...
+        </function>
+        </tool_call>
+
+    We lift those into OpenAI-shape tool_calls[] records and strip the
+    blocks from content. A few quirks handled:
+      - multiple <tool_call> blocks in one response (the model can batch)
+      - numeric / bool / null params → coerced to native JSON types so
+        callers can deserialise arguments without string-munging
+      - JSON-format tool_call body ({"name":..., "arguments":...}) also
+        accepted in case the template flips back to that shape
+    """
+    import json as _json
+    tool_calls: list[dict] = []
+    block_re = re.compile(
+        r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL | re.IGNORECASE
+    )
+    fn_re = re.compile(
+        r"<function\s*=\s*([^>\s]+)\s*>\s*(.*?)\s*</function>",
+        re.DOTALL | re.IGNORECASE,
+    )
+    param_re = re.compile(
+        r"<parameter\s*=\s*([^>\s]+)\s*>\s*(.*?)\s*</parameter>",
+        re.DOTALL | re.IGNORECASE,
+    )
+
+    def _coerce(v: str):
+        s = v.strip()
+        if s.lower() in ("true", "false"):
+            return s.lower() == "true"
+        if s.lower() == "null":
+            return None
+        try:
+            # try JSON first (handles numbers, lists, dicts, quoted strings)
+            return _json.loads(s)
+        except Exception:
+            return s
+
+    remaining = content
+    for m in block_re.finditer(content):
+        inner = m.group(1)
+        # JSON variant: {"name":"X","arguments":{...}}
+        inner_stripped = inner.strip()
+        if inner_stripped.startswith("{"):
+            try:
+                obj = _json.loads(inner_stripped)
+                name = obj.get("name")
+                args = obj.get("arguments", {})
+                if isinstance(args, str):
+                    try:
+                        args = _json.loads(args)
+                    except Exception:
+                        pass
+                if name:
+                    tool_calls.append({
+                        "id": f"call_{uuid.uuid4().hex[:12]}",
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": _json.dumps(args),
+                        },
+                    })
+                    continue
+            except Exception:
+                pass
+        # XML variant
+        fn_match = fn_re.search(inner)
+        if not fn_match:
+            continue
+        fn_name = fn_match.group(1).strip()
+        fn_body = fn_match.group(2)
+        args: dict = {}
+        for pm in param_re.finditer(fn_body):
+            args[pm.group(1).strip()] = _coerce(pm.group(2))
+        tool_calls.append({
+            "id": f"call_{uuid.uuid4().hex[:12]}",
+            "type": "function",
+            "function": {
+                "name": fn_name,
+                "arguments": _json.dumps(args),
+            },
+        })
+
+    # Strip every parsed block from content (regardless of whether it
+    # produced a call — malformed blocks also shouldn't leak into content).
+    remaining = block_re.sub("", remaining).strip()
+    return tool_calls, remaining
+
+
 @app.post("/v1/chat/completions")
 async def chat_completions(req: ChatRequest):
     _user_sem = _get_user_sem(req.user or "default")
@@ -603,12 +704,21 @@ async def _chat_completions_impl(req: ChatRequest):
     thinking, answer = _split_thinking(text)
     content = answer if not req.keep_thinking else text
 
+    # Parse Qwen3.6 tool-call emission format out of content, lift into
+    # OpenAI-shape message.tool_calls[]. Without this, the agent sees raw
+    # <tool_call>...</tool_call> XML in content and records it as a
+    # message_chat — breaking every build that relied on tool routing.
+    tool_calls, content = _parse_qwen_tool_calls(content)
+
     elapsed = time.time() - start
     completion_tokens = len(new_tokens)
     log.info(f"{_utag}generated {completion_tokens} tok in {elapsed:.1f}s "
-             f"({completion_tokens / max(elapsed, 1e-6):.1f} tok/s)")
+             f"({completion_tokens / max(elapsed, 1e-6):.1f} tok/s)"
+             + (f" [{len(tool_calls)} tool_call(s)]" if tool_calls else ""))
 
     message = {"role": "assistant", "content": content}
+    if tool_calls:
+        message["tool_calls"] = tool_calls
     if thinking and req.keep_thinking is False:
         # Expose thinking trace as a non-OpenAI extension field — clients that
         # ignore unknown fields get the normal answer; debuggers can see it.
@@ -622,7 +732,7 @@ async def _chat_completions_impl(req: ChatRequest):
         "choices": [{
             "index": 0,
             "message": message,
-            "finish_reason": "stop",
+            "finish_reason": "tool_calls" if tool_calls else "stop",
         }],
         "usage": {
             "prompt_tokens": prompt_len,
