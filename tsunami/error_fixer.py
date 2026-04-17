@@ -451,6 +451,32 @@ def fix_design_validation_errors(
             elif kind == "out_of_scope":
                 # v2 placeholder mechanics get dropped.
                 patched = _patch_drop_offending(design, err, "mechanic")
+            elif kind == "unknown_sfx_preset":
+                # play_sfx_ref.preset doesn't exist in the target
+                # SfxLibrary. Can't invent a preset — drop the
+                # offending action so build proceeds silently.
+                patched = _patch_drop_audio_action(design, err)
+            elif kind == "invalid_chiptune_track":
+                # NoteEvent with bad time / duration / note. Drop the
+                # specific bad note; the track keeps its other notes.
+                patched = _patch_drop_bad_note(design, err)
+            elif kind == "library_ref_not_sfx_library":
+                # play_sfx_ref.library_ref points at a non-SfxLibrary
+                # mechanic. Either retarget to an existing SfxLibrary
+                # if unique, or drop the action.
+                patched = _patch_retarget_sfx_library(design, err)
+            elif kind == "unknown_mechanic_field":
+                # bpm/mixer MechanicRef.field isn't in emits_fields.
+                # Drop the ref back to a safe numeric default.
+                patched = _patch_defaultise_mechanic_ref(design, err)
+            elif kind == "invalid_quantize_source":
+                # Drop quantize_to/quantize_source — the action still
+                # fires, just without beat-aligned timing.
+                patched = _patch_drop_quantize(design, err)
+            elif kind == "overlay_condition_mismatch":
+                # overlay_tracks and overlay_conditions must align.
+                # Truncate both to the shorter of the two.
+                patched = _patch_align_overlays(design, err)
         except Exception as e:
             log.warning(f"design error patcher raised on {kind}: {e}")
         if not patched:
@@ -611,6 +637,202 @@ def _patch_clear_sandbox(design: dict, err: dict) -> bool:
         log.info("design patcher: cleared config.sandbox (incompatible_combo)")
         return True
     return False
+
+
+# ══════════════════════════════════════════════════════════════════
+#   Audio v1.1 patchers
+# ══════════════════════════════════════════════════════════════════
+
+def _walk_tokens(root, tokens):
+    """Walk a design document by path tokens. Returns (parent, key) such
+    that parent[key] is the leaf — or (None, None) if any step is
+    missing. Keys stay as strings or ints depending on the token (bare
+    index tokens from [N] become ints)."""
+    cur = root
+    parent = None
+    key = None
+    for tok in tokens:
+        parent = cur
+        if tok.isdigit():
+            k: int | str = int(tok)
+        else:
+            # trim wrapping quotes on map-key tokens
+            k = tok.strip('"')
+        key = k
+        try:
+            cur = cur[k]  # type: ignore[index]
+        except (KeyError, IndexError, TypeError):
+            return None, None
+    return parent, key
+
+
+_AUDIO_ACTION_KEYS = {"on_contact", "on_reverse", "on_enter", "on_exit",
+                      "on_collect", "on_trigger", "on_complete",
+                      "on_start", "autoplay_on", "stop_on"}
+
+
+def _find_enclosing_action(tokens: list[str]) -> list[str] | None:
+    """Given a path to a leaf inside an ActionRef object, return the
+    tokens that address the ActionRef itself. We scan from the leaf
+    back toward the root for the first key that's a known action-host
+    (on_contact etc.) or is a list-index inside one. Returns the
+    shortened token list, or None if no such anchor is found."""
+    if not tokens:
+        return None
+    for i in range(len(tokens) - 1, -1, -1):
+        if tokens[i] in _AUDIO_ACTION_KEYS:
+            return tokens[: i + 1]
+    return None
+
+
+def _patch_drop_audio_action(design: dict, err: dict) -> bool:
+    """unknown_sfx_preset: walk to the enclosing ActionRef and delete
+    it. The action's host keeps its other behaviour — a silent drop is
+    the safest fix when we can't invent a preset name."""
+    _, rest = _path_tail(err.get("path", ""))
+    anchor = _find_enclosing_action(rest)
+    if not anchor:
+        return False
+    head = [_path_tail(err.get("path", ""))[0]]
+    parent, key = _walk_tokens(design, head + anchor[:-1])
+    if parent is None or key is None:
+        return False
+    try:
+        container = parent[key]  # type: ignore[index]
+    except (KeyError, IndexError, TypeError):
+        return False
+    action_key = anchor[-1]
+    if isinstance(container, dict) and action_key in container:
+        container.pop(action_key, None)
+        log.info(f"design patcher: unknown_sfx_preset → dropped ActionRef at {err.get('path')}")
+        return True
+    return False
+
+
+def _patch_drop_bad_note(design: dict, err: dict) -> bool:
+    """invalid_chiptune_track on a specific NoteEvent leaf — path ends
+    in .time / .duration / .note / .channels[ch][i]. We drop that one
+    note and leave the rest of the track intact."""
+    head, rest = _path_tail(err.get("path", ""))
+    if not rest:
+        return False
+    # Strip trailing leaf (time/duration/note).
+    if rest and rest[-1] in ("time", "duration", "note"):
+        rest = rest[:-1]
+    # rest should now end with [<idx>] addressing the note array slot.
+    if not rest or not rest[-1].isdigit():
+        return False
+    note_idx = int(rest[-1])
+    parent, key = _walk_tokens(design, [head] + rest[:-1])
+    if parent is None or key is None:
+        return False
+    try:
+        arr = parent[key]  # type: ignore[index]
+    except (KeyError, IndexError, TypeError):
+        return False
+    if not isinstance(arr, list) or note_idx >= len(arr):
+        return False
+    arr.pop(note_idx)
+    log.info(f"design patcher: invalid_chiptune_track → dropped note at {err.get('path')}")
+    return True
+
+
+def _patch_retarget_sfx_library(design: dict, err: dict) -> bool:
+    """library_ref_not_sfx_library: if there's exactly one SfxLibrary
+    mechanic defined, retarget library_ref to its id. Otherwise drop
+    the action."""
+    libs = [m.get("id") for m in design.get("mechanics", [])
+            if m.get("type") == "SfxLibrary"]
+    if len(libs) == 1:
+        head, rest = _path_tail(err.get("path", ""))
+        # leaf is `library_ref`
+        if rest and rest[-1] == "library_ref":
+            parent, key = _walk_tokens(design, [head] + rest[:-1])
+            if parent is not None and key is not None:
+                try:
+                    parent[key]["library_ref"] = libs[0]  # type: ignore[index]
+                    log.info(f"design patcher: library_ref_not_sfx_library → retargeted to {libs[0]!r}")
+                    return True
+                except (KeyError, IndexError, TypeError):
+                    pass
+    # Fallback: drop the ActionRef entirely.
+    return _patch_drop_audio_action(design, err)
+
+
+def _patch_defaultise_mechanic_ref(design: dict, err: dict) -> bool:
+    """unknown_mechanic_field on a bpm / mixer ref — replace the
+    `{mechanic_ref, field}` object with a safe numeric default (120 for
+    bpm, 1 for mixer gains). Track structure stays intact."""
+    head, rest = _path_tail(err.get("path", ""))
+    if not rest:
+        return False
+    leaf = rest[-1]
+    parent, key = _walk_tokens(design, [head] + rest[:-1])
+    if parent is None or key is None:
+        return False
+    try:
+        container = parent[key]  # type: ignore[index]
+    except (KeyError, IndexError, TypeError):
+        return False
+    if not isinstance(container, dict) or leaf not in container:
+        return False
+    default = 120 if leaf == "bpm" else 1
+    container[leaf] = default
+    log.info(f"design patcher: unknown_mechanic_field → defaulted {err.get('path')} to {default}")
+    return True
+
+
+def _patch_drop_quantize(design: dict, err: dict) -> bool:
+    """invalid_quantize_source: remove quantize_to + quantize_source +
+    track_ref from the enclosing ActionRef. The action still fires,
+    just without beat-aligned timing (or in the chiptune case, it's
+    already broken and we drop it)."""
+    head, rest = _path_tail(err.get("path", ""))
+    if not rest:
+        return False
+    leaf = rest[-1]
+    parent, key = _walk_tokens(design, [head] + rest[:-1])
+    if parent is None or key is None:
+        return False
+    try:
+        container = parent[key]  # type: ignore[index]
+    except (KeyError, IndexError, TypeError):
+        return False
+    if not isinstance(container, dict):
+        return False
+    if leaf == "track_ref":
+        # play_chiptune / stop_chiptune without a valid target — drop.
+        return _patch_drop_audio_action(design, err)
+    container.pop("quantize_to", None)
+    container.pop("quantize_source", None)
+    log.info(f"design patcher: invalid_quantize_source → stripped quantize_* at {err.get('path')}")
+    return True
+
+
+def _patch_align_overlays(design: dict, err: dict) -> bool:
+    """overlay_condition_mismatch: truncate overlay_tracks and
+    overlay_conditions to the shorter length so each track has a
+    condition gate (or drop trailing conditions with no track)."""
+    _, rest = _path_tail(err.get("path", ""))
+    if not rest or not rest[0].isdigit():
+        return False
+    idx = int(rest[0])
+    mechs = design.get("mechanics", [])
+    if idx >= len(mechs):
+        return False
+    params = mechs[idx].get("params", {})
+    tracks = params.get("overlay_tracks", [])
+    conds = params.get("overlay_conditions", [])
+    if not isinstance(tracks, list) or not isinstance(conds, list):
+        return False
+    n = min(len(tracks), len(conds))
+    params["overlay_tracks"] = tracks[:n]
+    params["overlay_conditions"] = conds[:n]
+    if n == 0:
+        params.pop("overlay_tracks", None)
+        params.pop("overlay_conditions", None)
+    log.info(f"design patcher: overlay_condition_mismatch → truncated both lists to {n}")
+    return True
 
 
 def _resolve_file(project_dir: Path, rel_path: str) -> Path | None:
