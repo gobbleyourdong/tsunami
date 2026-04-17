@@ -28,14 +28,6 @@ import torch
 import torch.nn as nn
 from safetensors import safe_open
 
-# Iter-38 probe: iter-37's fp32-fc cast had no measurable effect on accept
-# rate. Diagnosis is that F.linear(bf16.float(), bf16.float()) dispatches
-# through TF32 tensor cores on Blackwell, which round back to bf16 precision
-# when cast back. To test whether true-FP32 fc (no TF32) eliminates the
-# slot-13 drift, disable TF32 for fp32 matmuls. Scoped global — main still
-# uses bf16 compute so this shouldn't slow it.
-torch.backends.cuda.matmul.allow_tf32 = False
-
 
 def fuse_mtp_experts(snapshot: Path, device: str = "cuda:0") -> dict:
     """Same fuser logic as the main model's expert fuser, restricted to the
@@ -193,18 +185,7 @@ class MTPHead(nn.Module):
         # 0% accept, so the order is not the bug. Reverted to [embed, hidden].
         x = torch.cat([self.pre_fc_norm_embedding(emb),
                        self.pre_fc_norm_hidden(last)], dim=-1)  # (B,1,2H)
-        # Iter-37 fix: fc is a plain bf16 nn.Linear and its GEMM dispatch is
-        # M-dependent (1 ULP = 7.8e-3 between M=1 and M=N even with identical
-        # inputs). That ULP-level drift in fc's output propagates into the
-        # decoder layer's K/V projection, producing the slot-drift that
-        # iter-34 measured (|ΔK|∞ ≈ 2e-3, |ΔV|∞ ≈ 4e-3). Run fc in FP32
-        # instead — per-row-independent matmul, tiny compute impact (fc is
-        # 4096×2048, one matrix-vector per decode step). Cast back to bf16
-        # before handing to the decoder layer so downstream FP8 weights see
-        # the dtype they expect.
-        x = torch.nn.functional.linear(
-            x.float(), self.fc.weight.float()
-        ).to(torch.bfloat16)  # (B,1,H)
+        x = self.fc(x)  # (B,1,H)
 
         pos_emb = self.rotary_emb(x, position_ids)
         # Transformers v5 signature: past_key_values (plural). See mtp_prefill
@@ -290,12 +271,7 @@ def mtp_prefill(
         mtp_head.pre_fc_norm_embedding(emb),
         mtp_head.pre_fc_norm_hidden(h_shift),
     ], dim=-1)                              # (1, S-1, 2H) — [emb, hidden]
-    # Match MTPHead.forward's iter-37 fp32 fc path so prefill and streaming
-    # produce bit-identical x at every slot (removing the bf16 M-dependent
-    # 7.8e-3 per-slot drift observed in iter-34).
-    x = torch.nn.functional.linear(
-        x.float(), mtp_head.fc.weight.float()
-    ).to(torch.bfloat16)                    # (1, S-1, H)
+    x = mtp_head.fc(x)                      # (1, S-1, H)
     pos_ids = torch.arange(S - 1, device=main_hidden.device)[None, :]  # (1, S-1)
     pos_emb = mtp_head.rotary_emb(x, pos_ids)
     cache = DynamicCache()
@@ -402,29 +378,33 @@ def generate_with_mtp(
     # |ΔK|∞ = 1.953e-3, |ΔV|∞ = 3.906e-3, driving next-step logit divergence
     # of 6.25e-2 (top-1 still matches in-sample).
     #
-    # Magnitude lands right at BF16's precision floor (~7.8e-3 per unit),
-    # so this is pure numerical drift. Iter-35 ruled out attention_mask
-    # dispatch (mask was added to the decode call; slot-13 K/V unchanged).
-    # Iter-36 (test_mtp_gemm_m_dep.py) ruled out FP8 GEMM M-dependency:
-    # running k_proj / v_proj / q_proj directly at M=1 vs M=14 with
-    # identical bf16 input produces bit-identical output (|Δ|∞ = 0.000e+00
-    # all rows, all three projections). So the drift lives UPSTREAM of the
-    # FP8 Q/K/V projections — candidates:
-    #   * fc (plain bf16 nn.Linear, 4096→2048): M-dependent bf16 GEMM?
-    #   * decoder layer's input_layernorm: should be M-invariant (RMSNorm)
-    #     but might pick different fused kernels by batch size
-    #   * something in how the decoder layer assembles inputs before the
-    #     attention projections
-    # Next probe should feed the SAME x_13 through the decoder layer in
-    # batched (M=14) vs single-row (M=1) mode and compare K/V written to
-    # cache at the shared position.
+    # Iter-35 ruled out attention_mask dispatch (mask added to decode call;
+    # slot-13 K/V unchanged). Iter-36 ruled out FP8 GEMM in q/k/v_proj
+    # (bit-identical M=1 vs M=N on identical inputs). Iter-37 measured fc
+    # (bf16 nn.Linear 4096→2048) at 7.8e-3 M-dependency on RANDOM inputs and
+    # the decoder layer itself at 0 drift on identical inputs — seemed to
+    # pin fc as the source. Iter-37 fix (run fc in FP32 via F.linear) and
+    # iter-38 fix (disable TF32 globally for fp32 matmuls) BOTH produced
+    # exactly the same slot-13 drift of 1.953e-3 / 3.906e-3 — identical to
+    # the bf16 baseline, to every digit. Two possibilities: cuBLAS fp32
+    # matmul on Blackwell is itself M-dependent at the same precision as
+    # bf16 (surprising but not impossible), or — more likely — the iter-37
+    # random-input test doesn't reflect what fc actually sees in the real
+    # [norm_emb(embed), norm_h(hidden)] streaming flow, and the true
+    # streaming drift originates elsewhere not yet isolated.
     #
-    # Structural fixes (all non-trivial, awaiting upstream-drift source):
-    #   1. Upcast MTP-layer compute to FP32 end-to-end. ~2× mem + compute.
-    #   2. Periodic cache rebuild every K steps (scales badly — main prefill
-    #      cost grows with S and exceeds accept-rate gain for long context).
-    #   3. Depends on where the drift actually originates, once iter-37+
-    #      isolates it.
+    # Net effect on accept rate across all iter-35..38 experiments: zero.
+    # Greedy stays locked at 13% (15/112) bit-for-bit reproducibly. Cache
+    # drift of 2e-3 alone isn't what bounds the accept ceiling.
+    #
+    # Structural fixes still theoretically available:
+    #   1. Upcast MTP-layer END-TO-END to FP32 (not just fc) — all attention
+    #      and MLP in fp32. Much bigger change, untested whether it even
+    #      helps given cache-drift isn't the bound.
+    #   2. Periodic cache rebuild every K steps — scales badly.
+    # Recommendation: park MTP here. 13% greedy / 30% sample via eager
+    # attention is the landed win. Further gains require deeper investigation
+    # or head retraining.
     last_hidden = out.hidden_states[-2]  # pre-final-norm  # (1, S, H)
     next_tok = _sample(out.logits[:, -1, :], temperature, top_p, top_k)
     generated = [next_tok]
