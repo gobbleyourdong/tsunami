@@ -185,7 +185,18 @@ class MTPHead(nn.Module):
         # 0% accept, so the order is not the bug. Reverted to [embed, hidden].
         x = torch.cat([self.pre_fc_norm_embedding(emb),
                        self.pre_fc_norm_hidden(last)], dim=-1)  # (B,1,2H)
-        x = self.fc(x)  # (B,1,H)
+        # Iter-37 fix: fc is a plain bf16 nn.Linear and its GEMM dispatch is
+        # M-dependent (1 ULP = 7.8e-3 between M=1 and M=N even with identical
+        # inputs). That ULP-level drift in fc's output propagates into the
+        # decoder layer's K/V projection, producing the slot-drift that
+        # iter-34 measured (|ΔK|∞ ≈ 2e-3, |ΔV|∞ ≈ 4e-3). Run fc in FP32
+        # instead — per-row-independent matmul, tiny compute impact (fc is
+        # 4096×2048, one matrix-vector per decode step). Cast back to bf16
+        # before handing to the decoder layer so downstream FP8 weights see
+        # the dtype they expect.
+        x = torch.nn.functional.linear(
+            x.float(), self.fc.weight.float()
+        ).to(torch.bfloat16)  # (B,1,H)
 
         pos_emb = self.rotary_emb(x, position_ids)
         # Transformers v5 signature: past_key_values (plural). See mtp_prefill
@@ -271,7 +282,12 @@ def mtp_prefill(
         mtp_head.pre_fc_norm_embedding(emb),
         mtp_head.pre_fc_norm_hidden(h_shift),
     ], dim=-1)                              # (1, S-1, 2H) — [emb, hidden]
-    x = mtp_head.fc(x)                      # (1, S-1, H)
+    # Match MTPHead.forward's iter-37 fp32 fc path so prefill and streaming
+    # produce bit-identical x at every slot (removing the bf16 M-dependent
+    # 7.8e-3 per-slot drift observed in iter-34).
+    x = torch.nn.functional.linear(
+        x.float(), mtp_head.fc.weight.float()
+    ).to(torch.bfloat16)                    # (1, S-1, H)
     pos_ids = torch.arange(S - 1, device=main_hidden.device)[None, :]  # (1, S-1)
     pos_emb = mtp_head.rotary_emb(x, pos_ids)
     cache = DynamicCache()
