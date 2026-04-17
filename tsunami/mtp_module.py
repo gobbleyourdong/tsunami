@@ -376,9 +376,33 @@ def generate_with_mtp(
         # What main *actually* would have sampled at position 0 (the slot MTP guessed)
         main_at_draft_pos = _sample(logits_both[:, 0, :], temperature, top_p, top_k)
 
+        # Leviathan-Chen stochastic acceptance for temperature > 0: accept the
+        # speculated token with probability min(1, p(x)/q(x)) where p is
+        # main's distribution and q is MTP's, both taken at position 0
+        # (the slot speculation targets). Our prior rule was exact-argmax
+        # match, which at temp>0 rejects every non-matching sample even when
+        # p(x) is reasonable. The feifeibear reference uses this exact rule
+        # and achieves ~40-70% accept on well-trained drafts; our 10-18%
+        # at temp=0.7 is largely the strictness penalty. At temp=0 both
+        # distributions are one-hot argmax → stochastic rule degenerates
+        # into exact-match, so greedy behaviour is unchanged.
+        import random as _rand
+        if temperature <= 0:
+            _accept = main_at_draft_pos.item() == speculated.item()
+        else:
+            _spec_idx = int(speculated.item())
+            _q = torch.softmax(mtp_logits[0, 0, :].float() / temperature, dim=-1)[_spec_idx].item()
+            _p = torch.softmax(logits_both[0, 0, :].float() / temperature, dim=-1)[_spec_idx].item()
+            if _p >= _q:
+                _accept = True
+            elif _q <= 0.0:
+                _accept = False
+            else:
+                _accept = _rand.random() < (_p / _q)
+
         stats["steps"] += 1
         full_hidden = out.hidden_states[-2]  # (1, 2, H) — pre-final-norm (see prefill comment)
-        if main_at_draft_pos.item() == speculated.item():
+        if _accept:
             # Accept MTP: we got 2 tokens out of 1 main forward.
             stats["accepts"] += 1
             generated.append(speculated)
