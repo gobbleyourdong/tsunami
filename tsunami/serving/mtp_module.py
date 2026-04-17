@@ -378,33 +378,38 @@ def generate_with_mtp(
     # |ΔK|∞ = 1.953e-3, |ΔV|∞ = 3.906e-3, driving next-step logit divergence
     # of 6.25e-2 (top-1 still matches in-sample).
     #
-    # Iter-35 ruled out attention_mask dispatch (mask added to decode call;
-    # slot-13 K/V unchanged). Iter-36 ruled out FP8 GEMM in q/k/v_proj
-    # (bit-identical M=1 vs M=N on identical inputs). Iter-37 measured fc
-    # (bf16 nn.Linear 4096→2048) at 7.8e-3 M-dependency on RANDOM inputs and
-    # the decoder layer itself at 0 drift on identical inputs — seemed to
-    # pin fc as the source. Iter-37 fix (run fc in FP32 via F.linear) and
-    # iter-38 fix (disable TF32 globally for fp32 matmuls) BOTH produced
-    # exactly the same slot-13 drift of 1.953e-3 / 3.906e-3 — identical to
-    # the bf16 baseline, to every digit. Two possibilities: cuBLAS fp32
-    # matmul on Blackwell is itself M-dependent at the same precision as
-    # bf16 (surprising but not impossible), or — more likely — the iter-37
-    # random-input test doesn't reflect what fc actually sees in the real
-    # [norm_emb(embed), norm_h(hidden)] streaming flow, and the true
-    # streaming drift originates elsewhere not yet isolated.
+    # Iter-35..40 fully pinned the streaming drift chain:
+    #   35. attention_mask dispatch: not the source (K/V pre-attention)
+    #   36. FP8 GEMM in q/k/v_proj: M-invariant (bit-identical M=1 vs M=N)
+    #   37. fc bf16 GEMM on random input: 7.8e-3 M-dependency
+    #   38. fp32 fc + TF32 off still shows 1.953e-3 slot-13 drift in H2
+    #   39. fc bf16 on REAL input (not random): 3.906e-3 M-dependency
+    #       confirmed — iter-37 finding real, not a red herring
+    #   40. fp32 fc with TF32 off, PRE-cast to bf16:     9.537e-7 (zero)
+    #       fp32 fc with TF32 off, POST-cast to bf16:    1.953e-3
+    # → The drift is the bf16 round-trip. fp32 GEMM is truly M-invariant,
+    # but when we cast its output back to bf16 (required — downstream FP8
+    # projections take bf16 input), the tiny sub-ULP fp32 differences
+    # between M=1 and M=N outputs straddle bf16 quantisation boundaries
+    # and round to different bf16 values, re-introducing ~1/4 ULP of bf16
+    # drift. Eliminating this requires an end-to-end fp32 path for MTP's
+    # forward (fc → q/k/v_proj → attention → MLP → norm → lm_head), i.e.,
+    # bypassing FP8Linear for MTP entirely. Substantial refactor.
     #
-    # Net effect on accept rate across all iter-35..38 experiments: zero.
-    # Greedy stays locked at 13% (15/112) bit-for-bit reproducibly. Cache
-    # drift of 2e-3 alone isn't what bounds the accept ceiling.
+    # Critical additional finding from iter-37/38 H2 + benchmark pair:
+    # eliminating just the fc drift (via fp32 cast, same bf16 round-trip)
+    # neither changed the H2 slot-13 drift NOR moved the greedy accept rate
+    # off 13% (identical 15/112 across bf16, fp32, fp32+tf32-off variants).
+    # So the cache drift at ~2e-3 magnitude ISN'T what bounds the accept
+    # ceiling. Even a full fp32 MTP refactor likely wouldn't help — the
+    # remaining 13% → 83% gap lives elsewhere (candidate: hidden-layer
+    # convention mismatch, per-position MTP prediction quality, or a
+    # different compound-drift source not yet probed).
     #
-    # Structural fixes still theoretically available:
-    #   1. Upcast MTP-layer END-TO-END to FP32 (not just fc) — all attention
-    #      and MLP in fp32. Much bigger change, untested whether it even
-    #      helps given cache-drift isn't the bound.
-    #   2. Periodic cache rebuild every K steps — scales badly.
-    # Recommendation: park MTP here. 13% greedy / 30% sample via eager
-    # attention is the landed win. Further gains require deeper investigation
-    # or head retraining.
+    # Recommendation: park MTP here. 13% greedy / 30% sample via
+    # attn_implementation="eager" is the defensible landed win. Further
+    # gains need a new investigation thread (hidden-layer deep-dive, MTP
+    # head retraining, or alt speculative schemes like Medusa/EAGLE).
     last_hidden = out.hidden_states[-2]  # pre-final-norm  # (1, S, H)
     next_tok = _sample(out.logits[:, -1, :], temperature, top_p, top_k)
     generated = [next_tok]
