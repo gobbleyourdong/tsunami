@@ -112,20 +112,46 @@ def main_entrypoint():
     rand_diffs = [float((r_batched[:, i, :] - r_single[:, i, :]).abs().max().item()) for i in range(N)]
     print(f"fc on RANDOM inputs (control), overall max |Δ|∞ = {max(rand_diffs):.3e}")
 
+    # --- Iter-40: does fp32 fc + TF32 off actually eliminate the drift? ---
+    print("\n--- iter-40: fp32 fc + TF32 off on real inputs ---")
+    import torch.backends.cuda as _be
+    prev_tf32 = _be.matmul.allow_tf32
+    _be.matmul.allow_tf32 = False
+    try:
+        w_fp32 = mtp.fc.weight.float()
+        x_fp32 = real_2h.float()
+        ob_fp32 = torch.nn.functional.linear(x_fp32, w_fp32)
+        os_fp32 = torch.cat([
+            torch.nn.functional.linear(x_fp32[:, i:i+1, :], w_fp32) for i in range(N)
+        ], dim=1)
+        # Diff in fp32 space (pre-cast)
+        d_fp32 = [float((ob_fp32[:, i, :] - os_fp32[:, i, :]).abs().max().item()) for i in range(N)]
+        # Diff after cast back to bf16 (what downstream consumers see)
+        ob_bf16 = ob_fp32.to(torch.bfloat16)
+        os_bf16 = os_fp32.to(torch.bfloat16)
+        d_bf16 = [float((ob_bf16[:, i, :] - os_bf16[:, i, :]).abs().max().item()) for i in range(N)]
+        print(f"fp32 (tf32 off) pre-cast: max row |Δ|∞ = {max(d_fp32):.3e}")
+        print(f"fp32 (tf32 off) post-cast-to-bf16: max row |Δ|∞ = {max(d_bf16):.3e}")
+    finally:
+        _be.matmul.allow_tf32 = prev_tf32
+
     print("\nVERDICT:")
     if overall > 1e-4 and max(rand_diffs) > 1e-4:
-        print("  fc is M-dependent on BOTH real and random inputs.")
-        print("  → iter-37 was right about the source. The fp32/TF32-off fixes")
-        print("    genuinely failed to eliminate the drift — cuBLAS fp32 on")
-        print("    Blackwell is M-dependent at the same precision as bf16.")
-    elif overall < 1e-4 and max(rand_diffs) > 1e-4:
-        print("  fc is M-dependent on RANDOM inputs but NOT on real inputs.")
-        print("  → iter-37 was a red herring. True streaming drift source is")
-        print("    elsewhere — need to probe further.")
-    elif overall < 1e-4 and max(rand_diffs) < 1e-4:
-        print("  fc is M-invariant on both inputs. iter-37 result was spurious.")
+        if max(d_bf16) > 1e-4:
+            print("  fc is M-dependent on real AND random, AND fp32+tf32-off")
+            print("  STILL shows drift after cast to bf16 → cuBLAS on Blackwell")
+            print("  is genuinely M-dependent at this precision regardless of")
+            print("  dtype. No local fix without changing the kernel.")
+        elif max(d_fp32) < 1e-4:
+            print("  fc is M-dependent in bf16, but fp32+tf32-off produces")
+            print("  bit-identical output across M. The iter-38 H2 run must")
+            print("  have had a subtle engagement bug — the fp32 path wasn't")
+            print("  actually running. Worth retrying with explicit verification.")
+        else:
+            print("  fp32+tf32-off reduces but doesn't eliminate drift; cast")
+            print("  to bf16 still preserves enough for downstream effects.")
     else:
-        print("  fc is M-dependent on real inputs but not random. Unusual.")
+        print("  Unexpected primary verdict — see raw numbers above.")
 
 
 if __name__ == "__main__":
