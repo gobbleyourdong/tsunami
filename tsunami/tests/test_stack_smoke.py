@@ -30,8 +30,13 @@ sys.path.insert(0, str(REPO))
 # Point undertow's eddy-compare at the same proxy we're smoke-testing. Default
 # in undertow is :8091 which isn't in our stack (legacy eddy port).
 os.environ.setdefault("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8090")
+# Point riptide's VL fallback chain at the proxy too. Default chain checks
+# :8091 (legacy VL) → :8092 (ERNIE, not chat) → :8090 (proxy) — the proxy
+# answers, but setting TSUNAMI_MODEL_ENDPOINT makes intent explicit.
+os.environ.setdefault("TSUNAMI_MODEL_ENDPOINT", "http://localhost:8090")
 
 from tsunami.undertow import Lever, pull_levers
+from tsunami.tools.riptide import Riptide
 
 
 def _section(title):
@@ -168,11 +173,52 @@ def undertow_qa() -> dict:
     return {"passed": report.passed, "results": report.results}
 
 
+def riptide_vision_grounding() -> dict:
+    _section("5. Riptide — vision grounding via proxy → qwen36 VLM")
+    # Draw a 512×512 image with a red circle (top-left) + blue square
+    # (bottom-right). Tiny scene the VLM can reliably locate.
+    from PIL import Image, ImageDraw
+    img = Image.new("RGB", (512, 512), color="white")
+    d = ImageDraw.Draw(img)
+    d.ellipse((50, 50, 200, 200), fill="red")
+    d.rectangle((300, 300, 460, 460), fill="blue")
+    tmp = Path(tempfile.mkdtemp(prefix="riptide_"))
+    img_path = tmp / "scene.png"
+    img.save(img_path)
+
+    # Riptide inherits BaseTool(config: TsunamiConfig). The tool itself reads
+    # VL_ENDPOINT from env, not from config, so a minimal stub suffices.
+    class _StubConfig:
+        pass
+    tool = Riptide(_StubConfig())
+    t0 = time.time()
+    result = asyncio.get_event_loop().run_until_complete(
+        tool.execute(image_path=str(img_path), elements=["red circle", "blue square"])
+    )
+    dt = time.time() - t0
+    content = getattr(result, "content", None) or getattr(result, "text", "") or str(result)
+    is_error = bool(getattr(result, "is_error", False))
+    has_red = "red circle" in content.lower()
+    has_blue = "blue square" in content.lower()
+    has_bbox = "bbox" in content.lower() or "%" in content
+    ok = not is_error and has_red and has_blue and has_bbox
+    tag = "✓" if ok else "✗"
+    print(f"  {tag}  latency: {dt:.2f}s  is_error={is_error}")
+    # Trim to fit terminal — grounding output can be long
+    print(f"  content:")
+    for line in content.splitlines()[:8]:
+        print(f"    {line}")
+    if len(content.splitlines()) > 8:
+        print(f"    ... ({len(content.splitlines())} lines total)")
+    return {"ok": ok, "latency_s": round(dt, 2), "is_error": is_error, "content": content}
+
+
 def main():
     health = check_health()
     gen = gen_chat_through_proxy()
     emb = embed_through_proxy()
     qa = undertow_qa()
+    rip = riptide_vision_grounding()
 
     _section("SUMMARY")
     all_healthy = all(health.values())
@@ -181,8 +227,9 @@ def main():
     print(f"  embedding:   {'✓' if emb.get('ok') else '✗'}  {emb.get('latency_s')}s  dim={emb.get('dim')}")
     print(f"  undertow QA: {'✓' if qa.get('passed') else '✗'}  "
           f"{sum(1 for r in qa.get('results', []) if r.passed)}/{len(qa.get('results', []))} levers")
+    print(f"  riptide:     {'✓' if rip.get('ok') else '✗'}  {rip.get('latency_s')}s  vision grounding")
 
-    overall = all_healthy and gen.get("ok") and emb.get("ok") and qa.get("passed")
+    overall = all_healthy and gen.get("ok") and emb.get("ok") and qa.get("passed") and rip.get("ok")
     print(f"\n  {'✅ STACK HEALTHY' if overall else '❌ STACK BROKEN'}")
     return 0 if overall else 1
 

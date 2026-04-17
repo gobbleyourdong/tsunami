@@ -233,25 +233,25 @@ def _parse_grounding_response(content: str, elements: list[str], img_w: int = 0,
     """
     results = []
 
-    # --- Format 1: pixel bbox (Qwen3.5-4B native) ---
-    # `ELEMENT: foo BBOX: [x1, y1, x2, y2]` — convert pixels → percentages
-    if img_w > 0 and img_h > 0:
-        pixel_pattern = re.findall(
-            r'ELEMENT:\s*(.+?)\s+BBOX:\s*\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]',
-            content, re.IGNORECASE,
-        )
-        for name, x1, y1, x2, y2 in pixel_pattern:
-            x1f, y1f = float(x1) / img_w * 100, float(y1) / img_h * 100
-            x2f, y2f = float(x2) / img_w * 100, float(y2) / img_h * 100
-            results.append({
-                "name": name.strip(),
-                "left": round(x1f, 1),
-                "top": round(y1f, 1),
-                "width": round(x2f - x1f, 1),
-                "height": round(y2f - y1f, 1),
-                "color": "",
-                "notes": "",
-            })
+    # --- Format 1: Qwen3.6 0-1000 normalized bbox ---
+    # `ELEMENT: foo BBOX: [x1, y1, x2, y2]` — values are on a 0-1000 scale
+    # (Qwen's convention). Divide by 10 to get percentages directly.
+    pixel_pattern = re.findall(
+        r'ELEMENT:\s*(.+?)\s+BBOX:\s*\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]',
+        content, re.IGNORECASE,
+    )
+    for name, x1, y1, x2, y2 in pixel_pattern:
+        x1f, y1f = float(x1) / 10, float(y1) / 10
+        x2f, y2f = float(x2) / 10, float(y2) / 10
+        results.append({
+            "name": name.strip(),
+            "left": round(x1f, 1),
+            "top": round(y1f, 1),
+            "width": round(x2f - x1f, 1),
+            "height": round(y2f - y1f, 1),
+            "color": "",
+            "notes": "",
+        })
 
     # --- Format 3: structured prose (legacy, keeps Gemma-era compat) ---
     # Try structured format: ELEMENT: ... POSITION: left=X% top=Y%...
