@@ -346,6 +346,21 @@ def generate_with_mtp(
     # 83% top-1 alignment with [-1] because it rebuilds cache per position;
     # the generate loop accumulates and the two paths diverge. [-2] is the
     # empirically-better convention for streaming decode, so keep it.
+    #
+    # Iter-32 drift test (test_mtp_streaming_drift.py) pins the root cause:
+    # main's hidden at the prompt tail differs by |Δ|∞ ~0.44 in bf16 between
+    # a prefill with use_cache=True (what streaming feeds MTP below) and one
+    # with use_cache=False (what the diagnostic rebuilds per step). Same
+    # token input, same position, same layer — different numerics. The
+    # cached attention dispatch and the uncached dispatch produce materially
+    # different outputs, so streaming MTP sees a distribution the diagnostic
+    # never measures. Per-step drift grows to |Δh|∞ 2-14 across 11 decode
+    # positions with KL > 4 nats vs prefill-equivalent MTP logits on 8 of
+    # 11, matching the 9% accept rate. Closing this gap without retraining
+    # MTP requires either (a) forcing main onto a cache-invariant attention
+    # kernel (eager — ~10× slower, kills the MTP win), or (b) snapshotting
+    # uncached-prefill hidden at each decode step (~2× compute, also kills
+    # the win). No cheap fix identified.
     last_hidden = out.hidden_states[-2]  # pre-final-norm  # (1, S, H)
     next_tok = _sample(out.logits[:, -1, :], temperature, top_p, top_k)
     generated = [next_tok]
