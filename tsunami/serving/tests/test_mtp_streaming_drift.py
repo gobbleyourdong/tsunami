@@ -4,26 +4,32 @@ test_mtp_diagnose measures ~83% per-position top-1 alignment via fresh-rebuild?
 
 CONFIRMED FINDING (2026-04-17): main's hidden_states[-2] from a prefill with
 use_cache=True diverges from the same prefill with use_cache=False at the SAME
-position, for IDENTICAL token inputs, by |Δh|∞ ~ 0.44 in bf16. That drift
-snowballs through subsequent decode steps (|Δh|∞ 2-14 across 11 streaming
-positions, KL > 4 nats vs prefill-equivalent MTP logits on 8 of 11 steps).
+position, for IDENTICAL token inputs, by |Δh|∞ ~ 0.44 in bf16 under the
+default SDPA attention. That drift snowballs through subsequent decode steps
+(|Δh|∞ 2-14 across 11 streaming positions, KL > 4 nats vs prefill-equivalent
+MTP logits on 8 of 11 steps).
 
-Implication: the MTP head predicts reasonably when fed prefill-quality hidden,
-but what generate_with_mtp actually feeds it (cached-path hidden) is a
-different distribution from what test_mtp_diagnose feeds it (uncached-path
-hidden). The 83% per-position alignment the diagnostic reports is against the
-UNCACHED path; streaming decode uses the CACHED path and lives at 9%.
+Iter-33 partial fix: forcing attn_implementation="eager" lifted MTP greedy
+accept 9% → 13% — eager uses the SAME code path for prefill with/without
+cache, so it should (in theory) drive the sanity diff to ~0. Re-run this
+script with ATTN_IMPL=eager to verify empirically:
+  ATTN_IMPL=eager python3 tsunami/serving/tests/test_mtp_streaming_drift.py
 
-The sanity block below is the tight reproducer. Extended per-step drift
-exploration can be layered on top — kept minimal here because the sanity alone
-is sufficient to flag the root cause.
+If eager sanity diff IS ~0 but MTP accept under eager is still only 13% (not
+83%), the remaining 70pp gap lives in H2 — MTP's streaming cache-entry
+semantics differ from fresh-prefill even with identical hidden inputs. If
+eager sanity diff is NOT 0, the kernel drift has multiple sources and deeper
+investigation of attention-dispatch paths is warranted.
 
 Run:
-  python3 tsunami/serving/tests/test_mtp_streaming_drift.py
+  python3 tsunami/serving/tests/test_mtp_streaming_drift.py             # default (sdpa)
+  ATTN_IMPL=eager python3 tsunami/serving/tests/test_mtp_streaming_drift.py
 """
-import sys
+import os, sys
 from pathlib import Path
 import torch
+
+ATTN_IMPL = os.environ.get("ATTN_IMPL", "").strip() or None  # None = auto
 
 sys.path.insert(0, "/home/jb/ComfyUI/CelebV-HQ/ark/tsunami/serving")
 
@@ -61,6 +67,9 @@ SNAP = Path(
 def load():
     cfg = AutoConfig.from_pretrained(MID, trust_remote_code=True)
     cfg.text_config.intermediate_size = cfg.text_config.moe_intermediate_size
+    if ATTN_IMPL:
+        cfg.text_config._attn_implementation = ATTN_IMPL
+        cfg._attn_implementation = ATTN_IMPL
     cache = _fuse_cache_path(SNAP, Path.home() / ".cache" / "sigma_fuse")
     if cache.exists():
         print(f"loading main from fused cache {cache.name}")
@@ -68,11 +77,16 @@ def load():
     else:
         print("building fused sd from raw shards (slow)")
         sd = _build_fused_state_dict(SNAP)
-    main = Qwen3_5MoeForConditionalGeneration.from_pretrained(
-        None, config=cfg, state_dict=sd, dtype="auto",
+    kw = dict(
+        config=cfg, state_dict=sd, dtype="auto",
         device_map="cuda:0", trust_remote_code=True, low_cpu_mem_usage=True,
     )
+    if ATTN_IMPL:
+        kw["attn_implementation"] = ATTN_IMPL
+    main = Qwen3_5MoeForConditionalGeneration.from_pretrained(None, **kw)
     sd = None; torch.cuda.empty_cache()
+    resolved = getattr(main.config, "_attn_implementation", "?")
+    print(f"  attn_impl resolved: {resolved}")
     tok = AutoTokenizer.from_pretrained(MID, trust_remote_code=True)
     return main, tok
 
