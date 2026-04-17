@@ -179,17 +179,16 @@ class MTPHead(nn.Module):
         for S. Caller is responsible for the accept/reject verification."""
         last = hidden_from_main[:, -1:, :]
         emb = self.embed_tokens(next_token_ids)  # (B,1,H)
-        # Iter-41: DeepSeek-V3 paper (arXiv 2412.19437) eq 21 specifies the
-        # MTP input as [RMSNorm(hidden); RMSNorm(Emb(token))] — hidden FIRST,
-        # embed SECOND. Qwen's MTP inherits from DeepSeek so its fc weight is
-        # trained with that column ordering. Our original iter-7 also tried
-        # this flip but got 0% accept and reverted; that earlier 0% was
-        # masked by still-unfixed bugs (RMSNorm sign inversion fixed in
-        # iter-26; layer_idx wiring fixed in iter-25; cache kwarg rename
-        # fixed in iter-24). With those bugs gone, the DeepSeek-convention
-        # order may finally reveal itself as the right one.
-        x = torch.cat([self.pre_fc_norm_hidden(last),
-                       self.pre_fc_norm_embedding(emb)], dim=-1)  # (B,1,2H)
+        # Concat order matters: DeepSeek-V3 MTP (Qwen's ancestor) uses
+        # [embed, hidden] in Qwen's checkpoint even though the paper's
+        # equation 21 is written [hidden; embed]. Iter-41 retested the
+        # flip with all later bug fixes in place — still 0% accept (2/3
+        # greedy runs confirmed 0/127). Qwen either transposed the fc
+        # column order relative to the paper, or paper notation `[a; b]`
+        # doesn't map to concat-axis ordering the way we read it. Either
+        # way, [embed, hidden] is empirically the right order here.
+        x = torch.cat([self.pre_fc_norm_embedding(emb),
+                       self.pre_fc_norm_hidden(last)], dim=-1)  # (B,1,2H)
         x = self.fc(x)  # (B,1,H)
 
         pos_emb = self.rotary_emb(x, position_ids)
@@ -268,13 +267,14 @@ def mtp_prefill(
     h_shift = main_hidden[:, :-1, :]       # (1, S-1, H) hidden_0..S-2
     t_shift = input_ids[:, 1:]              # (1, S-1) tokens_1..S-1
     emb = mtp_head.embed_tokens(t_shift)    # (1, S-1, H)
-    # Match MTPHead.forward's iter-41 [hidden, embed] order (DeepSeek-V3
-    # paper eq 21 convention). iter-7/8 trial flip is no longer indicative
-    # because other bugs fixed since then were masking the true order.
+    # Match MTPHead.forward's [embed, hidden] order. Iter-41 confirmed the
+    # flipped [hidden, embed] variant regresses to 0% accept even after all
+    # other bugs were fixed — Qwen's checkpoint expects [embed, hidden]
+    # regardless of what DeepSeek-V3's paper equation notation suggests.
     x = torch.cat([
-        mtp_head.pre_fc_norm_hidden(h_shift),
         mtp_head.pre_fc_norm_embedding(emb),
-    ], dim=-1)                              # (1, S-1, 2H) — [hidden, embed]
+        mtp_head.pre_fc_norm_hidden(h_shift),
+    ], dim=-1)                              # (1, S-1, 2H) — [embed, hidden]
     x = mtp_head.fc(x)                      # (1, S-1, H)
     pos_ids = torch.arange(S - 1, device=main_hidden.device)[None, :]  # (1, S-1)
     pos_emb = mtp_head.rotary_emb(x, pos_ids)
