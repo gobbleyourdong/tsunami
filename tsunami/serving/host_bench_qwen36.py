@@ -16,7 +16,7 @@ os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 import transformers.integrations.finegrained_fp8 as _fgfp8
 _fgfp8._load_deepgemm_kernel = lambda: (_ for _ in ()).throw(ImportError())
 
-sys.path.insert(0, "/home/jb/ComfyUI/CelebV-HQ/ark/tsunami")
+sys.path.insert(0, "/home/jb/ComfyUI/CelebV-HQ/ark/tsunami/serving")
 # Mask sys.argv so the server module's early bind-probe short-circuits
 # (it skips when `-h`/`--help` is present). We just want the helpers.
 _saved_argv = sys.argv

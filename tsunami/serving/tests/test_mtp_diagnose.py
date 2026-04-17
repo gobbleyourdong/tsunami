@@ -24,7 +24,7 @@ import sys, time
 from pathlib import Path
 import torch
 
-sys.path.insert(0, "/home/jb/ComfyUI/CelebV-HQ/ark/tsunami")
+sys.path.insert(0, "/home/jb/ComfyUI/CelebV-HQ/ark/tsunami/serving")
 
 # Mirror server-side monkeypatches
 import transformers.integrations.finegrained_fp8 as _fgfp8

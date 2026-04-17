@@ -164,7 +164,7 @@ _q35moe_mod.Qwen3_5MoeTextModel._update_linear_attn_mask = _ulam_dict_aware
 # for larger tiles. Routed through the same `w8a8_fp8_matmul` entry point so
 # transformers' per-module FP8Linear dispatch still works.
 import sys as _vsys
-_vsys.path.insert(0, "/home/jb/ComfyUI/CelebV-HQ/ark/tsunami")
+_vsys.path.insert(0, "/home/jb/ComfyUI/CelebV-HQ/ark/tsunami/serving")
 from vendor.deepseek_fp8_kernel import fp8_gemm as _ds_fp8_gemm
 
 def _ds_w8a8_fp8_matmul(A, B, As, Bs, block_size=None, output_dtype=torch.bfloat16):
