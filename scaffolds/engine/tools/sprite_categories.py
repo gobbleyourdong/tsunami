@@ -17,14 +17,12 @@ chains below — generate_asset would reject them and recipes carried
 them as "architecture thread to add." They re-appear in v1.2 once
 impls land.
 
-Backend policy (post-Phase 6.2): all 8 categories primary on ERNIE-
-Image-Turbo (:8092) with backend_fallback='z_image' (:8090 Z-Image-
-Turbo). ERNIE is the shipping default per operator directive —
-8 steps / CFG 1.0 / use_pe=False — with z_image as the always-
-available fallback when the ERNIE server is mid-swap or offline.
-Recipe settings (gen_size / variations / palette) stay as the
-authors chose them; ERNIE accepts arbitrary aspect ratios so we
-don't force 1024² except where the recipe already specified it.
+Backend policy: all 8 categories route to ERNIE-Image-Turbo (:8092).
+It's the sole shipping backend — Z-Image was retired 2026-04-17.
+ERNIE constants are 8 steps / CFG 1.0 / use_pe=False. Recipe settings
+(gen_size / variations / palette) stay as the authors chose them;
+ERNIE accepts arbitrary aspect ratios so we don't force 1024² except
+where the recipe already specified it.
 """
 from __future__ import annotations
 
@@ -78,7 +76,7 @@ class CategoryConfig:
 
     # Backend.
     backend: BackendName = "ernie"
-    backend_fallback: Optional[BackendName] = "z_image"
+    backend_fallback: Optional[BackendName] = None
 
     # Quality (warn-only — below threshold stamps score_warning=True).
     min_acceptable_score: Optional[float] = None
@@ -367,9 +365,8 @@ CATEGORIES: dict[str, CategoryConfig] = {
 
     # ─ portrait (new — recipes/portrait.md) ────────────────────────
     #
-    # Recipe lists backend: ernie preferred, fallback: z_image. Per G2
-    # we ship MVP with z_image only + fallback=None; Phase 6.2 swaps to
-    # ernie + z_image fallback once ErnieBackend.generate is wired.
+    # Recipe listed ERNIE as preferred — we're ERNIE-only now, so the
+    # override is noop but stays here for clarity against the recipe.
     "portrait": CategoryConfig(
         name="portrait",
         description="Head-and-shoulders portrait — JRPG dialogue style, "
@@ -394,7 +391,7 @@ CATEGORIES: dict[str, CategoryConfig] = {
         target_size=(128, 128),
         palette_colors=20,
         backend="ernie",
-        backend_fallback="z_image",
+        backend_fallback=None,
         post_process=[
             "pixel_extract",
             "isolate_largest",

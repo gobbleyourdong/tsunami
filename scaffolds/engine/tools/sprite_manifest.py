@@ -4,7 +4,7 @@ Manifest shape (scaffolds/<game>/assets.manifest.json):
 
     {
       "schema_version": "1",
-      "backend": "zimage@turbo-9s",            # optional — build-time hint
+      "backend": "ernie@turbo-8s",             # optional — build-time hint
       "assets": [
         {
           "id": "player_knight",

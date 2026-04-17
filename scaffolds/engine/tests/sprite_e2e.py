@@ -38,7 +38,7 @@ sys.path.insert(0, str(REPO / "scaffolds" / "engine" / "tools"))
 
 FIXTURE = {
     "schema_version": "1",
-    "backend": "zimage@turbo-9s",
+    "backend": "ernie@turbo-8s",
     "assets": [
         {"id": "player_hero", "category": "character",
          "prompt": "pixel art hero with sword, side view, green tunic",
@@ -68,11 +68,11 @@ def _install_stub_backend() -> None:
     from sprite_backends import Backend
 
     class StubBackend(Backend):
-        name = "z_image"
+        name = "ernie"
         version = "stub-test"
         endpoint = ""
-        default_steps = 9
-        default_guidance = 0.0
+        default_steps = 8
+        default_guidance = 1.0
 
         def generate(self, prompt, width, height, steps=None,
                      guidance=None, seed=None, negative_prompt=None):

@@ -39,18 +39,12 @@ OUTPUT_DIR = Path(__file__).parent.parent.parent / "scaffolds" / "webgpu-game" /
 
 # ── Generation Backend ────────────────────────────────────────────
 #
-# One backend. Hits the tsunami server on :8090 — uses the Z-Image-Turbo
-# weights already loaded by serve_transformers.py, no second model load.
-# Sprite generation is an authoring-time activity; the tsunami server runs
-# on a proper GPU box (apps it produces serve on-device; only authoring
-# needs real hardware).
+# Delegates to sprite_backends.ErnieBackend (:8092). Sprite generation
+# is an authoring-time activity; the tsunami server runs on a proper
+# GPU box (apps it produces serve on-device; only authoring needs real
+# hardware).
 #
-# Z-Image-Turbo official recipe: 9 steps, guidance 0.0. Guidance > 0 on
-# turbo models smooths edges and destroys pixel detail.
-
-ZIMAGE_ENDPOINT = "http://localhost:8090/v1/images/generate"
-ZIMAGE_STEPS = 9
-ZIMAGE_GUIDANCE = 0.0
+# ERNIE-Image-Turbo constants: 8 steps, CFG 1.0, use_pe=False. Locked.
 
 
 # ── Generation ────────────────────────────────────────────────────
@@ -81,16 +75,17 @@ def generate_image(
     height: int = 512,
     seed: int = -1,
 ) -> Image.Image:
-    """Generate a single image via Z-Image-Turbo.
+    """Generate a single image via ERNIE-Image-Turbo (:8092).
 
-    v1.1 refactor (Phase 1): delegates to `sprite_backends.ZImageBackend`.
-    Signature + behaviour preserved — existing batch callers
+    Legacy CLI delegate — signature preserved so existing batch callers
     (rpg_asset_pack.json / game_sprites.json) keep working unchanged.
+    Routes through sprite_backends.ErnieBackend, same as
+    generate_asset().
     """
     from sprite_backends import get_backend
 
     styled_prompt = STYLE_PREFIXES.get(category, "") + prompt
-    backend = get_backend("z_image")
+    backend = get_backend("ernie")
     return backend.generate(
         styled_prompt, width, height,
         seed=seed if seed >= 0 else None,

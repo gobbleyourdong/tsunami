@@ -295,7 +295,7 @@ the design script:
 // scaffolds/<game>/assets.manifest.json
 {
   "schema_version": "1",
-  "backend": "zimage@turbo-9s",
+  "backend": "ernie@turbo-8s",
   "assets": [
     {
       "id": "player_hero",
