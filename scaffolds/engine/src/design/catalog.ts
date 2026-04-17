@@ -580,6 +580,75 @@ export const CATALOG: Record<MechanicType, CatalogEntry> = {
     common_patches: ['add node', 'rewire edges', 'swap scene_ref'],
   },
 
+  // v1.1 audio extension
+  ChipMusic: {
+    type: 'ChipMusic',
+    description:
+      '4+1 channel chiptune (pulse1/pulse2/triangle/noise/wave). Optional ' +
+      'N-layer overlay tracks with crossfade on condition. BPM and mixer ' +
+      'can be numbers OR {mechanic_ref, field} to drive tempo/volume from ' +
+      'Difficulty or any other mechanic. Publishes beat events for ' +
+      'rhythm-gated triggers.',
+    example_params: {
+      base_track: {
+        bpm: 128,
+        bars: 4,
+        loop: true,
+        channels: {
+          pulse1: [{ time: 0, note: 'C5', duration: 0.5 },
+                   { time: 0.5, note: 'E5', duration: 0.5 },
+                   { time: 1, note: 'G5', duration: 0.5 }],
+          noise:  [{ time: 0, note: 'kick',  duration: 0.25 },
+                   { time: 1, note: 'snare', duration: 0.25 }],
+        },
+        mixer: { pulse1: 1, noise: 0.8 },
+      },
+      channel: 'music',
+      autoplay_on: 'stage_loaded',
+    },
+    emits_fields: [
+      'is_playing', 'current_beat', 'active_layer',
+      'on_beat', 'off_beat',
+      'channel_gain.pulse1', 'channel_gain.pulse2',
+      'channel_gain.triangle', 'channel_gain.noise', 'channel_gain.wave',
+    ],
+    tier: 'v1_core',
+    priority_class: 'effects',
+    composability_score: 'high',
+    common_patches: ['swap base_track', 'toggle overlay',
+                     'adjust crossfade_ms', 'reference difficulty for BPM'],
+  },
+
+  SfxLibrary: {
+    type: 'SfxLibrary',
+    description:
+      'Named catalog of sfxr parameter sets referenced by ActionRef ' +
+      'play_sfx_ref / play_sfx_loop_ref. Presets are pre-rendered to ' +
+      'AudioBuffers at load time; trigger cost is a single AudioBuffer ' +
+      'start call.',
+    example_params: {
+      sfx: {
+        pickup: {
+          waveType: 'square',
+          envelopeAttack: 0, envelopeSustain: 0.05, envelopePunch: 0.4,
+          envelopeDecay: 0.2,
+          baseFreq: 0.7, freqLimit: 0, freqRamp: 0, freqDeltaRamp: 0,
+          vibratoStrength: 0, vibratoSpeed: 0,
+          arpMod: 0.3, arpSpeed: 0.6,
+          duty: 0.5, dutyRamp: 0, repeatSpeed: 0,
+          flangerOffset: 0, flangerRamp: 0,
+          lpFilterCutoff: 1, lpFilterCutoffRamp: 0, lpFilterResonance: 0,
+          hpFilterCutoff: 0, hpFilterCutoffRamp: 0,
+          masterVolume: 0.25, sampleRate: 44100, sampleSize: 16,
+        },
+      },
+    },
+    tier: 'v1_core',
+    priority_class: 'effects',
+    composability_score: 'high',
+    common_patches: ['add preset', 'tune punch', 'shift base_freq'],
+  },
+
   // v2 placeholders — shape not specified; compiler emits out_of_scope error.
   RoleAssignment: {
     type: 'RoleAssignment',

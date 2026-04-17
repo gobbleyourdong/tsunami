@@ -127,6 +127,8 @@ export type MechanicType =
   | 'PuzzleObject'
   // v1.0.3 (batch-6; note_009 content-multiplier additions)
   | 'ProceduralRoomChain' | 'BulletPattern' | 'RouteMap'
+  // v1.1 (audio extension — attempt_004 / audio_handoff.md)
+  | 'ChipMusic' | 'SfxLibrary'
   // v2 placeholders (named but not implemented; compiler declines)
   | 'RoleAssignment' | 'CrowdSimulation'
   | 'TimeReverseMechanic' | 'PhysicsModifier'
@@ -155,6 +157,8 @@ export type MechanicParams =
   | EmbeddedMinigameParams | EndingBranchesParams | VisionConeParams
   | PuzzleObjectParams
   | ProceduralRoomChainParams | BulletPatternParams | RouteMapParams
+  // v1.1 audio extension (defined below, after the existing param shapes)
+  | ChipMusicParams | SfxLibraryParams
   // v2 placeholders — shape not yet specified; compiler declines
   | { type: 'RoleAssignment'       | 'CrowdSimulation'
             | 'TimeReverseMechanic' | 'PhysicsModifier';
@@ -603,6 +607,118 @@ export type ActionRef =
   | { kind: 'dialog';      tree_ref: MechanicId; entry_node?: string }
   | { kind: 'scene_goto';  scene: SceneName }
   | { kind: 'sequence';    actions: ActionRef[] }
+  // v1.1 audio extension — 7 new kinds (see ChipMusic / SfxLibrary below).
+  // Four support optional quantize_to + quantize_source so sfx fire on
+  // beat boundaries of a referenced ChipMusic mechanic.
+  | { kind: 'play_sfx';        params: SfxrParams;
+      quantize_to?: QuantizeGrid; quantize_source?: MechanicId }
+  | { kind: 'play_sfx_ref';    library_ref: MechanicId; preset: string;
+      quantize_to?: QuantizeGrid; quantize_source?: MechanicId }
+  | { kind: 'play_sfx_loop';   id: string; params: SfxrParams;
+      quantize_to?: QuantizeGrid; quantize_source?: MechanicId }
+  | { kind: 'play_sfx_loop_ref'; id: string; library_ref: MechanicId;
+      preset: string;
+      quantize_to?: QuantizeGrid; quantize_source?: MechanicId }
+  | { kind: 'stop_sfx_loop';   id: string }
+  | { kind: 'play_chiptune';   track_ref: MechanicId }
+  | { kind: 'stop_chiptune';   track_ref: MechanicId; release_tail?: boolean }
+
+// ───────── v1.1 audio extension ─────────
+//
+// Parallel to the game mechanics above: procedural chiptune (ChipMusic)
+// + sfxr-style retro SFX library (SfxLibrary). Runtime impls live in
+// scaffolds/engine/src/audio/chipsynth.ts and sfxr.ts; this section only
+// declares the schema types the design/validator/compiler consume.
+// Audio v1.1 handoff doc: docs/… (see commit history for spec summary).
+
+export type QuantizeGrid = 'none' | 'beat' | 'half' | 'bar'
+
+// ── ChipMusic ─────────────────────────────────────────────────────
+
+export type ChipChannel =
+  | 'pulse1' | 'pulse2' | 'triangle' | 'noise' | 'wave'
+
+export interface EnvelopeADSR {
+  attack: number   // sec
+  decay: number    // sec
+  sustain: number  // 0..1
+  release: number  // sec
+}
+
+export interface NoteEvent {
+  time: number        // beats from track start
+  note: string        // 'C4' / 'D#5' / 'R' (rest) / drum name for noise
+  duration: number    // beats
+  velocity?: number   // 0..1, default 1
+  envelope?: EnvelopeADSR
+  dutyCycle?: 0.125 | 0.25 | 0.5 | 0.75
+  vibrato?: { rate: number; depth: number }
+}
+
+export interface MechanicRef {
+  mechanic_ref: MechanicId
+  field: string
+}
+
+export type MixerValue = number | (MechanicRef & { ramp_ms?: number })
+
+export interface ChipMusicTrack {
+  bpm: number | MechanicRef
+  bars?: number
+  loop: boolean
+  loopStart?: number
+  channels: Partial<Record<ChipChannel, NoteEvent[]>>
+  mixer?: Partial<Record<ChipChannel, MixerValue>>
+  wave_table?: number[]  // 32 samples, 0..15
+}
+
+export interface ChipMusicParams {
+  base_track: ChipMusicTrack
+  overlay_tracks?: ChipMusicTrack[]
+  overlay_conditions?: ConditionKey[]  // parallel-indexed with overlay_tracks
+  crossfade_ms?: number                // default 500
+  beat_tolerance_ms?: number           // default 100 (on_beat window)
+  channel: 'music' | 'ambient'
+  autoplay_on?: ConditionKey
+  stop_on?: ConditionKey
+}
+
+// ── SfxLibrary ────────────────────────────────────────────────────
+
+export type SfxrWaveType = 'square' | 'sawtooth' | 'sine' | 'noise'
+
+export interface SfxrParams {
+  waveType: SfxrWaveType
+  envelopeAttack: number
+  envelopeSustain: number
+  envelopePunch: number
+  envelopeDecay: number
+  baseFreq: number
+  freqLimit: number
+  freqRamp: number
+  freqDeltaRamp: number
+  vibratoStrength: number
+  vibratoSpeed: number
+  arpMod: number
+  arpSpeed: number
+  duty: number
+  dutyRamp: number
+  repeatSpeed: number
+  flangerOffset: number
+  flangerRamp: number
+  lpFilterCutoff: number
+  lpFilterCutoffRamp: number
+  lpFilterResonance: number
+  hpFilterCutoff: number
+  hpFilterCutoffRamp: number
+  masterVolume: number
+  sampleRate: 44100 | 22050 | 11025
+  sampleSize: 8 | 16
+}
+
+export interface SfxLibraryParams {
+  sfx: Record<string, SfxrParams>
+}
 
 // ───────── validator result ─────────
 
@@ -617,6 +733,14 @@ export interface ValidationError {
     | 'dangling_condition' | 'tag_requirement' | 'incompatible_combo'
     | 'duplicate_id' | 'component_parse' | 'playfield_mismatch'
     | 'out_of_scope'
+    // v1.1 audio extension — 6 additional error kinds wired up in
+    // validate.ts (audio-specific pre-compile checks).
+    | 'unknown_sfx_preset'
+    | 'invalid_chiptune_track'
+    | 'library_ref_not_sfx_library'
+    | 'unknown_mechanic_field'
+    | 'invalid_quantize_source'
+    | 'overlay_condition_mismatch'
   path: string
   message: string
   hint?: string
