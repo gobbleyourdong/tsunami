@@ -366,9 +366,36 @@ def generate_with_mtp(
     # MTP throughput 15.6→17.5 tok/s under attn_implementation="eager" —
     # 3/3 runs locked at 13%. Sample-path is unchanged (stochastic acceptance
     # already tolerated the drift). Partial win: cached-path attention drift
-    # accounts for ~half of the streaming-vs-diagnostic gap on greedy, but
-    # not all — remaining gap up to 83% likely lives in residual hidden
-    # drift post-eager or in MTP cache-entry semantics (H2, not yet tested).
+    # accounts for ~half of the streaming-vs-diagnostic gap on greedy.
+    #
+    # Iter-34 isolates the remaining 13%→83% gap. Under eager the main-side
+    # hidden is bit-identical across paths (|Δ|∞ = 0.000e+00 verified), so
+    # the residual gap lives inside MTP. test_mtp_cache_semantics runs
+    # mtp_prefill(S+1) against mtp_prefill(S) + one streaming mtp_head()
+    # call (same hidden + token + RoPE pos) and compares cache slot-for-slot:
+    # the first 13 slots are bit-identical (both built by batched prefill),
+    # but slot 13 — the one the streaming call wrote — differs by
+    # |ΔK|∞ = 1.953e-3, |ΔV|∞ = 3.906e-3, driving next-step logit divergence
+    # of 6.25e-2 (top-1 still matches in-sample).
+    #
+    # Magnitude lands right at BF16's precision floor (~7.8e-3 per unit),
+    # so this is pure numerical drift: batched prefill attention and
+    # single-query decode attention use different reduction orders in BF16
+    # and produce slightly different K/V for identical inputs. The 13%→83%
+    # gap is the COMPOUNDED version of this per-slot drift over ~50 decode
+    # steps: each new slot contributes ~2e-3 drift, every subsequent
+    # attention read averages over a growing set of drifted slots, next
+    # step's hidden inherits the compounded drift, and so on. No logic bug
+    # — just BF16 precision.
+    #
+    # Structural fixes (all non-trivial):
+    #   1. Upcast MTP attention Q/K/V compute + cache to FP32. Biggest
+    #      memory cost ~2× cache and ~2× compute for one decoder layer.
+    #   2. Periodically rebuild MTP cache from (hidden, tokens) snapshots
+    #      every K steps — bounds compounding to K-step windows.
+    #   3. Run MTP's decode-step attention as a 2-token batched call
+    #      (dummy + real) so its numerics match prefill reductions.
+    # Each is a larger change than iterations 26-34 attempted; deferred.
     last_hidden = out.hidden_states[-2]  # pre-final-norm  # (1, S, H)
     next_tok = _sample(out.logits[:, -1, :], temperature, top_p, top_k)
     generated = [next_tok]
