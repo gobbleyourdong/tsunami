@@ -93,7 +93,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
         Tier(
             id="T1",
             name="counter",
-            budget_s=300,
+            budget_s=600,
             prompt="Build a counter app with plus and minus buttons.",
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
             introduces=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
@@ -101,7 +101,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
         Tier(
             id="T2",
             name="pomodoro",
-            budget_s=600,
+            budget_s=900,
             prompt=(
                 "Build a Pomodoro timer with start, pause, and reset buttons. "
                 "Include a task list where each task tracks how many pomodoros it took."
@@ -112,7 +112,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
         Tier(
             id="T3",
             name="birthday",
-            budget_s=900,
+            budget_s=1200,
             prompt=(
                 "Build a birthday card maker. User types a name and a short message, "
                 "clicks Generate, and the page shows a festive card with a generated "
@@ -124,7 +124,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
         Tier(
             id="T4",
             name="calculator_layout",
-            budget_s=1200,
+            budget_s=1500,
             prompt=(
                 f"Build a calculator HTML page that matches this reference layout: {calc_ref}"
             ),
@@ -134,7 +134,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
         Tier(
             id="T5",
             name="crypto_tracker",
-            budget_s=1200,
+            budget_s=1500,
             prompt=(
                 "Build a crypto price tracker that shows current prices for Bitcoin, "
                 "Ethereum, and Solana. Use search_web to look up today's approximate "
