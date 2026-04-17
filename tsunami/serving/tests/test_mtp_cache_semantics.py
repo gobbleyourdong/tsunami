@@ -76,17 +76,24 @@ def get_cache_slot(cache, slot_idx):
     # DynamicLayer, each holding keys/values. But MTP has only one layer, so
     # there's just layer index 0; "slot_idx" is the position within that
     # layer's sequence-length dimension.
-    lyr = None
     layers = getattr(cache, "layers", None)
+    k = v = None
     if layers is not None and len(layers) > 0:
         lyr = layers[0]
-        k = getattr(lyr, "keys", None) or getattr(lyr, "key_cache", None)
-        v = getattr(lyr, "values", None) or getattr(lyr, "value_cache", None)
-    else:
+        # `or` fails on tensors (Boolean ambiguity), use explicit None-checks.
+        k = getattr(lyr, "keys", None)
+        if k is None:
+            k = getattr(lyr, "key_cache", None)
+        v = getattr(lyr, "values", None)
+        if v is None:
+            v = getattr(lyr, "value_cache", None)
+    if k is None or v is None:
         key_list = getattr(cache, "key_cache", None)
         val_list = getattr(cache, "value_cache", None)
-        k = key_list[0] if key_list else None
-        v = val_list[0] if val_list else None
+        if key_list is not None and len(key_list) > 0:
+            k = key_list[0]
+        if val_list is not None and len(val_list) > 0:
+            v = val_list[0]
     if k is None or v is None:
         raise RuntimeError("could not extract K/V from DynamicCache")
     # Shape is typically (B, heads, seq_len, head_dim)
