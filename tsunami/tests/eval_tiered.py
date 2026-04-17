@@ -85,17 +85,16 @@ class Tier:
 
 
 def build_tiers(calc_ref: Path) -> list[Tier]:
-    # required_tools = must appear for the tier to pass. undertow is mandatory
-    # everywhere (the point of the eval is exercising every tool), so the
-    # prompts explicitly say to run it after the build. introduces is
-    # cumulative-coverage accounting — the new tool first needed at this tier.
-    verify = " After the build passes, run undertow on the deliverable to verify the page renders without console errors."
+    # Pure "build X" prompts — the system's forced-undertow gate (post-build)
+    # and forced-riptide gate (on image prompts) mean the model doesn't need
+    # to be told to call them. `introduces` is cumulative-coverage accounting:
+    # the new tool first needed at this tier.
     return [
         Tier(
             id="T1",
             name="counter",
             budget_s=300,
-            prompt="Build a counter app with plus and minus buttons." + verify,
+            prompt="Build a counter app with plus and minus buttons.",
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
             introduces=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
         ),
@@ -106,7 +105,6 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
             prompt=(
                 "Build a Pomodoro timer with start, pause, and reset buttons. "
                 "Include a task list where each task tracks how many pomodoros it took."
-                + verify
             ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
             introduces=["file_edit", "file_read"],
@@ -119,7 +117,6 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
                 "Build a birthday card maker. User types a name and a short message, "
                 "clicks Generate, and the page shows a festive card with a generated "
                 "birthday image as the backdrop. Use generate_image for the backdrop."
-                + verify
             ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result", "generate_image"],
             introduces=["generate_image"],
@@ -129,10 +126,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
             name="calculator_layout",
             budget_s=1200,
             prompt=(
-                "Build a calculator HTML page that matches this reference layout: "
-                f"{calc_ref}. Use riptide to extract the positions of the display "
-                "and the equals button before writing any code so your layout matches."
-                + verify
+                f"Build a calculator HTML page that matches this reference layout: {calc_ref}"
             ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result", "riptide"],
             introduces=["riptide"],
@@ -145,7 +139,6 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
                 "Build a crypto price tracker that shows current prices for Bitcoin, "
                 "Ethereum, and Solana. Use search_web to look up today's approximate "
                 "prices and hard-code them as sensible defaults in the UI."
-                + verify
             ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result", "search_web"],
             introduces=["search_web"],
