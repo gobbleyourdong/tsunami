@@ -790,6 +790,97 @@ class Agent:
                         defined.add(line.split("=", 1)[0].strip())
         return referenced - defined
 
+    async def _system_run_riptide_if_image(self, user_message: str):
+        """Scan the user prompt for an image path. If one is present, the
+        system invokes riptide directly with a generic element list, records
+        the call in tool_history, and injects the grounding result as an
+        early user-turn note so the model builds to match without having to
+        decide to call riptide itself. Minimized-model-work principle."""
+        import re as _re
+        # Match absolute paths ending in an image extension
+        m = _re.search(r"(/[\w./\-]+\.(?:png|jpe?g|webp|bmp))", user_message, _re.IGNORECASE)
+        if not m:
+            return
+        image_path = m.group(1)
+        if not Path(image_path).exists():
+            log.debug(f"force-riptide: referenced image {image_path} not on disk — skipping")
+            return
+        # Generic layout vocabulary. The model's prompt usually already hints
+        # at specific elements; those survive in the prompt verbatim for the
+        # build step. Here we ground broadly so the model sees positions for
+        # "display", "buttons", "header", etc. without us having to parse.
+        elements = [
+            "display", "header", "buttons", "input", "content area",
+            "sidebar", "footer", "primary action button",
+        ]
+        log.info(f"force-riptide gate: grounding {image_path} with {len(elements)} generic elements")
+        try:
+            from .tools.riptide import Riptide
+            tool = Riptide(self.config)
+            result = await tool.execute(image_path=image_path, elements=elements)
+            self._tool_history.append("riptide")
+            text = getattr(result, "content", None) or str(result)
+            self.state.add_user(
+                f"I ran riptide on {image_path} to ground the layout. "
+                f"Use these positions when writing the code:\n\n{text[:2000]}"
+            )
+        except Exception as e:
+            log.warning(f"force-riptide: execute failed: {e}")
+
+    def _find_latest_dist_html(self) -> Path | None:
+        """Return the most recent deliverable's built index.html, or None
+        if no buildable deliverable exists yet. Used by the force-undertow
+        gate to decide whether the end-of-run QA pass should fire."""
+        try:
+            deliverables = Path(self.config.workspace_dir) / "deliverables"
+            if not deliverables.exists():
+                return None
+            projects = [
+                d for d in deliverables.iterdir()
+                if d.is_dir() and (d / "package.json").exists()
+            ]
+            if not projects:
+                return None
+            projects.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            latest = projects[0]
+            # Prefer built dist; fall back to source index.html if the
+            # project hasn't produced a dist yet (vanilla HTML deliverables).
+            for candidate in (
+                latest / "dist" / "index.html",
+                latest / "index.html",
+                latest / "public" / "index.html",
+            ):
+                if candidate.exists():
+                    return candidate
+        except Exception as e:
+            log.debug(f"_find_latest_dist_html failed: {e}")
+        return None
+
+    async def _system_run_undertow(self, html_path: Path):
+        """Run undertow.pull_levers with a system-chosen minimal lever set
+        (no `expect=` fields, so no eddy-LLM round-trip). Returns the
+        QAReport, or None if undertow isn't importable / hits a setup error.
+
+        Minimized-model-work design: the system decides to run undertow,
+        the system picks the levers, the model is only consulted when
+        there's a concrete failure to fix.
+        """
+        try:
+            from .undertow import Lever, pull_levers
+        except Exception as e:
+            log.warning(f"force-undertow: undertow import failed: {e}")
+            return None
+        levers = [
+            Lever(action="console"),
+            Lever(action="screenshot"),
+            Lever(action="ghost_classes"),
+        ]
+        try:
+            return await pull_levers(str(html_path), levers)
+        except Exception as e:
+            log.warning(f"force-undertow: pull_levers raised: {e}")
+            return None
+
     def _exit_gate_suffix(self) -> str:
         """Run content gates on the current deliverable at a forced-exit path.
 
@@ -854,6 +945,13 @@ class Agent:
                 log.info(f"runtime_check: injected warning — {_rt_note[:80]}...")
         except Exception as e:
             log.debug(f"runtime_check failed: {e}")
+
+        # Forced-riptide gate: if the user's prompt references a reference
+        # image, the SYSTEM grounds it via riptide upfront and injects the
+        # result as an assistant tool-result turn. Model work minimized:
+        # instead of asking qwen to call riptide, we just hand it the
+        # finished grounding and say "build to match these positions".
+        await self._system_run_riptide_if_image(user_message)
 
         # Auto-adapter selection (Manus-style chat → build). Starts in base chat,
         # transitions to `tsunami-adapter` when the user's intent becomes a concrete
@@ -1263,6 +1361,38 @@ class Agent:
             self.context_overflow.tick(self.state.iteration)
 
             if self.state.task_complete:
+                # Forced-undertow gate: the SYSTEM runs undertow at end-of-build,
+                # not the model. Keep qwen's work minimized — it only gets a
+                # follow-up turn if undertow actually reports problems to fix.
+                # Gate fires exactly once per run via `_forced_undertow_done`.
+                if not getattr(self, "_forced_undertow_done", False):
+                    self._forced_undertow_done = True
+                    dist_html = self._find_latest_dist_html()
+                    if dist_html is not None:
+                        report = await self._system_run_undertow(dist_html)
+                        self._tool_history.append("undertow")
+                        if report is None:
+                            log.info("force-undertow gate: harness unavailable — proceeding with delivery as-is")
+                        elif report.passed:
+                            log.info("force-undertow gate: PASS — delivery stands")
+                        else:
+                            failures = [
+                                f"- {r.lever.action}"
+                                + (f" {r.lever.selector}" if r.lever.selector else "")
+                                + f": {r.saw}"
+                                for r in report.results if not r.passed
+                            ]
+                            log.warning(
+                                f"force-undertow gate: {len(failures)} lever(s) failed — "
+                                f"bouncing back to the model to fix"
+                            )
+                            self.state.task_complete = False
+                            self.state.add_user(
+                                "I ran undertow on the deliverable and it reported these issues:\n"
+                                + "\n".join(failures[:10])
+                                + "\n\nPlease fix the issues above and then call message_result."
+                            )
+                            continue
                 log.info(f"Task complete after {self.state.iteration} iterations")
                 save_session(self.state, self.session_dir, self.session_id)
                 save_session_summary(self.state, self.session_dir, self.session_id)
