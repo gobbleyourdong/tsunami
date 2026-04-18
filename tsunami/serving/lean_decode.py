@@ -299,6 +299,12 @@ def lean_decode(
                 static_cache = None
 
     # --- Prefill ---
+    # logits_to_keep=1 tells the model's lm_head to project only the last
+    # position. For a T-token prompt, the default path computes (T, vocab)
+    # logits but we only use position T-1 for the first sampled token —
+    # (T-1) × (hidden × vocab) GEMM is wasted work. At vocab=250k,
+    # hidden=4096 that's ~1GB of wasted writes per extra position.
+    # Transformers accepts the kwarg (confirmed on Qwen3_5MoeForCausalLM).
     _sync_if_cuda(device)
     t0 = time.perf_counter()
     with torch.no_grad():
@@ -310,6 +316,7 @@ def lean_decode(
             past_key_values=static_cache,
             use_cache=True,
             return_dict=True,
+            logits_to_keep=1,
         )
     _sync_if_cuda(device)
     if stats is not None:
