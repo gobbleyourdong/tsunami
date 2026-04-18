@@ -165,6 +165,25 @@ def _get_compiled_step(model):
     return compiled
 
 
+def _make_static_cache(model, max_cache_len: int):
+    """Build a StaticCache sized for the longest sequence we'll see.
+
+    HF's generate() auto-creates one when cache_implementation="static" is
+    passed; since we bypass generate(), we have to do it ourselves. Pre-
+    allocating fixed-size KV tensors unlocks:
+      - the CompiledFxGraph path (profile showed ~25ms/tok greedy under
+        static cache vs our lean_decode's 50ms/tok without it)
+      - CUDA graph capture (requires fixed tensor pointers across steps)
+    """
+    from transformers.cache_utils import StaticCache
+    # StaticCache internally calls config.get_text_config(decoder=True) so
+    # top-level config is fine; no need to unwrap text_config manually.
+    return StaticCache(
+        config=model.config,
+        max_cache_len=max_cache_len,
+    )
+
+
 def lean_decode(
     model,
     input_ids: torch.Tensor,  # (B, T)
@@ -181,6 +200,8 @@ def lean_decode(
     generator: Optional[torch.Generator] = None,
     return_stats: bool = False,
     use_compile: bool = False,
+    use_static_cache: bool = True,
+    max_cache_len: Optional[int] = None,
 ) -> torch.Tensor | tuple[torch.Tensor, DecodeStats]:
     """Manual decode loop. Returns the full (B, T+max_new_tokens) ids.
 
@@ -220,6 +241,21 @@ def lean_decode(
     step_pos_buf = torch.zeros(B, 1, dtype=torch.long, device=device)
     step_cache_pos_buf = torch.zeros(1, dtype=torch.long, device=device)
 
+    # Build a StaticCache if requested. Without it, HF default is
+    # DynamicCache which grows via torch.cat each step — measured 50ms/tok
+    # on our stack. StaticCache pre-allocates the full KV buffer so
+    # pointers are stable across steps (prerequisite for CUDA graphs) and
+    # avoids the per-step reallocation.
+    static_cache = None
+    if use_static_cache:
+        cache_len = max_cache_len if max_cache_len else (T + max_new_tokens + 8)
+        try:
+            static_cache = _make_static_cache(model, cache_len)
+        except Exception as _e:
+            # Fall back to implicit DynamicCache if the model doesn't
+            # cooperate (happens on some hybrid-attention configs).
+            static_cache = None
+
     # --- Prefill ---
     _sync_if_cuda(device)
     t0 = time.perf_counter()
@@ -229,6 +265,7 @@ def lean_decode(
             attention_mask=attention_mask,
             position_ids=position_ids,
             cache_position=cache_position,
+            past_key_values=static_cache,
             use_cache=True,
             return_dict=True,
         )
