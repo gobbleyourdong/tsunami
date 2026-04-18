@@ -1620,6 +1620,49 @@ class Agent:
             seen_paths = getattr(self, "_token_written_paths", set())
             if path and path in seen_paths:
                 ledger_entry["waste"].append("rewrite")
+                # Direct-mode rewrite gate: after 2 consecutive file_writes
+                # to the same path, the model is stuck re-emitting the
+                # file when what it should do is run shell_exec to build.
+                # Same mechanism as the tool-role-guard reroute-count
+                # nudge, but fires on direct-mode file_write (proxy
+                # parsed the tool_call cleanly; no reroute). Replace the
+                # tool_call with a synthetic shell_exec targeting the
+                # project's dev/build command.
+                rw_count = getattr(self, "_rewrite_count", {}).get(path, 0) + 1
+                rw_map = getattr(self, "_rewrite_count", {})
+                rw_map[path] = rw_count
+                self._rewrite_count = rw_map
+                if rw_count >= 2:
+                    log.warning(
+                        f"direct-write gate: {rw_count} rewrites of "
+                        f"{path} — hijacking to shell_exec build"
+                    )
+                    # Derive project dir from path (deliverables/<proj>/src/...).
+                    from pathlib import Path as _P
+                    proj_dir = None
+                    p = _P(path)
+                    for parent in p.parents:
+                        if parent.name and (parent / "package.json").exists():
+                            proj_dir = parent
+                            break
+                    if proj_dir is not None:
+                        synth_cmd = f"cd {proj_dir} && npm run build 2>&1 | tail -40"
+                        # Replace tool_call — the below execution path will
+                        # run the build command instead of re-writing.
+                        response.tool_call = ToolCall(
+                            name="shell_exec",
+                            arguments={"command": synth_cmd},
+                        )
+                        # Update ledger tool label to reflect what ran.
+                        ledger_entry["tool"] = "shell_exec"
+                        ledger_entry["waste"].append("hijacked_from_rewrite")
+                        self.state.add_system_note(
+                            f"Direct-write gate fired: you re-emitted "
+                            f"{p.name} {rw_count} times. The file is on "
+                            f"disk. I am running `npm run build` now "
+                            f"instead. Next call should be undertow or "
+                            f"message_result, NOT file_write."
+                        )
             if path:
                 seen_paths.add(path)
                 self._token_written_paths = seen_paths
