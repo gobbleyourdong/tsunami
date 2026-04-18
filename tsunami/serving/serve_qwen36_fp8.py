@@ -197,6 +197,8 @@ _fgfp8.w8a8_fp8_matmul = _ds_w8a8_fp8_matmul
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+from tsunami.serving.streaming_xml_tool_parser import StreamingXmlToolCallParser
 from typing import Literal, Union
 import uvicorn
 
@@ -533,135 +535,30 @@ def _normalize_tool_name(name: str) -> str:
 def _parse_qwen_tool_calls(content: str) -> tuple[list[dict], str]:
     """Extract Qwen3.6 tool-call emissions from assistant content.
 
-    Qwen3.6's chat template (with tools= passed) has the model emit each
-    tool invocation as an HF-agents-style block:
-
-        <tool_call>
-        <function=NAME>
-        <parameter=KEY>
-        VALUE
-        </parameter>
-        ...
-        </function>
-        </tool_call>
-
-    We lift those into OpenAI-shape tool_calls[] records and strip the
-    blocks from content. A few quirks handled:
-      - multiple <tool_call> blocks in one response (the model can batch)
-      - numeric / bool / null params → coerced to native JSON types so
-        callers can deserialise arguments without string-munging
-      - JSON-format tool_call body ({"name":..., "arguments":...}) also
-        accepted in case the template flips back to that shape
+    Delegates to StreamingXmlToolCallParser — the per-index depth-tracking,
+    unclosed-string-repair, and id-collision-detection port of
+    qwen-code's streamingToolCallParser.ts. Running in one-shot mode for
+    our non-streaming proxy (one add_chunk call with the full content),
+    but the parser's state machine is streaming-ready for when we expose
+    an SSE surface.
     """
     import json as _json
+    parser = StreamingXmlToolCallParser()
+    parser.add_chunk(0, content)
+    completed = parser.get_completed_tool_calls()
     tool_calls: list[dict] = []
-    block_re = re.compile(
-        r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL | re.IGNORECASE
-    )
-    fn_re = re.compile(
-        r"<function\s*=\s*([^>\s]+)\s*>\s*(.*?)\s*</function>",
-        re.DOTALL | re.IGNORECASE,
-    )
-    param_re = re.compile(
-        r"<parameter\s*=\s*([^>\s]+)\s*>\s*(.*?)\s*</parameter>",
-        re.DOTALL | re.IGNORECASE,
-    )
-
-    def _coerce(v: str):
-        s = v.strip()
-        if s.lower() in ("true", "false"):
-            return s.lower() == "true"
-        if s.lower() == "null":
-            return None
-        try:
-            # try JSON first (handles numbers, lists, dicts, quoted strings)
-            return _json.loads(s)
-        except Exception:
-            return s
-
-    # Truncation recovery: if the emission has `<tool_call>` but no matching
-    # `</tool_call>`, the model hit max_tokens mid-XML. Close the block so the
-    # regex below can parse whatever parameters made it through. Without this,
-    # large file_write calls get dropped to message_chat content and the
-    # agent's tool-role guard has to paper over a truncated file.
-    #
-    # Covers three truncation points:
-    #   1. Mid-outer (</tool_call> missing)            — seal outer
-    #   2. Mid-function (</function> missing)          — seal function + outer
-    #   3. Mid-parameter (last </parameter> missing)   — seal each open param,
-    #      then function, then outer. Counting open vs close <parameter> tags
-    #      is the only reliable check — "</parameter> not in tail" misses
-    #      the case where an earlier param closed but the last didn't.
-    #
-    # Ported pattern from QwenLM/qwen-code's streamingToolCallParser.ts which
-    # maintains per-index depth counters + repairs unclosed states; our
-    # equivalent is this one-shot balance audit on the raw content string.
-    if "<tool_call>" in content and not block_re.search(content):
-        last_open = content.rfind("<tool_call>")
-        if last_open != -1:
-            tail = content[last_open:]
-            # Balance <parameter=...> opens vs </parameter> closes and add
-            # the delta. Each unmatched open corresponds to a truncated
-            # parameter value we want to recover.
-            param_opens = tail.count("<parameter=")
-            param_closes = tail.count("</parameter>")
-            if param_opens > param_closes:
-                tail = tail + ("</parameter>" * (param_opens - param_closes))
-            # Same for <function=...>.
-            fn_opens = tail.count("<function=")
-            fn_closes = tail.count("</function>")
-            if fn_opens > fn_closes:
-                tail = tail + ("</function>" * (fn_opens - fn_closes))
-            content = content[:last_open] + tail + "</tool_call>"
-
-    remaining = content
-    for m in block_re.finditer(content):
-        inner = m.group(1)
-        # JSON variant: {"name":"X","arguments":{...}}
-        inner_stripped = inner.strip()
-        if inner_stripped.startswith("{"):
-            try:
-                obj = _json.loads(inner_stripped)
-                name = obj.get("name")
-                args = obj.get("arguments", {})
-                if isinstance(args, str):
-                    try:
-                        args = _json.loads(args)
-                    except Exception:
-                        pass
-                if name:
-                    tool_calls.append({
-                        "id": f"call_{uuid.uuid4().hex[:12]}",
-                        "type": "function",
-                        "function": {
-                            "name": _normalize_tool_name(name),
-                            "arguments": _json.dumps(args),
-                        },
-                    })
-                    continue
-            except Exception:
-                pass
-        # XML variant
-        fn_match = fn_re.search(inner)
-        if not fn_match:
+    for tc in completed:
+        if not tc.name:
             continue
-        fn_name = _normalize_tool_name(fn_match.group(1).strip())
-        fn_body = fn_match.group(2)
-        args: dict = {}
-        for pm in param_re.finditer(fn_body):
-            args[pm.group(1).strip()] = _coerce(pm.group(2))
         tool_calls.append({
-            "id": f"call_{uuid.uuid4().hex[:12]}",
+            "id": tc.id or f"call_{uuid.uuid4().hex[:12]}",
             "type": "function",
             "function": {
-                "name": fn_name,
-                "arguments": _json.dumps(args),
+                "name": _normalize_tool_name(tc.name),
+                "arguments": _json.dumps(tc.args),
             },
         })
-
-    # Strip every parsed block from content (regardless of whether it
-    # produced a call — malformed blocks also shouldn't leak into content).
-    remaining = block_re.sub("", remaining).strip()
+    remaining = parser.get_stripped_content(content)
     return tool_calls, remaining
 
 
