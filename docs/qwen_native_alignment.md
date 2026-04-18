@@ -44,13 +44,22 @@
   - Python class names unchanged — no call-site renames, no test
     breakage, no merge friction.
 
-- [ ] **R3 — Streaming tool-call repair**
-  - qwen-code's `streamingToolCallParser.ts`: per-index buffer, JSON
-    depth tracking, unclosed-string repair, id-collision resolution.
-  - Our `_parse_qwen_tool_calls` in `tsunami/serving/serve_qwen36_fp8.py`
-    does single-shot regex. Add repair for mid-parameter truncation
-    (we already recover unclosed `<tool_call>`; extend to unclosed
-    `<parameter>`).
+- [x] **R3 — Streaming tool-call repair**
+  - Extended truncation recovery in
+    `tsunami/serving/serve_qwen36_fp8.py::_parse_qwen_tool_calls`.
+  - Old behavior: sealed only the outer `<tool_call>` close and
+    opportunistically added single `</parameter>` / `</function>`
+    if none were present — missed the case where an earlier param
+    closed but the LAST param was truncated mid-value.
+  - New behavior: balance-audit style. Count `<parameter=` opens
+    vs `</parameter>` closes in the unclosed tail, add the delta
+    of closers. Same for `<function=` vs `</function>`. Mirrors
+    qwen-code `streamingToolCallParser.ts`'s per-index depth-counter
+    pattern in one-shot form (we don't stream the response, so per-
+    index buffering isn't needed; just end-of-response balance).
+  - Smoke: 4 shapes — missing `</tool_call>`, last-param truncated
+    with earlier-param closed, missing `</function>` + outer, clean
+    complete emission — all parse correctly.
 
 - [ ] **R4 — Orchestration patterns**
   - Read: `packages/core/src/core/turn.ts`,

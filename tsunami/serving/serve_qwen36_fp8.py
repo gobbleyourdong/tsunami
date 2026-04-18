@@ -584,17 +584,34 @@ def _parse_qwen_tool_calls(content: str) -> tuple[list[dict], str]:
     # regex below can parse whatever parameters made it through. Without this,
     # large file_write calls get dropped to message_chat content and the
     # agent's tool-role guard has to paper over a truncated file.
+    #
+    # Covers three truncation points:
+    #   1. Mid-outer (</tool_call> missing)            — seal outer
+    #   2. Mid-function (</function> missing)          — seal function + outer
+    #   3. Mid-parameter (last </parameter> missing)   — seal each open param,
+    #      then function, then outer. Counting open vs close <parameter> tags
+    #      is the only reliable check — "</parameter> not in tail" misses
+    #      the case where an earlier param closed but the last didn't.
+    #
+    # Ported pattern from QwenLM/qwen-code's streamingToolCallParser.ts which
+    # maintains per-index depth counters + repairs unclosed states; our
+    # equivalent is this one-shot balance audit on the raw content string.
     if "<tool_call>" in content and not block_re.search(content):
-        # Find the last unclosed <tool_call> and seal it at end-of-content.
         last_open = content.rfind("<tool_call>")
         if last_open != -1:
             tail = content[last_open:]
-            # Close any unterminated <parameter=...> and <function=...> tags so
-            # the nested parsers below can still extract partial params.
-            if "</parameter>" not in tail and "<parameter=" in tail:
-                tail = tail + "</parameter>"
-            if "</function>" not in tail and "<function=" in tail:
-                tail = tail + "</function>"
+            # Balance <parameter=...> opens vs </parameter> closes and add
+            # the delta. Each unmatched open corresponds to a truncated
+            # parameter value we want to recover.
+            param_opens = tail.count("<parameter=")
+            param_closes = tail.count("</parameter>")
+            if param_opens > param_closes:
+                tail = tail + ("</parameter>" * (param_opens - param_closes))
+            # Same for <function=...>.
+            fn_opens = tail.count("<function=")
+            fn_closes = tail.count("</function>")
+            if fn_opens > fn_closes:
+                tail = tail + ("</function>" * (fn_opens - fn_closes))
             content = content[:last_open] + tail + "</tool_call>"
 
     remaining = content
