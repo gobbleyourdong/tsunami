@@ -118,13 +118,14 @@ class AgentState:
                         "content": result, "is_error": is_error})
 
     def add_system_note(self, note: str):
-        # Zero-shot revision (2026-04-13): re-enabled. Smoke test showed that
-        # disabling this broke recovery loops — the stall detector and
-        # "early completion blocked" gates fired correctly but the model
-        # never saw the feedback. Dropped the `[WATCHER]` prefix (textv1-
-        # specific, untrained) in favor of plain "[SYSTEM]" which base
-        # Gemma-4 parses as authoritative system feedback.
-        self.conversation.append(Message(role="system", content=f"[SYSTEM] {note}"))
+        # Audit Fire 1 / D2: stored internally as role="system_note" so
+        # log entries stay distinct from user input, but serialised to
+        # the wire as role="user" with the body wrapped in a
+        # <system-reminder> XML tag (qwen-code convention). The prior
+        # role="system" storage was silently dropped after iter 1 by
+        # to_messages()'s first-system-only gate, making all 60+
+        # add_system_note call sites in agent.py into no-ops on re-entry.
+        self.conversation.append(Message(role="system_note", content=note))
         self._log_turn({"role": "system_note", "content": note})
 
     def record_error(self, tool_name: str, args: dict, error: str):
@@ -167,10 +168,22 @@ class AgentState:
                     msgs.append({"role": "system", "content": m.content})
                     first_system_done = True
                 else:
-                    # Drop mid-conversation system notes entirely — they cause
-                    # Qwen3.5 Jinja "system must be first" template errors.
-                    # The info is not critical enough to risk crashing the call.
+                    # Drop mid-conversation genuine system messages — they
+                    # cause Qwen3.5 Jinja "system must be first" template
+                    # errors. Agent-injected reminders route through
+                    # role="system_note" (below) which wraps in user
+                    # <system-reminder> and doesn't hit this drop.
                     pass
+                continue
+            if m.role == "system_note":
+                # qwen-code convention: per-turn reminders go inside a user
+                # message wrapped in <system-reminder>...</system-reminder>.
+                # Survives into context because user messages are never
+                # dropped, unlike mid-conversation system roles.
+                msgs.append({
+                    "role": "user",
+                    "content": f"<system-reminder>{m.content}</system-reminder>",
+                })
                 continue
             if m.role == "tool_result":
                 msgs.append({"role": "user", "content": m.content})
