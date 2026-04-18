@@ -1772,6 +1772,14 @@ def _load_model(model_id: str, max_memory_gb: float | None):
     log.info(f"Model resident in {time.time()-t0:.1f}s, VRAM {vram:.2f} GB "
              f"/ CPU RSS peak {cpu_rss:.2f} GB on {model.device}")
 
+    # NOT calling set_experts_implementation('batched_mm') — HF's generate()
+    # context manager does that automatically for its path, and their docs
+    # say it's "much more performant" on smaller inputs. Measured on our
+    # stack 2026-04-18: 38 → 34.7 tok/s regression. The FP8 code path in
+    # Qwen3.6-MoE dispatches to different kernels per implementation, and
+    # the 'grouped' path (default) hits a faster Triton kernel than
+    # 'batched' on sm_121. Leaving default behavior in place.
+
     # Stash cfg + snapshot so the lazy MTP loader can find them later.
     # MTP head loads ~1-2GB extra VRAM on top of the main model; deferred to
     # first /debug/mtp_decode call (or main-path enable via env flag) so boot
