@@ -1924,6 +1924,28 @@ class Agent:
                 )
             )
             if looks_like_code:
+                # XML-wrap recovery: when the model emits a
+                # <tool_call><function=file_write><parameter=content>...</parameter>
+                # blob whose </tool_call> got truncated, the proxy's
+                # block_re misses it and the whole string lands here as
+                # message_chat.text. Extract the inner <parameter=content>
+                # body so we write actual code, not preamble + XML markup.
+                import re as _re_local
+                content_match = _re_local.search(
+                    r'<parameter\s*=\s*content\s*>\s*(.*?)(?:</parameter>|\Z)',
+                    text, _re_local.DOTALL | _re_local.IGNORECASE,
+                )
+                # Prefer the inner content when we find it; otherwise fall
+                # back to the raw text (handles the case where the model
+                # just dumped code without any XML wrapping).
+                effective_content = content_match.group(1).rstrip() if content_match else text
+                # Extract path from the same XML wrap if present — authors'
+                # intended path beats our inferred App.tsx when available.
+                path_match = _re_local.search(
+                    r'<parameter\s*=\s*path\s*>\s*(.*?)\s*</parameter>',
+                    text, _re_local.DOTALL | _re_local.IGNORECASE,
+                )
+                xml_path = path_match.group(1).strip() if path_match else None
                 # Reroute to file_write on App.tsx
                 deliverables = Path(self.config.workspace_dir) / "deliverables"
                 if deliverables.exists():
@@ -1932,10 +1954,12 @@ class Agent:
                         key=lambda p: p.stat().st_mtime, reverse=True,
                     )
                     if projects:
-                        inferred_path = f"deliverables/{projects[0].name}/src/App.tsx"
+                        inferred_path = xml_path or \
+                            f"deliverables/{projects[0].name}/src/App.tsx"
                         log.warning(
-                            f"Tool-role guard: rerouting message_chat({len(text)} chars of code) "
-                            f"→ file_write({inferred_path})"
+                            f"Tool-role guard: rerouting message_chat({len(text)} chars"
+                            f"{' XML-wrapped' if content_match else ''}) "
+                            f"→ file_write({inferred_path}, {len(effective_content)} chars)"
                         )
                         # ToolCall is imported at module top; a local re-import
                         # here would shadow the module-level binding as local
@@ -1945,8 +1969,16 @@ class Agent:
                         # 'ToolCall' where it is not associated with a value".
                         tool_call = ToolCall(
                             name="file_write",
-                            arguments={"path": inferred_path, "content": text},
+                            arguments={"path": inferred_path, "content": effective_content},
                         )
+                        # Telemetry fix: _tool_history appended the original
+                        # name (message_chat) at line ~1576 before this guard
+                        # ran. The reroute means file_write is what actually
+                        # executes; update the history tail so coverage +
+                        # stall-detection see the effective tool, not the
+                        # model's mislabel.
+                        if self._tool_history and self._tool_history[-1] == "message_chat":
+                            self._tool_history[-1] = "file_write"
                         self.state.add_system_note(
                             f"You emitted code as message_chat.text ({len(text)} chars). "
                             f"Rerouted to file_write(path='{inferred_path}'). Use file_write "

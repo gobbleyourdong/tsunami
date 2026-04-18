@@ -558,6 +558,24 @@ def _parse_qwen_tool_calls(content: str) -> tuple[list[dict], str]:
         except Exception:
             return s
 
+    # Truncation recovery: if the emission has `<tool_call>` but no matching
+    # `</tool_call>`, the model hit max_tokens mid-XML. Close the block so the
+    # regex below can parse whatever parameters made it through. Without this,
+    # large file_write calls get dropped to message_chat content and the
+    # agent's tool-role guard has to paper over a truncated file.
+    if "<tool_call>" in content and not block_re.search(content):
+        # Find the last unclosed <tool_call> and seal it at end-of-content.
+        last_open = content.rfind("<tool_call>")
+        if last_open != -1:
+            tail = content[last_open:]
+            # Close any unterminated <parameter=...> and <function=...> tags so
+            # the nested parsers below can still extract partial params.
+            if "</parameter>" not in tail and "<parameter=" in tail:
+                tail = tail + "</parameter>"
+            if "</function>" not in tail and "<function=" in tail:
+                tail = tail + "</function>"
+            content = content[:last_open] + tail + "</tool_call>"
+
     remaining = content
     for m in block_re.finditer(content):
         inner = m.group(1)

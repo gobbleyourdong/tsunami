@@ -82,6 +82,122 @@ class Tier:
     required_tools: list[str] = field(default_factory=list)
     # tools newly exercised by this tier (cumulative coverage accounting)
     introduces: list[str] = field(default_factory=list)
+    # Content-level quality checks. Each takes the deliverables project
+    # dir, returns (ok, reason). All must be ok for `quality_ok=True`;
+    # passed := delivered AND tools_covered AND quality_ok. This keeps
+    # the gate honest — "delivered + all tools used" is process; the
+    # checks verify the artifact actually does what the prompt asked.
+    quality_checks: list = field(default_factory=list)
+
+
+# ─── Quality check primitives ─────────────────────────────────────────
+#
+# Every check: (project_dir: Path) → (ok: bool, reason: str).  reason is
+# short — "build artifact missing" / "no start button" — shown in the
+# markdown report column for failing tiers.
+
+def _has_build_artifact(project_dir: Path) -> tuple[bool, str]:
+    """At least one of dist/, build/, or a public HTML bundle exists +
+    has a non-trivial index.html (actual compiled output, not a stub)."""
+    for sub in ("dist", "build", "public"):
+        d = project_dir / sub
+        if not d.exists():
+            continue
+        idx = d / "index.html"
+        if idx.exists() and idx.stat().st_size > 200:
+            return True, ""
+    # Fall back: any .html in project_dir tree that's >200 bytes.
+    for html in project_dir.rglob("*.html"):
+        if "node_modules" in str(html):
+            continue
+        if html.stat().st_size > 200:
+            return True, ""
+    return False, "no build artifact (dist/build/html)"
+
+
+def _read_app_tsx(project_dir: Path) -> str | None:
+    for p in [project_dir / "src" / "App.tsx", project_dir / "src" / "app.tsx",
+              project_dir / "App.tsx"]:
+        if p.exists():
+            try: return p.read_text(encoding="utf-8", errors="replace")
+            except Exception: return None
+    # Fall back: any App.tsx under project.
+    for p in project_dir.rglob("App.tsx"):
+        if "node_modules" in str(p): continue
+        try: return p.read_text(encoding="utf-8", errors="replace")
+        except Exception: continue
+    return None
+
+
+def _has_tokens(project_dir: Path, all_of: list[str],
+                field_name: str = "App.tsx") -> tuple[bool, str]:
+    """Case-insensitive substring check against App.tsx. `all_of` lists
+    the tokens that must all appear."""
+    text = _read_app_tsx(project_dir)
+    if text is None:
+        return False, f"{field_name} not found"
+    lower = text.lower()
+    missing = [t for t in all_of if t.lower() not in lower]
+    if missing:
+        return False, f"{field_name} missing: {', '.join(missing)}"
+    return True, ""
+
+
+def _no_stub_placeholders(project_dir: Path) -> tuple[bool, str]:
+    """Reject obvious scaffold placeholders that didn't get replaced."""
+    text = _read_app_tsx(project_dir)
+    if text is None:
+        return True, ""  # covered by other checks
+    markers = ["// TODO: implement", "Lorem ipsum",
+               "YOUR_CODE_HERE", "/* placeholder */"]
+    for m in markers:
+        if m.lower() in text.lower():
+            return False, f"placeholder left in: {m!r}"
+    return True, ""
+
+
+def _quality_counter() -> list:
+    return [
+        _has_build_artifact,
+        lambda p: _has_tokens(p, ["increment", "decrement"]) if _read_app_tsx(p)
+                  else _has_tokens(p, ["+", "-"]),
+        _no_stub_placeholders,
+    ]
+
+
+def _quality_pomodoro() -> list:
+    return [
+        _has_build_artifact,
+        # Must have all 3 controls + a task list.
+        lambda p: _has_tokens(p, ["start", "pause", "reset", "task"]),
+        _no_stub_placeholders,
+    ]
+
+
+def _quality_birthday() -> list:
+    return [
+        _has_build_artifact,
+        # Card-maker flow: user input + generate action.
+        lambda p: _has_tokens(p, ["name", "message", "card"]),
+        _no_stub_placeholders,
+    ]
+
+
+def _quality_calculator() -> list:
+    return [
+        _has_build_artifact,
+        lambda p: _has_tokens(p, ["7", "8", "9", "+", "-", "*", "/", "="]),
+        _no_stub_placeholders,
+    ]
+
+
+def _quality_crypto() -> list:
+    return [
+        _has_build_artifact,
+        # Must reference a real price fetch or coin id.
+        lambda p: _has_tokens(p, ["fetch", "price"]),
+        _no_stub_placeholders,
+    ]
 
 
 def build_tiers(calc_ref: Path) -> list[Tier]:
@@ -97,6 +213,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
             prompt="Build a counter app with plus and minus buttons.",
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
             introduces=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
+            quality_checks=_quality_counter(),
         ),
         Tier(
             id="T2",
@@ -108,6 +225,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
             ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result"],
             introduces=["file_edit", "file_read"],
+            quality_checks=_quality_pomodoro(),
         ),
         Tier(
             id="T3",
@@ -120,6 +238,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
             ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result", "generate_image"],
             introduces=["generate_image"],
+            quality_checks=_quality_birthday(),
         ),
         Tier(
             id="T4",
@@ -130,6 +249,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
             ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result", "riptide"],
             introduces=["riptide"],
+            quality_checks=_quality_calculator(),
         ),
         Tier(
             id="T5",
@@ -142,6 +262,7 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
             ),
             required_tools=["project_init", "file_write", "shell_exec", "undertow", "message_result", "search_web"],
             introduces=["search_web"],
+            quality_checks=_quality_crypto(),
         ),
     ]
 
@@ -152,11 +273,13 @@ class TierResult:
     name: str
     delivered: bool          # agent.state.task_complete — agent says it shipped
     tools_covered: bool      # all required_tools appeared in the run
-    passed: bool             # delivered AND tools_covered
+    quality_ok: bool         # all content-level quality_checks pass
+    passed: bool             # delivered AND tools_covered AND quality_ok
     iterations: int
     wall_s: float
     tools_used: list[str]
     tools_missing: list[str]
+    quality_fails: list[str] = field(default_factory=list)
     failure_mode: str = ""
 
 
@@ -189,14 +312,43 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
     missing = [t for t in tier.required_tools if t not in tools_used_set]
     delivered = bool(agent.state.task_complete)
     tools_covered = not missing
-    passed = delivered and tools_covered
+
+    # Content-level quality gate. Only runs if the agent ever created a
+    # project dir — if it never got that far, we skip quality checks (the
+    # delivery/tool gates already explain the failure).
+    quality_fails: list[str] = []
+    quality_ok = True
+    deliverables_root = Path(config.workspace_dir) / "deliverables"
+    if deliverables_root.exists():
+        projects = [d for d in deliverables_root.iterdir() if d.is_dir()]
+        if projects:
+            # Newest project = the one this tier built.
+            project = max(projects, key=lambda p: p.stat().st_mtime)
+            for check in tier.quality_checks or []:
+                try:
+                    ok, reason = check(project)
+                except Exception as e:
+                    ok, reason = False, f"check crashed: {type(e).__name__}"
+                if not ok:
+                    quality_fails.append(reason or check.__name__)
+                    quality_ok = False
+        elif tier.quality_checks:
+            quality_ok = False
+            quality_fails.append("no project created")
+    elif tier.quality_checks:
+        quality_ok = False
+        quality_fails.append("no deliverables dir")
+
+    passed = delivered and tools_covered and quality_ok
 
     flag = "✓" if passed else ("△" if delivered else "✗")
     print(f"  {flag} result: delivered={delivered}  tools_covered={tools_covered}  "
-          f"iters={agent.state.iteration}  {dt:.1f}s")
+          f"quality_ok={quality_ok}  iters={agent.state.iteration}  {dt:.1f}s")
     print(f"    tools used: {', '.join(tools_used[:20])}{'...' if len(tools_used) > 20 else ''}")
     if missing:
         print(f"    missing required: {missing}")
+    if quality_fails:
+        print(f"    quality fails: {quality_fails}")
     if failure:
         print(f"    failure: {failure}")
 
@@ -208,11 +360,13 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
         name=tier.name,
         delivered=delivered,
         tools_covered=tools_covered,
+        quality_ok=quality_ok,
         passed=passed,
         iterations=agent.state.iteration,
         wall_s=round(dt, 1),
         tools_used=tools_used,
         tools_missing=missing,
+        quality_fails=quality_fails,
         failure_mode=failure,
     )
 
@@ -251,21 +405,26 @@ def write_report(tiers: list[Tier], results: list[TierResult]):
     lines.append("")
     lines.append(f"Endpoint: `{ENDPOINT}`")
     lines.append("")
-    lines.append(f"- **Passed**: {passed}/{len(results)} (delivered AND all required tools used)")
+    quality_ok_count = sum(1 for r in results if r.quality_ok)
+    lines.append(f"- **Passed**: {passed}/{len(results)} (delivered AND tools_covered AND quality_ok)")
     lines.append(f"- **Delivered**: {delivered}/{len(results)} (agent marked task complete)")
+    lines.append(f"- **Quality-checked**: {quality_ok_count}/{len(results)} (artifact matches prompt intent)")
     lines.append(f"- **Tool coverage**: {coverage_pct:.0f}% ({len(all_tools_used & full_set)}/{len(full_set)})")
     lines.append("")
-    lines.append("| Tier | App | Pass | Delivered | Tools | Iters | Time | Missing | Failure |")
-    lines.append("|------|-----|------|-----------|-------|-------|------|---------|---------|")
+    lines.append("| Tier | App | Pass | Delivered | Tools | Quality | Iters | Time | Missing / Quality fails | Failure |")
+    lines.append("|------|-----|------|-----------|-------|---------|-------|------|-------------------------|---------|")
     for t, r in zip(tiers, results):
         p = "✓" if r.passed else ("△" if r.delivered else "✗")
         d = "✓" if r.delivered else "✗"
         tc = "✓" if r.tools_covered else "✗"
-        miss = ", ".join(r.tools_missing) if r.tools_missing else "—"
+        q = "✓" if r.quality_ok else "✗"
+        miss = ", ".join(r.tools_missing) if r.tools_missing else ""
+        qfail = "; ".join(r.quality_fails) if r.quality_fails else ""
+        issues = " / ".join(x for x in (miss, qfail) if x) or "—"
         fail = r.failure_mode or "—"
-        lines.append(f"| {r.id} | {r.name} | {p} | {d} | {tc} | {r.iterations} | {r.wall_s}s | {miss} | {fail} |")
+        lines.append(f"| {r.id} | {r.name} | {p} | {d} | {tc} | {q} | {r.iterations} | {r.wall_s}s | {issues} | {fail} |")
     lines.append("")
-    lines.append("△ = delivered but a required tool was skipped.")
+    lines.append("△ = delivered but quality or tool-coverage gate failed.")
     lines.append("")
     lines.append("## Tool coverage")
     lines.append("")
