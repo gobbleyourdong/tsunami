@@ -522,17 +522,37 @@ class FileEdit(BaseTool):
     description = "Make targeted modifications to an existing file. The scalpel: precise changes without destroying context."
 
     def parameters_schema(self) -> dict:
+        # qwen-code's edit tool uses `old_content` / `new_content` as
+        # the canonical param names (see
+        # QwenLM/qwen-code/packages/core/src/core/prompts.ts — the
+        # system prompt teaches the model <parameter=old_content>...
+        # <parameter=new_content>). Our schema now matches that prior;
+        # the execute() kwargs accept both old_text/old_content and
+        # new_text/new_content for backward compat with older callers.
         return {
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Path to the file"},
-                "old_text": {"type": "string", "description": "Exact text to find and replace"},
-                "new_text": {"type": "string", "description": "Replacement text"},
+                "old_content": {"type": "string", "description": "Exact text to find and replace"},
+                "new_content": {"type": "string", "description": "Replacement text"},
             },
-            "required": ["path", "old_text", "new_text"],
+            "required": ["path", "old_content", "new_content"],
         }
 
-    async def execute(self, path: str, old_text: str, new_text: str, **kw) -> ToolResult:
+    async def execute(self, path: str,
+                       old_content: str | None = None,
+                       new_content: str | None = None,
+                       old_text: str | None = None,
+                       new_text: str | None = None,
+                       **kw) -> ToolResult:
+        # Coalesce legacy + canonical arg names.
+        old_text = old_content if old_content is not None else old_text
+        new_text = new_content if new_content is not None else new_text
+        if old_text is None or new_text is None:
+            return ToolResult(
+                "file_edit: both old_content and new_content are required",
+                is_error=True,
+            )
         try:
             p = _resolve_path(path, self.config.workspace_dir, _active_project)
             err = _is_safe_write(p, self.config.workspace_dir)

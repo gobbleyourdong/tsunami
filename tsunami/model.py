@@ -144,15 +144,33 @@ class TsunamiModel:
                     enable_thinking: bool = True) -> LLMResponse:
         headers = {"Content-Type": "application/json"}
 
+        # Mode-aware sampling per the Qwen3.6 model card. Instance defaults
+        # (self.temperature etc.) are the "Precise coding" preset; flip
+        # them to the "Thinking / general tasks" preset when the caller
+        # asks for thinking — over-sampled thinking helps reasoning, and
+        # under-sampled thinking narrows the <think> trace below what the
+        # card was tuned for. When the caller has explicitly tightened
+        # sampling (temperature < 0.5, presence_penalty < 0.05), we
+        # respect that and don't overwrite — it's likely a deterministic
+        # harness / unit test.
+        if enable_thinking and self.temperature >= 0.5:
+            effective_temp = 1.0
+            effective_top_p = 0.95
+            effective_presence = 1.5
+        else:
+            effective_temp = self.temperature
+            effective_top_p = self.top_p
+            effective_presence = self.presence_penalty
+
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
-            "temperature": self.temperature,
+            "temperature": effective_temp,
             "max_tokens": self.max_tokens,
-            "top_p": self.top_p,
+            "top_p": effective_top_p,
             "top_k": self.top_k,
             "min_p": self.min_p,
-            "presence_penalty": self.presence_penalty,
+            "presence_penalty": effective_presence,
             "repetition_penalty": self.repetition_penalty,
             # Qwen3.6 README — Thinking mode / Precise Coding recommends BOTH:
             #   enable_thinking      — default on for planning; off for
