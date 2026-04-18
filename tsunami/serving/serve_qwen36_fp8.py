@@ -400,39 +400,41 @@ def _gpu_warmup_sync():
     log.info(f"Boot warmup done in {_t.time()-t0:.1f}s on pinned GPU thread")
 
     # Extra pass: pre-warm the lean_decode StaticCache + CUDA-graph capture
-    # so the first real /v1 request doesn't pay the ~700ms compile + capture
-    # cost. HF's generate(cache_implementation="static") above already
-    # compiled the model's kernels, but lean_decode's own cache path
-    # (constructs its own StaticCache, calls model() directly, captures a
-    # torch.cuda.CUDAGraph) is a separate compile surface.
+    # for each of the power-of-2 cache-len buckets the /v1 path uses. HF's
+    # generate(cache_implementation="static") above already compiled the
+    # model's kernels; this triggers graph capture for the buckets that
+    # real requests will hit. Without it, the first request per bucket
+    # pays ~600-1000ms compile + capture.
     if _LEAN_DECODE_ENABLED and _CUDA_GRAPH_ENABLED:
         try:
             from lean_decode import lean_decode as _lean
-            log.info("Boot warmup: pre-capturing lean_decode CUDA graph …")
-            _tg = _t.time()
-            # Minimal prompt — we just need to trigger the capture, not
-            # generate real content. 8 tokens is enough to exercise the
-            # graph-capture + replay path.
-            msgs = [{"role": "user", "content": "Hi."}]
-            ids = tokenizer.apply_chat_template(
-                msgs, add_generation_prompt=True, tokenize=True, return_tensors="pt",
-            )
-            if hasattr(ids, "keys") and "input_ids" in ids:
-                ids = ids["input_ids"]
-            ids = ids.to(model.device)
-            # Use the same max_cache_len the real /v1 path will use so the
-            # warm-graph cache lookup hits on the very first real request.
-            # 8192 matches the /v1 bucket above — NOT _CACHE_CEILING, which
-            # would trigger 170GB-per-step KV reads and tank decode to 1.5
-            # tok/s (measured 2026-04-18).
-            _lean(
-                model, input_ids=ids, max_new_tokens=4,
-                do_sample=False, use_cuda_graph=True,
-                max_cache_len=8192,
-            )
-            torch.cuda.synchronize()
-            log.info(f"  lean_decode graph captured in {_t.time()-_tg:.1f}s "
-                     f"(first real request is now warm)")
+            log.info("Boot warmup: pre-capturing lean_decode CUDA graphs …")
+            # Bucket sizes span the typical request space:
+            #   256  → 20-250 token prompts with small max_new
+            #   512  → 200-500 token prompts
+            #   1024 → 500-1000 token prompts
+            #   2048 → 1000-2000 token prompts
+            # Covers 99% of agent turns without paying for larger KV per
+            # step. Each capture is ~0.3-0.6s on a warm Triton cache.
+            for _bucket in (256, 512, 1024, 2048):
+                _tg = _t.time()
+                # Prompt len is irrelevant for the capture (we just need
+                # the step graph); use a short prompt every time.
+                msgs = [{"role": "user", "content": "Hi."}]
+                ids = tokenizer.apply_chat_template(
+                    msgs, add_generation_prompt=True, tokenize=True, return_tensors="pt",
+                )
+                if hasattr(ids, "keys") and "input_ids" in ids:
+                    ids = ids["input_ids"]
+                ids = ids.to(model.device)
+                _lean(
+                    model, input_ids=ids, max_new_tokens=4,
+                    do_sample=False, use_cuda_graph=True,
+                    max_cache_len=_bucket,
+                )
+                torch.cuda.synchronize()
+                log.info(f"  bucket={_bucket} captured in {_t.time()-_tg:.2f}s")
+            log.info("  (first real request at any typical prompt size is now warm)")
         except Exception as _e:
             log.warning(f"lean_decode pre-capture skipped ({type(_e).__name__}: {_e})")
 
