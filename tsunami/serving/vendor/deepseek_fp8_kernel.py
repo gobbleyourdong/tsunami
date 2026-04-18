@@ -114,6 +114,13 @@ def weight_dequant(x: torch.Tensor, s: torch.Tensor, block_size: int = 128) -> t
     return y
 
 
+# Tried expanding autotune to block_m=8 + num_warps=4 for sm_121 (GB10);
+# measured 37 tok/s vs the original 38 tok/s — autotune picked a slightly
+# worse config from the expanded space. Boot cost also ballooned from ~100s
+# to ~360s. Reverted to original tuning which DeepSeek picked for Hopper.
+# If you want to explore: Triton autotune caches by source hash in
+# ~/.triton/cache, so changing this list invalidates cache and forces
+# full re-search on next run.
 fp8_gemm_configs = [
     Config({'BLOCK_SIZE_M': block_m, 'BLOCK_SIZE_N': block_n, 'BLOCK_SIZE_K': 128}, num_stages=num_stages, num_warps=8)
     for block_m in [16, 32, 64] for block_n in [32, 64, 128] for num_stages in [3, 4, 5, 6]
