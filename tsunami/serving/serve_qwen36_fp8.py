@@ -417,14 +417,19 @@ def _gpu_warmup_sync():
         try:
             from lean_decode import lean_decode as _lean
             log.info("Boot warmup: pre-capturing lean_decode CUDA graphs …")
-            # Bucket sizes span the typical request space:
-            #   256  → 20-250 token prompts with small max_new
-            #   512  → 200-500 token prompts
-            #   1024 → 500-1000 token prompts
-            #   2048 → 1000-2000 token prompts
-            # Covers 99% of agent turns without paying for larger KV per
-            # step. Each capture is ~0.3-0.6s on a warm Triton cache.
-            for _bucket in (256, 512, 1024, 2048):
+            # Bucket sizes span the typical request space. Measured
+            # tok/s per bucket (2026-04-18, sampled decode, lean_decode
+            # + CUDA graph + StaticCache):
+            #   256  → 39 tok/s  (20-250 token prompts)
+            #   512  → 38 tok/s  (200-500 token prompts)
+            #   1024 → 37 tok/s  (500-1000 token prompts)
+            #   2048 → 35 tok/s  (1000-2000 token prompts)
+            #   4096 → 31 tok/s  (2000-4000 token prompts, long context)
+            # Past 4096 tok/s degrades sharply (8192 = 25 tok/s) because
+            # per-step KV bandwidth dominates on GB10 UMA. 4096 is the
+            # highest pre-capture we want; larger prompts pay a one-time
+            # re-capture on first hit.
+            for _bucket in (256, 512, 1024, 2048, 4096):
                 _tg = _t.time()
                 # Prompt len is irrelevant for the capture (we just need
                 # the step graph); use a short prompt every time.
@@ -1141,10 +1146,14 @@ async def _chat_completions_stream(req: ChatRequest, user_sem: asyncio.Semaphore
             # Initial role-only delta (OpenAI convention).
             yield _chunk({"role": "assistant", "content": ""})
 
+            ttft_ms: Optional[float] = None  # time-to-first-token
+
             while True:
                 item = await q.get()
                 if item is DONE:
                     break
+                if ttft_ms is None:
+                    ttft_ms = (time.time() - start) * 1000
                 collected_ids.append(int(item))
                 # Decode the full buffer, emit diff. Slightly wasteful
                 # vs per-token decode but avoids mid-codepoint artifacts.
@@ -1168,8 +1177,9 @@ async def _chat_completions_stream(req: ChatRequest, user_sem: asyncio.Semaphore
             tool_calls, content = _parse_qwen_tool_calls(content)
             elapsed = time.time() - start
             n_new = len(collected_ids)
+            ttft_str = f" ttft={ttft_ms:.0f}ms" if ttft_ms is not None else ""
             log.info(f"{_utag}streamed {n_new} tok in {elapsed:.1f}s "
-                     f"({n_new / max(elapsed, 1e-6):.1f} tok/s)"
+                     f"({n_new / max(elapsed, 1e-6):.1f} tok/s){ttft_str}"
                      + (f" [{len(tool_calls)} tool_call(s)]" if tool_calls else ""))
             final_delta: dict = {}
             if tool_calls:
