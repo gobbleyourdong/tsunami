@@ -198,7 +198,11 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from tsunami.serving.streaming_xml_tool_parser import StreamingXmlToolCallParser
+# Import by local name — when run as `python3 tsunami/serving/serve_qwen36_fp8.py`
+# the script's dir (tsunami/serving) is sys.path[0]. The package-qualified
+# `from tsunami.serving...` import only works when the parent (ark/) is on
+# PYTHONPATH, which the host launch doesn't guarantee.
+from streaming_xml_tool_parser import StreamingXmlToolCallParser
 from typing import Literal, Union
 import uvicorn
 
@@ -373,6 +377,75 @@ async def _warmup_on_startup():
         await _run_on_gpu_thread(_gpu_warmup_sync)
     except Exception as _e:
         log.warning(f"Boot warmup skipped ({type(_e).__name__}: {_e}) — first request pays cold-start")
+
+
+@app.post("/debug/profile")
+async def debug_profile(req: dict):
+    """Run one generate() wrapped in torch.profiler and return the top
+    ops by self-CPU + self-CUDA time. Dev-only; guarded nowhere else
+    but don't expose to untrusted clients.
+
+    Request body: {"prompt": "...", "max_tokens": 50}
+    """
+    if model is None or tokenizer is None:
+        return JSONResponse({"error": "model not loaded"}, status_code=503)
+    prompt = req.get("prompt", "Count from 1 to 30.")
+    max_new = int(req.get("max_tokens", 50))
+    msgs = [{"role": "user", "content": prompt}]
+    ids = tokenizer.apply_chat_template(
+        msgs, add_generation_prompt=True, tokenize=True, return_tensors="pt"
+    )
+    if hasattr(ids, "keys") and "input_ids" in ids:
+        ids = ids["input_ids"]
+    ids = ids.to(model.device)
+    prompt_len = ids.shape[-1]
+
+    def _prof():
+        from torch.profiler import profile, ProfilerActivity
+        # Run one unprofiled warmup so JIT/autotune doesn't pollute the trace.
+        with torch.no_grad():
+            model.generate(
+                input_ids=ids, max_new_tokens=8,
+                max_length=_CACHE_CEILING, use_cache=True,
+                cache_implementation="static", do_sample=False,
+            )
+        torch.cuda.synchronize()
+        # Now the real profiled run.
+        t0 = time.perf_counter()
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                     record_shapes=False, with_stack=False) as prof:
+            with torch.no_grad():
+                out = model.generate(
+                    input_ids=ids, max_new_tokens=max_new,
+                    max_length=_CACHE_CEILING, use_cache=True,
+                    cache_implementation="static", do_sample=False,
+                )
+            torch.cuda.synchronize()
+        wall_ms = (time.perf_counter() - t0) * 1000
+        new_toks = int(out.shape[-1] - prompt_len)
+        # Top by self CUDA time
+        events = prof.key_averages()
+        rows = []
+        for e in events:
+            rows.append({
+                "name": e.key,
+                "calls": e.count,
+                "cpu_ms": round(e.self_cpu_time_total / 1000, 3),
+                "cuda_ms": round((getattr(e, "self_device_time_total", None)
+                                  or getattr(e, "self_cuda_time_total", 0)) / 1000, 3),
+            })
+        rows.sort(key=lambda r: (r["cuda_ms"] + r["cpu_ms"]), reverse=True)
+        return {
+            "wall_ms": round(wall_ms, 1),
+            "new_tokens": new_toks,
+            "tok_per_s": round(new_toks / (wall_ms / 1000), 2) if wall_ms else 0,
+            "ms_per_tok": round(wall_ms / max(new_toks, 1), 2),
+            "top_ops": rows[:30],
+        }
+
+    async with _gpu_sem:
+        result = await _run_on_gpu_thread(_prof)
+    return result
 
 
 @app.get("/health")
