@@ -201,6 +201,7 @@ def lean_decode(
     return_stats: bool = False,
     use_compile: bool = False,
     use_static_cache: bool = True,
+    use_cuda_graph: bool = False,
     max_cache_len: Optional[int] = None,
 ) -> torch.Tensor | tuple[torch.Tensor, DecodeStats]:
     """Manual decode loop. Returns the full (B, T+max_new_tokens) ids.
@@ -276,6 +277,23 @@ def lean_decode(
     past = out.past_key_values
     logits = out.logits[:, -1, :]  # (B, vocab)
 
+    # CUDA-graph capture for the per-step forward. Gated by flag +
+    # must have a StaticCache (fixed tensor pointers). Capture is
+    # one-shot: ~150ms on Qwen3.6-35B-A3B / GB10. Amortises after ~5
+    # replay steps.
+    graph_step = None
+    if use_cuda_graph and static_cache is not None:
+        try:
+            from cuda_graph_decode import CudaGraphedDecodeStep
+            graph_step = CudaGraphedDecodeStep(
+                model, max_cache_len=(max_cache_len or (T + max_new_tokens + 8)),
+                device=str(device),
+            )
+            graph_step.capture(past, pos=T, warmup_iters=2)
+        except Exception as _e:
+            # Fall through to uncaptured path on any capture failure.
+            graph_step = None
+
     generated = [input_ids]
     done = torch.zeros(B, dtype=torch.bool, device=device)
     prev_tokens = input_ids
@@ -332,36 +350,37 @@ def lean_decode(
         # Uses pre-allocated buffers to avoid per-step tensor construction.
         if measure:
             _tf = time.perf_counter()
-        step_pos_buf.fill_(cur_pos)
-        step_cache_pos_buf.fill_(cur_pos)
-        if use_compile:
-            # Compiled path: full-length attention_mask so the shape stays
-            # static across steps (CUDA graph capture requires static tensor
-            # addresses + shapes). The model uses cache_position to determine
-            # which cache slot receives the new KV and which positions are
-            # valid to attend to.
-            step_fn = _get_compiled_step(model)
-            with torch.inference_mode():
-                out = step_fn(
-                    tok.unsqueeze(-1), attn_buf, step_pos_buf,
-                    step_cache_pos_buf, past,
-                )
+        if graph_step is not None:
+            # CUDA-graph replay: no Python overhead, no kernel-launch
+            # overhead. The graph was captured against `past` so it
+            # reads/writes the same KV slots on every replay.
+            logits = graph_step.step(tok, cur_pos)
         else:
-            with torch.inference_mode():
-                out = model(
-                    input_ids=tok.unsqueeze(-1),
-                    attention_mask=attn_buf[:, :cur_pos + 1],
-                    position_ids=step_pos_buf,
-                    cache_position=step_cache_pos_buf,
-                    past_key_values=past,
-                    use_cache=True,
-                    return_dict=True,
-                )
+            step_pos_buf.fill_(cur_pos)
+            step_cache_pos_buf.fill_(cur_pos)
+            if use_compile:
+                step_fn = _get_compiled_step(model)
+                with torch.inference_mode():
+                    out = step_fn(
+                        tok.unsqueeze(-1), attn_buf, step_pos_buf,
+                        step_cache_pos_buf, past,
+                    )
+            else:
+                with torch.inference_mode():
+                    out = model(
+                        input_ids=tok.unsqueeze(-1),
+                        attention_mask=attn_buf[:, :cur_pos + 1],
+                        position_ids=step_pos_buf,
+                        cache_position=step_cache_pos_buf,
+                        past_key_values=past,
+                        use_cache=True,
+                        return_dict=True,
+                    )
+            past = out.past_key_values
+            logits = out.logits[:, -1, :]
         if measure:
             _sync_if_cuda(device)
             stats.forward_ms_total += (time.perf_counter() - _tf) * 1000
-        past = out.past_key_values
-        logits = out.logits[:, -1, :]
         cur_pos += 1
 
     _sync_if_cuda(device)

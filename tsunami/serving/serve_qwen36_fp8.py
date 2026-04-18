@@ -215,6 +215,11 @@ from lean_decode import lean_decode, describe_platform
 # CPU fall through the same code with their native backends.
 # Opt-out via TSUNAMI_LEAN_DECODE=0 if a regression shows up.
 _LEAN_DECODE_ENABLED = os.getenv("TSUNAMI_LEAN_DECODE", "1") == "1"
+# TSUNAMI_CUDA_GRAPH=1 enables the capture-once-replay-N CUDA-graph path
+# in lean_decode. Measured 22.3 → ~38 tok/s on Qwen3.6-35B-A3B-FP8 / GB10
+# via /debug/cuda_graph_decode. Requires StaticCache (already default).
+# Off by default while the new path ages in.
+_CUDA_GRAPH_ENABLED = os.getenv("TSUNAMI_CUDA_GRAPH", "0") == "1"
 from typing import Literal, Union
 import uvicorn
 
@@ -575,6 +580,108 @@ async def debug_mtp_decode(req: dict):
         return await _run_on_gpu_thread(_run)
 
 
+@app.post("/debug/cuda_graph_decode")
+async def debug_cuda_graph_decode(req: dict):
+    """Probe CUDA-graph capture on the decode step.
+
+    Per ~/agentic_speed/refs/kernels_digest_2026-04.md top-10 item #7,
+    CUDA graphs are the biggest single latency lever on GB10 (published
+    ≥20% decode improvement via SGLang's piecewise approach). This
+    endpoint uses the low-level `torch.cuda.CUDAGraph` path (not
+    torch.compile, which hung on the 35B MoE).
+
+    Protocol:
+      1. Prefill normally to warm StaticCache.
+      2. Capture one decode step.
+      3. Replay N times, sampling between replays.
+      4. Report replay ms/tok vs uncaptured baseline.
+    """
+    if model is None or tokenizer is None:
+        return JSONResponse({"error": "model not loaded"}, status_code=503)
+    prompt = req.get("prompt", "Count from 1 to 30.")
+    max_new = int(req.get("max_tokens", 30))
+    msgs = [{"role": "user", "content": prompt}]
+    ids = tokenizer.apply_chat_template(
+        msgs, add_generation_prompt=True, tokenize=True, return_tensors="pt"
+    )
+    if hasattr(ids, "keys") and "input_ids" in ids:
+        ids = ids["input_ids"]
+    ids = ids.to(model.device)
+    attn = torch.ones_like(ids)
+
+    eos_ids: set[int] = set()
+    if tokenizer.eos_token_id is not None:
+        eos_ids.add(int(tokenizer.eos_token_id))
+
+    def _run():
+        from cuda_graph_decode import CudaGraphedDecodeStep
+        from lean_decode import _make_static_cache, lean_sample
+        T = ids.shape[-1]
+        cache_len = T + max_new + 8
+        # Build static cache + run prefill so we have warm KV state.
+        cache = _make_static_cache(model, cache_len)
+        pos_ids = torch.arange(T, dtype=torch.long, device=model.device).unsqueeze(0)
+        cache_pos = torch.arange(T, dtype=torch.long, device=model.device)
+        with torch.inference_mode():
+            out = model(
+                input_ids=ids, attention_mask=attn,
+                position_ids=pos_ids, cache_position=cache_pos,
+                past_key_values=cache, use_cache=True, return_dict=True,
+            )
+        torch.cuda.synchronize()
+        past = out.past_key_values
+        last_tok = out.logits[:, -1, :].argmax(-1, keepdim=True)  # (1,1)
+
+        g = CudaGraphedDecodeStep(model, max_cache_len=cache_len, device=str(model.device))
+
+        # Phase 1: try to capture.
+        capture_err = None
+        t_cap_start = time.perf_counter()
+        try:
+            g.capture(past, pos=T, warmup_iters=2)
+            torch.cuda.synchronize()
+        except Exception as e:
+            capture_err = f"{type(e).__name__}: {e}"
+        capture_ms = (time.perf_counter() - t_cap_start) * 1000
+
+        if capture_err:
+            return {
+                "capture_ok": False,
+                "capture_ms": round(capture_ms, 1),
+                "error": capture_err[:400],
+            }
+
+        # Phase 2: replay + sample for N steps.
+        cur_pos = T
+        tok = last_tok.view(1)
+        gen = [tok.view(1, 1).clone()]
+        torch.cuda.synchronize()
+        t_replay_start = time.perf_counter()
+        for step in range(max_new):
+            logits = g.step(tok, cur_pos)
+            tok = lean_sample(logits, temperature=0.6, top_k=20, top_p=0.95, do_sample=True)
+            gen.append(tok.view(1, 1).clone())
+            cur_pos += 1
+        torch.cuda.synchronize()
+        replay_ms = (time.perf_counter() - t_replay_start) * 1000
+        full = torch.cat(gen, dim=-1)
+        preview = tokenizer.decode(full[0], skip_special_tokens=True)
+
+        return {
+            "platform": describe_platform(),
+            "capture_ok": True,
+            "capture_ms": round(capture_ms, 1),
+            "replay_total_ms": round(replay_ms, 1),
+            "replay_ms_per_tok": round(replay_ms / max(max_new, 1), 2),
+            "replay_tok_per_s": round(max_new / (replay_ms / 1000), 2) if replay_ms else 0,
+            "n_new": max_new,
+            "preview": preview[:200],
+        }
+
+    async with _gpu_sem:
+        return await _run_on_gpu_thread(_run)
+
+
 @app.post("/debug/compiled_decode")
 async def debug_compiled_decode(req: dict):
     """Same as /debug/lean_decode but routes the per-step forward through
@@ -661,6 +768,8 @@ async def debug_lean_decode(req: dict):
         if isinstance(t, int) and t >= 0 and t != tokenizer.unk_token_id:
             eos_ids.append(int(t))
 
+    use_cuda_graph = bool(req.get("use_cuda_graph", False))
+
     def _run():
         out, stats = lean_decode(
             model,
@@ -674,6 +783,7 @@ async def debug_lean_decode(req: dict):
             do_sample=do_sample,
             eos_token_ids=eos_ids,
             return_stats=True,
+            use_cuda_graph=use_cuda_graph,
         )
         txt = tokenizer.decode(out[0, ids.shape[-1]:], skip_special_tokens=True)
         return stats, txt
@@ -682,6 +792,7 @@ async def debug_lean_decode(req: dict):
         stats, text = await _run_on_gpu_thread(_run)
     return {
         "platform": describe_platform(),
+        "use_cuda_graph": use_cuda_graph,
         **stats.as_dict(),
         "preview": text[:200],
     }
@@ -935,6 +1046,7 @@ async def _chat_completions_impl(req: ChatRequest):
                     repetition_penalty=float(req.repetition_penalty),
                     do_sample=req.temperature > 0,
                     eos_token_ids=eos_ids,
+                    use_cuda_graph=_CUDA_GRAPH_ENABLED,
                 )
         # Sampling knobs mirror the Qwen3.6 model-card recommendations:
         # top_k=20 / top_p=0.8 / min_p=0.0 / presence_penalty=1.5 /
