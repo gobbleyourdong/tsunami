@@ -397,22 +397,35 @@ def lean_decode(
 
         # Stream callback — fires once per decoded token. Kept outside
         # the graph path (CPU-side) since emitting SSE lines on GPU is
-        # not a thing. For B=1 we pass the scalar token id.
-        if on_token is not None:
+        # not a thing. For B=1 we pass the scalar token id. This forces
+        # a per-step GPU→CPU sync which streaming needs anyway.
+        streaming = on_token is not None
+        if streaming:
+            tok_id = int(tok.item())
             try:
-                on_token(int(tok.item()))
+                on_token(tok_id)
             except Exception:
-                # Callback errors must not kill decode — this is logged
-                # by the caller if they care.
-                pass
+                pass  # callback errors must not kill decode
 
-        # EOS check (batched — only sync every N steps).
+        # EOS check.
+        # Non-streaming path: batched check every N steps to amortise
+        #   the GPU→CPU sync cost (bool(done.all()) blocks).
+        # Streaming path: check every step. We already synced via
+        #   tok.item() above, so the check is effectively free — and
+        #   this lets us stop at EOS immediately instead of emitting up
+        #   to N-1 post-EOS tokens into the SSE stream.
         if eos_set:
-            for eid in eos_set:
-                done = done | (tok == eid)
-            if ((step + 1) % EOS_CHECK_EVERY == 0) and bool(done.all()):
-                first_eos_step = step
-                break
+            if streaming:
+                # Fast-path: CPU-side check using the already-synced id.
+                if tok_id in eos_set:
+                    first_eos_step = step
+                    break
+            else:
+                for eid in eos_set:
+                    done = done | (tok == eid)
+                if ((step + 1) % EOS_CHECK_EVERY == 0) and bool(done.all()):
+                    first_eos_step = step
+                    break
 
         if repetition_penalty != 1.0:
             prev_tokens = torch.cat(generated, dim=-1)
