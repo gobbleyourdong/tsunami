@@ -50,6 +50,33 @@ if not hasattr(_PTM, "_get_no_split_modules"):
         return list(getattr(self, "_no_split_modules", None) or [])
     _PTM._get_no_split_modules = _get_no_split_modules
 
+# llm-compressor ships MoE calibration adapters keyed on the model's
+# SparseMoeBlock class name: Qwen3MoeSparseMoeBlock, Qwen3NextSparseMoeBlock,
+# Qwen3VLMoeTextSparseMoeBlock. Our model's block is Qwen3_5MoeSparseMoeBlock
+# (not registered). Without the adapter, the fused experts.gate_up_proj +
+# experts.down_proj tensors are invisible to the quantizer — we saw this
+# the hard way on the first calibration run: only 1.6GB of 68GB got packed,
+# the MoE expert weights (~61GB) stayed bf16.
+#
+# Structural check: both Qwen3_5MoeExperts and Qwen3NextExperts store
+# experts as fused nn.Parameter tensors (gate_up_proj + down_proj) with
+# identical shape semantics. We alias the registry entry so our block
+# class name maps to the Qwen3Next calibration adapter. If the forward
+# logic diverges at runtime we'll see a clean error and need a dedicated
+# adapter; as of 2026-04-18 their forwards track each other closely.
+from llmcompressor.modeling.moe_context import MoECalibrationModule
+from llmcompressor.modeling.qwen3_next_moe import CalibrationQwen3NextSparseMoeBlock
+# Registry normalizes names to lowercase-no-underscore. Qwen3_5MoeSparseMoeBlock
+# → "qwen35moesparsemoeblock". Idempotent — skips if already registered.
+try:
+    if "qwen35moesparsemoeblock" not in MoECalibrationModule.registered_names():
+        MoECalibrationModule.register_value(
+            value=CalibrationQwen3NextSparseMoeBlock,
+            name="Qwen3_5MoeSparseMoeBlock",
+        )
+except Exception as _e:
+    print(f"[pack_nvfp4] MoE alias registration skipped: {_e}")
+
 
 # --- Config ---
 MODEL_ID = "Qwen/Qwen3.6-35B-A3B"  # bf16 master
