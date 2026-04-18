@@ -350,7 +350,12 @@ class FileRead(BaseTool):
             "required": ["path"],
         }
 
-    async def execute(self, path: str, offset: int = 0, limit: int = 500, **kw) -> ToolResult:
+    async def execute(self, path: str | None = None, offset: int = 0, limit: int = 500,
+                      file_path: str | None = None, **kw) -> ToolResult:
+        # D20: accept qwen-canonical file_path alongside training-canonical path.
+        path = path if path else file_path
+        if not path:
+            return ToolResult("file_read: path (or file_path) is required", is_error=True)
         try:
             p = _resolve_path(path, self.config.workspace_dir, _active_project)
             if not p.exists():
@@ -415,7 +420,12 @@ class FileWrite(BaseTool):
             "required": ["path", "content"],
         }
 
-    async def execute(self, path: str, content: str, **kw) -> ToolResult:
+    async def execute(self, path: str | None = None, content: str | None = None,
+                      file_path: str | None = None, **kw) -> ToolResult:
+        # D20: accept qwen-canonical file_path alongside training-canonical path.
+        path = path if path else file_path
+        if not path or content is None:
+            return ToolResult("file_write: path (or file_path) and content are required", is_error=True)
         try:
             p = _resolve_path(path, self.config.workspace_dir, _active_project)
             err = _is_safe_write(p, self.config.workspace_dir)
@@ -522,35 +532,46 @@ class FileEdit(BaseTool):
     description = "Make targeted modifications to an existing file. The scalpel: precise changes without destroying context."
 
     def parameters_schema(self) -> dict:
-        # qwen-code's edit tool uses `old_content` / `new_content` as
-        # the canonical param names (see
-        # QwenLM/qwen-code/packages/core/src/core/prompts.ts — the
-        # system prompt teaches the model <parameter=old_content>...
-        # <parameter=new_content>). Our schema now matches that prior;
-        # the execute() kwargs accept both old_text/old_content and
-        # new_text/new_content for backward compat with older callers.
+        # Audit Fire 2 / D20 correction: qwen-code's edit tool actually
+        # uses `file_path` / `old_string` / `new_string` (see
+        # QwenLM/qwen-code/packages/core/src/tools/edit.ts:78-106). The
+        # prompt examples confusingly show `<parameter=path>` but the
+        # TypeScript interface is the source of truth. The training data
+        # uses `path` / `old_text` / `new_text`. execute() accepts all
+        # three spellings for each slot so emissions from any of
+        # (fine-tune, raw Qwen, qwen-coder-XML) land correctly. Schema
+        # advertises the training-canonical names so the fine-tune's
+        # emission pattern stays the primary path.
         return {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Path to the file"},
-                "old_content": {"type": "string", "description": "Exact text to find and replace"},
-                "new_content": {"type": "string", "description": "Replacement text"},
+                "path": {"type": "string", "description": "Path to the file (file_path also accepted)"},
+                "old_content": {"type": "string", "description": "Exact text to find and replace (old_text / old_string also accepted)"},
+                "new_content": {"type": "string", "description": "Replacement text (new_text / new_string also accepted)"},
             },
             "required": ["path", "old_content", "new_content"],
         }
 
-    async def execute(self, path: str,
+    async def execute(self, path: str | None = None,
                        old_content: str | None = None,
                        new_content: str | None = None,
                        old_text: str | None = None,
                        new_text: str | None = None,
+                       file_path: str | None = None,
+                       old_string: str | None = None,
+                       new_string: str | None = None,
                        **kw) -> ToolResult:
-        # Coalesce legacy + canonical arg names.
-        old_text = old_content if old_content is not None else old_text
-        new_text = new_content if new_content is not None else new_text
-        if old_text is None or new_text is None:
+        # Coalesce all three spellings of each slot: qwen canonical
+        # (file_path / old_string / new_string), training-data spelling
+        # (path / old_text / new_text), and the dual-named schema
+        # (old_content / new_content).
+        path = path if path is not None else file_path
+        old_text = old_string or old_content or old_text
+        new_text = new_string or new_content or new_text
+        if not path or old_text is None or new_text is None:
             return ToolResult(
-                "file_edit: both old_content and new_content are required",
+                "file_edit: path, old_content, and new_content are all required "
+                "(aliases: file_path / old_string / new_string / old_text / new_text)",
                 is_error=True,
             )
         try:
