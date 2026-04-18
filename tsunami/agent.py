@@ -140,7 +140,17 @@ class Agent:
 
         # Stall detection — abort on no-progress loops
         self._empty_steps = 0
-        self._tool_history: list[str] = []  # last N tool calls
+        self._tool_history: list[str] = []  # last N tool calls (model + synthetic)
+        # Audit Fire 3 / D25 — a separate ledger that ONLY reflects real model
+        # emissions. The main _tool_history has 6+ synthetic mutator sites
+        # (forced message_result paths, auto-project_init injection, forced
+        # riptide/undertow hints). The thinking-mode gate checking for
+        # "project_init" in history was flipping false on the first real model
+        # turn of pre-scaffolded tasks because synthetic appends had already
+        # landed. Gate decisions read _tool_history_model; telemetry +
+        # writes-count gates stay on _tool_history (their semantics include
+        # synthetic entries by design).
+        self._tool_history_model: list[str] = []
         self._project_init_called = False  # block repeated scaffold
         self._has_researched = False  # research gate — must search before writing
 
@@ -1562,9 +1572,13 @@ class Agent:
         #   - after undertow failures: always plan (need to decide the fix)
         #   - otherwise: coding, thinking off
         is_first_turn = self.state.iteration <= 1
-        no_scaffold_yet = "project_init" not in self._tool_history
+        # Gate reads _tool_history_model (real model emissions only) — the
+        # general _tool_history has synthetic project_init appends that would
+        # flip this false before the model ever got to act (audit D25).
+        no_scaffold_yet = "project_init" not in self._tool_history_model
         last_was_qa_failure = (
-            len(self._tool_history) >= 1 and self._tool_history[-1] == "undertow"
+            len(self._tool_history_model) >= 1
+            and self._tool_history_model[-1] == "undertow"
             and getattr(self, "_forced_undertow_done", False)
         )
         # Only force thinking on iter 1 when a scaffold still needs picking.
@@ -1763,6 +1777,11 @@ class Agent:
         self._tool_history.append(tool_call.name)
         if len(self._tool_history) > 10:
             self._tool_history = self._tool_history[-10:]
+        # D25: mirror to the model-only ledger so gate decisions (thinking
+        # mode, last_was_qa_failure) see only real model emissions.
+        self._tool_history_model.append(tool_call.name)
+        if len(self._tool_history_model) > 10:
+            self._tool_history_model = self._tool_history_model[-10:]
         # If last 4 calls are all read-only tools → stalled
         if len(self._tool_history) >= 4:
             recent = self._tool_history[-4:]
