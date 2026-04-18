@@ -242,6 +242,15 @@ model = None
 processor = None
 tokenizer = None  # fallback when processor isn't available
 
+# MTP head state — lazy-loaded on first /debug/mtp_decode call (or if
+# TSUNAMI_MTP_ENABLED=1 flips it into the main decode path). Kept
+# optional because mtp.safetensors only ships on select Qwen checkpoints
+# and we want the server to still boot if it's absent.
+_mtp_head = None
+_mtp_load_failed: str | None = None
+_model_cfg = None          # AutoConfig saved after model load (MTP needs text_config)
+_model_snapshot = None     # snapshot path on disk (MTP needs mtp.safetensors)
+
 
 # tool_choice payload shape — same shape as serve_transformers.py.
 class _ToolChoiceFunction(BaseModel):
@@ -458,6 +467,112 @@ async def debug_profile(req: dict):
     async with _gpu_sem:
         result = await _run_on_gpu_thread(_prof)
     return result
+
+
+def _ensure_mtp_loaded() -> tuple[object | None, str | None]:
+    """Lazy-load the MTP head the first time it's needed.
+
+    Returns (mtp_head, error_msg). error_msg is None on success.
+    On failure, the error is cached so subsequent calls fail fast.
+    """
+    global _mtp_head, _mtp_load_failed
+    if _mtp_head is not None:
+        return _mtp_head, None
+    if _mtp_load_failed is not None:
+        return None, _mtp_load_failed
+    if model is None or _model_cfg is None or _model_snapshot is None:
+        msg = "main model / config / snapshot not loaded yet"
+        _mtp_load_failed = msg
+        return None, msg
+    if not (_model_snapshot / "mtp.safetensors").exists():
+        msg = f"no mtp.safetensors in {_model_snapshot.name}"
+        _mtp_load_failed = msg
+        return None, msg
+    try:
+        from mtp_module import load_mtp_head
+        log.info(f"loading MTP head from {_model_snapshot.name} …")
+        t0 = time.time()
+        _mtp_head = load_mtp_head(
+            _model_snapshot, _model_cfg.text_config, model,
+            _model_cfg.quantization_config, device="cuda:0",
+        )
+        log.info(f"MTP head loaded in {time.time()-t0:.1f}s, "
+                 f"VRAM now {torch.cuda.memory_allocated()/1e9:.2f} GB")
+        return _mtp_head, None
+    except Exception as e:
+        msg = f"{type(e).__name__}: {e}"
+        log.warning(f"MTP head load failed: {msg}")
+        _mtp_load_failed = msg
+        return None, msg
+
+
+@app.post("/debug/mtp_decode")
+async def debug_mtp_decode(req: dict):
+    """Speculative-decode one prompt with the MTP head and return stats.
+
+    Comparable to /debug/lean_decode. Reports acceptance rate so the
+    effective tok/s win over the main forward can be computed:
+      effective_tok/s = tok/s * (1 + accept_rate)
+    since each accepted draft saves a main-forward per token.
+    """
+    if model is None or tokenizer is None:
+        return JSONResponse({"error": "model not loaded"}, status_code=503)
+    mtp, err = _ensure_mtp_loaded()
+    if mtp is None:
+        return JSONResponse({"error": f"MTP unavailable: {err}"}, status_code=503)
+
+    from mtp_module import generate_with_mtp
+    prompt = req.get("prompt", "Count from 1 to 30.")
+    max_new = int(req.get("max_tokens", 50))
+    msgs = [{"role": "user", "content": prompt}]
+    ids = tokenizer.apply_chat_template(
+        msgs, add_generation_prompt=True, tokenize=True, return_tensors="pt"
+    )
+    if hasattr(ids, "keys") and "input_ids" in ids:
+        ids = ids["input_ids"]
+    ids = ids.to(model.device)
+    attn = torch.ones_like(ids)
+
+    eos_ids: set[int] = set()
+    if tokenizer.eos_token_id is not None:
+        eos_ids.add(int(tokenizer.eos_token_id))
+    for s in ("<|im_end|>", "<|endoftext|>", "<|end|>"):
+        t = tokenizer.convert_tokens_to_ids(s)
+        if isinstance(t, int) and t >= 0 and t != tokenizer.unk_token_id:
+            eos_ids.add(int(t))
+
+    def _run():
+        torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        gen, stats = generate_with_mtp(
+            model, mtp,
+            input_ids=ids, attention_mask=attn,
+            max_new_tokens=max_new,
+            eos_token_ids=eos_ids,
+            temperature=float(req.get("temperature", 0.0)),
+            top_p=float(req.get("top_p", 0.95)),
+            top_k=int(req.get("top_k", 64)),
+        )
+        torch.cuda.synchronize()
+        wall_ms = (time.perf_counter() - t0) * 1000
+        n_new = int(gen.shape[-1])
+        tps = n_new / (wall_ms / 1000) if wall_ms else 0.0
+        txt = tokenizer.decode(gen[0], skip_special_tokens=True)
+        rate = stats["accepts"] / max(1, stats["steps"])
+        return {
+            "platform": describe_platform(),
+            "wall_ms": round(wall_ms, 1),
+            "n_new": n_new,
+            "tok_per_s": round(tps, 2),
+            "ms_per_tok": round(wall_ms / max(n_new, 1), 2),
+            "mtp_steps": stats["steps"],
+            "mtp_accepts": stats["accepts"],
+            "mtp_accept_rate": round(rate, 3),
+            "preview": txt[:200],
+        }
+
+    async with _gpu_sem:
+        return await _run_on_gpu_thread(_run)
 
 
 @app.post("/debug/lean_decode")
@@ -1262,6 +1377,17 @@ def _load_model(model_id: str, max_memory_gb: float | None):
         cpu_rss = -1.0
     log.info(f"Model resident in {time.time()-t0:.1f}s, VRAM {vram:.2f} GB "
              f"/ CPU RSS peak {cpu_rss:.2f} GB on {model.device}")
+
+    # Stash cfg + snapshot so the lazy MTP loader can find them later.
+    # MTP head loads ~1-2GB extra VRAM on top of the main model; deferred to
+    # first /debug/mtp_decode call (or main-path enable via env flag) so boot
+    # stays fast for users who don't want speculative decoding.
+    global _model_cfg, _model_snapshot
+    _model_cfg = cfg
+    try:
+        _model_snapshot = _resolve_snapshot_dir(model_id)
+    except Exception as _e:
+        log.info(f"snapshot dir unresolved ({_e}) — MTP will be unavailable")
 
     # Boot warmup attempted in iteration 10 — running generate() in the main
     # thread before uvicorn so Triton autotune costs don't land on the first

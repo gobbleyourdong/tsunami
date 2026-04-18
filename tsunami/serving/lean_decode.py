@@ -49,10 +49,12 @@ def lean_sample(
 ) -> torch.Tensor:
     """Pick the next token from logits.
 
-    Combines the common filters (temperature, top_k, top_p, min_p,
-    repetition penalty) into ~8 torch ops. HF's equivalent is a chain
-    of ~6 LogitsProcessor classes each doing its own torch ops + a
-    python wrapper. Same math, one-tenth the python.
+    Fused into the top-k subspace: when top_k is set, top_p / min_p /
+    softmax / multinomial all operate on (B, k) instead of (B, vocab).
+    For Qwen3.6 vocab=250k and typical top_k=20, that's a ~12000×
+    reduction in element count for the sort + cumsum + masked_fill +
+    multinomial chain. HF's LogitsProcessor does each filter on the
+    full vocab.
 
     Returns (B,) int64 token ids.
     """
@@ -60,44 +62,44 @@ def lean_sample(
         return logits.argmax(dim=-1)
 
     if repetition_penalty != 1.0 and prev_tokens is not None and prev_tokens.numel() > 0:
-        # Lower logit of any token that appeared in prev_tokens. HF's version
-        # is a Python loop over batch items; we vectorise with gather/scatter.
         score = torch.gather(logits, -1, prev_tokens)
-        # For neg logits we multiply; for pos we divide. One branchless expr:
         score = torch.where(score < 0, score * repetition_penalty, score / repetition_penalty)
         logits = logits.scatter(-1, prev_tokens, score)
 
-    logits = logits / temperature
-
     if top_k > 0:
-        # Set everything except the top-k to -inf.
+        # Fused top-k path — sort, cumsum, mask, multinomial all on k elements.
+        # topk returns values already sorted descending; we reuse that.
         k = min(int(top_k), logits.shape[-1])
-        topk_vals = logits.topk(k, dim=-1).values
-        kth = topk_vals[..., -1:]
-        logits = torch.where(logits < kth, torch.full_like(logits, float("-inf")), logits)
-
-    if top_p < 1.0 or min_p > 0.0:
-        probs = torch.softmax(logits, dim=-1)
+        topk_vals, topk_idx = logits.topk(k, dim=-1)  # both (B, k), sorted desc
+        topk_vals = topk_vals / temperature
+        probs_k = torch.softmax(topk_vals, dim=-1)
         if top_p < 1.0:
-            # Sort descending, cumulative sum, mask the tail past top_p.
-            sorted_probs, sorted_idx = probs.sort(dim=-1, descending=True)
-            cum = sorted_probs.cumsum(dim=-1)
-            # Shift by one: keep the first token that crosses the threshold.
-            mask_sorted = cum - sorted_probs > top_p
-            sorted_probs = sorted_probs.masked_fill(mask_sorted, 0.0)
-            # Scatter back to original order.
-            probs = torch.zeros_like(probs).scatter(-1, sorted_idx, sorted_probs)
+            cum = probs_k.cumsum(dim=-1)
+            mask = (cum - probs_k) > top_p
+            probs_k = probs_k.masked_fill(mask, 0.0)
         if min_p > 0.0:
-            # min_p: drop any token whose prob < min_p * max_prob.
-            max_p = probs.amax(dim=-1, keepdim=True)
-            probs = torch.where(probs < max_p * min_p, torch.zeros_like(probs), probs)
-        probs = probs / probs.sum(dim=-1, keepdim=True).clamp(min=1e-12)
-    else:
-        probs = torch.softmax(logits, dim=-1)
+            mx = probs_k.amax(dim=-1, keepdim=True)
+            probs_k = probs_k * (probs_k >= mx * min_p).to(probs_k.dtype)
+        probs_k = probs_k / probs_k.sum(dim=-1, keepdim=True).clamp(min=1e-12)
+        # Sample within top-k index space, then gather to vocab index.
+        idx_in_k = torch.multinomial(probs_k, num_samples=1, generator=generator)
+        return topk_idx.gather(-1, idx_in_k).squeeze(-1)
 
-    # Multinomial — cross-platform. CUDA/MPS/CPU all provide this.
-    tok = torch.multinomial(probs, num_samples=1, generator=generator).squeeze(-1)
-    return tok
+    # No top_k: full-vocab path.
+    logits = logits / temperature
+    probs = torch.softmax(logits, dim=-1)
+    if top_p < 1.0:
+        sorted_probs, sorted_idx = probs.sort(dim=-1, descending=True)
+        cum = sorted_probs.cumsum(dim=-1)
+        mask_sorted = (cum - sorted_probs) > top_p
+        sorted_probs = sorted_probs.masked_fill(mask_sorted, 0.0)
+        probs = torch.zeros_like(probs).scatter(-1, sorted_idx, sorted_probs)
+    if min_p > 0.0:
+        max_p = probs.amax(dim=-1, keepdim=True)
+        probs = torch.where(probs < max_p * min_p, torch.zeros_like(probs), probs)
+    if top_p < 1.0 or min_p > 0.0:
+        probs = probs / probs.sum(dim=-1, keepdim=True).clamp(min=1e-12)
+    return torch.multinomial(probs, num_samples=1, generator=generator).squeeze(-1)
 
 
 # ---------------------------------------------------------------------
@@ -161,6 +163,16 @@ def lean_decode(
     position_ids = torch.arange(T, dtype=torch.long, device=device).unsqueeze(0).expand(B, -1)
     cache_position = torch.arange(T, dtype=torch.long, device=device)
 
+    # Pre-allocate the full attention mask up to T + max_new_tokens once.
+    # Each step slices [:, :cur_pos+1] instead of torch.cat-ing per step
+    # (cat reallocates a new tensor every iter = GPU free+alloc thrash).
+    attn_buf = torch.ones(B, T + max_new_tokens, dtype=attention_mask.dtype, device=device)
+    attn_buf[:, :T] = attention_mask
+    # Pre-allocate per-step position + cache_position on-device to avoid
+    # building a fresh small tensor inside the loop each iteration.
+    step_pos_buf = torch.zeros(B, 1, dtype=torch.long, device=device)
+    step_cache_pos_buf = torch.zeros(1, dtype=torch.long, device=device)
+
     # --- Prefill ---
     _sync_if_cuda(device)
     t0 = time.perf_counter()
@@ -184,6 +196,12 @@ def lean_decode(
     done = torch.zeros(B, dtype=torch.bool, device=device)
     prev_tokens = input_ids
     cur_pos = T
+    # EOS check cadence: checking every step forces a GPU→CPU sync per token
+    # (bool(done.all()) blocks on pending CUDA work). Batch-checking every
+    # EOS_CHECK_EVERY steps cuts the sync cost ~Nx at the price of emitting
+    # up to N-1 post-EOS tokens before breaking — sliced off at return.
+    EOS_CHECK_EVERY = 8
+    first_eos_step: Optional[int] = None
 
     # --- Decode loop ---
     _sync_if_cuda(device)
@@ -200,33 +218,32 @@ def lean_decode(
             generator=generator,
         )  # (B,)
 
-        # EOS check
+        generated.append(tok.unsqueeze(-1))
+
+        # EOS check (batched — only sync every N steps).
         if eos_set:
             for eid in eos_set:
                 done = done | (tok == eid)
-            if bool(done.all()):
-                generated.append(tok.unsqueeze(-1))
+            if ((step + 1) % EOS_CHECK_EVERY == 0) and bool(done.all()):
+                first_eos_step = step
                 break
 
-        generated.append(tok.unsqueeze(-1))
-        prev_tokens = torch.cat(generated, dim=-1) if repetition_penalty != 1.0 else None
+        if repetition_penalty != 1.0:
+            prev_tokens = torch.cat(generated, dim=-1)
 
         if step == max_new_tokens - 1:
             break
 
         # Next forward — feed the new token only, with absolute position.
-        attention_mask = torch.cat(
-            [attention_mask, torch.ones((B, 1), dtype=attention_mask.dtype, device=device)],
-            dim=-1,
-        )
-        next_pos = torch.tensor([[cur_pos]], dtype=torch.long, device=device).expand(B, -1)
-        next_cache_pos = torch.tensor([cur_pos], dtype=torch.long, device=device)
+        # Uses pre-allocated buffers to avoid per-step tensor construction.
+        step_pos_buf.fill_(cur_pos)
+        step_cache_pos_buf.fill_(cur_pos)
         with torch.no_grad():
             out = model(
                 input_ids=tok.unsqueeze(-1),
-                attention_mask=attention_mask,
-                position_ids=next_pos,
-                cache_position=next_cache_pos,
+                attention_mask=attn_buf[:, :cur_pos + 1],
+                position_ids=step_pos_buf,
+                cache_position=step_cache_pos_buf,
                 past_key_values=past,
                 use_cache=True,
                 return_dict=True,
