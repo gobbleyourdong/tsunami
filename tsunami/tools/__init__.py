@@ -18,11 +18,16 @@ Vision (force multiplier for small models):
   riptide (extract element positions from a reference image)
   generate_image (create reference via Z-Image-Turbo)
 
+Discovery (audit D22 restore — the fine-tune was trained to emit these
+in every example's tool set):
+  match_glob (find files by pattern)
+  match_grep (regex search file contents)
+  summarize_file (structural head+tail summary)
+
 Deprecated (previously existed, now removed from codebase):
-  plan_update, plan_advance, swell, swell_build, swell_analyze,
-  message_info, message_ask, match_glob, match_grep, python_exec,
-  summarize_file, browser_*, webdev_*, load_toolbox, subtask_*,
-  session_*. See git history commit where tools/ was trimmed for details.
+  swell, swell_build, swell_analyze, message_info, message_ask,
+  python_exec, browser_*, webdev_*, load_toolbox, subtask_*, session_*.
+  See git history commit where tools/ was trimmed for details.
 
 Agent-side dispatching (not model-callable):
   Eddy swarm for multi-component writes: agent.py auto-detects missing
@@ -98,7 +103,7 @@ class ToolRegistry:
 
 
 def build_registry(config) -> ToolRegistry:
-    """Build the 13-tool registry: 11 core + 2 planning."""
+    """Build the 17-tool registry: 11 core + 2 planning + 1 design-emit + 3 discovery."""
     from .filesystem import FileRead, FileWrite, FileEdit
     from .shell import ShellExec
     from .message import MessageResult, MessageChat
@@ -108,6 +113,12 @@ def build_registry(config) -> ToolRegistry:
     from .project_init import ProjectInit
     from .generate import GenerateImage
     from .plan import PlanUpdate, PlanAdvance
+    from .emit_design import EmitDesignTool
+    # Audit D22 — the fine-tune was trained on these three in every example's
+    # tool-declaration set; without them the model emits tool calls the
+    # registry can't route, falling back to shell_exec "find"/"rg" for
+    # capabilities that should be native.
+    from .discovery import MatchGlob, MatchGrep, SummarizeFile
 
     registry = ToolRegistry()
     for cls in [
@@ -118,6 +129,8 @@ def build_registry(config) -> ToolRegistry:
         ProjectInit,
         Undertow, Riptide, GenerateImage,
         PlanUpdate, PlanAdvance,
+        EmitDesignTool,
+        MatchGlob, MatchGrep, SummarizeFile,
     ]:
         registry.register(cls(config))
 
