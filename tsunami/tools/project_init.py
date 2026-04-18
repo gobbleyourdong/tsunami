@@ -189,9 +189,14 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
             return "api-only"
 
     # 5. Needs persistence (database, accounts, saving state)
-    if needs("database", "login", "auth", "account", "persist", "save", "crud",
-             "backend", "api", "server", "express", "sqlite", "todo", "saas",
-             "track", "log", "history", "bookmark", "favorite"):
+    # Pruned 2026-04-18 during T2 grind: "track", "log", "history",
+    # "bookmark", "favorite" were over-aggressive — "a task list that
+    # tracks pomodoros" is React state, not SQLite. "todo" likewise
+    # is a local-state app 90% of the time. Only trigger fullstack on
+    # explicit backend/DB signals.
+    if needs("database", "login", "auth", "account", "persist", "crud",
+             "backend", "api server", "express", "sqlite", "saas",
+             "signup", "user accounts", "multi-user"):
         if (SCAFFOLDS_DIR / "fullstack").exists():
             return "fullstack"
 
