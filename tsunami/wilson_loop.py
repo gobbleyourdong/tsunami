@@ -249,11 +249,22 @@ class WilsonLoop:
     def __post_init__(self):
         self._anchor_tokens = _tokens(self.goal_anchor)
         self._anchor_text = self.goal_anchor
-        # Resolve endpoint from env if caller didn't pass one. Empty string
-        # is treated as "off" (no-op). Live agent.py constructs WilsonLoop
-        # without this kwarg, so today's default path is env-driven only.
+        # Resolve endpoint from env, then the shipped-default. Empty string
+        # in the env still wins as "off" (no-op) for callers who want to
+        # explicitly disable embeds (TSUNAMI_EMBED_ENDPOINT="" in env).
+        # Otherwise we default to the in-cluster embed server on :8093,
+        # which serves Qwen3-Embedding-0.6B. Without this default, wilson
+        # silently falls back to token-set cosine and misses read-spirals
+        # whose vocabulary stays goal-adjacent (e.g. re-reading App.tsx
+        # for the 5th time while never advancing the build).
         if self.embedding_endpoint is None:
-            self.embedding_endpoint = os.environ.get("TSUNAMI_EMBED_ENDPOINT", "") or None
+            env_val = os.environ.get("TSUNAMI_EMBED_ENDPOINT")
+            if env_val is None:
+                # Not set → use shipping default.
+                self.embedding_endpoint = "http://localhost:8093"
+            else:
+                # Explicit env (including empty string) wins.
+                self.embedding_endpoint = env_val or None
         # Warm the anchor embedding ONCE at construction. If the server
         # doesn't support embeddings, _anchor_embed stays None and every
         # probe takes the token-cosine path without retrying the server.

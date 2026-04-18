@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -43,6 +44,15 @@ from tsunami.agent import Agent
 
 
 ENDPOINT = "http://localhost:8090"
+# Wilson Loop needs a real embedding endpoint to detect semantic drift;
+# without it it falls back to token-set cosine, which can't distinguish
+# "reading index.css for the 4th time" from "making progress on
+# pomodoro" because the topic tokens stay constant. Point at the
+# shared embed server on :8093 so wilson fires and the WIPEOUT gate
+# can recover read-spirals. The endpoint is idempotently set here
+# (respects an existing env override) rather than unconditionally.
+os.environ.setdefault("TSUNAMI_EMBED_ENDPOINT", "http://localhost:8093")
+
 OUT_DIR = REPO / "workspace" / "training_data"
 
 
@@ -218,7 +228,11 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
         Tier(
             id="T2",
             name="pomodoro",
-            budget_s=900,
+            # Qwen3.6 averages ~5 min per iter on this pipeline. 4 iters
+            # are the floor for a clean pass (project_init, file_write,
+            # shell_exec, undertow, message_result). 1800s gives the
+            # agent 5-6 iters — room for one revision after undertow.
+            budget_s=1800,
             prompt=(
                 "Build a Pomodoro timer with start, pause, and reset buttons. "
                 "Include a task list where each task tracks how many pomodoros it took."
