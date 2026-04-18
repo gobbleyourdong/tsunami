@@ -126,6 +126,45 @@ class DecodeStats:
         return {k: getattr(self, k) for k in self.__slots__}
 
 
+# --- CUDA-graph-captured decode step (optional, env-gated) --------------
+#
+# Motivation: the per-phase profile shows forward=50ms/tok on Qwen3.6 / GB10,
+# vs the CompiledFxGraph's GPU time of ~25ms/tok in /debug/profile. The
+# ~25ms gap is Python + kernel-launch overhead per forward. torch.compile
+# with mode="reduce-overhead" uses CUDA graphs under the hood — one capture,
+# N replays with zero Python overhead per step. Published community number
+# for Qwen3.5-35B-A3B FP8 on GB10: 13.3 → 48.6 tok/s (3.65×) from CUDA
+# graphs alone (see ~/agentic_speed/tier2/fa3.md).
+
+_compiled_step_cache: dict = {}
+
+
+def _get_compiled_step(model):
+    """Return (or build) a torch.compile'd step function for this model.
+
+    reduce-overhead mode combines inductor kernel fusion with CUDA-graph
+    capture. First call compiles + captures (seconds); later calls replay.
+    """
+    key = id(model)
+    if key in _compiled_step_cache:
+        return _compiled_step_cache[key]
+
+    def _step(input_ids, attention_mask, position_ids, cache_position, past_key_values):
+        return model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            cache_position=cache_position,
+            past_key_values=past_key_values,
+            use_cache=True,
+            return_dict=True,
+        )
+
+    compiled = torch.compile(_step, mode="reduce-overhead", fullgraph=False, dynamic=False)
+    _compiled_step_cache[key] = compiled
+    return compiled
+
+
 def lean_decode(
     model,
     input_ids: torch.Tensor,  # (B, T)
