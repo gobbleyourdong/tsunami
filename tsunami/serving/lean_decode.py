@@ -213,6 +213,7 @@ def lean_decode(
     use_static_cache: bool = True,
     use_cuda_graph: bool = False,
     max_cache_len: Optional[int] = None,
+    on_token: Optional[object] = None,  # Optional[Callable[[int], None]]
 ) -> torch.Tensor | tuple[torch.Tensor, DecodeStats]:
     """Manual decode loop. Returns the full (B, T+max_new_tokens) ids.
 
@@ -379,6 +380,17 @@ def lean_decode(
             stats.sample_ms_total += (time.perf_counter() - _ts) * 1000
 
         generated.append(tok.unsqueeze(-1))
+
+        # Stream callback — fires once per decoded token. Kept outside
+        # the graph path (CPU-side) since emitting SSE lines on GPU is
+        # not a thing. For B=1 we pass the scalar token id.
+        if on_token is not None:
+            try:
+                on_token(int(tok.item()))
+            except Exception:
+                # Callback errors must not kill decode — this is logged
+                # by the caller if they care.
+                pass
 
         # EOS check (batched — only sync every N steps).
         if eos_set:

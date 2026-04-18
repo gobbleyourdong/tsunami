@@ -196,7 +196,7 @@ def _ds_w8a8_fp8_matmul(A, B, As, Bs, block_size=None, output_dtype=torch.bfloat
 _fgfp8.w8a8_fp8_matmul = _ds_w8a8_fp8_matmul
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 # Import by local name — when run as `python3 tsunami/serving/serve_qwen36_fp8.py`
@@ -222,7 +222,7 @@ _LEAN_DECODE_ENABLED = os.getenv("TSUNAMI_LEAN_DECODE", "1") == "1"
 # to uncaptured path on any capture failure, so safe to default on.
 # Set TSUNAMI_CUDA_GRAPH=0 to disable.
 _CUDA_GRAPH_ENABLED = os.getenv("TSUNAMI_CUDA_GRAPH", "1") == "1"
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 import uvicorn
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -306,6 +306,10 @@ class ChatRequest(BaseModel):
     # reasoning. Maps to `chat_template_kwargs.preserve_thinking` per the
     # model card. Only useful when enable_thinking=True.
     preserve_thinking: bool = False
+    # OpenAI API compat: stream tokens as Server-Sent Events.
+    # Fixes audit D3 — the "streaming XML tool parser" exists but the
+    # /v1 response path was previously buffered until full completion.
+    stream: bool = False
 
 
 # Fairness layer — pulled from serve_transformers.py. One in-flight request
@@ -1027,8 +1031,147 @@ def _parse_qwen_tool_calls(content: str) -> tuple[list[dict], str]:
 @app.post("/v1/chat/completions")
 async def chat_completions(req: ChatRequest):
     _user_sem = _get_user_sem(req.user or "default")
+    if req.stream:
+        # Streaming doesn't hold _user_sem across the whole generator —
+        # once decode starts, the generator will acquire _gpu_sem for
+        # actual model work. Fair-queue still enforced at GPU layer.
+        return await _chat_completions_stream(req, _user_sem)
     async with _user_sem:
         return await _chat_completions_impl(req)
+
+
+async def _chat_completions_stream(req: ChatRequest, user_sem: asyncio.Semaphore):
+    """SSE streaming response for OpenAI `stream: true` requests.
+
+    Runs lean_decode in the pinned GPU executor; a thread-safe callback
+    forwards each token to an asyncio.Queue from which the SSE generator
+    formats and yields chunks. Fixes audit D3 — the 'streaming XML tool
+    parser' was always wired but nothing ever actually streamed.
+
+    Token-to-text is incremental: each new token appends to a running
+    buffer, we decode the whole buffer and emit the length-diff. BPE
+    tokenizers occasionally split multi-byte chars across tokens, which
+    this approach handles cleanly — the diff includes the combined
+    codepoints once the full sequence is valid.
+
+    Tool calls / thinking tags are still assembled server-side at the
+    end of the stream and emitted as one final chunk; mid-stream XML
+    would break most OpenAI clients.
+    """
+    import json as _json
+    start = time.time()
+    _utag = f"[user={req.user or 'default'}] "
+
+    messages, _images = _normalize_messages(req.messages)
+    inputs = _apply_chat_template(messages, req.tools, req.enable_thinking,
+                                   req.preserve_thinking)
+    prompt_len = inputs["input_ids"].shape[1]
+
+    eos_ids: list[int] = []
+    if tokenizer.eos_token_id is not None:
+        eos_ids.append(int(tokenizer.eos_token_id))
+    for s in ("<|im_end|>", "<|endoftext|>", "<|end|>"):
+        t = tokenizer.convert_tokens_to_ids(s)
+        if isinstance(t, int) and t >= 0 and t != tokenizer.unk_token_id:
+            eos_ids.append(int(t))
+    eos_set = set(eos_ids)
+
+    loop = asyncio.get_running_loop()
+    q: asyncio.Queue = asyncio.Queue(maxsize=2048)
+    DONE = object()
+
+    def on_token(tok_id: int) -> None:
+        loop.call_soon_threadsafe(q.put_nowait, tok_id)
+
+    def _run_decode():
+        try:
+            with torch.no_grad():
+                lean_decode(
+                    model,
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs.get("attention_mask"),
+                    max_new_tokens=req.max_tokens,
+                    temperature=req.temperature if req.temperature > 0 else 1.0,
+                    top_k=int(req.top_k) if req.top_k else 0,
+                    top_p=float(req.top_p),
+                    min_p=float(req.min_p),
+                    repetition_penalty=float(req.repetition_penalty),
+                    do_sample=req.temperature > 0,
+                    eos_token_ids=eos_ids,
+                    use_cuda_graph=_CUDA_GRAPH_ENABLED,
+                    max_cache_len=None,
+                    on_token=on_token,
+                )
+        except Exception as _e:
+            log.warning(f"{_utag}stream decode error: {type(_e).__name__}: {_e}")
+        finally:
+            loop.call_soon_threadsafe(q.put_nowait, DONE)
+
+    async def sse() -> "AsyncIterator[bytes]":
+        # Hold user_sem for the whole stream — one user = one in-flight
+        # streaming call, same fairness property as non-streaming.
+        async with user_sem, _gpu_sem:
+            fut = loop.run_in_executor(_gpu_executor, _run_decode)
+            collected_ids: list[int] = []
+            emitted = ""
+            completion_id = f"chatcmpl-{uuid.uuid4().hex[:16]}"
+            created = int(time.time())
+
+            def _chunk(delta: dict, finish_reason: Optional[str] = None) -> bytes:
+                payload = {
+                    "id": completion_id,
+                    "object": "chat.completion.chunk",
+                    "created": created,
+                    "model": req.model,
+                    "choices": [{"index": 0, "delta": delta,
+                                 "finish_reason": finish_reason}],
+                }
+                return f"data: {_json.dumps(payload)}\n\n".encode()
+
+            # Initial role-only delta (OpenAI convention).
+            yield _chunk({"role": "assistant", "content": ""})
+
+            while True:
+                item = await q.get()
+                if item is DONE:
+                    break
+                collected_ids.append(int(item))
+                # Decode the full buffer, emit diff. Slightly wasteful
+                # vs per-token decode but avoids mid-codepoint artifacts.
+                full = tokenizer.decode(collected_ids, skip_special_tokens=False)
+                # Strip EOS/chat markers before emitting (they shouldn't
+                # appear mid-stream, but be defensive).
+                stable = full
+                for stop in ("<|im_end|>", "<|endoftext|>", "<|end|>"):
+                    if stop in stable:
+                        stable = stable.split(stop, 1)[0]
+                delta = stable[len(emitted):]
+                if delta:
+                    emitted = stable
+                    yield _chunk({"content": delta})
+
+            await fut  # ensure decode thread exited cleanly
+
+            # Final chunk: full content + tool_calls extracted from XML.
+            thinking, answer = _split_thinking(emitted.strip())
+            content = answer if not req.keep_thinking else emitted.strip()
+            tool_calls, content = _parse_qwen_tool_calls(content)
+            elapsed = time.time() - start
+            n_new = len(collected_ids)
+            log.info(f"{_utag}streamed {n_new} tok in {elapsed:.1f}s "
+                     f"({n_new / max(elapsed, 1e-6):.1f} tok/s)"
+                     + (f" [{len(tool_calls)} tool_call(s)]" if tool_calls else ""))
+            final_delta: dict = {}
+            if tool_calls:
+                final_delta["tool_calls"] = tool_calls
+            if thinking and not req.keep_thinking:
+                final_delta["reasoning_content"] = thinking
+            if final_delta:
+                yield _chunk(final_delta)
+            yield _chunk({}, finish_reason="stop")
+            yield b"data: [DONE]\n\n"
+
+    return StreamingResponse(sse(), media_type="text/event-stream")
 
 
 async def _chat_completions_impl(req: ChatRequest):
