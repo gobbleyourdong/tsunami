@@ -395,6 +395,43 @@ def _gpu_warmup_sync():
                  f"compiled in {_t.time()-ts:.1f}s")
     log.info(f"Boot warmup done in {_t.time()-t0:.1f}s on pinned GPU thread")
 
+    # Extra pass: pre-warm the lean_decode StaticCache + CUDA-graph capture
+    # so the first real /v1 request doesn't pay the ~700ms compile + capture
+    # cost. HF's generate(cache_implementation="static") above already
+    # compiled the model's kernels, but lean_decode's own cache path
+    # (constructs its own StaticCache, calls model() directly, captures a
+    # torch.cuda.CUDAGraph) is a separate compile surface.
+    if _LEAN_DECODE_ENABLED and _CUDA_GRAPH_ENABLED:
+        try:
+            from lean_decode import lean_decode as _lean
+            log.info("Boot warmup: pre-capturing lean_decode CUDA graph …")
+            _tg = _t.time()
+            # Minimal prompt — we just need to trigger the capture, not
+            # generate real content. 8 tokens is enough to exercise the
+            # graph-capture + replay path.
+            msgs = [{"role": "user", "content": "Hi."}]
+            ids = tokenizer.apply_chat_template(
+                msgs, add_generation_prompt=True, tokenize=True, return_tensors="pt",
+            )
+            if hasattr(ids, "keys") and "input_ids" in ids:
+                ids = ids["input_ids"]
+            ids = ids.to(model.device)
+            # Use the same max_cache_len the real /v1 path will use so the
+            # warm-graph cache lookup hits on the very first real request.
+            # 8192 matches the /v1 bucket above — NOT _CACHE_CEILING, which
+            # would trigger 170GB-per-step KV reads and tank decode to 1.5
+            # tok/s (measured 2026-04-18).
+            _lean(
+                model, input_ids=ids, max_new_tokens=4,
+                do_sample=False, use_cuda_graph=True,
+                max_cache_len=8192,
+            )
+            torch.cuda.synchronize()
+            log.info(f"  lean_decode graph captured in {_t.time()-_tg:.1f}s "
+                     f"(first real request is now warm)")
+        except Exception as _e:
+            log.warning(f"lean_decode pre-capture skipped ({type(_e).__name__}: {_e})")
+
 
 @app.on_event("startup")
 async def _warmup_on_startup():
@@ -1049,6 +1086,16 @@ async def _chat_completions_impl(req: ChatRequest):
                     do_sample=req.temperature > 0,
                     eos_token_ids=eos_ids,
                     use_cuda_graph=_CUDA_GRAPH_ENABLED,
+                    # Bucket the cache length to nearest power-of-2 >= needed,
+                    # min 256. Each bucket has its own captured graph in
+                    # _warm_graph_cache. Per-step KV bandwidth scales with
+                    # cache_len, so we don't want to pin to a huge ceiling;
+                    # per-bucket captures pay a ~150ms one-time cost.
+                    # Measured 2026-04-18: pinning to _CACHE_CEILING tanked
+                    # decode to 1.5 tok/s (170GB/step KV reads); pinning to
+                    # 8192 dropped to 22 tok/s (5.4GB/step); bucketing keeps
+                    # decode at ~35 tok/s regardless of request size.
+                    max_cache_len=None,
                 )
         # Sampling knobs mirror the Qwen3.6 model-card recommendations:
         # top_k=20 / top_p=0.8 / min_p=0.0 / presence_penalty=1.5 /

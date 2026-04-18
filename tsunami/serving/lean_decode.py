@@ -266,6 +266,18 @@ def lean_decode(
     warm_bucket = None
     if use_static_cache:
         cache_len = max_cache_len if max_cache_len else (T + max_new_tokens + 8)
+        # Power-of-2 bucketing when graph capture is enabled — the warm
+        # graph cache keys on cache_len, and captured graphs have their
+        # attention_mask / KV tensors sized to cache_len. Rounding to a
+        # small set of bucket sizes (256, 512, 1024, 2048, 4096, 8192)
+        # means similar-sized requests share a capture. Per-bucket KV
+        # bandwidth scales with the bucket size so we still don't want
+        # a giant ceiling; this is the ergonomic middle ground.
+        if use_cuda_graph:
+            _bucket = 256
+            while _bucket < cache_len:
+                _bucket *= 2
+            cache_len = _bucket
         if use_cuda_graph:
             warm_bucket = (id(model), cache_len)
             warm_entry = _warm_graph_cache.get(warm_bucket)
