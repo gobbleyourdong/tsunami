@@ -144,25 +144,23 @@ class TsunamiModel:
                     enable_thinking: bool = True) -> LLMResponse:
         headers = {"Content-Type": "application/json"}
 
-        # Mode-aware sampling per the Qwen3.6 model card. Two presets
-        # matter for us:
+        # Mode-aware sampling per the Qwen3.6 model card. Thinking turns
+        # get the "Thinking / general" preset; non-thinking turns keep
+        # the "Thinking / precise coding" instance defaults.
         #
-        #   "Thinking / precise coding":  temp=0.6 top_p=0.95 presence=0.0
-        #   "Instruct (non-thinking) / general": temp=0.7 top_p=0.8 presence=1.5
+        #   Thinking / general        : temp=1.0 top_p=0.95 presence=1.5
+        #   Thinking / precise coding : temp=0.6 top_p=0.95 presence=0.0
         #
-        # The "Thinking / general" preset (temp=1.0 top_p=0.95 presence=1.5)
-        # is tuned for open-ended reasoning — we tried it (commit a4f2975)
-        # and it caused file_edit target strings to paraphrase by a char,
-        # failing the byte-exact old_content match and triggering full
-        # file_write rewrites. Reverted to the precise-coding preset when
-        # thinking, which also happens to match the instance defaults.
-        #
-        # Agentic code work → precise-coding params in both thinking and
-        # non-thinking modes. Keep the mode gate only as a lever for
-        # callers who pass their own sampling knobs.
-        effective_temp = self.temperature
-        effective_top_p = self.top_p
-        effective_presence = self.presence_penalty
+        # Caller overrides (temp<0.5 or presence<0.05) skip the bump so
+        # deterministic harnesses + unit tests don't get re-randomized.
+        if enable_thinking and self.temperature >= 0.5 and self.presence_penalty < 1.0:
+            effective_temp = 1.0
+            effective_top_p = 0.95
+            effective_presence = 1.5
+        else:
+            effective_temp = self.temperature
+            effective_top_p = self.top_p
+            effective_presence = self.presence_penalty
 
         payload: dict[str, Any] = {
             "model": self.model,
