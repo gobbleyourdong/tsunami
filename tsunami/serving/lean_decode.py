@@ -362,11 +362,10 @@ def lean_decode(
     prev_tokens = input_ids
     cur_pos = T
     # EOS check cadence: checking every step forces a GPU→CPU sync per token
-    # (bool(done.all()) blocks on pending CUDA work). Batch-checking every
-    # EOS_CHECK_EVERY steps cuts the sync cost ~Nx at the price of emitting
-    # up to N-1 post-EOS tokens before breaking — sliced off at return.
+    # (bool(done.all()) blocks on pending CUDA work). Non-streaming batches
+    # every EOS_CHECK_EVERY steps to amortise; streaming (on_token set)
+    # uses the already-synced tok.item() so per-step is free there.
     EOS_CHECK_EVERY = 8
-    first_eos_step: Optional[int] = None
 
     # --- Decode loop ---
     _sync_if_cuda(device)
@@ -418,13 +417,11 @@ def lean_decode(
             if streaming:
                 # Fast-path: CPU-side check using the already-synced id.
                 if tok_id in eos_set:
-                    first_eos_step = step
                     break
             else:
                 for eid in eos_set:
                     done = done | (tok == eid)
                 if ((step + 1) % EOS_CHECK_EVERY == 0) and bool(done.all()):
-                    first_eos_step = step
                     break
 
         if repetition_penalty != 1.0:
