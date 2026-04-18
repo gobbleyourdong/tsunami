@@ -103,6 +103,18 @@ async def pull_levers(
             LeverResult(lever=Lever(action="setup"), passed=False, saw="playwright not installed")
         ])
 
+    # Auto-inject the default static levers FIRST so they route into
+    # the static pre-pass below. Previously these were added inside the
+    # live-DOM block which runs AFTER the pre-pass → the injected
+    # Lever(engine="static") ended up in the dynamic list and _pull_one
+    # raised "unknown lever action: unused_dep".
+    if not any(l.action == "ghost_classes" for l in levers):
+        levers.append(Lever(action="ghost_classes", engine="static"))
+    if not any(l.action == "unused_dep" for l in levers):
+        levers.append(Lever(action="unused_dep", engine="static"))
+    if not any(l.action == "autopilot" for l in levers):
+        levers.append(Lever(action="autopilot"))
+
     # Static lever pre-pass. Static checks run against the built
     # filesystem without Playwright; they're deterministic, ~100× faster
     # than the browser path, and don't fail from cross-origin / load-
@@ -204,43 +216,11 @@ async def pull_levers(
             # Splice right before the final screenshot so the QA flow is
             # console → content screenshot → ghost-class audit → interactions
             # → final screenshot.
-            if not any(l.action == "ghost_classes" for l in levers):
-                # Static engine by default — deterministic file-scan
-                # against src/ + dist/*.css. Browser variant still
-                # available for callers that explicitly set engine="browser"
-                # (e.g. dev-server snapshots that haven't built yet).
-                ghost_lever = Lever(action="ghost_classes", engine="static")
-                final_ss = None
-                for idx in range(len(levers) - 1, -1, -1):
-                    if levers[idx].action == "screenshot":
-                        final_ss = idx
-                        break
-                if final_ss is not None:
-                    levers = levers[:final_ss] + [ghost_lever] + levers[final_ss:]
-                else:
-                    levers.append(ghost_lever)
-            # Unused-dep check: catches `recharts`-in-pomodoro false-
-            # positives from scaffold bloat. Pure static, ~1ms.
-            if not any(l.action == "unused_dep" for l in levers):
-                levers.append(Lever(action="unused_dep", engine="static"))
-
-            # Autopilot: Unity-Editor-Autopilot-style unattended UI walk.
-            # Clicks through every visible interactive element, captures
-            # runtime errors, navigates back, repeats. Catches broken
-            # handlers / dead routes / hydration bugs that a single
-            # screenshot misses. Added by default; cheap (caps at 20
-            # clicks) and most apps finish in <10s.
-            if not any(l.action == "autopilot" for l in levers):
-                autopilot_lever = Lever(action="autopilot")
-                final_ss = None
-                for idx in range(len(levers) - 1, -1, -1):
-                    if levers[idx].action == "screenshot":
-                        final_ss = idx
-                        break
-                if final_ss is not None:
-                    levers = levers[:final_ss] + [autopilot_lever] + levers[final_ss:]
-                else:
-                    levers.append(autopilot_lever)
+            # ghost_classes / unused_dep / autopilot auto-inject moved
+            # upstream (just after the playwright-import guard) so the
+            # static-pre-pass routing sees them. Keep this comment as a
+            # breadcrumb for anyone diffing against the old layout.
+            pass  # no-op — default levers injected at top
 
             already_interacts = any(
                 l.action in ("click", "type", "fill") for l in levers
