@@ -856,6 +856,23 @@ async def debug_lean_decode(req: dict):
     }
 
 
+@app.get("/v1/models")
+def list_models():
+    """OpenAI-compat /v1/models endpoint. Many SDK clients hit this on
+    init to discover what's served; without it they fall back to
+    whatever model name was hardcoded. Returns a single entry for the
+    served checkpoint + the generic 'tsunami' alias.
+    """
+    served = getattr(_model_cfg, "_name_or_path", None) if _model_cfg else "tsunami"
+    now = int(time.time())
+    rows: list[dict] = [
+        {"id": "tsunami", "object": "model", "created": now, "owned_by": "tsunami"},
+    ]
+    if served and served != "tsunami":
+        rows.append({"id": served, "object": "model", "created": now, "owned_by": "qwen"})
+    return {"object": "list", "data": rows}
+
+
 @app.get("/health")
 def health():
     vram_alloc = torch.cuda.memory_allocated() / (1024**3) if torch.cuda.is_available() else 0.0
