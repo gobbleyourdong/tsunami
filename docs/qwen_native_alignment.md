@@ -29,19 +29,20 @@
   - Backward-compat: execute() accepts both old/new_text and
     old/new_content kwargs, coalesces.
 
-- [ ] **R2 — Tool-name aliases** (proxy or agent dispatcher)
-  - qwen-code tool name vs ours:
-      `read_file` ← `file_read`
-      `write_file` ← `file_write`
-      `edit` ← `file_edit`
-      `run_shell_command` ← `shell_exec`
-      `web_search` ← `search_web`
-      `ask_user_question` ← `message_ask`
-  - Approach: dispatch-layer aliases (accept either spelling), do NOT
-    rename the python classes. The tool-call parser normalizes the
-    model-emitted name to our internal name before execute(). Keeps
-    the rest of our codebase stable while giving the model its trained
-    vocabulary.
+- [x] **R2 — Tool-name aliases** (two layers)
+  - Proxy-side normalization in `tsunami/serving/serve_qwen36_fp8.py
+    ::_normalize_tool_name` — `_parse_qwen_tool_calls` rewrites
+    qwen-code names to tsunami names before the tool_call leaves the
+    proxy. Downstream (agent, history, eval) sees tsunami spellings.
+  - Registry-side fallback in `tsunami/tools/__init__.py
+    ::ToolRegistry.get` — if a non-normalized name still arrives
+    (direct call, test harness, future code), the registry resolves
+    aliases on lookup. Belt-and-suspenders.
+  - Mapping: `read_file→file_read`, `write_file→file_write`,
+    `edit→file_edit`, `run_shell_command→shell_exec`,
+    `web_search→search_web`, `ask_user_question→message_ask`.
+  - Python class names unchanged — no call-site renames, no test
+    breakage, no merge friction.
 
 - [ ] **R3 — Streaming tool-call repair**
   - qwen-code's `streamingToolCallParser.ts`: per-index buffer, JSON
@@ -58,6 +59,19 @@
     `packages/core/src/agents/runtime/agent-core.ts`.
   - Extract: loop-level retry, cancellation, tool-scheduling patterns
     we're missing. Land only the ones that pull their weight.
+
+- [ ] **R5 — Rerun T2 pomodoro eval, compare ledger**
+  - After R1–R4 land, launch `python3 -m tsunami.tests.eval_tiered
+    --tier T2` and capture the token ledger.
+  - Compare against the T2 pass from 2026-04-18 (commit 6889c43):
+      iters=3, wall=897.5s, tokens=8963, waste=100% (oversize×2 +
+      force_miss×1).
+  - Expected improvement: lower oversize count (mode-switch helps
+    thinking turns emit less filler), fewer force_miss fires
+    (model honors deliver-gate more often when it sees its own
+    trained tool names).
+  - If T2 regresses (iters > 3, or quality_ok=False, or
+    delivered=False), revert the last change and bisect.
 
 ## Notes
 

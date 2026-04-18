@@ -36,8 +36,34 @@ from __future__ import annotations
 from .base import BaseTool
 
 
+#: qwen-code tool-name → tsunami tool-name aliases. The model was
+#: trained on qwen-code's naming (read_file / write_file / edit /
+#: run_shell_command / etc.), so when it emits those names we
+#: transparently dispatch to our internal tools. The python classes
+#: keep their tsunami names (file_read / file_write / file_edit /
+#: shell_exec); the alias lookup happens on every get() call.
+#:
+#: Reference: QwenLM/qwen-code, packages/core/src/tools/tool-names.ts
+_QWEN_TO_TSUNAMI_ALIAS: dict[str, str] = {
+    "read_file":          "file_read",
+    "write_file":         "file_write",
+    "edit":               "file_edit",
+    "run_shell_command":  "shell_exec",
+    "web_search":         "search_web",
+    # qwen-code names we intentionally leave unmapped:
+    #   ask_user_question → message_ask (class exists but not in
+    #       default registry — re-add the alias when/if message_ask
+    #       is wired back in).
+    #   glob / grep_search / list_directory / web_fetch / todo_write —
+    #       no tsunami tools today. Add aliases when we land those.
+}
+
+
 class ToolRegistry:
-    """Simple tool lookup by name."""
+    """Simple tool lookup by name. Supports qwen-code aliases so the
+    model can emit its trained tool names (read_file, write_file,
+    edit, run_shell_command) and land on our internal tools without
+    renaming the python classes."""
 
     def __init__(self):
         self._tools: dict[str, BaseTool] = {}
@@ -46,7 +72,19 @@ class ToolRegistry:
         self._tools[tool.name] = tool
 
     def get(self, name: str) -> BaseTool | None:
-        return self._tools.get(name)
+        # Direct hit first — our internal names take precedence so
+        # existing callers (agent.py, tests, eval harnesses) that
+        # use the tsunami spelling keep working.
+        tool = self._tools.get(name)
+        if tool is not None:
+            return tool
+        # Alias path: model emitted a qwen-code-native name. Log at
+        # debug so repeated aliased calls don't spam; this is the
+        # expected happy path post-R2.
+        aliased = _QWEN_TO_TSUNAMI_ALIAS.get(name)
+        if aliased is not None:
+            return self._tools.get(aliased)
+        return None
 
     def names(self) -> list[str]:
         return list(self._tools.keys())

@@ -509,6 +509,27 @@ def _split_thinking(text: str) -> tuple[str, str]:
     return "", text.strip()
 
 
+#: qwen-code canonical name → tsunami internal name. Applied at the
+#: proxy when parsing tool_call emissions so the name downstream
+#: callers see is always the tsunami spelling, regardless of which
+#: variant the model chose. Paired with the registry alias in
+#: tsunami/tools/__init__.py — that one handles older call sites that
+#: might still emit qwen names; this one handles new emissions.
+_QWEN_CANONICAL_TO_TSUNAMI = {
+    "read_file":         "file_read",
+    "write_file":        "file_write",
+    "edit":              "file_edit",
+    "run_shell_command": "shell_exec",
+    "web_search":        "search_web",
+    # ask_user_question intentionally unmapped — MessageAsk class
+    # exists but isn't in the default registry today.
+}
+
+
+def _normalize_tool_name(name: str) -> str:
+    return _QWEN_CANONICAL_TO_TSUNAMI.get(name, name)
+
+
 def _parse_qwen_tool_calls(content: str) -> tuple[list[dict], str]:
     """Extract Qwen3.6 tool-call emissions from assistant content.
 
@@ -596,7 +617,7 @@ def _parse_qwen_tool_calls(content: str) -> tuple[list[dict], str]:
                         "id": f"call_{uuid.uuid4().hex[:12]}",
                         "type": "function",
                         "function": {
-                            "name": name,
+                            "name": _normalize_tool_name(name),
                             "arguments": _json.dumps(args),
                         },
                     })
@@ -607,7 +628,7 @@ def _parse_qwen_tool_calls(content: str) -> tuple[list[dict], str]:
         fn_match = fn_re.search(inner)
         if not fn_match:
             continue
-        fn_name = fn_match.group(1).strip()
+        fn_name = _normalize_tool_name(fn_match.group(1).strip())
         fn_body = fn_match.group(2)
         args: dict = {}
         for pm in param_re.finditer(fn_body):
