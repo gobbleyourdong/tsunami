@@ -40,11 +40,21 @@ BEE_ENDPOINT = os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8091")
 @dataclass
 class Lever:
     """A single test action for the undertow to pull."""
-    action: str          # screenshot, press, click, read_text, console, wait
+    action: str          # screenshot, press, click, read_text, console, wait,
+                         # ghost_classes, motion, sequence, type, autopilot
     expect: str = ""     # what the wave expects to see (eddy compares)
     key: str = ""        # for press
     selector: str = ""   # for click, read_text
     ms: int = 0          # for wait
+    # Autopilot knobs — click through interactive elements unattended:
+    max_clicks: int = 20         # cap on crawl length
+    max_errors_tolerated: int = 2 # fail-if-exceeded runtime-error budget
+    # Lever engine. "browser" (default) runs the action inside Playwright;
+    # "static" runs against the built filesystem without launching a browser.
+    # Static levers are dispatched before the browser boots so flaky
+    # programmatic checks (ghost_classes file-scan, unused-dep scan) don't
+    # depend on Playwright availability or load timing.
+    engine: str = "browser"
 
 
 @dataclass
@@ -92,6 +102,20 @@ async def pull_levers(
         return QAReport(passed=False, results=[
             LeverResult(lever=Lever(action="setup"), passed=False, saw="playwright not installed")
         ])
+
+    # Static lever pre-pass. Static checks run against the built
+    # filesystem without Playwright; they're deterministic, ~100× faster
+    # than the browser path, and don't fail from cross-origin / load-
+    # timing quirks. Run them BEFORE starting the http.server so a
+    # programmatic failure doesn't pay the browser launch cost.
+    static_results: list[LeverResult] = []
+    static_levers = [l for l in levers if getattr(l, "engine", "browser") == "static"]
+    dynamic_levers = [l for l in levers if getattr(l, "engine", "browser") != "static"]
+    for lever in static_levers:
+        static_results.append(await _pull_static(lever, serve_dir))
+    # If any static lever failed hard, we can still run dynamic ones —
+    # callers decide whether to gate on the merged report. Keep flow.
+    levers = dynamic_levers
 
     # Pick a free port to avoid conflicts with vite dev servers left
     # running by project_init (which defaults to port 9876, the same
@@ -181,7 +205,11 @@ async def pull_levers(
             # console → content screenshot → ghost-class audit → interactions
             # → final screenshot.
             if not any(l.action == "ghost_classes" for l in levers):
-                ghost_lever = Lever(action="ghost_classes")
+                # Static engine by default — deterministic file-scan
+                # against src/ + dist/*.css. Browser variant still
+                # available for callers that explicitly set engine="browser"
+                # (e.g. dev-server snapshots that haven't built yet).
+                ghost_lever = Lever(action="ghost_classes", engine="static")
                 final_ss = None
                 for idx in range(len(levers) - 1, -1, -1):
                     if levers[idx].action == "screenshot":
@@ -191,6 +219,28 @@ async def pull_levers(
                     levers = levers[:final_ss] + [ghost_lever] + levers[final_ss:]
                 else:
                     levers.append(ghost_lever)
+            # Unused-dep check: catches `recharts`-in-pomodoro false-
+            # positives from scaffold bloat. Pure static, ~1ms.
+            if not any(l.action == "unused_dep" for l in levers):
+                levers.append(Lever(action="unused_dep", engine="static"))
+
+            # Autopilot: Unity-Editor-Autopilot-style unattended UI walk.
+            # Clicks through every visible interactive element, captures
+            # runtime errors, navigates back, repeats. Catches broken
+            # handlers / dead routes / hydration bugs that a single
+            # screenshot misses. Added by default; cheap (caps at 20
+            # clicks) and most apps finish in <10s.
+            if not any(l.action == "autopilot" for l in levers):
+                autopilot_lever = Lever(action="autopilot")
+                final_ss = None
+                for idx in range(len(levers) - 1, -1, -1):
+                    if levers[idx].action == "screenshot":
+                        final_ss = idx
+                        break
+                if final_ss is not None:
+                    levers = levers[:final_ss] + [autopilot_lever] + levers[final_ss:]
+                else:
+                    levers.append(autopilot_lever)
 
             already_interacts = any(
                 l.action in ("click", "type", "fill") for l in levers
@@ -333,6 +383,15 @@ async def pull_levers(
         except ProcessLookupError:
             pass
 
+    # Merge static-pass results (ran before the browser) into the final
+    # report. Placed at the front so viewers see cheap checks first;
+    # static failures feed into report.passed so the caller sees the
+    # same boolean for static-only or mixed failures.
+    if static_results:
+        report.results = static_results + report.results
+        if any(not r.passed for r in static_results):
+            report.passed = False
+
     return report
 
 
@@ -376,6 +435,9 @@ async def _pull_one(page, lever: Lever, console_msgs: list) -> LeverResult:
 
         elif lever.action == "type":
             return await _lever_type(page, lever)
+
+        elif lever.action == "autopilot":
+            return await _lever_autopilot(page, lever, console_msgs)
 
         else:
             return LeverResult(
@@ -659,6 +721,379 @@ async def _lever_type(page, lever: Lever) -> LeverResult:
         return LeverResult(lever=lever, passed=changed, saw=saw)
     except Exception as e:
         return LeverResult(lever=lever, passed=False, saw=f"type failed: {e}")
+
+
+async def _pull_static(lever: Lever, serve_dir: str) -> LeverResult:
+    """Dispatch a static (non-browser) lever by action name. Static levers
+    run against the filesystem — src/, dist/, package.json — without
+    launching Playwright. Deterministic, ~100× faster than the browser
+    path, and immune to load-timing / CORS quirks that bite the dynamic
+    levers."""
+    if lever.action == "ghost_classes":
+        return _lever_ghost_classes_static(lever, serve_dir)
+    if lever.action == "unused_dep":
+        return _lever_unused_dep_static(lever, serve_dir)
+    return LeverResult(
+        lever=lever, passed=False,
+        saw=f"unknown static lever action: {lever.action}",
+    )
+
+
+def _lever_ghost_classes_static(lever: Lever, serve_dir: str) -> LeverResult:
+    """File-based ghost_classes — scan the built CSS bundle for class
+    definitions, scan source TSX for className tokens, flag the delta.
+
+    Why this is better than the browser version for most cases:
+      - Deterministic (no DOM-ready / Tailwind-JIT race)
+      - Fast (~10ms vs ~1000ms)
+      - Sees the REAL compiled stylesheet (Tailwind JIT materialises
+        utilities into dist/ at build time; source CSS doesn't have
+        them, which is what tripped the browser version when the sheet
+        access CORSed out)
+
+    Tolerance: same 30% threshold as the dynamic version, for symmetry."""
+    import re as _re
+    from pathlib import Path as _P
+
+    serve = _P(serve_dir).resolve()
+    # dist/ usually sits one level up from the serve dir when we're
+    # pointed at dist/assets/*.html, or inside serve_dir when we're
+    # pointed at dist/ directly. Cover both.
+    candidates = [serve, serve / "dist", serve.parent, serve.parent / "dist"]
+    project_root = next((c for c in candidates if (c / "src").exists()), serve)
+
+    src_dir = project_root / "src"
+    dist_dir = project_root / "dist"
+    if not src_dir.exists() or not dist_dir.exists():
+        return LeverResult(
+            lever=lever, passed=True,
+            saw=f"static ghost_classes skipped (src={src_dir.exists()}, dist={dist_dir.exists()})",
+        )
+
+    # 1. className tokens from every .tsx / .ts / .jsx / .js / .html
+    class_re = _re.compile(r'className\s*=\s*["\']([^"\']+)["\']')
+    used: set[str] = set()
+    for path in src_dir.rglob("*"):
+        if path.suffix not in (".tsx", ".ts", ".jsx", ".js", ".html"):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        for m in class_re.finditer(text):
+            for tok in m.group(1).split():
+                # drop Tailwind modifiers for analysis — `hover:bg-red-500`
+                # registers under `bg-red-500` in the output CSS.
+                bare = tok.split(":")[-1]
+                if bare: used.add(bare)
+
+    # 2. class selectors from every dist/**/*.css (Tailwind JIT output)
+    defined: set[str] = set()
+    selector_re = _re.compile(r"\.([A-Za-z_][-\w\\/:\[\]%.]*)")
+    for path in dist_dir.rglob("*.css"):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        for m in selector_re.finditer(text):
+            # Tailwind v4 emits `.bg-red-500\/15` with escaped slashes for
+            # opacity modifiers; normalise to the source token form.
+            raw = m.group(1).replace("\\", "")
+            # Strip pseudo-class / state suffix that leaked from selectors.
+            bare = raw.split(":")[0].strip(".")
+            if bare: defined.add(bare)
+
+    ghosts = sorted(used - defined)
+    if len(used) < 5:
+        return LeverResult(
+            lever=lever, passed=True,
+            saw=f"static ghost_classes: only {len(used)} tokens found in src — too few to judge",
+        )
+    rate = len(ghosts) / len(used)
+    preview = ", ".join(ghosts[:10])
+    if rate > 0.30:
+        return LeverResult(
+            lever=lever, passed=False,
+            saw=f"{len(ghosts)}/{len(used)} class tokens ({rate*100:.0f}%) don't match any CSS rule in dist/",
+            detail=f"ghosts: {preview}",
+        )
+    return LeverResult(
+        lever=lever, passed=True,
+        saw=f"{len(ghosts)}/{len(used)} ghost classes ({rate*100:.0f}%) — within tolerance",
+    )
+
+
+def _lever_unused_dep_static(lever: Lever, serve_dir: str) -> LeverResult:
+    """Flag any package.json dependency that isn't imported from src/.
+    Catches scaffold-bundled libs the app never uses (e.g. pomodoro-
+    timer ships recharts from the react-app template but never charts).
+
+    Lever config:
+      lever.selector = dependency name to check (e.g. "recharts"). If
+      empty, every runtime dep is scanned and unused ones listed.
+    """
+    import json as _json
+    from pathlib import Path as _P
+
+    project_root = _P(serve_dir).resolve()
+    while project_root != project_root.parent and not (project_root / "package.json").exists():
+        project_root = project_root.parent
+    pkg_path = project_root / "package.json"
+    if not pkg_path.exists():
+        return LeverResult(lever=lever, passed=True, saw="no package.json — skipped")
+
+    try:
+        pkg = _json.loads(pkg_path.read_text())
+    except Exception:
+        return LeverResult(lever=lever, passed=True, saw="package.json unparseable — skipped")
+
+    deps = dict(pkg.get("dependencies") or {})
+    if not deps:
+        return LeverResult(lever=lever, passed=True, saw="no runtime deps")
+
+    src_dir = project_root / "src"
+    if not src_dir.exists():
+        return LeverResult(lever=lever, passed=True, saw="no src/ — skipped")
+
+    # Concatenate all source code for a single grep pass.
+    blob_parts: list[str] = []
+    for path in src_dir.rglob("*"):
+        if path.suffix not in (".tsx", ".ts", ".jsx", ".js"):
+            continue
+        try:
+            blob_parts.append(path.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            continue
+    blob = "\n".join(blob_parts)
+
+    unused: list[str] = []
+    target = lever.selector.strip() if lever.selector else ""
+    for name in deps:
+        if target and name != target:
+            continue
+        # Match `from 'name'` / `from "name"` / `require('name')` /
+        # dynamic import(). We only need ONE of these to say "used".
+        if name in blob:
+            # Broad check; follow up with a tighter regex only if needed.
+            continue
+        unused.append(name)
+
+    if unused:
+        return LeverResult(
+            lever=lever, passed=False,
+            saw=f"{len(unused)} dependency unused: {', '.join(unused)}",
+            detail="remove from package.json, or use it",
+        )
+    return LeverResult(
+        lever=lever, passed=True,
+        saw=f"all {len(deps)} deps referenced in src/",
+    )
+
+
+async def _lever_autopilot(page, lever: Lever, console_msgs: list) -> LeverResult:
+    """Interactive visual QA: exercise every clickable the deliverable
+    exposes, verify the app stays alive and error-free across every
+    reachable state.
+
+    Intent (per operator): make sure the FINAL RESULT is correct — when
+    the user clicks around, does the page keep rendering and responding?
+    Back-nav is a nice-to-have for multi-screen apps (games, navs); for
+    a single-view app, cycling through its buttons is enough. We try
+    history.back() after a route change opportunistically but don't
+    require it.
+
+    Design:
+      1. Enumerate visible clickables (buttons, links, role=button/
+         menuitem/tab/link, nav a, [data-testid]). Skip disabled +
+         zero-size + visually hidden.
+      2. For up to `max_clicks`:
+           - Pick first un-visited fingerprint (role|text|href).
+           - Click. Wait for networkidle (capped 1.5s) + ~300ms.
+           - Count new console.errors since pre-click.
+           - Dismiss an open [role=dialog|alertdialog] via Esc.
+           - If URL changed, try history.back() to continue exploring
+             the original viewport; silent if back isn't available.
+           - Re-enumerate — new menus/modals may have surfaced.
+      3. Fail if total new errors exceed `max_errors_tolerated`.
+
+    Passes when: every clicked element produced no new runtime errors
+    and the page remained alive. Zero clickables is neutral (some apps
+    are single-output views — a timer display with no buttons is still
+    a valid deliverable shape, though rare).
+
+    Future: graduate this to play the games the engine scaffolds
+    produce. That needs input beyond clicks (WASD, pointer lock, mouse
+    move), game-state introspection (score, alive flag, scene name),
+    and long-horizon playthrough verification. Today's autopilot is a
+    forms/dashboards-grade first pass — the clickable-walk bones
+    generalise.
+    """
+    max_clicks = lever.max_clicks or 20
+    err_budget = lever.max_errors_tolerated
+    visited: set[str] = set()
+    routes: list[str] = []
+    clicked: list[str] = []
+    errors_by_click: list[tuple[str, int]] = []
+
+    # Snapshot the error baseline.
+    baseline_errors = len(
+        [t for typ, t in console_msgs if typ == "error"]
+    )
+
+    CANDIDATE_SELECTORS = (
+        "button:not([disabled]):not([aria-disabled='true']), "
+        "a[href]:not([href='#']):not([href='']), "
+        "[role='button']:not([aria-disabled='true']), "
+        "[role='menuitem']:not([aria-disabled='true']), "
+        "[role='tab']:not([aria-disabled='true']), "
+        "[role='link'], "
+        "nav a, "
+        "[data-testid]:is(button,a,[role='button'])"
+    )
+
+    async def _fingerprints() -> list[dict]:
+        try:
+            return await page.evaluate(r"""
+                (sel) => {
+                    const out = []
+                    for (const el of document.querySelectorAll(sel)) {
+                        const r = el.getBoundingClientRect()
+                        if (r.width < 2 || r.height < 2) continue
+                        // skip visually hidden
+                        const cs = getComputedStyle(el)
+                        if (cs.visibility === 'hidden' || cs.display === 'none') continue
+                        const text = (el.innerText || el.value || el.getAttribute('aria-label') || '').trim().slice(0, 60)
+                        const role = el.getAttribute('role') || el.tagName.toLowerCase()
+                        const href = el.getAttribute('href') || ''
+                        out.push({
+                            role, text, href,
+                            fp: role + '|' + text + '|' + href,
+                        })
+                        if (out.length >= 50) break
+                    }
+                    return out
+                }
+            """, CANDIDATE_SELECTORS)
+        except Exception:
+            return []
+
+    async def _click_first(fp: str) -> bool:
+        """Locate an element by fingerprint and click it. Returns True
+        if the click dispatched, False if the element vanished."""
+        try:
+            ok = await page.evaluate(r"""
+                ({sel, fp}) => {
+                    for (const el of document.querySelectorAll(sel)) {
+                        const r = el.getBoundingClientRect()
+                        if (r.width < 2 || r.height < 2) continue
+                        const cs = getComputedStyle(el)
+                        if (cs.visibility === 'hidden' || cs.display === 'none') continue
+                        const text = (el.innerText || el.value || el.getAttribute('aria-label') || '').trim().slice(0, 60)
+                        const role = el.getAttribute('role') || el.tagName.toLowerCase()
+                        const href = el.getAttribute('href') || ''
+                        if ((role + '|' + text + '|' + href) === fp) {
+                            el.scrollIntoView({block: 'center', inline: 'center'})
+                            el.click()
+                            return true
+                        }
+                    }
+                    return false
+                }
+            """, {"sel": CANDIDATE_SELECTORS, "fp": fp})
+            return bool(ok)
+        except Exception:
+            return False
+
+    # --- Crawl loop ------------------------------------------------------
+    pre_url = page.url
+    routes.append(pre_url)
+    for step in range(max_clicks):
+        fps = await _fingerprints()
+        # Pick the first unseen fingerprint.
+        target = next((f for f in fps if f["fp"] not in visited), None)
+        if target is None:
+            # Exhausted. Try popping a nav: go back and see if anything new.
+            try:
+                if page.url != pre_url:
+                    await page.go_back(timeout=3000)
+                    await asyncio.sleep(0.3)
+                    continue
+            except Exception:
+                pass
+            break
+        visited.add(target["fp"])
+
+        pre_count = len(console_msgs)
+        ok = await _click_first(target["fp"])
+        if not ok:
+            continue
+        clicked.append(target["fp"])
+        # Let the page settle. Cap aggressively — some SPAs fire infinite
+        # animations on load and networkidle never lands.
+        try:
+            await page.wait_for_load_state("networkidle", timeout=1500)
+        except Exception:
+            pass
+        await asyncio.sleep(0.3)
+
+        # New console/page errors since the click?
+        new_errs = [t for typ, t in console_msgs[pre_count:] if typ == "error"]
+        if new_errs:
+            errors_by_click.append((target["fp"], len(new_errs)))
+
+        # Track route transitions.
+        if page.url not in routes:
+            routes.append(page.url)
+
+        # Dismiss any modal/dialog that may have opened. Esc is the
+        # canonical close for well-behaved ARIA dialogs.
+        try:
+            has_dialog = await page.evaluate(
+                "document.querySelector('[role=\"dialog\"],[role=\"alertdialog\"]') !== null"
+            )
+            if has_dialog:
+                await page.keyboard.press("Escape")
+                await asyncio.sleep(0.2)
+        except Exception:
+            pass
+
+        # If we're on a different route now, hop back so the next iter
+        # enumerates the same viewport's clickables.
+        try:
+            if page.url != pre_url:
+                await page.go_back(timeout=3000)
+                await asyncio.sleep(0.3)
+        except Exception:
+            pass
+
+    # --- Tally -----------------------------------------------------------
+    total_errs = sum(n for _, n in errors_by_click)
+    route_count = len(routes)
+    saw = (
+        f"clicked {len(clicked)} unique elements, "
+        f"visited {route_count} route(s), "
+        f"{total_errs} new console error(s) across {len(errors_by_click)} "
+        f"clicks (budget {err_budget})"
+    )
+    if total_errs > err_budget:
+        err_preview = "; ".join(
+            f"{fp}→{n}err" for fp, n in errors_by_click[:3]
+        )
+        return LeverResult(
+            lever=lever, passed=False,
+            saw=f"AUTOPILOT FAIL: {saw}",
+            detail=f"First offenders: {err_preview}",
+        )
+    if len(clicked) == 0:
+        return LeverResult(
+            lever=lever, passed=True,
+            saw=f"autopilot found no clickables (single-view, non-interactive)",
+        )
+    return LeverResult(
+        lever=lever, passed=True,
+        saw=saw,
+        detail=f"routes: {routes[:5]}",
+    )
 
 
 async def _lever_motion(page, lever: Lever) -> LeverResult:
