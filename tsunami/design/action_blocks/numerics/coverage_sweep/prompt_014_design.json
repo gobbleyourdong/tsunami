@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "title": "Survival Horror Manor",
+    "shape": "action",
+    "vibe": ["scarce-ammo", "tension", "atmospheric", "room-based"],
+    "target_session_sec": 1800
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 25 } }
+  },
+  "singletons": {
+    "world": {
+      "components": ["WorldFlags"],
+      "exposes": { "puzzles_solved": "number", "heart_rate": "number" }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Health(100)", "Inventory",
+                     "Resource(ammo, 6)", "Resource(herbs, 3)"],
+      "tags": ["player"]
+    },
+    "zombie": {
+      "mesh": "capsule",
+      "ai": "chase",
+      "components": ["Health(40)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player", "amount": 20 },
+        "when_state": "alive"
+      }
+    },
+    "herb": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "give_item", "archetype": "player", "item": "herb" },
+        "exclusive": true
+      }
+    },
+    "typewriter": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["checkpoint"],
+      "trigger": {
+        "kind": "checkpoint",
+        "contact_side": "any",
+        "on_contact": { "kind": "emit", "condition": "saved" }
+      }
+    },
+    "door_puzzle": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["puzzle_door"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "rooms",
+      "type": "RoomGraph",
+      "params": {
+        "rooms": [
+          { "id": "foyer", "on_enter": { "kind": "play_sound", "asset": "door_creak" } },
+          { "id": "dining", "on_enter": { "kind": "spawn", "archetype": "zombie", "at": [0, 0, 0] } },
+          { "id": "study" },
+          { "id": "cellar", "on_enter": { "kind": "play_sound", "asset": "heart_beat" } }
+        ],
+        "edges": [
+          { "from": "foyer",  "to": "dining", "transition": "cut" },
+          { "from": "dining", "to": "study",  "requires_item": "key_study" },
+          { "from": "study",  "to": "cellar", "requires_condition": "puzzle_solved" }
+        ],
+        "start_room": "foyer"
+      }
+    },
+    {
+      "id": "puzzle_doors",
+      "type": "PuzzleObject",
+      "params": {
+        "archetype": "door_puzzle",
+        "states": [
+          { "name": "locked" },
+          { "name": "partial", "on_enter": { "kind": "play_sound", "asset": "tumblers" } },
+          { "name": "unlocked", "on_enter": { "kind": "emit", "condition": "puzzle_solved" } }
+        ],
+        "transitions": [
+          { "from": "locked",  "to": "partial",  "triggered_by": { "interaction": "use" } },
+          { "from": "partial", "to": "unlocked", "triggered_by": { "item_used": "code_note" } }
+        ],
+        "initial_state": "locked"
+      }
+    },
+    {
+      "id": "items",
+      "type": "ItemUse",
+      "params": {
+        "archetype": "player",
+        "items": [
+          { "name": "herb",        "action": { "kind": "heal", "archetype": "player", "amount": 30 }, "consume_on_use": true },
+          { "name": "ammo_pack",   "action": { "kind": "play_sound", "asset": "reload" }, "consume_on_use": true },
+          { "name": "key_study",   "action": { "kind": "emit", "condition": "key_used" }, "consume_on_use": false },
+          { "name": "code_note",   "action": { "kind": "play_sound", "asset": "paper" }, "consume_on_use": false }
+        ],
+        "active_slot": "a_button"
+      }
+    },
+    {
+      "id": "checkpoints",
+      "type": "CheckpointProgression",
+      "params": {
+        "archetype": "typewriter",
+        "mode": "respawn_in_place",
+        "restore_fields": ["Health"]
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Health", "label": "HP" },
+          { "archetype": "player", "component": "Resource(ammo)",  "label": "Ammo" },
+          { "archetype": "player", "component": "Resource(herbs)", "label": "Herbs" }
+        ],
+        "layout": "corners"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Health", "emit_condition": "you_died" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player", "mode": "chase_3d",
+                   "offset": [0, 3, -5], "ease": 0.5 }
+    }
+  ],
+  "flow": {
+    "kind": "room_graph",
+    "name": "manor",
+    "graph_ref": "rooms"
+  }
+}

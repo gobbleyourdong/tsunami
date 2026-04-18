@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "title": "Tower Defense Kingdom",
+    "shape": "action",
+    "vibe": ["tower-defense", "lane-based", "wave-spawn", "economy"],
+    "target_session_sec": 900
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 40 } }
+  },
+  "singletons": {
+    "level_state": {
+      "components": ["WorldFlags"],
+      "exposes": { "wave_index": "number", "base_hp": "number", "gold": "number" }
+    }
+  },
+  "archetypes": {
+    "player_cursor": {
+      "mesh": "plane",
+      "controller": "pointer",
+      "components": ["Score", "Resource(gold, 200)", "Resource(base_hp, 20)"],
+      "tags": ["player"]
+    },
+    "tower_archer": {
+      "mesh": "box",
+      "controller": "none",
+      "components": ["Health(50)"],
+      "tags": ["tower"]
+    },
+    "creep": {
+      "mesh": "sphere",
+      "ai": "patrol",
+      "components": ["Health(30)"],
+      "tags": ["enemy", "creep"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player_cursor", "amount": 1 }
+      }
+    },
+    "base": {
+      "mesh": "capsule",
+      "controller": "none",
+      "components": [],
+      "tags": ["goal", "base"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "waves",
+      "type": "WaveSpawner",
+      "params": {
+        "archetype": "creep",
+        "difficulty_ref": "difficulty",
+        "base_count": 8,
+        "rest_sec": 12,
+        "arena_radius": 15,
+        "intro_delay_sec": 3
+      }
+    },
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "wave_index",
+        "easy": { "creepHealthMul": 0.8, "creepSpeedMul": 0.9 },
+        "hard": { "creepHealthMul": 2.2, "creepSpeedMul": 1.5 },
+        "max_level": 15
+      }
+    },
+    {
+      "id": "tower_shop",
+      "type": "Shop",
+      "params": {
+        "vendor_archetype": "player_cursor",
+        "currency_field": "Resource(gold)",
+        "stock": [
+          { "item": "tower_archer",    "price": 100 },
+          { "item": "tower_cannon",    "price": 200 },
+          { "item": "tower_mage",      "price": 300 }
+        ],
+        "ui_layout": "grid"
+      }
+    },
+    {
+      "id": "place_tower",
+      "type": "ItemUse",
+      "params": {
+        "archetype": "player_cursor",
+        "items": [
+          { "name": "tower_archer", "action": { "kind": "spawn", "archetype": "tower_archer", "at": "caller" }, "consume_on_use": true },
+          { "name": "tower_cannon", "action": { "kind": "spawn", "archetype": "tower_archer", "at": "caller" }, "consume_on_use": true },
+          { "name": "tower_mage",   "action": { "kind": "spawn", "archetype": "tower_archer", "at": "caller" }, "consume_on_use": true }
+        ]
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player_cursor", "component": "Resource(base_hp)", "label": "Base HP" },
+          { "archetype": "player_cursor", "component": "Resource(gold)",    "label": "Gold" },
+          { "singleton": "level_state",   "field": "wave_index",            "label": "Wave" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player_cursor", "field": "Resource(base_hp)",
+                   "emit_condition": "base_fell" }
+    },
+    {
+      "id": "win",
+      "type": "WinOnCount",
+      "params": { "archetype": "creep", "count": 0, "comparison": "eq",
+                   "emit_condition": "level_cleared" }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "map",
+    "steps": [
+      { "scene": "stage_select" },
+      { "scene": "defend", "condition": "stage_picked" },
+      { "scene": "victory", "condition": "level_cleared" },
+      { "scene": "defeat", "condition": "base_fell" }
+    ]
+  }
+}

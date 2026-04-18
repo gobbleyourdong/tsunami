@@ -1,0 +1,97 @@
+{
+  "meta": {
+    "title": "Platform Fighter",
+    "shape": "fighter",
+    "vibe": ["platform-arena", "ring-out", "percent-damage", "hitbox-frames"],
+    "target_session_sec": 180
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, -18, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 22 } }
+  },
+  "singletons": {
+    "match": {
+      "components": ["WorldFlags"],
+      "exposes": { "stocks_p1": "number", "stocks_p2": "number" }
+    }
+  },
+  "archetypes": {
+    "p1": {
+      "mesh": "capsule",
+      "controller": "platformer",
+      "components": ["Resource(damage, 0)", "Lives(3)"],
+      "tags": ["player", "fighter"]
+    },
+    "p2": {
+      "mesh": "capsule",
+      "ai": "chase",
+      "components": ["Resource(damage, 0)", "Lives(3)"],
+      "tags": ["enemy", "fighter"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "p1_hitframes",
+      "type": "AttackFrames",
+      "params": {
+        "archetype": "p1",
+        "states": [
+          { "name": "jab", "startup_ms": 50, "active_ms": 40, "recovery_ms": 120,
+            "hitbox": { "offset": [1, 0], "size": [1, 1] } },
+          { "name": "smash", "startup_ms": 300, "active_ms": 80, "recovery_ms": 500,
+            "hitbox": { "offset": [1.2, 0], "size": [1.5, 1.2] } },
+          { "name": "aerial", "startup_ms": 60, "active_ms": 60, "recovery_ms": 100,
+            "hitbox": { "offset": [0, -0.5], "size": [1, 1] } }
+        ]
+      }
+    },
+    {
+      "id": "p1_specials",
+      "type": "ComboAttacks",
+      "params": {
+        "archetype": "p1",
+        "patterns": [
+          { "name": "b_special", "sequence": ["b"], "window_ms": 150,
+            "action": { "kind": "damage", "archetype": "p2", "amount": 8 } },
+          { "name": "side_b",  "sequence": ["forward", "b"], "window_ms": 250,
+            "action": { "kind": "damage", "archetype": "p2", "amount": 12 } },
+          { "name": "up_b",    "sequence": ["up", "b"], "window_ms": 250,
+            "action": { "kind": "damage", "archetype": "p2", "amount": 15 } }
+        ]
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "p1", "component": "Resource(damage)", "label": "P1 %" },
+          { "archetype": "p1", "component": "Lives", "label": "P1 Stocks" },
+          { "archetype": "p2", "component": "Resource(damage)", "label": "P2 %" },
+          { "archetype": "p2", "component": "Lives", "label": "P2 Stocks" }
+        ],
+        "layout": "corners"
+      }
+    },
+    {
+      "id": "p1_out",
+      "type": "LoseOnZero",
+      "params": { "archetype": "p1", "field": "Lives", "emit_condition": "p1_lost" }
+    },
+    {
+      "id": "p2_out",
+      "type": "WinOnCount",
+      "params": { "archetype": "p2", "count": 0, "comparison": "lte",
+                   "emit_condition": "p2_lost" }
+    }
+  ],
+  "flow": {
+    "kind": "round_match",
+    "name": "match",
+    "best_of": 3,
+    "round_scene": "brawl",
+    "victor_condition": "p2_lost"
+  }
+}

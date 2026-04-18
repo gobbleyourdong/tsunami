@@ -1,0 +1,110 @@
+{
+  "meta": {
+    "title": "Dogfight Squadron",
+    "shape": "action",
+    "vibe": ["flight-combat", "missile-lock", "dogfight", "mission-objectives"],
+    "target_session_sec": 600
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -0.2, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "disk", "size": 200 } }
+  },
+  "singletons": {
+    "mission": {
+      "components": ["WorldFlags"],
+      "exposes": { "objectives_done": "number", "kills": "number" }
+    }
+  },
+  "archetypes": {
+    "player_jet": {
+      "mesh": "capsule",
+      "controller": "fps",
+      "components": ["Health(100)", "Score",
+                     "Resource(missiles, 12)", "Resource(cannon_heat, 0)"],
+      "tags": ["player", "aircraft"]
+    },
+    "enemy_jet": {
+      "mesh": "capsule",
+      "ai": "chase",
+      "components": ["Health(60)"],
+      "tags": ["enemy", "aircraft"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player_jet", "amount": 20 }
+      }
+    },
+    "ground_bogey": {
+      "mesh": "box",
+      "controller": "none",
+      "components": ["Health(40)"],
+      "tags": ["enemy", "target"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "enemy_waves",
+      "type": "WaveSpawner",
+      "params": {
+        "archetype": "enemy_jet",
+        "difficulty_ref": "difficulty",
+        "base_count": 3,
+        "rest_sec": 20,
+        "arena_radius": 150
+      }
+    },
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "kills",
+        "easy": { "enemyAimMul": 0.6 },
+        "hard": { "enemyAimMul": 1.8 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player_jet", "component": "Health", "label": "HP" },
+          { "archetype": "player_jet", "component": "Resource(missiles)", "label": "Msl" },
+          { "archetype": "player_jet", "component": "Score", "label": "Score" },
+          { "singleton": "mission", "field": "kills", "label": "Kills" }
+        ],
+        "layout": "corners"
+      }
+    },
+    {
+      "id": "win",
+      "type": "WinOnCount",
+      "params": { "archetype": "enemy_jet", "count": 0, "comparison": "lte",
+                   "emit_condition": "sky_clear" }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player_jet", "field": "Health",
+                   "emit_condition": "shot_down" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player_jet", "mode": "chase_3d",
+                   "offset": [0, 3, -10], "ease": 0.45 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "sortie",
+    "steps": [
+      { "scene": "briefing" },
+      { "scene": "flying", "condition": "scramble" },
+      { "scene": "victory", "condition": "sky_clear" },
+      { "scene": "ejected", "condition": "shot_down" }
+    ]
+  }
+}

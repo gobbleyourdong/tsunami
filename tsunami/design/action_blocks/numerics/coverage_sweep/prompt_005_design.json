@@ -1,0 +1,110 @@
+{
+  "meta": {
+    "title": "Street Fighter-Lite",
+    "shape": "fighter",
+    "vibe": ["2D-fighter", "combo-input", "round-based", "frame-data"],
+    "target_session_sec": 90
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, -20, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 18 } }
+  },
+  "singletons": {
+    "round_mgr": {
+      "components": ["WorldFlags"],
+      "exposes": { "round": "number", "p1_wins": "number", "p2_wins": "number" }
+    }
+  },
+  "archetypes": {
+    "p1": {
+      "mesh": "capsule",
+      "controller": "platformer",
+      "components": ["Health(100)", "Resource(super, 100)"],
+      "tags": ["player", "fighter"]
+    },
+    "p2": {
+      "mesh": "capsule",
+      "ai": "chase",
+      "components": ["Health(100)", "Resource(super, 100)"],
+      "tags": ["enemy", "fighter"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "p1", "amount": 5 },
+        "when_state": "attacking"
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "p1_frames",
+      "type": "AttackFrames",
+      "params": {
+        "archetype": "p1",
+        "states": [
+          { "name": "jab",   "startup_ms": 60,  "active_ms": 60,  "recovery_ms": 150,
+            "hitbox": { "offset": [1, 0], "size": [1, 1] } },
+          { "name": "heavy", "startup_ms": 240, "active_ms": 120, "recovery_ms": 500,
+            "hitbox": { "offset": [1.5, 0], "size": [1.4, 1.2] } },
+          { "name": "block", "startup_ms": 30,  "active_ms": 300, "recovery_ms": 80 }
+        ]
+      }
+    },
+    {
+      "id": "specials",
+      "type": "ComboAttacks",
+      "params": {
+        "archetype": "p1",
+        "patterns": [
+          {
+            "name": "hadoken",
+            "sequence": ["down", "down_forward", "forward", "punch"],
+            "window_ms": 500,
+            "action": { "kind": "spawn", "archetype": "p2", "at": "caller" }
+          },
+          {
+            "name": "shoryuken",
+            "sequence": ["forward", "down", "down_forward", "punch"],
+            "window_ms": 500,
+            "action": { "kind": "damage", "archetype": "p2", "amount": 15 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "p1", "component": "Health", "label": "P1" },
+          { "archetype": "p2", "component": "Health", "label": "P2" },
+          { "archetype": "p1", "component": "Resource(super)", "label": "Super" },
+          { "singleton": "round_mgr", "field": "round", "label": "Round" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "p1_ko",
+      "type": "LoseOnZero",
+      "params": { "archetype": "p1", "field": "Health", "emit_condition": "p1_ko" }
+    },
+    {
+      "id": "p2_ko",
+      "type": "WinOnCount",
+      "params": { "archetype": "p2", "count": 0, "comparison": "lte", "emit_condition": "p2_ko" }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "match",
+    "steps": [
+      { "scene": "stage_select" },
+      { "scene": "fight", "condition": "start_pressed" },
+      { "scene": "ko_win",  "condition": "p2_ko" },
+      { "scene": "ko_lose", "condition": "p1_ko" }
+    ]
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "meta": {
+    "title": "Seafront Mystery (point-and-click)",
+    "shape": "narrative_adjacent",
+    "vibe": ["point-and-click", "dialog-heavy", "inventory-puzzle", "story"],
+    "target_session_sec": 1200
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 12 } }
+  },
+  "singletons": {
+    "world": {
+      "components": ["WorldFlags"],
+      "exposes": {
+        "spoke_to_captain": "boolean",
+        "has_map_piece": "boolean",
+        "assembled_map": "boolean"
+      }
+    }
+  },
+  "archetypes": {
+    "cursor": {
+      "mesh": "plane",
+      "controller": "pointer",
+      "components": ["Inventory"],
+      "tags": ["player"]
+    },
+    "captain": {
+      "mesh": "capsule",
+      "controller": "none",
+      "components": [],
+      "tags": ["npc"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "dock_hotspots",
+      "type": "HotspotMechanic",
+      "params": {
+        "scene": "dock",
+        "hotspots": [
+          { "name": "captain_npc",
+            "region": { "x": 640, "y": 200, "w": 140, "h": 300 },
+            "on_examine": { "kind": "dialog", "tree_ref": "captain_intro", "entry_node": "root" } },
+          { "name": "rolled_map",
+            "region": { "x": 300, "y": 450, "w": 80, "h": 50 },
+            "on_pickup": { "kind": "sequence", "actions": [
+              { "kind": "set_flag", "world_flag": "has_map_piece", "value": true },
+              { "kind": "give_item", "archetype": "cursor", "item": "map_piece_a" }
+            ] } },
+          { "name": "door_to_inn",
+            "region": { "x": 1100, "y": 100, "w": 100, "h": 500 },
+            "on_use": { "kind": "scene_goto", "scene": "inn" } }
+        ]
+      }
+    },
+    {
+      "id": "captain_intro",
+      "type": "DialogTree",
+      "params": {
+        "trigger_archetype": "captain",
+        "tree": {
+          "id": "root",
+          "speaker": "Captain",
+          "line": "Lookin' for the old harbormaster, eh?",
+          "choices": [
+            { "text": "Yes — have you seen him?",
+              "goto": "tip",
+              "effect": { "kind": "set_flag", "world_flag": "spoke_to_captain", "value": true } },
+            { "text": "Not really.", "goto": "brush_off" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "items_available",
+      "type": "ItemUse",
+      "params": {
+        "archetype": "cursor",
+        "items": [
+          { "name": "map_piece_a",   "action": { "kind": "play_sound", "asset": "rustle" }, "consume_on_use": false },
+          { "name": "map_piece_b",   "action": { "kind": "play_sound", "asset": "rustle" }, "consume_on_use": false },
+          { "name": "assembled_map", "action": { "kind": "scene_goto", "scene": "lighthouse" }, "consume_on_use": false }
+        ]
+      }
+    },
+    {
+      "id": "combine",
+      "type": "InventoryCombine",
+      "params": {
+        "archetype": "cursor",
+        "recipes": [
+          { "ingredients": ["map_piece_a", "map_piece_b"],
+            "result": "assembled_map", "consumes": "all" }
+        ]
+      }
+    },
+    {
+      "id": "gate_lighthouse",
+      "type": "GatedTrigger",
+      "params": {
+        "gate_archetype": "captain",
+        "opens_when": { "has_item": "assembled_map" },
+        "open_effect": { "kind": "scene_goto", "scene": "lighthouse" }
+      }
+    },
+    {
+      "id": "endings",
+      "type": "EndingBranches",
+      "params": {
+        "endings": [
+          { "id": "good", "scene": "ending_good", "priority": 100,
+            "requires": [
+              { "world_flag": "assembled_map",   "value": true },
+              { "world_flag": "spoke_to_captain", "value": true }
+            ] },
+          { "id": "partial", "scene": "ending_partial", "priority": 50,
+            "requires": [ { "world_flag": "assembled_map", "value": true } ] }
+        ],
+        "default_ending": "bad"
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "cursor", "component": "Inventory", "label": "Pockets" }
+        ],
+        "layout": "minimal"
+      }
+    }
+  ],
+  "flow": {
+    "kind": "scene",
+    "name": "dock",
+    "children": [
+      { "kind": "scene", "name": "inn" },
+      { "kind": "scene", "name": "lighthouse" },
+      { "kind": "scene", "name": "ending_good" },
+      { "kind": "scene", "name": "ending_partial" },
+      { "kind": "scene", "name": "ending_bad" }
+    ]
+  }
+}

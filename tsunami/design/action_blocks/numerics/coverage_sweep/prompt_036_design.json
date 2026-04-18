@@ -1,0 +1,114 @@
+{
+  "meta": {
+    "title": "Party Minigames",
+    "shape": "sandbox",
+    "vibe": ["local-multiplayer", "minigame-collection", "board-moves", "anthology"],
+    "target_session_sec": 2400
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 32 } },
+    "sandbox": true
+  },
+  "singletons": {
+    "board": {
+      "components": ["WorldFlags"],
+      "exposes": { "turn": "number", "leader": "string" }
+    }
+  },
+  "archetypes": {
+    "p1_tok": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Score", "Resource(coins, 0)", "Resource(stars, 0)"],
+      "tags": ["player", "token"]
+    },
+    "p2_tok": {
+      "mesh": "capsule",
+      "ai": "idle",
+      "components": ["Score", "Resource(coins, 0)", "Resource(stars, 0)"],
+      "tags": ["player", "token"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "turn_difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "time",
+        "easy": { "minigameSpeedMul": 0.8 },
+        "hard": { "minigameSpeedMul": 1.4 },
+        "max_level": 5
+      }
+    },
+    {
+      "id": "board_movement_minigame",
+      "type": "EmbeddedMinigame",
+      "params": {
+        "trigger": "turn_start",
+        "mechanics": [
+          {
+            "id": "coin_race",
+            "type": "PickupLoop",
+            "params": {
+              "archetype": "p1_tok",
+              "reward_field": "Resource(coins)",
+              "reward_amount": 5,
+              "respawn": { "sec": 3 },
+              "max_simultaneous": 10
+            }
+          }
+        ],
+        "exit_condition": "minigame_ended",
+        "on_exit": { "kind": "emit", "condition": "turn_ended" }
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "p1_tok", "component": "Resource(coins)", "label": "P1 Coins" },
+          { "archetype": "p1_tok", "component": "Resource(stars)", "label": "P1 Stars" },
+          { "archetype": "p2_tok", "component": "Resource(coins)", "label": "P2 Coins" },
+          { "singleton": "board",  "field": "turn", "label": "Turn" }
+        ],
+        "layout": "corners"
+      }
+    },
+    {
+      "id": "win",
+      "type": "WinOnCount",
+      "params": { "archetype": "p1_tok", "count": 3, "comparison": "gte",
+                   "emit_condition": "got_stars" }
+    },
+    {
+      "id": "turn_kickoff",
+      "type": "WinOnCount",
+      "params": { "archetype": "p1_tok", "count": 1, "comparison": "gte",
+                   "emit_condition": "turn_start" }
+    },
+    {
+      "id": "minigame_ender",
+      "type": "WinOnCount",
+      "params": { "archetype": "p1_tok", "count": 1, "comparison": "gte",
+                   "emit_condition": "minigame_ended" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "p1_tok", "mode": "topdown",
+                   "offset": [0, 15, 0], "ease": 0.4 }
+    }
+  ],
+  "flow": {
+    "kind": "scene",
+    "name": "board",
+    "children": [
+      { "kind": "scene", "name": "minigame_arena" },
+      { "kind": "scene", "name": "results" }
+    ]
+  }
+}

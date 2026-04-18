@@ -1,0 +1,88 @@
+{
+  "meta": {
+    "title": "Contraption Puzzle",
+    "shape": "puzzle",
+    "vibe": ["physics-puzzle", "cursor-placement", "goal-by-chain", "deliberate"],
+    "target_session_sec": 900
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 16 } }
+  },
+  "singletons": {
+    "puzzle": {
+      "components": ["WorldFlags"],
+      "exposes": { "parts_placed": "number", "goal_triggered": "boolean" }
+    }
+  },
+  "archetypes": {
+    "cursor": {
+      "mesh": "plane",
+      "controller": "pointer",
+      "components": ["Inventory"],
+      "tags": ["player"]
+    },
+    "ball": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["physics_obj"]
+    },
+    "goal_bucket": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["goal"],
+      "trigger": {
+        "kind": "checkpoint",
+        "contact_side": "any",
+        "on_contact": { "kind": "emit", "condition": "ball_in_bucket" }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "parts_inventory",
+      "type": "ItemUse",
+      "params": {
+        "archetype": "cursor",
+        "items": [
+          { "name": "ramp",     "action": { "kind": "spawn", "archetype": "ball", "at": "caller" }, "consume_on_use": true },
+          { "name": "pulley",   "action": { "kind": "spawn", "archetype": "ball", "at": "caller" }, "consume_on_use": true },
+          { "name": "spring",   "action": { "kind": "spawn", "archetype": "ball", "at": "caller" }, "consume_on_use": true },
+          { "name": "fan",      "action": { "kind": "spawn", "archetype": "ball", "at": "caller" }, "consume_on_use": true }
+        ]
+      }
+    },
+    {
+      "id": "levels",
+      "type": "LevelSequence",
+      "params": {
+        "levels": [
+          { "id": "puzzle_1", "win_condition": "ball_in_bucket", "on_win": "next" }
+        ],
+        "start_at": "puzzle_1"
+      }
+    },
+    {
+      "id": "goal_detect",
+      "type": "WinOnCount",
+      "params": { "archetype": "goal_bucket", "count": 1, "comparison": "gte",
+                   "emit_condition": "ball_in_bucket" }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "cursor", "component": "Inventory", "label": "Parts" },
+          { "singleton": "puzzle", "field": "parts_placed", "label": "Placed" }
+        ],
+        "layout": "top"
+      }
+    }
+  ],
+  "flow": { "kind": "scene", "name": "workshop" }
+}

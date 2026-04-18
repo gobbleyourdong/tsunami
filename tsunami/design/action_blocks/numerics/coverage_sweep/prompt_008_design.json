@@ -1,0 +1,175 @@
+{
+  "meta": {
+    "title": "Dungeon Runner (roguelite, continuous-space rooms)",
+    "shape": "action",
+    "vibe": ["procedural-rooms", "permadeath", "room-to-room", "loot"],
+    "target_session_sec": 900
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 20 } }
+  },
+  "singletons": {
+    "run": {
+      "components": ["WorldFlags"],
+      "exposes": { "room_depth": "number", "alive": "boolean" }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Health(50)", "Score", "Inventory",
+                     "Resource(gold, 0)", "Resource(keys, 0)"],
+      "tags": ["player"]
+    },
+    "grunt": {
+      "mesh": "box",
+      "ai": "chase",
+      "components": ["Health(10)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player", "amount": 5 },
+        "when_state": "alive"
+      }
+    },
+    "gold_pile": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 10 },
+        "exclusive": true
+      }
+    },
+    "door": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["door", "lock_red"]
+    },
+    "key_red": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup", "key_red"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "give_item", "archetype": "player", "item": "key_red" },
+        "exclusive": true
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "dungeon_rooms",
+      "type": "ProceduralRoomChain",
+      "params": {
+        "room_pool": [
+          { "id": "combat_small",  "weight": 4 },
+          { "id": "combat_large",  "weight": 2, "min_depth": 3 },
+          { "id": "treasure_room", "weight": 1 },
+          { "id": "elite_fight",   "weight": 1, "min_depth": 4 }
+        ],
+        "connection_rules": {
+          "min_rooms_per_run": 8, "max_rooms_per_run": 15,
+          "branch_factor": 2, "elite_room_after": 4
+        },
+        "run_lifecycle": {
+          "on_run_start":    { "kind": "play_sound", "asset": "run_start" },
+          "on_run_complete": { "kind": "award_score", "amount": 500 },
+          "on_run_fail":     { "kind": "play_sound", "asset": "game_over" }
+        }
+      }
+    },
+    {
+      "id": "overworld_map",
+      "type": "RouteMap",
+      "params": {
+        "nodes": [
+          { "id": "enter",   "kind": "battle", "depth": 0, "scene": "combat" },
+          { "id": "elite1",  "kind": "elite",  "depth": 2, "scene": "elite",
+            "reward": { "kind": "give_item", "archetype": "player", "item": "relic" } },
+          { "id": "rest1",   "kind": "rest",   "depth": 3, "scene": "rest" },
+          { "id": "boss",    "kind": "boss",   "depth": 5, "scene": "boss_fight" }
+        ],
+        "edges": [
+          { "from": "enter",  "to": "elite1" },
+          { "from": "elite1", "to": "rest1" },
+          { "from": "rest1",  "to": "boss" }
+        ],
+        "start_nodes": ["enter"],
+        "boss_node": "boss",
+        "layout": "layered_dag"
+      }
+    },
+    {
+      "id": "locks",
+      "type": "LockAndKey",
+      "params": { "key_tag": "key_red", "lock_tag": "lock_red", "consume_key": true }
+    },
+    {
+      "id": "item_registry",
+      "type": "ItemUse",
+      "params": {
+        "archetype": "player",
+        "items": [
+          { "name": "relic",    "action": { "kind": "heal", "archetype": "player", "amount": 10 }, "consume_on_use": true },
+          { "name": "key_red",  "action": { "kind": "emit", "condition": "key_red_used" }, "consume_on_use": true }
+        ],
+        "active_slot": "a_button"
+      }
+    },
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "score",
+        "easy": { "enemyHealthMul": 0.8 },
+        "hard": { "enemyHealthMul": 1.8 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Health", "label": "HP" },
+          { "archetype": "player", "component": "Score",  "label": "Score" },
+          { "archetype": "player", "component": "Resource(gold)", "label": "Gold" },
+          { "archetype": "player", "component": "Resource(keys)", "label": "Keys" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Health", "emit_condition": "player_died" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player", "mode": "topdown",
+                   "offset": [0, 15, 0], "ease": 0.4 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "run",
+    "steps": [
+      { "scene": "hub" },
+      { "scene": "dungeon",   "condition": "run_started" },
+      { "scene": "game_over", "condition": "player_died" }
+    ]
+  }
+}

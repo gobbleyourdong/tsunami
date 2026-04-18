@@ -1,0 +1,91 @@
+{
+  "meta": {
+    "title": "Guitar Hero-Lite",
+    "shape": "rhythm",
+    "vibe": ["rhythm-track", "beat-timing", "streak-combo", "music"],
+    "target_session_sec": 180
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 16 } }
+  },
+  "singletons": {},
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "none",
+      "components": ["Score", "Resource(streak, 99)", "Resource(misses, 99)"],
+      "tags": ["player"]
+    },
+    "beat": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["beat"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "track",
+      "type": "RhythmTrack",
+      "params": {
+        "bpm": 128,
+        "audio_ref": "music/stage1.ogg",
+        "beat_spawn_archetype": "beat",
+        "measure": { "beats": 4, "note_value": 4 },
+        "hit_window_ms": 140
+      }
+    },
+    {
+      "id": "combo",
+      "type": "ScoreCombos",
+      "params": {
+        "archetype": "player",
+        "window_sec": 1.5,
+        "curve": "linear",
+        "max_multiplier": 8,
+        "commit": "event",
+        "commit_event": "beat_hit"
+      },
+      "requires": ["track"]
+    },
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "score",
+        "easy": { "speedMul": 0.8 },
+        "hard": { "speedMul": 1.5 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Score",  "label": "Score" },
+          { "mechanic": "track", "field": "streak", "label": "Streak" },
+          { "archetype": "player", "component": "Resource(misses)", "label": "Misses" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Resource(misses)", "emit_condition": "failed" }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "stage",
+    "steps": [
+      { "scene": "song_select" },
+      { "scene": "play", "condition": "song_picked" },
+      { "scene": "results" }
+    ]
+  }
+}

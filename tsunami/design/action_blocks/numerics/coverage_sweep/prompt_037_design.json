@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "title": "Math Rescue",
+    "shape": "action",
+    "vibe": ["edutainment", "arithmetic-drill", "timed-answers", "ramping-difficulty"],
+    "target_session_sec": 240
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 14 } }
+  },
+  "singletons": {},
+  "archetypes": {
+    "hero": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Health(3)", "Score", "Resource(streak, 0)"],
+      "tags": ["player"]
+    },
+    "bad_number": {
+      "mesh": "sphere",
+      "ai": "chase",
+      "components": ["Health(1)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "hero", "amount": 1 }
+      }
+    },
+    "good_number": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 50 },
+        "exclusive": true
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "problem_waves",
+      "type": "WaveSpawner",
+      "params": {
+        "archetype": "bad_number",
+        "difficulty_ref": "difficulty",
+        "base_count": 4,
+        "rest_sec": 6,
+        "arena_radius": 6
+      }
+    },
+    {
+      "id": "reward_rain",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "good_number",
+        "reward_field": "Score",
+        "reward_amount": 50,
+        "respawn": { "sec": 3 },
+        "max_simultaneous": 4
+      }
+    },
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "score",
+        "easy": { "numberComplexity": 0.5 },
+        "hard": { "numberComplexity": 2.0 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "streak_bonus",
+      "type": "ScoreCombos",
+      "params": {
+        "archetype": "hero",
+        "window_sec": 4,
+        "curve": "linear",
+        "max_multiplier": 6,
+        "commit": "window"
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "hero", "component": "Score", "label": "Score" },
+          { "archetype": "hero", "component": "Health", "label": "Lives" },
+          { "archetype": "hero", "component": "Resource(streak)", "label": "Streak" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "hero", "field": "Health", "emit_condition": "out_of_tries" }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "lesson",
+    "steps": [
+      { "scene": "topic_select" },
+      { "scene": "drill", "condition": "topic_picked" },
+      { "scene": "results" }
+    ]
+  }
+}

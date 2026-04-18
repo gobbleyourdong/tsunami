@@ -1,0 +1,110 @@
+{
+  "meta": {
+    "title": "Cookie Clicker-Lite",
+    "shape": "sandbox",
+    "vibe": ["idle", "click-to-progress", "incremental", "number-go-up"],
+    "target_session_sec": 10000
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 8 } },
+    "sandbox": true
+  },
+  "singletons": {
+    "economy": {
+      "components": ["WorldFlags"],
+      "exposes": {
+        "cookies_per_sec": "number",
+        "lifetime_cookies": "number",
+        "total_clicks": "number"
+      }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "plane",
+      "controller": "pointer",
+      "components": ["Score", "Resource(cookies, 0)",
+                     "Resource(click_power, 1)"],
+      "tags": ["player"]
+    },
+    "big_cookie": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["clickable"],
+      "trigger": {
+        "kind": "hit",
+        "contact_side": "any",
+        "on_contact": { "kind": "sequence", "actions": [
+          { "kind": "award_score", "amount": 1 },
+          { "kind": "play_sfx_ref", "library_ref": "sfx", "preset": "click" }
+        ] }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "building_shop",
+      "type": "Shop",
+      "params": {
+        "vendor_archetype": "player",
+        "currency_field": "Score",
+        "stock": [
+          { "item": "cursor",     "price": 15 },
+          { "item": "grandma",    "price": 100 },
+          { "item": "farm",       "price": 1100 },
+          { "item": "mine",       "price": 12000 }
+        ],
+        "ui_layout": "list"
+      }
+    },
+    {
+      "id": "owned_items",
+      "type": "ItemUse",
+      "params": {
+        "archetype": "player",
+        "items": [
+          { "name": "cursor",  "action": { "kind": "award_score", "amount": 1 }, "consume_on_use": false },
+          { "name": "grandma", "action": { "kind": "award_score", "amount": 5 }, "consume_on_use": false },
+          { "name": "farm",    "action": { "kind": "award_score", "amount": 20 }, "consume_on_use": false },
+          { "name": "mine",    "action": { "kind": "award_score", "amount": 50 }, "consume_on_use": false }
+        ]
+      }
+    },
+    {
+      "id": "sfx",
+      "type": "SfxLibrary",
+      "params": {
+        "sfx": {
+          "click": {
+            "waveType": "square",
+            "envelopeAttack": 0, "envelopeSustain": 0.03, "envelopePunch": 0.2, "envelopeDecay": 0.05,
+            "baseFreq": 0.6, "freqLimit": 0, "freqRamp": 0, "freqDeltaRamp": 0,
+            "vibratoStrength": 0, "vibratoSpeed": 0, "arpMod": 0, "arpSpeed": 0,
+            "duty": 0.25, "dutyRamp": 0, "repeatSpeed": 0,
+            "flangerOffset": 0, "flangerRamp": 0,
+            "lpFilterCutoff": 1, "lpFilterCutoffRamp": 0, "lpFilterResonance": 0,
+            "hpFilterCutoff": 0.1, "hpFilterCutoffRamp": 0,
+            "masterVolume": 0.2, "sampleRate": 44100, "sampleSize": 16
+          }
+        }
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Score", "label": "Cookies" },
+          { "singleton": "economy", "field": "cookies_per_sec", "label": "CpS" },
+          { "singleton": "economy", "field": "lifetime_cookies", "label": "Lifetime" }
+        ],
+        "layout": "top"
+      }
+    }
+  ],
+  "flow": { "kind": "scene", "name": "bakery" }
+}

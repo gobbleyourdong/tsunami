@@ -1,0 +1,105 @@
+{
+  "meta": {
+    "title": "Micro Party",
+    "shape": "sandbox",
+    "vibe": ["anthology", "rapid-fire", "micro-games", "quick-timer"],
+    "target_session_sec": 300
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 14 } },
+    "sandbox": true
+  },
+  "singletons": {
+    "roster": {
+      "components": ["WorldFlags"],
+      "exposes": { "games_won": "number", "lives_left": "number" }
+    }
+  },
+  "archetypes": {
+    "hero": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Score", "Lives(4)"],
+      "tags": ["player"]
+    },
+    "token": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 10 },
+        "exclusive": true
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "speed_ramp",
+      "type": "Difficulty",
+      "params": {
+        "drive": "score",
+        "easy": { "microTimerSec": 6 },
+        "hard": { "microTimerSec": 2 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "collect_game",
+      "type": "EmbeddedMinigame",
+      "params": {
+        "trigger": "micro_start",
+        "mechanics": [
+          {
+            "id": "inner_coins",
+            "type": "PickupLoop",
+            "params": {
+              "archetype": "token",
+              "reward_field": "Score",
+              "reward_amount": 10,
+              "respawn": { "sec": 1 },
+              "max_simultaneous": 5
+            }
+          }
+        ],
+        "exit_condition": "micro_ended",
+        "on_exit": { "kind": "emit", "condition": "micro_over" }
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "hero", "component": "Score", "label": "Score" },
+          { "archetype": "hero", "component": "Lives", "label": "Lives" },
+          { "singleton": "roster", "field": "games_won", "label": "Won" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "hero", "field": "Lives", "emit_condition": "failed_set" }
+    },
+    {
+      "id": "micro_start_emit",
+      "type": "WinOnCount",
+      "params": { "archetype": "hero", "count": 1, "comparison": "gte",
+                   "emit_condition": "micro_start" }
+    },
+    {
+      "id": "micro_end_emit",
+      "type": "WinOnCount",
+      "params": { "archetype": "token", "count": 5, "comparison": "gte",
+                   "emit_condition": "micro_ended" }
+    }
+  ],
+  "flow": { "kind": "scene", "name": "warp_zone" }
+}

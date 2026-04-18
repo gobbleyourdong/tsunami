@@ -1,0 +1,133 @@
+{
+  "meta": {
+    "title": "Arcade Racer",
+    "shape": "action",
+    "vibe": ["racing", "lap-based", "boost", "checkpoints"],
+    "target_session_sec": 180
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 120 } }
+  },
+  "singletons": {
+    "race": {
+      "components": ["WorldFlags"],
+      "exposes": { "lap": "number", "max_laps": "number", "position": "number" }
+    }
+  },
+  "archetypes": {
+    "player_craft": {
+      "mesh": "capsule",
+      "controller": "platformer",
+      "components": ["Health(100)", "Score", "Resource(boost, 100)"],
+      "tags": ["player", "racer"]
+    },
+    "rival_craft": {
+      "mesh": "capsule",
+      "ai": "patrol",
+      "components": ["Health(100)"],
+      "tags": ["enemy", "racer"]
+    },
+    "boost_pad": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": {
+          "kind": "sequence",
+          "actions": [
+            { "kind": "apply_status", "archetype": "player_craft", "status": "boosting" },
+            { "kind": "set_flag", "world_flag": "boosted", "value": true }
+          ]
+        },
+        "exclusive": false
+      }
+    },
+    "checkpoint_gate": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["checkpoint"],
+      "trigger": {
+        "kind": "checkpoint",
+        "contact_side": "any",
+        "on_contact": { "kind": "emit", "condition": "checkpoint_passed" }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "time",
+        "easy": { "rivalSpeedMul": 0.85 },
+        "hard": { "rivalSpeedMul": 1.25 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "boosting",
+      "type": "TimedStateModifier",
+      "params": {
+        "archetype": "player_craft",
+        "state": "boosting",
+        "duration_sec": 2,
+        "stackable": false
+      }
+    },
+    {
+      "id": "checkpoints",
+      "type": "CheckpointProgression",
+      "params": {
+        "archetype": "checkpoint_gate",
+        "mode": "respawn_in_place",
+        "restore_fields": ["Health"]
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "singleton": "race",  "field": "lap",      "label": "Lap" },
+          { "singleton": "race",  "field": "position", "label": "Pos" },
+          { "archetype": "player_craft", "component": "Resource(boost)", "label": "Boost" }
+        ],
+        "layout": "corners"
+      }
+    },
+    {
+      "id": "win",
+      "type": "WinOnCount",
+      "params": { "archetype": "checkpoint_gate", "count": 9, "comparison": "gte",
+                   "emit_condition": "race_won" }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player_craft", "field": "Health", "emit_condition": "crashed_out" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player_craft", "mode": "chase_3d",
+                   "offset": [0, 2, -6], "ease": 0.35 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "race",
+    "steps": [
+      { "scene": "track_select" },
+      { "scene": "race", "condition": "start_pressed" },
+      { "scene": "victory", "condition": "race_won" },
+      { "scene": "retry", "condition": "crashed_out" }
+    ]
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "meta": {
+    "title": "Trick Scorer Skatepark",
+    "shape": "skater",
+    "vibe": ["skating", "combos", "gaps", "letter-collect"],
+    "target_session_sec": 120
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 48 } }
+  },
+  "singletons": {
+    "run": {
+      "components": ["WorldFlags"],
+      "exposes": { "timer_sec": "number", "letters_got": "number" }
+    }
+  },
+  "archetypes": {
+    "skater": {
+      "mesh": "capsule",
+      "controller": "platformer",
+      "components": ["Score", "Resource(balance, 100)"],
+      "tags": ["player"]
+    },
+    "letter": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup", "letter"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 1000 },
+        "exclusive": true
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "airborne_tricks",
+      "type": "ComboAttacks",
+      "params": {
+        "archetype": "skater",
+        "patterns": [
+          { "name": "kickflip", "sequence": ["down", "forward", "square"],
+            "window_ms": 400,
+            "action": { "kind": "award_score", "amount": 250 },
+            "gated_by": "airborne" },
+          { "name": "heelflip", "sequence": ["down", "forward", "triangle"],
+            "window_ms": 400,
+            "action": { "kind": "award_score", "amount": 250 },
+            "gated_by": "airborne" },
+          { "name": "grind",    "sequence": ["triangle"],
+            "window_ms": 200,
+            "action": { "kind": "award_score", "amount": 150 },
+            "gated_by": "on_rail" }
+        ]
+      }
+    },
+    {
+      "id": "combo_meter",
+      "type": "ScoreCombos",
+      "params": {
+        "archetype": "skater",
+        "window_sec": 3.0,
+        "curve": "quadratic",
+        "max_multiplier": 10,
+        "commit": "event",
+        "commit_event": "land"
+      }
+    },
+    {
+      "id": "airborne",
+      "type": "TimedStateModifier",
+      "params": { "archetype": "skater", "state": "airborne", "duration_sec": 2, "stackable": false }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "skater", "component": "Score", "label": "Score" },
+          { "singleton": "run",    "field": "timer_sec", "label": "Time" },
+          { "singleton": "run",    "field": "letters_got", "label": "Letters" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "win_letters",
+      "type": "WinOnCount",
+      "params": { "archetype": "letter", "count": 0, "comparison": "eq",
+                   "emit_condition": "skate_collected" }
+    },
+    {
+      "id": "lose_time",
+      "type": "LoseOnZero",
+      "params": { "archetype": "skater", "field": "Resource(balance)",
+                   "emit_condition": "timer_expired" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "skater", "mode": "chase_3d",
+                   "offset": [0, 3, -7], "ease": 0.45 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "session",
+    "steps": [
+      { "scene": "park_select" },
+      { "scene": "skate", "condition": "started" },
+      { "scene": "results" }
+    ]
+  }
+}

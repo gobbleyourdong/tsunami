@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "title": "Courtroom Mystery VN",
+    "shape": "narrative_adjacent",
+    "vibe": ["visual-novel", "dialog-tree", "evidence-presenting", "cross-examination"],
+    "target_session_sec": 3600
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 14 } }
+  },
+  "singletons": {
+    "case": {
+      "components": ["WorldFlags"],
+      "exposes": {
+        "evidence_found": "number",
+        "contradictions_caught": "number",
+        "penalties": "number"
+      }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "plane",
+      "controller": "pointer",
+      "components": ["Inventory", "Resource(penalties, 5)"],
+      "tags": ["player"]
+    },
+    "witness": {
+      "mesh": "capsule",
+      "controller": "none",
+      "components": [],
+      "tags": ["npc", "witness"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "scene_hotspots",
+      "type": "HotspotMechanic",
+      "params": {
+        "scene": "crime_scene",
+        "hotspots": [
+          { "name": "witness_talk",
+            "region": { "x": 400, "y": 200, "w": 200, "h": 400 },
+            "on_examine": { "kind": "dialog", "tree_ref": "witness_dialog", "entry_node": "root" } },
+          { "name": "fingerprint",
+            "region": { "x": 120, "y": 450, "w": 80, "h": 80 },
+            "on_pickup": { "kind": "sequence", "actions": [
+              { "kind": "give_item", "archetype": "player", "item": "fingerprint_evidence" },
+              { "kind": "emit", "condition": "evidence_gathered" }
+            ] } }
+        ]
+      }
+    },
+    {
+      "id": "witness_dialog",
+      "type": "DialogTree",
+      "params": {
+        "trigger_archetype": "witness",
+        "tree": {
+          "id": "root",
+          "speaker": "Witness",
+          "line": "I saw nothing, I swear!",
+          "choices": [
+            { "text": "Press further.", "goto": "press",
+              "effect": { "kind": "set_flag", "world_flag": "pressed_witness", "value": true } },
+            { "text": "Present fingerprint.", "goto": "contradiction",
+              "requires": { "world_flag": "has_fingerprint", "value": true },
+              "effect": { "kind": "emit", "condition": "contradiction_found" } },
+            { "text": "Thanks for your time.", "goto": "leave" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "evidence_registry",
+      "type": "ItemUse",
+      "params": {
+        "archetype": "player",
+        "items": [
+          { "name": "fingerprint_evidence",
+            "action": { "kind": "set_flag", "world_flag": "has_fingerprint", "value": true },
+            "consume_on_use": false },
+          { "name": "testimony_doc",
+            "action": { "kind": "play_sound", "asset": "paper_flip" },
+            "consume_on_use": false }
+        ]
+      }
+    },
+    {
+      "id": "endings",
+      "type": "EndingBranches",
+      "params": {
+        "endings": [
+          { "id": "guilty",      "scene": "ending_guilty",  "priority": 100,
+            "requires": [ { "condition": "contradiction_found" } ] },
+          { "id": "inconclusive","scene": "ending_fail",    "priority": 50,
+            "requires": [ { "world_flag": "pressed_witness", "value": true } ] }
+        ],
+        "default_ending": "no_case"
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player",  "component": "Inventory",  "label": "Evidence" },
+          { "archetype": "player",  "component": "Resource(penalties)", "label": "Penalties" },
+          { "singleton": "case",    "field": "contradictions_caught", "label": "Contradictions" }
+        ],
+        "layout": "bottom"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Resource(penalties)",
+                   "emit_condition": "game_over_trial" }
+    }
+  ],
+  "flow": {
+    "kind": "scene",
+    "name": "investigation",
+    "children": [
+      { "kind": "scene", "name": "crime_scene" },
+      { "kind": "scene", "name": "courtroom" },
+      { "kind": "scene", "name": "ending_guilty" },
+      { "kind": "scene", "name": "ending_fail" },
+      { "kind": "scene", "name": "no_case" }
+    ]
+  }
+}

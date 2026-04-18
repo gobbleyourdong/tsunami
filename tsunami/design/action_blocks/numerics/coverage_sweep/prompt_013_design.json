@@ -1,0 +1,136 @@
+{
+  "meta": {
+    "title": "Stealth Infiltration",
+    "shape": "action",
+    "vibe": ["stealth", "vision-cones", "alert-states", "patrol"],
+    "target_session_sec": 600
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 40 } }
+  },
+  "singletons": {
+    "mission": {
+      "components": ["WorldFlags"],
+      "exposes": { "alarm_level": "number", "objectives_done": "number" }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Health(100)", "Inventory", "Resource(noise, 100)"],
+      "tags": ["player"]
+    },
+    "guard": {
+      "mesh": "capsule",
+      "ai": "patrol",
+      "components": ["Health(30)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player", "amount": 15 },
+        "when_state": "alert"
+      }
+    },
+    "keycard": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "give_item", "archetype": "player", "item": "keycard" },
+        "exclusive": true
+      }
+    },
+    "locked_door": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["gate"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "guard_vision",
+      "type": "VisionCone",
+      "params": {
+        "archetype": "guard",
+        "target_tags": ["player"],
+        "cone_angle_deg": 80,
+        "cone_range": 12,
+        "line_of_sight": true,
+        "alert_states": [
+          { "name": "calm",       "ai_override": "patrol" },
+          { "name": "suspicious", "ai_override": "chase", "decay_to": "calm", "decay_sec": 4 },
+          { "name": "alert",      "ai_override": "chase" }
+        ],
+        "initial_state": "calm"
+      }
+    },
+    {
+      "id": "items",
+      "type": "ItemUse",
+      "params": {
+        "archetype": "player",
+        "items": [
+          { "name": "keycard",  "action": { "kind": "emit", "condition": "door_unlocked" }, "consume_on_use": false }
+        ],
+        "active_slot": "a_button"
+      }
+    },
+    {
+      "id": "door_gate",
+      "type": "GatedTrigger",
+      "params": {
+        "gate_archetype": "locked_door",
+        "opens_when": { "has_item": "keycard" },
+        "open_effect": { "kind": "emit", "condition": "objective_done" }
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player",  "component": "Health", "label": "HP" },
+          { "singleton": "mission", "field": "alarm_level", "label": "Alarm" },
+          { "singleton": "mission", "field": "objectives_done", "label": "Obj" }
+        ],
+        "layout": "corners"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Health", "emit_condition": "spotted_killed" }
+    },
+    {
+      "id": "win",
+      "type": "WinOnCount",
+      "params": { "archetype": "locked_door", "count": 0, "comparison": "lte",
+                   "emit_condition": "all_objectives" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player", "mode": "topdown",
+                   "offset": [0, 12, 0], "ease": 0.4 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "mission",
+    "steps": [
+      { "scene": "briefing" },
+      { "scene": "infiltrate", "condition": "mission_start" },
+      { "scene": "ending",     "condition": "all_objectives" },
+      { "scene": "failure",    "condition": "spotted_killed" }
+    ]
+  }
+}

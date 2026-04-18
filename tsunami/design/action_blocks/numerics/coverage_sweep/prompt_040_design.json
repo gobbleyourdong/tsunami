@@ -1,0 +1,109 @@
+{
+  "meta": {
+    "title": "Crash-Corridor 3D Platformer",
+    "shape": "action",
+    "vibe": ["3D-platformer", "corridor", "box-smash", "collect-gems"],
+    "target_session_sec": 240
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -18, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 60 } }
+  },
+  "singletons": {},
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "platformer",
+      "components": ["Health(3)", "Score", "Lives(3)"],
+      "tags": ["player"]
+    },
+    "crate": {
+      "mesh": "box",
+      "controller": "none",
+      "components": ["Health(1)"],
+      "tags": ["breakable"],
+      "trigger": {
+        "kind": "bump",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 25 }
+      }
+    },
+    "gem": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 100 },
+        "exclusive": true
+      }
+    },
+    "pit_trigger": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["hazard"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player", "amount": 99 }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "gems",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "gem",
+        "reward_field": "Score",
+        "reward_amount": 100,
+        "respawn": "never",
+        "max_simultaneous": 20
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Score", "label": "Score" },
+          { "archetype": "player", "component": "Lives", "label": "Lives" },
+          { "archetype": "player", "component": "Health", "label": "HP" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Lives", "emit_condition": "all_lives_gone" }
+    },
+    {
+      "id": "win",
+      "type": "WinOnCount",
+      "params": { "archetype": "gem", "count": 0, "comparison": "eq",
+                   "emit_condition": "all_gems_got" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player", "mode": "chase_3d",
+                   "offset": [0, 3, -6], "ease": 0.45 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "stage",
+    "steps": [
+      { "scene": "title" },
+      { "scene": "corridor", "condition": "started" },
+      { "scene": "cleared", "condition": "all_gems_got" },
+      { "scene": "game_over", "condition": "all_lives_gone" }
+    ]
+  }
+}

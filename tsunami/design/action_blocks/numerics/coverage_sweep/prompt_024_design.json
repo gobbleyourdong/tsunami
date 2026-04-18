@@ -1,0 +1,151 @@
+{
+  "meta": {
+    "title": "Underworld Rogue",
+    "shape": "action",
+    "vibe": ["roguelite", "runs", "relic-builds", "escalating"],
+    "target_session_sec": 2400
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 24 } }
+  },
+  "singletons": {
+    "meta_run": {
+      "components": ["WorldFlags"],
+      "exposes": { "escape_attempts": "number", "current_room": "number", "heat": "number" }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Health(80)", "Score", "Inventory",
+                     "Resource(gold, 0)", "Resource(darkness, 0)"],
+      "tags": ["player"]
+    },
+    "shade": {
+      "mesh": "sphere",
+      "ai": "chase",
+      "components": ["Health(18)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player", "amount": 8 }
+      }
+    },
+    "boss_house": {
+      "mesh": "capsule",
+      "ai": "patrol",
+      "components": ["Health(400)"],
+      "tags": ["enemy", "boss"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "room_chain",
+      "type": "ProceduralRoomChain",
+      "params": {
+        "room_pool": [
+          { "id": "combat",   "weight": 5 },
+          { "id": "boon_gift","weight": 2 },
+          { "id": "shop",     "weight": 1, "min_depth": 2 },
+          { "id": "elite",    "weight": 1, "min_depth": 3 }
+        ],
+        "connection_rules": {
+          "min_rooms_per_run": 10, "max_rooms_per_run": 14,
+          "branch_factor": 3, "elite_room_after": 3
+        },
+        "run_lifecycle": {
+          "on_run_start":    { "kind": "play_sound", "asset": "run_begin" },
+          "on_run_complete": { "kind": "award_score", "amount": 5000 },
+          "on_run_fail":     { "kind": "play_sound", "asset": "run_fail" }
+        }
+      }
+    },
+    {
+      "id": "boss_phases",
+      "type": "BossPhases",
+      "params": {
+        "archetype": "boss_house",
+        "phases": [
+          { "health_pct": 1.0, "ai": "patrol" },
+          { "health_pct": 0.6, "ai": "chase", "tint": [1, 0.5, 0.5] },
+          { "health_pct": 0.3, "ai": "bt:enrage", "tint": [1, 0, 0] }
+        ]
+      }
+    },
+    {
+      "id": "shop_altar",
+      "type": "Shop",
+      "params": {
+        "vendor_archetype": "boss_house",
+        "currency_field": "Resource(gold)",
+        "stock": [
+          { "item": "dash_boon",   "price": 100 },
+          { "item": "strike_boon", "price": 150 },
+          { "item": "shield_boon", "price": 200 }
+        ],
+        "ui_layout": "list"
+      }
+    },
+    {
+      "id": "relics",
+      "type": "ItemUse",
+      "params": {
+        "archetype": "player",
+        "items": [
+          { "name": "dash_boon",   "action": { "kind": "emit", "condition": "dash_used" }, "consume_on_use": false },
+          { "name": "strike_boon", "action": { "kind": "damage", "archetype": "shade", "amount": 5 }, "consume_on_use": false },
+          { "name": "shield_boon", "action": { "kind": "heal", "archetype": "player", "amount": 20 }, "consume_on_use": false }
+        ]
+      }
+    },
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "wave_index",
+        "easy": { "enemyHealthMul": 0.8 },
+        "hard": { "enemyHealthMul": 2.0 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player",  "component": "Health", "label": "HP" },
+          { "archetype": "player",  "component": "Resource(gold)", "label": "Gold" },
+          { "archetype": "player",  "component": "Resource(darkness)", "label": "Dark" },
+          { "singleton": "meta_run", "field": "current_room", "label": "Room" }
+        ],
+        "layout": "corners"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Health", "emit_condition": "run_died" }
+    },
+    {
+      "id": "win",
+      "type": "WinOnCount",
+      "params": { "archetype": "boss_house", "count": 0, "comparison": "lte",
+                   "emit_condition": "escaped" }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "run",
+    "steps": [
+      { "scene": "hub" },
+      { "scene": "run", "condition": "run_started" },
+      { "scene": "hub", "condition": "run_died" },
+      { "scene": "credits", "condition": "escaped" }
+    ]
+  }
+}

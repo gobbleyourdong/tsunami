@@ -1,0 +1,86 @@
+{
+  "meta": {
+    "title": "Tetris-Feel Continuous Stacker (heavy approximation)",
+    "shape": "puzzle",
+    "vibe": ["falling-pieces", "stack-clear", "speed-ramp"],
+    "target_session_sec": 240
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, -5, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 12 } },
+    "sandbox": false
+  },
+  "singletons": {
+    "stack": {
+      "components": ["WorldFlags"],
+      "exposes": { "rows_cleared": "number", "level": "number", "score": "number" }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "box",
+      "controller": "none",
+      "components": ["Score", "Resource(height, 20)"],
+      "tags": ["player"]
+    },
+    "piece": {
+      "mesh": "box",
+      "controller": "platformer",
+      "components": [],
+      "tags": ["piece"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "speed_curve",
+      "type": "Difficulty",
+      "params": {
+        "drive": "score",
+        "easy": { "dropSpeedMul": 0.5 },
+        "hard": { "dropSpeedMul": 3.0 },
+        "max_level": 20
+      }
+    },
+    {
+      "id": "line_clear_rewards",
+      "type": "ScoreCombos",
+      "params": {
+        "archetype": "player",
+        "window_sec": 1.0,
+        "curve": "quadratic",
+        "max_multiplier": 4,
+        "commit": "event",
+        "commit_event": "rows_cleared"
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Score", "label": "Score" },
+          { "singleton": "stack", "field": "rows_cleared", "label": "Lines" },
+          { "mechanic": "speed_curve", "field": "level", "label": "Level" }
+        ],
+        "layout": "corners"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Resource(height)",
+                   "emit_condition": "stack_full" }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "run",
+    "steps": [
+      { "scene": "title" },
+      { "scene": "stacking", "condition": "start_pressed" },
+      { "scene": "game_over", "condition": "stack_full" }
+    ]
+  }
+}

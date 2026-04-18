@@ -1,0 +1,101 @@
+{
+  "meta": {
+    "title": "Push-Box Puzzler (continuous approximation)",
+    "shape": "puzzle",
+    "vibe": ["push-puzzle", "win-by-goals", "deliberate-movement"],
+    "target_session_sec": 300
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 14 } },
+    "sandbox": false
+  },
+  "singletons": {
+    "board": {
+      "components": ["WorldFlags"],
+      "exposes": { "goals_covered": "number", "goal_count": "number" }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "box",
+      "controller": "topdown",
+      "components": [],
+      "tags": ["player"]
+    },
+    "box": {
+      "mesh": "box",
+      "controller": "none",
+      "components": [],
+      "tags": ["box", "pushable"],
+      "trigger": {
+        "kind": "bump",
+        "contact_side": "any",
+        "on_contact": { "kind": "set_flag", "world_flag": "box_moved", "value": true }
+      }
+    },
+    "goal": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["goal"],
+      "trigger": {
+        "kind": "checkpoint",
+        "contact_side": "any",
+        "on_contact": { "kind": "emit", "condition": "box_on_goal" }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "level_progression",
+      "type": "LevelSequence",
+      "params": {
+        "levels": [
+          { "id": "lvl1", "layout_source": "levels/sokoban_1.tmx",
+            "win_condition": "all_goals", "on_win": "next" },
+          { "id": "lvl2", "layout_source": "levels/sokoban_2.tmx",
+            "win_condition": "all_goals", "on_win": "next" },
+          { "id": "lvl3", "layout_source": "levels/sokoban_3.tmx",
+            "win_condition": "all_goals", "on_win": "next" }
+        ],
+        "start_at": "lvl1"
+      }
+    },
+    {
+      "id": "goal_counter",
+      "type": "WinOnCount",
+      "params": { "archetype": "goal", "count": 3, "comparison": "gte",
+                   "emit_condition": "all_goals" }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "singleton": "board", "field": "goals_covered", "label": "Solved" },
+          { "singleton": "board", "field": "goal_count",    "label": "Total" },
+          { "mechanic": "level_progression", "field": "current_level", "label": "Level" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player", "mode": "topdown",
+                   "offset": [0, 10, 0], "ease": 0.5 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "run",
+    "steps": [
+      { "scene": "title" },
+      { "scene": "puzzle", "condition": "start_pressed" },
+      { "scene": "complete", "condition": "all_goals" }
+    ]
+  }
+}

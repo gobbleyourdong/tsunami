@@ -1,0 +1,134 @@
+{
+  "meta": {
+    "title": "Bullet Hell Shmup",
+    "shape": "action",
+    "vibe": ["bullet-hell", "pattern-dodge", "boss-phases", "power-up"],
+    "target_session_sec": 240
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 28 } }
+  },
+  "singletons": {},
+  "archetypes": {
+    "player_ship": {
+      "mesh": "plane",
+      "controller": "topdown",
+      "components": ["Health(3)", "Score", "Lives(3)", "Resource(power, 1)"],
+      "tags": ["player"]
+    },
+    "bullet_blue": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["bullet", "enemy_bullet"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player_ship", "amount": 1 }
+      }
+    },
+    "bullet_red": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["bullet", "enemy_bullet"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player_ship", "amount": 1 }
+      }
+    },
+    "boss": {
+      "mesh": "sphere",
+      "ai": "patrol",
+      "components": ["Health(500)"],
+      "tags": ["enemy", "boss"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "boss_patterns",
+      "type": "BulletPattern",
+      "params": {
+        "emitter_archetype": "boss",
+        "patterns": [
+          { "name": "spread",
+            "bullet_archetype": "bullet_blue",
+            "layout": "spread",
+            "layout_params": { "count": 8, "spread_deg": 60, "speed": 4 },
+            "duration_ms": 1500 },
+          { "name": "ring",
+            "bullet_archetype": "bullet_red",
+            "layout": "ring",
+            "layout_params": { "count": 24, "speed": 6 },
+            "trigger_condition": "boss.health_pct < 0.5" },
+          { "name": "spiral",
+            "bullet_archetype": "bullet_red",
+            "layout": "spiral",
+            "layout_params": { "count": 48, "speed": 5, "rate": 0.15 },
+            "trigger_condition": "boss.health_pct < 0.25" }
+        ],
+        "sequence": "scripted",
+        "scripted_order": ["spread", "spread", "ring", "spiral"]
+      }
+    },
+    {
+      "id": "boss_phases",
+      "type": "BossPhases",
+      "params": {
+        "archetype": "boss",
+        "phases": [
+          { "health_pct": 1.0, "ai": "patrol",  "tint": [1, 1, 1] },
+          { "health_pct": 0.5, "ai": "chase",   "tint": [1, 0.5, 0.5],
+            "on_phase_enter": [ { "kind": "play_sound", "asset": "boss_shout" } ] },
+          { "health_pct": 0.2, "ai": "bt:enrage", "tint": [1, 0, 0] }
+        ]
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player_ship", "component": "Health", "label": "HP" },
+          { "archetype": "player_ship", "component": "Score",  "label": "Score" },
+          { "archetype": "player_ship", "component": "Lives",  "label": "Lives" },
+          { "archetype": "player_ship", "component": "Resource(power)", "label": "PWR" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player_ship", "field": "Lives",
+                   "emit_condition": "all_lives_lost" }
+    },
+    {
+      "id": "win",
+      "type": "WinOnCount",
+      "params": { "archetype": "boss", "count": 0, "comparison": "lte",
+                   "emit_condition": "boss_defeated" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player_ship", "mode": "locked_axis",
+                   "offset": [0, 0, 10], "ease": 1.0 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "stage",
+    "steps": [
+      { "scene": "title" },
+      { "scene": "stage1", "condition": "started" },
+      { "scene": "boss_fight", "condition": "stage1_cleared" },
+      { "scene": "credits", "condition": "boss_defeated" },
+      { "scene": "continue", "condition": "all_lives_lost" }
+    ]
+  }
+}

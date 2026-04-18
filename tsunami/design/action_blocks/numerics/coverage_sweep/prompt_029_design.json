@@ -1,0 +1,131 @@
+{
+  "meta": {
+    "title": "School Romance VN",
+    "shape": "narrative_adjacent",
+    "vibe": ["dating-sim", "needs-bars", "daily-choices", "multi-ending"],
+    "target_session_sec": 3600
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 12 } }
+  },
+  "singletons": {
+    "calendar": {
+      "components": ["WorldFlags"],
+      "exposes": { "day": "number", "weekday": "string", "exam_score": "number" }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "pointer",
+      "components": ["Inventory", "Resource(energy, 100)",
+                     "Resource(charm, 10)", "Resource(study, 10)",
+                     "Resource(sport, 10)"],
+      "tags": ["player"]
+    },
+    "romance_a": {
+      "mesh": "capsule",
+      "ai": "utility:needs",
+      "components": ["Resource(affinity_a, 0)"],
+      "tags": ["npc", "romance"],
+      "trigger": {
+        "kind": "hit",
+        "contact_side": "any",
+        "on_contact": { "kind": "dialog", "tree_ref": "a_dialog", "entry_node": "root" }
+      }
+    },
+    "romance_b": {
+      "mesh": "capsule",
+      "ai": "utility:needs",
+      "components": ["Resource(affinity_b, 0)"],
+      "tags": ["npc", "romance"],
+      "trigger": {
+        "kind": "hit",
+        "contact_side": "any",
+        "on_contact": { "kind": "dialog", "tree_ref": "b_dialog", "entry_node": "root" }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "a_dialog",
+      "type": "DialogTree",
+      "params": {
+        "trigger_archetype": "romance_a",
+        "tree": {
+          "id": "root",
+          "speaker": "Ayano",
+          "line": "Want to study together after school?",
+          "choices": [
+            { "text": "I'd love to!", "goto": "studied",
+              "effect": { "kind": "sequence", "actions": [
+                { "kind": "set_flag", "world_flag": "studied_with_a", "value": true },
+                { "kind": "emit", "condition": "a_path" }
+              ] } },
+            { "text": "Maybe another time.", "goto": "sad" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b_dialog",
+      "type": "DialogTree",
+      "params": {
+        "trigger_archetype": "romance_b",
+        "tree": {
+          "id": "root",
+          "speaker": "Kei",
+          "line": "Going to basketball practice — come along?",
+          "choices": [
+            { "text": "Sure!", "goto": "hooped",
+              "effect": { "kind": "sequence", "actions": [
+                { "kind": "set_flag", "world_flag": "trained_with_b", "value": true },
+                { "kind": "emit", "condition": "b_path" }
+              ] } },
+            { "text": "Too tired.", "goto": "tired" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "endings",
+      "type": "EndingBranches",
+      "params": {
+        "endings": [
+          { "id": "ayano_end", "scene": "ending_a", "priority": 100,
+            "requires": [ { "condition": "a_path" } ] },
+          { "id": "kei_end",   "scene": "ending_b", "priority": 100,
+            "requires": [ { "condition": "b_path" } ] }
+        ],
+        "default_ending": "solo_end"
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Resource(energy)", "label": "Energy" },
+          { "archetype": "player", "component": "Resource(charm)",  "label": "Charm" },
+          { "archetype": "player", "component": "Resource(study)",  "label": "Study" },
+          { "singleton": "calendar", "field": "day", "label": "Day" }
+        ],
+        "layout": "corners"
+      }
+    }
+  ],
+  "flow": {
+    "kind": "scene",
+    "name": "school",
+    "children": [
+      { "kind": "scene", "name": "home" },
+      { "kind": "scene", "name": "cafe" },
+      { "kind": "scene", "name": "ending_a" },
+      { "kind": "scene", "name": "ending_b" },
+      { "kind": "scene", "name": "solo_end" }
+    ]
+  }
+}

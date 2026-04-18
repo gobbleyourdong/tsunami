@@ -1,0 +1,122 @@
+{
+  "meta": {
+    "title": "Arcade Road Racer",
+    "shape": "action",
+    "vibe": ["arcade-racing", "time-attack", "checkpoints", "power-slide"],
+    "target_session_sec": 180
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 200 } }
+  },
+  "singletons": {
+    "race": {
+      "components": ["WorldFlags"],
+      "exposes": { "section": "number", "time_extra": "number", "position": "number" }
+    }
+  },
+  "archetypes": {
+    "player_car": {
+      "mesh": "capsule",
+      "controller": "platformer",
+      "components": ["Health(100)", "Score",
+                     "Resource(timer, 60)", "Resource(boost, 100)"],
+      "tags": ["player", "car"]
+    },
+    "rival_car": {
+      "mesh": "capsule",
+      "ai": "patrol",
+      "components": ["Health(100)"],
+      "tags": ["enemy", "car"]
+    },
+    "time_gate": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["checkpoint"],
+      "trigger": {
+        "kind": "checkpoint",
+        "contact_side": "any",
+        "on_contact": { "kind": "sequence", "actions": [
+          { "kind": "emit", "condition": "gate_passed" },
+          { "kind": "heal", "archetype": "player_car", "amount": 0 }
+        ] }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "rival_spawner",
+      "type": "WaveSpawner",
+      "params": {
+        "archetype": "rival_car",
+        "difficulty_ref": "difficulty",
+        "base_count": 3,
+        "rest_sec": 40,
+        "arena_radius": 80
+      }
+    },
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "time",
+        "easy": { "rivalSpeedMul": 0.8 },
+        "hard": { "rivalSpeedMul": 1.4 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "checkpoint_restore",
+      "type": "CheckpointProgression",
+      "params": {
+        "archetype": "time_gate",
+        "mode": "respawn_in_place",
+        "restore_fields": ["Health"]
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player_car", "component": "Resource(timer)", "label": "Time" },
+          { "archetype": "player_car", "component": "Score", "label": "Score" },
+          { "singleton": "race", "field": "section", "label": "Section" },
+          { "archetype": "player_car", "component": "Resource(boost)", "label": "Boost" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "timer_lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player_car", "field": "Resource(timer)",
+                   "emit_condition": "time_out" }
+    },
+    {
+      "id": "finish",
+      "type": "WinOnCount",
+      "params": { "archetype": "time_gate", "count": 5, "comparison": "gte",
+                   "emit_condition": "finished" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player_car", "mode": "chase_3d",
+                   "offset": [0, 3, -6], "ease": 0.35 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "race",
+    "steps": [
+      { "scene": "title" },
+      { "scene": "race", "condition": "green_light" },
+      { "scene": "game_over", "condition": "time_out" },
+      { "scene": "finish_line", "condition": "finished" }
+    ]
+  }
+}

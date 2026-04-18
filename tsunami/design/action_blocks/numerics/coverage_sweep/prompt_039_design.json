@@ -1,0 +1,101 @@
+{
+  "meta": {
+    "title": "Match-Chain Puzzler",
+    "shape": "puzzle",
+    "vibe": ["match-3", "chain-combo", "cascade", "score-chase"],
+    "target_session_sec": 300
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 12 } }
+  },
+  "singletons": {
+    "board_state": {
+      "components": ["WorldFlags"],
+      "exposes": { "cascade_depth": "number", "moves_left": "number" }
+    }
+  },
+  "archetypes": {
+    "cursor": {
+      "mesh": "plane",
+      "controller": "pointer",
+      "components": ["Score", "Resource(moves, 30)"],
+      "tags": ["player"]
+    },
+    "gem": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["piece"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 10 },
+        "exclusive": true
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "gem_cascade",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "gem",
+        "reward_field": "Score",
+        "reward_amount": 10,
+        "respawn": { "sec": 1 },
+        "max_simultaneous": 64
+      }
+    },
+    {
+      "id": "combo_meter",
+      "type": "ScoreCombos",
+      "params": {
+        "archetype": "cursor",
+        "window_sec": 1.5,
+        "curve": "quadratic",
+        "max_multiplier": 8,
+        "commit": "event",
+        "commit_event": "cascade_end"
+      }
+    },
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "score",
+        "easy": { "cascadeBonusMul": 1.0 },
+        "hard": { "cascadeBonusMul": 2.5 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "cursor", "component": "Score", "label": "Score" },
+          { "archetype": "cursor", "component": "Resource(moves)", "label": "Moves" },
+          { "singleton": "board_state", "field": "cascade_depth", "label": "Chain" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose_moves",
+      "type": "LoseOnZero",
+      "params": { "archetype": "cursor", "field": "Resource(moves)",
+                   "emit_condition": "moves_exhausted" }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "session",
+    "steps": [
+      { "scene": "board" },
+      { "scene": "results", "condition": "moves_exhausted" }
+    ]
+  }
+}

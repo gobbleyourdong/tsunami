@@ -1,0 +1,144 @@
+{
+  "meta": {
+    "title": "Maze Chase",
+    "shape": "maze_chase",
+    "vibe": ["arcade", "pursuer-AI", "pickup-loop", "score-chase"],
+    "target_session_sec": 180
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 24 } }
+  },
+  "singletons": {},
+  "archetypes": {
+    "player": {
+      "mesh": "sphere",
+      "controller": "topdown",
+      "components": ["Health(1)", "Score", "Lives(3)"],
+      "tags": ["player"]
+    },
+    "ghost": {
+      "mesh": "sphere",
+      "ai": "chase",
+      "components": ["Health(1)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "player", "amount": 1 },
+        "when_state": "alive"
+      }
+    },
+    "dot": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 10 },
+        "exclusive": true
+      }
+    },
+    "power_pellet": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": {
+          "kind": "sequence",
+          "actions": [
+            { "kind": "award_score", "amount": 50 },
+            { "kind": "apply_status", "archetype": "ghost", "status": "vulnerable" }
+          ]
+        },
+        "exclusive": true
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "score",
+        "easy": { "enemySpeedMul": 0.8 },
+        "hard": { "enemySpeedMul": 1.6 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "dots",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "dot",
+        "reward_field": "Score",
+        "reward_amount": 10,
+        "respawn": "never",
+        "max_simultaneous": 80
+      }
+    },
+    {
+      "id": "pellets",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "power_pellet",
+        "reward_field": "Score",
+        "reward_amount": 50,
+        "respawn": "never",
+        "max_simultaneous": 4
+      }
+    },
+    {
+      "id": "vulnerable_window",
+      "type": "TimedStateModifier",
+      "params": {
+        "archetype": "ghost",
+        "state": "vulnerable",
+        "duration_sec": 6,
+        "stackable": false
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Score", "label": "Score" },
+          { "archetype": "player", "component": "Lives", "label": "Lives" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Lives", "emit_condition": "game_over" }
+    },
+    {
+      "id": "win",
+      "type": "WinOnCount",
+      "params": { "archetype": "dot", "count": 0, "comparison": "eq", "emit_condition": "level_cleared" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player", "mode": "topdown", "offset": [0, 20, 0], "ease": 0.4 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "run",
+    "steps": [
+      { "scene": "maze" },
+      { "scene": "game_over", "condition": "game_over" },
+      { "scene": "cleared", "condition": "level_cleared" }
+    ]
+  }
+}

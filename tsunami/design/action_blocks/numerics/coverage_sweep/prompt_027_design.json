@@ -1,0 +1,112 @@
+{
+  "meta": {
+    "title": "Rail Shooter",
+    "shape": "action",
+    "vibe": ["on-rails", "point-shoot", "cover", "timed-reload"],
+    "target_session_sec": 240
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 36 } }
+  },
+  "singletons": {
+    "rail": {
+      "components": ["WorldFlags"],
+      "exposes": { "segment": "number", "accuracy_pct": "number" }
+    }
+  },
+  "archetypes": {
+    "cursor": {
+      "mesh": "plane",
+      "controller": "pointer",
+      "components": ["Health(100)", "Score", "Resource(ammo, 6)", "Lives(3)"],
+      "tags": ["player"]
+    },
+    "grunt": {
+      "mesh": "capsule",
+      "ai": "patrol",
+      "components": ["Health(20)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "cursor", "amount": 10 }
+      }
+    },
+    "cover_object": {
+      "mesh": "box",
+      "controller": "none",
+      "components": [],
+      "tags": ["cover"],
+      "trigger": {
+        "kind": "hit",
+        "contact_side": "any",
+        "on_contact": { "kind": "apply_status", "archetype": "cursor", "status": "in_cover" }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "spawner",
+      "type": "WaveSpawner",
+      "params": {
+        "archetype": "grunt",
+        "difficulty_ref": "difficulty",
+        "base_count": 5,
+        "rest_sec": 4,
+        "arena_radius": 15
+      }
+    },
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "wave_index",
+        "easy": { "enemyAimMul": 0.6 },
+        "hard": { "enemyAimMul": 1.5 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "in_cover",
+      "type": "TimedStateModifier",
+      "params": { "archetype": "cursor", "state": "in_cover", "duration_sec": 2, "stackable": false }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "cursor", "component": "Health", "label": "HP" },
+          { "archetype": "cursor", "component": "Score",  "label": "Score" },
+          { "archetype": "cursor", "component": "Resource(ammo)", "label": "Ammo" },
+          { "archetype": "cursor", "component": "Lives", "label": "Lives" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "cursor", "field": "Lives", "emit_condition": "all_lives" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "cursor", "mode": "locked_axis",
+                   "offset": [0, 0, 5], "ease": 1.0 }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "rail",
+    "steps": [
+      { "scene": "title" },
+      { "scene": "segment_1", "condition": "started" },
+      { "scene": "segment_2", "condition": "seg1_clear" },
+      { "scene": "game_over", "condition": "all_lives" }
+    ]
+  }
+}

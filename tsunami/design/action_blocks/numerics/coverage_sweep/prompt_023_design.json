@@ -1,0 +1,122 @@
+{
+  "meta": {
+    "title": "Time-Puzzle Platformer (Braid-feel, without time-reverse)",
+    "shape": "puzzle",
+    "vibe": ["puzzle-platformer", "state-gated", "reality-shift"],
+    "target_session_sec": 600
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, -9.81, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 28 } }
+  },
+  "singletons": {
+    "world_layer": {
+      "components": ["WorldFlags"],
+      "exposes": { "layer": "string", "keys_collected": "number" }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "platformer",
+      "components": ["Health(1)", "Lives(3)"],
+      "tags": ["player"]
+    },
+    "enemy": {
+      "mesh": "box",
+      "ai": "patrol",
+      "components": ["Health(1)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "side",
+        "on_contact": { "kind": "damage", "archetype": "player", "amount": 1 },
+        "on_reverse": { "kind": "damage", "archetype": "enemy", "amount": 999 },
+        "when_state": "alive"
+      }
+    },
+    "key_piece": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup", "key_piece"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 1 },
+        "exclusive": true
+      }
+    },
+    "shift_crystal": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["puzzle_trigger"],
+      "trigger": {
+        "kind": "hit",
+        "contact_side": "any",
+        "on_contact": { "kind": "set_flag", "world_flag": "layer", "value": "alternate" }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "levels",
+      "type": "LevelSequence",
+      "params": {
+        "levels": [
+          { "id": "w1_1", "win_condition": "w1_1_done", "on_win": "next" }
+        ],
+        "start_at": "w1_1"
+      }
+    },
+    {
+      "id": "key_collection",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "key_piece",
+        "reward_field": "Score",
+        "reward_amount": 1,
+        "respawn": "never",
+        "max_simultaneous": 12
+      }
+    },
+    {
+      "id": "win_check",
+      "type": "WinOnCount",
+      "params": { "archetype": "key_piece", "count": 0, "comparison": "eq",
+                   "emit_condition": "w1_1_done" }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player",  "component": "Lives", "label": "Lives" },
+          { "singleton": "world_layer", "field": "layer", "label": "Layer" },
+          { "singleton": "world_layer", "field": "keys_collected", "label": "Keys" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Lives",
+                   "emit_condition": "all_lives_lost" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player", "mode": "sidescroll",
+                   "offset": [2, 1, 0], "ease": 0.3 }
+    }
+  ],
+  "flow": {
+    "kind": "level_sequence",
+    "name": "time_puzzle",
+    "sequence_ref": "levels"
+  }
+}

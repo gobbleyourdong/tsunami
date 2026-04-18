@@ -1,0 +1,110 @@
+{
+  "meta": {
+    "title": "Platformer 1-1",
+    "shape": "action",
+    "vibe": ["platformer", "side-scroll", "jump-stomp", "collect-coins"],
+    "target_session_sec": 240
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, -20, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 64 } }
+  },
+  "singletons": {},
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "platformer",
+      "components": ["Health(3)", "Score", "Lives(3)"],
+      "tags": ["player"]
+    },
+    "goomba": {
+      "mesh": "box",
+      "ai": "patrol",
+      "components": ["Health(1)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "side",
+        "on_contact": { "kind": "damage", "archetype": "player", "amount": 1 },
+        "on_reverse": { "kind": "damage", "archetype": "goomba", "amount": 999 },
+        "when_state": "alive"
+      }
+    },
+    "coin": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 10 },
+        "exclusive": true
+      }
+    },
+    "flag": {
+      "mesh": "plane",
+      "controller": "none",
+      "components": [],
+      "tags": ["goal"],
+      "trigger": {
+        "kind": "hit",
+        "contact_side": "any",
+        "on_contact": { "kind": "emit", "condition": "reached_flag" }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "coins",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "coin",
+        "reward_field": "Score",
+        "reward_amount": 10,
+        "respawn": "never",
+        "max_simultaneous": 40
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Score", "label": "Score" },
+          { "archetype": "player", "component": "Health", "label": "HP" },
+          { "archetype": "player", "component": "Lives", "label": "Lives" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "player", "field": "Lives", "emit_condition": "game_over" }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": {
+        "target_archetype": "player",
+        "mode": "sidescroll",
+        "offset": [3, 2, 0],
+        "deadzone": { "width": 3, "height": 2 },
+        "ease": 0.25
+      }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "main",
+    "steps": [
+      { "scene": "title" },
+      { "scene": "world1_1", "condition": "start_pressed" },
+      { "scene": "cleared", "condition": "reached_flag" },
+      { "scene": "game_over", "condition": "game_over" }
+    ]
+  }
+}

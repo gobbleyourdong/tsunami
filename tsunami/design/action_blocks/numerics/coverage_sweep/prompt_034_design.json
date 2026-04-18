@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "title": "God Game",
+    "shape": "sandbox",
+    "vibe": ["god-view", "influence", "worshiper-growth", "miracles"],
+    "target_session_sec": 1200
+  },
+  "config": {
+    "mode": "3d",
+    "camera": "perspective",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "disk", "size": 60 } },
+    "sandbox": true
+  },
+  "singletons": {
+    "divine": {
+      "components": ["WorldFlags"],
+      "exposes": { "mana": "number", "worshipers": "number", "alignment": "number" }
+    }
+  },
+  "archetypes": {
+    "cursor": {
+      "mesh": "plane",
+      "controller": "pointer",
+      "components": ["Score", "Resource(mana, 100)"],
+      "tags": ["player"]
+    },
+    "worshiper": {
+      "mesh": "capsule",
+      "ai": "utility:needs",
+      "components": ["Health(20)"],
+      "tags": ["npc", "worshiper"]
+    },
+    "heretic": {
+      "mesh": "capsule",
+      "ai": "chase",
+      "components": ["Health(20)"],
+      "tags": ["enemy", "heretic"]
+    }
+  },
+  "mechanics": [
+    {
+      "id": "worshiper_ai",
+      "type": "UtilityAI",
+      "params": {
+        "archetype": "worshiper",
+        "needs": [
+          { "name": "faith",  "decay_per_sec": 0.01, "max": 100, "initial": 50 },
+          { "name": "food",   "decay_per_sec": 0.02, "max": 100, "initial": 70 }
+        ],
+        "actions": [
+          { "name": "pray",   "need_deltas": { "faith": 30 },
+            "effect": { "kind": "play_sound", "asset": "chant" } },
+          { "name": "forage", "need_deltas": { "food": 40, "faith": -5 },
+            "effect": { "kind": "play_sound", "asset": "dig" } }
+        ],
+        "selection": "highest_need"
+      }
+    },
+    {
+      "id": "miracles",
+      "type": "ItemUse",
+      "params": {
+        "archetype": "cursor",
+        "items": [
+          { "name": "rain_miracle",    "action": { "kind": "play_sound", "asset": "rain" }, "consume_on_use": true },
+          { "name": "smite_miracle",   "action": { "kind": "damage", "archetype": "heretic", "amount": 30 }, "consume_on_use": true },
+          { "name": "bless_miracle",   "action": { "kind": "heal", "archetype": "worshiper", "amount": 20 }, "consume_on_use": true }
+        ]
+      }
+    },
+    {
+      "id": "mana_shop",
+      "type": "Shop",
+      "params": {
+        "vendor_archetype": "cursor",
+        "currency_field": "Resource(mana)",
+        "stock": [
+          { "item": "rain_miracle",    "price": 10 },
+          { "item": "smite_miracle",   "price": 30 },
+          { "item": "bless_miracle",   "price": 20 }
+        ],
+        "ui_layout": "list"
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "cursor",  "component": "Resource(mana)", "label": "Mana" },
+          { "singleton": "divine",  "field": "worshipers", "label": "Followers" },
+          { "singleton": "divine",  "field": "alignment", "label": "Align" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "cursor", "mode": "topdown",
+                   "offset": [0, 25, 0], "ease": 0.5 }
+    }
+  ],
+  "flow": { "kind": "scene", "name": "kingdom" }
+}

@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "title": "Horizontal Shmup",
+    "shape": "action",
+    "vibe": ["horizontal-shmup", "wave-by-wave", "power-ups", "mid-boss"],
+    "target_session_sec": 300
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 32 } }
+  },
+  "singletons": {},
+  "archetypes": {
+    "ship": {
+      "mesh": "plane",
+      "controller": "topdown",
+      "components": ["Health(3)", "Score", "Lives(3)",
+                     "Resource(power, 1)"],
+      "tags": ["player"]
+    },
+    "mook": {
+      "mesh": "sphere",
+      "ai": "patrol",
+      "components": ["Health(8)"],
+      "tags": ["enemy"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "ship", "amount": 1 }
+      }
+    },
+    "bullet_e": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["bullet", "enemy_bullet"],
+      "trigger": {
+        "kind": "damage",
+        "contact_side": "any",
+        "on_contact": { "kind": "damage", "archetype": "ship", "amount": 1 }
+      }
+    },
+    "midboss": {
+      "mesh": "sphere",
+      "ai": "patrol",
+      "components": ["Health(250)"],
+      "tags": ["enemy", "boss"]
+    },
+    "power_capsule": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": [],
+      "tags": ["pickup"],
+      "trigger": {
+        "kind": "pickup",
+        "contact_side": "any",
+        "on_contact": { "kind": "award_score", "amount": 200 },
+        "exclusive": true
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "waves",
+      "type": "WaveSpawner",
+      "params": {
+        "archetype": "mook",
+        "difficulty_ref": "difficulty",
+        "base_count": 4,
+        "rest_sec": 5,
+        "arena_radius": 14
+      }
+    },
+    {
+      "id": "boss_bullets",
+      "type": "BulletPattern",
+      "params": {
+        "emitter_archetype": "midboss",
+        "patterns": [
+          { "name": "fan",  "bullet_archetype": "bullet_e",
+            "layout": "spread",
+            "layout_params": { "count": 5, "spread_deg": 30, "speed": 5 } },
+          { "name": "ring", "bullet_archetype": "bullet_e",
+            "layout": "ring",
+            "layout_params": { "count": 16, "speed": 4 },
+            "trigger_condition": "midboss.health_pct < 0.4" }
+        ],
+        "sequence": "round_robin"
+      }
+    },
+    {
+      "id": "boss_phases",
+      "type": "BossPhases",
+      "params": {
+        "archetype": "midboss",
+        "phases": [
+          { "health_pct": 1.0, "ai": "patrol" },
+          { "health_pct": 0.4, "ai": "chase",  "tint": [1, 0.5, 0.5] }
+        ]
+      }
+    },
+    {
+      "id": "powerups",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "power_capsule",
+        "reward_field": "Resource(power)",
+        "reward_amount": 1,
+        "respawn": { "sec": 30 },
+        "max_simultaneous": 2
+      }
+    },
+    {
+      "id": "difficulty",
+      "type": "Difficulty",
+      "params": {
+        "drive": "time",
+        "easy": { "enemySpeedMul": 0.8 },
+        "hard": { "enemySpeedMul": 1.6 },
+        "max_level": 10
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "ship", "component": "Score",           "label": "Score" },
+          { "archetype": "ship", "component": "Lives",           "label": "Lives" },
+          { "archetype": "ship", "component": "Resource(power)", "label": "PWR" }
+        ],
+        "layout": "top"
+      }
+    },
+    {
+      "id": "lose",
+      "type": "LoseOnZero",
+      "params": { "archetype": "ship", "field": "Lives", "emit_condition": "lives_out" }
+    },
+    {
+      "id": "win",
+      "type": "WinOnCount",
+      "params": { "archetype": "midboss", "count": 0, "comparison": "lte",
+                   "emit_condition": "boss_down" }
+    }
+  ],
+  "flow": {
+    "kind": "linear",
+    "name": "stage",
+    "steps": [
+      { "scene": "title" },
+      { "scene": "stage", "condition": "started" },
+      { "scene": "boss", "condition": "midboss_arrives" },
+      { "scene": "credits", "condition": "boss_down" },
+      { "scene": "game_over", "condition": "lives_out" }
+    ]
+  }
+}

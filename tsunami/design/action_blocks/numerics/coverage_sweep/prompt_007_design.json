@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "title": "Harvest-Moon-Lite Farm",
+    "shape": "sandbox",
+    "vibe": ["farming", "needs", "npc-relationships", "daily-loop"],
+    "target_session_sec": 1200
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "gravity": [0, 0, 0],
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 32 } },
+    "sandbox": true
+  },
+  "singletons": {
+    "calendar": {
+      "components": ["WorldFlags"],
+      "exposes": { "day": "number", "season": "string", "day_phase": "string" }
+    }
+  },
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Health(100)", "Inventory", "Resource(energy, 100)",
+                     "Resource(money, 500)"],
+      "tags": ["player"]
+    },
+    "crop": {
+      "mesh": "sphere",
+      "controller": "none",
+      "components": ["Health(5)"],
+      "tags": ["crop", "tendable"]
+    },
+    "animal": {
+      "mesh": "sphere",
+      "ai": "utility:sim_needs",
+      "components": ["Health(50)"],
+      "tags": ["npc", "animal"]
+    },
+    "npc": {
+      "mesh": "capsule",
+      "controller": "none",
+      "components": ["Resource(friendship, 100)"],
+      "tags": ["npc"],
+      "trigger": {
+        "kind": "hit",
+        "contact_side": "any",
+        "on_contact": { "kind": "dialog", "tree_ref": "npc_greet", "entry_node": "root" }
+      }
+    }
+  },
+  "mechanics": [
+    {
+      "id": "animal_needs",
+      "type": "UtilityAI",
+      "params": {
+        "archetype": "animal",
+        "needs": [
+          { "name": "hunger",  "decay_per_sec": 0.02, "max": 100, "initial": 50 },
+          { "name": "comfort", "decay_per_sec": 0.005, "max": 100, "initial": 80 }
+        ],
+        "actions": [
+          { "name": "eat", "need_deltas": { "hunger": -60 },
+            "effect": { "kind": "play_sound", "asset": "munch" } },
+          { "name": "rest", "need_deltas": { "comfort": 30, "hunger": -2 },
+            "effect": { "kind": "play_sound", "asset": "sleep" } }
+        ],
+        "selection": "highest_need"
+      }
+    },
+    {
+      "id": "crops_pickup",
+      "type": "PickupLoop",
+      "params": {
+        "archetype": "crop",
+        "reward_field": "Resource(money)",
+        "reward_amount": 35,
+        "respawn": { "sec": 60 },
+        "max_simultaneous": 16
+      }
+    },
+    {
+      "id": "npc_greet",
+      "type": "DialogTree",
+      "params": {
+        "trigger_archetype": "npc",
+        "tree": {
+          "id": "root",
+          "speaker": "Villager",
+          "line": "Morning! The market opens at noon.",
+          "choices": [
+            { "text": "Thanks!", "goto": "end" },
+            { "text": "Need help?", "goto": "quest",
+              "effect": { "kind": "sequence", "actions": [
+                { "kind": "set_flag", "world_flag": "offered_help", "value": true },
+                { "kind": "emit", "condition": "offered_help" }
+              ] } }
+          ]
+        }
+      }
+    },
+    {
+      "id": "shop",
+      "type": "Shop",
+      "params": {
+        "vendor_archetype": "npc",
+        "currency_field": "Resource(money)",
+        "stock": [
+          { "item": "seed_carrot", "price": 20 },
+          { "item": "seed_wheat",  "price": 10 },
+          { "item": "watering_can", "price": 200,
+            "unlock_condition": "offered_help", "stock_count": 1 }
+        ],
+        "ui_layout": "dialog_embedded"
+      }
+    },
+    {
+      "id": "hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "Resource(energy)", "label": "Energy" },
+          { "archetype": "player", "component": "Resource(money)",  "label": "$" },
+          { "singleton": "calendar", "field": "day",    "label": "Day" },
+          { "singleton": "calendar", "field": "season", "label": "Season" }
+        ],
+        "layout": "corners"
+      }
+    },
+    {
+      "id": "camera",
+      "type": "CameraFollow",
+      "params": { "target_archetype": "player", "mode": "topdown",
+                   "offset": [0, 10, 0], "ease": 0.5 }
+    }
+  ],
+  "flow": {
+    "kind": "scene",
+    "name": "farm",
+    "children": [
+      { "kind": "scene", "name": "house" },
+      { "kind": "scene", "name": "market" }
+    ]
+  }
+}
