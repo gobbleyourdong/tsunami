@@ -575,6 +575,62 @@ async def debug_mtp_decode(req: dict):
         return await _run_on_gpu_thread(_run)
 
 
+@app.post("/debug/compiled_decode")
+async def debug_compiled_decode(req: dict):
+    """Same as /debug/lean_decode but routes the per-step forward through
+    a torch.compile(mode='reduce-overhead') wrapper. First call compiles
+    (seconds, sometimes minutes on large MoE models); subsequent calls
+    replay the CUDA graph.
+
+    Per research (~/agentic_speed/tier2/fa3.md): community-reported 3.65×
+    on Qwen3.5-35B-A3B FP8 on this exact hardware (13.3 → 48.6 tok/s).
+    """
+    if model is None or tokenizer is None:
+        return JSONResponse({"error": "model not loaded"}, status_code=503)
+    prompt = req.get("prompt", "Count from 1 to 30.")
+    max_new = int(req.get("max_tokens", 50))
+    do_sample = bool(req.get("do_sample", True))
+    msgs = [{"role": "user", "content": prompt}]
+    ids = tokenizer.apply_chat_template(
+        msgs, add_generation_prompt=True, tokenize=True, return_tensors="pt"
+    )
+    if hasattr(ids, "keys") and "input_ids" in ids:
+        ids = ids["input_ids"]
+    ids = ids.to(model.device)
+
+    eos_ids: list[int] = []
+    if tokenizer.eos_token_id is not None:
+        eos_ids.append(int(tokenizer.eos_token_id))
+    for s in ("<|im_end|>", "<|endoftext|>", "<|end|>"):
+        t = tokenizer.convert_tokens_to_ids(s)
+        if isinstance(t, int) and t >= 0 and t != tokenizer.unk_token_id:
+            eos_ids.append(int(t))
+
+    def _run():
+        try:
+            out, stats = lean_decode(
+                model,
+                input_ids=ids,
+                max_new_tokens=max_new,
+                temperature=float(req.get("temperature", 0.6)),
+                top_k=int(req.get("top_k", 20)),
+                top_p=float(req.get("top_p", 0.95)),
+                min_p=float(req.get("min_p", 0.0)),
+                repetition_penalty=float(req.get("repetition_penalty", 1.0)),
+                do_sample=do_sample,
+                eos_token_ids=eos_ids,
+                return_stats=True,
+                use_compile=True,
+            )
+            txt = tokenizer.decode(out[0, ids.shape[-1]:], skip_special_tokens=True)
+            return {"platform": describe_platform(), **stats.as_dict(), "preview": txt[:200]}
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {e}", "platform": describe_platform()}
+
+    async with _gpu_sem:
+        return await _run_on_gpu_thread(_run)
+
+
 @app.post("/debug/lean_decode")
 async def debug_lean_decode(req: dict):
     """Run ONE lean_decode call and return timing stats.

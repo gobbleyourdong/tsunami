@@ -180,6 +180,7 @@ def lean_decode(
     attention_mask: Optional[torch.Tensor] = None,
     generator: Optional[torch.Generator] = None,
     return_stats: bool = False,
+    use_compile: bool = False,
 ) -> torch.Tensor | tuple[torch.Tensor, DecodeStats]:
     """Manual decode loop. Returns the full (B, T+max_new_tokens) ids.
 
@@ -296,16 +297,29 @@ def lean_decode(
             _tf = time.perf_counter()
         step_pos_buf.fill_(cur_pos)
         step_cache_pos_buf.fill_(cur_pos)
-        with torch.inference_mode():
-            out = model(
-                input_ids=tok.unsqueeze(-1),
-                attention_mask=attn_buf[:, :cur_pos + 1],
-                position_ids=step_pos_buf,
-                cache_position=step_cache_pos_buf,
-                past_key_values=past,
-                use_cache=True,
-                return_dict=True,
-            )
+        if use_compile:
+            # Compiled path: full-length attention_mask so the shape stays
+            # static across steps (CUDA graph capture requires static tensor
+            # addresses + shapes). The model uses cache_position to determine
+            # which cache slot receives the new KV and which positions are
+            # valid to attend to.
+            step_fn = _get_compiled_step(model)
+            with torch.inference_mode():
+                out = step_fn(
+                    tok.unsqueeze(-1), attn_buf, step_pos_buf,
+                    step_cache_pos_buf, past,
+                )
+        else:
+            with torch.inference_mode():
+                out = model(
+                    input_ids=tok.unsqueeze(-1),
+                    attention_mask=attn_buf[:, :cur_pos + 1],
+                    position_ids=step_pos_buf,
+                    cache_position=step_cache_pos_buf,
+                    past_key_values=past,
+                    use_cache=True,
+                    return_dict=True,
+                )
         if measure:
             _sync_if_cuda(device)
             stats.forward_ms_total += (time.perf_counter() - _tf) * 1000
