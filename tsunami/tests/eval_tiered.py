@@ -315,11 +315,12 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
         temperature=0.7,
         # 2048 truncates App.tsx file_write emissions mid-JSX — the
         # model writes ~200-line files that come out at ~2000-4000
-        # tokens including the <tool_call>/<parameter> wrapper. 16k
-        # gives comfortable headroom for a single big emission + the
-        # thinking trace on planning iters without blowing past the
-        # 32k server default.
-        max_tokens=16384,
+        # tokens including the <tool_call>/<parameter> wrapper. 8k
+        # gives comfortable headroom (2× the worst-case emission) and
+        # bounds iter duration: at ~12 tok/s on this hardware, 8k max
+        # → ~11 min per iter max. 16k was too generous — the model
+        # can burn the full budget on one iter of unbounded thinking.
+        max_tokens=8192,
     )
     agent = Agent(config)
 
