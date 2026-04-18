@@ -305,6 +305,13 @@ def lean_decode(
     # (T-1) × (hidden × vocab) GEMM is wasted work. At vocab=250k,
     # hidden=4096 that's ~1GB of wasted writes per extra position.
     # Transformers accepts the kwarg (confirmed on Qwen3_5MoeForCausalLM).
+    #
+    # NOT passing output_router_logits=False here (measured 2026-04-18):
+    # explicitly setting it to False caused 38 → 33 tok/s regression.
+    # Unexpected — the inference path has no reader for router logits, but
+    # passing the flag seems to branch the model into a slower non-cached
+    # code path OR invalidate the captured CUDA graph. Leaving it unset so
+    # the default behavior (whatever it is) stays on the fast path.
     _sync_if_cuda(device)
     t0 = time.perf_counter()
     with torch.no_grad():
