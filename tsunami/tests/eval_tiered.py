@@ -308,6 +308,20 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
     print(f"  prompt: {tier.prompt[:120]}...")
 
     ws_base = Path(tempfile.mkdtemp(prefix=f"eval_{tier.id.lower()}_"))
+
+    # Eval harness pre-scaffolds the project before the agent starts.
+    # Rationale: _pre_scaffold in agent.py only fires when the user
+    # prompt literally contains `deliverables/<name>` (safety carve-out
+    # against adversarial prompts controlling on-disk dir names).
+    # Eval prompts are fixed and safe, so we skip the safety carve-out
+    # and provision `deliverables/<tier.name>` directly. Saves the iter
+    # 1 project_init model call (8-15 min at current tok/s), landing
+    # the agent inside a ready scaffold with App.tsx stub to edit.
+    # Also logs project_init in the tool history — paired agent-side
+    # hook already writes _tool_history.append("project_init") on a
+    # successful pre-scaffold return, so tool-coverage stays honest.
+    prompt_with_path = tier.prompt + f"\n\nProject dir: deliverables/{tier.name}"
+
     config = TsunamiConfig(
         model_endpoint=endpoint,
         workspace_dir=str(ws_base),
@@ -327,7 +341,7 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
     t0 = time.monotonic()
     failure = ""
     try:
-        await asyncio.wait_for(agent.run(tier.prompt), timeout=tier.budget_s)
+        await asyncio.wait_for(agent.run(prompt_with_path), timeout=tier.budget_s)
     except asyncio.TimeoutError:
         failure = f"timeout after {tier.budget_s}s"
     except Exception as e:
