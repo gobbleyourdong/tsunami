@@ -295,6 +295,12 @@ class TierResult:
     tools_missing: list[str]
     quality_fails: list[str] = field(default_factory=list)
     failure_mode: str = ""
+    # Per-iter token accounting — every entry is
+    # {iter, prompt_tokens, completion_tokens, tool, waste: [kinds]}
+    # kinds ∈ {xml_wrap, rewrite, read_repeat, force_miss, oversize}
+    token_ledger: list = field(default_factory=list)
+    total_completion_tokens: int = 0
+    wasted_completion_tokens: int = 0
 
 
 async def run_tier(tier: Tier, endpoint: str) -> TierResult:
@@ -326,6 +332,19 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
     missing = [t for t in tier.required_tools if t not in tools_used_set]
     delivered = bool(agent.state.task_complete)
     tools_covered = not missing
+
+    # Token ledger snapshot — per-iter breakdown of where the
+    # completion budget went and which iters burned wasted tokens
+    # (xml_wrap / rewrite / read_repeat / force_miss / oversize).
+    ledger = list(getattr(agent, "_token_ledger", []))
+    total_completion = sum(e.get("completion_tokens", 0) for e in ledger)
+    waste_by_kind: dict[str, int] = {}
+    wasted_completion = 0
+    for e in ledger:
+        if e.get("waste"):
+            wasted_completion += e.get("completion_tokens", 0)
+            for kind in e["waste"]:
+                waste_by_kind[kind] = waste_by_kind.get(kind, 0) + 1
 
     # Content-level quality gate. Only runs if the agent ever created a
     # project dir — if it never got that far, we skip quality checks (the
@@ -365,6 +384,19 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
         print(f"    quality fails: {quality_fails}")
     if failure:
         print(f"    failure: {failure}")
+    if ledger:
+        waste_pct = (100 * wasted_completion / max(1, total_completion))
+        print(f"    tokens: {total_completion} total, {wasted_completion} wasted "
+              f"({waste_pct:.0f}%) — " +
+              (", ".join(f"{k}×{v}" for k, v in waste_by_kind.items())
+               if waste_by_kind else "no waste"))
+        # Compact per-iter ledger for postmortem.
+        for e in ledger:
+            waste = "·".join(e["waste"]) if e["waste"] else ""
+            print(f"      i{e['iter']:>2}  "
+                  f"in={e['prompt_tokens']:>5}  "
+                  f"out={e['completion_tokens']:>5}  "
+                  f"{e['tool']:<16} {waste}")
 
     # Tidy up temp workspace to avoid disk fill over many cron runs.
     shutil.rmtree(ws_base, ignore_errors=True)
@@ -382,6 +414,9 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
         tools_missing=missing,
         quality_fails=quality_fails,
         failure_mode=failure,
+        token_ledger=ledger,
+        total_completion_tokens=total_completion,
+        wasted_completion_tokens=wasted_completion,
     )
 
 

@@ -1573,18 +1573,84 @@ class Agent:
             enable_thinking=enable_thinking,
         )
 
-        # 2b. Track LLM usage + cost
+        # 2b. Track LLM usage + cost + per-iter token ledger
+        ledger_prompt = 0
+        ledger_completion = 0
         if response.raw and "usage" in response.raw:
             usage = response.raw["usage"]
             latency = response.raw.get("timings", {}).get("total", 0)
             model_name = response.raw.get("model", "")
             prompt_tokens = usage.get("prompt_tokens", 0)
             completion_tokens = usage.get("completion_tokens", 0)
+            ledger_prompt = prompt_tokens
+            ledger_completion = completion_tokens
             self.observer.observe_llm_usage(
                 prompt_tokens, completion_tokens, model_name, latency,
             )
             self.cost_tracker.record(
                 model_name, prompt_tokens, completion_tokens, latency,
+            )
+
+        # Per-iter waste ledger — tag tokens that were spent to no
+        # useful end so we can identify and eliminate the entropy
+        # sources. Categories:
+        #   xml_wrap     — model wrote code as message_chat, guard had
+        #                  to reroute (proxy parser missed the tool_call)
+        #   rewrite      — file_write on a path we already wrote this run
+        #   read_repeat  — file_read on a path read before
+        #   force_miss   — force_tool set but model returned different tool
+        #   oversize     — completion > 3000 tokens (usually a giant file)
+        ledger_entry: dict = {
+            "iter": self.state.iteration,
+            "prompt_tokens": ledger_prompt,
+            "completion_tokens": ledger_completion,
+            "tool": response.tool_call.name if response.tool_call else "message_chat",
+            "waste": [],
+        }
+        # xml_wrap: content has <tool_call> XML that didn't parse out
+        if response.tool_call is None and "<tool_call>" in (response.content or ""):
+            ledger_entry["waste"].append("xml_wrap")
+        if (response.tool_call is not None
+            and response.tool_call.name == "message_chat"
+            and "<tool_call>" in str(response.tool_call.arguments.get("text", ""))):
+            ledger_entry["waste"].append("xml_wrap")
+        # rewrite: file_write on a path already written this run
+        if response.tool_call and response.tool_call.name == "file_write":
+            path = str(response.tool_call.arguments.get("path", ""))
+            seen_paths = getattr(self, "_token_written_paths", set())
+            if path and path in seen_paths:
+                ledger_entry["waste"].append("rewrite")
+            if path:
+                seen_paths.add(path)
+                self._token_written_paths = seen_paths
+        # read_repeat: file_read of same path twice
+        if response.tool_call and response.tool_call.name == "file_read":
+            path = str(response.tool_call.arguments.get("path", ""))
+            seen_reads = getattr(self, "_token_read_paths", set())
+            if path and path in seen_reads:
+                ledger_entry["waste"].append("read_repeat")
+            if path:
+                seen_reads.add(path)
+                self._token_read_paths = seen_reads
+        # force_miss: we asked for message_result, got something else
+        if force_tool and response.tool_call \
+                and response.tool_call.name != force_tool:
+            ledger_entry["waste"].append("force_miss")
+        # oversize: one big coding emission is suspect — most iters
+        # should be <1500 tok (a small file_edit, a build command, a
+        # read, or a message_result). >3000 tok is usually a whole-
+        # file file_write which is only "good" tokens on the FIRST
+        # write; subsequent rewrites compound the waste.
+        if ledger_completion > 3000:
+            ledger_entry["waste"].append("oversize")
+        # Stash the entry on the agent; eval_tiered.py reads it.
+        self._token_ledger = getattr(self, "_token_ledger", [])
+        self._token_ledger.append(ledger_entry)
+        if ledger_entry["waste"]:
+            log.warning(
+                f"token ledger iter {ledger_entry['iter']}: "
+                f"{ledger_completion} out-tok, tool={ledger_entry['tool']}, "
+                f"waste={','.join(ledger_entry['waste'])}"
             )
 
         # 3. Extract the tool call
