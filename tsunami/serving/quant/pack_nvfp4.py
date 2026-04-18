@@ -37,6 +37,19 @@ from llmcompressor import oneshot
 from llmcompressor.modifiers.quantization import QuantizationModifier
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+# transformers 5 removed PreTrainedModel._get_no_split_modules (used to
+# exist as an accelerate-path helper). llm-compressor still calls it
+# during sequential calibration pipeline. Patch it back as a thin wrapper
+# over the _no_split_modules class attribute (which still exists).
+from transformers.modeling_utils import PreTrainedModel as _PTM
+if not hasattr(_PTM, "_get_no_split_modules"):
+    def _get_no_split_modules(self, device_map):
+        # Return the list of module class names that mustn't be split
+        # across devices. For calibration on single-GPU this is purely
+        # informational; pass through what the class declares.
+        return list(getattr(self, "_no_split_modules", None) or [])
+    _PTM._get_no_split_modules = _get_no_split_modules
+
 
 # --- Config ---
 MODEL_ID = "Qwen/Qwen3.6-35B-A3B"  # bf16 master
@@ -44,7 +57,9 @@ OUTPUT_DIR = Path(__file__).parent / "Qwen3.6-35B-A3B-NVFP4"
 NUM_SAMPLES = int(os.getenv("NUM_SAMPLES", "256"))
 MAX_SEQ_LEN = int(os.getenv("MAX_SEQ_LEN", "2048"))
 DATASET_NAME = "HuggingFaceH4/ultrachat_200k"
-DEVICE_MAP = os.getenv("DEVICE_MAP", "auto")  # llm-compressor handles streaming
+DEVICE_MAP = os.getenv("DEVICE_MAP", "cuda:0")  # "auto" broke under transformers 5
+                                                #   (_get_no_split_modules removed); we have
+                                                #   107GB free RAM, bf16 weights fit.
 
 # --- Quantization recipe ---
 # The ignore regex list below matches:
@@ -119,6 +134,11 @@ def main() -> int:
         output_dir=str(OUTPUT_DIR),
         max_seq_length=MAX_SEQ_LEN,
         num_calibration_samples=NUM_SAMPLES,
+        # llm-compressor tries to auto-init a processor from the model id
+        # but fails on Qwen3.6's multimodal processor (Qwen2VLImageProcessor
+        # lineage). Pass the tokenizer directly — it's what the Linear
+        # calibration path actually uses.
+        processor=tokenizer,
     )
     print(f"[pack_nvfp4] calibration done in {(time.time()-t1)/60:.1f} min", flush=True)
 
