@@ -138,6 +138,16 @@ class DecodeStats:
 
 _compiled_step_cache: dict = {}
 
+# Warm CUDA-graph cache: the capture itself costs ~150ms per request, which
+# is meaningful for short decodes (e.g., agent tool calls at 20-50 tokens).
+# Keep one (StaticCache, CudaGraphedDecodeStep) pair per (max_cache_len)
+# bucket; reset the cache between requests and reuse the graph. First
+# request in each bucket pays the capture; all subsequent ones get 0ms.
+#
+# Thread safety: the _gpu_sem in serve_qwen36_fp8.py serialises GPU work,
+# so only one request touches this dict at a time in practice.
+_warm_graph_cache: dict = {}  # keyed by (id(model), max_cache_len)
+
 
 def _get_compiled_step(model):
     """Return (or build) a torch.compile'd step function for this model.
@@ -247,15 +257,33 @@ def lean_decode(
     # on our stack. StaticCache pre-allocates the full KV buffer so
     # pointers are stable across steps (prerequisite for CUDA graphs) and
     # avoids the per-step reallocation.
+    #
+    # If use_cuda_graph is also set, check the warm-graph cache for a
+    # previously-captured graph at this cache-len bucket. Reuse the
+    # StaticCache + graph (reset contents, keep pointers) to skip the
+    # ~150ms capture cost per request.
     static_cache = None
+    warm_bucket = None
     if use_static_cache:
         cache_len = max_cache_len if max_cache_len else (T + max_new_tokens + 8)
-        try:
-            static_cache = _make_static_cache(model, cache_len)
-        except Exception as _e:
-            # Fall back to implicit DynamicCache if the model doesn't
-            # cooperate (happens on some hybrid-attention configs).
-            static_cache = None
+        if use_cuda_graph:
+            warm_bucket = (id(model), cache_len)
+            warm_entry = _warm_graph_cache.get(warm_bucket)
+            if warm_entry is not None:
+                static_cache, _prewarm_graph = warm_entry
+                # Reset cache contents — zeroes all KV slots. Pointers
+                # stay the same so the captured graph still replays.
+                try:
+                    static_cache.reset()
+                except Exception:
+                    # If reset fails, drop the warm entry and re-capture below.
+                    static_cache = None
+                    _warm_graph_cache.pop(warm_bucket, None)
+        if static_cache is None:
+            try:
+                static_cache = _make_static_cache(model, cache_len)
+            except Exception as _e:
+                static_cache = None
 
     # --- Prefill ---
     _sync_if_cuda(device)
@@ -278,20 +306,28 @@ def lean_decode(
     logits = out.logits[:, -1, :]  # (B, vocab)
 
     # CUDA-graph capture for the per-step forward. Gated by flag +
-    # must have a StaticCache (fixed tensor pointers). Capture is
-    # one-shot: ~150ms on Qwen3.6-35B-A3B / GB10. Amortises after ~5
-    # replay steps.
+    # must have a StaticCache (fixed tensor pointers). First request per
+    # cache-len bucket captures (~150ms); subsequent requests reuse the
+    # warm graph from _warm_graph_cache (~0ms).
     graph_step = None
     if use_cuda_graph and static_cache is not None:
         try:
             from cuda_graph_decode import CudaGraphedDecodeStep
-            graph_step = CudaGraphedDecodeStep(
-                model, max_cache_len=(max_cache_len or (T + max_new_tokens + 8)),
-                device=str(device),
-            )
-            graph_step.capture(past, pos=T, warmup_iters=2)
+            if warm_bucket is not None and warm_bucket in _warm_graph_cache:
+                _, graph_step = _warm_graph_cache[warm_bucket]
+                # Graph is already captured against this static_cache's
+                # tensors. After reset() + fresh prefill, cache contents
+                # reflect the current request; pointers unchanged so
+                # replay is valid.
+            else:
+                graph_step = CudaGraphedDecodeStep(
+                    model, max_cache_len=(max_cache_len or (T + max_new_tokens + 8)),
+                    device=str(device),
+                )
+                graph_step.capture(past, pos=T, warmup_iters=2)
+                if warm_bucket is not None:
+                    _warm_graph_cache[warm_bucket] = (static_cache, graph_step)
         except Exception as _e:
-            # Fall through to uncaptured path on any capture failure.
             graph_step = None
 
     generated = [input_ids]
