@@ -20,8 +20,11 @@
   - When `enable_thinking=False`, keep the "Precise coding" defaults
     (temp=0.6, top_p=0.95, presence_penalty=0.0) — these match the
     client's existing values.
-  - Respects caller overrides (temp<0.5 or presence_penalty<0.05) —
+  - Respects caller overrides (temp<0.5 or presence_penalty>=1.0) —
     deterministic harnesses + unit tests don't get re-randomized.
+  - **Rev history**: first landed a4f2975 → reverted 8767ee6 due to
+    file_edit paraphrase drift → re-applied 352d4b6 per operator
+    directive ("match qwen-code even if it breaks file_edit").
 
 - [x] **R1b — file_edit param rename** (`tsunami/tools/filesystem.py`)
   - `old_text` / `new_text` → `old_content` / `new_content` (matches
@@ -45,21 +48,22 @@
     breakage, no merge friction.
 
 - [x] **R3 — Streaming tool-call repair**
-  - Extended truncation recovery in
-    `tsunami/serving/serve_qwen36_fp8.py::_parse_qwen_tool_calls`.
-  - Old behavior: sealed only the outer `<tool_call>` close and
-    opportunistically added single `</parameter>` / `</function>`
-    if none were present — missed the case where an earlier param
-    closed but the LAST param was truncated mid-value.
-  - New behavior: balance-audit style. Count `<parameter=` opens
-    vs `</parameter>` closes in the unclosed tail, add the delta
-    of closers. Same for `<function=` vs `</function>`. Mirrors
-    qwen-code `streamingToolCallParser.ts`'s per-index depth-counter
-    pattern in one-shot form (we don't stream the response, so per-
-    index buffering isn't needed; just end-of-response balance).
-  - Smoke: 4 shapes — missing `</tool_call>`, last-param truncated
-    with earlier-param closed, missing `</function>` + outer, clean
-    complete emission — all parse correctly.
+  - Two-phase land. Phase 1 (f5690ea): balance-audit truncation
+    recovery in-place in `_parse_qwen_tool_calls` — count opens vs
+    closes for `<parameter=`/`<function=` in the unclosed tail, add
+    the delta of closers.
+  - Phase 2 (0181ed5): full structural port of
+    `streamingToolCallParser.ts` into
+    `tsunami/serving/streaming_xml_tool_parser.py` — per-index buffer,
+    depth counter, `in_param_value` (XML analog of `inString`),
+    id-collision detection, most-recent-incomplete-index routing,
+    unclosed-state repair, `has_incomplete_tool_calls()` for
+    finish_reason override. Proxy now delegates to the parser via a
+    one-shot `add_chunk()` call. Streaming-ready for when we expose SSE.
+  - Smoke: 8/8 — 5 one-shot shapes (clean, missing `</tool_call>`,
+    last-param truncated, missing `</function>`+outer, multi-block)
+    + char-stream complete + char-stream truncated + truncated-recovery
+    via repair.
 
 - [x] **R4 — Orchestration patterns** (study + targeted port)
 
