@@ -263,7 +263,12 @@ async def _proxy_chat_completions(req: ChatRequest, base_url: str):
     body = req.model_dump(exclude_none=True)
     endpoint = base_url.rstrip("/") + "/v1/chat/completions"
     try:
-        async with httpx.AsyncClient(timeout=600) as client:
+        # Upstream can stream for a long time when max_tokens is high
+        # (eval config at 16k, 12 tok/s = ~22 min for a full generation).
+        # Keep this slightly LARGER than the client's 900s timeout
+        # (tsunami/model.py:189) so the client gives up first with a
+        # clean error instead of us returning 502 mid-stream.
+        async with httpx.AsyncClient(timeout=1800) as client:
             resp = await client.post(endpoint, json=body)
     except httpx.HTTPError as e:
         log.warning(f"proxy chat: upstream request failed: {type(e).__name__}: {e}")
