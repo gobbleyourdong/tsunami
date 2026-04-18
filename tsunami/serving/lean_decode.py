@@ -106,7 +106,10 @@ def lean_sample(
 # Decode loop — one forward per token, reusing past_key_values.
 
 class DecodeStats:
-    __slots__ = ("prefill_ms", "decode_ms", "n_new", "tok_per_s", "ms_per_tok")
+    __slots__ = (
+        "prefill_ms", "decode_ms", "n_new", "tok_per_s", "ms_per_tok",
+        "forward_ms_total", "sample_ms_total", "overhead_ms_total",
+    )
 
     def __init__(self) -> None:
         self.prefill_ms = 0.0
@@ -114,6 +117,10 @@ class DecodeStats:
         self.n_new = 0
         self.tok_per_s = 0.0
         self.ms_per_tok = 0.0
+        # Per-phase breakdown (summed across the decode loop).
+        self.forward_ms_total = 0.0
+        self.sample_ms_total = 0.0
+        self.overhead_ms_total = 0.0
 
     def as_dict(self) -> dict:
         return {k: getattr(self, k) for k in self.__slots__}
@@ -206,8 +213,15 @@ def lean_decode(
     # --- Decode loop ---
     _sync_if_cuda(device)
     t1 = time.perf_counter()
+    # Per-phase time accumulators (filled only when return_stats=True — the
+    # extra perf_counter calls are cheap but still ~100ns each, skip when not
+    # measuring).
+    measure = stats is not None
     for step in range(max_new_tokens):
         # Sample
+        if measure:
+            _sync_if_cuda(device)
+            _ts = time.perf_counter()
         tok = lean_sample(
             logits,
             temperature=temperature,
@@ -217,6 +231,9 @@ def lean_decode(
             do_sample=do_sample,
             generator=generator,
         )  # (B,)
+        if measure:
+            _sync_if_cuda(device)
+            stats.sample_ms_total += (time.perf_counter() - _ts) * 1000
 
         generated.append(tok.unsqueeze(-1))
 
@@ -236,9 +253,11 @@ def lean_decode(
 
         # Next forward — feed the new token only, with absolute position.
         # Uses pre-allocated buffers to avoid per-step tensor construction.
+        if measure:
+            _tf = time.perf_counter()
         step_pos_buf.fill_(cur_pos)
         step_cache_pos_buf.fill_(cur_pos)
-        with torch.no_grad():
+        with torch.inference_mode():
             out = model(
                 input_ids=tok.unsqueeze(-1),
                 attention_mask=attn_buf[:, :cur_pos + 1],
@@ -248,6 +267,9 @@ def lean_decode(
                 use_cache=True,
                 return_dict=True,
             )
+        if measure:
+            _sync_if_cuda(device)
+            stats.forward_ms_total += (time.perf_counter() - _tf) * 1000
         past = out.past_key_values
         logits = out.logits[:, -1, :]
         cur_pos += 1
@@ -259,6 +281,13 @@ def lean_decode(
         if stats.decode_ms > 0:
             stats.tok_per_s = stats.n_new / (stats.decode_ms / 1000)
             stats.ms_per_tok = stats.decode_ms / max(stats.n_new, 1)
+        # overhead = everything in the loop that's not forward or sample:
+        # Python branches, attn_buf slice, tensor construction for `generated`,
+        # list append, repetition_penalty cat, etc.
+        stats.overhead_ms_total = max(
+            stats.decode_ms - stats.forward_ms_total - stats.sample_ms_total,
+            0.0,
+        )
 
     full = torch.cat(generated, dim=-1)
     return (full, stats) if return_stats else full
