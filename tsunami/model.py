@@ -144,23 +144,25 @@ class TsunamiModel:
                     enable_thinking: bool = True) -> LLMResponse:
         headers = {"Content-Type": "application/json"}
 
-        # Mode-aware sampling per the Qwen3.6 model card. Instance defaults
-        # (self.temperature etc.) are the "Precise coding" preset; flip
-        # them to the "Thinking / general tasks" preset when the caller
-        # asks for thinking — over-sampled thinking helps reasoning, and
-        # under-sampled thinking narrows the <think> trace below what the
-        # card was tuned for. When the caller has explicitly tightened
-        # sampling (temperature < 0.5, presence_penalty < 0.05), we
-        # respect that and don't overwrite — it's likely a deterministic
-        # harness / unit test.
-        if enable_thinking and self.temperature >= 0.5:
-            effective_temp = 1.0
-            effective_top_p = 0.95
-            effective_presence = 1.5
-        else:
-            effective_temp = self.temperature
-            effective_top_p = self.top_p
-            effective_presence = self.presence_penalty
+        # Mode-aware sampling per the Qwen3.6 model card. Two presets
+        # matter for us:
+        #
+        #   "Thinking / precise coding":  temp=0.6 top_p=0.95 presence=0.0
+        #   "Instruct (non-thinking) / general": temp=0.7 top_p=0.8 presence=1.5
+        #
+        # The "Thinking / general" preset (temp=1.0 top_p=0.95 presence=1.5)
+        # is tuned for open-ended reasoning — we tried it (commit a4f2975)
+        # and it caused file_edit target strings to paraphrase by a char,
+        # failing the byte-exact old_content match and triggering full
+        # file_write rewrites. Reverted to the precise-coding preset when
+        # thinking, which also happens to match the instance defaults.
+        #
+        # Agentic code work → precise-coding params in both thinking and
+        # non-thinking modes. Keep the mode gate only as a lever for
+        # callers who pass their own sampling knobs.
+        effective_temp = self.temperature
+        effective_top_p = self.top_p
+        effective_presence = self.presence_penalty
 
         payload: dict[str, Any] = {
             "model": self.model,

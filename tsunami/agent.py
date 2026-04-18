@@ -1554,10 +1554,12 @@ class Agent:
         # flow structure).
         #
         # Heuristic:
-        #   - iter 1 always plans (design decisions)
-        #   - before project_init has fired: still planning (scaffold choice)
-        #   - after project_init + immediately after undertow failures: plan
-        #     (pick the next step given new information)
+        #   - iter 1 plans IF no scaffold exists (model has to pick one)
+        #   - after pre-scaffold ran: skip iter 1 thinking — scaffold
+        #     picked, project dir ready, just write the code. Saves
+        #     1-2 min of <think> trace per run on eval-style prompts
+        #     where the scaffold is already provisioned.
+        #   - after undertow failures: always plan (need to decide the fix)
         #   - otherwise: coding, thinking off
         is_first_turn = self.state.iteration <= 1
         no_scaffold_yet = "project_init" not in self._tool_history
@@ -1565,7 +1567,8 @@ class Agent:
             len(self._tool_history) >= 1 and self._tool_history[-1] == "undertow"
             and getattr(self, "_forced_undertow_done", False)
         )
-        enable_thinking = is_first_turn or no_scaffold_yet or last_was_qa_failure
+        # Only force thinking on iter 1 when a scaffold still needs picking.
+        enable_thinking = (is_first_turn and no_scaffold_yet) or last_was_qa_failure
         response = await self.model.generate(
             messages=messages,
             tools=self.registry.schemas(),

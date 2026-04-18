@@ -228,11 +228,16 @@ def build_tiers(calc_ref: Path) -> list[Tier]:
         Tier(
             id="T2",
             name="pomodoro",
-            # Qwen3.6 averages ~5 min per iter on this pipeline. 4 iters
-            # are the floor for a clean pass (project_init, file_write,
-            # shell_exec, undertow, message_result). 1800s gives the
-            # agent 5-6 iters — room for one revision after undertow.
-            budget_s=1800,
+            # Aggressive target: if we can't build a timer in 5 minutes
+            # we are doomed. With max_tokens=8192, pre-scaffold eliding
+            # iter 1, and the qwen-native fixes (R1–R4) reducing waste,
+            # a clean run should be:
+            #   iter 1 (file_write, ~2500 tok, ~3.5min) + iter 2
+            #   (shell_exec, ~200 tok, ~20s) + iter 3 (message_result,
+            #   ~100 tok, ~10s) → under 5 min wall.
+            # If 300s isn't enough, the problem is structural — iters
+            # per spec or tokens per iter is still wrong.
+            budget_s=300,
             prompt=(
                 "Build a Pomodoro timer with start, pause, and reset buttons. "
                 "Include a task list where each task tracks how many pomodoros it took."
