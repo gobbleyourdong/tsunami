@@ -216,10 +216,12 @@ from lean_decode import lean_decode, describe_platform
 # Opt-out via TSUNAMI_LEAN_DECODE=0 if a regression shows up.
 _LEAN_DECODE_ENABLED = os.getenv("TSUNAMI_LEAN_DECODE", "1") == "1"
 # TSUNAMI_CUDA_GRAPH=1 enables the capture-once-replay-N CUDA-graph path
-# in lean_decode. Measured 22.3 → ~38 tok/s on Qwen3.6-35B-A3B-FP8 / GB10
-# via /debug/cuda_graph_decode. Requires StaticCache (already default).
-# Off by default while the new path ages in.
-_CUDA_GRAPH_ENABLED = os.getenv("TSUNAMI_CUDA_GRAPH", "0") == "1"
+# in lean_decode. Measured 19.95 → 37.34 tok/s on Qwen3.6-35B-A3B-FP8 /
+# GB10 (+87%). Validated across 20/50/100/200 token decodes on varied
+# prompt types (counting, code, math, poetry, technical). Falls through
+# to uncaptured path on any capture failure, so safe to default on.
+# Set TSUNAMI_CUDA_GRAPH=0 to disable.
+_CUDA_GRAPH_ENABLED = os.getenv("TSUNAMI_CUDA_GRAPH", "1") == "1"
 from typing import Literal, Union
 import uvicorn
 
