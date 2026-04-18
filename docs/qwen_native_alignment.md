@@ -61,13 +61,47 @@
     with earlier-param closed, missing `</function>` + outer, clean
     complete emission — all parse correctly.
 
-- [ ] **R4 — Orchestration patterns**
-  - Read: `packages/core/src/core/turn.ts`,
-    `packages/core/src/core/coreToolScheduler.ts`,
-    `packages/core/src/core/geminiChat.ts`,
-    `packages/core/src/agents/runtime/agent-core.ts`.
-  - Extract: loop-level retry, cancellation, tool-scheduling patterns
-    we're missing. Land only the ones that pull their weight.
+- [x] **R4 — Orchestration patterns** (study + targeted port)
+
+  Read through (with notes):
+
+  - **`packages/core/src/core/coreToolScheduler.ts`** — Tool-call state
+    machine with 7 states: validating → scheduled → waiting → executing
+    → {successful | errored | cancelled}. Plus batching via `ToolBatch`.
+    Our agent.py is linear (extract → execute → record), which is fine
+    for our one-at-a-time tool flow; the state machine is useful for UI
+    streaming but overkill for headless eval runs. **Not ported.**
+
+  - **`packages/core/src/core/turn.ts`** — Event stream taxonomy:
+    Content, Thought, ToolCallRequest/Response/Confirmation, Retry,
+    Cancelled, ChatCompressed, LoopDetected, SessionTokenLimitExceeded,
+    Finished, Error. We cover most of these imperatively (Circulation
+    = LoopDetected, compress_context = ChatCompressed, model.py retry
+    = Retry, task_complete = Finished). Surfacing them as a stream
+    is a UI/observability refactor. **Not ported; structure documented
+    here for future ref.**
+
+  - **`packages/core/src/utils/retry.ts::defaultShouldRetry`** — Retry
+    on `429 OR 5xx`. Our `tsunami/model.py` top-level retry covers
+    429/500/502/503/504 already. But the NESTED per-attempt halving
+    of max_tokens only fired on 500 and 400 — missed 502/503/504.
+    **Ported** — halve on any 5xx, same reasoning (oversized stream
+    that will succeed under a smaller response budget).
+
+  - **`packages/core/src/core/client.ts`** — Session/chat management.
+    Largely their Gemini/OpenAI adapter layer; our equivalents
+    already exist. **Not ported.**
+
+  - **`packages/core/src/agents/runtime/agent-core.ts`** — Outer
+    agent loop with cancellation tokens + hook system. Our `_step`
+    loop handles the same cases via Circulation + force-undertow +
+    deliver-gate but without first-class cancellation. Future
+    refactor candidate if we need interruptible long-running agents.
+    **Not ported.**
+
+  Net from R4: one practical port (halving max_tokens on all 5xx
+  retries) and a documented inventory of what we chose not to port,
+  for future reference.
 
 - [ ] **R5 — Rerun T2 pomodoro eval, compare ledger**
   - After R1–R4 land, launch `python3 -m tsunami.tests.eval_tiered

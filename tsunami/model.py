@@ -211,7 +211,12 @@ class TsunamiModel:
                     json=payload,
                     headers=headers,
                 )
-                if resp.status_code == 500:
+                # Retry-with-backoff on any 5xx. Halve max_tokens so the
+                # next attempt fits in a smaller response window — one
+                # of qwen-code's retry heuristics (utils/retry.ts) +
+                # our own T2 grind finding: 502s mid-stream are usually
+                # oversized-generation timeouts, not real server faults.
+                if resp.status_code in (500, 502, 503, 504):
                     await asyncio.sleep(2 * (attempt + 1))
                     if payload["max_tokens"] > 512:
                         payload["max_tokens"] = payload["max_tokens"] // 2
