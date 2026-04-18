@@ -167,7 +167,8 @@ _q35moe_mod.Qwen3_5MoeTextModel._update_linear_attn_mask = _ulam_dict_aware
 # transformers' per-module FP8Linear dispatch still works.
 import sys as _vsys
 _vsys.path.insert(0, "/home/jb/ComfyUI/CelebV-HQ/ark/tsunami/serving")
-from vendor.deepseek_fp8_kernel import fp8_gemm as _ds_fp8_gemm
+from vendor.deepseek_fp8_kernel import fp8_gemm as _ds_fp8_gemm, fp8_gemm_kernel as _ds_fp8_gemm_kernel
+import triton as _triton
 
 def _ds_w8a8_fp8_matmul(A, B, As, Bs, block_size=None, output_dtype=torch.bfloat16):
     """Shim: DeepSeek's fp8_gemm(a, a_s, b, b_s) expects:
@@ -175,21 +176,28 @@ def _ds_w8a8_fp8_matmul(A, B, As, Bs, block_size=None, output_dtype=torch.bfloat
       a_s:(M, K/BLK) fp32    — per-row per-K-block scales
       b:  (N, K)  fp8_e4m3fn — row-major (weight stored out-major)
       b_s:(N/BLK, K/BLK) fp32 — block-wise weight scales
-    transformers' caller contract is identical; we just pass through.
-    output comes back in torch.get_default_dtype(), so we temporarily flip it."""
-    # 3D activations → 2D matmul → restore shape after.
+
+    Originally wrapped the vendor's fp8_gemm() which allocates the output
+    via torch.get_default_dtype(). That forced us to set_default_dtype
+    twice per call to route the result to bf16 — global state mutation
+    under a lock, ~676× per decoded token at 338 matmuls/tok × 2 sets.
+    Now we allocate the output directly and call the Triton kernel, no
+    default-dtype dance.
+    """
     orig_shape = A.shape
-    A_2d = A.reshape(-1, orig_shape[-1]).contiguous()
+    K = A.size(-1)
+    A_2d = A.reshape(-1, K).contiguous()
     As_2d = As.reshape(-1, As.shape[-1]).contiguous() if As.dim() >= 2 else As.contiguous()
-    prev_dtype = torch.get_default_dtype()
-    if output_dtype is not None and output_dtype != prev_dtype:
-        torch.set_default_dtype(output_dtype)
-    try:
-        out = _ds_fp8_gemm(A_2d, As_2d, B.contiguous(), Bs.contiguous())
-    finally:
-        if output_dtype is not None and output_dtype != prev_dtype:
-            torch.set_default_dtype(prev_dtype)
-    return out.view(*orig_shape[:-1], B.shape[0])
+    B_c = B.contiguous()
+    Bs_c = Bs.contiguous()
+    M = A_2d.size(0)
+    N = B_c.size(0)
+    dtype = output_dtype if output_dtype is not None else torch.bfloat16
+    C_2d = A_2d.new_empty((M, N), dtype=dtype)
+    grid = lambda META: (_triton.cdiv(M, META["BLOCK_SIZE_M"]),
+                         _triton.cdiv(N, META["BLOCK_SIZE_N"]))
+    _ds_fp8_gemm_kernel[grid](A_2d, B_c, C_2d, As_2d, Bs_c, M, N, K)
+    return C_2d.view(*orig_shape[:-1], N)
 
 # Swap the whole entry point — finegrained_fp8.FP8Linear.forward calls this
 # by name, so a module-level reassignment catches every dispatch.
