@@ -1138,14 +1138,17 @@ async def _chat_completions_impl(req: ChatRequest):
         with torch.no_grad():
             return model.generate(**inputs, **gen_kwargs)
 
+    _t_pregpu = time.time()
     async with _gpu_sem:
         # Route through the pinned single-thread GPU executor (see
         # `_run_on_gpu_thread` — keeps inductor cudagraph_trees TLS stable
         # across requests and allows a safe boot warmup).
         output = await _run_on_gpu_thread(_generate)
+    _t_gpu_done = time.time()
 
     new_tokens = output[0][prompt_len:]
     text = _decode(new_tokens)
+    _t_decode_done = time.time()
     log.info(f"{_utag}RAW OUTPUT: {text[:200]!r}{'…' if len(text) > 200 else ''}")
 
     # Strip any trailing EOS / chat-turn markers commonly left by the model.
@@ -1156,17 +1159,28 @@ async def _chat_completions_impl(req: ChatRequest):
 
     thinking, answer = _split_thinking(text)
     content = answer if not req.keep_thinking else text
+    _t_split_done = time.time()
 
     # Parse Qwen3.6 tool-call emission format out of content, lift into
     # OpenAI-shape message.tool_calls[]. Without this, the agent sees raw
     # <tool_call>...</tool_call> XML in content and records it as a
     # message_chat — breaking every build that relied on tool routing.
     tool_calls, content = _parse_qwen_tool_calls(content)
+    _t_parse_done = time.time()
 
     elapsed = time.time() - start
     completion_tokens = len(new_tokens)
+    # Phase-level timing breakdown to spot post-processing bottlenecks.
+    # Emitted as a compact summary so the logs are greppable.
+    _pre_gpu_ms = (_t_pregpu - start) * 1000
+    _gpu_ms = (_t_gpu_done - _t_pregpu) * 1000
+    _tok_dec_ms = (_t_decode_done - _t_gpu_done) * 1000
+    _split_ms = (_t_split_done - _t_decode_done) * 1000
+    _parse_ms = (_t_parse_done - _t_split_done) * 1000
     log.info(f"{_utag}generated {completion_tokens} tok in {elapsed:.1f}s "
-             f"({completion_tokens / max(elapsed, 1e-6):.1f} tok/s)"
+             f"({completion_tokens / max(elapsed, 1e-6):.1f} tok/s) "
+             f"phases[pre={_pre_gpu_ms:.0f} gpu={_gpu_ms:.0f} "
+             f"dec={_tok_dec_ms:.0f} split={_split_ms:.0f} parse={_parse_ms:.0f}]"
              + (f" [{len(tool_calls)} tool_call(s)]" if tool_calls else ""))
 
     message = {"role": "assistant", "content": content}
