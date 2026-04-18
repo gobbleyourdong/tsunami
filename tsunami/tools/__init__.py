@@ -103,9 +103,9 @@ class ToolRegistry:
 
 
 def build_registry(config) -> ToolRegistry:
-    """Build the 17-tool registry: 11 core + 2 planning + 1 design-emit + 3 discovery."""
-    from .filesystem import FileRead, FileWrite, FileEdit
-    from .shell import ShellExec
+    """Build the 22-tool registry: core + planning + discovery + background-shell + append."""
+    from .filesystem import FileRead, FileWrite, FileEdit, FileAppend
+    from .shell import ShellExec, ShellView, ShellSend, ShellWait, ShellKill
     from .message import MessageResult, MessageChat
     from .search import SearchWeb
     from .undertow import Undertow
@@ -122,8 +122,8 @@ def build_registry(config) -> ToolRegistry:
 
     registry = ToolRegistry()
     for cls in [
-        FileRead, FileWrite, FileEdit,
-        ShellExec,
+        FileRead, FileWrite, FileEdit, FileAppend,
+        ShellExec, ShellView, ShellSend, ShellWait, ShellKill,
         MessageResult, MessageChat,
         SearchWeb,
         ProjectInit,
