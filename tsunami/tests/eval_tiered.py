@@ -313,7 +313,13 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
         workspace_dir=str(ws_base),
         max_iterations=40,
         temperature=0.7,
-        max_tokens=2048,
+        # 2048 truncates App.tsx file_write emissions mid-JSX — the
+        # model writes ~200-line files that come out at ~2000-4000
+        # tokens including the <tool_call>/<parameter> wrapper. 16k
+        # gives comfortable headroom for a single big emission + the
+        # thinking trace on planning iters without blowing past the
+        # 32k server default.
+        max_tokens=16384,
     )
     agent = Agent(config)
 
