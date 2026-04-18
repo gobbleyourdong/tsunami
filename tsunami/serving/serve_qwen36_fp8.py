@@ -46,6 +46,7 @@ import base64
 import io
 import json
 import logging
+import os
 import time
 import re
 import uuid
@@ -203,6 +204,17 @@ from pydantic import BaseModel
 # `from tsunami.serving...` import only works when the parent (ark/) is on
 # PYTHONPATH, which the host launch doesn't guarantee.
 from streaming_xml_tool_parser import StreamingXmlToolCallParser
+from lean_decode import lean_decode, describe_platform
+
+# lean_decode replaces HF GenerationMixin on the hot path. Measured
+# 16.87 tok/s sampled vs 9.6 baseline (1.76× win; confirmed via
+# /debug/lean_decode on Qwen3.6-35B-A3B-FP8 / GB10 sm_121). The path
+# reuses the same model.forward + KV cache, just strips the
+# LogitsProcessor / StoppingCriteria / per-step kwarg-rebuild
+# overhead. Cross-platform: all ops dispatch through torch, so MPS /
+# CPU fall through the same code with their native backends.
+# Opt-out via TSUNAMI_LEAN_DECODE=0 if a regression shows up.
+_LEAN_DECODE_ENABLED = os.getenv("TSUNAMI_LEAN_DECODE", "1") == "1"
 from typing import Literal, Union
 import uvicorn
 
@@ -448,6 +460,62 @@ async def debug_profile(req: dict):
     return result
 
 
+@app.post("/debug/lean_decode")
+async def debug_lean_decode(req: dict):
+    """Run ONE lean_decode call and return timing stats.
+
+    Used to A/B vs /debug/profile (HF generate path). Same sampling
+    args as a normal request; returns prefill_ms, decode_ms, tok/s,
+    new tokens. No env flag needed — this endpoint always uses the
+    lean path regardless of TSUNAMI_LEAN_DECODE.
+    """
+    if model is None or tokenizer is None:
+        return JSONResponse({"error": "model not loaded"}, status_code=503)
+    prompt = req.get("prompt", "Count from 1 to 30.")
+    max_new = int(req.get("max_tokens", 50))
+    do_sample = bool(req.get("do_sample", True))
+    msgs = [{"role": "user", "content": prompt}]
+    ids = tokenizer.apply_chat_template(
+        msgs, add_generation_prompt=True, tokenize=True, return_tensors="pt"
+    )
+    if hasattr(ids, "keys") and "input_ids" in ids:
+        ids = ids["input_ids"]
+    ids = ids.to(model.device)
+
+    eos_ids: list[int] = []
+    if tokenizer.eos_token_id is not None:
+        eos_ids.append(int(tokenizer.eos_token_id))
+    for s in ("<|im_end|>", "<|endoftext|>", "<|end|>"):
+        t = tokenizer.convert_tokens_to_ids(s)
+        if isinstance(t, int) and t >= 0 and t != tokenizer.unk_token_id:
+            eos_ids.append(int(t))
+
+    def _run():
+        out, stats = lean_decode(
+            model,
+            input_ids=ids,
+            max_new_tokens=max_new,
+            temperature=float(req.get("temperature", 0.6)),
+            top_k=int(req.get("top_k", 20)),
+            top_p=float(req.get("top_p", 0.95)),
+            min_p=float(req.get("min_p", 0.0)),
+            repetition_penalty=float(req.get("repetition_penalty", 1.0)),
+            do_sample=do_sample,
+            eos_token_ids=eos_ids,
+            return_stats=True,
+        )
+        txt = tokenizer.decode(out[0, ids.shape[-1]:], skip_special_tokens=True)
+        return stats, txt
+
+    async with _gpu_sem:
+        stats, text = await _run_on_gpu_thread(_run)
+    return {
+        "platform": describe_platform(),
+        **stats.as_dict(),
+        "preview": text[:200],
+    }
+
+
 @app.get("/health")
 def health():
     vram_alloc = torch.cuda.memory_allocated() / (1024**3) if torch.cuda.is_available() else 0.0
@@ -670,6 +738,33 @@ async def _chat_completions_impl(req: ChatRequest):
     _force_max_length = max(prompt_len + req.max_tokens, _CACHE_CEILING)
 
     def _generate():
+        # Lean decode path (env-gated). Skips HF GenerationMixin — which the
+        # profiler showed was adding ~57ms/tok of Python overhead (LogitsProcessor
+        # chain, StoppingCriteria poll, kwarg rebuild). Forward pass + custom
+        # sampling only. Keeps the same StaticCache path by letting the model
+        # allocate its own cache internally.
+        if _LEAN_DECODE_ENABLED:
+            eos_ids: list[int] = []
+            if tokenizer.eos_token_id is not None:
+                eos_ids.append(int(tokenizer.eos_token_id))
+            for s in ("<|im_end|>", "<|endoftext|>", "<|end|>"):
+                t = tokenizer.convert_tokens_to_ids(s)
+                if isinstance(t, int) and t >= 0 and t != tokenizer.unk_token_id:
+                    eos_ids.append(int(t))
+            with torch.no_grad():
+                return lean_decode(
+                    model,
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs.get("attention_mask"),
+                    max_new_tokens=req.max_tokens,
+                    temperature=req.temperature if req.temperature > 0 else 1.0,
+                    top_k=int(req.top_k) if req.top_k else 0,
+                    top_p=float(req.top_p),
+                    min_p=float(req.min_p),
+                    repetition_penalty=float(req.repetition_penalty),
+                    do_sample=req.temperature > 0,
+                    eos_token_ids=eos_ids,
+                )
         # Sampling knobs mirror the Qwen3.6 model-card recommendations:
         # top_k=20 / top_p=0.8 / min_p=0.0 / presence_penalty=1.5 /
         # repetition_penalty=1.0 for instruct-general, thinking-mode variants

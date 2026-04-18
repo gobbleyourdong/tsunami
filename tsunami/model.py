@@ -151,8 +151,9 @@ class TsunamiModel:
         #   Thinking / general        : temp=1.0 top_p=0.95 presence=1.5
         #   Thinking / precise coding : temp=0.6 top_p=0.95 presence=0.0
         #
-        # Caller overrides (temp<0.5 or presence<0.05) skip the bump so
-        # deterministic harnesses + unit tests don't get re-randomized.
+        # Caller overrides skip the bump so deterministic harnesses + unit
+        # tests don't get re-randomized. Opt-out condition (matches the check
+        # below): temperature<0.5 OR presence_penalty>=1.0.
         if enable_thinking and self.temperature >= 0.5 and self.presence_penalty < 1.0:
             effective_temp = 1.0
             effective_top_p = 0.95
