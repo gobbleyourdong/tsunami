@@ -128,7 +128,29 @@ class GenerateImage(BaseTool):
         "If a project exists, the image is auto-routed to <project>/public/assets/<filename> "
         "so you can reference it in JSX as <img src=\"/assets/<filename>\" />. "
         "Call project_init BEFORE generate_image when building a UI — otherwise images land "
-        "in the workspace root and won't be served by the dev server."
+        "in the workspace root and won't be served by the dev server.\n\n"
+        "PROMPT STRATEGY PER ASSET TYPE:\n"
+        "  LOGOS / ICONS (any save_path ending in logo.png or icon.png):\n"
+        "    - Pass mode='icon' — the tool alpha-keys out the background so the mark drops "
+        "cleanly onto any page color. Without icon mode you get a square card-stamped image.\n"
+        "    - Describe a SYMBOL / SHAPE / EMBLEM, not the brand name. 'AURUM' in the prompt "
+        "makes the generator draw the literal word AURUM as text. Instead: describe the "
+        "visual metaphor ('interlocking A-shaped wings', 'octagonal monogram', 'stylized gear "
+        "medallion') + an aesthetic reference ('greeble mechanical', 'art deco medallion', "
+        "'bauhaus geometric', 'heraldic crest minimalist').\n"
+        "    - Example bad: 'AURUM luxury brand logo, wordmark in gold serif'\n"
+        "    - Example good: 'Geometric emblem of a stylized wing resolving into an upward "
+        "arrow, monoline construction, brass accent, art-deco symmetry, centered, no text'\n"
+        "  HEROES / ENVIRONMENTS:\n"
+        "    - Describe SUBJECT + environment + lighting + mood. Don't include the brand name.\n"
+        "  PRODUCT SHOTS (cars, devices, items):\n"
+        "    - Describe silhouette, material, color, angle, studio context. No brand name.\n"
+        "  PORTRAITS:\n"
+        "    - Describe the person's role and setting ('Swiss watchmaker in workshop portrait, "
+        "warm light'), not their imaginary name.\n"
+        "Brand names in prompts activate 'draw the word as text' behavior. Describe what the "
+        "image should LOOK like, and use the brand name only in the save_path and the alt "
+        "attribute in your JSX."
     )
 
     def parameters_schema(self) -> dict:
@@ -172,6 +194,25 @@ class GenerateImage(BaseTool):
             import time as _time
             save_path = f"public/images/generated_{int(_time.time())}.png"
             log.info(f"generate_image called without save_path — defaulting to {save_path}")
+
+        # Logo / icon auto-upgrade: drones consistently generate logos
+        # with mode='opaque', which produces a square-stamped card that
+        # looks like an AI generation rather than a brand mark. Any
+        # save_path ending in logo.png / icon.png / mark.png / emblem.png
+        # gets bumped to mode='icon' (magenta chromakey → transparent
+        # PNG) unless the drone explicitly asked for opaque.
+        _save_lower = save_path.lower()
+        _is_logo_path = any(
+            _save_lower.endswith(f"/{n}.png") or _save_lower.endswith(n + ".png")
+            for n in ("logo", "icon", "mark", "emblem", "brandmark", "wordmark")
+        )
+        if _is_logo_path and mode == "opaque" and kw.get("_mode_explicit") is not True:
+            log.info(
+                f"generate_image: auto-upgrading mode='opaque' → 'icon' for "
+                f"logo/icon path {save_path!r} (transparent-bg output for clean "
+                f"integration into any page background)"
+            )
+            mode = "icon"
 
         # Route saves into the active project's public/ when possible.
         # Without this, the model writes "/tmp/foo.png" (or any out-of-project
