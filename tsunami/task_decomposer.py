@@ -109,11 +109,16 @@ class TaskDAG:
 
 
 def detect_domains(prompt: str) -> set[str]:
-    """Detect which domains a prompt touches."""
+    """Detect which domains a prompt touches.
+
+    Word-boundary match: bare-substring matching caught "live" inside
+    "deliverables/<name>" and routed luxury-brand briefs through the
+    realtime/data-viz plan scaffold.
+    """
     prompt_lower = prompt.lower()
     domains = set()
     for keyword, domain in DOMAIN_KEYWORDS.items():
-        if keyword in prompt_lower:
+        if re.search(rf"\b{re.escape(keyword)}\b", prompt_lower):
             domains.add(domain)
     return domains
 

@@ -100,6 +100,14 @@ def _parse_sections_from_markdown(text: str) -> list[Section]:
 
 # Domain keywords → scaffold name. First match wins — more specific
 # domains listed before the generic build family.
+#
+# Ordering rule: dashboard / data-viz / form-app / landing all sit
+# BEFORE the implicit react-build fallback so their plan_scaffolds fire
+# on the right prompts. The dashboard / data-viz split mirrors
+# project_init's `_pick_scaffold` cascade — "dashboard" matches the
+# admin/console family first, "chart"/"plot"/"analytics" routes to the
+# data-viz plan with its chart-type catalog. Order matters: if "chart"
+# matched before "dashboard", admin dashboards would route to data-viz.
 _DOMAIN_SIGNALS: list[tuple[tuple[str, ...], str]] = [
     (("replica", "replicate", "mimic", "clone",
       "styled as", "apple watch", "iphone ui", "watch face",
@@ -116,6 +124,33 @@ _DOMAIN_SIGNALS: list[tuple[tuple[str, ...], str]] = [
       "look up", "survey"), "research"),
     (("refactor", "rename", "extract", "cleanup", "split", "merge"),
      "refactor"),
+    # Dashboard sits before data-viz so "admin dashboard with charts"
+    # routes to the dashboard plan (sidebar + KPI grid) and not the
+    # plotting-focused data-viz plan.
+    (("admin dashboard", "metrics dashboard", "analytics panel",
+      "ops console", "admin panel", "monitoring board",
+      "dashboard", "sidebar nav", "console ui"),
+     "dashboard"),
+    # Data-viz: chart-heavy / exploration prompts. Avoid the bare word
+    # "data" — it false-positives every CRUD spec. Recharts API hints
+    # live in the data-viz plan body.
+    (("data exploration", "data visualization", "data viz",
+      "scatter plot", "heatmap", "bar chart", "line chart",
+      "pie chart", "time series", "histogram", "recharts", "d3",
+      "visualize", "plot", "graph"),
+     "data-viz"),
+    # Form-app: multi-step wizards / signup flows / surveys.
+    (("signup flow", "signup form", "wizard", "multi-step form",
+      "multi step form", "onboarding form", "onboarding flow",
+      "survey form", "questionnaire", "intake form", "registration form"),
+     "form-app"),
+    # Landing: marketing / waitlist / launch pages. Listed last among
+    # the new plans because some prompts ("admin dashboard for a
+    # landing page builder") should still hit dashboard first.
+    (("landing page", "marketing page", "waitlist", "product launch",
+      "coming soon", "splash page", "marketing site", "promo page",
+      "homepage for", "hero section"),
+     "landing"),
 ]
 
 
@@ -123,11 +158,20 @@ def pick_scaffold(task: str) -> str:
     """Pick the plan_scaffolds/*.md that best matches the task.
     Falls back to react-build if nothing matches — it's the most
     common case for this agent.
+
+    Single-word keywords use word-boundary regex so "graph" doesn't
+    match "paragraph", "plot" doesn't match "exploit", etc. Multi-word
+    keywords keep substring matching (they're specific enough).
     """
     t = task.lower()
     for keywords, name in _DOMAIN_SIGNALS:
-        if any(k in t for k in keywords):
-            return name
+        for k in keywords:
+            if " " in k or "-" in k:
+                if k in t:
+                    return name
+            else:
+                if re.search(rf"\b{re.escape(k)}\b", t):
+                    return name
     return "react-build"
 
 
