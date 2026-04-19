@@ -293,16 +293,58 @@ class GenerateImage(BaseTool):
         # when the server is up but the image model wasn't loaded at startup.
         # SD-Turbo in-process was removed — Z-Image follows prompts better and
         # is the prod model.
-        # ERNIE-Image (DiT) requires width/height divisible by 16 (vae
-        # scale factor). Drones pass human-reasonable ratios like
-        # 1024x683 (3:2 landscape) that don't align. Snap up to the
-        # nearest multiple of 16 here so the backend never sees a
-        # misaligned request.
-        width = ((width + 15) // 16) * 16
-        height = ((height + 15) // 16) * 16
+        # ERNIE-Image-Turbo only accepts these seven resolutions (DiT
+        # bucket set):
+        #   1024x1024 (square)
+        #   1264x848  / 848x1264  (3:2  landscape / portrait)
+        #   1200x896  / 896x1200  (4:3  landscape / portrait)
+        #   1376x768  / 768x1376  (16:9 landscape / portrait)
+        # Drones pass human-natural dimensions (1024x683, 1280x720…);
+        # snap to the closest supported bucket by aspect ratio so the
+        # backend never rejects with "dimension not in supported set".
+        _ERNIE_BUCKETS: list[tuple[int, int]] = [
+            (1024, 1024),
+            (1264, 848), (848, 1264),
+            (1200, 896), (896, 1200),
+            (1376, 768), (768, 1376),
+        ]
+        _target_ar = width / max(height, 1)
+        _gen_w, _gen_h = min(_ERNIE_BUCKETS,
+                             key=lambda wh: abs((wh[0] / wh[1]) - _target_ar))
+
+        # Pixel-art / sprite path: if EITHER requested dim is small
+        # (<256), generate at square 1024 and downscale with nearest-
+        # neighbor after save. ERNIE can't natively produce clean
+        # 64x64 or 128x128 sprites — they come out as blobby
+        # anti-aliased messes. Generating 1024 then BOX/NEAREST down
+        # preserves crisp edges.
+        _sprite_target: tuple[int, int] | None = None
+        if width < 256 or height < 256:
+            _sprite_target = (width, height)
+            _gen_w, _gen_h = 1024, 1024
+
         for backend in [self._try_zimage_server, self._try_placeholder]:
-            result = await backend(prompt, p, width, height, style)
+            result = await backend(prompt, p, _gen_w, _gen_h, style)
             if not result.is_error:
+                # Sprite downscale: if drone asked for sub-256 dims, we
+                # generated at 1024² — now box/nearest-downsample the
+                # file in-place to the requested sprite size. Preserves
+                # crisp pixel edges vs. ERNIE's native small output.
+                if _sprite_target is not None and p.exists():
+                    try:
+                        from PIL import Image as _PIL_SP
+                        _tw, _th = _sprite_target
+                        with _PIL_SP.open(p) as _im:
+                            _resized = _im.resize(
+                                (_tw, _th),
+                                _PIL_SP.Resampling.NEAREST,
+                            )
+                            _resized.save(p, format="PNG")
+                        log.info(
+                            f"sprite downscale: 1024x1024 → {_tw}x{_th} (NEAREST)"
+                        )
+                    except Exception as _se:
+                        log.warning(f"sprite downscale failed: {_se}")
                 # Post-process: extract alpha for alpha/icon modes so callers
                 # get a PNG with real transparency instead of a background-
                 # baked-in RGB image.
@@ -361,13 +403,10 @@ class GenerateImage(BaseTool):
                         "prompt": prompt,
                         "width": w,
                         "height": h,
-                        # Z-Image-Turbo official recipe: num_inference_steps=9
-                        # (yields 8 DiT forwards), guidance_scale=0.0. We had
-                        # been using steps=4 + guidance=1.0 which produced
-                        # over-smooth, anti-aliased output — guidance>0 on a
-                        # turbo model also degrades sharpness.
-                        "steps": 9,
-                        "guidance_scale": 0.0,
+                        # ERNIE-Image-Turbo official recipe: 8 inference
+                        # steps, cfg/guidance_scale = 1.0.
+                        "steps": 8,
+                        "guidance_scale": 1.0,
                         "seed": seed,
                     },
                 )
