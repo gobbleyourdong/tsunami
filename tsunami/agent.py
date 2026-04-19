@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from pathlib import Path
 
@@ -1342,7 +1343,31 @@ class Agent:
                 effective_message = dag.to_phased_prompt()
                 log.info(f"Decomposed complex prompt into {len(dag.tasks)} phases")
 
+        # Style injection — counteract the drone's 'vanilla dark Inter
+        # centered-hero' default by handing it an explicit style doctrine
+        # (palette / type / layout / motion). Keyword-routed where the
+        # brief is explicit, otherwise randomized across styles that
+        # apply to the target scaffold. Env TSUNAMI_STYLE forces one.
+        style_directive = ""
+        if not existing_context:
+            try:
+                from .style_scaffolds import pick_style, format_style_directive
+                # Infer target scaffold from scaffold_context if present
+                _scaffold = ""
+                if scaffold_context:
+                    _m = re.search(r"scaffold\s+['\"]?([a-z\-]+)['\"]?", scaffold_context)
+                    if _m:
+                        _scaffold = _m.group(1)
+                style_name, style_body = pick_style(user_message, _scaffold)
+                if style_name:
+                    style_directive = format_style_directive(style_name, style_body)
+                    log.info(f"Style injected: {style_name}")
+            except Exception as _se:
+                log.debug(f"Style injection skipped: {_se}")
+
         context_parts = [effective_message]
+        if style_directive:
+            context_parts.append(style_directive)
         if existing_context:
             context_parts.append(existing_context)
         if scaffold_context:
@@ -1357,6 +1382,10 @@ class Agent:
             from .planfile import pick_scaffold
             scaffold_name = pick_scaffold(user_message)
             self.plan_manager.from_scaffold(scaffold_name, user_message[:200])
+            # Stash for undertow's direction-set routing. The same scaffold
+            # that drove plan.md generation also picks which
+            # undertow_scaffolds/*.md eddy injects as system_note.
+            self._scaffold_name = scaffold_name
             log.info(f"Plan initialized: scaffold={scaffold_name}, "
                      f"sections={[s.name for s in self.plan_manager.sections]}")
         except Exception as _plan_e:
@@ -3777,7 +3806,11 @@ class Agent:
                     try:
                         from .undertow import run_drag
                         user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
-                        qa = await run_drag(written_path, user_request=user_req)
+                        qa = await run_drag(
+                            written_path,
+                            user_request=user_req,
+                            scaffold=getattr(self, "_scaffold_name", None),
+                        )
                         failed = qa.get("levers_failed", 0)
                         total = qa.get("levers_total", 0)
 
@@ -4267,7 +4300,11 @@ class Agent:
                 try:
                     from .undertow import run_drag
                     user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
-                    qa = await run_drag(last_html, user_request=user_req)
+                    qa = await run_drag(
+                        last_html,
+                        user_request=user_req,
+                        scaffold=getattr(self, "_scaffold_name", None),
+                    )
 
                     log.info(
                         f"Undertow: {qa.get('levers_failed', 0)}/{qa.get('levers_total', 0)} failed"
