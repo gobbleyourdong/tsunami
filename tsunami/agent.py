@@ -4274,6 +4274,63 @@ class Agent:
                     self._delivery_attempts -= 1
                     return "Write src/App.tsx before delivering."
 
+            # Asset-existence check: scan src/*.tsx for `<img src="/...">` /
+            # background-image url() refs, verify each file exists in public/.
+            # v26 wrote App.tsx with /logo.png /hero.png /models/one.png
+            # /founder.png referenced, NO image generation. Build passed
+            # (JSX type-correct) but runtime shows 4 broken image icons.
+            # Blocks delivery until drone generates the missing assets.
+            if self._project_init_called and self._delivery_attempts <= 2:
+                try:
+                    import re as _re
+                    deliverables = Path(self.config.workspace_dir) / "deliverables"
+                    missing_assets: list[str] = []
+                    if deliverables.exists():
+                        for d in sorted(deliverables.iterdir(),
+                                        key=lambda p: p.stat().st_mtime, reverse=True):
+                            src_dir = d / "src"
+                            public_dir = d / "public"
+                            if not src_dir.exists():
+                                break
+                            referenced: set[str] = set()
+                            for tsx in src_dir.rglob("*.tsx"):
+                                try:
+                                    body = tsx.read_text()
+                                except Exception:
+                                    continue
+                                for m in _re.finditer(
+                                    r"""src=['"](/[^'"?#]+\.(?:png|jpg|jpeg|webp|svg|gif))['"]""",
+                                    body,
+                                    _re.IGNORECASE,
+                                ):
+                                    referenced.add(m.group(1).lstrip("/"))
+                                for m in _re.finditer(
+                                    r"""url\(['"]?(/[^'"?#\)]+\.(?:png|jpg|jpeg|webp|svg|gif))['"]?\)""",
+                                    body,
+                                    _re.IGNORECASE,
+                                ):
+                                    referenced.add(m.group(1).lstrip("/"))
+                            for rel in sorted(referenced):
+                                if not (public_dir / rel).is_file():
+                                    missing_assets.append(rel)
+                            break
+                    if missing_assets:
+                        lst = ", ".join(missing_assets[:8])
+                        log.warning(
+                            f"Delivery blocked: {len(missing_assets)} referenced "
+                            f"asset(s) 404 in public/ — {lst}"
+                        )
+                        self.state.add_system_note(
+                            f"BLOCKED: your App.tsx references {len(missing_assets)} "
+                            f"image path(s) that don't exist in public/ — {lst}. "
+                            f"Call generate_image() for each before delivering. "
+                            f"Users will see broken-image icons if you ship now."
+                        )
+                        self._delivery_attempts -= 1
+                        return "Generate referenced assets before delivering."
+                except Exception as _ae:
+                    log.debug(f"asset-existence check skipped: {_ae}")
+
             # Short conversational deliveries bypass build-only gates below.
             # A build is distinguished by project_init having been called;
             # without that, this is a chat/research reply and the compile/
