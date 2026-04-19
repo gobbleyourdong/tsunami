@@ -3,13 +3,15 @@ import { useEffect, useRef, useState, ReactNode } from "react"
 interface ParallaxProps {
   children: ReactNode
   speed?: number  // 0.1 = slow, 1 = normal scroll, 2 = fast
+  offset?: number  // px — additional baseline offset
+  className?: string
   style?: React.CSSProperties
 }
 
 /** Parallax scrolling section — content moves at a different speed than scroll. */
-export function Parallax({ children, speed = 0.5, style }: ParallaxProps) {
+export function Parallax({ children, speed = 0.5, offset = 0, className, style }: ParallaxProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const [offset, setOffset] = useState(0)
+  const [scrollY, setScrollY] = useState(0)
 
   useEffect(() => {
     const handler = () => {
@@ -17,7 +19,7 @@ export function Parallax({ children, speed = 0.5, style }: ParallaxProps) {
       const rect = ref.current.getBoundingClientRect()
       const center = rect.top + rect.height / 2
       const viewCenter = window.innerHeight / 2
-      setOffset((center - viewCenter) * (1 - speed))
+      setScrollY((center - viewCenter) * (1 - speed))
     }
     window.addEventListener("scroll", handler, { passive: true })
     handler()
@@ -25,8 +27,8 @@ export function Parallax({ children, speed = 0.5, style }: ParallaxProps) {
   }, [speed])
 
   return (
-    <div ref={ref} style={{ overflow: "hidden", ...style }}>
-      <div style={{ transform: `translateY(${offset}px)`, willChange: "transform" }}>
+    <div ref={ref} className={className} style={{ overflow: "hidden", ...style }}>
+      <div style={{ transform: `translateY(${scrollY + offset}px)`, willChange: "transform" }}>
         {children}
       </div>
     </div>

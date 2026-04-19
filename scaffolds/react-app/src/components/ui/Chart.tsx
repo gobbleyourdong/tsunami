@@ -16,16 +16,22 @@ interface ChartDatum {
 
 interface ChartProps {
   type?: ChartType
-  data: ChartDatum[]
+  kind?: ChartType  // alias drones reach for
+  data?: ChartDatum[]
+  series?: ChartDatum[]  // alias drones reach for
   height?: number | string
   color?: string
   palette?: string[]
   showGrid?: boolean
   showLegend?: boolean
   showTooltip?: boolean
+  legend?: boolean       // alias for showLegend
+  grid?: boolean         // alias for showGrid
+  animated?: boolean     // accepted for parity, recharts animates by default
   xKey?: string
   yKey?: string
   label?: string
+  title?: string
   className?: string
   style?: React.CSSProperties
 }
@@ -47,20 +53,32 @@ function resolveCssVar(v: string): string {
 }
 
 export function Chart({
-  type = "line",
+  type,
+  kind,
   data,
+  series,
   height = 280,
   color = "var(--accent)",
   palette = DEFAULT_PALETTE,
-  showGrid = true,
-  showLegend = false,
+  showGrid,
+  grid,
+  showLegend,
+  legend,
   showTooltip = true,
+  animated,
   xKey = "x",
   yKey = "y",
   label,
+  title,
   className = "",
   style,
 }: ChartProps) {
+  void animated
+  const t = (type ?? kind ?? "line") as ChartType
+  const rows = (data ?? series ?? []) as ChartDatum[]
+  const showG = showGrid ?? grid ?? true
+  const showL = showLegend ?? legend ?? false
+  const seriesLabel = label ?? title ?? yKey
   const stroke = resolveCssVar(color)
   const axisColor = resolveCssVar("var(--text-muted)")
   const gridColor = resolveCssVar("var(--border)")
@@ -78,17 +96,17 @@ export function Chart({
   return (
     <div className={className} style={{ width: "100%", height, ...style }}>
       <ResponsiveContainer width="100%" height="100%">
-        {type === "line" ? (
-          <LineChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-            {showGrid && <CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false} />}
+        {t === "line" ? (
+          <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+            {showG && <CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false} />}
             <XAxis dataKey={xKey} stroke={axisColor} fontSize={11} tickLine={false} axisLine={{ stroke: gridColor }} />
             <YAxis stroke={axisColor} fontSize={11} tickLine={false} axisLine={{ stroke: gridColor }} />
             {showTooltip && <Tooltip contentStyle={tooltipStyle} cursor={{ stroke: gridColor }} />}
-            {showLegend && <Legend wrapperStyle={{ fontSize: 12, color: axisColor }} />}
+            {showL && <Legend wrapperStyle={{ fontSize: 12, color: axisColor }} />}
             <Line
               type="monotone"
               dataKey={yKey}
-              name={label ?? yKey}
+              name={seriesLabel}
               stroke={stroke}
               strokeWidth={2}
               dot={{ fill: stroke, r: 3 }}
@@ -96,21 +114,21 @@ export function Chart({
               isAnimationActive
             />
           </LineChart>
-        ) : type === "bar" ? (
-          <BarChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-            {showGrid && <CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false} />}
+        ) : t === "bar" ? (
+          <BarChart data={rows} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+            {showG && <CartesianGrid stroke={gridColor} strokeDasharray="3 3" vertical={false} />}
             <XAxis dataKey={xKey} stroke={axisColor} fontSize={11} tickLine={false} axisLine={{ stroke: gridColor }} />
             <YAxis stroke={axisColor} fontSize={11} tickLine={false} axisLine={{ stroke: gridColor }} />
             {showTooltip && <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(255,255,255,0.04)" }} />}
-            {showLegend && <Legend wrapperStyle={{ fontSize: 12, color: axisColor }} />}
-            <Bar dataKey={yKey} name={label ?? yKey} fill={stroke} radius={[6, 6, 0, 0]} />
+            {showL && <Legend wrapperStyle={{ fontSize: 12, color: axisColor }} />}
+            <Bar dataKey={yKey} name={seriesLabel} fill={stroke} radius={[6, 6, 0, 0]} />
           </BarChart>
         ) : (
           <PieChart>
             {showTooltip && <Tooltip contentStyle={tooltipStyle} />}
-            {showLegend && <Legend wrapperStyle={{ fontSize: 12, color: axisColor }} />}
+            {showL && <Legend wrapperStyle={{ fontSize: 12, color: axisColor }} />}
             <Pie
-              data={data}
+              data={rows}
               dataKey={yKey}
               nameKey={xKey}
               cx="50%"
@@ -120,7 +138,7 @@ export function Chart({
               paddingAngle={2}
               stroke={resolveCssVar("var(--bg-0)")}
             >
-              {data.map((_, i) => (
+              {rows.map((_, i) => (
                 <Cell key={i} fill={resolvedPalette[i % resolvedPalette.length]} />
               ))}
             </Pie>

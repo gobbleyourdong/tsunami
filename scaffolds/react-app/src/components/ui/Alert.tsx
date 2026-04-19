@@ -8,6 +8,9 @@ interface AlertProps {
   title?: string
   children: ReactNode
   onDismiss?: () => void
+  dismissible?: boolean   // mantine/chakra spelling
+  dismissable?: boolean   // alt spelling drones reach for
+  icon?: ReactNode
   className?: string
 }
 
@@ -23,9 +26,10 @@ const ALIAS: Record<AlertKind, keyof typeof config> = {
   default: "info", destructive: "error",
 }
 
-export function Alert({ type, variant, title, children, onDismiss, className }: AlertProps) {
+export function Alert({ type, variant, title, children, onDismiss, dismissible, dismissable, icon, className }: AlertProps) {
   const kind = variant ?? type ?? "info"
   const c = config[ALIAS[kind]]
+  const showDismiss = (dismissible || dismissable || onDismiss) && (onDismiss ?? (() => {}))
   return (
     <div className={className} style={{
       display: 'flex', gap: 12, alignItems: 'flex-start',
@@ -37,19 +41,20 @@ export function Alert({ type, variant, title, children, onDismiss, className }: 
     }}>
       <span style={{
         width: 22, height: 22, borderRadius: '50%',
-        background: c.color, color: 'var(--bg-0, #08090d)',
+        background: icon ? 'transparent' : c.color,
+        color: icon ? c.color : 'var(--bg-0, #08090d)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 12, fontWeight: 700, flexShrink: 0, marginTop: 1,
       }}>
-        {c.icon}
+        {icon ?? c.icon}
       </span>
       <div style={{ flex: 1 }}>
         {title && <div style={{ fontWeight: 700, marginBottom: 2, color: c.color, fontSize: 'var(--text-sm, 0.875rem)' }}>{title}</div>}
         <div style={{ fontSize: 'var(--text-sm, 0.875rem)', color: 'var(--text, #e2e4e9)', lineHeight: 1.6 }}>{children}</div>
       </div>
-      {onDismiss && (
+      {showDismiss && (
         <button
-          onClick={onDismiss}
+          onClick={onDismiss ?? (() => {})}
           aria-label="Dismiss"
           style={{
             background: 'none', border: 'none', color: 'var(--text-dim, #4a4f5e)',

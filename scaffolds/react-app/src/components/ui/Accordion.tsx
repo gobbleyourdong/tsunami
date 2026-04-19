@@ -8,14 +8,24 @@ interface AccordionItem {
 interface AccordionProps {
   items: AccordionItem[]
   multiple?: boolean
+  type?: "single" | "multiple"  // shadcn/radix convention
+  defaultOpen?: number | number[]
+  collapsible?: boolean
 }
 
-export function Accordion({ items, multiple = false }: AccordionProps) {
-  const [open, setOpen] = useState<Set<number>>(new Set())
+export function Accordion({ items, multiple = false, type, defaultOpen, collapsible = true }: AccordionProps) {
+  const allowMultiple = type ? type === "multiple" : multiple
+  const initial = (() => {
+    if (defaultOpen == null) return new Set<number>()
+    if (Array.isArray(defaultOpen)) return new Set<number>(defaultOpen)
+    return new Set<number>([defaultOpen])
+  })()
+  const [open, setOpen] = useState<Set<number>>(initial)
+  void collapsible
 
   const toggle = (i: number) => {
     setOpen(prev => {
-      const next = new Set(multiple ? prev : [])
+      const next = new Set(allowMultiple ? prev : [])
       if (prev.has(i)) next.delete(i); else next.add(i)
       return next
     })

@@ -8,10 +8,13 @@ interface CalendarEvent {
 
 interface CalendarProps {
   value?: Date
+  selected?: Date  // shadcn alias
   onChange?: (date: Date) => void
+  onSelect?: (date: Date) => void  // shadcn alias
   events?: CalendarEvent[]
   rangeStart?: Date
   rangeEnd?: Date
+  mode?: "single" | "range" | "multiple"
 }
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
@@ -29,10 +32,13 @@ function formatDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function Calendar({ value, onChange, events = [], rangeStart, rangeEnd }: CalendarProps) {
+export function Calendar({ value, selected, onChange, onSelect, events = [], rangeStart, rangeEnd, mode }: CalendarProps) {
+  void mode
+  const current = value ?? selected
+  const handler = onChange ?? onSelect
   const today = new Date()
-  const [viewYear, setViewYear] = useState(value?.getFullYear() ?? today.getFullYear())
-  const [viewMonth, setViewMonth] = useState(value?.getMonth() ?? today.getMonth())
+  const [viewYear, setViewYear] = useState(current?.getFullYear() ?? today.getFullYear())
+  const [viewMonth, setViewMonth] = useState(current?.getMonth() ?? today.getMonth())
 
   const daysInMonth = getDaysInMonth(viewYear, viewMonth)
   const firstDay = getFirstDayOfMonth(viewYear, viewMonth)
@@ -89,14 +95,14 @@ export function Calendar({ value, onChange, events = [], rangeStart, rangeEnd }:
           const date = new Date(viewYear, viewMonth, day)
           const dateStr = formatDate(date)
           const isToday = dateStr === formatDate(today)
-          const isSelected = value && dateStr === formatDate(value)
+          const isSelected = current && dateStr === formatDate(current)
           const inRange = isInRange(date)
           const dayEvents = eventMap[dateStr] || []
 
           return (
             <div
               key={i}
-              onClick={() => onChange?.(date)}
+              onClick={() => handler?.(date)}
               style={{
                 textAlign: 'center', padding: '6px 2px', cursor: 'pointer',
                 borderRadius: 6, fontSize: 13, position: 'relative',

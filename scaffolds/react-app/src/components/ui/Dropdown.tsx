@@ -10,11 +10,13 @@ interface DropdownItem {
 
 interface DropdownProps {
   trigger: ReactNode
-  items: DropdownItem[]
+  items?: DropdownItem[]
+  options?: DropdownItem[]  // alias drones reach for
   align?: "left" | "right"
 }
 
-export function Dropdown({ trigger, items, align = "right" }: DropdownProps) {
+export function Dropdown({ trigger, items, options, align = "right" }: DropdownProps) {
+  const list = items ?? options ?? []
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -43,7 +45,7 @@ export function Dropdown({ trigger, items, align = "right" }: DropdownProps) {
           boxShadow: '0 12px 40px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3)',
           animation: 'scale-in 200ms cubic-bezier(0.22, 1.2, 0.36, 1)',
         }}>
-          {items.map((item, i) =>
+          {list.map((item, i) =>
             item.divider ? (
               <div key={i} style={{ height: 1, background: 'var(--border, rgba(255,255,255,0.06))', margin: '4px 0' }} />
             ) : (

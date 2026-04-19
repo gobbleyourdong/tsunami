@@ -1,7 +1,8 @@
 import React from "react"
 
-interface ScrollAreaProps extends React.HTMLAttributes<HTMLDivElement> {
+interface ScrollAreaProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "height"> {
   maxHeight?: string | number
+  height?: string | number  // alias drones reach for
   orientation?: "vertical" | "horizontal" | "both"
 }
 
@@ -10,13 +11,15 @@ interface ScrollAreaProps extends React.HTMLAttributes<HTMLDivElement> {
  * system (see ::-webkit-scrollbar rules in index.css). shadcn/Radix convention.
  */
 export function ScrollArea({
-  maxHeight = 400,
+  maxHeight,
+  height,
   orientation = "vertical",
   className = "",
   style,
   children,
   ...props
 }: ScrollAreaProps) {
+  const cap = maxHeight ?? height ?? 400
   const overflow =
     orientation === "horizontal"
       ? { overflowX: "auto" as const, overflowY: "hidden" as const }
@@ -28,7 +31,7 @@ export function ScrollArea({
     <div
       className={className}
       style={{
-        maxHeight,
+        maxHeight: cap,
         ...overflow,
         scrollbarWidth: "thin",
         scrollbarColor: "var(--bg-4) transparent",

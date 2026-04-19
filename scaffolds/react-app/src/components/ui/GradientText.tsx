@@ -9,10 +9,12 @@ interface GradientTextProps {
   style?: React.CSSProperties
   className?: string
   as?: ElementType
-  size?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl" | "6xl"
+  size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl" | "6xl" | "7xl" | "8xl" | "9xl"
+  [key: string]: any
 }
 
 const GT_SIZE: Record<NonNullable<GradientTextProps["size"]>, string> = {
+  xs: "text-xs",
   sm: "text-sm",
   md: "text-base",
   lg: "text-lg",
@@ -22,6 +24,9 @@ const GT_SIZE: Record<NonNullable<GradientTextProps["size"]>, string> = {
   "4xl": "text-4xl",
   "5xl": "text-5xl",
   "6xl": "text-6xl",
+  "7xl": "text-7xl",
+  "8xl": "text-8xl",
+  "9xl": "text-9xl",
 }
 
 export function GradientText({
@@ -34,6 +39,7 @@ export function GradientText({
   className = "",
   as,
   size,
+  ...rest
 }: GradientTextProps) {
   const Tag = (as ?? "span") as any
   const sizeCls = size ? GT_SIZE[size] : ""
@@ -43,7 +49,7 @@ export function GradientText({
     : `linear-gradient(90deg, ${from}, ${to})`
 
   return (
-    <Tag className={cls} style={{
+    <Tag {...rest} className={cls} style={{
       background: animate ? `linear-gradient(90deg, ${from}, ${to}, ${from})` : gradient,
       backgroundSize: animate ? '200% auto' : 'auto',
       WebkitBackgroundClip: 'text',

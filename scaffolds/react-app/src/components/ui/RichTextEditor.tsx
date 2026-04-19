@@ -2,9 +2,11 @@ import { useState, useRef, useCallback } from "react"
 
 interface RichTextEditorProps {
   value?: string
+  defaultValue?: string  // uncontrolled-mode initial HTML
   onChange?: (html: string) => void
   placeholder?: string
   minHeight?: number
+  className?: string
 }
 
 const TOOLBAR_BUTTONS = [
@@ -20,7 +22,8 @@ const TOOLBAR_BUTTONS = [
   { cmd: "removeFormat", icon: "✕", title: "Clear formatting" },
 ] as const
 
-export function RichTextEditor({ value = "", onChange, placeholder = "Start typing...", minHeight = 200 }: RichTextEditorProps) {
+export function RichTextEditor({ value, defaultValue, onChange, placeholder = "Start typing...", minHeight = 200, className }: RichTextEditorProps) {
+  void value; void defaultValue
   const editorRef = useRef<HTMLDivElement>(null)
   const [focused, setFocused] = useState(false)
 
@@ -43,7 +46,7 @@ export function RichTextEditor({ value = "", onChange, placeholder = "Start typi
   // For untrusted external content, sanitize with DOMPurify first.
 
   return (
-    <div style={{
+    <div className={className} style={{
       border: `1px solid ${focused ? 'var(--accent, #4a9eff)' : 'var(--border, rgba(255,255,255,0.08))'}`,
       borderRadius: 'var(--radius-md, 8px)',
       overflow: 'hidden',

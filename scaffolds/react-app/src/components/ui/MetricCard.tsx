@@ -1,9 +1,12 @@
 import React from "react"
 
 interface MetricCardProps {
-  label: string
+  label?: string
+  title?: string  // alias for label
   value: React.ReactNode
   delta?: number
+  change?: number  // alias for delta
+  trend?: "up" | "down" | "neutral" | "flat"
   deltaLabel?: string
   prefix?: string
   suffix?: string
@@ -22,8 +25,11 @@ function formatDelta(n: number): string {
 
 export function MetricCard({
   label,
+  title,
   value,
   delta,
+  change,
+  trend,
   deltaLabel,
   prefix = "",
   suffix = "",
@@ -33,9 +39,13 @@ export function MetricCard({
   className = "",
   style,
 }: MetricCardProps) {
-  const hasDelta = typeof delta === "number" && !Number.isNaN(delta)
-  const rising = hasDelta && delta! > 0
-  const falling = hasDelta && delta! < 0
+  const heading = label ?? title ?? ""
+  const d = delta ?? change
+  const trendDelta = trend === "up" ? 1 : trend === "down" ? -1 : trend === "neutral" || trend === "flat" ? 0 : undefined
+  const effective = d ?? trendDelta
+  const hasDelta = typeof effective === "number" && !Number.isNaN(effective)
+  const rising = hasDelta && effective! > 0
+  const falling = hasDelta && effective! < 0
   const good = invertDelta ? falling : rising
   const bad = invertDelta ? rising : falling
   const arrow = rising ? "↑" : falling ? "↓" : "→"
@@ -75,7 +85,7 @@ export function MetricCard({
             letterSpacing: "0.06em",
           }}
         >
-          {label}
+          {heading}
         </span>
         {icon && <span style={{ color: "var(--text-muted)", display: "inline-flex" }}>{icon}</span>}
       </div>
@@ -113,7 +123,7 @@ export function MetricCard({
               }}
             >
               <span aria-hidden>{arrow}</span>
-              {formatDelta(delta!)}
+              {formatDelta(effective!)}
               {suffix === "%" ? "" : ""}
               {deltaLabel && (
                 <span style={{ color: "var(--text-muted)", fontWeight: 500, marginLeft: 4 }}>

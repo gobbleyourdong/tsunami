@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react"
 
 interface AnnouncementBarProps {
-  text: string
+  text?: string
+  message?: string  // alias drones reach for
   link?: { text: string; href: string }
   countdownTo?: string  // ISO date for countdown
   dismissable?: boolean
+  dismissible?: boolean
   variant?: "default" | "urgent" | "promo"
 }
 
 /** Sticky announcement bar with optional countdown + dismiss. */
-export function AnnouncementBar({ text, link, countdownTo, dismissable = true, variant = "default" }: AnnouncementBarProps) {
+export function AnnouncementBar({ text, message, link, countdownTo, dismissable, dismissible, variant = "default" }: AnnouncementBarProps) {
+  const body = text ?? message ?? ""
+  const allowDismiss = dismissable ?? dismissible ?? true
   const [dismissed, setDismissed] = useState(false)
   const [countdown, setCountdown] = useState("")
 
@@ -36,10 +40,10 @@ export function AnnouncementBar({ text, link, countdownTo, dismissable = true, v
 
   return (
     <div style={{ width: "100%", background: bg, color: "#fff", fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "8px 16px", position: "relative", zIndex: 60 }}>
-      <span>{text}</span>
+      <span>{body}</span>
       {countdown && <span style={{ fontWeight: 700, background: "rgba(255,255,255,0.2)", padding: "2px 8px", borderRadius: 4, fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{countdown}</span>}
       {link && <a href={link.href} style={{ color: "#fff", fontWeight: 700, textDecoration: "underline" }}>{link.text}</a>}
-      {dismissable && <button onClick={() => setDismissed(true)} style={{ position: "absolute", right: 12, background: "none", border: "none", color: "#fff", cursor: "pointer", opacity: 0.6, fontSize: 16 }}>×</button>}
+      {allowDismiss && <button onClick={() => setDismissed(true)} style={{ position: "absolute", right: 12, background: "none", border: "none", color: "#fff", cursor: "pointer", opacity: 0.6, fontSize: 16 }}>×</button>}
     </div>
   )
 }
