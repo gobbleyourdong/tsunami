@@ -64,6 +64,11 @@ class LoopGuard:
         # the full-args fingerprint differs. AURUM v22/v24 stuck on
         # models/{gt,r,x,one}.png for 10+ iters cycling color-schemes.
         self.gen_counts: dict[str, int] = {}
+        # Recent generate_image prompts (lowercased, stripped) for
+        # prompt-literalism detection: drone pastes the same brand-brief
+        # template body verbatim for different models instead of filling
+        # in the <subject> placeholder with per-asset descriptors.
+        self._recent_gen_prompts: list[str] = []
 
     def record(self, tool_name: str, args: dict, made_progress: bool):
         """Record a tool call."""
@@ -75,6 +80,16 @@ class LoopGuard:
             save_path = str(args.get("save_path", "")).strip()
             if save_path:
                 self.gen_counts[save_path] = self.gen_counts.get(save_path, 0) + 1
+            # Normalize for literal-identity compare — strip whitespace
+            # and lowercase so "Sleek..." / "sleek...  " both land as
+            # the same prompt.
+            prompt = str(args.get("prompt", "")).strip().lower()
+            self._recent_gen_prompts.append(prompt)
+            # Bound history so old iters don't linger
+            if len(self._recent_gen_prompts) > 16:
+                self._recent_gen_prompts = self._recent_gen_prompts[-16:]
+        else:
+            self._recent_gen_prompts.append("")
 
     def check(self) -> LoopDetection:
         """Check for loop patterns. Returns detection result."""
@@ -104,6 +119,33 @@ class LoopGuard:
                         description=f"generate_image({path!r}) re-run {count}x — drone stuck on one asset",
                         forced_action="file_write",
                     )
+
+        # Prompt-literalism: drone uses the SAME generate_image prompt
+        # across distinct save_paths (brand-brief template literal-
+        # substitution failure). E.g. "sleek electric hypercar photographed
+        # coast cliff..." passed 7x for gt/r/x/one + re-gens. Save_paths
+        # differ so fingerprints differ and the classic checks above miss.
+        # Track last-K prompts; fire if 4+ of the last 5 are literal
+        # string-identical. Drone should substitute <subject> with
+        # model-specific descriptors ("grand touring hypercar GT with
+        # long hood...") not reuse the template verbatim.
+        if (len(self.fingerprints) >= SOFT_LOOP_THRESHOLD
+                and all(t == "generate_image"
+                        for t in self.tool_names[-SOFT_LOOP_THRESHOLD:])):
+            last_prompts = [p for p in self._recent_gen_prompts[-SOFT_LOOP_THRESHOLD:]
+                            if p]
+            if last_prompts and last_prompts.count(last_prompts[-1]) >= SOFT_LOOP_THRESHOLD - 1:
+                return LoopDetection(
+                    detected=True,
+                    loop_type="hard",
+                    description=(
+                        f"generate_image prompt identical {SOFT_LOOP_THRESHOLD - 1}+ "
+                        f"times across different save_paths — drone is pasting "
+                        f"the brand-brief template without substituting per-asset "
+                        f"descriptors"
+                    ),
+                    forced_action="file_write",
+                )
 
         # Soft loop: same tool type 5x in a row
         if len(self.tool_names) >= SOFT_LOOP_THRESHOLD:
