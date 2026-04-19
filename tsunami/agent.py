@@ -507,6 +507,35 @@ class Agent:
             result = await init_tool.execute(name=project_name, prompt=user_message)
             if not result.is_error:
                 log.info(f"Pre-scaffold: provisioned '{project_name}'")
+                # User-supplied image passthrough: if the user dropped
+                # files in ~/.tsunami/inputs/<project_name>/ before
+                # kicking, copy that tree OVER the scaffold's public/
+                # and src/ (recursive overwrite). The generate_image
+                # tool has a matching passthrough that detects the
+                # file and skips the ERNIE call, so the drone still
+                # issues generate_image tool calls and sees success,
+                # but the user's real imagery is what lands in dist/.
+                try:
+                    import shutil as _sh
+                    inputs_src = Path.home() / ".tsunami" / "inputs" / project_name
+                    if inputs_src.is_dir():
+                        project_path = Path(self.config.workspace_dir) / "deliverables" / project_name
+                        overlaid = 0
+                        for src_file in inputs_src.rglob("*"):
+                            if not src_file.is_file():
+                                continue
+                            rel = src_file.relative_to(inputs_src)
+                            dst = project_path / rel
+                            dst.parent.mkdir(parents=True, exist_ok=True)
+                            _sh.copy2(src_file, dst)
+                            overlaid += 1
+                        if overlaid:
+                            log.info(
+                                f"Pre-scaffold: overlaid {overlaid} user-supplied "
+                                f"file(s) from {inputs_src}"
+                            )
+                except Exception as _ups:
+                    log.debug(f"User-supplied overlay skipped: {_ups}")
                 # Record the scaffold in tool history so eval harnesses
                 # see project_init as "used" even though the system (not
                 # the model) invoked it. Without this the eval's tool-
@@ -617,8 +646,10 @@ class Agent:
                 if dist_html.is_file():
                     try:
                         from .vision_gate import vision_check
+                        from . import target_layout as _tl
                         task_text = self.state.conversation[1].content[:200] if len(self.state.conversation) > 1 else ""
-                        vcheck = await vision_check(dist_html, task_text)
+                        _tgt = _tl.target_path(project_dir)
+                        vcheck = await vision_check(dist_html, task_text, target_layout=_tgt)
                         if not vcheck["passed"] and vcheck["issues"]:
                             vision_fails = getattr(self, "_vision_fail_count", 0) + 1
                             self._vision_fail_count = vision_fails
@@ -1349,6 +1380,8 @@ class Agent:
         # brief is explicit, otherwise randomized across styles that
         # apply to the target scaffold. Env TSUNAMI_STYLE forces one.
         style_directive = ""
+        style_name = ""
+        style_body = ""
         if not existing_context:
             try:
                 from .style_scaffolds import pick_style, format_style_directive
@@ -1365,9 +1398,41 @@ class Agent:
             except Exception as _se:
                 log.debug(f"Style injection skipped: {_se}")
 
+        # Target-layout generation — opt-in via TSUNAMI_TARGET_LAYOUT=1.
+        # Produces a full-page ERNIE mockup the drone aims to match; the
+        # path gets appended to the style directive so the drone sees it
+        # alongside palette/typography/motion doctrine. User can drop a
+        # pre-made Figma export at deliverables/<project>/.tsunami/
+        # target_layout.png (or ~/.tsunami/inputs/<project>/.tsunami/
+        # target_layout.png for the passthrough flow) to override.
+        layout_directive = ""
+        if not existing_context and self.active_project:
+            try:
+                from . import target_layout as _tl
+                if _tl.is_enabled():
+                    _project_dir = (
+                        Path(self.config.workspace_dir) / "deliverables" / self.active_project
+                    )
+                    # Extract mood hint from style body for the ERNIE prompt
+                    _mood = ""
+                    if style_body:
+                        _mm = re.search(r"^mood:\s*(.+?)\s*$", style_body, re.MULTILINE)
+                        if _mm:
+                            _mood = _mm.group(1)
+                    _layout_path = await _tl.generate_target_layout(
+                        _project_dir, user_message, style_name=style_name, style_mood=_mood
+                    )
+                    if _layout_path:
+                        layout_directive = _tl.format_layout_directive(_layout_path)
+                        log.info(f"Target layout ready: {_layout_path}")
+            except Exception as _tle:
+                log.debug(f"Target layout generation skipped: {_tle}")
+
         context_parts = [effective_message]
         if style_directive:
             context_parts.append(style_directive)
+        if layout_directive:
+            context_parts.append(layout_directive)
         if existing_context:
             context_parts.append(existing_context)
         if scaffold_context:
@@ -2089,8 +2154,10 @@ class Agent:
                                 continue
                             try:
                                 from .vision_gate import vision_check
+                                from . import target_layout as _tl
                                 task_text = self.state.conversation[1].content[:200] if len(self.state.conversation) > 1 else ""
-                                vcheck = await vision_check(dist_html, task_text)
+                                _tgt = _tl.target_path(proj)
+                                vcheck = await vision_check(dist_html, task_text, target_layout=_tgt)
                                 if not vcheck["passed"] and vcheck["issues"]:
                                     vf = getattr(self, "_vision_fail_count", 0) + 1
                                     self._vision_fail_count = vf
@@ -4208,7 +4275,9 @@ class Agent:
                         break
                     try:
                         from .vision_gate import vision_check
-                        vcheck = await vision_check(dist_html, task_text)
+                        from . import target_layout as _tl
+                        _tgt = _tl.target_path(proj)
+                        vcheck = await vision_check(dist_html, task_text, target_layout=_tgt)
                         if not vcheck["passed"] and vcheck["issues"]:
                             vf = getattr(self, "_vision_fail_count", 0) + 1
                             self._vision_fail_count = vf

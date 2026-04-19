@@ -84,48 +84,112 @@ async def _screenshot_html(html_path: Path) -> bytes | None:
 
 async def vision_check(dist_html: Path, task: str,
                        endpoint: str = "http://localhost:8090",
-                       timeout_s: int = 40) -> dict:
+                       timeout_s: int = 40,
+                       target_layout: Path | None = None) -> dict:
     """Stage-4 vision gate. Returns {passed: bool, issues: str, raw: str}.
 
     `passed=True` means no visual issues OR the gate was unavailable
     (fall-through). On explicit issues flagged by the VLM, `passed=False`
     and `issues` holds the drone-facing feedback string.
+
+    When `target_layout` is provided, the gate runs in reference-match
+    mode: VLM gets the built screenshot AND the target image, compares
+    structure/palette/typography, and fails if the built page doesn't
+    read as the same family of design. Otherwise, open-ended QA.
     """
     png = await _screenshot_html(dist_html)
     if png is None:
         return {"passed": True, "issues": "", "raw": "(screenshot unavailable — skip)"}
 
     b64 = base64.b64encode(png).decode()
-    messages = [
-        {"role": "system", "content":
-            "You are a visual QA reviewer for a STATIC screenshot of a React app. "
-            "You can ONLY judge what a screenshot shows: visible elements, layout, "
-            "typography, color, spacing, completeness of the rendered UI. You CANNOT "
-            "judge interactivity (whether buttons click, whether timers run, whether "
-            "typing works) — those are tested separately by unit tests. Judge only "
-            "the visual/structural presentation.\n\n"
-            "Fail criteria (be strict — delivery is blocked on fail):\n"
-            "  - Blank or mostly-blank page\n"
-            "  - Missing major UI elements the task requires (e.g. task asks for 3 buttons and you see 0)\n"
-            "  - Placeholder text like 'TODO' or 'Loading...' as the primary content\n"
-            "  - Layout breakage: overlapping elements, off-screen content, broken z-order\n"
-            "  - Text CLIPPED by its container — any letter cut off at a border, ellipsis where there shouldn't be, words shortened because the parent is too narrow\n"
-            "  - DUPLICATED content that should appear once — the same value/label shown twice (e.g. '25:00' rendered both top-right and center), mirrored controls, redundant pills/badges\n"
-            "  - Inconsistent typography on the same line (mixed font families, mismatched weights where the design calls for uniform)\n"
-            "  - Color hierarchy that obscures meaning (e.g. primary action the same hue as disabled state)\n"
-            "Pass criteria: task-relevant elements are visible, no clipping, no duplicates, consistent style.\n\n"
-            "Respond in this exact format:\nVERDICT: pass | fail\nISSUES: <one-line-per-issue, or 'none'>"
-        },
-        {"role": "user", "content": [
-            {"type": "text", "text":
-                f"Task the app was built for: {task}\n\n"
-                f"Judge the visual presentation in this static screenshot. "
-                f"Don't judge interactivity — unit tests already cover that."
+
+    # Reference-match mode: build a two-image message and tighten the
+    # system prompt to comparison criteria.
+    target_png: bytes | None = None
+    if target_layout is not None:
+        try:
+            if target_layout.is_file() and target_layout.stat().st_size > 1024:
+                target_png = target_layout.read_bytes()
+        except Exception as _te:
+            log.debug(f"target_layout read failed: {_te}")
+
+    if target_png is not None:
+        tb64 = base64.b64encode(target_png).decode()
+        messages = [
+            {"role": "system", "content":
+                "You are a visual QA reviewer comparing a BUILT React page "
+                "against a TARGET LAYOUT reference. Two images follow: the "
+                "first is the target (the intended design), the second is "
+                "the built page screenshot.\n\n"
+                "Judge match on four axes:\n"
+                "  1. Composition — nav placement, hero proportions, section "
+                "ordering, footer presence. Rough structural agreement.\n"
+                "  2. Palette — base surface (light/neutral/dark), text "
+                "color, accent color family. Not pixel-identical — same "
+                "family.\n"
+                "  3. Typography — serif vs sans display, weight, density. "
+                "Built page and target should read as the same typographic "
+                "voice.\n"
+                "  4. Spacing rhythm — gutter scale, section air, content "
+                "density. Tight vs generous should match.\n\n"
+                "Ignore: exact pixel colors, specific image content, minor "
+                "copy differences. The target is a mockup, not a spec.\n\n"
+                "Fail criteria:\n"
+                "  - Built page is blank / unfinished / scaffold stub\n"
+                "  - Major composition mismatch (target has hero+nav+3 "
+                "sections+footer; built page has just a centered card)\n"
+                "  - Mode mismatch (target light, built dark — or vice versa)\n"
+                "  - Placeholder text ('TODO', 'Loading...') in built page\n"
+                "  - Broken / clipped layout regardless of target\n\n"
+                "Respond in this exact format:\n"
+                "VERDICT: pass | fail\n"
+                "ISSUES: <one-line-per-issue, or 'none'>"
             },
-            {"type": "image_url",
-             "image_url": {"url": f"data:image/png;base64,{b64}"}},
-        ]},
-    ]
+            {"role": "user", "content": [
+                {"type": "text", "text":
+                    f"Task: {task}\n\n"
+                    f"TARGET (first image): the intended design for this build.\n"
+                    f"BUILT (second image): what the drone delivered.\n\n"
+                    f"Compare them on composition, palette, typography, spacing. "
+                    f"Flag structural / mode / completeness mismatches only."
+                },
+                {"type": "image_url",
+                 "image_url": {"url": f"data:image/png;base64,{tb64}"}},
+                {"type": "image_url",
+                 "image_url": {"url": f"data:image/png;base64,{b64}"}},
+            ]},
+        ]
+    else:
+        messages = [
+            {"role": "system", "content":
+                "You are a visual QA reviewer for a STATIC screenshot of a React app. "
+                "You can ONLY judge what a screenshot shows: visible elements, layout, "
+                "typography, color, spacing, completeness of the rendered UI. You CANNOT "
+                "judge interactivity (whether buttons click, whether timers run, whether "
+                "typing works) — those are tested separately by unit tests. Judge only "
+                "the visual/structural presentation.\n\n"
+                "Fail criteria (be strict — delivery is blocked on fail):\n"
+                "  - Blank or mostly-blank page\n"
+                "  - Missing major UI elements the task requires (e.g. task asks for 3 buttons and you see 0)\n"
+                "  - Placeholder text like 'TODO' or 'Loading...' as the primary content\n"
+                "  - Layout breakage: overlapping elements, off-screen content, broken z-order\n"
+                "  - Text CLIPPED by its container — any letter cut off at a border, ellipsis where there shouldn't be, words shortened because the parent is too narrow\n"
+                "  - DUPLICATED content that should appear once — the same value/label shown twice (e.g. '25:00' rendered both top-right and center), mirrored controls, redundant pills/badges\n"
+                "  - Inconsistent typography on the same line (mixed font families, mismatched weights where the design calls for uniform)\n"
+                "  - Color hierarchy that obscures meaning (e.g. primary action the same hue as disabled state)\n"
+                "Pass criteria: task-relevant elements are visible, no clipping, no duplicates, consistent style.\n\n"
+                "Respond in this exact format:\nVERDICT: pass | fail\nISSUES: <one-line-per-issue, or 'none'>"
+            },
+            {"role": "user", "content": [
+                {"type": "text", "text":
+                    f"Task the app was built for: {task}\n\n"
+                    f"Judge the visual presentation in this static screenshot. "
+                    f"Don't judge interactivity — unit tests already cover that."
+                },
+                {"type": "image_url",
+                 "image_url": {"url": f"data:image/png;base64,{b64}"}},
+            ]},
+        ]
     try:
         async with httpx.AsyncClient(timeout=timeout_s) as client:
             r = await client.post(
