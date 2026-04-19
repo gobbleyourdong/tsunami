@@ -1867,11 +1867,14 @@ class Agent:
         # loop detection with a forced_action, apply it here. system_note
         # alone is ignored by the drone when it's stuck in a comfortable
         # tool (generate_image in v13); force_tool makes the schema
-        # literally exclude everything else. One-shot — cleared after use.
+        # literally exclude everything else. We hold the force across
+        # iters until the drone ACTUALLY emits the forced tool (or
+        # message_result to bail) — one-shot gets bypassed when the
+        # drone emits text-mode tool calls that don't match, since the
+        # reject doesn't consume the forced_tool flag by itself.
         _pending_force = getattr(self, "_loop_forced_tool", None)
         if _pending_force:
             force_tool = _pending_force
-            self._loop_forced_tool = None
             log.warning(f"Loop-guard force: next tool constrained to {force_tool}")
 
         # Replicator grounding-gate: wave runs generate_image + riptide
@@ -3009,6 +3012,14 @@ class Agent:
         # Invalidate cache after any write operation
         if tool_call.name in ("file_write", "file_edit", "file_append", "shell_exec"):
             self.tool_dedup.invalidate_on_write()
+        # Loop-guard force cleanup: if the drone successfully emitted
+        # the tool we were forcing (or message_result as a bailout),
+        # clear the persistent force so normal schemas resume.
+        _pf = getattr(self, "_loop_forced_tool", None)
+        if _pf and not result.is_error and tool_call.name in (_pf, "message_result"):
+            self._loop_forced_tool = None
+            log.info(f"Loop-guard force satisfied: {tool_call.name} matched {_pf}")
+
         # Flip the write-first gate: once the drone commits a successful
         # file_write or file_edit to a real source entry (src/App.tsx,
         # src/main.ts, src/main.tsx, or a .ts/.tsx under src/), file_read
