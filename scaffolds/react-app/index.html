@@ -4,7 +4,16 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>App</title>
-  <style>* { margin: 0; padding: 0; box-sizing: border-box; }</style>
+  <style>
+    /* Pre-Tailwind reset — box-sizing + body margin only. A universal
+       `* { padding: 0 }` here silently zeroed every Tailwind px-* /
+       py-* / m* utility regardless of specificity because inline
+       <style> rules beat @layer utilities. PIKO v5 shipped with all
+       container paddings lost and content hugging the viewport edge
+       because of this. */
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; }
+  </style>
 </head>
 <body>
   <div id="root"></div>

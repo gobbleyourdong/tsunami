@@ -76,7 +76,17 @@
 }
 
 /* ── Reset ──────────────────────────────────────────────────────────── */
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+/* Simple box-sizing reset at the base layer — padding/margin
+   reset LIVES IN index.html's inline <style> for body only.
+   We don't zero margin/padding globally anymore; Tailwind's
+   @layer base (Preflight) already normalizes element defaults
+   and zeroing everything un-scoped blows away every utility
+   class's contribution. */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+}
 
 html {
   scroll-behavior: smooth;
