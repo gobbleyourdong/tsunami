@@ -1438,6 +1438,29 @@ class Agent:
             except Exception as _se:
                 log.debug(f"Style injection skipped: {_se}")
 
+        # Brand-brief injection — concrete per-asset prompt templates with
+        # visual-metaphor language (not "wordmark BRANDNAME in serif" which
+        # ERNIE renders as literal text). Deterministic from the task text
+        # via industry-keyword routing; writes a per-run brief to
+        # <project>/.tsunami/brand_brief.json for audit. No extra LLM call.
+        brand_directive = ""
+        if not existing_context and self.active_project:
+            try:
+                from . import brand_scaffold as _bs
+                _brief = _bs.generate_brand_brief(user_message, style_name=style_name)
+                if _brief.get("brand_name"):
+                    _project_dir = (
+                        Path(self.config.workspace_dir) / "deliverables" / self.active_project
+                    )
+                    _bs.write_brief_file(_brief, _project_dir)
+                    brand_directive = _bs.format_brand_directive(_brief)
+                    log.info(
+                        f"Brand brief: {_brief['brand_name']} / "
+                        f"symbol={_brief['symbol_concept'][:50]!r}"
+                    )
+            except Exception as _be:
+                log.debug(f"Brand brief skipped: {_be}")
+
         # Target-layout generation — opt-in via TSUNAMI_TARGET_LAYOUT=1.
         # Produces a full-page ERNIE mockup the drone aims to match; the
         # path gets appended to the style directive so the drone sees it
@@ -1471,6 +1494,8 @@ class Agent:
         context_parts = [effective_message]
         if style_directive:
             context_parts.append(style_directive)
+        if brand_directive:
+            context_parts.append(brand_directive)
         if layout_directive:
             context_parts.append(layout_directive)
         if existing_context:
