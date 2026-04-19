@@ -2136,13 +2136,17 @@ class Agent:
         # Detect via plan scaffold — gamedev plan has a Design section.
         if self.plan_manager.section("Design") is not None:
             opened.append("planning")  # holds emit_design, plan_update, plan_advance
-        # Open the assets toolbox (generate_image, search_web) whenever a
-        # deliverable is active. Drones need image generation for hero
-        # photos, sprite art, gallery content. Without this the task can
-        # say "use generate_image" and the drone has no way to invoke it.
+        # Open the assets toolbox (generate_image) whenever a deliverable
+        # is active. Drones need image generation for hero photos, sprite
+        # art, gallery content. `search` (match_glob/match_grep/summarize)
+        # is intentionally NOT opened here — AURUM v5 spiraled 10 iters
+        # calling summarize_file on every UI component before writing.
+        # scaffold.yaml is already inlined in the prompt; drones that
+        # trust it ship in 2-3 iters, drones that don't trust it wander.
+        # Removing the reconnaissance toys from the WRITE phase forces
+        # commit. RESEARCH phase still opens search for legit use.
         if self.active_project:
             opened.append("assets")
-            opened.append("search")  # match_grep + search_web for research
         # When force_tool is set, expose ONLY that tool's schema so
         # the model literally cannot emit anything else (Qwen3.6 is
         # flaky on tool_choice compliance even when set explicitly).
