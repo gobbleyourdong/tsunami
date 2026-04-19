@@ -6,7 +6,7 @@ model_backend: api
 model_name: "tsunami"
 model_endpoint: "http://localhost:8090"
 temperature: 0.8  # Middle ground: 1.0 sprawls (358-line → truncate → read spiral), 0.6 over-explores (pure read spiral, never writes). 0.8 keeps confidence to commit while reducing variance.
-max_tokens: 5120  # Gamedev main.ts hits 450+ lines in one write (frog+cars+logs+state+input+draw loop); 4096 truncated mid-expression. Gamedev prompt is smaller (~2-3K tok), so needed=5120+3000=8120 still fits bucket 8192 (pre-captured). React replica prompts are ~5-6K tok so needed≈10K → bucket 16384 (cold first hit, slower). Worth the speed hit to avoid rewrites.
+max_tokens: 6144  # Multi-page SPAs (AURUM 3-page) hit 600+ lines, 5120 truncated mid-JSX. 6144 + 5K prompt = needed ~11K → bucket 16384 (now pre-captured at boot). Gamedev smaller prompts still fit bucket 8192 when output stays under ~3500 tok.
 
 # --- Eddies (same endpoint) ---
 eddy_endpoint: "http://localhost:8090"
