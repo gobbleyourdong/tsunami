@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, ReactNode } from "react"
 
 interface BeforeAfterProps {
   before?: string  // image URL
@@ -9,10 +9,11 @@ interface BeforeAfterProps {
   labelAfter?: string
   height?: number
   className?: string
+  children?: ReactNode
 }
 
 /** Drag slider to compare two images. */
-export function BeforeAfter({ before, after, beforeImage, afterImage, labelBefore, labelAfter, height = 400, className }: BeforeAfterProps) {
+export function BeforeAfter({ before, after, beforeImage, afterImage, labelBefore, labelAfter, height = 400, className, children }: BeforeAfterProps) {
   const beforeSrc = before ?? beforeImage ?? ""
   const afterSrc = after ?? afterImage ?? ""
   const [pos, setPos] = useState(50)
@@ -40,6 +41,7 @@ export function BeforeAfter({ before, after, beforeImage, afterImage, labelBefor
       <div style={{ position: "absolute", left: `${pos}%`, top: 0, bottom: 0, width: 3, background: "var(--accent)", transform: "translateX(-50%)" }}>
         <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#000", fontWeight: 700 }}>⇔</div>
       </div>
+      {children}
     </div>
   )
 }
