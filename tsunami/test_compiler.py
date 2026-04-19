@@ -55,11 +55,21 @@ class Behavior:
 def _parse_selector(sel: str) -> str:
     """Return an @testing-library call expression for the selector."""
     sel = sel.strip()
-    # [role=X name=/pat/]
+    # [role=X name=/pat/] — emit a permissive matcher that tries the
+    # accessibility-first path (getByRole+name, which matches aria-label
+    # AND text children) then falls back to getByText (plain visible
+    # text). Covers all drone patterns:
+    #   <button>Start</button>              → both match
+    #   <button aria-label="Start">         → getByRole+name matches
+    #   <div>Start</div> (no role)          → getByText matches
+    # The strict getByRole+name alone failed when drone used `name={...}`
+    # as an HTML attribute (not accessible); plain getByText failed when
+    # drone used aria-label with no text children. Try-both is robust.
     m = re.match(r"\[\s*role\s*=\s*([\w-]+)\s+name\s*=\s*/(.+?)/(\w*)\s*\]", sel)
     if m:
         role, pat, flags = m.group(1), m.group(2), m.group(3) or "i"
-        return f"screen.getByRole('{role}', {{name: /{pat}/{flags}}})"
+        return (f"(screen.queryByRole('{role}', {{name: /{pat}/{flags}}}) "
+                f"|| screen.getByText(/{pat}/{flags}))")
     # [role=X]
     m = re.match(r"\[\s*role\s*=\s*([\w-]+)\s*\]", sel)
     if m:

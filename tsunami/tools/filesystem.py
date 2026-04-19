@@ -680,13 +680,19 @@ class FileEdit(BaseTool):
                         f"{len(indent)} leading chars restored)"
                     )
 
-                # Show the model what's actually in the file so it can fix the find string
-                preview_lines = content.splitlines()[:30]
-                preview = "\n".join(f"  {i+1}: {l}" for i, l in enumerate(preview_lines))
+                # Drone can't file_read (blocked by drone schema). Show the
+                # FULL current file so it can craft a valid old_text next
+                # try — or just write the whole file fresh. Without the
+                # full view, drone flies blind and spirals on repeated
+                # mismatches. Cap at 500 lines to avoid runaway prompts.
+                all_lines = content.splitlines()
+                show = all_lines[:500]
+                preview = "\n".join(f"  {i+1}: {l}" for i, l in enumerate(show))
+                more = f"\n  ...({len(all_lines) - 500} more lines)" if len(all_lines) > 500 else ""
                 return ToolResult(
                     f"Text not found in {path}. Your find string doesn't match.\n"
                     f"TIP: Use file_write to rewrite the entire file instead of file_edit.\n"
-                    f"Current file (first 30 lines):\n{preview}",
+                    f"Current file:\n{preview}{more}",
                     is_error=True
                 )
             if count > 1:

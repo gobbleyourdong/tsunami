@@ -98,8 +98,13 @@ def _parse_sections_from_markdown(text: str) -> list[Section]:
     return sections
 
 
-# Domain keywords → scaffold name. First match wins.
+# Domain keywords → scaffold name. First match wins — more specific
+# domains listed before the generic build family.
 _DOMAIN_SIGNALS: list[tuple[tuple[str, ...], str]] = [
+    (("replica", "replicate", "mimic", "clone",
+      "styled as", "apple watch", "iphone ui", "watch face",
+      "inside of a game", "inside a game", "mini-game", "minigame",
+      "inside of", "embedded in"), "replicator"),
     (("build", "create", "make", "app", "dashboard", "website",
       "tracker", "game", "viewer", "editor", "timer"), "react-build"),
     (("research", "investigate", "what is", "find out", "how does",

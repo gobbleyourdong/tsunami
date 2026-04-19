@@ -57,10 +57,9 @@ hooks:
   useLocalStorage: export function useLocalStorage<T>(key: string, initial: T): [T, (val: T | ((prev: T) => T)) => void]
   useMediaQuery: export function useMediaQuery(query: string): boolean
 
-imports:  # copy verbatim — use RELATIVE paths, not @/ alias (alias has a known resolution bug)
-  # UI components: import { Button, Card, CardContent, Input, Progress, Flex, Heading, Text, Badge, Dialog, Switch, Tooltip } from "./components/ui"
-  # Hooks: import { useInterval, useLocalStorage, useDebounce } from "./hooks"
-  # NEVER use @/components/... — TypeScript TS2614 resolution issue. Use ./components/... relative paths.
+imports:  # both `@/components/ui` and `./components/ui` work — tsconfig paths + vite alias are wired.
+  # UI components: import { Button, Card, CardContent, Input, Progress, Flex, Heading, Text, Badge, Dialog, Switch, Tooltip } from "@/components/ui"
+  # Hooks: import { useInterval, useLocalStorage, useDebounce } from "@/hooks"
 
 usage_examples:  # literal JSX — copy the form, vary the values
   Heading: <Heading level={1} size="3xl">Title</Heading>   # level is a NUMBER, not string

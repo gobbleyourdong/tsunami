@@ -430,7 +430,7 @@ def _gpu_warmup_sync():
             # per-step KV bandwidth dominates on GB10 UMA. 4096 is the
             # highest pre-capture we want; larger prompts pay a one-time
             # re-capture on first hit.
-            for _bucket in (256, 512, 1024, 2048, 4096):
+            for _bucket in (256, 512, 1024, 2048, 4096, 8192):
                 _tg = _t.time()
                 # Prompt len is irrelevant for the capture (we just need
                 # the step graph); use a short prompt every time.

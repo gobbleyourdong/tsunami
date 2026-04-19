@@ -212,19 +212,54 @@ def build_edit_prompt(project_name: str, project_path: str, task: str,
     scaffold_yaml = _load_scaffold_params(project_path)
     scaffold_block = f"\nScaffold parameters (components + exact props — DO NOT hallucinate props not listed):\n```yaml\n{scaffold_yaml}\n```\n" if scaffold_yaml else ""
 
+    # Grounding data (replicator tasks): inline reference.md so drone
+    # doesn't need file_read. Drone matches bboxes into layout.css.
+    from pathlib import Path as _PR
+    _ref_md_path = _PR(project_path) / "src" / "reference.md"
+    grounding_block = ""
+    if _ref_md_path.is_file():
+        try:
+            _ref_md = _ref_md_path.read_text()
+            if len(_ref_md) < 3500:
+                grounding_block = (
+                    f"\nGrounding data (riptide bboxes for the reference UI — match these "
+                    f"percentages in layout.css; the outer shell positions are the watch/"
+                    f"device chrome):\n```\n{_ref_md}\n```\n"
+                )
+        except OSError:
+            pass
+
     # Behavioral tests checklist — the contract App.tsx must satisfy.
     # Tests already exist at src/App.test.tsx (auto-generated from this
     # list on project_init). `npm run build` runs vitest — every test
     # below must pass for delivery. Also inline the test file content so
     # the drone never needs to file_read it — the test is the contract
     # and it's right here.
+    # Rewrite selector syntax in the trigger/expect strings before showing
+    # to the drone. `[role=button name=/start/i]` is CSS-selector-like
+    # notation used by test_compiler — but drones parse `name=` as the HTML
+    # button attribute and write `<button name="start">`, which has no
+    # accessible name or visible text, so the test always fails. Human
+    # phrasing ("the 'Start' button") guides drones toward children text
+    # or aria-label, both of which satisfy the compiled matcher.
+    import re as _re_br
+    def _humanize(s: str) -> str:
+        s = _re_br.sub(r"\[\s*role\s*=\s*([\w-]+)\s+name\s*=\s*/([^/]+)/\w*\s*\]",
+                       lambda m: f"the '{m.group(2).split('|')[0]}' {m.group(1)}", s)
+        s = _re_br.sub(r"\[\s*role\s*=\s*([\w-]+)\s*\]", r"the \1", s)
+        s = _re_br.sub(r"\[\s*text\s*=\s*/([^/]+)/\w*\s*\]",
+                       lambda m: f"the text '{m.group(1)}'", s)
+        s = _re_br.sub(r"\[\s*text\s*=\s*['\"]([^'\"]+)['\"]\s*\]",
+                       lambda m: f"the text '{m.group(1)}'", s)
+        return s
+
     behaviors_block = ""
     if behaviors:
         lines = ["\nBehavioral tests (must all pass for delivery):"]
         for i, b in enumerate(behaviors, 1):
             trig = b.get("trigger", "") if isinstance(b, dict) else getattr(b, "trigger", "")
             exp = b.get("expect", "") if isinstance(b, dict) else getattr(b, "expect", "")
-            lines.append(f"  {i}. {trig}  →  {exp}")
+            lines.append(f"  {i}. {_humanize(trig)}  →  {_humanize(exp)}")
         # Inline the generated test file so drone doesn't file_read it
         from pathlib import Path as _P
         test_path = _P(project_path) / "src" / "App.test.tsx"

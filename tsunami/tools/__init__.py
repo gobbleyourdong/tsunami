@@ -108,10 +108,15 @@ class ToolRegistry:
         by only surfacing toolboxes currently relevant to the task.
         """
         if open_toolboxes is None:
-            return [t.schema() for t in self._tools.values()]
+            return [t.schema() for n, t in self._tools.items()
+                    if n not in _WAVE_ONLY_TOOLS]
         allowed: set[str] = set(_ALWAYS_TOOLS)
         for name in open_toolboxes:
             allowed.update(_TOOLBOXES.get(name, ()))
+        # Wave-only tools are never in any drone schema, even if a phase
+        # toolbox happens to include them. Treat the wave-only list as
+        # the authoritative floor.
+        allowed -= _WAVE_ONLY_TOOLS
         return [t.schema() for n, t in self._tools.items() if n in allowed]
 
 
@@ -119,10 +124,32 @@ class ToolRegistry:
 # iteration regardless of phase. Wave injects more via phase→toolbox
 # mapping (see _PHASE_TOOLBOXES below).
 _ALWAYS_TOOLS: tuple[str, ...] = (
-    "file_read", "file_write", "file_edit",
-    "shell_exec",
+    "file_write", "file_edit",
     "message_result",
+    # Minimal hand-tools. Drones working a scaffold need to change files
+    # and deliver — that's it. Everything else (file_read, shell_exec,
+    # match_grep) was letting the drone spiral on exploration/diagnosis
+    # when the wave already inlined the scaffold params, test source, and
+    # App.tsx stub into the system prompt. On build fail, the wave
+    # re-emits with the compile errors; drone rewrites. No reads needed.
+    # file_read returns via the "read" toolbox when a FIX/DIAGNOSE phase
+    # explicitly opens it.
 )
+
+
+# Wave-only tools — the orchestrator invokes these directly via
+# registry.get(). They never appear in any drone-facing schema. Putting
+# them here instead of in drone toolboxes is a strict allowlist: the
+# drone simply cannot see or emit them, no filtering needed.
+_WAVE_ONLY_TOOLS: frozenset[str] = frozenset({
+    "project_init",    # pre_scaffold invokes this
+    "generate_image",  # grounding gate invokes this
+    "search_web",      # grounding gate uses for reference images
+    "riptide",         # grounding gate uses for bbox extraction
+    "undertow",        # delivery gate uses for QA
+    "plan_update",     # wave maintains plan.md
+    "plan_advance",    # wave transitions plan sections
+})
 
 # Toolbox layout. Each toolbox name maps to a tuple of tool names.
 #
