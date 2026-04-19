@@ -106,6 +106,7 @@ These prevent the generic "AI slop" look that Manus/v0/the corpus all flag as a 
 - **All styles in the design system, not ad-hoc in components.** Build component classes in CSS, reference them in JSX. Never `style={{color: '#abc123', padding: '17px'}}` inline — that's how designs drift across pages.
 - **Mobile-first sizing.** Minimum touch target 44x44px for any interactive element. Inputs at least 16px font (smaller triggers iOS Safari zoom-on-focus). Start every layout in mobile viewport, scale up.
 - **Stay strictly in scope.** Don't add "nice-to-have" features the user didn't request. Counter app = counter. Landing page = hero + CTA. Gallery = the images. Over-delivery creates maintenance debt and rarely matches what the user actually wanted.
+- **Layout classes go on the wrapper, not a nested child.** `ScrollReveal`, `motion.div`, and other animation wrappers render a single outer `<div>`. When that outer div is a grid or flex child, the `col-span-*` / `flex-1` / `w-1/3` class MUST be on the wrapper itself — not on a `<div>` you nest inside it. Wrong: `<ScrollReveal><div className="col-span-5">…</div></ScrollReveal>` (ScrollReveal occupies 1 grid track by default, nested div is irrelevant). Right: `<ScrollReveal className="col-span-5">…</ScrollReveal>`. The same rule applies inside `<Flex>` children and any CSS grid parent. PIKO v5 Story section shipped with a collapsed-column layout because the span was on the nested div.
 
 ## Live data — use real APIs, not mocks
 
