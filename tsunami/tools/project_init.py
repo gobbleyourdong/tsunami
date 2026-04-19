@@ -132,8 +132,14 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         return False
 
     # 0a. Chrome extension
+    # Dropped "badge" — it's a generic web-UI idiom (notification dots,
+    # card labels, the @/components/ui Badge); it mis-routed the AURUM
+    # luxury-car brief (which names the Badge component multiple times)
+    # to chrome-extension. "popup" similarly can collide with modal
+    # popups on web apps; keep it only paired with explicit chrome
+    # signals via the multi-word "browser extension" / manifest guards.
     if needs("extension", "chrome", "browser extension", "addon", "manifest",
-             "content script", "popup", "badge"):
+             "content script", "popup.html"):
         if (SCAFFOLDS_DIR / "chrome-extension").exists():
             return "chrome-extension"
 
