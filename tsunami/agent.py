@@ -518,8 +518,18 @@ class Agent:
                 try:
                     import shutil as _sh
                     inputs_src = Path.home() / ".tsunami" / "inputs" / project_name
+                    project_path = Path(self.config.workspace_dir) / "deliverables" / project_name
+                    # Supplied-paths manifest: absolute paths of every file
+                    # the user dropped in via the inputs/ overlay. Written
+                    # to <project>/.tsunami/supplied.txt. generate_image's
+                    # passthrough reads this list and ONLY short-circuits
+                    # ERNIE on paths in it — so a drone re-calling
+                    # generate_image on its own previously-generated output
+                    # actually re-generates (v20 hit a feedback loop
+                    # where the passthrough silently dedup'd drone
+                    # regeneration attempts).
+                    supplied_paths: list[str] = []
                     if inputs_src.is_dir():
-                        project_path = Path(self.config.workspace_dir) / "deliverables" / project_name
                         overlaid = 0
                         for src_file in inputs_src.rglob("*"):
                             if not src_file.is_file():
@@ -528,12 +538,20 @@ class Agent:
                             dst = project_path / rel
                             dst.parent.mkdir(parents=True, exist_ok=True)
                             _sh.copy2(src_file, dst)
+                            supplied_paths.append(str(dst.resolve()))
                             overlaid += 1
                         if overlaid:
                             log.info(
                                 f"Pre-scaffold: overlaid {overlaid} user-supplied "
                                 f"file(s) from {inputs_src}"
                             )
+                    # Always write the manifest (empty list is still
+                    # meaningful — tells generate_image "nothing supplied,
+                    # all generations are drone output"). Created inside
+                    # the project so it travels with the workspace.
+                    _manifest = project_path / ".tsunami" / "supplied.txt"
+                    _manifest.parent.mkdir(parents=True, exist_ok=True)
+                    _manifest.write_text("\n".join(supplied_paths))
                 except Exception as _ups:
                     log.debug(f"User-supplied overlay skipped: {_ups}")
                 # Record the scaffold in tool history so eval harnesses

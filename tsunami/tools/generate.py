@@ -260,23 +260,53 @@ class GenerateImage(BaseTool):
                 p = (Path(self.config.workspace_dir) / clean).resolve()
             p.parent.mkdir(parents=True, exist_ok=True)
 
-        # User-supplied passthrough: if the file already exists with real
-        # content (from ~/.tsunami/inputs/<project>/ copied in at scaffold
-        # time, or from a previous generate_image call the drone is
-        # retrying), skip the ERNIE round-trip. Lets users drop their own
-        # car photos / brand photography / hero shots into public/ before
-        # kicking the task and the drone will reference them as if they
-        # were generated.
+        # User-supplied passthrough: if the file was dropped in via
+        # ~/.tsunami/inputs/<project>/ at scaffold time, skip ERNIE.
+        # Gated on the <project>/.tsunami/supplied.txt manifest written
+        # by _pre_scaffold — ONLY paths in that file passthrough.
+        # Bare existence-check was dedup-ing the drone's own regenerations
+        # mid-run (v20 feedback loop: drone re-calls generate_image on
+        # the same save_path with a varied prompt, passthrough returned
+        # success without actually regenerating, drone thought it was
+        # iterating on variations but was no-op-looping).
         try:
             if p.exists() and p.is_file() and p.stat().st_size > 1024:
-                log.info(
-                    f"generate_image: using supplied image at {p} "
-                    f"({p.stat().st_size} bytes) — skipping ERNIE"
-                )
-                return ToolResult(
-                    f"Image already present at {p} ({p.stat().st_size} "
-                    f"bytes) — using supplied file, no generation needed."
-                )
+                _resolved = str(p.resolve())
+                # Locate the manifest by walking upward from the save
+                # path until we find a `.tsunami/supplied.txt` or hit
+                # workspace_dir. The tool doesn't have direct access
+                # to the active project's root, so walk up.
+                _manifest: Path | None = None
+                _cur = p.parent
+                _stop = Path(self.config.workspace_dir).resolve()
+                for _ in range(8):
+                    _cand = _cur / ".tsunami" / "supplied.txt"
+                    if _cand.is_file():
+                        _manifest = _cand
+                        break
+                    if _cur == _stop or _cur.parent == _cur:
+                        break
+                    _cur = _cur.parent
+                _is_supplied = False
+                if _manifest is not None:
+                    _supplied_set = {
+                        line.strip() for line in _manifest.read_text().splitlines()
+                        if line.strip()
+                    }
+                    _is_supplied = _resolved in _supplied_set
+                if _is_supplied:
+                    log.info(
+                        f"generate_image: using supplied image at {p} "
+                        f"({p.stat().st_size} bytes) — skipping ERNIE"
+                    )
+                    return ToolResult(
+                        f"Image already present at {p} ({p.stat().st_size} "
+                        f"bytes) — using supplied file, no generation needed."
+                    )
+                # File exists but is NOT user-supplied: a drone regeneration.
+                # Fall through so ERNIE actually re-runs, overwriting the
+                # existing file. Drone gets a fresh image for its variant
+                # prompt.
         except Exception:
             pass
 
