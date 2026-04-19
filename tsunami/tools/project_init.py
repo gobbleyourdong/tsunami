@@ -230,8 +230,17 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
             return "dashboard"
 
     # 6b. Data visualization (charts, graphs, d3 — no sidebar)
-    if needs("chart", "analytics", "metrics", "stats", "graph",
-             "visualiz", "report", "recharts", "d3", "plot", "data"):
+    # Dropped bare "stats" — caught "stats row" on landing pages that
+    # just display a few KPI numbers (luxury brand sites routinely list
+    # top speed / range / horsepower without needing a chart library).
+    # Dropped bare "data", "metrics", "report" — all too generic.
+    # Prefer multi-word signals + chart-library names.
+    if needs("bar chart", "line chart", "pie chart", "scatter plot",
+             "time series", "histogram", "heatmap",
+             "data visualization", "data viz", "chart library",
+             "analytics dashboard", "metrics dashboard",
+             "recharts", "d3", "plotly", "chart.js", "echarts",
+             "visualize data", "visualization"):
         if (SCAFFOLDS_DIR / "data-viz").exists():
             return "data-viz"
 
