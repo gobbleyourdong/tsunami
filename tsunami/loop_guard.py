@@ -83,15 +83,35 @@ class LoopGuard:
 
         # Soft loop: same tool type 5x in a row
         if len(self.tool_names) >= SOFT_LOOP_THRESHOLD:
-            recent = self.tool_names[-SOFT_LOOP_THRESHOLD:]
-            if len(set(recent)) == 1:
-                tool = recent[0]
-                return LoopDetection(
-                    detected=True,
-                    loop_type="soft",
-                    description=f"{tool} called {SOFT_LOOP_THRESHOLD}x consecutively",
-                    forced_action=self._suggest_break_action(tool),
-                )
+            recent_tools = self.tool_names[-SOFT_LOOP_THRESHOLD:]
+            if len(set(recent_tools)) == 1:
+                tool = recent_tools[0]
+                # Suppress for generate_image when each call targets a
+                # DISTINCT fingerprint (different prompt or save_path) —
+                # briefs that ask for 9+ images need 9+ consecutive
+                # generate_image calls and that's legitimate progress,
+                # not a loop. Only fire when the drone is churning on
+                # the same-or-near-same generation repeatedly.
+                if tool == "generate_image":
+                    recent_fps = self.fingerprints[-SOFT_LOOP_THRESHOLD:]
+                    if len(set(recent_fps)) >= SOFT_LOOP_THRESHOLD - 1:
+                        # 4+ distinct fingerprints out of 5 calls — real
+                        # multi-image work, not a stall.
+                        pass
+                    else:
+                        return LoopDetection(
+                            detected=True,
+                            loop_type="soft",
+                            description=f"{tool} called {SOFT_LOOP_THRESHOLD}x consecutively with repeated targets",
+                            forced_action=self._suggest_break_action(tool),
+                        )
+                else:
+                    return LoopDetection(
+                        detected=True,
+                        loop_type="soft",
+                        description=f"{tool} called {SOFT_LOOP_THRESHOLD}x consecutively",
+                        forced_action=self._suggest_break_action(tool),
+                    )
 
         # Progress stall: no progress for N iterations
         if len(self.progress_marks) >= PROGRESS_WINDOW:
