@@ -66,6 +66,7 @@ def _load(name: str) -> str | None:
 
 _ANCHOR_RE = re.compile(r"^anchors:\s*(.+?)\s*$", re.MULTILINE)
 _CORPUS_RE = re.compile(r"(\d+)\s*/\s*155", re.IGNORECASE)
+_CORPUS_FIELD_RE = re.compile(r"^corpus_share:\s*(\d+)\s*$", re.MULTILINE)
 
 
 def _style_weight(body: str) -> float:
@@ -74,10 +75,13 @@ def _style_weight(body: str) -> float:
     Priority order — first signal wins:
       1. Explicit `(none in Lovable corpus — ...)` in anchors field → 0.0
          (escape hatches must be keyword-routed, not randomly selected).
-      2. "<N>/155" mention in body — the evidence-note format the sigma
-         team uses to cite corpus share. Returns N (template count).
-      3. Comma-separated anchor slug count — each listed template = 1.
-      4. Fallback 1.0 for styles without evidence (don't exclude, just
+      2. `corpus_share: N` frontmatter — the calibrated, deliberate share.
+         This is the preferred way for a doctrine to declare its weight.
+      3. Any "<N>/155" mention in the body — legacy prose-based signal.
+         Less reliable because an evidence note may cite a parent vertical
+         ("portfolio = 40/155") rather than the doctrine's own share.
+      4. Comma-separated anchor slug count — each listed template = 1.
+      5. Fallback 1.0 for styles without evidence (don't exclude, just
          keep them low-weight until corpus data lands).
     """
     m_anchors = _ANCHOR_RE.search(body)
@@ -85,18 +89,18 @@ def _style_weight(body: str) -> float:
         anchors_line = m_anchors.group(1).strip()
         if "none" in anchors_line.lower() or anchors_line.startswith("("):
             return 0.0
-        # Evidence-note mention takes priority over anchor count — it's
-        # the cluster size, which is usually larger than the exemplar list.
-        m_corpus = _CORPUS_RE.search(body)
-        if m_corpus:
-            return float(m_corpus.group(1))
-        # Fall back to anchor count.
-        count = sum(1 for a in anchors_line.split(",") if a.strip())
-        return float(count) if count else 1.0
-    # No anchors field at all — try corpus-share regex anyway.
+
+    m_field = _CORPUS_FIELD_RE.search(body)
+    if m_field:
+        return float(m_field.group(1))
+
     m_corpus = _CORPUS_RE.search(body)
     if m_corpus:
         return float(m_corpus.group(1))
+
+    if m_anchors:
+        count = sum(1 for a in m_anchors.group(1).split(",") if a.strip())
+        return float(count) if count else 1.0
     return 1.0
 
 
@@ -175,20 +179,25 @@ def _doctrine_mode(body: str) -> str:
 
 _MODE_NOTES = {
     "light": (
-        "SCAFFOLD ACTIVATION: this doctrine wants a LIGHT surface. In\n"
-        "src/main.tsx, add `import './tokens_light.css';` on the line\n"
-        "immediately after `import './index.css';`. tokens_light.css ships\n"
-        "in the scaffold — it overrides :root with shadcn-aligned light\n"
-        "tokens (pure white bg, near-black text, system sans). Do this\n"
-        "BEFORE writing any components so first render is already correct.\n"
+        "SCAFFOLD ACTIVATION: this doctrine wants a LIGHT surface. At the\n"
+        "TOP of src/App.tsx add `import './tokens_light.css';` immediately\n"
+        "after `import './index.css';`. tokens_light.css ships in the\n"
+        "scaffold — it overrides :root with shadcn-aligned light tokens\n"
+        "(pure white bg, near-black text, system sans). Do NOT edit\n"
+        "src/main.tsx — it's scaffold infrastructure and the drone gate\n"
+        "rejects writes there. App.tsx is the correct import site; boot\n"
+        "order is identical.\n"
     ),
     "neutral": (
         "SCAFFOLD ACTIVATION: this doctrine wants a NEUTRAL (warm-paper)\n"
-        "surface. In src/main.tsx, add `import './tokens_neutral.css';` on\n"
-        "the line immediately after `import './index.css';`. The file\n"
-        "overrides :root with warm-cream tokens (hsl(40 33% 96%) bg, warm\n"
-        "near-black text, serif-first font stack). DO NOT use pure white —\n"
-        "pure white destroys the handcraft / editorial / atelier mood.\n"
+        "surface. At the TOP of src/App.tsx add\n"
+        "`import './tokens_neutral.css';` immediately after\n"
+        "`import './index.css';`. The file overrides :root with warm-cream\n"
+        "tokens (hsl(40 33% 96%) bg, warm near-black text, serif-first font\n"
+        "stack). Do NOT edit src/main.tsx — it's scaffold infrastructure\n"
+        "and the drone gate rejects writes there. App.tsx is the correct\n"
+        "import site. Do not use pure white — it destroys the handcraft /\n"
+        "editorial / atelier mood.\n"
     ),
     "dark": "",  # scaffold default; no import needed
 }
