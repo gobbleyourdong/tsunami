@@ -58,6 +58,12 @@ class LoopGuard:
         self.fingerprints: list[str] = []
         self.tool_names: list[str] = []
         self.progress_marks: list[bool] = []  # True = made progress
+        # Per-save-path generate_image counter. When a drone re-generates
+        # the same save_path 3+ times with varied prompts (indecision
+        # about palette/composition), treat as a hard loop even though
+        # the full-args fingerprint differs. AURUM v22/v24 stuck on
+        # models/{gt,r,x,one}.png for 10+ iters cycling color-schemes.
+        self.gen_counts: dict[str, int] = {}
 
     def record(self, tool_name: str, args: dict, made_progress: bool):
         """Record a tool call."""
@@ -65,6 +71,10 @@ class LoopGuard:
         self.fingerprints.append(fp)
         self.tool_names.append(tool_name)
         self.progress_marks.append(made_progress)
+        if tool_name == "generate_image":
+            save_path = str(args.get("save_path", "")).strip()
+            if save_path:
+                self.gen_counts[save_path] = self.gen_counts.get(save_path, 0) + 1
 
     def check(self) -> LoopDetection:
         """Check for loop patterns. Returns detection result."""
@@ -80,6 +90,20 @@ class LoopGuard:
                     description=f"Identical {tool} call repeated {HARD_LOOP_THRESHOLD}x",
                     forced_action=self._suggest_break_action(tool),
                 )
+
+        # Per-save-path generate_image churn: drone re-generating the
+        # same asset 3+ times (prompt variations, indecision). Hard-loop
+        # intercept — fingerprints differ so the classic hard-loop
+        # check above misses this. Forces file_write to pivot to code.
+        if self.tool_names and self.tool_names[-1] == "generate_image":
+            for path, count in self.gen_counts.items():
+                if count >= 3:
+                    return LoopDetection(
+                        detected=True,
+                        loop_type="hard",
+                        description=f"generate_image({path!r}) re-run {count}x — drone stuck on one asset",
+                        forced_action="file_write",
+                    )
 
         # Soft loop: same tool type 5x in a row
         if len(self.tool_names) >= SOFT_LOOP_THRESHOLD:
