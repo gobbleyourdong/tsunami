@@ -56,8 +56,11 @@ export function StatGrid({
         ...style,
       }}
     >
-      {list?.map((s, i) => <MetricCard key={i} {...s} />)}
-      {children}
+      {/* Drone pattern: give StatGrid EITHER stats prop OR children.
+          When both are passed (v25 bug), the `children` win — the drone
+          is authoring custom cards and the prop-based MetricCards would
+          double-render empty stubs. */}
+      {children ?? list?.map((s, i) => <MetricCard key={i} {...s} />)}
     </div>
   )
 }
