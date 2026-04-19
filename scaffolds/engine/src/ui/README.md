@@ -1,62 +1,56 @@
 # UI — WebGPU-native declarative UI subsystem
 
-Current state: **text rendering scaffold only**. This directory is
-the foundation for the full UI framework; the other instance extends
-it per the architecture in
+Current state: **full scaffolding landed.** Sample Newton text renderer
+shipped (fires 1–5, separate effort); UI framework scaffolded across
+fires 1–7 (theme, layout, primitives, immediate-mode shell,
+ComponentDef spec, WebGPU compiler, widget components, DOM compiler).
+
+Full architectural spec:
 `ark/tsunami/design/action_blocks/ui_framework/attempts/attempt_001.md`.
 
 ## What's here today
 
-| File | Status | Notes |
+| File / dir | Status | Notes |
 |---|---|---|
-| `text.ts` | **interface-stable, impl-stubbed** | `TextRenderer` public interface + `StubTextRenderer` placeholder. Real MSDF-variant impl (JB's) slots in without changing consumers. |
-| `index.ts` | stable | Barrel export |
-| `README.md` | this file | Onboarding |
+| `text.ts` + `text_shader.ts` | **shipped** | Sample Newton Hermite-atlas text renderer. Awaiting hardware validation (winding sign, AA band tuning). See in-file status header. |
+| `theme.ts` | ✓ scaffold | Color / size / variant / border-radius / font-family tokens; `DEFAULT_THEME`; `resolveColor / resolveSize / resolveRadius / resolveFontFamily`; `extendTheme(overrides)`. |
+| `layout.ts` | ✓ scaffold (stub engine) | `Layout`, `Size`, `Anchor` types; `computeLayout(root, viewport)` does vertical-stack; TODO: real flex (Yoga port or custom). |
+| `primitives.ts` + `primitives_shader.ts` | ✓ scaffold | 2D quad batcher; rounded-rect SDF fragment; `rect / rounded_rect / border`. |
+| `immediate.ts` | ✓ scaffold | ImGui-style shell: `begin_frame / begin_box / end_box / button / progress / text / icon / spacer / end_frame`. Stack-based cursor layout. Hit-testing TODO (needs input integration). |
+| `component_def.ts` | ✓ scaffold | 25-kind discriminated union + `ValueRef<T>` + `MechanicRef` + `UIActionRef` + helpers. Types only. |
+| `webgpu_compiler.ts` | ✓ scaffold | `compileToWebGPU(spec, ctx)` exhaustive switch over 25 cases; delegates 8 widgets to `components/`. |
+| `components/` (8 files + barrel) | ✓ scaffold | `button / card / dialog / progress / input / hud / menu / dialog_tree` — each exports `render_<widget>(spec, ctx)`. |
+| `dom_compiler.tsx` | ✓ scaffold | `compileToReact(spec, ctx): DomDescriptor` — framework-free descriptor; web scaffolds wrap via `React.createElement`. |
+| `index.ts` | stable barrel | Single entry point for `import from '@engine'`. |
 
-## What's next (other instance's scope)
+## Deferred to implementation pass
 
-Per `ui_framework/attempts/attempt_001.md`:
+Called out in each file's status header:
 
-1. **Declarative `ComponentDef` spec** — framework-neutral UI
-   vocabulary (Box, Text, Button, Card, HUD, Menu, DialogTree, ...).
-   Lives at `ark/scaffolds/_shared/ui-spec/` (shared between web and
-   game scaffolds).
-2. **WebGPU compiler** — `ComponentDef` → immediate-mode UI calls.
-   Lives at `scaffolds/engine/src/ui/webgpu_compiler.ts`.
-3. **Layout engine** — flex-like via Yoga or custom. Lives at
-   `scaffolds/engine/src/ui/layout.ts`.
-4. **Quad batcher + style renderer** — rect/rounded-rect/border
-   drawing. Lives at `scaffolds/engine/src/ui/primitives.ts`.
-5. **Theme** — token-to-value resolver (color, size, radius).
-   Lives at `scaffolds/engine/src/ui/theme.ts`.
-6. **Component library** — widgets that compose the above into
-   Button, Card, ProgressBar, Dialog, etc. Lives at
-   `scaffolds/engine/src/ui/components/`.
-7. **Action-blocks UI-mechanic lowering** — seven UI-space mechanics
-   (HUD, Menu, Dialog, Tutorial, Shop, InventoryPanel, hotspot menu)
-   compile to ComponentDef subtrees. Lives at
-   `engine/src/design/mechanics/`.
+- **Real flex layout engine** (Yoga port or custom 200-line flex) — replaces the vertical-stack stub in `layout.ts` / `immediate.ts`.
+- **Hit-testing + click routing** — `ui.button()` returns `false` until input system is wired; see `immediate.ts` TODO.
+- **Icon atlas** — `ui.icon()` draws placeholder rects; needs MSDF icon atlas via sprite pipeline.
+- **Typewriter animation** in `DialogTree` — needs frame-time delta + char-reveal state.
+- **Drop shadow + gradient** primitives — v1.2 in `primitives_shader.ts`.
+- **React adapter** — lives in `scaffolds/_shared/ui-spec/` (to be created); walks `DomDescriptor` via `React.createElement` using scaffold's `components/ui` library.
+- **Text renderer hardware validation** — winding sign, Newton convergence at cusps, AA band tuning, 60 FPS target. See `text.ts` status header.
 
-## Contract with the text renderer
+## Contracts consumers depend on
 
-Consumers import `TextRenderer` and call `createTextRenderer(gpu)`.
-The stub's `measure` returns approximate pixel dimensions (rough
-0.55em-per-glyph heuristic) so layout engines produce plausible
-bounds even without real text drawing. When the MSDF renderer lands,
-the factory flips — zero consumer changes.
+From `@engine`:
 
-## For the extending instance
+- Types: `Theme`, `Layout`, `ComponentDef` (+ 25 sub-kinds), `MechanicRef`, `UIActionRef`, `DomDescriptor`, `RenderContext`, `DomRenderContext`.
+- Runtime: `createTextRenderer`, `createPrimitiveRenderer`, `createImmediateUI`, `compileToWebGPU`, `compileToReact`.
+- Tokens: `DEFAULT_THEME`, `extendTheme`.
 
-Read, in order:
+All interfaces are stable; additive extensions only. Impl may flip (e.g. stub → real flex) without breaking consumers.
+
+## Reading order (for future implementers)
 
 1. This README
-2. `ui_framework/attempts/attempt_001.md` (full architecture)
-3. `text.ts` interface (stable — extend but don't break)
-4. `ark/scaffolds/engine/tools/sprite_pipeline.py` (reference for the
-   sibling sprite extension; same sort of extension shape)
+2. `ui_framework/attempts/attempt_001.md` — full architecture
+3. `text.ts` — exemplar of the "interface + stub + real + factory" pattern
+4. `index.ts` — status grid + export surface
+5. Specific file's status header for the part you're working on
 
-The text-rendering slot exists so the full UI framework can be built
-around it without waiting for the MSDF implementation. Treat
-`TextRenderer` as the canonical contract; if JB's real implementation
-needs interface changes, flag them in
-`ui_framework/observations/note_NNN.md` before landing.
+Every file lists a status header with `✓` / `TODO fire N` markers. Don't break interfaces; extend additively.

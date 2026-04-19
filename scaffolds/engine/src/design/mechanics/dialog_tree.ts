@@ -142,7 +142,7 @@ class DialogTreeRuntime implements MechanicRuntime {
       const flags = ((props.world_flags ?? {}) as Record<string, unknown>)
       flags[action.world_flag as unknown as string] = action.value
       props.world_flags = flags
-      (active as Record<string, unknown>).properties = props
+      ;(active as Record<string, unknown>).properties = props
     }
     if (action.kind === 'sequence') {
       action.actions.forEach(a => this.fireAction(a))

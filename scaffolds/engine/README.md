@@ -13,7 +13,7 @@ content extensions (audio + sprites) merged.** 4/4 ship gates green.
 
 | | |
 |---|---|
-| Engine TS | 16,642 LOC across 16 subsystems |
+| Engine TS | 20,586 LOC across 16 subsystems (incl. UI framework scaffold) |
 | Python tooling | 3,585 LOC (sprite pipeline + compiler wrapper) |
 | Tests | 326 passing in 22 files (4,296 LOC) |
 | Mechanics | 35 implemented (+5 v2 placeholders = 40 catalog entries) |
@@ -45,6 +45,7 @@ content extensions (audio + sprites) merged.** 4/4 ship gates green.
 | `game` | 3 | 421 | Top-level Game class + SceneBuilder |
 | `cli` | 2 | 101 | Headless build/compile entrypoints |
 | `sprites` | 1 | 80 | Runtime sprite-manifest loader (fetches the Python build's output) |
+| `ui` | 14 | 3,942 | Declarative UI framework: Sample Newton text (shipped) + theme / layout / primitives / ComponentDef / immediate-mode + WebGPU & DOM compilers + 8 widget components. Scaffolded v1; flex engine / input wiring / icon atlas pending real-impl pass. |
 | **`design`** | 43 | 6,818 | **The AI authoring layer — see §2** |
 
 All subsystems have vitest coverage; the full suite runs in <1s headless.
@@ -147,7 +148,7 @@ ChipMusic · SfxLibrary
 | Gate | Criteria | Result |
 |---|---|---|
 | **#12** Validator 5+5 | Known-good + known-bad scripts map to correct error kinds | 🟢 10/10 (`design_validate.test.ts`) |
-| **#13** 3 e2e games | arena_shooter + rhythm + narrative + audio_demo build + 60s autoplay | 🟢 13/13 (`design_e2e.test.ts`) |
+| **#13** 4 design-roundtrip + runtime-activation | Two layers per example: (1) validate + compile + structural inspect; (2) `Game.fromDefinition` → `activateScene` → tick 30–60 frames without throwing | 🟢 25/25 (`design_e2e.test.ts`) + 5/5 synthetic-design coverage (`game_activation.test.ts`) |
 | **#14** One-shot ≥50% valid (N=20) | Tsunami emits valid arena-shooter N/20 | 🟢 **20/20 raw** (71s avg) |
 | **#15** Re-sweep ≥60% expressible | 29 in-scope prompts compile clean-or-caveated | 🟢 **33/33** (100%) |
 
@@ -275,7 +276,27 @@ print(r.image_path, 'score:', r.score, 'cached:', r.cache_hit)
 
 # Build all sprites for a project
 python3 scaffolds/engine/tools/build_sprites.py /path/to/game_project
+
+# Run the scaffold demos (Vite dev server; runs prebuild first)
+cd scaffolds/engine
+DEFAULT_FONT_TTF=/path/to/font.ttf npm run dev
 ```
+
+### Prebuild hook (engine_handoff_001 §C)
+
+`npm run dev` and `npm run build` first run `scripts/prebuild.mjs`,
+which ensures `public/{fonts,sprites}` exists and invokes the Python
+bakers when inputs are available. Non-fatal — missing Python, missing
+font, or missing `assets.manifest.json` all produce warnings only.
+
+- `DEFAULT_FONT_TTF=/abs/path.ttf` — enables `tools/font_bake.py` and
+  writes `public/fonts/regular.atlas.bin` + `.json`. Text demos need
+  this; scripts without text build fine without it.
+- `ASSETS_MANIFEST=/abs/path.json` — point the sprite builder at an
+  alternate manifest. Default: `./assets.manifest.json` in the
+  scaffold root, skipped when absent.
+- `PYTHON=python3.11` — override the interpreter if the default
+  `python3` doesn't have `fonttools numpy pillow` installed.
 
 ## Constraints
 

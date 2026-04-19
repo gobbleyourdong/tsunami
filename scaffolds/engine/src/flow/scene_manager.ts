@@ -56,6 +56,16 @@ export class SceneManager {
     return this.currentName
   }
 
+  /**
+   * Get the currently active scene object (null if none loaded).
+   * Returned as a generic bag so design-script mechanics can poke at
+   * ad-hoc per-scene properties (entities, state, etc.) without
+   * forcing every concrete scene to extend `GameScene`.
+   */
+  activeScene(): Record<string, unknown> | null {
+    return this.currentScene as unknown as Record<string, unknown> | null
+  }
+
   /** Is a transition currently in progress? */
   get isTransitioning(): boolean {
     return this.transitionState !== 'none'

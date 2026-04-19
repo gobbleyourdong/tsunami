@@ -143,7 +143,9 @@ export class ChipSynth {
   private handles = new Map<number, ActiveHandle>()
   private nextId = 1
   private noisBuffer: AudioBuffer | null = null
-  private periodicWaves: Record<number, PeriodicWave> = {}
+  // Keyed by either a numeric duty cycle (e.g. 125 for 12.5 %) or the
+  // literal 'wave' for the track's custom wave-table PeriodicWave.
+  private periodicWaves: Record<string, PeriodicWave> = {}
 
   constructor(engine: AudioEngine) {
     this.engine = engine
@@ -179,7 +181,7 @@ export class ChipSynth {
       bpmRefResolver: bpmResolver,
       mixerRefResolvers: mixerResolvers,
       channelOutputGain: channelGain,
-      stop: (releaseTail?: boolean) => this.stopHandle(handle, releaseTail),
+      stop: (releaseTail?: boolean) => this.stopHandle(handle, releaseTail ?? false),
     }
 
     handle.schedulerId = setInterval(() => this.tick(handle),

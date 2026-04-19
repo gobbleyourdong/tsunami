@@ -344,12 +344,12 @@ export interface HUDDef {
   layout_direction?: 'row' | 'column'
 }
 
-export interface MenuItem {
+export interface UIMenuItem {
   label: ValueRef<string>
   icon?: string
   action: UIActionRef
   disabled?: ValueRef<boolean>
-  submenu?: MenuItem[]
+  submenu?: UIMenuItem[]
   hotkey?: string                      // e.g. 'Enter', 'Space', 'P'
 }
 
@@ -357,7 +357,7 @@ export interface MenuDef {
   type: 'Menu'
   id?: ComponentId
   title?: ValueRef<string>
-  items: MenuItem[]
+  items: UIMenuItem[]
   orientation?: 'vertical' | 'horizontal'
   keyboard_navigable?: boolean         // default true
   on_back?: UIActionRef
@@ -365,7 +365,7 @@ export interface MenuDef {
   style?: { panel?: 'solid' | 'glass' | 'transparent' }
 }
 
-export interface DialogChoice {
+export interface UIDialogChoice {
   label: ValueRef<string>
   action: UIActionRef
   gate?: MechanicRef                   // show only if truthy
@@ -378,7 +378,7 @@ export interface DialogTreeDef {
   speaker?: ValueRef<string>
   portrait?: ValueRef<string>          // sprite asset id
   content: ValueRef<string>
-  choices?: DialogChoice[]             // omit = auto-advance on input
+  choices?: UIDialogChoice[]             // omit = auto-advance on input
   on_advance?: UIActionRef
   anchor?: Anchor                      // default 'bottom'
   size?: 'compact' | 'standard' | 'full'

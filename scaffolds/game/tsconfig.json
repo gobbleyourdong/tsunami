@@ -10,7 +10,7 @@
     "isolatedModules": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "types": ["@webgpu/types"],
+    "types": ["@webgpu/types", "vite/client"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "paths": {
       "@engine/*": ["../engine/src/*"],

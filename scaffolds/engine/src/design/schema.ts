@@ -30,6 +30,25 @@ export interface DesignScript {
   archetypes: Record<string, Archetype>
   mechanics:  MechanicInstance[]
   flow:       FlowNode                              // NEW v1 — tree, not list
+  // v1.1 sprites — per-project asset manifest for sprite_ref resolution.
+  // Shape is intentionally loose so validator, compiler, and loader can
+  // each slice it differently. Typical population is the
+  // assets.manifest.json the sprite-build pipeline emits.
+  sprite_manifest?: SpriteManifest
+}
+
+export interface SpriteManifest {
+  assets?: Record<string, SpriteAssetEntry>
+  // Additional build-time metadata the loader may care about (atlas
+  // path, backend hint, etc.) is allowed; kept open with an index sig.
+  [key: string]: unknown
+}
+
+export interface SpriteAssetEntry {
+  path?: string
+  category?: string
+  metadata?: Record<string, unknown>
+  [key: string]: unknown
 }
 
 export interface DesignMeta {
@@ -137,6 +156,7 @@ export type MechanicType =
   // v2 placeholders (named but not implemented; compiler declines)
   | 'RoleAssignment' | 'CrowdSimulation'
   | 'TimeReverseMechanic' | 'PhysicsModifier'
+  | 'MinigamePool'
 
 export interface MechanicInstance {
   id: MechanicId
@@ -166,7 +186,7 @@ export type MechanicParams =
   | ChipMusicParams | SfxLibraryParams
   // v2 placeholders — shape not yet specified; compiler declines
   | { type: 'RoleAssignment'       | 'CrowdSimulation'
-            | 'TimeReverseMechanic' | 'PhysicsModifier';
+            | 'TimeReverseMechanic' | 'PhysicsModifier' | 'MinigamePool';
       [key: string]: unknown }
 
 // ───────── param shapes ─────────

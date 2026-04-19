@@ -132,12 +132,9 @@ export function validate(raw: DesignScript): ValidationResult {
   // --- archetype components + tag collection ---
   const tagUnion = new Set<string>()
   // v1.1 sprites: the design carries a manifest of sprite_ref → asset
-  // metadata when the game uses the sprite pipeline. Shape is loose on
-  // purpose so the compiler/loader can each slice it differently.
-  // `(raw as any).sprite_manifest` is typed on DesignScript as optional.
-  const spriteManifest =
-    (raw as unknown as { sprite_manifest?: { assets?: Record<string, unknown> } })
-      .sprite_manifest
+  // metadata when the game uses the sprite pipeline. Typed on
+  // DesignScript (see schema.ts: SpriteManifest).
+  const spriteManifest = raw.sprite_manifest
   const spriteIds: Set<string> = spriteManifest?.assets
     ? new Set(Object.keys(spriteManifest.assets))
     : new Set()

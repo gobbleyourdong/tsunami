@@ -193,7 +193,7 @@ fn closest_on_hermite(
   return vec3<f32>(q, t);
 }
 
-// Is `idx` a contour-break handle index for the current glyph?
+// Is \`idx\` a contour-break handle index for the current glyph?
 // Breaks are stored per-glyph in a contiguous slice of contour_breaks[].
 // A segment (i, i+1) is spurious (crosses a contour boundary) if
 // handle i+1 is a contour-start, i.e. a break index points at i+1.

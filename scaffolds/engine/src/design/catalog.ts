@@ -677,7 +677,7 @@ export const CATALOG: Record<MechanicType, CatalogEntry> = {
 
   // v2 anthology pattern — per numerics note_011
   MinigamePool: {
-    type: 'MinigamePool' as MechanicType,  // MinigamePool not yet in MechanicType union (v2 placeholder)
+    type: 'MinigamePool',
     description: 'v2 placeholder — anthology pattern: collection of disjoint mini-games IS the game (WarioWare, Mario Party minigames, Rhythm Tengoku, Mario 64 DS). Each pool entry is a full nested design subtree. Distinct from EmbeddedMinigame (outer loop exists).',
     example_params: {},
     tier: 'v2',

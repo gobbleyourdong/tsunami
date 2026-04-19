@@ -32,7 +32,7 @@ import type { GPUContext } from '../renderer/gpu'
 import type {
   ColorToken, SizeToken, VariantToken, BorderRadius, RGBA, Theme,
 } from './theme'
-import { DEFAULT_THEME, resolveColor, resolveSize, resolveRadius } from './theme'
+import { DEFAULT_THEME, resolveColor, resolveSizeToken, resolveRadius } from './theme'
 import type { Layout, Anchor } from './layout'
 import type { PrimitiveRenderer, RectStyle } from './primitives'
 import { createPrimitiveRenderer } from './primitives'
@@ -52,6 +52,8 @@ export interface BoxStyle {
   rounded?: BorderRadius
   /** Shadow token (v1.2; ignored in scaffold). */
   shadow?: SizeToken | 'none'
+  /** Optional 0..1 fill opacity; undefined leaves bg fully opaque. */
+  opacity?: number
 }
 
 export interface BoxDirective {
@@ -290,7 +292,7 @@ export class WebGPUImmediateUI implements ImmediateUI {
   button(label: string, d?: ButtonDirective): boolean {
     if (!this.active) return false
     const frame = this.stack[this.stack.length - 1]
-    const size_px = d?.size ? resolveSize(d.size, this.theme) : 16
+    const size_px = d?.size ? resolveSizeToken(d.size, this.theme) : 16
     const padding_y = size_px * 0.4
     const padding_x = size_px * 0.8
     const bg = d?.color ? resolveColor(d.color, this.theme)
@@ -326,7 +328,7 @@ export class WebGPUImmediateUI implements ImmediateUI {
   progress(value: number, max = 1, d?: ProgressDirective): void {
     if (!this.active) return
     const frame = this.stack[this.stack.length - 1]
-    const size_px = d?.size ? resolveSize(d.size, this.theme) : 10
+    const size_px = d?.size ? resolveSizeToken(d.size, this.theme) : 10
     const w = d?.width ?? Math.min(200, frame.width)
     const h = size_px
     const track_color: RGBA = [0.2, 0.22, 0.28, 1.0]
@@ -350,7 +352,7 @@ export class WebGPUImmediateUI implements ImmediateUI {
     const frame = this.stack[this.stack.length - 1]
     const size_px = typeof d?.size === 'number'
       ? d.size
-      : resolveSize((d?.size ?? 'md') as SizeToken, this.theme)
+      : resolveSizeToken((d?.size ?? 'md') as SizeToken, this.theme)
     const color = d?.color ? resolveColor(d.color, this.theme)
                            : resolveColor('fg', this.theme)
     const measured = this.text_renderer.measure(content, {
@@ -367,7 +369,7 @@ export class WebGPUImmediateUI implements ImmediateUI {
     const frame = this.stack[this.stack.length - 1]
     const size_px = typeof d?.size === 'number'
       ? d.size
-      : resolveSize((d?.size ?? 'md') as SizeToken, this.theme)
+      : resolveSizeToken((d?.size ?? 'md') as SizeToken, this.theme)
     // TODO: icon atlas system. For scaffold, draw a placeholder square.
     const color = d?.color ? resolveColor(d.color, this.theme)
                            : resolveColor('muted', this.theme)
@@ -429,7 +431,7 @@ export class WebGPUImmediateUI implements ImmediateUI {
     if (typeof size === 'string' && size.endsWith('%')) {
       return (parseFloat(size.slice(0, -1)) / 100) * parent_dim
     }
-    return resolveSize(size as SizeToken, this.theme)
+    return resolveSizeToken(size as SizeToken, this.theme)
   }
 
   private resolve_padding(

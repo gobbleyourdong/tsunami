@@ -31,6 +31,7 @@ import type {
   SceneDefinition,
 } from '../game/game'
 import type { FlowStep } from '../flow/game_flow'
+import type { TransitionType } from '../flow/scene_manager'
 
 interface LoweringContext {
   design: ValidatedDesign
@@ -63,6 +64,12 @@ export function compile(design: ValidatedDesign): GameDefinition {
     config,
     scenes: ctx.scenes,
     flow: ctx.flow,
+    // engine_handoff_001 §A — surface the full MechanicInstance[] on the
+    // compiled GameDefinition so Game.fromDefinition can build the
+    // id→instance lookup used by activateScene / onSceneChange wiring.
+    // scene.properties.mechanics remains the per-scene id selector; this
+    // is the top-level bag those ids resolve against.
+    mechanics: (design.mechanics ?? []) as MechanicInstance[],
   }
 }
 
@@ -71,10 +78,11 @@ export function compile(design: ValidatedDesign): GameDefinition {
 
 function lowerConfig(design: ValidatedDesign): Required<GameConfig> {
   const c = design.config ?? ({} as Record<string, unknown>)
+  const bag = c as unknown as Record<string, number>
   return {
     mode: (c.mode as '2d' | '3d') ?? '3d',
-    width: (c as Record<string, number>).width ?? 1280,
-    height: (c as Record<string, number>).height ?? 720,
+    width: bag.width ?? 1280,
+    height: bag.height ?? 720,
     title: design.meta?.title ?? 'Tsunami Game',
     pixelPerfect: false,
     camera: c.camera ?? 'perspective',
@@ -201,11 +209,15 @@ function sceneName(node: FlowNode, parent: string | null): string {
   return `${parent}/${own}`
 }
 
-function lowerTransitionKind(t: 'fade' | 'cut' | 'slide' | undefined) {
-  // scene_manager's TransitionType values — forward the exact string; the
-  // scene manager validates it. `cut` is the default no-transition kind.
+function lowerTransitionKind(
+  t: 'fade' | 'cut' | 'slide' | undefined,
+): TransitionType | undefined {
+  // Design-script names → scene_manager TransitionType.
+  // 'slide' is ambiguous (left/right/up); pick slide-left as the default.
   if (!t) return undefined
-  return t as 'fade' | 'cut' | 'slide'
+  if (t === 'cut') return 'instant'
+  if (t === 'slide') return 'slide-left'
+  return t
 }
 
 
@@ -264,6 +276,7 @@ function archetypeToEntity(
     scale: [1, 1, 1],
     properties: {
       mesh: arch?.mesh,
+      sprite_ref: arch?.sprite_ref,
       controller: arch?.controller,
       ai: arch?.ai,
       trigger: arch?.trigger,

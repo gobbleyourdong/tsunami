@@ -100,7 +100,7 @@ export function resolveColor(token: ColorToken, theme: Theme = DEFAULT_THEME): R
 }
 
 /** Look up a size token; returns pixels. */
-export function resolveSize(token: SizeToken, theme: Theme = DEFAULT_THEME): number {
+export function resolveSizeToken(token: SizeToken, theme: Theme = DEFAULT_THEME): number {
   return theme.sizes[token] ?? theme.sizes.md
 }
 

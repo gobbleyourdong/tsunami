@@ -22,7 +22,7 @@
  */
 
 import type { SizeToken } from './theme'
-import { DEFAULT_THEME, resolveSize as resolveSizeToken } from './theme'
+import { DEFAULT_THEME, resolveSizeToken } from './theme'
 
 // ── Primitive size types ─────────────────────────────────────────
 

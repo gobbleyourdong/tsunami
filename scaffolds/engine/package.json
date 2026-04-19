@@ -8,14 +8,16 @@
   },
   "scripts": {
     "test": "vitest run --reporter=verbose",
-    "dev": "vite",
-    "build": "tsc",
+    "prebuild": "node scripts/prebuild.mjs",
+    "dev": "node scripts/prebuild.mjs && vite",
+    "build": "node scripts/prebuild.mjs && tsc",
     "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "@vitest/browser": "^4.1.2",
     "@webgpu/types": "^0.1.69",
     "playwright": "^1.59.1",
