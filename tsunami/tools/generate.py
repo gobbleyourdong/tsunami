@@ -293,6 +293,13 @@ class GenerateImage(BaseTool):
         # when the server is up but the image model wasn't loaded at startup.
         # SD-Turbo in-process was removed — Z-Image follows prompts better and
         # is the prod model.
+        # ERNIE-Image (DiT) requires width/height divisible by 16 (vae
+        # scale factor). Drones pass human-reasonable ratios like
+        # 1024x683 (3:2 landscape) that don't align. Snap up to the
+        # nearest multiple of 16 here so the backend never sees a
+        # misaligned request.
+        width = ((width + 15) // 16) * 16
+        height = ((height + 15) // 16) * 16
         for backend in [self._try_zimage_server, self._try_placeholder]:
             result = await backend(prompt, p, width, height, style)
             if not result.is_error:
