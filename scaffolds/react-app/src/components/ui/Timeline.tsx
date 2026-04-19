@@ -49,7 +49,7 @@ export function Timeline({ items }: TimelineProps) {
               {item.date ?? item.year}
             </div>
           )}
-          <div style={{ fontWeight: 700, color: '#fff', fontSize: 'var(--text-sm, 0.875rem)', marginBottom: 3 }}>
+          <div style={{ fontWeight: 700, color: 'var(--text, #fff)', fontSize: 'var(--text-sm, 0.875rem)', marginBottom: 3 }}>
             {item.title ?? item.event ?? item.label ?? ""}
           </div>
           {(item.description ?? item.body) && (
