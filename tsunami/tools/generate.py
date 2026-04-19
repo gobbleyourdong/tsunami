@@ -245,14 +245,19 @@ class GenerateImage(BaseTool):
                 routed = True
 
         if not routed:
-            # Resolve path — always within workspace, strip leading /workspace
-            clean = save_path.lstrip("/")
-            # Strip "workspace/" prefix if the model sends absolute-looking paths
-            for prefix in ["workspace/", "app/workspace/"]:
-                if clean.startswith(prefix):
-                    clean = clean[len(prefix):]
-                    break
-            p = (Path(self.config.workspace_dir) / clean).resolve()
+            # Absolute path → use as-is. Prior code stripped the leading
+            # slash and re-joined workspace_dir, producing /tmp/ws/tmp/ws/…
+            # when the drone passed an already-absolute save_path.
+            if save_path.startswith("/"):
+                p = Path(save_path).resolve()
+            else:
+                # Strip "workspace/" prefix if the model sends absolute-looking paths
+                clean = save_path
+                for prefix in ["workspace/", "app/workspace/"]:
+                    if clean.startswith(prefix):
+                        clean = clean[len(prefix):]
+                        break
+                p = (Path(self.config.workspace_dir) / clean).resolve()
             p.parent.mkdir(parents=True, exist_ok=True)
 
         # Prompt modifiers for alpha/icon modes. These bias the generator
