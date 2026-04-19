@@ -1,4 +1,4 @@
-import { ReactNode } from "react"
+import { ReactNode, ElementType } from "react"
 
 interface GradientTextProps {
   children: ReactNode
@@ -7,6 +7,21 @@ interface GradientTextProps {
   via?: string
   animate?: boolean
   style?: React.CSSProperties
+  className?: string
+  as?: ElementType
+  size?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl" | "6xl"
+}
+
+const GT_SIZE: Record<NonNullable<GradientTextProps["size"]>, string> = {
+  sm: "text-sm",
+  md: "text-base",
+  lg: "text-lg",
+  xl: "text-xl",
+  "2xl": "text-2xl",
+  "3xl": "text-3xl",
+  "4xl": "text-4xl",
+  "5xl": "text-5xl",
+  "6xl": "text-6xl",
 }
 
 export function GradientText({
@@ -16,13 +31,19 @@ export function GradientText({
   via,
   animate = false,
   style,
+  className = "",
+  as,
+  size,
 }: GradientTextProps) {
+  const Tag = (as ?? "span") as any
+  const sizeCls = size ? GT_SIZE[size] : ""
+  const cls = [sizeCls, className].filter(Boolean).join(" ")
   const gradient = via
     ? `linear-gradient(90deg, ${from}, ${via}, ${to})`
     : `linear-gradient(90deg, ${from}, ${to})`
 
   return (
-    <span style={{
+    <Tag className={cls} style={{
       background: animate ? `linear-gradient(90deg, ${from}, ${to}, ${from})` : gradient,
       backgroundSize: animate ? '200% auto' : 'auto',
       WebkitBackgroundClip: 'text',
@@ -33,7 +54,7 @@ export function GradientText({
     }}>
       {animate && <style>{`@keyframes gradient-shift { to { background-position: 200% center; } }`}</style>}
       {children}
-    </span>
+    </Tag>
   )
 }
 
