@@ -1,0 +1,119 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   TOKENS — Neutral / warm-paper default
+   Cream, bone, sand. Softer than tokens_light.css (pure white) without
+   going anywhere near dark. Anchors: Kinfolk cream, Apartamento newsprint,
+   Terra Studios bone.
+
+   To activate: in main.tsx, replace `import './index.css'` with
+   `import './index.css'; import './tokens_neutral.css';` — the second
+   import overrides the :root block with warm-neutral tokens.
+
+   Covers ~17% of the scraped corpus — the warm-paper / atelier /
+   magazine cluster that dies on pure-white scaffolds and dies harder
+   on dark ones.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Surface hierarchy — warm cream gradient, no cool tones */
+  --bg-0: hsl(40 33% 96%);      /* warm paper */
+  --bg-1: hsl(38 28% 93%);      /* cream */
+  --bg-2: hsl(36 22% 89%);      /* bone */
+  --bg-3: hsl(34 18% 84%);      /* sand */
+  --bg-4: hsl(32 14% 78%);      /* taupe */
+
+  /* Text on warm-paper — warm near-black, NEVER pure black (reads cold) */
+  --text:       hsl(30 10% 15%);
+  --text-muted: hsl(30 8% 38%);
+  --text-dim:   hsl(30 6% 55%);
+
+  /* Accent — muted, desaturated; warm-paper hates vivid colors */
+  --accent:       hsl(16 78% 53%);   /* terracotta */
+  --accent-hover: hsl(16 78% 47%);
+  --accent-dim:   hsla(16, 78%, 53%, 0.10);
+  --accent-glow:  hsla(16, 78%, 53%, 0.18);
+
+  /* Semantic — tuned warm */
+  --danger:  hsl(350 50% 45%);
+  --success: hsl(142 30% 40%);
+  --warning: hsl(36 58% 50%);
+  --info:    hsl(213 40% 45%);
+
+  /* Borders — warm-hairline, not cool-grey */
+  --border:       hsla(30, 15%, 35%, 0.12);
+  --border-hover: hsla(30, 15%, 35%, 0.20);
+  --border-focus: var(--accent);
+
+  /* Shadows — very soft, warm undertone */
+  --shadow-sm: 0 1px 2px hsla(30, 20%, 20%, 0.04);
+  --shadow-md: 0 4px 12px hsla(30, 20%, 20%, 0.06);
+  --shadow-lg: 0 12px 40px hsla(30, 20%, 20%, 0.08);
+  --shadow-glow: 0 0 0 3px var(--accent-dim);
+
+  /* Typography — serif-first is the neutral-mode tell */
+  --font:      ui-serif, Georgia, 'Libre Caslon Text', 'EB Garamond', Cambria, serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  --font-serif: var(--font);
+}
+
+/* Drop the grain — warm-paper has its own texture via the palette */
+body::after {
+  display: none;
+}
+
+/* Selection stays warm */
+::selection {
+  background: var(--accent);
+  color: var(--bg-0);
+}
+
+/* Headings are warm ink */
+h1, h2, h3, h4, h5 {
+  color: var(--text);
+  font-family: var(--font-serif);
+}
+
+/* Primary button — solid warm-ink-on-paper, no gradient */
+button.primary, .btn-primary, button[type="submit"] {
+  background: var(--text);
+  color: var(--bg-0);
+  border: none;
+  border-radius: 2px;
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.85em;
+}
+button.primary:hover, .btn-primary:hover, button[type="submit"]:hover {
+  background: var(--accent);
+  color: var(--bg-0);
+  transform: none;
+}
+
+/* Code block — warm inset */
+code {
+  background: var(--bg-2);
+  color: var(--text);
+  border: none;
+  font-family: var(--font-mono);
+}
+
+/* Cards sit on paper, not float on it */
+.card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+.card:hover {
+  background: var(--bg-2);
+  transform: none;
+}
+
+/* Glass — translucent paper, not frosted glass */
+.card.glass {
+  background: hsla(40, 33%, 96%, 0.75);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}

@@ -2,7 +2,18 @@
 name: Brutalist Web
 applies_to: [landing, react-build]
 mood: raw, anti-polish, Are.na / Yale School of Art / Balenciaga / Cash App old
+default_mode: light
+anchors: (none in scraped corpus — aspirational/escape-hatch doctrine)
 ---
+
+## Evidence note
+
+**0/155 matches in the scraped scraped corpus.** The drone's user base does
+not ship brutalist. This doctrine is kept for the case where a user explicitly
+asks for it (keyword "brutalist" / "anti-design" / "raw html") — it's an
+escape-hatch, not a default. If you landed here via random selection, you are
+almost certainly in the wrong doctrine; prefer `shadcn_startup` or
+`photo_studio` unless the user brief demands rawness.
 
 ## Palette
 - Hard white `#ffffff` background

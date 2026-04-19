@@ -648,6 +648,11 @@ class Agent:
                         from .vision_gate import vision_check
                         from . import target_layout as _tl
                         task_text = self.state.conversation[1].content[:200] if len(self.state.conversation) > 1 else ""
+                        # Prepend doctrine hint so the VLM judges against the
+                        # injected style (not a generic "clean UI" baseline).
+                        _sn = getattr(self, "_style_name", "")
+                        if _sn:
+                            task_text = f"[doctrine={_sn}] {task_text}"
                         _tgt = _tl.target_path(project_dir)
                         vcheck = await vision_check(dist_html, task_text, target_layout=_tgt)
                         if not vcheck["passed"] and vcheck["issues"]:
@@ -1377,24 +1382,41 @@ class Agent:
         # Style injection — counteract the drone's 'vanilla dark Inter
         # centered-hero' default by handing it an explicit style doctrine
         # (palette / type / layout / motion). Keyword-routed where the
-        # brief is explicit, otherwise randomized across styles that
-        # apply to the target scaffold. Env TSUNAMI_STYLE forces one.
+        # brief is explicit, otherwise weighted-random across styles that
+        # apply to the target scaffold. Env TSUNAMI_STYLE forces a named
+        # doctrine; env TSUNAMI_STYLE_SEED=<path|url> is step-zero
+        # (seed-image resolver → hybrid doctrine with palette override).
+        #
+        # Target-scaffold inference: we peek the same `pick_scaffold()`
+        # that drives plan.md generation below, so the style applies_to
+        # filter sees the real scaffold name (react-app / landing /
+        # dashboard / etc.) instead of a regex-scraped fragment from the
+        # pre_scaffold message. Previous implementation regexed
+        # "scaffold <word>" out of scaffold_context and always found ""
+        # because the actual message reads "scaffolded at /path/..." —
+        # the applies_to filter was silently no-oping for 10+ passes.
         style_directive = ""
         style_name = ""
         style_body = ""
+        _target_scaffold = ""
         if not existing_context:
             try:
+                from .planfile import pick_scaffold as _pick_scaffold_for_style
+                _target_scaffold = _pick_scaffold_for_style(user_message) or ""
+            except Exception as _pse:
+                log.debug(f"Scaffold inference for style skipped: {_pse}")
+            try:
                 from .style_scaffolds import pick_style, format_style_directive
-                # Infer target scaffold from scaffold_context if present
-                _scaffold = ""
-                if scaffold_context:
-                    _m = re.search(r"scaffold\s+['\"]?([a-z\-]+)['\"]?", scaffold_context)
-                    if _m:
-                        _scaffold = _m.group(1)
-                style_name, style_body = pick_style(user_message, _scaffold)
+                style_name, style_body = pick_style(user_message, _target_scaffold)
                 if style_name:
                     style_directive = format_style_directive(style_name, style_body)
-                    log.info(f"Style injected: {style_name}")
+                    log.info(f"Style injected: {style_name} (scaffold={_target_scaffold!r})")
+                    # Stash for downstream gates (vision_check, undertow eddy)
+                    # — they receive `task_text[:200]` which never includes
+                    # the style directive, so the VLM would otherwise judge
+                    # "clean UI" without knowing the target doctrine. Gates
+                    # read self._style_name to doctrine-aware-prompt.
+                    self._style_name = style_name
             except Exception as _se:
                 log.debug(f"Style injection skipped: {_se}")
 
@@ -2156,6 +2178,9 @@ class Agent:
                                 from .vision_gate import vision_check
                                 from . import target_layout as _tl
                                 task_text = self.state.conversation[1].content[:200] if len(self.state.conversation) > 1 else ""
+                                _sn = getattr(self, "_style_name", "")
+                                if _sn:
+                                    task_text = f"[doctrine={_sn}] {task_text}"
                                 _tgt = _tl.target_path(proj)
                                 vcheck = await vision_check(dist_html, task_text, target_layout=_tgt)
                                 if not vcheck["passed"] and vcheck["issues"]:
@@ -2648,7 +2673,7 @@ class Agent:
                 pass  # non-critical nudge, never break the loop
 
         # 5b.3. Context hygiene — nudge if model re-reads a file whose content
-        # is already in session context AND hasn't been written since. Lovable's
+        # is already in session context AND hasn't been written since. the
         # "useful-context" pattern: a re-read burns tokens on identical bytes.
         # Invalidate the read-set on file_write/file_edit for that path.
         if tool_call.name in ("file_write", "file_edit"):
@@ -3917,6 +3942,7 @@ class Agent:
                             written_path,
                             user_request=user_req,
                             scaffold=getattr(self, "_scaffold_name", None),
+                            style_name=getattr(self, "_style_name", None),
                         )
                         failed = qa.get("levers_failed", 0)
                         total = qa.get("levers_total", 0)
@@ -4232,6 +4258,9 @@ class Agent:
                 for proj in projects[:1]:
                     dist_html = proj / "dist" / "index.html"
                     task_text = self.state.conversation[1].content[:200] if len(self.state.conversation) > 1 else ""
+                    _sn = getattr(self, "_style_name", "")
+                    if _sn:
+                        task_text = f"[doctrine={_sn}] {task_text}"
                     if not dist_html.is_file():
                         # No renderer SPA in dist/ — this is probably a
                         # headless scaffold (api-only / chrome-extension
@@ -4417,6 +4446,7 @@ class Agent:
                         last_html,
                         user_request=user_req,
                         scaffold=getattr(self, "_scaffold_name", None),
+                        style_name=getattr(self, "_style_name", None),
                     )
 
                     log.info(

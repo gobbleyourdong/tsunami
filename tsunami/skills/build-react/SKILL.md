@@ -99,7 +99,7 @@ Import from `./components/ui` — these are the only exports:
 
 ## Design constraints (quality floor)
 
-These prevent the generic "AI slop" look that Manus/v0/Lovable all flag as a core failure mode. Apply every build, no exceptions.
+These prevent the generic "AI slop" look that Manus/v0/the corpus all flag as a core failure mode. Apply every build, no exceptions.
 
 - **Max 4-5 colors total.** Primary, surface/background, text, accent, one neutral. Any more and it looks like a pitch deck. Define as CSS variables in `src/index.css`, reference everywhere.
 - **Max 2 font families.** A heading font + a body font. Usually just one (body font inheriting for headings). Don't pile on decorative fonts.

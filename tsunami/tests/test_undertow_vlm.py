@@ -24,10 +24,17 @@ def test_vlm_describe_function_exists():
 
 def test_screenshot_lever_uses_vlm_before_eddy_compare():
     """Source-invariant: _lever_screenshot must call _vlm_describe_screenshot
-    and prefer its output for _eddy_compare — NOT the pixel-stat pixel_desc."""
+    and prefer its output for _eddy_compare — NOT the pixel-stat pixel_desc.
+
+    Matches the call with either just `screenshot_bytes` or with a trailing
+    `system_note=` kwarg (direction-set routing added 2026-04-19)."""
+    import re
     src = (Path(__file__).resolve().parent.parent / "undertow.py").read_text()
-    # The fn must call _vlm_describe_screenshot
-    assert "_vlm_describe_screenshot(screenshot_bytes)" in src
+    # The fn must call _vlm_describe_screenshot with screenshot_bytes as arg 1
+    assert re.search(
+        r"_vlm_describe_screenshot\(screenshot_bytes(?:,\s*system_note=[^)]*)?\)",
+        src,
+    ), "_lever_screenshot must call _vlm_describe_screenshot(screenshot_bytes, ...)"
     # And compose desc = vlm_desc or pixel_desc
     assert "vlm_desc or pixel_desc" in src or "vlm_desc if vlm_desc else pixel_desc" in src
 
