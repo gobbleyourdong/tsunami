@@ -98,8 +98,81 @@ class ToolRegistry:
     def tools(self) -> dict[str, BaseTool]:
         return self._tools
 
-    def schemas(self) -> list[dict]:
-        return [t.schema() for t in self._tools.values()]
+    def schemas(self, open_toolboxes: list[str] | None = None) -> list[dict]:
+        """Return tool schemas for what's exposed to the model right now.
+
+        When `open_toolboxes` is None → all tools (legacy behavior).
+        When `open_toolboxes` is a list → always-available tools plus
+        tools from the named toolboxes. Lets the agent reduce per-iter
+        tool-schema prefill from ~3300 → ~1500 tokens on typical edits
+        by only surfacing toolboxes currently relevant to the task.
+        """
+        if open_toolboxes is None:
+            return [t.schema() for t in self._tools.values()]
+        allowed: set[str] = set(_ALWAYS_TOOLS)
+        for name in open_toolboxes:
+            allowed.update(_TOOLBOXES.get(name, ()))
+        return [t.schema() for n, t in self._tools.items() if n in allowed]
+
+
+# Always-loaded tools — the drone's "hand tools" that fit every edit
+# iteration regardless of phase. Wave injects more via phase→toolbox
+# mapping (see _PHASE_TOOLBOXES below).
+_ALWAYS_TOOLS: tuple[str, ...] = (
+    "file_read", "file_write", "file_edit",
+    "shell_exec",
+    "message_result",
+)
+
+# Toolbox layout. Each toolbox name maps to a tuple of tool names.
+#
+# Tools are solitons — a single registered instance per name. Toolboxes
+# are VIEWS into that registry. A tool can appear in multiple toolboxes
+# without duplication; the schemas() set-union resolves membership
+# automatically. Example: `undertow` lives in `qa` (delivery QA) AND
+# `assets` (visual sanity check on generated content); `summarize_file`
+# lives in `search` (find things) AND `scaffold` (learn the layout).
+#
+# Rule of thumb: put a tool wherever a drone might reach for it in
+# context. The cost of multi-membership is zero (shared reference); the
+# cost of under-scoped membership is a drone that can't find the tool.
+_TOOLBOXES: dict[str, tuple[str, ...]] = {
+    "search":   ("match_glob", "match_grep", "summarize_file", "search_web"),
+    "process":  ("shell_view", "shell_send", "shell_wait", "shell_kill"),
+    "planning": ("plan_update", "plan_advance", "emit_design"),
+    "assets":   ("generate_image", "riptide", "undertow"),
+    "qa":       ("undertow", "message_chat"),
+    "scaffold": ("project_init", "file_append", "summarize_file"),
+}
+
+
+def list_toolboxes() -> dict[str, tuple[str, ...]]:
+    return dict(_TOOLBOXES)
+
+
+# Phase → toolbox distribution. The orchestrator (wave) reads the
+# current plan phase and hands the drone the tools that phase needs.
+# Drone never opens toolboxes itself — it's a pure function from
+# (context, tools) → action. The wave can override per-drone (e.g.
+# parallel drones on the same project can get different surfaces).
+_PHASE_TOOLBOXES: dict[str, tuple[str, ...]] = {
+    "SCAFFOLD": ("scaffold",),                     # project_init, file_append
+    "WRITE":    (),                                # always-tools are enough
+    "TEST":     (),
+    "FIX":      (),
+    "BUILD":    (),
+    "DELIVER":  ("qa",),                           # undertow, message_chat
+    "POLISH":   ("assets", "qa"),                  # generate_image, riptide, undertow
+    "RESEARCH": ("search",),                       # match_glob/grep/summarize, search_web
+    "REPLAN":   ("planning",),                     # plan_update/advance/emit_design
+}
+
+
+def toolboxes_for_phase(phase: str) -> list[str]:
+    """Return toolbox names the wave opens for the drone in `phase`.
+    Unknown phases get an empty set (always-tools only).
+    """
+    return list(_PHASE_TOOLBOXES.get(phase, ()))
 
 
 def build_registry(config) -> ToolRegistry:
@@ -119,6 +192,10 @@ def build_registry(config) -> ToolRegistry:
     # registry can't route, falling back to shell_exec "find"/"rg" for
     # capabilities that should be native.
     from .discovery import MatchGlob, MatchGrep, SummarizeFile
+
+    # open_toolbox deliberately NOT registered — the wave owns toolbox
+    # distribution (phase_machine.phase → toolboxes_for_phase → schemas).
+    # Drone is a pure function, not a tool-surface manager.
 
     registry = ToolRegistry()
     for cls in [

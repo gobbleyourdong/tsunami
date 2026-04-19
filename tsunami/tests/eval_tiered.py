@@ -332,14 +332,14 @@ async def run_tier(tier: Tier, endpoint: str) -> TierResult:
         workspace_dir=str(ws_base),
         max_iterations=40,
         temperature=0.7,
-        # 2048 truncates App.tsx file_write emissions mid-JSX — the
-        # model writes ~200-line files that come out at ~2000-4000
-        # tokens including the <tool_call>/<parameter> wrapper. 8k
-        # gives comfortable headroom (2× the worst-case emission) and
-        # bounds iter duration: at ~12 tok/s on this hardware, 8k max
-        # → ~11 min per iter max. 16k was too generous — the model
-        # can burn the full budget on one iter of unbounded thinking.
-        max_tokens=8192,
+        # 2500 balances "write full App.tsx in one shot" against "don't
+        # burn the whole 300s budget on one iter". A 200-line React
+        # component = ~1500-2000 tokens including <tool_call> wrapper.
+        # At ~16 tok/s /v1 decode rate on this hardware, 2500 tokens =
+        # ~2.5 min cap per iter. 8k previously allowed iter 1 to emit
+        # 3784 tokens and burn 230s of the 300s eval budget on a
+        # single write, leaving no time for shell_exec + message_result.
+        max_tokens=6144,
     )
     agent = Agent(config)
 

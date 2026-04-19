@@ -243,14 +243,15 @@ log = logging.getLogger("qwen36_fp8")
 # pins the allocation up front so subsequent requests reuse it.
 #
 # Qwen3.6-35B-A3B natively supports 262144 tokens; the README's recommended
-# output length is 32768 (81920 for math/code competition). Setting the
-# ceiling to the native max means even 200k-token documents fit without
-# hitting the cache-realloc + autotune cliff. KV footprint at 256K ≈ 10-12 GB
-# on this architecture (20 full-attention layers × 2 KV heads × 256 head_dim
-# × 256K slots × 2 bytes × 2 tensors). Runs comfortably in a stack that also
-# hosts the ~22 GB ERNIE Turbo + ~1 GB Qwen3-Embedding tiers on a 128 GB
-# unified-memory GB10.
-_CACHE_CEILING = 262144
+# output length is 32768 (81920 for math/code competition). For the build-
+# agent use case the biggest prompt we've measured is ~15K tokens (iter 2
+# with compaction off), so 128K gives 8× headroom and frees ~5-6GB of KV
+# VRAM vs the 256K ceiling. KV footprint at 128K ≈ 5-6 GB on this arch
+# (20 full-attention layers × 2 KV heads × 256 head_dim × 128K slots × 2
+# bytes × 2 tensors). Runs comfortably in a stack that also hosts the
+# ~22 GB ERNIE Turbo + ~1 GB Qwen3-Embedding tiers on a 128 GB unified-
+# memory GB10. If a future use case needs >128K context, bump back up.
+_CACHE_CEILING = 65536
 
 app = FastAPI()
 model = None
@@ -450,6 +451,60 @@ def _gpu_warmup_sync():
             log.info("  (first real request at any typical prompt size is now warm)")
         except Exception as _e:
             log.warning(f"lean_decode pre-capture skipped ({type(_e).__name__}: {_e})")
+
+
+# Request trace middleware — writes {ts, endpoint, prompt_text, tool_count,
+# image_count} to /tmp/prompt_trace.jsonl for each /v1/chat/completions hit.
+# Opt-in via TSUNAMI_TRACE=1 env var. Gives us the EXACT text the model
+# receives, post chat-template render, so we can debug prompt bloat/drift.
+import os as _osenv
+if _osenv.environ.get("TSUNAMI_TRACE") == "1":
+    from fastapi import Request as _FReq
+    _TRACE_FILE = "/tmp/prompt_trace.jsonl"
+
+    @app.middleware("http")
+    async def _trace_requests(request: _FReq, call_next):
+        if request.url.path != "/v1/chat/completions":
+            return await call_next(request)
+        try:
+            body = await request.body()
+            # Re-inject body so downstream handlers can read it
+            async def _receive():
+                return {"type": "http.request", "body": body, "more_body": False}
+            request._receive = _receive  # type: ignore
+            import json as _j, time as _t
+            payload = _j.loads(body) if body else {}
+            msgs = payload.get("messages", [])
+            tool_count = len(payload.get("tools", []) or [])
+            img_count = 0
+            text_bytes = 0
+            for m in msgs:
+                c = m.get("content", "")
+                if isinstance(c, list):
+                    for p in c:
+                        if p.get("type") == "image_url":
+                            img_count += 1
+                        elif p.get("type") == "text":
+                            text_bytes += len(p.get("text", ""))
+                elif isinstance(c, str):
+                    text_bytes += len(c)
+            rec = {
+                "ts": _t.time(),
+                "msg_count": len(msgs),
+                "tool_count": tool_count,
+                "img_count": img_count,
+                "text_bytes": text_bytes,
+                "max_tokens": payload.get("max_tokens"),
+                "enable_thinking": payload.get("enable_thinking"),
+                "preserve_thinking": payload.get("preserve_thinking"),
+                "messages": msgs,
+                "tools_names": [t.get("function", t).get("name", "?") for t in (payload.get("tools") or [])][:25],
+            }
+            with open(_TRACE_FILE, "a") as f:
+                f.write(_j.dumps(rec, default=str) + "\n")
+        except Exception as _te:
+            log.debug(f"trace middleware skipped: {_te}")
+        return await call_next(request)
 
 
 @app.on_event("startup")
@@ -1238,13 +1293,21 @@ async def _chat_completions_impl(req: ChatRequest):
     # document-grade prompts at ~2.5 GB KV-cache VRAM cost.
     _force_max_length = max(prompt_len + req.max_tokens, _CACHE_CEILING)
 
+    # Multimodal requests carry pixel_values + mm_token_type_ids +
+    # image_grid_thw alongside input_ids. lean_decode's fast path only
+    # forwards input_ids/attention_mask, so vision requests silently
+    # lose the images and the VLM hallucinates text from the base64.
+    # Detect image inputs and fall back to HF GenerationMixin (slower
+    # but multimodal-aware) for those requests only.
+    _has_vision_inputs = "pixel_values" in inputs
+
     def _generate():
         # Lean decode path (env-gated). Skips HF GenerationMixin — which the
         # profiler showed was adding ~57ms/tok of Python overhead (LogitsProcessor
         # chain, StoppingCriteria poll, kwarg rebuild). Forward pass + custom
         # sampling only. Keeps the same StaticCache path by letting the model
         # allocate its own cache internally.
-        if _LEAN_DECODE_ENABLED:
+        if _LEAN_DECODE_ENABLED and not _has_vision_inputs:
             eos_ids: list[int] = []
             if tokenizer.eos_token_id is not None:
                 eos_ids.append(int(tokenizer.eos_token_id))

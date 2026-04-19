@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -45,6 +45,11 @@ class LLMResponse:
     content: str
     tool_call: ToolCall | None = None
     raw: dict | None = None
+    # When the model emits multiple <tool_call> blocks in one response
+    # (Qwen3.6 does this for "research these files" style turns), the
+    # full list lives here. `tool_call` is the first for back-compat
+    # with every call site; batch-capable handlers use `tool_calls`.
+    tool_calls: list[ToolCall] = field(default_factory=list)
 
 
 class TsunamiModel:
@@ -56,6 +61,7 @@ class TsunamiModel:
                  min_p: float = 0.0,
                  presence_penalty: float = 0.0,
                  repetition_penalty: float = 1.0,
+                 preserve_thinking: bool = True,
                  client_id: str = "", adapter: str = "", **kwargs):
         self.model = model
         self.endpoint = endpoint.rstrip("/")
@@ -68,6 +74,12 @@ class TsunamiModel:
         self.repetition_penalty = repetition_penalty  # Qwen3.6 README: 1.0
         # Identity for the server's per-user fairness queue (TSUNAMI_USER env).
         # Kept nonempty if set; the server treats "" as a shared "default" user.
+        # Qwen3.6 preserve_thinking: wave=True (keeps reasoning across turns,
+        # paired with scaffold-edit compact-history mode where only the last
+        # 2 pairs are kept verbatim — preserving their <think> blocks gives
+        # continuity without bloating context). Eddies bypass TsunamiModel
+        # entirely so they naturally stay at server default False.
+        self.preserve_thinking = preserve_thinking
         self.client_id = client_id
         # LoRA adapter name for per-request server-side swap (TSUNAMI_ADAPTER env).
         # "" = leave server's current adapter; "none" = force base model; any other
@@ -177,16 +189,19 @@ class TsunamiModel:
             #   enable_thinking      — default on for planning; off for
             #                          coding turns (caller controls this
             #                          per-turn via the generate() arg).
-            #   preserve_thinking=True — keeps reasoning from prior turns so
-            #                          multi-turn tool sessions don't lose
+            #   preserve_thinking=True — keeps <think> blocks from prior turns
+            #                          so multi-turn tool sessions don't lose
             #                          the agent's mental state mid-chain.
             # Both top-level (qwen36 ChatRequest field) AND chat_template_kwargs
             # are set because different inference paths consume different
-            # fields. extra="allow" on the proxy lets top-level pass through.
+            # fields — serve_qwen36_fp8.py reads top-level via Pydantic,
+            # vLLM/SGLang read chat_template_kwargs. extra="allow" on the
+            # proxy lets top-level pass through.
             "enable_thinking": enable_thinking,
+            "preserve_thinking": self.preserve_thinking,
             "chat_template_kwargs": {
                 "enable_thinking": enable_thinking,
-                "preserve_thinking": True,
+                "preserve_thinking": self.preserve_thinking,
             },
         }
         if self.client_id:
@@ -204,6 +219,46 @@ class TsunamiModel:
                 }
             else:
                 payload["tool_choice"] = "auto"
+
+        # Opt-in trace of the exact outgoing payload. Enable by setting
+        # TSUNAMI_TRACE=1 in the env; writes one JSONL record per call to
+        # /tmp/prompt_trace.jsonl. Mirrors the FastAPI middleware but fires
+        # at the client side so we can debug prompt drift without restarting
+        # the server.
+        import os as _os
+        if _os.environ.get("TSUNAMI_TRACE") == "1":
+            try:
+                import time as _t
+                msgs = payload.get("messages", [])
+                text_bytes = 0
+                img_count = 0
+                for m in msgs:
+                    c = m.get("content", "")
+                    if isinstance(c, list):
+                        for p in c:
+                            if p.get("type") == "image_url":
+                                img_count += 1
+                            elif p.get("type") == "text":
+                                text_bytes += len(p.get("text", ""))
+                    elif isinstance(c, str):
+                        text_bytes += len(c)
+                rec = {
+                    "ts": _t.time(),
+                    "msg_count": len(msgs),
+                    "text_bytes": text_bytes,
+                    "img_count": img_count,
+                    "tool_count": len(payload.get("tools", []) or []),
+                    "max_tokens": payload.get("max_tokens"),
+                    "enable_thinking": payload.get("enable_thinking"),
+                    "messages": msgs,
+                    "tools_names": [t.get("function", t).get("name", "?")
+                                    for t in (payload.get("tools") or [])][:30],
+                    "force_tool": force_tool,
+                }
+                with open("/tmp/prompt_trace.jsonl", "a") as _f:
+                    _f.write(json.dumps(rec, default=str) + "\n")
+            except Exception:
+                pass
 
         async with httpx.AsyncClient(timeout=900) as client:
             for attempt in range(3):
@@ -232,54 +287,71 @@ class TsunamiModel:
         choice = data["choices"][0]
         msg = choice["message"]
         content = msg.get("content", "") or ""
-        tool_call = None
 
-        if msg.get("tool_calls"):
-            tc = msg["tool_calls"][0]
-            func = tc["function"]
-            args = func.get("arguments", "{}")
-            if isinstance(args, str):
-                try:
-                    args = json.loads(args)
-                except json.JSONDecodeError:
-                    import re as _re
-                    # Truncated-JSON recovery. Common pattern with large writes
-                    # (Gemma-4-26B on llama-server emits {"content": "6KB...",
-                    # "path": "..."} — the content string overflows the
-                    # tool-call buffer before `path` is written). Extract what
-                    # we can; if path is missing the agent's path-inference
-                    # guard (agent.py:1497) fills it from the active project.
-                    path_m = _re.search(r'"path"\s*:\s*"([^"]+)"', args)
-                    content_m = _re.search(r'"content"\s*:\s*"(.*)', args, _re.DOTALL)
-                    recovered: dict = {}
-                    if content_m:
-                        raw_content = content_m.group(1)
-                        raw_content = raw_content.rstrip().rstrip('}"').rstrip()
-                        raw_content = raw_content.replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
-                        recovered["content"] = raw_content
-                    if path_m:
-                        recovered["path"] = path_m.group(1)
-                    if recovered:
-                        log.info(
-                            f"Recovered malformed JSON args: "
-                            f"{'path=' + recovered['path'] + ' ' if 'path' in recovered else ''}"
-                            f"{'content_len=' + str(len(recovered['content'])) if 'content' in recovered else ''}"
-                        )
-                        args = recovered
-                    else:
-                        log.warning(f"Failed to parse tool args JSON: {args[:200]}")
-                        args = {}
-            if isinstance(args, dict) and "arguments" in args and len(args) == 1:
-                args = args["arguments"]
-            tool_call = ToolCall(name=func["name"], arguments=args)
+        # Parse ALL tool_calls the model emitted. Qwen3.6 routinely batches
+        # 3-4 file_reads in a single turn; we used to drop everything after
+        # [0], burning a full round-trip per extra call. Now callers get
+        # the whole list and can execute them sequentially in one iter.
+        tool_calls: list[ToolCall] = []
+        for tc in msg.get("tool_calls", []) or []:
+            parsed = _parse_tool_call_dict(tc)
+            if parsed is not None:
+                tool_calls.append(parsed)
 
-        # Fallback: extract tool call from text content
-        if tool_call is None and content:
-            tool_call = _extract_tool_call(content)
-            if tool_call:
-                log.info(f"Extracted text-mode tool call from content: {tool_call.name}")
+        # Fallback: extract tool call(s) from text content
+        if not tool_calls and content:
+            parsed = _extract_tool_call(content)
+            if parsed:
+                tool_calls.append(parsed)
+                log.info(f"Extracted text-mode tool call from content: {parsed.name}")
 
-        return LLMResponse(content=content, tool_call=tool_call, raw=data)
+        tool_call = tool_calls[0] if tool_calls else None
+        return LLMResponse(content=content, tool_call=tool_call,
+                           tool_calls=tool_calls, raw=data)
+
+
+def _parse_tool_call_dict(tc: dict) -> ToolCall | None:
+    """Extract a ToolCall from one OpenAI-format tool_call dict. Handles
+    string-JSON arguments, truncated-JSON recovery, and the Qwen3.6
+    double-wrap `{"arguments": {...}}` idiom. Returns None on total failure.
+    """
+    try:
+        func = tc.get("function", tc)
+        name = func.get("name", "")
+        if not name:
+            return None
+        args = func.get("arguments", "{}")
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError:
+                import re as _re
+                path_m = _re.search(r'"path"\s*:\s*"([^"]+)"', args)
+                content_m = _re.search(r'"content"\s*:\s*"(.*)', args, _re.DOTALL)
+                recovered: dict = {}
+                if content_m:
+                    raw_content = content_m.group(1)
+                    raw_content = raw_content.rstrip().rstrip('}"').rstrip()
+                    raw_content = raw_content.replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
+                    recovered["content"] = raw_content
+                if path_m:
+                    recovered["path"] = path_m.group(1)
+                if recovered:
+                    log.info(
+                        f"Recovered malformed JSON args: "
+                        f"{'path=' + recovered['path'] + ' ' if 'path' in recovered else ''}"
+                        f"{'content_len=' + str(len(recovered['content'])) if 'content' in recovered else ''}"
+                    )
+                    args = recovered
+                else:
+                    log.warning(f"Failed to parse tool args JSON: {args[:200]}")
+                    args = {}
+        if isinstance(args, dict) and "arguments" in args and len(args) == 1:
+            args = args["arguments"]
+        return ToolCall(name=name, arguments=args if isinstance(args, dict) else {})
+    except Exception as e:
+        log.warning(f"Tool call parse error: {e}")
+        return None
 
 
 def _extract_tool_call(text: str):

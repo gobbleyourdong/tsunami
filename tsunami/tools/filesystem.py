@@ -14,6 +14,10 @@ from ..outbound_exfil import check_outbound_exfil
 # Active project path from phase machine — set by agent.py after phase transitions.
 # Used by _resolve_path to deterministically resolve bare paths like "src/App.tsx".
 _active_project: str | None = None
+# Set True by agent.py when a shell_exec `vite build` / `npm run build`
+# succeeds. Reset per session. Used by message_result's fast-path gate
+# to skip content regex checks once we have a compiled artifact.
+_session_build_passed: bool = False
 
 # Deliverable directory NAMES (not full paths) that ProjectInit created in this
 # Python process. Used by _is_safe_write to refuse silent overwrites of prior
@@ -400,7 +404,10 @@ class FileRead(BaseTool):
                 next_offset = offset + lines_shown
                 result += f"\n\n[TRUNCATED at line {next_offset} of {total}. Save your notes, then call file_read with offset={next_offset} to continue.]"
 
-            header = f"[{p.name}] Lines {offset+1}-{min(offset+len(numbered), total)} of {total}"
+            last_line_shown = min(offset + len(numbered), total)
+            is_complete = (offset == 0 and last_line_shown >= total)
+            completeness = " (complete — do NOT re-read)" if is_complete else ""
+            header = f"[{p.name}] Lines {offset+1}-{last_line_shown} of {total}{completeness}"
             return ToolResult(header + "\n" + result)
         except Exception as e:
             return ToolResult(f"Error reading {path}: {e}", is_error=True)
@@ -408,7 +415,7 @@ class FileRead(BaseTool):
 
 class FileWrite(BaseTool):
     name = "file_write"
-    description = "Create or overwrite a file with full content. The hand: bring something into existence."
+    description = "Create or overwrite a file with full content."
 
     def parameters_schema(self) -> dict:
         return {
@@ -522,14 +529,25 @@ class FileWrite(BaseTool):
                     f"Fix the syntax error before relying on this file.",
                     is_error=True,
                 )
-            return ToolResult(f"Wrote {lines} lines to {p}")
+            # Hint the next move in the flow so the drone doesn't spiral
+            # into file_reads "verifying" its own write. After writing a
+            # .tsx/.ts/.jsx in a deliverable, the next move is to compile.
+            next_hint = ""
+            try:
+                s = str(p)
+                if "/deliverables/" in s and any(s.endswith(ext) for ext in (".tsx", ".ts", ".jsx", ".js", ".css")):
+                    proj_dir = s.split("/deliverables/", 1)[1].split("/", 1)[0]
+                    next_hint = f"\nNext: shell_exec 'cd deliverables/{proj_dir} && npm run build' to verify it compiles."
+            except Exception:
+                pass
+            return ToolResult(f"Wrote {lines} lines to {p}{next_hint}")
         except Exception as e:
             return ToolResult(f"Error writing {path}: {e}", is_error=True)
 
 
 class FileEdit(BaseTool):
     name = "file_edit"
-    description = "Make targeted modifications to an existing file. The scalpel: precise changes without destroying context."
+    description = "Make targeted modifications to an existing file."
 
     def parameters_schema(self) -> dict:
         # Audit Fire 2 / D20 correction: qwen-code's edit tool actually
@@ -690,7 +708,7 @@ class FileEdit(BaseTool):
 
 class FileAppend(BaseTool):
     name = "file_append"
-    description = "Add content to the end of an existing file. The accumulator: build incrementally."
+    description = "Append content to the end of an existing file."
 
     def parameters_schema(self) -> dict:
         return {

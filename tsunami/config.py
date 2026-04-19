@@ -18,15 +18,26 @@ class TsunamiConfig:
     api_key: str | None = None
     # Qwen3.6-35B-A3B README (Thinking mode — Precise Coding / WebDev):
     #   temperature=0.6, top_p=0.95, top_k=20, min_p=0.0,
-    #   presence_penalty=0.0, repetition_penalty=1.0, max_tokens=81920.
+    #   presence_penalty=0.0, repetition_penalty=1.0.
     # Native context 262144 (256K). enable_thinking=True (default).
+    #
+    # max_tokens bounded to 2500 for build-agent turns. At /v1 prefill-
+    # inclusive decode rate (~15-20 tok/s on 6K-token prompts), 2500
+    # tokens = ~2-2.5 min of generation. Iter 1 with thinking-OFF and
+    # a pre-scaffolded project needs ~1500-2000 tok to write a full
+    # App.tsx (pomodoro, tic-tac-toe, counter); subsequent iters emit
+    # a few hundred. 2500 gives headroom without allowing iter 1 to
+    # consume the full T2 budget on one file_write (3784-token write
+    # at 15:50 burned 236s of 300s eval budget, timing out at iter 4).
+    # Qwen card suggests 81920 for math/coding competitions — not
+    # relevant for this build-agent use case.
     temperature: float = 0.6
     top_p: float = 0.95
     top_k: int = 20
     min_p: float = 0.0
     presence_penalty: float = 0.0
     repetition_penalty: float = 1.0
-    max_tokens: int = 81920
+    max_tokens: int = 6144
     client_id: str = ""  # set via TSUNAMI_USER env var; feeds the `user` field of
                          # /v1/chat/completions so the server can enforce per-user
                          # fairness. Leave empty on single-user setups — the server

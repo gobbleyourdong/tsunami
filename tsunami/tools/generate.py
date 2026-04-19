@@ -124,7 +124,7 @@ log = logging.getLogger("tsunami.generate")
 class GenerateImage(BaseTool):
     name = "generate_image"
     description = (
-        "Generate an image from a text description. The artist: bring visual ideas into existence. "
+        "Generate an image from a text description. "
         "If a project exists, the image is auto-routed to <project>/public/assets/<filename> "
         "so you can reference it in JSX as <img src=\"/assets/<filename>\" />. "
         "Call project_init BEFORE generate_image when building a UI — otherwise images land "

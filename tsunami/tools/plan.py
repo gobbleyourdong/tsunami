@@ -21,7 +21,7 @@ def set_agent_state(state):
 
 class PlanUpdate(BaseTool):
     name = "plan_update"
-    description = "Create or revise the task plan. The architect: before building, draw the blueprint."
+    description = "Create or revise the task plan."
 
     def parameters_schema(self) -> dict:
         return {
@@ -78,7 +78,7 @@ class PlanUpdate(BaseTool):
 
 class PlanAdvance(BaseTool):
     name = "plan_advance"
-    description = "Mark current phase complete and move to next. The metronome: steady forward progress."
+    description = "Mark current phase complete and move to the next."
 
     def parameters_schema(self) -> dict:
         return {

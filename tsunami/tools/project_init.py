@@ -419,15 +419,19 @@ class ProjectInit(BaseTool):
             scaffold_info = f" (scaffold: {scaffold_name})" if scaffold_name else ""
             dep_list = ", ".join(dependencies) if dependencies else "none"
 
-            # Include README — both in result AND as a pinned system note
-            # The result gets compressed; the system note survives longer
+            # Don't inline the full scaffold README here (~3K chars). The
+            # drone gets the file listing + App.tsx stub in the edit prompt
+            # and the exports list below — that's enough to start writing.
+            # Previously inlining the README bloated the iter 1 user message
+            # to 6K+ chars and gave the model something to "verify" via
+            # file_read loops. Also don't even mention README.md exists —
+            # any hint about a readable file is an invitation the drone
+            # will accept over actually writing code.
             readme_content = ""
             readme_path = project_dir / "README.md"
             if readme_path.exists():
-                readme_text = readme_path.read_text()
-                readme_content = "\n\n---\n\n" + readme_text
-                # Store for periodic re-injection by scaffold awareness
-                self._readme_cache = readme_text
+                # Cache for later if any code still reads it
+                self._readme_cache = readme_path.read_text()
 
             # Surface the actual component exports upfront so model doesn't
             # hallucinate imports and hit TS2305 at first build. Gallery runs

@@ -246,7 +246,7 @@ def _next_session_id() -> str:
 
 class ShellExec(BaseTool):
     name = "shell_exec"
-    description = "Run a shell command and return its output. The muscle: do the thing."
+    description = "Run a shell command and return its output."
 
     def parameters_schema(self) -> dict:
         return {
@@ -376,14 +376,23 @@ class ShellExec(BaseTool):
                 parts.append(f"[stderr] {err}")
             parts.append(f"[exit code: {proc.returncode}]")
 
-            return ToolResult("\n".join(parts), is_error=proc.returncode != 0)
+            # Flow hint: when a vite build succeeds, tell the drone the
+            # next step is message_result. Without this hint, drones often
+            # loop into file_read "verifying" the build output.
+            combined = "\n".join(parts)
+            is_build = any(k in command for k in ("vite build", "npm run build", "npx vite"))
+            build_passed = proc.returncode == 0 and is_build and "built in" in combined.lower()
+            if build_passed:
+                combined += "\nNext: message_result to deliver — the app compiled."
+
+            return ToolResult(combined, is_error=proc.returncode != 0)
         except Exception as e:
             return ToolResult(f"Error executing command: {e}", is_error=True)
 
 
 class ShellView(BaseTool):
     name = "shell_view"
-    description = "Check output and status of a background process. The mirror: see what happened."
+    description = "Check output and status of a background process."
 
     def parameters_schema(self) -> dict:
         return {
@@ -432,7 +441,7 @@ class ShellView(BaseTool):
 
 class ShellSend(BaseTool):
     name = "shell_send"
-    description = "Send input to a running background process. The voice: speak to running programs."
+    description = "Send input (stdin) to a running background process."
 
     def parameters_schema(self) -> dict:
         return {
@@ -465,7 +474,7 @@ class ShellSend(BaseTool):
 
 class ShellWait(BaseTool):
     name = "shell_wait"
-    description = "Wait for a background process to complete. The patience: let the process finish."
+    description = "Wait for a background process to complete."
 
     def parameters_schema(self) -> dict:
         return {
@@ -511,7 +520,7 @@ class ShellWait(BaseTool):
 
 class ShellKill(BaseTool):
     name = "shell_kill"
-    description = "Terminate a background process. The mercy: end what is no longer needed."
+    description = "Terminate a background process."
 
     def parameters_schema(self) -> dict:
         return {

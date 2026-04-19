@@ -73,28 +73,21 @@ class SkillsManager:
         return skill_md.read_text()
 
     def load_all_skill_content(self) -> str:
-        """Load ALL waveform instructions for injection into system prompt.
+        """Inject a one-line index of available skills, not their full content.
 
-        Ark principle: read relevant skills BEFORE planning.
-        We inject all of them so the agent always knows what's available.
+        Prior impl inlined up to 32K chars (~8K tokens) of skill bodies into
+        every system prompt — dominating prefill cost even when the task
+        didn't need any of them. Now we inject a short index; the agent
+        file_reads the relevant SKILL.md when a task matches.
         """
         skills = self.list_skills()
         if not skills:
             return ""
-
-        parts = []
-        total_chars = 0
-        # Cap 32000 chars (~8000 tokens). Gemma-4 has 128k context; skills are
-        # the single most load-bearing piece of the system prompt, so spend
-        # more on them. Bumped from 16000 after build-multi-page pushed the
-        # total over and silently dropped visual-clone from the load.
+        lines = ["Skills (file_read the path for full instructions):"]
         for s in skills:
-            content = self.load_skill(s["name"])
-            if content and total_chars + len(content) < 32000:
-                parts.append(f"### {s['name']}\n{content}")
-                total_chars += len(content)
-
-        return "\n\n".join(parts)
+            desc = s["description"] or s["title"]
+            lines.append(f"- {s['name']}: {desc} ({s['path']}/SKILL.md)")
+        return "\n".join(lines)
 
     def skills_summary(self) -> str:
         """Generate a summary for injection into the system prompt."""

@@ -107,6 +107,37 @@ def _significant_words(text: str) -> set[str]:
     return {w for w in re.findall(r"[a-zA-Z]{3,}", text.lower()) if w not in _STOPWORDS}
 
 
+def _check_scaffold_unchanged_only(workspace_dir: str) -> str | None:
+    """Build-passed fast-path gate: only block delivery if the scaffold
+    App.tsx is still the untouched placeholder. All other pattern-matching
+    checks (chart-primitive, ReDoS, useState, etc.) are skipped — the
+    compile + auto-undertow path is the authoritative delivery check.
+    """
+    deliv_root = Path(workspace_dir) / "deliverables"
+    if not deliv_root.is_dir():
+        return None
+    from .filesystem import get_effective_target_project
+    effective = get_effective_target_project()
+    if not effective:
+        return None
+    target = deliv_root / effective
+    if not (target / "package.json").exists():
+        return None
+    app = target / "src" / "App.tsx"
+    if not app.exists():
+        return None
+    try:
+        content = app.read_text()
+    except OSError:
+        return None
+    if content == _SCAFFOLD_PLACEHOLDER_APP_TSX:
+        return (
+            f"REFUSED: {target.name}/src/App.tsx is the unchanged scaffold placeholder. "
+            f"Write the actual app code with file_write before delivering."
+        )
+    return None
+
+
 def _check_deliverable_complete(workspace_dir: str) -> str | None:
     """Return error message if the latest deliverable looks like a placeholder
     OR has no keyword overlap with the task prompt. Returns None if OK to ship
@@ -228,7 +259,22 @@ def _check_deliverable_complete(workspace_dir: str) -> str | None:
                        "plotly.js", "react-plotly.js", "echarts",
                        "apexcharts", "react-apexcharts"}
         _has_chart_lib = any(lib in _deps for lib in _chart_libs)
-        if _has_chart_lib:
+        # Only fire the chart-primitive refusal when the TASK ACTUALLY
+        # asks for a chart/dashboard/analytics. Our react-app scaffold
+        # pre-includes recharts in every package.json, so the original
+        # "chart lib in deps → must render chart" check was a false
+        # positive on every non-chart task (pomodoro, tic-tac-toe, etc.).
+        # 2026-04-18: delivery gate simplification — refuse only when
+        # the user actually asked for a chart.
+        from .filesystem import _session_task_prompt as _sess_task
+        _task_text = _sess_task or ""
+        _task_wants_chart = any(
+            k in _task_text.lower()
+            for k in ("chart", "graph", "dashboard", "analytics",
+                      "visualiz", "plot ", "plots ", "histogram",
+                      "bar chart", "line chart", "pie chart")
+        )
+        if _has_chart_lib and _task_wants_chart:
             # Chart primitives: recharts components, raw <canvas>, <svg>, etc.
             _chart_jsx_re = re.compile(
                 r'<(?:LineChart|BarChart|PieChart|AreaChart|ScatterChart|'
@@ -655,7 +701,7 @@ class MessageChat(BaseTool):
 
 class MessageResult(BaseTool):
     name = "message_result"
-    description = "Deliver final outcome and end the task. The exhale: the work is done."
+    description = "Deliver final outcome and end the task."
 
     def parameters_schema(self) -> dict:
         return {
@@ -724,7 +770,21 @@ class MessageResult(BaseTool):
         global _last_displayed
         # Gate: don't let the agent ship an unchanged scaffold or obvious placeholder.
         # Returning is_error=True keeps the agent loop alive so it can fix and retry.
-        gate_error = _check_deliverable_complete(self.config.workspace_dir)
+        #
+        # If a build has already passed in this session, skip the content
+        # regex gates (chart-primitive, ReDoS, useState-unused, dead-input,
+        # broken-img). The build-pass + auto-undertow path in agent.py is
+        # the authoritative delivery check — content gates are noisy
+        # pattern matchers that misfire (e.g. chart-primitive refusing a
+        # pomodoro because recharts is in scaffold deps). Trust the build +
+        # runtime check. The scaffold-unchanged check still runs because
+        # that's the one cheap correctness signal that compile can't catch.
+        from . import filesystem as _fs_state
+        build_passed = bool(getattr(_fs_state, "_session_build_passed", False))
+        if build_passed:
+            gate_error = _check_scaffold_unchanged_only(self.config.workspace_dir)
+        else:
+            gate_error = _check_deliverable_complete(self.config.workspace_dir)
         if gate_error:
             return ToolResult(gate_error, is_error=True)
         # Deliver-gate fallback (2026-04-16 tech-debt 97bd954 fix-b): when the

@@ -152,17 +152,26 @@ class AgentState:
                 self.plan = Plan.from_dict(json.load(f))
         return self.plan
 
-    def to_messages(self) -> list[dict[str, str]]:
+    def to_messages(self, max_pairs: int | None = None) -> list[dict[str, str]]:
         """Convert conversation to the format expected by LLM APIs.
 
         Uses a simple, universally compatible format: tool calls and results
         are inlined as text in assistant/user messages.
 
-        The model sees the full history of what it did and what happened.
+        When `max_pairs` is set (scaffold-edit mode), only the last N
+        (assistant tool_call, tool_result) pairs are kept verbatim; older
+        pairs collapse into a single summary line. The model doesn't need
+        the full history of file_writes — the scaffold state is on disk,
+        recoverable via file_read. This keeps per-turn prompt size flat
+        instead of growing linearly with iteration count.
         """
+        source = self.conversation
+        if max_pairs is not None and max_pairs >= 0:
+            source = self._compact_conversation(max_pairs)
+
         msgs = []
         first_system_done = False
-        for m in self.conversation:
+        for m in source:
             if m.role == "system":
                 if not first_system_done:
                     msgs.append({"role": "system", "content": m.content})
@@ -188,10 +197,26 @@ class AgentState:
             if m.role == "tool_result":
                 msgs.append({"role": "user", "content": m.content})
             elif m.role == "assistant" and m.tool_call:
-                # Echo the tool call JSON so the model sees its own pattern
+                # Echo the tool call JSON so the model sees its own pattern.
+                # For file_write / file_append / file_edit with large
+                # `content` bodies (App.tsx is ~12KB, ~3000 tokens) the
+                # full body in history ballooned iter N+1's prefill. The
+                # content is already on disk — echo a compact summary of
+                # the write instead of replaying the full code.
                 import json
                 tc = m.tool_call.get("function", m.tool_call)
-                tc_json = json.dumps({"name": tc.get("name", ""), "arguments": tc.get("arguments", {})})
+                name = tc.get("name", "")
+                args = dict(tc.get("arguments", {}) or {})
+                if name in ("file_write", "file_append"):
+                    content = args.get("content", "")
+                    if isinstance(content, str) and len(content) > 400:
+                        args["content"] = f"<{len(content)} chars — see {args.get('path', '?')} on disk>"
+                elif name == "file_edit":
+                    for k in ("old_content", "new_content", "content"):
+                        v = args.get(k, "")
+                        if isinstance(v, str) and len(v) > 400:
+                            args[k] = f"<{len(v)} chars — elided>"
+                tc_json = json.dumps({"name": name, "arguments": args})
                 msgs.append({"role": "assistant", "content": tc_json})
             else:
                 msgs.append({"role": m.role, "content": m.content})
@@ -216,3 +241,50 @@ class AgentState:
                 merged.append({"role": "user", "content": plan_reminder})
 
         return merged
+
+    def _compact_conversation(self, max_pairs: int) -> list[Message]:
+        """Keep system + first user message + last `max_pairs` (assistant,
+        tool_result) pairs verbatim; collapse everything between into a
+        single summary system_note. Scaffold state lives on disk — the
+        model re-reads via file_read when it needs detail, so older
+        tool-call bodies are dead weight in the prompt.
+        """
+        if not self.conversation:
+            return self.conversation
+
+        action_idxs = [i for i, m in enumerate(self.conversation)
+                       if m.role in ("assistant", "tool_result")]
+        if len(action_idxs) <= max_pairs * 2:
+            return self.conversation  # short enough, no compaction needed
+
+        keep_from = action_idxs[-(max_pairs * 2)]
+
+        head: list[Message] = []
+        first_user_seen = False
+        for m in self.conversation[:keep_from]:
+            if m.role == "system":
+                head.append(m)
+            elif m.role == "user" and not first_user_seen:
+                head.append(m)
+                first_user_seen = True
+
+        dropped = [m for m in self.conversation[:keep_from]
+                   if m.role in ("assistant", "tool_result")]
+        summary_lines = []
+        pair_counter = 0
+        for m in dropped:
+            if m.role == "assistant" and m.tool_call:
+                tc = m.tool_call.get("function", m.tool_call)
+                name = tc.get("name", "?")
+                pair_counter += 1
+                summary_lines.append(f"  {pair_counter}. {name}")
+            elif m.role == "tool_result":
+                if summary_lines:
+                    snippet = m.content.split("\n", 1)[0][:80]
+                    summary_lines[-1] += f" → {snippet}"
+        if summary_lines:
+            summary = ("[Prior iterations — scaffold state is on disk, file_read to inspect]\n"
+                       + "\n".join(summary_lines))
+            head.append(Message(role="system_note", content=summary))
+
+        return head + list(self.conversation[keep_from:])
