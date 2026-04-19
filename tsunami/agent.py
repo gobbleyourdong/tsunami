@@ -2169,11 +2169,12 @@ class Agent:
             # couldn't see the current App.tsx — rewriting blind from
             # memory re-introduced the same missing useState declarations.
             if self._first_write_done:
-                file_read_tool = self.registry.get("file_read")
-                if file_read_tool and not any(
-                    s.get("function", {}).get("name") == "file_read" for s in all_schemas
-                ):
-                    all_schemas.append(file_read_tool.schema())
+                for _restore in ("file_read", "shell_exec"):
+                    _tool = self.registry.get(_restore)
+                    if _tool and not any(
+                        s.get("function", {}).get("name") == _restore for s in all_schemas
+                    ):
+                        all_schemas.append(_tool.schema())
         response = await self.model.generate(
             messages=messages,
             tools=all_schemas,
