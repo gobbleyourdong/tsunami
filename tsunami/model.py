@@ -426,6 +426,18 @@ def _extract_tool_call(text: str):
                         args = json.loads(args)
                     except (json.JSONDecodeError, TypeError):
                         args = {}
+                # Same salvage as the main path — drones use parameter_X,
+                # parameter, or parameters keys instead of `arguments`.
+                if isinstance(args, dict) and not args:
+                    pkeys = {k[len("parameter_"):]: v
+                             for k, v in obj.items()
+                             if k.startswith("parameter_")}
+                    if pkeys:
+                        args = pkeys
+                    elif isinstance(obj.get("parameter"), dict):
+                        args = obj["parameter"]
+                    elif isinstance(obj.get("parameters"), dict):
+                        args = obj["parameters"]
                 log.warning(f"Repaired truncated tool-call JSON (added {deficit} '}}'): name={obj['name']}")
                 return ToolCall(name=obj["name"], arguments=args if isinstance(args, dict) else {})
         except json.JSONDecodeError:
