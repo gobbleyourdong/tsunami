@@ -118,18 +118,14 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
     deps_lower = {d.lower() for d in dependencies}
     all_text = name.lower() + " " + " ".join(deps_lower) + " " + prompt.lower()
 
+    # Delegated to tsunami.routing.match_keyword (plural_s=True for the
+    # project_init convention where "extension" should also match
+    # "extensions"). Single-file source of truth for word-boundary /
+    # multi-word substring semantics across all 6 routers.
+    from ..routing import match_keyword as _match_kw
+
     def needs(*keywords):
-        # Single-word keywords use word-boundary regex (with optional plural 's')
-        # so "electron" doesn't match "electronics", "log" doesn't match "login", etc.
-        # Multi-word keywords keep substring matching — they're specific enough.
-        for k in keywords:
-            if " " in k:
-                if k in all_text:
-                    return True
-            else:
-                if re.search(rf'\b{re.escape(k)}s?\b', all_text):
-                    return True
-        return False
+        return any(_match_kw(all_text, k, plural_s=True) for k in keywords)
 
     # 0a. Chrome extension
     # Dropped "badge" — it's a generic web-UI idiom (notification dots,

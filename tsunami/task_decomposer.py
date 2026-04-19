@@ -111,14 +111,16 @@ class TaskDAG:
 def detect_domains(prompt: str) -> set[str]:
     """Detect which domains a prompt touches.
 
-    Word-boundary match: bare-substring matching caught "live" inside
-    "deliverables/<name>" and routed luxury-brand briefs through the
-    realtime/data-viz plan scaffold.
+    Delegates the word-boundary match to `tsunami.routing.match_keyword`
+    so the substring-catches-too-much bug (e.g. 'live' inside
+    'deliverables/<name>') stays fixed in ONE place instead of
+    copy-pasted across six routers.
     """
-    prompt_lower = prompt.lower()
+    from .routing import normalize, match_keyword
+    low = normalize(prompt)
     domains = set()
     for keyword, domain in DOMAIN_KEYWORDS.items():
-        if re.search(rf"\b{re.escape(keyword)}\b", prompt_lower):
+        if match_keyword(low, keyword):
             domains.add(domain)
     return domains
 

@@ -172,19 +172,14 @@ def pick_style(task: str, scaffold: str = "", seed: int | None = None) -> tuple[
         if body:
             return forced, body
 
-    tlow = task.lower()
-    for keys, name in _KEYWORD_MAP:
-        for k in keys:
-            if " " in k or "-" in k:
-                if k in tlow:
-                    body = _load(name)
-                    if body:
-                        return name, body
-            else:
-                if re.search(rf"\b{re.escape(k)}\b", tlow):
-                    body = _load(name)
-                    if body:
-                        return name, body
+    # Delegate keyword matching to the unified routing module so
+    # word-boundary + multi-word substring rules live in one place.
+    from ..routing import match_first
+    name = match_first(task, _KEYWORD_MAP, default="")
+    if name:
+        body = _load(name)
+        if body:
+            return name, body
 
     # Corpus-weighted random among applicable.
     applicable: list[tuple[str, float]] = []

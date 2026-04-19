@@ -227,13 +227,16 @@ def _extract_brand_name(task: str) -> str:
 
 
 def _match_industry(task: str) -> dict:
-    """Return the industry brief dict whose keyword first hits the task."""
-    low = task.lower()
-    for keywords, brief in _INDUSTRY_BRIEFS:
-        for k in keywords:
-            if k in low:
-                return brief
-    return _DEFAULT_BRIEF
+    """Return the industry brief dict whose keyword first hits the task.
+
+    Delegates to the unified routing matcher so word-boundary /
+    multi-word substring rules stay consistent across every router
+    in the codebase (the 'car brand' substring hitting 'compact
+    city-car brand' collision that made PIKO route to hypercar
+    would now be caught in one place, not six).
+    """
+    from .routing import match_first
+    return match_first(task, _INDUSTRY_BRIEFS, default=_DEFAULT_BRIEF)
 
 
 def generate_brand_brief(task: str, style_name: str = "") -> dict:

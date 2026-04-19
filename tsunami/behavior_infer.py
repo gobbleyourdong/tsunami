@@ -24,11 +24,13 @@ _Behavior = dict  # {"trigger": str, "expect": str}
 
 
 def _has_any(text: str, words: Iterable[str]) -> bool:
-    low = text.lower()
-    for w in words:
-        if re.search(r"\b" + re.escape(w.lower()) + r"\b", low):
-            return True
-    return False
+    """Kept as a thin wrapper for backwards-compat; delegates to the
+    shared routing.match_keyword so the word-boundary semantics live
+    in one place. Callers outside this module should use routing.*
+    directly."""
+    from .routing import normalize, match_keyword
+    low = normalize(text)
+    return any(match_keyword(low, w) for w in words)
 
 
 def _pomodoro(task: str) -> list[_Behavior]:

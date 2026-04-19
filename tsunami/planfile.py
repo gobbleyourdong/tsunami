@@ -124,6 +124,40 @@ _DOMAIN_SIGNALS: list[tuple[tuple[str, ...], str]] = [
       "look up", "survey"), "research"),
     (("refactor", "rename", "extract", "cleanup", "split", "merge"),
      "refactor"),
+    # AI app first among the new app-shape plans — "ai chat" must NOT
+    # route to realtime (which catches "chat" too). Mirrors
+    # project_init's _pick_scaffold priority: ai-app → auth-app →
+    # realtime → fullstack.
+    (("ai chat", "ai chatbot", "chatbot app", "llm app", "llm chat",
+      "ai assistant", "openai api", "anthropic api", "claude api",
+      "gpt api", "streaming chat", "chat with gpt", "chat with claude",
+      "ai powered app", "build a chatbot"),
+     "ai-app"),
+    # Auth app — login/register/JWT/protected-route specific. Sits
+    # before form-app's "signup form / signup flow" so "signup with
+    # JWT" routes to auth-app, not the wizard plan, and before
+    # dashboard so "admin dashboard with login" picks the auth plan.
+    (("with login", "with auth", "user accounts", "user login",
+      "login page", "register page", "jwt auth", "jwt token",
+      "protected route", "auth flow", "saas app", "per-user data",
+      "user registration"),
+     "auth-app"),
+    # Realtime — collaborative / live-cursor / multiplayer. Avoid bare
+    # "chat" (collides with ai-app, dashboards, etc.); use phrases
+    # specific to multi-client sync.
+    (("live cursors", "live cursor", "shared whiteboard", "presence",
+      "multiplayer", "websocket", "real-time collab", "realtime collab",
+      "live update", "collaborative editor", "shared canvas",
+      "live whiteboard"),
+     "realtime"),
+    # Fullstack — generic CRUD app with persistence. "Fullstack",
+    # "with backend", "with sqlite", "todo with backend" land here.
+    # Less specific than auth/realtime/ai but more specific than
+    # dashboard / data-viz / landing.
+    (("fullstack", "full stack", "with backend", "with sqlite",
+      "with database", "crud app", "with persistence",
+      "todo with backend", "with express", "saves to database"),
+     "fullstack"),
     # Dashboard sits before data-viz so "admin dashboard with charts"
     # routes to the dashboard plan (sidebar + KPI grid) and not the
     # plotting-focused data-viz plan.
@@ -151,6 +185,23 @@ _DOMAIN_SIGNALS: list[tuple[tuple[str, ...], str]] = [
       "coming soon", "splash page", "marketing site", "promo page",
       "homepage for", "hero section"),
      "landing"),
+    # Chrome extension: MV3 popup / content-script / background-worker.
+    # Before electron so "browser extension" wins over "desktop app"
+    # when a prompt mentions both (rare, but possible).
+    (("chrome extension", "browser extension", "firefox extension",
+      "addon", "web extension", "manifest v3", "mv3 extension",
+      "content script", "service worker extension", "popup.html"),
+     "chrome-extension"),
+    # Electron desktop app. Keep "desktop app" + "native app"
+    # multi-word to avoid matching "desktop layout" in a web plan.
+    (("electron app", "desktop app", "native app", "menubar app",
+      "system tray app", "tauri", "offline desktop"),
+     "electron-app"),
+    # API-only: headless REST / webhook / microservice. No UI.
+    (("rest api", "webhook receiver", "webhook service", "microservice",
+      "api server", "api only", "backend only", "no frontend",
+      "headless api", "openapi", "swagger spec"),
+     "api-only"),
 ]
 
 
@@ -159,20 +210,13 @@ def pick_scaffold(task: str) -> str:
     Falls back to react-build if nothing matches — it's the most
     common case for this agent.
 
-    Single-word keywords use word-boundary regex so "graph" doesn't
-    match "paragraph", "plot" doesn't match "exploit", etc. Multi-word
-    keywords keep substring matching (they're specific enough).
+    Matching delegated to tsunami.routing.match_first so word-boundary
+    (single-word keys) and substring (multi-word keys) rules live in
+    one place. Ordering in _DOMAIN_SIGNALS encodes specificity — the
+    first matching rule wins.
     """
-    t = task.lower()
-    for keywords, name in _DOMAIN_SIGNALS:
-        for k in keywords:
-            if " " in k or "-" in k:
-                if k in t:
-                    return name
-            else:
-                if re.search(rf"\b{re.escape(k)}\b", t):
-                    return name
-    return "react-build"
+    from .routing import match_first
+    return match_first(task, _DOMAIN_SIGNALS, default="react-build")
 
 
 class PlanFileManager:
