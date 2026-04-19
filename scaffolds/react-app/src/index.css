@@ -110,7 +110,25 @@ body::after {
 a { color: var(--accent); text-decoration: none; transition: color var(--duration-fast); }
 a:hover { color: var(--accent-hover); }
 ul, ol { list-style: none; }
-img { max-width: 100%; height: auto; display: block; }
+/* img reset wrapped in @layer base so Tailwind utility classes
+   (h-*, w-*, size-*) in @layer utilities can still override.
+   Un-layered bare `img {height: auto}` was winning over .h-10,
+   rendering nav logos at full natural 1024x1024 (AURUM v19 nav
+   covered the entire left half of the viewport).
+   Default `height: auto` also changed to apply only when no
+   explicit sizing class is set — selector matches img WITHOUT
+   any `h-<n>` or `size-<n>` Tailwind class. */
+@layer base {
+  img:not([class*="h-"]):not([class*="size-"]) {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+  img[class*="h-"], img[class*="size-"] {
+    max-width: 100%;
+    display: block;
+  }
+}
 
 ::selection {
   background: var(--accent);
