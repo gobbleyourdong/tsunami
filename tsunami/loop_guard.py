@@ -139,6 +139,13 @@ class LoopGuard:
             if "shell_exec" in self.tool_names:
                 return "message_result"
             return "shell_exec"
+        elif stuck_tool == "generate_image":
+            # Stuck re-generating the same (or similar) images — drone is
+            # burning inference on the image server instead of writing the
+            # app that uses them. Force a file_write to pivot to App.tsx.
+            # AURUM v13 burned 12 iters cycling through gt/r/x/one
+            # regenerations with progressively vaguer prompts.
+            return "file_write"
         else:
             return "project_init" if not project_already_init else "file_edit"
 

@@ -1863,6 +1863,17 @@ class Agent:
         # model we've tested (Gemma, Qwen3.5-122B, Qwen3-Coder-Next).
         force_tool = None
 
+        # Loop-guard enforcement: if the previous iter's tool triggered
+        # loop detection with a forced_action, apply it here. system_note
+        # alone is ignored by the drone when it's stuck in a comfortable
+        # tool (generate_image in v13); force_tool makes the schema
+        # literally exclude everything else. One-shot — cleared after use.
+        _pending_force = getattr(self, "_loop_forced_tool", None)
+        if _pending_force:
+            force_tool = _pending_force
+            self._loop_forced_tool = None
+            log.warning(f"Loop-guard force: next tool constrained to {force_tool}")
+
         # Replicator grounding-gate: wave runs generate_image + riptide
         # directly (no drone involvement), same pattern as pre_scaffold
         # auto-calling project_init. Drone habit otherwise: skip Reference +
@@ -3067,6 +3078,16 @@ class Agent:
                     f"You MUST call {loop_check.forced_action} on your next turn. "
                     f"Do NOT repeat {tool_call.name}."
                 )
+                # Hard enforcement: set force_tool for the next iter so
+                # the drone's schema excludes everything but the
+                # suggested action. system_note alone is advisory and
+                # drones regularly ignore it (v13 saw 3 soft-loop
+                # warnings in a row on generate_image and kept going).
+                # project_init / file_edit are hard to force cleanly
+                # (project_init is wave-only; file_edit needs an old_str)
+                # so only force file_write / shell_exec / message_result.
+                if loop_check.forced_action in ("file_write", "shell_exec", "message_result"):
+                    self._loop_forced_tool = loop_check.forced_action
 
         # Closed-loop feedback — record outcome and inject steering advice
         self._feedback.record(tool_call.name, not result.is_error, made_progress, str(result.content)[:100] if result.is_error else "")
