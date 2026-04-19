@@ -171,6 +171,13 @@ class Agent:
         self._first_write_done = False  # write-first gate — pre-write iters get
                                         # file_read filtered from schema so drone
                                         # can't spiral on scaffold exploration
+        self._app_source_written = False  # True once the drone writes to a real
+                                          # source entry (src/App.tsx, src/main.ts,
+                                          # src/main.tsx). Deliver-gate requires
+                                          # this — build passing on the scaffold
+                                          # stub alone is not delivery. v9 tripped
+                                          # the write-first gate with a placeholder
+                                          # PNG write and shipped the scaffold stub.
 
         # Read-spiral circulation — circuit-breaker over the 8-read-only stall
         # counter. threshold=3 preserves prior cb34297 hard-exit semantics.
@@ -577,6 +584,13 @@ class Agent:
 
         if result["passed"]:
             log.info(f"[auto-build] PASS")
+            # Deliver-gate gate: only arm if the drone has actually
+            # written to src/App.tsx (or equivalent). Scaffold stubs
+            # compile fine; passing auto-build on a PNG-only run is
+            # not delivery-ready.
+            if not self._app_source_written:
+                log.info(f"[auto-build] passed on scaffold stub — not arming deliver-gate")
+                return
             try:
                 self._build_passed_at = self.state.iteration
                 from .tools import filesystem as _fs_state
@@ -2956,22 +2970,38 @@ class Agent:
         if tool_call.name in ("file_write", "file_edit", "file_append", "shell_exec"):
             self.tool_dedup.invalidate_on_write()
         # Flip the write-first gate: once the drone commits a successful
-        # file_write or file_edit, file_read is restored to the schema for
-        # subsequent iters so the drone can diagnose build failures.
+        # file_write or file_edit to a real source entry (src/App.tsx,
+        # src/main.ts, src/main.tsx, or a .ts/.tsx under src/), file_read
+        # is restored to the schema for subsequent iters so the drone can
+        # diagnose build failures. Writes to public/ assets alone do NOT
+        # count — v9 tripped the old gate by writing a placeholder PNG
+        # and then shipped the scaffold stub.
         if (tool_call.name in ("file_write", "file_edit", "file_append")
-                and not result.is_error
-                and not self._first_write_done):
-            self._first_write_done = True
-            log.info("write-first gate: first write committed — file_read re-enabled")
-            # Plan-state sync: first code commit means the drone implicitly
-            # settled the outer shell + inner app design and wrote the
-            # layout/content. Mark those sections done so plan.md reflects
-            # actual progress instead of sitting at the scaffold template.
-            for _sec in ("OuterShell", "InnerApp", "Layout", "Content"):
-                try:
-                    self.plan_manager.mark_status(_sec, "done")
-                except Exception:
-                    pass
+                and not result.is_error):
+            _written_path = str(tool_call.arguments.get("path", "")).lower()
+            _is_source = (
+                _written_path.endswith("/src/app.tsx")
+                or _written_path.endswith("/src/app.jsx")
+                or _written_path.endswith("/src/main.ts")
+                or _written_path.endswith("/src/main.tsx")
+                or ("/src/" in _written_path
+                    and _written_path.endswith((".ts", ".tsx", ".jsx")))
+            )
+            if _is_source and not self._app_source_written:
+                self._app_source_written = True
+                log.info(f"app-source gate: first source write committed ({_written_path})")
+            if not self._first_write_done and _is_source:
+                self._first_write_done = True
+                log.info("write-first gate: first source write committed — file_read re-enabled")
+                # Plan-state sync: first code commit means the drone implicitly
+                # settled the outer shell + inner app design and wrote the
+                # layout/content. Mark those sections done so plan.md reflects
+                # actual progress instead of sitting at the scaffold template.
+                for _sec in ("OuterShell", "InnerApp", "Layout", "Content"):
+                    try:
+                        self.plan_manager.mark_status(_sec, "done")
+                    except Exception:
+                        pass
 
         # Git operation detection
         if tool_call.name == "shell_exec":
@@ -3412,11 +3442,26 @@ class Agent:
                     log.debug(f"Auto-swell skipped: {e}")
 
         # 8z. Detect successful vite build from shell_exec
+        # Gated on app-source-written: scaffold stub builds trivially
+        # (empty counter demo), so "built in ..." with zero drone source
+        # writes means the drone just ran build on the untouched stub.
+        # v9 delivered the default counter demo this way — shell_exec
+        # build passed, deliver-gate fired, vision gate saw 'Loading...'.
         if tool_call.name == "shell_exec" and not result.is_error:
             cmd = tool_call.arguments.get("command", "")
             is_build_cmd = any(k in cmd for k in ("vite build", "npm run build", "npx vite"))
             if is_build_cmd and "built in" in result.content.lower():
-                if not hasattr(self, '_build_passed_at'):
+                if not self._app_source_written:
+                    log.warning(
+                        "[shell_exec build] passed on scaffold stub — ignoring, "
+                        "drone hasn't written to src/App.tsx or src/main.ts yet"
+                    )
+                    self.state.add_system_note(
+                        "BUILD PASSED but the scaffold stub is what compiled — "
+                        "you haven't written src/App.tsx yet. Write the actual "
+                        "app implementation before calling message_result."
+                    )
+                elif not hasattr(self, '_build_passed_at'):
                     self._build_passed_at = self.state.iteration
                     # Flag for message_result's fast-path gate so it skips
                     # content-regex checks. Compile pass + auto-undertow
@@ -4042,11 +4087,50 @@ class Agent:
                 ) if deliverables.exists() else []
                 for proj in projects[:1]:
                     dist_html = proj / "dist" / "index.html"
+                    task_text = self.state.conversation[1].content[:200] if len(self.state.conversation) > 1 else ""
                     if not dist_html.is_file():
-                        continue
+                        # No renderer SPA in dist/ — this is probably a
+                        # headless scaffold (api-only / chrome-extension
+                        # service worker / electron main-only). Dispatch
+                        # to the scaffold-specific probe instead of the
+                        # vision gate.
+                        try:
+                            from .core.dispatch import probe_for_delivery
+                            pcheck = await probe_for_delivery(proj, task_text)
+                            raw = pcheck.get("raw", "")
+                            if not pcheck["passed"] and pcheck["issues"]:
+                                pf = getattr(self, "_probe_fail_count", 0) + 1
+                                self._probe_fail_count = pf
+                                if pf <= 1:
+                                    log.warning(f"[gate@deliver] probe FAIL (try {pf}) — {proj.name}: {pcheck['issues']}")
+                                    try:
+                                        self.plan_manager.mark_status("Deliver", "failed")
+                                        self.plan_manager.append_note(
+                                            "Deliver", f"Gate FAIL: {pcheck['issues']}"
+                                        )
+                                    except Exception:
+                                        pass
+                                    self.state.add_system_note(
+                                        f"DELIVERY GATE FAILED on scaffold probe:\n{pcheck['issues']}\n"
+                                        f"Fix the reported issue(s) and try message_result again."
+                                    )
+                                    self._delivery_attempts -= 1
+                                    return "Scaffold delivery probe flagged issues. See system note."
+                                else:
+                                    log.warning(f"[gate@deliver] probe FAIL #{pf} — shipping with advisory")
+                                    try:
+                                        self.plan_manager.append_note(
+                                            "Deliver", f"Gate advisory (unresolved): {pcheck['issues']}"
+                                        )
+                                    except Exception:
+                                        pass
+                            elif pcheck["passed"] and not raw.startswith("(skip"):
+                                log.info(f"[gate@deliver] probe PASS ({proj.name})")
+                        except Exception as _pe:
+                            log.debug(f"scaffold probe dispatch skipped: {_pe}")
+                        break
                     try:
                         from .vision_gate import vision_check
-                        task_text = self.state.conversation[1].content[:200] if len(self.state.conversation) > 1 else ""
                         vcheck = await vision_check(dist_html, task_text)
                         if not vcheck["passed"] and vcheck["issues"]:
                             vf = getattr(self, "_vision_fail_count", 0) + 1
