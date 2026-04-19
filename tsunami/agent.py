@@ -1676,29 +1676,26 @@ class Agent:
                     except Exception as e:
                         log.debug(f"Auto-scaffold at iter 2 failed: {e}")
 
-            # Nudge at iter 10 — if no code written yet, push
-            if self.state.iteration == 10:
-                writes = sum(1 for t in self._tool_history if t in ("file_write", "file_edit"))
-                if writes == 0:
-                    self.state.add_system_note(
-                        "Pressure building. 10 iterations, zero writes. Write App.tsx NOW."
-                    )
-                    log.warning("Build nudge: 10 iters with 0 writes")
-
-            # Safety valve — hard cap at 60 iterations
-            if self.state.iteration > 30:
-                recent = self._tool_history[-20:] if len(self._tool_history) > 20 else self._tool_history
-                recent_writes = sum(1 for t in recent if t in ("file_write", "file_edit", "project_init"))
-                if recent_writes == 0:
-                    log.warning(f"Safety valve: {self.state.iteration} iters, 0 writes in last 20 — forcing exit")
+            # Progress signals — condition-based nudge / exit heuristics
+            # lifted into tsunami/progress.py. Each signal is a named
+            # entry with an action (nudge / exit / advisory); adding a
+            # new one is a one-line append in that module, not an
+            # interleaved if-branch here.
+            from .progress import detect_progress_signals
+            for _sig in detect_progress_signals(
+                self.state.iteration, self._tool_history
+            ):
+                if _sig.action == "nudge":
+                    self.state.add_system_note(_sig.message)
+                    log.warning(f"Progress signal: {_sig.name} — {_sig.message}")
+                elif _sig.action == "exit":
+                    log.warning(f"Progress signal: {_sig.name} — {_sig.message}")
                     self.state.task_complete = True
-                    log.warning(f"loop_exit path=no_progress_30 turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
-                    return "Task ended — no progress detected." + self._exit_gate_suffix()
-            if self.state.iteration > 60:
-                log.warning(f"Hard cap: {self.state.iteration} iterations — forcing exit")
-                self.state.task_complete = True
-                log.warning(f"loop_exit path=hard_cap_60 turn={self.state.iteration} last_tool={self._tool_history[-1] if self._tool_history else None}")
-                return f"Task ended after {self.state.iteration} iterations." + self._exit_gate_suffix()
+                    log.warning(
+                        f"loop_exit path={_sig.name} turn={self.state.iteration} "
+                        f"last_tool={self._tool_history[-1] if self._tool_history else None}"
+                    )
+                    return _sig.exit_reason + self._exit_gate_suffix()
 
             # Check abort signal
             if self.abort_signal.aborted:
