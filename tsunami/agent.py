@@ -369,7 +369,8 @@ class Agent:
         # Check if it's a stub project (scaffolded but never built)
         if app_path.exists():
             app_content = app_path.read_text()
-            is_stub = "TODO" in app_content or "Loading..." in app_content or len(app_content) < 100
+            from .source_analysis import is_scaffold_stub as _is_stub
+            is_stub = _is_stub(app_content, min_length=100)
             if is_stub and not is_iteration:
                 # Stub project — don't load as "existing", let pre-scaffold handle it
                 log.info(f"Iterative refinement: {best_match.name} is a stub — treating as new")
@@ -825,9 +826,8 @@ class Agent:
                 continue
 
             app_content = app_path.read_text()
-            is_stub = "TODO" in app_content or "not built yet" in app_content or (
-                len(app_content) < 200 and "import" not in app_content.lower()
-            )
+            from .source_analysis import is_scaffold_stub as _is_stub
+            is_stub = _is_stub(app_content, min_length=200)
             # Only wire project-specific components, not scaffold UI library
             scaffold_components = {
                 'Badge', 'Modal', 'Toast', 'Tabs', 'Dialog', 'Select',
@@ -4132,7 +4132,8 @@ class Agent:
                         comp_dir = project_dir / "src" / "components"
                         if app_path.exists() and comp_dir.exists():
                             app_content = app_path.read_text()
-                            is_stub = "TODO" in app_content or len(app_content) < 150
+                            from .source_analysis import is_scaffold_stub as _is_stub
+                            is_stub = _is_stub(app_content, min_length=150, require_import=False)
                             components = [
                                 f.stem for f in comp_dir.iterdir()
                                 if f.suffix in ('.tsx', '.ts') and f.stem not in ('index', 'types')
@@ -4205,7 +4206,8 @@ class Agent:
                         if app_path.exists() and comp_dir.exists():
                             app_content = app_path.read_text()
                             has_components = any(comp_dir.iterdir())
-                            is_stub = "TODO" in app_content or "not built yet" in app_content or (len(app_content) < 200 and "import" not in app_content.lower())
+                            from .source_analysis import is_scaffold_stub as _is_stub
+                            is_stub = _is_stub(app_content, min_length=200)
                             if is_stub and has_components:
                                 # Auto-wire: generate App.tsx from discovered components
                                 components = [
