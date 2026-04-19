@@ -4244,92 +4244,38 @@ class Agent:
             # Track delivery attempts — prevent infinite block loops
             self._delivery_attempts = getattr(self, '_delivery_attempts', 0) + 1
 
-            # Code-write gate: block delivery unless the DRONE itself has
-            # written src/App.tsx (or equivalent entry). The scaffold ships
-            # with an >800-char stub including the word "Counter" — size
-            # and substring checks pass on the stub alone, so they let
-            # drones bail with "I'll use Tailwind only" after touching
-            # nothing but index.css. Key on self._app_source_written,
-            # which flips only on a file_write/edit to src/App.tsx
-            # (or src/main.ts / src/App.jsx / src/main.tsx).
-            if self._project_init_called and self._delivery_attempts <= 2:
-                has_real_code = self._app_source_written
-                # Build succeeded is a valid positive signal too — if
-                # dist/index.html exists, the drone's code shipped.
-                if not has_real_code:
-                    deliverables = Path(self.config.workspace_dir) / "deliverables"
-                    if deliverables.exists():
-                        for d in sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
-                            if (d / "dist" / "index.html").exists():
-                                has_real_code = True
-                            break
-                if not has_real_code:
-                    log.warning("Early completion blocked: App.tsx not written")
-                    self.state.add_system_note(
-                        "BLOCKED: src/App.tsx has not been written. Write the "
-                        "full app implementation to src/App.tsx BEFORE calling "
-                        "message_result. Writes to index.css or component files "
-                        "alone are not delivery."
+            # Declarative delivery gates — see tsunami/deliver_gates.py.
+            # Each gate is a small function; adding a new one is appending
+            # to DELIVER_GATES, not interleaving an if-branch here. Driver
+            # returns the first failure or None.
+            if self._project_init_called:
+                from .deliver_gates import run_deliver_gates
+                # Pick the most-recently-touched deliverable as the project
+                # under gate check. Same logic the old inline gates used.
+                _project_dir = None
+                _deliverables = Path(self.config.workspace_dir) / "deliverables"
+                if _deliverables.exists():
+                    _dirs = sorted(
+                        (d for d in _deliverables.iterdir()
+                         if d.is_dir() and not d.name.startswith(".")),
+                        key=lambda p: p.stat().st_mtime, reverse=True,
                     )
+                    if _dirs:
+                        _project_dir = _dirs[0]
+                _flags = {
+                    "app_source_written": self._app_source_written,
+                    "first_write_done": self._first_write_done,
+                }
+                _failure = run_deliver_gates(
+                    state_flags=_flags,
+                    project_dir=_project_dir,
+                    max_attempts=2,
+                    attempt_number=self._delivery_attempts,
+                )
+                if _failure is not None:
+                    self.state.add_system_note(_failure.system_note)
                     self._delivery_attempts -= 1
-                    return "Write src/App.tsx before delivering."
-
-            # Asset-existence check: scan src/*.tsx for `<img src="/...">` /
-            # background-image url() refs, verify each file exists in public/.
-            # v26 wrote App.tsx with /logo.png /hero.png /models/one.png
-            # /founder.png referenced, NO image generation. Build passed
-            # (JSX type-correct) but runtime shows 4 broken image icons.
-            # Blocks delivery until drone generates the missing assets.
-            if self._project_init_called and self._delivery_attempts <= 2:
-                try:
-                    import re as _re
-                    deliverables = Path(self.config.workspace_dir) / "deliverables"
-                    missing_assets: list[str] = []
-                    if deliverables.exists():
-                        for d in sorted(deliverables.iterdir(),
-                                        key=lambda p: p.stat().st_mtime, reverse=True):
-                            src_dir = d / "src"
-                            public_dir = d / "public"
-                            if not src_dir.exists():
-                                break
-                            referenced: set[str] = set()
-                            for tsx in src_dir.rglob("*.tsx"):
-                                try:
-                                    body = tsx.read_text()
-                                except Exception:
-                                    continue
-                                for m in _re.finditer(
-                                    r"""src=['"](/[^'"?#]+\.(?:png|jpg|jpeg|webp|svg|gif))['"]""",
-                                    body,
-                                    _re.IGNORECASE,
-                                ):
-                                    referenced.add(m.group(1).lstrip("/"))
-                                for m in _re.finditer(
-                                    r"""url\(['"]?(/[^'"?#\)]+\.(?:png|jpg|jpeg|webp|svg|gif))['"]?\)""",
-                                    body,
-                                    _re.IGNORECASE,
-                                ):
-                                    referenced.add(m.group(1).lstrip("/"))
-                            for rel in sorted(referenced):
-                                if not (public_dir / rel).is_file():
-                                    missing_assets.append(rel)
-                            break
-                    if missing_assets:
-                        lst = ", ".join(missing_assets[:8])
-                        log.warning(
-                            f"Delivery blocked: {len(missing_assets)} referenced "
-                            f"asset(s) 404 in public/ — {lst}"
-                        )
-                        self.state.add_system_note(
-                            f"BLOCKED: your App.tsx references {len(missing_assets)} "
-                            f"image path(s) that don't exist in public/ — {lst}. "
-                            f"Call generate_image() for each before delivering. "
-                            f"Users will see broken-image icons if you ship now."
-                        )
-                        self._delivery_attempts -= 1
-                        return "Generate referenced assets before delivering."
-                except Exception as _ae:
-                    log.debug(f"asset-existence check skipped: {_ae}")
+                    return _failure.return_text
 
             # Short conversational deliveries bypass build-only gates below.
             # A build is distinguished by project_init having been called;
