@@ -550,3 +550,128 @@ class GenerateImage(BaseTool):
             f"Start the tsunami server with --image-model Tongyi-MAI/Z-Image-Turbo "
             f"to generate real images."
         )
+
+
+class EditImage(BaseTool):
+    """Edit an image by applying a text-described change — STUB pipeline.
+
+    Today this COPIES the source image to the target path with the new
+    filename and logs the edit intent. It does NOT actually modify pixels.
+    The stub exists so the drone can wire a configurator that swaps image
+    src's on state change (color picker → /models/gt_midnight.png vs
+    /models/gt_arctic.png), and the React interaction is validated
+    end-to-end. When a real ERNIE inpaint endpoint lands, this tool's
+    body swaps in the real edit without changing the drone-facing API.
+
+    Use-case pattern for a color-configurator:
+
+        generate_image("base silver GT car in studio", "public/models/gt.png")
+        edit_image("public/models/gt.png", "public/models/gt_midnight.png",
+                   "change body paint to deep midnight blue")
+        edit_image("public/models/gt.png", "public/models/gt_arctic.png",
+                   "change body paint to arctic white")
+        edit_image("public/models/gt.png", "public/models/gt_ember.png",
+                   "change body paint to ember orange")
+
+    Drone's configurator can then:
+        <img src={`/models/${trim}_${color}.png`} />
+
+    and the file exists at each combination. Today the pixels are identical
+    across colors (stub); later they'll diverge per the real inpaint.
+    """
+    name = "edit_image"
+    description = (
+        "Edit an existing image by applying a text-described change (stub "
+        "pipeline — today copies the source to target with the new filename "
+        "so you can wire configurators / color pickers / variant swaps that "
+        "reference different file paths. Real pixel-level editing lands when "
+        "the ERNIE inpaint endpoint is wired; drone-facing API is stable). "
+        "Typical use: generate one base image, then edit_image() N times to "
+        "produce N variant files the UI can swap between on user interaction."
+    )
+
+    def parameters_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "source_path": {
+                    "type": "string",
+                    "description": "Path to the existing image to edit. Must exist on disk.",
+                },
+                "target_path": {
+                    "type": "string",
+                    "description": "Path to save the edited result. Distinct from source_path.",
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "What to change (e.g. 'change body color to midnight blue, keep everything else'). Logged today, used by the real inpaint when it lands.",
+                },
+            },
+            "required": ["source_path", "target_path", "prompt"],
+        }
+
+    async def execute(self, source_path: str, target_path: str,
+                      prompt: str, **kw) -> ToolResult:
+        import shutil as _sh
+        from .filesystem import _active_project
+
+        def _resolve(p: str) -> Path:
+            """Match generate_image's routing logic — active project
+            takes precedence for relative paths, absolute paths pass
+            through untouched, 'workspace/' / 'app/workspace/' prefixes
+            get stripped before prepending workspace_dir.
+            """
+            if p.startswith("/"):
+                return Path(p).resolve()
+            if _active_project:
+                proj_rel = _active_project
+                if proj_rel.startswith("workspace/"):
+                    proj_rel = proj_rel[len("workspace/"):]
+                if _active_project.startswith("/"):
+                    project_root = Path(_active_project)
+                else:
+                    project_root = Path(self.config.workspace_dir) / proj_rel
+                # If path starts with "public/" or similar, land it inside the project
+                return (project_root / p).resolve()
+            clean = p
+            for pfx in ("workspace/", "app/workspace/"):
+                if clean.startswith(pfx):
+                    clean = clean[len(pfx):]
+                    break
+            return (Path(self.config.workspace_dir) / clean).resolve()
+
+        src = _resolve(source_path)
+        tgt = _resolve(target_path)
+
+        if not src.is_file():
+            return ToolResult(
+                f"edit_image: source {src} does not exist. Generate it "
+                f"first with generate_image() before calling edit_image().",
+                is_error=True,
+            )
+        if src.stat().st_size < 256:
+            return ToolResult(
+                f"edit_image: source {src} is too small ({src.stat().st_size} "
+                f"bytes) — likely a failed generation. Regenerate it.",
+                is_error=True,
+            )
+        if src == tgt:
+            return ToolResult(
+                f"edit_image: source and target are the same path ({src}). "
+                f"Edits must produce a new file so the configurator can "
+                f"swap between them.",
+                is_error=True,
+            )
+
+        tgt.parent.mkdir(parents=True, exist_ok=True)
+        _sh.copy2(src, tgt)
+        log.info(
+            f"edit_image (STUB): copied {src} → {tgt} "
+            f"with intent {prompt[:80]!r}"
+        )
+        return ToolResult(
+            f"Edit applied: {tgt} (derived from {src.name}). "
+            f"Intent: {prompt[:100]}. "
+            f"Pixels are identical to source today (stub pipeline); the "
+            f"target file is ready for the UI to reference."
+        )

@@ -170,7 +170,7 @@ _TOOLBOXES: dict[str, tuple[str, ...]] = {
     "search":   ("match_glob", "match_grep", "summarize_file", "search_web"),
     "process":  ("shell_view", "shell_send", "shell_wait", "shell_kill"),
     "planning": ("plan_update", "plan_advance", "emit_design"),
-    "assets":   ("generate_image", "riptide", "undertow"),
+    "assets":   ("generate_image", "edit_image", "riptide", "undertow"),
     "qa":       ("undertow", "message_chat"),
     "scaffold": ("project_init", "file_append", "summarize_file"),
 }
@@ -214,7 +214,7 @@ def build_registry(config) -> ToolRegistry:
     from .undertow import Undertow
     from .riptide import Riptide
     from .project_init import ProjectInit
-    from .generate import GenerateImage
+    from .generate import GenerateImage, EditImage
     from .plan import PlanUpdate, PlanAdvance
     from .emit_design import EmitDesignTool
     # Audit D22 — the fine-tune was trained on these three in every example's
@@ -234,7 +234,7 @@ def build_registry(config) -> ToolRegistry:
         MessageResult, MessageChat,
         SearchWeb,
         ProjectInit,
-        Undertow, Riptide, GenerateImage,
+        Undertow, Riptide, GenerateImage, EditImage,
         PlanUpdate, PlanAdvance,
         EmitDesignTool,
         MatchGlob, MatchGrep, SummarizeFile,
