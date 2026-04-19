@@ -6,7 +6,7 @@ model_backend: api
 model_name: "tsunami"
 model_endpoint: "http://localhost:8090"
 temperature: 0.8  # Middle ground: 1.0 sprawls (358-line → truncate → read spiral), 0.6 over-explores (pure read spiral, never writes). 0.8 keeps confidence to commit while reducing variance.
-max_tokens: 6144  # Multi-page SPAs (AURUM 3-page) hit 600+ lines, 5120 truncated mid-JSX. 6144 + 5K prompt = needed ~11K → bucket 16384 (now pre-captured at boot). Gamedev smaller prompts still fit bucket 8192 when output stays under ~3500 tok.
+max_tokens: 8192  # Multi-page SPAs under style + target_layout directives hit the 6144 ceiling (v18 truncated at line 387 mid-<img src="/logo). Style directive ~2200 chars, target_layout note ~450 chars, scaffold context ~800 — system prompt now ~6-8K tok, output needs 5-6K for a 550-line App.tsx. 8192 gives headroom; needed total ≈13-14K → still fits bucket 16384 (pre-captured at boot).
 
 # --- Eddies (same endpoint) ---
 eddy_endpoint: "http://localhost:8090"
