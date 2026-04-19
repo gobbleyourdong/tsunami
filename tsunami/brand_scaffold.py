@@ -304,32 +304,29 @@ def generate_brand_brief(task: str, style_name: str = "") -> dict:
 
 
 def format_brand_directive(brief: dict) -> str:
-    """Render the brief as a directive block for the drone's context."""
+    """Render the brief as a compact directive block for the drone's
+    context. Compressed — one line per asset template; the anti-wordmark
+    rule stated once; brand name only in the header (don't repeat it in
+    each template).
+    """
     if not brief or not brief.get("brand_name"):
         return ""
     name = brief["brand_name"]
-    templates = brief["prompt_templates"]
+    t = brief["prompt_templates"]
     return (
-        f"\n\n=== BRAND BRIEF: {name} ===\n"
-        f"Per-run visual identity — use these prompt templates verbatim when\n"
-        f"calling generate_image. Substitute <placeholders> with asset-specific\n"
-        f"content. DO NOT include {name!r} as a word inside the prompt itself;\n"
-        f"the generator will draw the literal word as text. Use the brand name\n"
-        f"ONLY in save_path and the <img alt> attribute.\n\n"
+        f"\n\n=== BRAND {name} ===\n"
+        f"Use these prompt templates for generate_image. Fill <…>. "
+        f"NEVER include {name!r} as text in the prompt — put it only in "
+        f"save_path and <img alt>.\n"
         f"SYMBOL: {brief['symbol_concept']}\n"
         f"AESTHETIC: {brief['aesthetic_reference']}\n"
-        f"ENVIRONMENTS: {', '.join(brief['environment_refs'])}\n\n"
-        f"LOGO PROMPT (for /logo.png, /icon.png, /mark.png):\n"
-        f"  {templates['logo']}\n\n"
-        f"HERO PROMPT (for /hero.png):\n"
-        f"  {templates['hero']}\n\n"
-        f"PRODUCT PROMPT (for /models/*.png, /products/*.png):\n"
-        f"  {templates['product']}\n\n"
-        f"PORTRAIT PROMPT (for /founder.png, /team/*.png, /chef.png):\n"
-        f"  {templates['portrait']}\n\n"
-        f"ENVIRONMENT PROMPT (for /factory*.png, /location*.png):\n"
-        f"  {templates['environment']}\n"
-        f"=== END BRAND BRIEF ===\n"
+        f"ENVIRONMENTS: {', '.join(brief['environment_refs'])}\n"
+        f"LOGO     → {t['logo']}\n"
+        f"HERO     → {t['hero']}\n"
+        f"PRODUCT  → {t['product']}\n"
+        f"PORTRAIT → {t['portrait']}\n"
+        f"ENV      → {t['environment']}\n"
+        f"=== END BRAND ===\n"
     )
 
 
