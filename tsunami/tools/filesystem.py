@@ -686,9 +686,9 @@ class FileEdit(BaseTool):
                 # full view, drone flies blind and spirals on repeated
                 # mismatches. Cap at 500 lines to avoid runaway prompts.
                 all_lines = content.splitlines()
-                show = all_lines[:500]
+                show = all_lines[:800]
                 preview = "\n".join(f"  {i+1}: {l}" for i, l in enumerate(show))
-                more = f"\n  ...({len(all_lines) - 500} more lines)" if len(all_lines) > 500 else ""
+                more = f"\n  ...({len(all_lines) - 800} more lines)" if len(all_lines) > 800 else ""
                 return ToolResult(
                     f"Text not found in {path}. Your find string doesn't match.\n"
                     f"TIP: Use file_write to rewrite the entire file instead of file_edit.\n"
@@ -707,7 +707,21 @@ class FileEdit(BaseTool):
                 return ToolResult(exfil_err, is_error=True)
             p.write_text(new_content)
             _note_write_to_deliverable(p, self.config.workspace_dir)
-            return ToolResult(f"Edited {p}: replaced 1 occurrence")
+            # Include the full post-edit file so the drone sees the state
+            # without needing file_read. Gamedev main.ts runs 450-600 lines;
+            # 800-line cap covers those while keeping prompt bloat bounded
+            # for genuinely massive files.
+            all_lines = new_content.splitlines()
+            if len(all_lines) <= 800:
+                preview = "\n".join(f"  {i+1}: {l}" for i, l in enumerate(all_lines))
+                more = ""
+            else:
+                preview = "\n".join(f"  {i+1}: {l}" for i, l in enumerate(all_lines[:800]))
+                more = f"\n  ...({len(all_lines) - 800} more lines — file exceeds preview limit)"
+            return ToolResult(
+                f"Edited {p}: replaced 1 occurrence.\n"
+                f"Current file after edit ({len(all_lines)} lines):\n{preview}{more}"
+            )
         except Exception as e:
             return ToolResult(f"Error editing {path}: {e}", is_error=True)
 

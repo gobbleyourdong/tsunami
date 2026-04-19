@@ -359,6 +359,20 @@ class ProjectInit(BaseTool):
                 )
                 log.info(f"Copied scaffold '{scaffold_name}' → {project_dir}")
 
+                # Game scaffold's tsconfig references ../engine/src/* for
+                # @engine/* imports, but the engine lives in the ark repo's
+                # scaffolds/engine/. Symlink deliverables/engine → the real
+                # engine so path resolution works from the deliverable.
+                if scaffold_name == "game":
+                    engine_src = SCAFFOLDS_DIR / "engine"
+                    engine_link = project_dir.parent / "engine"
+                    if engine_src.is_dir() and not engine_link.exists():
+                        try:
+                            engine_link.symlink_to(engine_src.resolve())
+                            log.info(f"Symlinked {engine_link} → {engine_src.resolve()}")
+                        except OSError as _sle:
+                            log.warning(f"engine symlink failed: {_sle}")
+
                 if dependencies:
                     pkg_path = project_dir / "package.json"
                     pkg = json.loads(pkg_path.read_text())

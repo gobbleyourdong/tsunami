@@ -105,8 +105,13 @@ _DOMAIN_SIGNALS: list[tuple[tuple[str, ...], str]] = [
       "styled as", "apple watch", "iphone ui", "watch face",
       "inside of a game", "inside a game", "mini-game", "minigame",
       "inside of", "embedded in"), "replicator"),
-    (("build", "create", "make", "app", "dashboard", "website",
-      "tracker", "game", "viewer", "editor", "timer"), "react-build"),
+    # Gamedev before the generic react-build keywords — "game" matches
+    # here first, routing to the engine-only game scaffold instead of
+    # the react-dom one. Keywords chosen to catch playable verbs without
+    # catching website-with-game-theme phrases.
+    (("frogger", "snake", "pong", "asteroids", "platformer",
+      "shooter", "rhythm game", "tower defense", "playable game",
+      "arcade game", "video game"), "gamedev"),
     (("research", "investigate", "what is", "find out", "how does",
       "look up", "survey"), "research"),
     (("refactor", "rename", "extract", "cleanup", "split", "merge"),

@@ -375,6 +375,15 @@ def _extract_tool_call(text: str):
                         args = json.loads(args)
                     except (json.JSONDecodeError, TypeError):
                         args = {}
+                # Drones sometimes emit the XML-style `parameter_X` as JSON
+                # keys on the top-level object instead of an `arguments`
+                # dict (confusion between <parameter=x>…</parameter> and
+                # {"arguments": {"x": …}}). Salvage by lifting those into
+                # args under the stripped key.
+                if isinstance(args, dict) and not args:
+                    args = {k[len("parameter_"):]: v
+                            for k, v in obj.items()
+                            if k.startswith("parameter_")}
                 return ToolCall(name=obj["name"], arguments=args if isinstance(args, dict) else {})
         except json.JSONDecodeError:
             continue

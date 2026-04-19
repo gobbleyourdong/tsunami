@@ -720,9 +720,17 @@ class Agent:
         except Exception:
             pass
         behaviors = getattr(self, "_seeded_behaviors", []) or []
+        # Scaffold kind is determined by the plan: gamedev plan has a
+        # "Design" section (emit_design target), react-build has
+        # "Components" etc. Read once, pass through — avoids brittle
+        # filesystem sniffing that the drone can invalidate by writing.
+        _scaffold_kind = "react-app"
+        if self.plan_manager.section("Design") is not None:
+            _scaffold_kind = "gamedev"
         new_prompt = build_edit_prompt(
             self.active_project, project_path, task,
             plan_toc=plan_toc, behaviors=behaviors,
+            scaffold_kind=_scaffold_kind,
         )
         for i, m in enumerate(self.state.conversation):
             if m.role == "system":
@@ -932,6 +940,20 @@ class Agent:
         ):
             imports.update(_re.findall(pat, content))
 
+        # Skip anything that's a tsconfig path alias. Read the project's
+        # tsconfig.json and collect the alias roots so we don't try to
+        # `npm install @engine/input` when @engine/* is a local source
+        # symlink. Same for @/*.
+        alias_prefixes: list[str] = []
+        try:
+            ts_cfg = _json.loads((proj_dir / "tsconfig.json").read_text())
+            for key in (ts_cfg.get("compilerOptions", {}).get("paths", {}) or {}):
+                root = key.rstrip("*").rstrip("/")
+                if root:
+                    alias_prefixes.append(root)
+        except Exception:
+            pass
+
         # Filter: skip relative, local alias, built-ins, type-only imports
         npm_mods: set[str] = set()
         for mod in imports:
@@ -939,6 +961,8 @@ class Agent:
                 continue  # relative or aliased-local
             if mod in self._NODE_BUILTINS:
                 continue
+            if any(mod == p or mod.startswith(p + "/") for p in alias_prefixes):
+                continue  # tsconfig path alias (e.g. @engine/input)
             # Scoped packages: @scope/pkg[/subpath] → @scope/pkg
             if mod.startswith("@"):
                 parts = mod.split("/")
@@ -1588,7 +1612,8 @@ class Agent:
             except Exception as e:
                 consecutive_errors += 1
                 error_str = str(e)
-                log.error(f"Agent loop error at iteration {self.state.iteration}: {e}")
+                import traceback as _tb
+                log.error(f"Agent loop error at iteration {self.state.iteration}: {e}\n{_tb.format_exc()}")
 
                 # Auto-compress on context overflow (400 Bad Request)
                 if "400" in error_str:
@@ -1965,6 +1990,11 @@ class Agent:
                     log.warning("force-grounding: 3 failed attempts, giving up — proceeding WITHOUT grounding")
                     self._forced_grounding_done = True
 
+        # (gamedev emit_design gate removed — engine catalog is abstract
+        # [hud, wave_spawner, sfx_library]; games like frogger/snake are
+        # written code-first in src/main.ts using @engine primitives
+        # directly, not via mechanic JSON. Drone just file_writes main.ts.)
+
         build_passed_at = getattr(self, "_build_passed_at", None)
         if build_passed_at is not None:
             last_tool = self._tool_history[-1] if self._tool_history else None
@@ -2100,7 +2130,12 @@ class Agent:
         # different tool surfaces based on which leaf they own.
         from .tools import toolboxes_for_phase as _phase_tb
         current_phase = str(getattr(self.phase_machine, "phase", "")).rsplit(".", 1)[-1]
-        opened = _phase_tb(current_phase)
+        opened = list(_phase_tb(current_phase))
+        # Scaffold-aware tool opening: gamedev tasks need emit_design
+        # (the engine reads game_definition.json deposited by that tool).
+        # Detect via plan scaffold — gamedev plan has a Design section.
+        if self.plan_manager.section("Design") is not None:
+            opened.append("planning")  # holds emit_design, plan_update, plan_advance
         # When force_tool is set, expose ONLY that tool's schema so
         # the model literally cannot emit anything else (Qwen3.6 is
         # flaky on tool_choice compliance even when set explicitly).
@@ -3151,7 +3186,7 @@ class Agent:
             # when the drone writes/edits a TSX file in deliverables/.
             # The plan advances without needing the drone to call a
             # plan_op tool.
-            if "deliverables/" in written_path and written_path.endswith((".tsx", ".jsx")):
+            if "deliverables/" in written_path and written_path.endswith((".tsx", ".jsx", ".ts")):
                 if tool_call.name == "file_write":
                     try:
                         if "App.tsx" in written_path:

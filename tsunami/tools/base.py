@@ -85,6 +85,24 @@ class BaseTool(ABC):
                 continue  # allow extra kwargs (absorbed by **kw)
             prop = properties[field]
             expected_type = prop.get("type")
+            # JSON Schema allows `type` to be a list (union), e.g.
+            # emit_design's design param is ["object", "string"]. Accept
+            # the value if it matches ANY listed type, skip strictly if
+            # no entry is recognized (be permissive at this pre-execute
+            # gate; the tool itself does the final coercion).
+            if isinstance(expected_type, list):
+                ok = False
+                for t in expected_type:
+                    py_t = type_map.get(t)
+                    if py_t is None:
+                        ok = True  # unknown type (e.g. "object", "array") — accept
+                        break
+                    if isinstance(val, py_t):
+                        ok = True
+                        break
+                if not ok:
+                    return f"Parameter '{field}' expected one of {expected_type}, got {type(val).__name__}"
+                continue
             if expected_type and expected_type in type_map:
                 py_type = type_map[expected_type]
                 if not isinstance(val, py_type):

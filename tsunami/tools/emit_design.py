@@ -173,7 +173,11 @@ def emit_design(
         return {"ok": False, "stage": "emit",
                 "message": f"compiler output was not valid JSON: {e}"}
 
-    out_dir = Path(deliverables_dir) / project_name
+    # Write to public/ so Vite serves /game_definition.json — the game
+    # scaffold's main.ts does `fetch('/game_definition.json')` and vite
+    # maps public/ to the site root. Writing to the project root made
+    # the fetch 404 and blank-canvased the game.
+    out_dir = Path(deliverables_dir) / project_name / "public"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "game_definition.json"
     out_path.write_text(json.dumps(compiled, indent=2))

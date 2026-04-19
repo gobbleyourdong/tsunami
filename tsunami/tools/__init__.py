@@ -149,6 +149,9 @@ _WAVE_ONLY_TOOLS: frozenset[str] = frozenset({
     "undertow",        # delivery gate uses for QA
     "plan_update",     # wave maintains plan.md
     "plan_advance",    # wave transitions plan sections
+    # emit_design intentionally NOT wave-only — for gamedev scaffold,
+    # the drone must call it to produce game_definition.json. Exposed
+    # via the "planning" toolbox which opens on gamedev plan.
 })
 
 # Toolbox layout. Each toolbox name maps to a tuple of tool names.

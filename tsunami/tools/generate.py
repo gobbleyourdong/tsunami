@@ -306,7 +306,15 @@ class GenerateImage(BaseTool):
         """
         import base64, random
         try:
-            endpoint = getattr(self.config, "model_endpoint", "http://localhost:8090")
+            # Prefer the dedicated image endpoint (:8092 ernie_server).
+            # The text-model proxy on :8090 only routes images if SD_SERVER_URL
+            # is set in its env, which isn't guaranteed. Going direct avoids
+            # the hang when the proxy has `--image-model none`.
+            import os as _oie
+            endpoint = (
+                _oie.environ.get("TSUNAMI_IMAGE_ENDPOINT")
+                or "http://localhost:8092"
+            )
             if not endpoint.startswith("http"):
                 endpoint = f"http://{endpoint}"
             import httpx
