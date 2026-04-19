@@ -375,15 +375,21 @@ def _extract_tool_call(text: str):
                         args = json.loads(args)
                     except (json.JSONDecodeError, TypeError):
                         args = {}
-                # Drones sometimes emit the XML-style `parameter_X` as JSON
-                # keys on the top-level object instead of an `arguments`
-                # dict (confusion between <parameter=x>…</parameter> and
-                # {"arguments": {"x": …}}). Salvage by lifting those into
-                # args under the stripped key.
+                # Salvage drone JSON-key variants of XML-style parameters:
+                #   (a) `{"parameter_path": X, "parameter_content": Y}` —
+                #       multiple top-level keys prefixed with parameter_
+                #   (b) `{"parameter": {"path": X, "content": Y}}` —
+                #       singular parameter key holding the real arg dict
                 if isinstance(args, dict) and not args:
-                    args = {k[len("parameter_"):]: v
-                            for k, v in obj.items()
-                            if k.startswith("parameter_")}
+                    pkeys = {k[len("parameter_"):]: v
+                             for k, v in obj.items()
+                             if k.startswith("parameter_")}
+                    if pkeys:
+                        args = pkeys
+                    elif isinstance(obj.get("parameter"), dict):
+                        args = obj["parameter"]
+                    elif isinstance(obj.get("parameters"), dict):
+                        args = obj["parameters"]
                 return ToolCall(name=obj["name"], arguments=args if isinstance(args, dict) else {})
         except json.JSONDecodeError:
             continue

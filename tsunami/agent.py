@@ -2136,6 +2136,13 @@ class Agent:
         # Detect via plan scaffold — gamedev plan has a Design section.
         if self.plan_manager.section("Design") is not None:
             opened.append("planning")  # holds emit_design, plan_update, plan_advance
+        # Open the assets toolbox (generate_image, search_web) whenever a
+        # deliverable is active. Drones need image generation for hero
+        # photos, sprite art, gallery content. Without this the task can
+        # say "use generate_image" and the drone has no way to invoke it.
+        if self.active_project:
+            opened.append("assets")
+            opened.append("search")  # match_grep + search_web for research
         # When force_tool is set, expose ONLY that tool's schema so
         # the model literally cannot emit anything else (Qwen3.6 is
         # flaky on tool_choice compliance even when set explicitly).

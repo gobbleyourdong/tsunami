@@ -202,12 +202,19 @@ class GenerateImage(BaseTool):
             # (which land in workspace/tmp/x.png, outside the project, but my
             # previous check joined them to project_root and wrongly concluded
             # "inside").
-            actual_clean = save_path.lstrip("/")
-            for _pfx in ("workspace/", "app/workspace/"):
-                if actual_clean.startswith(_pfx):
-                    actual_clean = actual_clean[len(_pfx):]
-                    break
-            actual_save = (Path(self.config.workspace_dir) / actual_clean).resolve()
+            # If save_path is already absolute (e.g. `/tmp/x/public/art/1.png`),
+            # use it as-is. Prior logic stripped the leading slash, treated it
+            # as relative, and prepended workspace_dir again → double-nested
+            # path like /tmp/x/tmp/x/public/art/1.png.
+            if save_path.startswith("/"):
+                actual_save = Path(save_path).resolve()
+            else:
+                actual_clean = save_path
+                for _pfx in ("workspace/", "app/workspace/"):
+                    if actual_clean.startswith(_pfx):
+                        actual_clean = actual_clean[len(_pfx):]
+                        break
+                actual_save = (Path(self.config.workspace_dir) / actual_clean).resolve()
             try:
                 inside_project = (
                     actual_save == project_root_resolved

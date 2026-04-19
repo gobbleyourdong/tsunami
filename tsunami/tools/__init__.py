@@ -143,15 +143,15 @@ _ALWAYS_TOOLS: tuple[str, ...] = (
 # drone simply cannot see or emit them, no filtering needed.
 _WAVE_ONLY_TOOLS: frozenset[str] = frozenset({
     "project_init",    # pre_scaffold invokes this
-    "generate_image",  # grounding gate invokes this
-    "search_web",      # grounding gate uses for reference images
     "riptide",         # grounding gate uses for bbox extraction
     "undertow",        # delivery gate uses for QA
     "plan_update",     # wave maintains plan.md
     "plan_advance",    # wave transitions plan sections
-    # emit_design intentionally NOT wave-only — for gamedev scaffold,
-    # the drone must call it to produce game_definition.json. Exposed
-    # via the "planning" toolbox which opens on gamedev plan.
+    # emit_design and generate_image NOT wave-only — drones need them:
+    # generate_image for art/hero/sprite content, emit_design for
+    # gamedev. Wave uses them too (grounding gate) but drone visibility
+    # is the common case. search_web also drone-facing now for reference
+    # image pulls during build (not just grounding).
 })
 
 # Toolbox layout. Each toolbox name maps to a tuple of tool names.
