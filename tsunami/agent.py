@@ -2161,6 +2161,19 @@ class Agent:
             # Minimal tool set by default (file_write/file_edit/message_result)
             # via _ALWAYS_TOOLS. File reads and shell are opened only through
             # explicit phase toolboxes when a phase genuinely needs them.
+            # Write-first gate: once the drone has committed a successful
+            # write, restore file_read. Pre-write iters exclude it to stop
+            # read-spiral reconnaissance; post-write the drone needs to
+            # diagnose its own compile failures. AURUM v8 looped on the
+            # same state-var bugs for 3 consecutive rewrites because it
+            # couldn't see the current App.tsx — rewriting blind from
+            # memory re-introduced the same missing useState declarations.
+            if self._first_write_done:
+                file_read_tool = self.registry.get("file_read")
+                if file_read_tool and not any(
+                    s.get("function", {}).get("name") == "file_read" for s in all_schemas
+                ):
+                    all_schemas.append(file_read_tool.schema())
         response = await self.model.generate(
             messages=messages,
             tools=all_schemas,
