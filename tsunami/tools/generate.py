@@ -191,10 +191,22 @@ class GenerateImage(BaseTool):
             # "deliverables/foo" depending on who set it. workspace_dir IS
             # the workspace root, so strip any leading "workspace/" to avoid
             # double-nesting (e.g. /tmp/ws/workspace/deliverables/foo).
-            proj_rel = _active_project.lstrip("/")
-            if proj_rel.startswith("workspace/"):
-                proj_rel = proj_rel[len("workspace/"):]
-            project_root = Path(self.config.workspace_dir) / proj_rel
+            # _active_project can arrive in multiple shapes:
+            #   - bare name ("gallery")
+            #   - "deliverables/gallery"
+            #   - "workspace/deliverables/gallery"
+            #   - absolute path ("/tmp/ws/deliverables/gallery")
+            # Only prepend workspace_dir when it's clearly relative.
+            # Stripping leading "/" on an absolute path and then joining
+            # re-produces the workspace prefix → nested doubled path like
+            # /tmp/ws/tmp/ws/deliverables/gallery.
+            if _active_project.startswith("/"):
+                project_root = Path(_active_project)
+            else:
+                proj_rel = _active_project
+                if proj_rel.startswith("workspace/"):
+                    proj_rel = proj_rel[len("workspace/"):]
+                project_root = Path(self.config.workspace_dir) / proj_rel
             project_root_resolved = project_root.resolve()
             # Compute where the save would actually land using the SAME
             # resolution logic the non-routed branch uses below — else the
