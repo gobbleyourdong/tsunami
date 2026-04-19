@@ -3008,18 +3008,26 @@ class Agent:
         if (tool_call.name in ("file_write", "file_edit", "file_append")
                 and not result.is_error):
             _written_path = str(tool_call.arguments.get("path", "")).lower()
-            _is_source = (
+            # _is_src: any real project-source write (opens file_read).
+            # Includes .css because editorial styles legitimately start by
+            # importing webfonts via index.css.
+            _is_src = (
+                "/src/" in _written_path
+                and _written_path.endswith((".ts", ".tsx", ".jsx", ".css"))
+            )
+            # _is_app_entry: the App.tsx / main.ts entry point itself
+            # (arms deliver-gate). Writing only to index.css doesn't mean
+            # the app is built — still need App.tsx.
+            _is_app_entry = (
                 _written_path.endswith("/src/app.tsx")
                 or _written_path.endswith("/src/app.jsx")
                 or _written_path.endswith("/src/main.ts")
                 or _written_path.endswith("/src/main.tsx")
-                or ("/src/" in _written_path
-                    and _written_path.endswith((".ts", ".tsx", ".jsx")))
             )
-            if _is_source and not self._app_source_written:
+            if _is_app_entry and not self._app_source_written:
                 self._app_source_written = True
-                log.info(f"app-source gate: first source write committed ({_written_path})")
-            if not self._first_write_done and _is_source:
+                log.info(f"app-source gate: App entry written ({_written_path})")
+            if not self._first_write_done and _is_src:
                 self._first_write_done = True
                 log.info("write-first gate: first source write committed — file_read re-enabled")
                 # Plan-state sync: first code commit means the drone implicitly
@@ -4068,31 +4076,35 @@ class Agent:
             # Track delivery attempts — prevent infinite block loops
             self._delivery_attempts = getattr(self, '_delivery_attempts', 0) + 1
 
-            # Code-write gate: check if ANY .tsx file in the project has real code.
-            # Checks App.tsx AND component files — writing to DigitalClock.tsx counts.
+            # Code-write gate: block delivery unless the DRONE itself has
+            # written src/App.tsx (or equivalent entry). The scaffold ships
+            # with an >800-char stub including the word "Counter" — size
+            # and substring checks pass on the stub alone, so they let
+            # drones bail with "I'll use Tailwind only" after touching
+            # nothing but index.css. Key on self._app_source_written,
+            # which flips only on a file_write/edit to src/App.tsx
+            # (or src/main.ts / src/App.jsx / src/main.tsx).
             if self._project_init_called and self._delivery_attempts <= 2:
-                has_real_code = False
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
-                if deliverables.exists():
-                    for d in sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
-                        src = d / "src"
-                        if src.exists():
-                            for tsx in src.rglob("*.tsx"):
-                                content = tsx.read_text()
-                                if len(content) > 200 and "Loading..." not in content:
-                                    has_real_code = True
-                                    break
-                        # Also check if build succeeded (dist/ exists = code was written and compiled)
-                        if (d / "dist" / "index.html").exists():
-                            has_real_code = True
-                        break
+                has_real_code = self._app_source_written
+                # Build succeeded is a valid positive signal too — if
+                # dist/index.html exists, the drone's code shipped.
                 if not has_real_code:
-                    log.warning("Early completion blocked: no real code in project")
+                    deliverables = Path(self.config.workspace_dir) / "deliverables"
+                    if deliverables.exists():
+                        for d in sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+                            if (d / "dist" / "index.html").exists():
+                                has_real_code = True
+                            break
+                if not has_real_code:
+                    log.warning("Early completion blocked: App.tsx not written")
                     self.state.add_system_note(
-                        "BLOCKED: No code written yet. Write src/App.tsx first."
+                        "BLOCKED: src/App.tsx has not been written. Write the "
+                        "full app implementation to src/App.tsx BEFORE calling "
+                        "message_result. Writes to index.css or component files "
+                        "alone are not delivery."
                     )
                     self._delivery_attempts -= 1
-                    return "Write code before delivering."
+                    return "Write src/App.tsx before delivering."
 
             # Short conversational deliveries bypass build-only gates below.
             # A build is distinguished by project_init having been called;
