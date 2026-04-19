@@ -39,6 +39,38 @@ log = logging.getLogger("tsunami.brand_scaffold")
 # deviate; we just want to start from something stronger than "wordmark
 # in serif".
 _INDUSTRY_BRIEFS: list[tuple[tuple[str, ...], dict]] = [
+    # Compact / city / budget EV — FRIENDLY urban positioning. Listed
+    # before the luxury-hypercar entry so "compact urban electric" / "city
+    # car" / "affordable EV" don't fall through to the hypercar brief with
+    # aerodynamic-wing emblems that don't fit a €15k commuter.
+    (("compact car", "city car", "mini car", "urban ev", "micro ev",
+      "city ev", "compact ev", "budget car", "affordable car",
+      "commuter car", "micro car", "small car", "micromobility",
+      "hatchback", "subcompact"), {
+        "symbol_concepts": [
+            "rounded pebble shape with single directional mark",
+            "friendly circular monogram with rounded initial",
+            "geometric house + wheels pictogram simplified",
+            "stacked rounded rectangles suggesting a tiny car profile",
+            "single lowercase letter emblem in a soft rounded frame",
+            "abstract leaf + wheel combined pictogram",
+        ],
+        "aesthetic_refs": [
+            "friendly sans rounded wordmark",
+            "playful geometric pictogram",
+            "Muji-adjacent minimalist icon",
+            "Scandinavian soft-brand mark",
+            "civic utility pictogram",
+        ],
+        "environment_refs": [
+            "narrow European city street with cobblestones",
+            "bright white daylight parking spot with leafy background",
+            "corner grocery storefront at morning",
+            "Copenhagen bike lane with the car at curb",
+            "small town square fountain backdrop",
+            "underground parking garage with warm overhead light",
+        ],
+    }),
     (("hypercar", "supercar", "sportscar", "sports car", "race car",
       "automotive", "car brand", "electric car"), {
         "symbol_concepts": [
