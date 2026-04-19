@@ -59,6 +59,12 @@ class GateResult:
     message: str = ""          # internal log message
     system_note: str = ""      # text injected into drone's context on failure
     advisory: bool = False     # True = log + continue, False = block
+    hard: bool = False         # True = fires even past retry-budget
+                               # (definitive breakage: 404 assets,
+                               # syntax errors, blank dist). Default
+                               # False lets the standard retry-budget
+                               # auto-pass gates that a drone genuinely
+                               # can't fix past 2 attempts.
 
 
 @dataclass
@@ -156,6 +162,10 @@ def asset_existence_gate(
             f"generate_image() for each before delivering. Users will "
             f"see broken-image icons if you ship now."
         ),
+        hard=True,   # 404s are definitive — never bypass, even past
+                     # retry-budget. PIKO v5 shipped with missing
+                     # founder.png / z.png / x.png because the budget
+                     # auto-pass silently skipped this check.
     )
 
 
@@ -186,9 +196,9 @@ def run_deliver_gates(
     state — keeps this module orthogonal to the Agent class and easy
     to unit-test.
     """
-    if attempt_number > max_attempts:
-        log.debug(f"deliver-gate budget exhausted (attempt {attempt_number}); allowing delivery")
-        return None
+    budget_exhausted = attempt_number > max_attempts
+    if budget_exhausted:
+        log.debug(f"deliver-gate budget exhausted (attempt {attempt_number}); only HARD gates fire")
     proj = project_dir or Path("/nonexistent")
     for gate_fn in DELIVER_GATES:
         try:
@@ -200,6 +210,12 @@ def run_deliver_gates(
             log.info(f"[deliver-gate:{result.name}] advisory: {result.message}")
             continue
         if not result.passed:
+            # Budget-exhausted: skip soft gates but HARD gates still fire.
+            # Hard gates are for definitive breakage (404 assets, syntax
+            # errors) — no amount of retries will make them acceptable.
+            if budget_exhausted and not result.hard:
+                log.info(f"[deliver-gate:{result.name}] soft-fail past budget — passing")
+                continue
             log.warning(f"[deliver-gate:{result.name}] FAIL — {result.message}")
             return GateFailure(
                 gate=result.name,
