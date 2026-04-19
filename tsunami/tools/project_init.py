@@ -200,9 +200,14 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "fullstack").exists():
             return "fullstack"
 
-    # 5. Needs file handling (uploads, spreadsheets)
-    if needs("upload", "file", "xlsx", "csv", "excel", "spreadsheet", "import",
-             "export", "pdf", "document", "parse", "diff", "sheet"):
+    # 5. Needs file handling (uploads, spreadsheets). Removed bare "file"
+    # — it matched "single-file SPA" in the AURUM prompt and mis-routed a
+    # react-app task to form-app. "file upload" as a multi-word key is
+    # still here; drop "import"/"export"/"parse"/"diff" which collide
+    # with generic dev verbs ("import component", "export default",
+    # "parse props"). Keep the explicit format extensions.
+    if needs("upload", "file upload", "xlsx", "csv", "excel", "spreadsheet",
+             "pdf", "document upload", "sheet"):
         if (SCAFFOLDS_DIR / "form-app").exists():
             return "form-app"
 
