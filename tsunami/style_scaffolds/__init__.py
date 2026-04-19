@@ -35,7 +35,21 @@ _KEYWORD_MAP: list[tuple[tuple[str, ...], str]] = [
     (("playful", "stripe-style", "linear-style", "mesh gradient",
       "bento grid", "chromatic"), "playful_chromatic"),
     (("editorial dark", "luxury dark", "apple-style", "tesla-style",
-      "cinematic dark", "noir"), "editorial_dark"),
+      "noir"), "editorial_dark"),
+    (("photographer", "photo portfolio", "photo studio",
+      "portfolio site", "creative director"), "photo_studio"),
+    (("band", "music site", "album", "film studio", "nightclub",
+      "cinematic dark", "bebas", "anton", "oversized display"),
+     "cinematic_display"),
+    (("newspaper", "news site", "newsroom", "broadsheet", "tribune",
+      "chronicle", "daily paper", "trade publication", "local news"),
+     "newsroom_editorial"),
+    (("atelier", "handcraft", "handmade", "ceramics", "studio brand",
+      "dtc", "small brand", "craft brand", "cream palette"),
+     "atelier_warm"),
+    (("saas", "dashboard", "admin", "crm", "tracker", "dev tool",
+      "shadcn", "utility app", "startup landing", "tier comparison"),
+     "shadcn_startup"),
 ]
 
 
@@ -50,15 +64,53 @@ def _load(name: str) -> str | None:
     return path.read_text()
 
 
+_ANCHOR_RE = re.compile(r"^anchors:\s*(.+?)\s*$", re.MULTILINE)
+_CORPUS_RE = re.compile(r"(\d+)\s*/\s*155", re.IGNORECASE)
+
+
+def _style_weight(body: str) -> float:
+    """Weight a style by its grounding in the scraped corpus.
+
+    Priority order — first signal wins:
+      1. Explicit `(none in Lovable corpus — ...)` in anchors field → 0.0
+         (escape hatches must be keyword-routed, not randomly selected).
+      2. "<N>/155" mention in body — the evidence-note format the sigma
+         team uses to cite corpus share. Returns N (template count).
+      3. Comma-separated anchor slug count — each listed template = 1.
+      4. Fallback 1.0 for styles without evidence (don't exclude, just
+         keep them low-weight until corpus data lands).
+    """
+    m_anchors = _ANCHOR_RE.search(body)
+    if m_anchors:
+        anchors_line = m_anchors.group(1).strip()
+        if "none" in anchors_line.lower() or anchors_line.startswith("("):
+            return 0.0
+        # Evidence-note mention takes priority over anchor count — it's
+        # the cluster size, which is usually larger than the exemplar list.
+        m_corpus = _CORPUS_RE.search(body)
+        if m_corpus:
+            return float(m_corpus.group(1))
+        # Fall back to anchor count.
+        count = sum(1 for a in anchors_line.split(",") if a.strip())
+        return float(count) if count else 1.0
+    # No anchors field at all — try corpus-share regex anyway.
+    m_corpus = _CORPUS_RE.search(body)
+    if m_corpus:
+        return float(m_corpus.group(1))
+    return 1.0
+
+
 def pick_style(task: str, scaffold: str = "", seed: int | None = None) -> tuple[str, str]:
     """Return (style_name, style_body) for a task.
 
     Resolution order:
       1. env TSUNAMI_STYLE=<name>
       2. keyword match in task text
-      3. random choice from scaffolds whose `applies_to` frontmatter
-         lists `scaffold` (or contains '*')
-      4. empty ("", "")  — no style injection
+      3. corpus-weighted random choice from scaffolds whose `applies_to`
+         frontmatter lists `scaffold` (or contains '*'). Weight comes
+         from anchor count / N-of-155 evidence note. Zero-weight styles
+         (brutalist) never land here — they're keyword-only.
+      4. empty ("", "") — no style injection
     """
     forced = os.environ.get("TSUNAMI_STYLE")
     if forced:
@@ -80,32 +132,81 @@ def pick_style(task: str, scaffold: str = "", seed: int | None = None) -> tuple[
                     if body:
                         return name, body
 
-    # Random among applicable. Parse frontmatter applies_to.
-    applicable: list[str] = []
+    # Corpus-weighted random among applicable.
+    applicable: list[tuple[str, float]] = []
     for p in _HERE.glob("*.md"):
         text = p.read_text()
         m = re.search(r"applies_to:\s*\[([^\]]+)\]", text)
         if not m:
             continue
         targets = [t.strip().strip('"').strip("'") for t in m.group(1).split(",")]
-        if not scaffold or "*" in targets or scaffold in targets:
-            applicable.append(p.stem)
+        if scaffold and "*" not in targets and scaffold not in targets:
+            continue
+        w = _style_weight(text)
+        if w <= 0:
+            continue  # escape-hatch doctrines — keyword-only
+        applicable.append((p.stem, w))
     if not applicable:
         return "", ""
     rng = random.Random(seed) if seed is not None else random
-    chosen = rng.choice(applicable)
+    names = [a[0] for a in applicable]
+    weights = [a[1] for a in applicable]
+    chosen = rng.choices(names, weights=weights, k=1)[0]
     return chosen, _load(chosen) or ""
+
+
+_MODE_RE = re.compile(r"^default_mode\s*:\s*(light|neutral|dark)\s*$", re.MULTILINE)
+
+
+def _doctrine_mode(body: str) -> str:
+    """Parse `default_mode: light|neutral|dark` from frontmatter; fallback dark.
+
+    Three modes reflect the three surface families in the Lovable corpus:
+      - light   — pure-white / near-white (#fff, #fafafa). 69% of corpus.
+      - neutral — warm-cream / bone / sand (`40 33% 96%`). ~17%.
+      - dark    — near-black (#0a0a0a, #000). ~14%.
+
+    Dark is the scaffold's baseline in index.css, so doctrines without a
+    declared mode get dark (legacy-compatible).
+    """
+    m = _MODE_RE.search(body)
+    return m.group(1) if m else "dark"
+
+
+_MODE_NOTES = {
+    "light": (
+        "SCAFFOLD ACTIVATION: this doctrine wants a LIGHT surface. In\n"
+        "src/main.tsx, add `import './tokens_light.css';` on the line\n"
+        "immediately after `import './index.css';`. tokens_light.css ships\n"
+        "in the scaffold — it overrides :root with shadcn-aligned light\n"
+        "tokens (pure white bg, near-black text, system sans). Do this\n"
+        "BEFORE writing any components so first render is already correct.\n"
+    ),
+    "neutral": (
+        "SCAFFOLD ACTIVATION: this doctrine wants a NEUTRAL (warm-paper)\n"
+        "surface. In src/main.tsx, add `import './tokens_neutral.css';` on\n"
+        "the line immediately after `import './index.css';`. The file\n"
+        "overrides :root with warm-cream tokens (hsl(40 33% 96%) bg, warm\n"
+        "near-black text, serif-first font stack). DO NOT use pure white —\n"
+        "pure white destroys the handcraft / editorial / atelier mood.\n"
+    ),
+    "dark": "",  # scaffold default; no import needed
+}
 
 
 def format_style_directive(name: str, body: str) -> str:
     """Render the style body as a task-prepended directive block."""
     if not name or not body:
         return ""
+    mode = _doctrine_mode(body)
+    token_note = "\n" + _MODE_NOTES[mode] if _MODE_NOTES[mode] else ""
     return (
         f"\n\n=== STYLE DIRECTION: {name} ===\n"
         f"This project must embody the style defined below. Override the\n"
         f"scaffold's defaults where they conflict. Ship this flavour, not\n"
-        f"generic dark-theme-with-accent.\n\n{body}\n"
+        f"generic dark-theme-with-accent.\n"
+        f"{token_note}"
+        f"\n{body}\n"
         f"=== END STYLE ===\n"
     )
 
