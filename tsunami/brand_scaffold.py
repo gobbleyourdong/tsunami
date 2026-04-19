@@ -43,10 +43,13 @@ _INDUSTRY_BRIEFS: list[tuple[tuple[str, ...], dict]] = [
     # before the luxury-hypercar entry so "compact urban electric" / "city
     # car" / "affordable EV" don't fall through to the hypercar brief with
     # aerodynamic-wing emblems that don't fit a €15k commuter.
-    (("compact car", "city car", "mini car", "urban ev", "micro ev",
-      "city ev", "compact ev", "budget car", "affordable car",
-      "commuter car", "micro car", "small car", "micromobility",
-      "hatchback", "subcompact"), {
+    (("compact car", "city car", "city-car", "mini car", "mini-car",
+      "urban ev", "urban-ev", "micro ev", "micro-ev",
+      "city ev", "city-ev", "compact ev", "compact-ev",
+      "budget car", "affordable car", "commuter car", "micro car",
+      "micro-car", "small car", "micromobility", "hatchback",
+      "subcompact", "mini electric", "compact electric",
+      "urban electric", "city electric", "compact urban"), {
         "symbol_concepts": [
             "rounded pebble shape with single directional mark",
             "friendly circular monogram with rounded initial",
