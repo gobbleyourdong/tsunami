@@ -25,7 +25,10 @@ _Behavior = dict  # {"trigger": str, "expect": str}
 
 def _has_any(text: str, words: Iterable[str]) -> bool:
     low = text.lower()
-    return any(w in low for w in words)
+    for w in words:
+        if re.search(r"\b" + re.escape(w.lower()) + r"\b", low):
+            return True
+    return False
 
 
 def _pomodoro(task: str) -> list[_Behavior]:
