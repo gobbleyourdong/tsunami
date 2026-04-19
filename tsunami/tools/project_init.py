@@ -182,9 +182,16 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "auth-app").exists():
             return "auth-app"
 
-    # 4. Needs realtime (chat, live, multiplayer, notifications)
-    if needs("chat", "realtime", "live", "multiplayer", "websocket", "socket",
-             "notification", "collab", "sync"):
+    # 4. Needs realtime (chat, live chat, multiplayer, websockets)
+    # Removed bare "live" — it caught 'live-updating', 'live preview',
+    # 'live color picker', etc. on regular react-app tasks. "live chat"
+    # / "live stream" / "live feed" stay as multi-word signals.
+    # Removed bare "sync" — overlaps with 'state sync'/'form sync' idioms
+    # that don't imply WebSockets. Removed bare "collab" for same reason.
+    if needs("chat", "realtime", "live chat", "live stream", "live feed",
+             "multiplayer", "websocket", "socket.io", "notification feed",
+             "live notification", "pub/sub", "server-sent events",
+             "collaborative editor", "collaborative board"):
         if (SCAFFOLDS_DIR / "realtime").exists():
             return "realtime"
 
