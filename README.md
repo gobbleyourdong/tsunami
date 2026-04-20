@@ -8,13 +8,13 @@
 <p align="center"><b><i>an ai coding agent that lives on your computer.<br/>nothing leaves your machine. ever.</i></b></p>
 
 <p align="center">
-  you type a prompt. <b>Nami</b> scaffolds a project, writes the code, compiles it,<br/>
+  you type a prompt. <b>ツNami</b> scaffolds a project, writes the code, compiles it,<br/>
   drives a real browser to QA the output, and hands you a working build.<br/>
   on your GPU. no OpenAI. no Anthropic. no Google. no API keys. no telemetry.<br/>
   no "unexpected usage" email at 2am.
 </p>
 
-<p align="center"><b>→ <a href="https://gobbleyourdong.github.io/tsunami/">see Nami work live</a> ←</b></p>
+<p align="center"><b>→ <a href="https://gobbleyourdong.github.io/tsunami/">see ツNami work live</a> ←</b></p>
 
 ---
 
@@ -31,13 +31,13 @@ iwr -useb https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps
 tsunami
 ```
 
-the installer clones the repo, finds your GPU, downloads the models, lights up the four local servers, opens the UI. run `tsunami` again next time — same command, Nami's waiting.
+the installer clones the repo, finds your GPU, downloads the models, lights up the four local servers, opens the UI. run `tsunami` again next time — same command, ツNami's waiting.
 
 ---
 
-## meet Nami ✿
+## meet ツNami ✿
 
-Nami is the agent — a coder who happens to run on your hardware. when you ask her to build something she:
+ツNami is the agent — a coder who happens to run on your hardware. when you ask her to build something she:
 
 - reads the brief, thinks about it, picks a scaffold
 - auto-grounds any reference image with computer vision before planning
@@ -66,18 +66,18 @@ Blackwell (GB10, 5090, B100) is home base — FP8 tensor cores plus enough VRAM 
 
 ---
 
-## how Nami builds something ♡
+## how ツNami builds something ♡
 
 ```
-  prompt → Nami reasons about intent, picks scaffold, plans
+  prompt → ツNami reasons about intent, picks scaffold, plans
               ↓
    ✿ pre-build riptide: if the prompt has an image,
      the system auto-grounds element positions before
-     Nami plans any write
+     ツNami plans any write
               ↓
    ✿ swell dispatches parallel workers (eddies) as needed
               ↓
-   ✿ Nami writes code, auto-runs vite build after every
+   ✿ ツNami writes code, auto-runs vite build after every
      .tsx write, auto-installs missing npm packages
               ↓
    ✿ post-build undertow: the system drives a real
@@ -88,7 +88,7 @@ Blackwell (GB10, 5090, B100) is home base — FP8 tensor cores plus enough VRAM 
      iterate only on concrete failures.
 ```
 
-the **system** decides when to call undertow and riptide. Nami doesn't get to hand-wave a delivery — the gates are observable: `vite build` either compiles or it doesn't, playwright either finds the button or it doesn't.
+the **system** decides when to call undertow and riptide. ツNami doesn't get to hand-wave a delivery — the gates are observable: `vite build` either compiles or it doesn't, playwright either finds the button or it doesn't.
 
 ---
 
@@ -100,16 +100,16 @@ small-model drones fail in predictable ways — they'll generate 11 images befor
 
 ---
 
-## what Nami replaces ♡
+## what ツNami replaces ♡
 
-| instead of | Nami gives you |
+| instead of | ツNami gives you |
 |---|---|
 | Cursor / Windsurf / Copilot | the same agentic loop, but your code stays on your disk |
 | ChatGPT / Claude for coding | no API fees, no rate limits, no "unexpected usage" dashboards |
 | v0 / bolt / lovable | a hosted template tree → a local agent that actually iterates |
 | LM Studio / Ollama wrappers | you get the build loop + QA + pipeline those don't ship |
 
-Nami runs the same-class model the hyperscalers run, on hardware you already own, with a pipeline designed for actual software engineering — not marketing-demo output.
+ツNami runs the same-class model the hyperscalers run, on hardware you already own, with a pipeline designed for actual software engineering — not marketing-demo output.
 
 ---
 
