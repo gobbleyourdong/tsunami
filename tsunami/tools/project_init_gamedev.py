@@ -42,12 +42,17 @@ _GENRE_MAP: dict[str, str] = {
     "custom":            "custom",
     "action_adventure":  "action_adventure",
     "fighting":          "fighting",
+    "jrpg":              "jrpg",
     "magic_hoops":       "cross/magic_hoops",
     # Common spellings + hyphen variants
     "action-adventure":  "action_adventure",
     "adventure":         "action_adventure",
     "fighter":           "fighting",
     "brawler":           "fighting",
+    "rpg":               "jrpg",
+    "jrpg-classic":      "jrpg",
+    "final-fantasy":     "jrpg",
+    "dragon-quest":      "jrpg",
     "cross":             "cross/magic_hoops",
     "cross-genre":       "cross/magic_hoops",
     "canary":            "cross/magic_hoops",
@@ -113,6 +118,7 @@ class ProjectInitGamedev(BaseTool):
         "Do NOT emit a game_definition.json from scratch. "
         "Available genres: 'custom' (universal base), 'action_adventure' "
         "(Zelda/Metroid lineage), 'fighting' (SF2/MK2/Tekken lineage), "
+        "'jrpg' (FF4/DQ3/Chrono Trigger lineage, ATB combat), "
         "'magic_hoops' (cross-genre canary: sports+fighting+RPG). "
         "Installs deps and starts the dev server."
     )
@@ -129,7 +135,7 @@ class ProjectInitGamedev(BaseTool):
                     "type": "string",
                     "description": (
                         "Genre scaffold to copy. One of: custom, "
-                        "action_adventure, fighting, magic_hoops."
+                        "action_adventure, fighting, jrpg, magic_hoops."
                     ),
                 },
             },
@@ -155,7 +161,7 @@ class ProjectInitGamedev(BaseTool):
             avail = sorted({v for v in _GENRE_MAP.values()})
             return ToolResult(
                 f"Unknown genre {genre!r}. Available: "
-                f"custom, action_adventure, fighting, magic_hoops. "
+                f"custom, action_adventure, fighting, jrpg, magic_hoops. "
                 f"(Scaffolds on disk: {avail})",
                 is_error=True,
             )

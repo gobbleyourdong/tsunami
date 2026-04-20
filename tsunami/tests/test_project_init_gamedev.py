@@ -41,7 +41,7 @@ class TestScaffoldsOnDisk:
     def test_engine_root_exists(self):
         assert ENGINE_DIR.is_dir(), f"missing {ENGINE_DIR}"
 
-    @pytest.mark.parametrize("sub", ["custom", "action_adventure", "fighting", "cross/magic_hoops"])
+    @pytest.mark.parametrize("sub", ["custom", "action_adventure", "fighting", "jrpg", "cross/magic_hoops"])
     def test_genre_dir_exists(self, sub):
         d = GAMEDEV_DIR / sub
         assert d.is_dir(), f"missing scaffold dir {d}"
@@ -56,6 +56,7 @@ class TestResolveGenre:
         assert _resolve_genre("custom") == "custom"
         assert _resolve_genre("action_adventure") == "action_adventure"
         assert _resolve_genre("fighting") == "fighting"
+        assert _resolve_genre("jrpg") == "jrpg"
         assert _resolve_genre("magic_hoops") == "cross/magic_hoops"
 
     def test_aliases(self):
@@ -63,6 +64,8 @@ class TestResolveGenre:
         assert _resolve_genre("adventure") == "action_adventure"
         assert _resolve_genre("fighter") == "fighting"
         assert _resolve_genre("brawler") == "fighting"
+        assert _resolve_genre("rpg") == "jrpg"
+        assert _resolve_genre("final-fantasy") == "jrpg"
         assert _resolve_genre("cross-genre") == "cross/magic_hoops"
         assert _resolve_genre("canary") == "cross/magic_hoops"
 
@@ -159,6 +162,7 @@ class TestEndToEndCopy:
         ("custom", "custom"),
         ("action_adventure", "action_adventure"),
         ("fighting", "fighting"),
+        ("jrpg", "jrpg"),
         ("magic_hoops", "cross/magic_hoops"),
     ])
     def test_copy_and_rewrite(self, genre, expected_sub):
