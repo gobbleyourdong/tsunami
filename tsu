@@ -39,13 +39,6 @@ case "${1:-}" in
     echo "Tsunami $(git rev-parse --short HEAD) ($(git log -1 --format=%ci | cut -d' ' -f1))"
     exit 0
     ;;
-  swarm)
-    shift
-    TASK="${1:?Usage: tsunami swarm \"task description\" [num_workers]}"
-    WORKERS="${2:-2}"
-    python3 -m tsunami.orchestrate "$TASK" "$WORKERS"
-    exit $?
-    ;;
   kill|stop|down)
     echo "  Tearing down Tsunami stack..."
     # SIGTERM first, give 20s to exit gracefully, then SIGKILL stragglers
@@ -242,19 +235,8 @@ start_server(host='0.0.0.0', port=3000)
   done
 fi
 
-# Start serve daemon (auto-serves latest deliverable on :9876)
-DAEMON_PID=""
-if [ -f "$DIR/tsunami/serve_daemon.py" ]; then
-  python3 -m tsunami.serve_daemon --workspace "$DIR/workspace" --port 9876 > /tmp/tsunami_daemon.log 2>&1 &
-  DAEMON_PID=$!
-fi
-
 cleanup() {
   [ -n "$SERVER_PID" ] && kill $SERVER_PID 2>/dev/null
-  [ -n "$MODEL_PID" ] && kill $MODEL_PID 2>/dev/null
-  [ -n "$BRIDGE_PID" ] && kill $BRIDGE_PID 2>/dev/null
-  [ -n "$WATCHER_PID" ] && kill $WATCHER_PID 2>/dev/null
-  [ -n "$DAEMON_PID" ] && kill $DAEMON_PID 2>/dev/null
 }
 trap cleanup EXIT
 

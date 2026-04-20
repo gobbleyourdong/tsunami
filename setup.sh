@@ -143,19 +143,19 @@ _pip_install() {
 }
 
 # Core (required)
-_pip_install httpx pyyaml ddgs pillow websockets fastapi uvicorn rich psutil || \
-  echo "  ⚠ pip install failed — try: $PIP install httpx pyyaml ddgs pillow websockets fastapi uvicorn"
+_pip_install httpx pyyaml ddgs pillow websockets fastapi uvicorn rich psutil numpy scipy || \
+  echo "  ⚠ pip install failed — try: $PIP install httpx pyyaml ddgs pillow websockets fastapi uvicorn numpy scipy"
 
-# Model serving + image generation
-echo "  → Installing model server dependencies..."
-_pip_install transformers accelerate torch || \
+# Inference stack — all four tiers are native transformers.
+# LM (Qwen3.6-35B-A3B-FP8) + image (ERNIE-Image-Turbo) + embed (Qwen3-Embedding)
+# all resolve their weights from HuggingFace on first launch.
+echo "  → Installing inference stack dependencies..."
+_pip_install transformers accelerate torch safetensors sentencepiece protobuf || \
   echo "  ⚠ transformers/torch install failed — model server won't work"
 
-# Image-gen Python backend is only used as a fallback — the production path
-# is sd-server (stable-diffusion.cpp GGUF) installed below. diffusers still
-# needed for the scaffolds/engine sprite pipeline which runs client-side.
+# Diffusers — required for ERNIE-Image-Turbo on :8092 (native transformers path).
 _pip_install diffusers || \
-  echo "  ⚠ diffusers skipped — fallback image gen won't work"
+  echo "  ⚠ diffusers install failed — ERNIE image server won't work"
 
 # Playwright (optional — for undertow QA)
 _pip_install playwright 2>/dev/null && \
@@ -170,96 +170,16 @@ if command -v node &>/dev/null && [ -d "$DIR/cli" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Download pre-built llama-server + sd-server binaries.
-# These are the production inference paths (GGUF, native CUDA kernels).
-# Mac = arm64 Metal build; Linux CUDA = Ubuntu CUDA build; Windows has
-# its own path in setup.ps1.
+# Models — pulled lazily from HuggingFace on first `tsu up`.
+#   LM    — Qwen/Qwen3.6-35B-A3B-FP8          (~34 GB, loaded at :8095 boot)
+#   image — baidu/ERNIE-Image-Turbo           (~22 GB, loaded at :8092 boot)
+#   embed — Qwen/Qwen3-Embedding-0.6B         (~1.2 GB, loaded at :8093 boot)
+# Everything is native transformers — no GGUF, no llama.cpp, no sd.cpp.
+# First boot = ~2 min download + warmup per tier; subsequent boots hit HF
+# cache at ~/.cache/huggingface/hub and are fast.
+#
+# You can pre-warm the cache if you want: `tsu up` does this as a side effect.
 # ---------------------------------------------------------------------------
-LLAMA_RELEASE="b8794"
-SD_RELEASE="master-fd35047"
-BIN_DIR="$DIR/bin"
-mkdir -p "$BIN_DIR"
-
-download_llama() {
-  if [ -x "$BIN_DIR/llama-server" ]; then
-    echo "  ✓ llama-server already installed"
-    return
-  fi
-  local url=""
-  if [ "$OS" = "Darwin" ] && [ "$ARCH" = "arm64" ]; then
-    url="https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-macos-arm64.tar.gz"
-  elif [ "$OS" = "Linux" ] && [ "$GPU" = "cuda" ]; then
-    # No official Linux CUDA pre-built; user needs to cmake build OR we ship
-    # our own prebuilt. For now, instruct to build from source.
-    echo "  ⚠ No pre-built Linux CUDA llama-server in upstream releases."
-    echo "    Install from ggml-org/llama.cpp: cmake -DGGML_CUDA=ON && make -j"
-    return
-  else
-    echo "  ⚠ Platform not covered — skip llama-server install"
-    return
-  fi
-  echo "  → Downloading llama-server ($LLAMA_RELEASE, $OS/$ARCH)..."
-  local tmp=$(mktemp -d)
-  curl -fSL "$url" -o "$tmp/llama.tgz" && tar -xzf "$tmp/llama.tgz" -C "$tmp"
-  find "$tmp" -name "llama-server" -type f -exec mv {} "$BIN_DIR/" \;
-  chmod +x "$BIN_DIR/llama-server" 2>/dev/null
-  rm -rf "$tmp"
-  [ -x "$BIN_DIR/llama-server" ] && echo "  ✓ llama-server installed" || echo "  ✗ llama-server install failed"
-}
-
-download_sd() {
-  if [ -x "$BIN_DIR/sd-server" ]; then
-    echo "  ✓ sd-server already installed"
-    return
-  fi
-  local url=""
-  if [ "$OS" = "Darwin" ] && [ "$ARCH" = "arm64" ]; then
-    url="https://github.com/leejet/stable-diffusion.cpp/releases/download/$SD_RELEASE/sd-$SD_RELEASE-bin-Darwin-macOS-15.7.4-arm64.zip"
-  elif [ "$OS" = "Linux" ]; then
-    echo "  ⚠ No pre-built Linux sd-server in upstream releases."
-    echo "    Install from leejet/stable-diffusion.cpp: cmake -DSD_CUDA=ON && make -j"
-    return
-  else
-    return
-  fi
-  echo "  → Downloading sd-server ($SD_RELEASE, $OS/$ARCH)..."
-  local tmp=$(mktemp -d)
-  curl -fSL "$url" -o "$tmp/sd.zip" && unzip -q "$tmp/sd.zip" -d "$tmp"
-  find "$tmp" -name "sd-server" -type f -exec mv {} "$BIN_DIR/" \;
-  chmod +x "$BIN_DIR/sd-server" 2>/dev/null
-  rm -rf "$tmp"
-  [ -x "$BIN_DIR/sd-server" ] && echo "  ✓ sd-server installed" || echo "  ✗ sd-server install failed"
-}
-
-download_llama
-download_sd
-
-# --- GGUF model weights (31B MoE for LM, Z-Image-Turbo Q4_K for images) ---
-echo ""
-mkdir -p "$MODELS_DIR"
-
-fetch_model() {
-  local repo="$1" file="$2" dest="$MODELS_DIR/$2"
-  if [ -f "$dest" ]; then
-    local sz=$(stat -c%s "$dest" 2>/dev/null || stat -f%z "$dest" 2>/dev/null)
-    echo "  ✓ $file ($(( sz / 1024 / 1024 ))MB, cached)"
-    return
-  fi
-  echo "  → Downloading $file..."
-  curl -fSL --progress-bar "https://huggingface.co/$repo/resolve/main/$file" -o "$dest"
-}
-
-# Gemma-4-26B-A4B MoE MXFP4 — 15.5GB, native Blackwell fp4 tensor cores
-fetch_model "unsloth/gemma-4-26B-A4B-it-GGUF" "gemma-4-26B-A4B-it-MXFP4_MOE.gguf"
-fetch_model "unsloth/gemma-4-26B-A4B-it-GGUF" "mmproj-F16.gguf"
-# Z-Image-Turbo Q4_K for sd-server
-fetch_model "leejet/Z-Image-Turbo-GGUF" "z_image_turbo-Q4_K.gguf"
-# Z-Image VAE
-fetch_model "Comfy-Org/z_image_turbo" "split_files/vae/ae.safetensors"
-mv "$MODELS_DIR/split_files/vae/ae.safetensors" "$MODELS_DIR/ae.safetensors" 2>/dev/null || true
-rm -rf "$MODELS_DIR/split_files"
-# Qwen3-4B text encoder for sd-server
-fetch_model "unsloth/Qwen3-4B-GGUF" "Qwen3-4B-Q4_K_M.gguf"
 
 # --- Shell alias ---
 echo ""

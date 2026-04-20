@@ -75,17 +75,6 @@ switch ($args[0]) {
         Write-Host "Tsunami $sha ($date)"
         exit 0
     }
-    'swarm' {
-        $rest = @($args | Select-Object -Skip 1)
-        if ($args.Length -lt 2 -or -not $rest[0]) {
-            Write-Error 'Usage: tsu swarm "task description" [num_workers]'
-            exit 1
-        }
-        $task = $rest[0]
-        $workers = if ($rest.Length -gt 1) { $rest[1] } else { '2' }
-        python -m tsunami.orchestrate $task $workers
-        exit $LASTEXITCODE
-    }
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -231,32 +220,10 @@ if (Test-Path $watcherPath) {
     Write-Host "  File watcher on ws://localhost:3003"
 }
 
-# Start serve daemon (auto-serves Vite projects on port 9876)
-$DaemonPid = $null
-$daemonScript = @"
-import sys, os
-sys.path.insert(0, r'$DIR')
-os.chdir(r'$DIR')
-from tsunami.serve_daemon import run_daemon
-run_daemon(workspace='./workspace', port=9876)
-"@
-$tmpDaemon = Join-Path $env:TEMP "tsunami_daemon_start.py"
-$daemonScript | Set-Content $tmpDaemon -Encoding UTF8
-$daemonLog = Join-Path $env:TEMP "tsunami_daemon.log"
-$daemonProc = Start-Process -FilePath python -ArgumentList $tmpDaemon `
-                  -WorkingDirectory $DIR `
-                  -RedirectStandardOutput $daemonLog -RedirectStandardError "$daemonLog.err" `
-                  -WindowStyle Hidden -PassThru
-$DaemonPid = $daemonProc.Id
-Write-Host "  Serve daemon on http://localhost:9876"
-
 # ── Cleanup on exit ───────────────────────────────────────────────────────────
 $CleanupBlock = {
     if ($WatcherPid) {
         Stop-Process -Id $WatcherPid -Force -EA SilentlyContinue
-    }
-    if ($DaemonPid) {
-        Stop-Process -Id $DaemonPid -Force -EA SilentlyContinue
     }
     if ($BridgePid) {
         Stop-Process -Id $BridgePid -Force -EA SilentlyContinue

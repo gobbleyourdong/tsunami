@@ -486,131 +486,21 @@ if ($GPU -eq "cuda") {
     & $PYTHON -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu 2>&1 | Out-Null
 }
 
-# Image generation dependencies (Z-Image-Turbo via diffusers)
-Write-Step "Installing image generation dependencies..."
-& $PYTHON -m pip install -q diffusers 2>&1 | Out-Null
+# Image generation — ERNIE-Image-Turbo (diffusers) + numpy/scipy for PIL pipelines
+Write-Step "Installing image generation + supporting deps..."
+& $PYTHON -m pip install -q diffusers safetensors sentencepiece protobuf numpy scipy 2>&1 | Out-Null
 Write-Ok "Model server dependencies installed"
 
 # ---------------------------------------------------------------------------
-# Download pre-built llama-server (CUDA-accelerated for the LM path)
-# Pinned release from ggml-org/llama.cpp. Matches your CUDA major version.
-# Falls back to CPU build if CUDA download fails or CUDA isn't detected.
-# ---------------------------------------------------------------------------
-$LLAMA_RELEASE = "b8794"
-$LLAMA_DIR     = Join-Path $DIR "llama-server"
-$LLAMA_CPU_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cpu-x64.zip"
-$LLAMA_MAIN_URL = ""
-$LLAMA_DLL_URL  = ""
-
-if ($GPU -eq "cuda") {
-    try {
-        $cudaVer = (& $nvsmi 2>$null | Select-String "CUDA Version:" |
-                    ForEach-Object { $_.Line -replace '.*CUDA Version:\s*', '' -replace '\s.*', '' }).Trim()
-        $cudaMajor = [int](($cudaVer -split '\.')[0])
-        if ($cudaMajor -ge 13) {
-            $LLAMA_MAIN_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cuda-13.1-x64.zip"
-            $LLAMA_DLL_URL  = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/cudart-llama-bin-win-cuda-13.1-x64.zip"
-            Write-Ok "CUDA $cudaVer (using 13.1 llama.cpp binaries)"
-        } elseif ($cudaMajor -eq 12) {
-            $LLAMA_MAIN_URL = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/llama-$LLAMA_RELEASE-bin-win-cuda-12.4-x64.zip"
-            $LLAMA_DLL_URL  = "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_RELEASE/cudart-llama-bin-win-cuda-12.4-x64.zip"
-            Write-Ok "CUDA $cudaVer (using 12.4 llama.cpp binaries)"
-        }
-    } catch {
-        Write-Warn "Could not parse CUDA version — falling back to CPU llama-server"
-    }
-}
-
-$llamaExe = Join-Path $LLAMA_DIR "llama-server.exe"
-if (Test-Path $llamaExe) {
-    Write-Ok "llama-server already installed ($llamaExe)"
-} else {
-    New-Item -ItemType Directory -Force -Path $LLAMA_DIR | Out-Null
-    $downloadUrl = if ($LLAMA_MAIN_URL) { $LLAMA_MAIN_URL } else { $LLAMA_CPU_URL }
-    $variant = if ($LLAMA_MAIN_URL) { "CUDA" } else { "CPU" }
-
-    Write-Step "Downloading llama-server ($variant, $LLAMA_RELEASE)..."
-    $zipPath = Join-Path $LLAMA_DIR "llama-server.zip"
-    & curl.exe -fSL --progress-bar -o "$zipPath" "$downloadUrl"
-    if ($LASTEXITCODE -ne 0 -and $LLAMA_MAIN_URL) {
-        Write-Warn "CUDA download failed — falling back to CPU"
-        & curl.exe -fSL --progress-bar -o "$zipPath" "$LLAMA_CPU_URL"
-    }
-    if (Test-Path $zipPath) {
-        Expand-Archive -Force -Path $zipPath -DestinationPath $LLAMA_DIR
-        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-
-        if ($LLAMA_DLL_URL) {
-            Write-Step "Downloading CUDA runtime DLLs..."
-            $dllZip = Join-Path $LLAMA_DIR "cudart.zip"
-            & curl.exe -fSL --progress-bar -o "$dllZip" "$LLAMA_DLL_URL"
-            if (Test-Path $dllZip) {
-                Expand-Archive -Force -Path $dllZip -DestinationPath $LLAMA_DIR
-                Remove-Item $dllZip -Force -ErrorAction SilentlyContinue
-                Write-Ok "CUDA DLLs installed"
-            } else {
-                Write-Warn "CUDA DLL download failed — llama-server may fall back to CPU"
-            }
-        }
-
-        # llama-server.exe may be in a subdir after extraction — flatten.
-        $found = Get-ChildItem -Path $LLAMA_DIR -Recurse -Filter "llama-server.exe" | Select-Object -First 1
-        if ($found -and ($found.DirectoryName -ne $LLAMA_DIR)) {
-            Get-ChildItem -Path $found.DirectoryName -File | Move-Item -Destination $LLAMA_DIR -Force -ErrorAction SilentlyContinue
-        }
-        if (Test-Path $llamaExe) { Write-Ok "llama-server installed ($variant)" }
-        else { Write-Fail "llama-server.exe not found after extraction" }
-    } else {
-        Write-Fail "llama-server download failed — check internet"
-    }
-}
-
-# ---------------------------------------------------------------------------
-# Model weights — Gemma-4-31B at Q4_K_M (~19 GB) + mmproj for vision
+# Models — pulled lazily from HuggingFace on first `tsu up`.
+#   LM    — Qwen/Qwen3.6-35B-A3B-FP8          (~34 GB, loaded at :8095 boot)
+#   image — baidu/ERNIE-Image-Turbo           (~22 GB, loaded at :8092 boot)
+#   embed — Qwen/Qwen3-Embedding-0.6B         (~1.2 GB, loaded at :8093 boot)
+# Everything is native transformers — no GGUF, no llama.cpp, no sd.cpp.
+# First boot = ~2 min download + warmup per tier; subsequent boots hit
+# the HF cache at %USERPROFILE%\.cache\huggingface\hub and are fast.
 # ---------------------------------------------------------------------------
 New-Item -ItemType Directory -Force -Path $MODELS_DIR | Out-Null
-Write-Host ""
-Write-Host "  Downloading Gemma-4-31B GGUF (~19 GB) + mmproj (~1 GB)..."
-
-function Get-Model {
-    param([string]$Repo, [string]$File)
-    $dest = Join-Path $MODELS_DIR $File
-    if (Test-Path $dest) {
-        $sizeMB = [math]::Round((Get-Item $dest).Length / 1MB, 0)
-        Write-Ok "$File (${sizeMB}MB, cached)"
-        return
-    }
-    Write-Step "Downloading $File..."
-    & curl.exe -fSL --progress-bar -o "$dest" "https://huggingface.co/$Repo/resolve/main/$File"
-    if ((Test-Path $dest) -and (Get-Item $dest).Length -gt 1000) {
-        $sizeMB = [math]::Round((Get-Item $dest).Length / 1MB, 0)
-        Write-Ok "$File (${sizeMB}MB)"
-    } else {
-        Write-Fail "Download failed: $File"
-        if (Test-Path $dest) { Remove-Item $dest -Force }
-    }
-}
-
-if (Get-Command "curl.exe" -ErrorAction SilentlyContinue) {
-    # Primary LM: Gemma-4-26B-A4B MoE at MXFP4 — ~15 GB, MoE keeps only 4B
-    # active per token so decode runs at near-4B-dense speed while quality
-    # stays close to dense-26B. Native Blackwell fp4 tensor cores on CUDA.
-    Get-Model "unsloth/gemma-4-26B-A4B-it-GGUF" "gemma-4-26B-A4B-it-MXFP4_MOE.gguf"
-    Get-Model "unsloth/gemma-4-26B-A4B-it-GGUF" "mmproj-F16.gguf"
-    # Image gen stack: Z-Image-Turbo Q4_K (DiT) + VAE + Qwen3-4B text encoder.
-    Get-Model "leejet/Z-Image-Turbo-GGUF" "z_image_turbo-Q4_K.gguf"
-    Get-Model "Comfy-Org/z_image_turbo" "split_files/vae/ae.safetensors"
-    # Flatten nested download dir.
-    $nested = Join-Path $MODELS_DIR "split_files/vae/ae.safetensors"
-    if (Test-Path $nested) {
-        Move-Item $nested (Join-Path $MODELS_DIR "ae.safetensors") -Force
-        Remove-Item (Join-Path $MODELS_DIR "split_files") -Recurse -Force -ErrorAction SilentlyContinue
-    }
-    Get-Model "unsloth/Qwen3-4B-GGUF" "Qwen3-4B-Q4_K_M.gguf"
-    Write-Ok "Models installed — LM (Gemma-4-26B-A4B MXFP4) + image stack (Z-Image Q4_K)"
-} else {
-    Write-Warn "curl.exe not found — download models manually to $MODELS_DIR"
-}
 
 # ---------------------------------------------------------------------------
 # Create global command
