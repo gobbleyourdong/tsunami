@@ -541,16 +541,39 @@ def _path_tail(path: str) -> tuple[str, list[str]]:
 
 
 def _patch_duplicate_id(design: dict, err: dict) -> bool:
-    """mechanics[i].id → id + '_dup<n>'. Second+ occurrences get renamed."""
+    """mechanics[i].id → id + '_dup<n>'. Second+ occurrences get renamed.
+
+    Gap #24 (Round O 2026-04-20): when the wave emits mechanics without
+    `id` fields, the validator reports duplicate_id on ALL of them
+    (they all share id=undefined / missing). The patcher used to no-op
+    on empty originals. Now: if id is missing/empty, synthesize from
+    the mechanic's `type` + idx (e.g. CameraFollow → "CameraFollow_3").
+    Still uniqueness-safe — we check against existing ids to avoid
+    collisions."""
     _, rest = _path_tail(err.get("path", ""))
     if not rest or not rest[0].isdigit(): return False
     idx = int(rest[0])
     mechs = design.get("mechanics", [])
     if idx >= len(mechs): return False
+    if not isinstance(mechs[idx], dict):
+        return False
     original = mechs[idx].get("id", "")
-    if not original: return False
+    if not original:
+        # Fix #24: synthesize an id from type + idx
+        mtype = mechs[idx].get("type", "") or "mechanic"
+        # Kebab-ish base, keeping it readable
+        base = str(mtype).strip() or "mechanic"
+        candidate = f"{base}_{idx}"
+        # Make unique if another mechanic already has this id
+        n = 2
+        while any(isinstance(m, dict) and m.get("id") == candidate for m in mechs):
+            candidate = f"{base}_{idx}_{n}"
+            n += 1
+        mechs[idx]["id"] = candidate
+        log.info(f"design patcher: duplicate_id (empty-id) → synthesized mechanics[{idx}].id = {candidate!r}")
+        return True
     n = 2
-    while any(m.get("id") == f"{original}_dup{n}" for m in mechs): n += 1
+    while any(isinstance(m, dict) and m.get("id") == f"{original}_dup{n}" for m in mechs): n += 1
     mechs[idx]["id"] = f"{original}_dup{n}"
     log.info(f"design patcher: duplicate_id → renamed mechanics[{idx}].id to {mechs[idx]['id']}")
     return True
@@ -620,8 +643,15 @@ def _patch_dangling_condition(design: dict, err: dict) -> bool:
     """Remove the offending consumer — safer than guessing an emitter.
     Handles flow.linear.steps[i].condition and on_enter/on_complete
     ActionRefs. For win/fail conditions, we leave them alone (the game
-    can still run, it just never fires)."""
+    can still run, it just never fires).
+
+    Gap #28 (Round R 2026-04-20): also handle deeply-nested dangling
+    conditions inside mechanic params (e.g.
+    `mechanics[0].params.scenes[0].connections[0].trigger`). Generic
+    path-walk: navigate to the parent container, drop the offending
+    key. Works for both `.condition` and `.trigger` terminal keys."""
     path = err.get("path", "")
+    # Old flow-linear case (kept for specificity).
     if "steps[" in path and path.endswith(".condition"):
         import re as _re
         m = _re.search(r'steps\[(\d+)\]\.condition$', path)
@@ -634,13 +664,59 @@ def _patch_dangling_condition(design: dict, err: dict) -> bool:
         steps[si].pop("condition", None)
         log.info(f"design patcher: dropped flow.linear.steps[{si}].condition (dangling)")
         return True
-    return False
+
+    # Generic deep-path walk for terminal .condition / .trigger / .when_state keys.
+    # Path format: mechanics[0].params.scenes[0].connections[0].trigger
+    # Navigate down to the parent of the terminal key, then pop it.
+    if not path: return False
+    terminal = path.rsplit(".", 1)[-1] if "." in path else ""
+    if terminal not in ("condition", "trigger", "when_state"):
+        return False
+    import re as _re
+    # Tokenize path into a sequence of (key, idx) pairs.
+    # "mechanics[0].params.scenes[0].connections[0].trigger" →
+    #   [("mechanics", 0), ("params", None), ("scenes", 0),
+    #    ("connections", 0), ("trigger", None)]
+    tokens: list[tuple[str, int | None]] = []
+    for tok in path.split("."):
+        m = _re.match(r'(\w+)(?:\[(\d+)\])?$', tok)
+        if not m: return False
+        name = m.group(1)
+        idx = int(m.group(2)) if m.group(2) is not None else None
+        tokens.append((name, idx))
+    if not tokens: return False
+    # Walk from design down through all but the last token.
+    node = design
+    for name, idx in tokens[:-1]:
+        if not isinstance(node, dict): return False
+        node = node.get(name)
+        if idx is not None:
+            if not isinstance(node, list) or idx >= len(node): return False
+            node = node[idx]
+    # node is now the parent container; tokens[-1] is the terminal key.
+    last_name, last_idx = tokens[-1]
+    if last_idx is not None:
+        # Terminal is itself an array element — unusual for condition, bail.
+        return False
+    if not isinstance(node, dict):
+        return False
+    if last_name not in node:
+        return False
+    dropped = node.pop(last_name, None)
+    log.info(f"design patcher: dropped {path} = {dropped!r} (dangling, deep-path)")
+    return True
 
 
 def _patch_add_tag(design: dict, err: dict) -> bool:
     """Add the missing tag to the first archetype lacking it. The
     error message format is: '<Type> requires tags t1, t2 on some
-    archetype, none found'. Parse out the first missing tag."""
+    archetype, none found'. Parse out the first missing tag.
+
+    Handles BOTH shapes Qwen emits:
+      archetypes: {"player": {tags:[...], ...}}    — schema canonical (dict)
+      archetypes: [{"id": "player", "tags": [...]}]  — Round L iter 7 drift
+    Without the list-shape branch, Round L-style deliveries would
+    silently fail the patcher and never recover (gap #17b)."""
     import re as _re
     msg = err.get("message", "")
     m = _re.search(r"requires tags ([\w, ]+) on some archetype", msg)
@@ -648,13 +724,94 @@ def _patch_add_tag(design: dict, err: dict) -> bool:
     tags = [t.strip() for t in m.group(1).split(",") if t.strip()]
     if not tags: return False
     archs = design.get("archetypes", {})
-    for _aid, arch in archs.items():
-        arch_tags = arch.setdefault("tags", [])
-        for t in tags:
-            if t not in arch_tags:
-                arch_tags.append(t)
-        log.info(f"design patcher: added tags {tags} to first archetype to satisfy tag_requirement")
-        return True
+    # Dict shape (schema canonical)
+    if isinstance(archs, dict) and archs:
+        for _aid, arch in archs.items():
+            if not isinstance(arch, dict):
+                continue
+            arch_tags = arch.setdefault("tags", [])
+            for t in tags:
+                if t not in arch_tags:
+                    arch_tags.append(t)
+            log.info(f"design patcher: added tags {tags} to first archetype to satisfy tag_requirement")
+            return True
+    # List shape (Round L drift — wave emits archetypes as list of objects)
+    if isinstance(archs, list) and archs:
+        for arch in archs:
+            if not isinstance(arch, dict):
+                continue
+            arch_tags = arch.setdefault("tags", [])
+            for t in tags:
+                if t not in arch_tags:
+                    arch_tags.append(t)
+            log.info(f"design patcher: added tags {tags} to first archetype [list-shape] to satisfy tag_requirement")
+            return True
+    # Gap #23 (Round O 2026-04-20): wave emits `entities: [...]` instead
+    # of `archetypes: {...}` (plan-prior carryover). Validator reads
+    # `archetypes` only — tag_requirement fires with "none found" even
+    # though entities[] has candidates that would logically qualify as
+    # archetypes.
+    # Gap #25 (Round P 2026-04-20): tagging entities alone doesn't
+    # satisfy the validator (it reads archetypes). Fix: MIRROR the
+    # first entity into archetypes so the validator sees a tagged
+    # archetype. Original entities array stays intact (compiler may
+    # consume either).
+    ents = design.get("entities")
+    archs_mut = design.setdefault("archetypes", {})
+    # Ensure archetypes is a dict we can write to (it might be missing,
+    # empty dict, or list — re-initialise to dict to guarantee
+    # validator-visible shape).
+    if not isinstance(archs_mut, dict):
+        design["archetypes"] = {}
+        archs_mut = design["archetypes"]
+    if isinstance(ents, list) and ents:
+        first = next((e for e in ents if isinstance(e, dict)), None)
+        if first is not None:
+            ent_tags = first.setdefault("tags", [])
+            for t in tags:
+                if t not in ent_tags:
+                    ent_tags.append(t)
+            # Mirror into archetypes so validator sees a tagged archetype.
+            aid = first.get("id") or first.get("name") or "entity_0"
+            if aid not in archs_mut:
+                archs_mut[aid] = {
+                    "tags": list(ent_tags),
+                    "components": first.get("components", []),
+                }
+            else:
+                arch_tags = archs_mut[aid].setdefault("tags", [])
+                for t in tags:
+                    if t not in arch_tags:
+                        arch_tags.append(t)
+            log.info(
+                f"design patcher: added tags {tags} to first entity + "
+                f"mirrored into archetypes[{aid!r}] to satisfy tag_requirement"
+            )
+            return True
+    if isinstance(ents, dict) and ents:
+        first_eid = next(iter(ents))
+        first = ents[first_eid]
+        if isinstance(first, dict):
+            ent_tags = first.setdefault("tags", [])
+            for t in tags:
+                if t not in ent_tags:
+                    ent_tags.append(t)
+            aid = first_eid
+            if aid not in archs_mut:
+                archs_mut[aid] = {
+                    "tags": list(ent_tags),
+                    "components": first.get("components", []),
+                }
+            else:
+                arch_tags = archs_mut[aid].setdefault("tags", [])
+                for t in tags:
+                    if t not in arch_tags:
+                        arch_tags.append(t)
+            log.info(
+                f"design patcher: added tags {tags} to first entity + "
+                f"mirrored into archetypes[{aid!r}] to satisfy tag_requirement"
+            )
+            return True
     return False
 
 

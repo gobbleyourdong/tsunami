@@ -9,9 +9,16 @@ interface DialogProps {
   description?: string
   children?: ReactNode
   actions?: ReactNode
+  footer?: ReactNode  // shadcn alias for `actions`
+  size?: "xs" | "sm" | "md" | "lg" | "xl" | "full"
+  className?: string
 }
 
-export function Dialog({ open, isOpen, onClose, onOpenChange, title, description, children, actions }: DialogProps) {
+const SIZE_PX: Record<NonNullable<DialogProps["size"]>, number | string> = {
+  xs: 320, sm: 400, md: 480, lg: 640, xl: 800, full: "100%",
+}
+
+export function Dialog({ open, isOpen, onClose, onOpenChange, title, description, children, actions, footer, size = "md", className }: DialogProps) {
   const isVisible = open ?? isOpen ?? false
   const close = onClose ?? (onOpenChange ? () => onOpenChange(false) : () => {})
   useEffect(() => {
@@ -41,10 +48,10 @@ export function Dialog({ open, isOpen, onClose, onOpenChange, title, description
       }}
     >
       <div
-        className="card"
+        className={`card ${className ?? ""}`.trim()}
         onClick={e => e.stopPropagation()}
         style={{
-          maxWidth: 480, width: '100%', maxHeight: '85vh', overflow: 'auto',
+          maxWidth: SIZE_PX[size], width: '100%', maxHeight: '85vh', overflow: 'auto',
           animation: 'scale-in var(--duration-slow, 400ms) cubic-bezier(0.22, 1.2, 0.36, 1)',
         }}
       >
@@ -66,9 +73,9 @@ export function Dialog({ open, isOpen, onClose, onOpenChange, title, description
           </button>
         </div>
         {children}
-        {actions && (
+        {(actions ?? footer) && (
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border, rgba(255,255,255,0.06))' }}>
-            {actions}
+            {actions ?? footer}
           </div>
         )}
       </div>

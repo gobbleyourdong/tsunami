@@ -47,7 +47,24 @@ async function main(): Promise<number> {
     return 3
   }
 
-  const result = validate(design)
+  // Wrap validate() in explicit try — if validate throws (vs. returns
+  // {ok:false}), the wave previously saw stage='fatal' with the
+  // useless "object is not iterable" error (Round D.4 2026-04-20).
+  // Surfacing it as stage='validate' with the thrown message lets
+  // the wave see WHICH stage failed.
+  let result
+  try {
+    result = validate(design)
+  } catch (e) {
+    writeErr({
+      stage: 'validate',
+      message: `validator threw (likely malformed design shape — a ` +
+               `field expected to be an array/object is neither): ` +
+               `${(e as Error).message}`,
+      stack: (e as Error).stack,
+    })
+    return 4
+  }
   if (!result.ok) {
     writeErr({ stage: 'validate', errors: result.errors })
     return 4
@@ -67,6 +84,13 @@ async function main(): Promise<number> {
 }
 
 main().then(code => process.exit(code)).catch(e => {
-  writeErr({ stage: 'fatal', message: (e as Error).message, stack: (e as Error).stack })
+  // Per-stage try/catch above means this outer catch is a last-resort
+  // backstop. An error reaching here means main()'s control flow
+  // itself threw (bug in cli.ts, not in the compiler pipeline).
+  writeErr({
+    stage: 'fatal',
+    message: `cli.ts control-flow error (NOT a compiler error): ${(e as Error).message}`,
+    stack: (e as Error).stack,
+  })
   process.exit(1)
 })

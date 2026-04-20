@@ -81,7 +81,19 @@ class Undertow(BaseTool):
             except Exception:
                 pass
             from ..undertow import run_drag, format_qa_report
-            result = await run_drag(path, user_request=expect)
+            # Re-derive the scaffold from the session's original user prompt
+            # so the model-invoked undertow path gets the same direction-set
+            # routing as the auto-QA path in agent.py. Cheap (one keyword
+            # sweep); no extra state plumbing needed.
+            scaffold = None
+            try:
+                from ..planfile import pick_scaffold
+                from .filesystem import _session_task_prompt as _stp
+                if _stp:
+                    scaffold = pick_scaffold(_stp)
+            except Exception:
+                pass
+            result = await run_drag(path, user_request=expect, scaffold=scaffold)
             report = format_qa_report(result)
             tension = result.get("code_tension", 0)
             failed = result.get("levers_failed", 0)

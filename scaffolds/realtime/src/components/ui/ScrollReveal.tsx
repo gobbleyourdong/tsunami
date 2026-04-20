@@ -1,23 +1,39 @@
 import { useEffect, useRef, useState, ReactNode } from "react"
 
+type RevealDirection = "up" | "down" | "left" | "right" | "fade"
+
 interface ScrollRevealProps {
   children: ReactNode
-  direction?: "up" | "down" | "left" | "right" | "fade"
+  direction?: RevealDirection
+  animation?: RevealDirection | "slide-up" | "slide-down" | "slide-left" | "slide-right" | "fade-in"
   delay?: number     // ms
   duration?: number  // ms
   distance?: number  // px
   once?: boolean     // only animate once
+  className?: string
+}
+
+const ANIM_TO_DIR: Record<string, RevealDirection> = {
+  "slide-up": "up",
+  "slide-down": "down",
+  "slide-left": "left",
+  "slide-right": "right",
+  "fade-in": "fade",
+  up: "up", down: "down", left: "left", right: "right", fade: "fade",
 }
 
 /** Reveal content on scroll into viewport. */
-export default function ScrollReveal({
+export function ScrollReveal({
   children,
-  direction = "up",
+  direction,
+  animation,
   delay = 0,
   duration = 600,
   distance = 30,
   once = true,
+  className,
 }: ScrollRevealProps) {
+  const dir: RevealDirection = direction ?? (animation ? ANIM_TO_DIR[animation] ?? "up" : "up")
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
 
@@ -46,12 +62,14 @@ export default function ScrollReveal({
   }
 
   return (
-    <div ref={ref} style={{
+    <div ref={ref} className={className} style={{
       opacity: visible ? 1 : 0,
-      transform: visible ? "none" : transforms[direction],
+      transform: visible ? "none" : transforms[dir],
       transition: `opacity ${duration}ms ease ${delay}ms, transform ${duration}ms ease ${delay}ms`,
     }}>
       {children}
     </div>
   )
 }
+
+export default ScrollReveal

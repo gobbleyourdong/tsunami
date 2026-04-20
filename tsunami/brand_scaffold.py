@@ -239,7 +239,18 @@ def _match_industry(task: str) -> dict:
     would now be caught in one place, not six).
     """
     from .routing import match_first
-    return match_first(task, _INDUSTRY_BRIEFS, default=_DEFAULT_BRIEF)
+    result = match_first(task, _INDUSTRY_BRIEFS, default=_DEFAULT_BRIEF)
+    # F-C1 telemetry — log by industry_name (stable id). No-op unless
+    # TSUNAMI_ROUTING_TELEMETRY=1.
+    try:
+        from .routing_telemetry import log_pick
+        winner = result.get("industry_name", "") if isinstance(result, dict) else ""
+        default_name = _DEFAULT_BRIEF.get("industry_name", "") if isinstance(_DEFAULT_BRIEF, dict) else ""
+        log_pick("industry", task, winner, default=default_name,
+                 match_source="default" if winner == default_name else "keyword")
+    except Exception:
+        pass
+    return result
 
 
 def generate_brand_brief(task: str, style_name: str = "") -> dict:
@@ -321,6 +332,11 @@ def format_brand_directive(brief: dict) -> str:
         f"Use these prompt templates for generate_image. Fill <…>. "
         f"NEVER include {name!r} as text in the prompt — put it only in "
         f"save_path and <img alt>.\n"
+        f"BUDGET: 3 images max for a typical landing/brand page (logo + hero "
+        f"+ one product OR one environment). Only reach for PORTRAIT and the "
+        f"remaining slots if the task explicitly asks for a founder shot, a "
+        f"gallery, or a multi-model catalog. Missing optional images render "
+        f"as broken <img> — that is fine; vision gate only flags critical.\n"
         f"SYMBOL: {brief['symbol_concept']}\n"
         f"AESTHETIC: {brief['aesthetic_reference']}\n"
         f"ENVIRONMENTS: {', '.join(brief['environment_refs'])}\n"

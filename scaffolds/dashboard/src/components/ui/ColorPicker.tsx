@@ -4,6 +4,9 @@ interface ColorPickerProps {
   value: string
   onChange: (color: string) => void
   presets?: string[]
+  swatches?: string[]  // alias drones reach for
+  label?: string
+  className?: string
 }
 
 const DEFAULT_PRESETS = [
@@ -12,9 +15,10 @@ const DEFAULT_PRESETS = [
   "#21252f", "#08090d",
 ]
 
-export default function ColorPicker({ value, onChange, presets = DEFAULT_PRESETS }: ColorPickerProps) {
+export function ColorPicker({ value, onChange, presets, swatches, label, className }: ColorPickerProps) {
   const [show, setShow] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const list = presets ?? swatches ?? DEFAULT_PRESETS
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -25,7 +29,12 @@ export default function ColorPicker({ value, onChange, presets = DEFAULT_PRESETS
   }, [])
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+    <div ref={ref} className={className} style={{ position: 'relative', display: 'inline-block' }}>
+      {label && (
+        <label style={{ display: 'block', fontSize: 'var(--text-xs, 0.75rem)', color: 'var(--text-muted, #7a7f8e)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+          {label}
+        </label>
+      )}
       <div
         onClick={() => setShow(!show)}
         style={{
@@ -49,7 +58,7 @@ export default function ColorPicker({ value, onChange, presets = DEFAULT_PRESETS
           animation: 'scale-in 200ms cubic-bezier(0.22, 1.2, 0.36, 1)',
         }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6, marginBottom: 10 }}>
-            {presets.map(c => (
+            {list.map(c => (
               <div
                 key={c}
                 onClick={() => { onChange(c); setShow(false) }}
@@ -79,3 +88,5 @@ export default function ColorPicker({ value, onChange, presets = DEFAULT_PRESETS
     </div>
   )
 }
+
+export default ColorPicker

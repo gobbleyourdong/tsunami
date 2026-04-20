@@ -2,18 +2,24 @@ interface StarRatingProps {
   rating?: number
   value?: number
   max?: number
+  count?: number  // alias for max
   size?: number
   color?: string
   onChange?: (rating: number) => void
   onValueChange?: (rating: number) => void
+  readOnly?: boolean
+  readonly?: boolean
 }
 
-export function StarRating({ rating, value, max = 5, size = 20, color = "#ffaa00", onChange, onValueChange }: StarRatingProps) {
+export function StarRating({ rating, value, max, count, size = 20, color = "#ffaa00", onChange, onValueChange, readOnly, readonly }: StarRatingProps) {
   const currentRating = rating ?? value ?? 0
-  const handler = onChange ?? onValueChange
+  const total = max ?? count ?? 5
+  const ro = readOnly || readonly
+  const baseHandler = onChange ?? onValueChange
+  const handler = ro ? undefined : baseHandler
   return (
     <div style={{ display: "flex", gap: 2 }}>
-      {Array.from({ length: max }, (_, i) => (
+      {Array.from({ length: total }, (_, i) => (
         <svg
           key={i}
           width={size} height={size} viewBox="0 0 20 20"

@@ -5,12 +5,16 @@ interface SelectProps {
   options: { value: string; label: string }[]
   placeholder?: string
   label?: string
+  disabled?: boolean
+  error?: string
+  size?: "sm" | "md" | "lg"
+  className?: string
 }
 
-export function Select({ value, onChange, onValueChange, options, placeholder, label }: SelectProps) {
+export function Select({ value, onChange, onValueChange, options, placeholder, label, disabled, error, className }: SelectProps) {
   const handler = onChange ?? onValueChange ?? (() => {})
   return (
-    <div>
+    <div className={className}>
       {label && (
         <label style={{
           display: 'block',
@@ -26,11 +30,13 @@ export function Select({ value, onChange, onValueChange, options, placeholder, l
       )}
       <select
         value={value}
+        disabled={disabled}
         onChange={e => handler(e.target.value)}
         style={{
           background: 'var(--bg-1, #111318)',
           color: 'var(--text, #e2e4e9)',
-          border: '1px solid var(--border, rgba(255,255,255,0.06))',
+          border: `1px solid ${error ? 'rgba(240,96,96,0.4)' : 'var(--border, rgba(255,255,255,0.06))'}`,
+          opacity: disabled ? 0.6 : 1,
           borderRadius: 'var(--radius, 10px)',
           padding: '11px 36px 11px 14px',
           fontSize: 'var(--text-sm, 0.875rem)',
@@ -57,6 +63,7 @@ export function Select({ value, onChange, onValueChange, options, placeholder, l
         {placeholder && <option value="" disabled>{placeholder}</option>}
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
+      {error && <div style={{ marginTop: 4, fontSize: 'var(--text-xs, 0.75rem)', color: 'var(--danger, #f06060)' }}>{error}</div>}
     </div>
   )
 }

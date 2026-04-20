@@ -119,7 +119,35 @@ _DOMAIN_SIGNALS: list[tuple[tuple[str, ...], str]] = [
     # catching website-with-game-theme phrases.
     (("frogger", "snake", "pong", "asteroids", "platformer",
       "shooter", "rhythm game", "tower defense", "playable game",
-      "arcade game", "video game"), "gamedev"),
+      "arcade game", "video game",
+      # Expanded 2026-04-19 after telemetry caught "zelda-like top-down"
+      # falling to react-build on a live run (timed out 1500s writing no
+      # App.tsx because the scaffold template was for a web app, not a
+      # game). Canonical pre-2003 genre-clone keywords here:
+      "zelda-like", "zelda like", "legend of zelda",
+      "top-down action", "top-down adventure",
+      "top down action", "top down adventure",
+      "action-adventure", "action adventure",
+      "metroidvania", "metroid-like", "metroid like",
+      "roguelike", "rogue-like", "dungeon crawler",
+      "jrpg", "turn-based rpg", "turn based rpg", "party rpg",
+      "fps", "first-person shooter", "first person shooter",
+      "doom-like", "doom like", "quake-like",
+      "kart racer", "mario kart", "arcade racer",
+      "bullet hell", "shoot em up", "shoot-em-up", "shmup",
+      "2d fighter", "3d fighter", "fighting game",
+      "beat em up", "beat-em-up",
+      "side-scroller", "side scroller", "run and jump",
+      "stealth game", "sneak game",
+      "survival horror",
+      "open world game", "sandbox game",
+      "rts", "real-time strategy", "real time strategy",
+      "turn-based strategy", "4x game", "4x strategy",
+      "puzzle platformer", "puzzle game",
+      "simulation game", "life sim",
+      "immersive sim",
+      "2d game", "3d game", "indie game",
+      "adventure game", "retro game"), "gamedev"),
     (("research", "investigate", "what is", "find out", "how does",
       "look up", "survey"), "research"),
     (("refactor", "rename", "extract", "cleanup", "split", "merge"),
@@ -216,7 +244,15 @@ def pick_scaffold(task: str) -> str:
     first matching rule wins.
     """
     from .routing import match_first
-    return match_first(task, _DOMAIN_SIGNALS, default="react-build")
+    result = match_first(task, _DOMAIN_SIGNALS, default="react-build")
+    # F-C1 telemetry — no-op unless TSUNAMI_ROUTING_TELEMETRY=1
+    try:
+        from .routing_telemetry import log_pick
+        log_pick("scaffold", task, result, default="react-build",
+                 match_source="default" if result == "react-build" else "keyword")
+    except Exception:
+        pass
+    return result
 
 
 class PlanFileManager:

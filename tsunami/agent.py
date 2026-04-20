@@ -762,6 +762,52 @@ class Agent:
                 f"Change approach: re-read App.tsx for the exact selector "
                 f"being tested, or check if your handler's state actually updates.)"
             )
+
+        # Wave-side auto-read on tsc prop-mismatch streak. ORBIT v5, MIRA v6,
+        # MIRA v8 all showed the same anti-pattern: drone gets a "Read
+        # src/components/X.tsx" nudge from auto_build._parse_tsc_failure,
+        # ignores the nudge, and prop-guesses its way into a read-spiral
+        # exit. If the fail is tsc and streak >= 2, we hoist the component
+        # source into the drone's context directly so it can't miss it.
+        # Only fires on tsc (where we know the component path); vitest
+        # failures don't name a specific component.
+        if test_name == "tsc" and streak >= 2:
+            import re as _r
+            import os as _os
+            detail = failure.get("detail", "") or ""
+            comp_match = _r.search(r"src/components/([A-Za-z0-9_]+)\.tsx", detail)
+            if comp_match:
+                comp_name = comp_match.group(1)
+                # Find the active project dir
+                _dl = Path(self.config.workspace_dir) / "deliverables"
+                if _dl.exists():
+                    _dirs = sorted(
+                        (d for d in _dl.iterdir()
+                         if d.is_dir() and not d.name.startswith(".")),
+                        key=lambda p: p.stat().st_mtime, reverse=True,
+                    )
+                    for pdir in _dirs[:1]:
+                        comp_path = pdir / "src" / "components" / f"{comp_name}.tsx"
+                        if comp_path.exists():
+                            try:
+                                src = comp_path.read_text()
+                                if len(src) > 2400:
+                                    src = src[:2400] + "\n// ... [truncated]"
+                                drone_msg += (
+                                    f"\n\n=== {comp_name}.tsx (hoisted by wave — you ignored the nudge to read it) ===\n"
+                                    f"{src}\n"
+                                    f"=== END {comp_name}.tsx ===\n"
+                                    f"Use the props declared above verbatim. "
+                                    f"Do NOT invent prop names."
+                                )
+                                log.info(
+                                    f"[tsc-streak] wave hoisted {comp_name}.tsx "
+                                    f"({len(src)} chars) into drone context"
+                                )
+                                break
+                            except Exception as _ce:
+                                log.debug(f"[tsc-streak] read {comp_path}: {_ce}")
+
         log.warning(f"[auto-build] FAIL — test={test_name} streak={streak}")
         self.state.add_system_note(drone_msg)
 
@@ -1337,6 +1383,85 @@ class Agent:
             lite=is_lite,
             hide_existing_projects=is_fresh_build,
         )
+        # Turn-1 gamedev override (Round E finding 2026-04-20):
+        # build_system_prompt is React-biased ("1. project_init(name) —
+        # Vite+React+TS scaffold" in lite mode) because it runs BEFORE
+        # pick_scaffold + plan_manager.from_scaffold. The correct
+        # gamedev prompt is only swapped in by _swap_in_edit_prompt
+        # AFTER the first tool call, so turn 1 steers the wave down
+        # the React path regardless of the injected genre/content
+        # directives. Peek pick_scaffold here and append an override
+        # when the target is gamedev. pick_scaffold is a pure function
+        # of user_message; no side effects.
+        try:
+            from .planfile import pick_scaffold as _pick_for_prompt
+            _peek_scaffold = _pick_for_prompt(user_message)
+            if _peek_scaffold == "gamedev":
+                # ABSOLUTE paths — Round F 2026-04-20 showed the wave
+                # obeyed the override ("file_read scaffolds/engine/...")
+                # but file_read resolved that relative to the worker's
+                # workspace (`/tmp/<run>/workers/<id>/scaffolds/...`) →
+                # File not found. filesystem.py _resolve_path returns
+                # absolute paths verbatim (p.is_absolute() branch at
+                # line ~301), so use abs paths derived from this file's
+                # location.
+                _repo_root = Path(__file__).resolve().parent.parent
+                _engine_schema = (
+                    _repo_root / "scaffolds" / "engine" / "src" /
+                    "design" / "schema.ts"
+                )
+                _engine_catalog = (
+                    _repo_root / "scaffolds" / "engine" / "src" /
+                    "design" / "catalog.ts"
+                )
+                system_prompt += (
+                    "\n\n---\n\n# GAMEDEV OVERRIDE (turn-1)\n"
+                    "This task is a GAMEDEV build. Do NOT start with "
+                    "`project_init` + file_write(App.tsx) — that's the "
+                    "React-build flow. For games, the canonical first "
+                    "moves are:\n"
+                    f"  1. file_read {_engine_schema} "
+                    "— learn which MechanicType literals are valid.\n"
+                    f"  2. file_read {_engine_catalog} "
+                    "— see the example_params shape per mechanic.\n"
+                    "  3. emit_design(design={...}, project_name='...') "
+                    "— writes public/game_definition.json through the "
+                    "TS compiler (with validation). NOT file_write.\n"
+                    "DO NOT write src/App.tsx on a gamedev task — the "
+                    "scaffold is engine-only. See plan_scaffolds/gamedev.md "
+                    "(injected in your plan) for the full design shape.\n"
+                    "\n"
+                    "## Common emit_design failures + fixes\n"
+                    "(Each of these has been captured in a live round; "
+                    "here so you can avoid them rather than rediscover.)\n"
+                    "- `stage=parse, Expected double-quoted property name`: "
+                    "all JSON keys MUST be double-quoted. `{foo: 1}` is "
+                    "invalid; `{\"foo\": 1}` is valid. No JS-style keys.\n"
+                    "- `stage=parse, Expected ',' or ']'`: check the char "
+                    "position the error reports — usually a missing comma "
+                    "between array elements, or an unquoted property.\n"
+                    "- `stage=validate, unknown mechanic type \"X\"`: X "
+                    "is case-sensitive and must match a literal in "
+                    "schema.ts's MechanicType union. `camera_follow` is "
+                    "wrong; `CameraFollow` is correct (CamelCase).\n"
+                    "- `no entities` / `no scenes`: the delivery probe "
+                    "requires at least one entity per scene AND at least "
+                    "one mechanic from the catalog. An empty-scene ship "
+                    "will bounce.\n"
+                    "- NO // line comments in the JSON. NO trailing "
+                    "commas. NO unquoted property names. Strict JSON.\n"
+                    "\n"
+                    "## Entity + content composition\n"
+                    "If the prompt references a specific game (Zelda-like, "
+                    "Metroid, Doom-like, etc.), the CONTENT CATALOG "
+                    "directive in your user_message lists the canonical "
+                    "entity names (Octorok, Moblin, Aquamentus, etc.). "
+                    "Use those names verbatim for your entities. The "
+                    "probe measures content-adoption; using the directive's "
+                    "names is how you pass it."
+                )
+        except Exception as _gde:
+            log.debug(f"Gamedev turn-1 override skipped: {_gde}")
 
         # Inject project context if active
         if self.active_project and self.project_context:
@@ -1491,6 +1616,53 @@ class Agent:
             except Exception as _tle:
                 log.debug(f"Target layout generation skipped: {_tle}")
 
+        # F-A3: gamedev genre injection (template-general mechanic set).
+        # Complementary to F-I3 content below (which is game-specific).
+        # Only fires when pick_scaffold returns 'gamedev'. Reuses
+        # _target_scaffold stashed above; falls through to style
+        # injection for non-gamedev scaffolds.
+        genre_directive = ""
+        genre_name = ""
+        if not existing_context and _target_scaffold == "gamedev":
+            try:
+                from .genre_scaffolds import pick_genre, format_genre_directive
+                genre_name, _gbody = pick_genre(user_message, _target_scaffold)
+                if genre_name and _gbody:
+                    genre_directive = format_genre_directive(genre_name, _gbody)
+                    log.info(f"Genre injected: {genre_name}")
+                    self._genre_name = genre_name
+                    self._target_scaffold = _target_scaffold
+            except Exception as _ge:
+                log.debug(f"Genre injection skipped: {_ge}")
+
+        # F-I3: per-game content catalog injection.
+        # Fires when the prompt names a specific game replica (zelda-like,
+        # metroid-style, etc.) and an essence .md exists for it. Injects
+        # the §Content Catalog block (enemies/bosses/items/equipment/
+        # levels/NPCs) so the wave references those archetypes BY NAME
+        # instead of emitting generic 'Enemy 1' placeholders. Content is
+        # per-game provenance — never cross-cite-promotable (see
+        # project_content_taxonomy memory).
+        content_directive = ""
+        content_essence = ""
+        if not existing_context:
+            try:
+                from .game_content import (
+                    pick_game_replica, load_content_catalog,
+                    format_content_directive,
+                )
+                content_essence = pick_game_replica(user_message)
+                if content_essence:
+                    _body = load_content_catalog(content_essence)
+                    if _body:
+                        content_directive = format_content_directive(
+                            content_essence, _body
+                        )
+                        log.info(f"Content catalog injected: {content_essence}")
+                        self._content_essence = content_essence
+            except Exception as _ce:
+                log.debug(f"Content catalog skipped: {_ce}")
+
         context_parts = [effective_message]
         if style_directive:
             context_parts.append(style_directive)
@@ -1498,6 +1670,10 @@ class Agent:
             context_parts.append(brand_directive)
         if layout_directive:
             context_parts.append(layout_directive)
+        if genre_directive:
+            context_parts.append(genre_directive)
+        if content_directive:
+            context_parts.append(content_directive)
         if existing_context:
             context_parts.append(existing_context)
         if scaffold_context:
@@ -1682,8 +1858,18 @@ class Agent:
             # new one is a one-line append in that module, not an
             # interleaved if-branch here.
             from .progress import detect_progress_signals
+            # Gap #33 (Round T 2026-04-20): pass scaffold_kind so the
+            # "no_code_writes" nudge routes "emit_design" for gamedev
+            # instead of the React-biased "Write App.tsx NOW".
+            _prog_scaffold = (
+                "gamedev"
+                if (getattr(self, "_target_scaffold", "") == "gamedev"
+                    or self.plan_manager.section("Design") is not None)
+                else "react-app"
+            )
             for _sig in detect_progress_signals(
-                self.state.iteration, self._tool_history
+                self.state.iteration, self._tool_history,
+                scaffold_kind=_prog_scaffold,
             ):
                 if _sig.action == "nudge":
                     self.state.add_system_note(_sig.message)
@@ -1936,6 +2122,32 @@ class Agent:
                 save_session_summary(self.state, self.session_dir, self.session_id)
                 self.cost_tracker.save(self.config.workspace_dir)
                 log.info(self.cost_tracker.format_summary())
+                # Quality telemetry — per-delivery rich signal (loop density,
+                # tool distribution, aesthetic QA verdict). No-op unless
+                # TSUNAMI_QUALITY_TELEMETRY=1. Closes the "why did this deliverable
+                # look meh?" gap the routing/doctrine telemetry doesn't answer.
+                try:
+                    from .quality_telemetry import log_delivery as _q_log
+                    _proj_dir = None
+                    if self.active_project:
+                        _proj_dir = Path(self.config.workspace_dir) / "deliverables" / self.active_project
+                    _q_log(
+                        run_id=self.session_id,
+                        project_dir=_proj_dir or "",
+                        prompt=user_message,
+                        scaffold=getattr(self, "_target_scaffold", "") or getattr(self, "_scaffold_name", ""),
+                        style=getattr(self, "_style_name", ""),
+                        genre=getattr(self, "_genre_name", ""),
+                        content_essence=getattr(self, "_content_essence", ""),
+                        tool_history=list(self._tool_history),
+                        iter_count=self.state.iteration,
+                        build_pass_count=1 if getattr(self, "_build_passed_at", None) is not None else 0,
+                        vision_pass=getattr(self, "_vision_fail_count", 0) == 0,
+                        tokens_in=getattr(self.cost_tracker, "total_input_tokens", None),
+                        tokens_out=getattr(self.cost_tracker, "total_output_tokens", None),
+                    )
+                except Exception as _qe:
+                    log.debug(f"Quality telemetry skipped: {_qe}")
                 # Background memory extraction (non-blocking)
                 try:
                     await self.observer.extract_session_memories()
@@ -2013,8 +2225,9 @@ class Agent:
         # single-schema restriction, so the gate fired every iter with no
         # effect. Wave-owned invocation is the enforcement point.
         # Opt-in via TSUNAMI_REPLICATOR_GROUNDING=1 — requires an image
-        # backend (Z-Image-Turbo) on serve_transformers. Without it the
-        # gate hangs 180s per fail, so default off.
+        # backend (ERNIE-Image-Turbo on :8092, or a local --image-model on
+        # serve_transformers). Without it the gate hangs 180s per fail,
+        # so default off.
         import os as _osg
         _grounding_on = _osg.environ.get("TSUNAMI_REPLICATOR_GROUNDING", "0") == "1"
         if (_grounding_on
@@ -2096,9 +2309,9 @@ class Agent:
                     log.warning(f"force-grounding: search_web raised {type(_sle).__name__}: {_sle}")
 
             if not ref_img.exists():
-                # Path 2: generate_image fallback. Z-Image-Turbo if backend
-                # is up, placeholder SVG otherwise. Either way riptide has
-                # something to look at.
+                # Path 2: generate_image fallback. ERNIE-Image-Turbo (:8092)
+                # if backend is up, placeholder SVG otherwise. Either way
+                # riptide has something to look at.
                 log.info(f"force-grounding: wave invoking generate_image → {ref_img}")
                 try:
                     gi = self.registry.get("generate_image")
@@ -2248,12 +2461,35 @@ class Agent:
                     # ~33 from .model). Don't re-import here — see the long
                     # comment in the tool-role guard below about shadowing
                     # the module-level binding inside _step.
+                    #
+                    # Build a delivery string grounded in the actual project
+                    # name + task text. The prior hardcoded "Pomodoro timer"
+                    # was a placeholder that shipped through every agent-synth
+                    # delivery (2026-04-20 ORBIT v5 + MIRA v6 both wore it),
+                    # making the synth bypass look like drone hallucination in
+                    # eval logs.
+                    _proj_name = ""
+                    try:
+                        _dl = Path(self.config.workspace_dir) / "deliverables"
+                        if _dl.exists():
+                            _dirs = sorted(
+                                [d for d in _dl.iterdir()
+                                 if d.is_dir() and not d.name.startswith(".")],
+                                key=lambda p: p.stat().st_mtime, reverse=True,
+                            )
+                            if _dirs:
+                                _proj_name = _dirs[0].name
+                    except Exception:
+                        pass
+                    _loc = (
+                        f"deliverables/{_proj_name}"
+                        if _proj_name else "deliverables/"
+                    )
                     synth_args = {
                         "text": (
-                            "Build delivered. Pomodoro timer with start/"
-                            "pause/reset and task list is live in "
-                            "deliverables/ (build passed, undertow "
-                            "verified)."
+                            f"Build delivered at {_loc} "
+                            "(build passed, agent-synthesized "
+                            "delivery — drone ignored tool_choice)."
                         ),
                     }
                     msg_result_tool = self.registry.get("message_result")
@@ -2364,6 +2600,22 @@ class Agent:
                         s.get("function", {}).get("name") == _restore for s in all_schemas
                     ):
                         all_schemas.append(_tool.schema())
+            # GAMEDEV-SPECIFIC file_read opening (F-A4: source-before-priors).
+            # plan_scaffolds/gamedev.md tells the wave to file_read schema.ts
+            # and catalog.ts BEFORE emit_design, so it knows which
+            # MechanicType literals are valid. The generic anti-spiral gate
+            # hides file_read pre-first-write — that's the web-build
+            # heuristic. For gamedev, reading the catalog IS the first
+            # move; blocking it produces the Round D failure mode where
+            # the wave got told "Tool 'file_read' not available in this
+            # phase" after the plan told it to read schema.ts.
+            if self.plan_manager.section("Design") is not None:
+                _fr = self.registry.get("file_read")
+                if _fr and not any(
+                    s.get("function", {}).get("name") == "file_read"
+                    for s in all_schemas
+                ):
+                    all_schemas.append(_fr.schema())
         response = await self.model.generate(
             messages=messages,
             tools=all_schemas,
@@ -2587,14 +2839,35 @@ class Agent:
                     # react-app scaffolds the high-value write target is
                     # almost always src/App.tsx first.
                     proj = self.active_project or "the project"
-                    self.state.add_system_note(
-                        f"Plan your next 1-3 writes. For {proj} (react-app scaffold), "
-                        f"that's typically: (1) src/App.tsx — the full feature, "
-                        f"(2) optional src/components/<X>.tsx helpers, "
-                        f"(3) shell_exec npm run build. "
-                        f"Pick (1) and write it now — the scaffold README already "
-                        f"listed available components and hooks."
-                    )
+                    # Scaffold-aware redirect — Round J 2026-04-20 showed
+                    # the hardcoded "react-app scaffold" advice directly
+                    # contradicted the GAMEDEV OVERRIDE and confused the
+                    # wave into a read-spiral. For gamedev tasks, redirect
+                    # to emit_design, NOT project_init + App.tsx.
+                    _is_gamedev = getattr(self, "_target_scaffold", "") == "gamedev"
+                    if _is_gamedev:
+                        self.state.add_system_note(
+                            f"Plan your next move. For {proj} (GAMEDEV scaffold), "
+                            f"you've read schema.ts and catalog.ts — you now "
+                            f"know the valid MechanicType literals and their "
+                            f"example_params. Your next tool call MUST be "
+                            f"emit_design with a design={{project_name, meta, "
+                            f"entities[], mechanics[], scenes[]}} object. "
+                            f"Use entity names from the CONTENT CATALOG in "
+                            f"your user_message (not 'Enemy 1'). "
+                            f"Do NOT call file_read again. Do NOT call "
+                            f"project_init or file_write(App.tsx) — gamedev "
+                            f"scaffold is engine-only."
+                        )
+                    else:
+                        self.state.add_system_note(
+                            f"Plan your next 1-3 writes. For {proj} (react-app scaffold), "
+                            f"that's typically: (1) src/App.tsx — the full feature, "
+                            f"(2) optional src/components/<X>.tsx helpers, "
+                            f"(3) shell_exec npm run build. "
+                            f"Pick (1) and write it now — the scaffold README already "
+                            f"listed available components and hooks."
+                        )
                     # [race-mode] Hard escalation: if read-spiral repeats 3+
                     # times, auto-deliver latest dist and exit. Lunchvote
                     # regression at 53 iters/600s timeout was 4+ stalls then
@@ -2802,11 +3075,24 @@ class Agent:
                 repeated_tool = last_3_names[0]
                 log.info(f"Repetition detected: {repeated_tool} called 3x in a row")
                 if repeated_tool in ("file_read", "summarize_file", "match_grep"):
-                    self.state.add_system_note(
-                        f"You've called {repeated_tool} {len(last_3_names)} times in a row. "
-                        f"You have enough information. Stop researching and write the file — "
-                        f"file_write src/App.tsx with the complete implementation."
-                    )
+                    # Scaffold-aware: gamedev writes via emit_design,
+                    # not file_write(App.tsx). Round J captured this
+                    # nudge firing against the GAMEDEV OVERRIDE.
+                    _rr_gd = getattr(self, "_target_scaffold", "") == "gamedev"
+                    if _rr_gd:
+                        self.state.add_system_note(
+                            f"You've called {repeated_tool} {len(last_3_names)} times in a row. "
+                            f"You have enough information about schema.ts + catalog.ts. "
+                            f"Stop reading. Your next tool call MUST be emit_design "
+                            f"with the design JSON — NOT file_write(App.tsx). "
+                            f"The gamedev scaffold is engine-only."
+                        )
+                    else:
+                        self.state.add_system_note(
+                            f"You've called {repeated_tool} {len(last_3_names)} times in a row. "
+                            f"You have enough information. Stop researching and write the file — "
+                            f"file_write src/App.tsx with the complete implementation."
+                        )
                 elif repeated_tool == "generate_image":
                     # Galleries, slideshows, grids, collages legitimately need
                     # N > 3 images. Only nudge when the task prompt doesn't
@@ -2856,6 +3142,56 @@ class Agent:
                         f"You're calling {repeated_tool} repeatedly. Try a different approach. "
                         f"If the task is done, call message_result."
                     )
+                # End of per-tool repetition branches
+
+        # Image-gen ceiling (SURGE failure mode): drone generated 11 images
+        # before ever calling file_write. The 3-in-a-row nudge above fires but
+        # is advisory; this is a hard count of generate_image since the last
+        # file_write. At 5 we escalate from advisory to STOP — missing images
+        # render as broken <img>, which the vision gate flags. Shipping the
+        # compiled App.tsx matters more than having every asset pre-gen'd.
+        if self._tool_history:
+            since_write = list(reversed(self._tool_history))
+            images_since_write = 0
+            for t in since_write:
+                if t in ("file_write", "file_edit"):
+                    break
+                if t == "generate_image":
+                    images_since_write += 1
+            if images_since_write >= 5 and not getattr(self, "_image_ceiling_fired", False):
+                self._image_ceiling_fired = True
+                # Scaffold-aware — Round J finding: gamedev path wants
+                # emit_design, not file_write(App.tsx).
+                _ic_gd = getattr(self, "_target_scaffold", "") == "gamedev"
+                if _ic_gd:
+                    self.state.add_system_note(
+                        "IMAGE CEILING HIT. You've generated 5+ images without "
+                        "emitting a design. Stop generating. Call emit_design "
+                        "with your design JSON NOW. Sprite generation can resume "
+                        "AFTER the design is compiled — the design references "
+                        "sprites by ID, so it can be emitted without them."
+                    )
+                else:
+                    self.state.add_system_note(
+                        "IMAGE CEILING HIT. You've generated 5+ images without writing any "
+                        "code. Stop generating now. Call file_write on src/App.tsx with the "
+                        "full page implementation. Images already on disk are enough — "
+                        "missing ones render as broken <img> tags, which is acceptable "
+                        "(vision gate flags only critical issues). DO NOT call generate_image "
+                        "again this turn."
+                    )
+        # Reset the image-ceiling latch whenever a file_write lands, so a
+        # later bulk-gen phase can fire its own nudge independently. Scan
+        # the last few entries instead of just the tail — auto-build appends
+        # synthetic "shell_exec" after a drone's file_write, which masks
+        # the signal if we only checked _tool_history[-1]. MIRA audit v6
+        # hit this: iter 9 wrote Navbar.tsx → auto-build appended shell_exec
+        # → iter 10 generate_image stayed hard-blocked and the drone escaped
+        # to message_result with a stub App.tsx.
+        if self._tool_history:
+            recent = self._tool_history[-3:]
+            if any(t in ("file_write", "file_edit") for t in recent):
+                self._image_ceiling_fired = False
 
         # 6. Execute the tool — with argument safety
         tool = self.registry.get(tool_call.name)
@@ -2875,6 +3211,35 @@ class Agent:
                 f"Available: {sorted(_allowed_names)}"
             )
             log.warning(f"Tool '{tool_call.name}' blocked (not in drone schema)")
+            self.state.add_tool_result(tool_call.name, tool_call.arguments, reject_msg, is_error=True)
+            return reject_msg
+
+        # Image-ceiling HARD block (layer 5 enforcement). ORBIT audit v5
+        # observation: drone generated a 6th image after the L5 system-note
+        # told it to stop. Promoting the nudge to a real reject so the drone
+        # CAN'T continue even if it chose to ignore the advisory copy. The
+        # flag is latched until the next file_write resets it (see above).
+        if (tool_call.name == "generate_image"
+                and getattr(self, "_image_ceiling_fired", False)):
+            _ic_gd_reject = getattr(self, "_target_scaffold", "") == "gamedev"
+            if _ic_gd_reject:
+                reject_msg = (
+                    "IMAGE CEILING ENFORCED (gamedev): You've generated 5+ "
+                    "images this build without emitting a design. Further "
+                    "generate_image calls are blocked until you call "
+                    "emit_design. Sprites reference by ID — the design can "
+                    "be emitted without them, they get resolved at build "
+                    "time. Ship the design JSON first."
+                )
+            else:
+                reject_msg = (
+                    "IMAGE CEILING ENFORCED: You've already generated 5+ images "
+                    "this build without writing code. Further generate_image "
+                    "calls are blocked until you call file_write on src/App.tsx. "
+                    "Write the page now; missing images render as broken <img>, "
+                    "which is acceptable. The ceiling resets after any file_write."
+                )
+            log.warning(f"Tool 'generate_image' blocked (image ceiling enforced)")
             self.state.add_tool_result(tool_call.name, tool_call.arguments, reject_msg, is_error=True)
             return reject_msg
 
@@ -3023,6 +3388,13 @@ class Agent:
             error_msg = f"Validation error for {tool_call.name}: {validation_error}"
             log.warning(error_msg)
             self.state.add_tool_result(tool_call.name, tool_call.arguments, error_msg, is_error=True)
+            # Gap #19 (Round M 2026-04-20): record the validation-failed
+            # call in loop_guard before returning. Without this, a wave
+            # emitting 5 consecutive file_reads where one had a malformed
+            # arg would only register 4 in tool_names — soft-loop threshold
+            # (5) never trips, force never activates, stall goes undetected.
+            # made_progress=False because no tool actually ran.
+            self.loop_guard.record(tool_call.name, tool_call.arguments, False)
             return error_msg
 
         # Tool dedup check — skip re-execution of identical read-only calls
@@ -3212,7 +3584,15 @@ class Agent:
         # Loop guard — detect and break stall patterns
         made_progress = tool_call.name in ("file_write", "file_edit", "project_init", "generate_image") and not result.is_error
         self.loop_guard.record(tool_call.name, tool_call.arguments, made_progress)
-        loop_check = self.loop_guard.check()
+        # Pass scaffold-kind through so the loop-guard's forced-action
+        # suggestions route emit_design (gamedev) vs project_init
+        # (react-app). Round K 2026-04-20 captured the old default
+        # firing "call project_init" on a gamedev run.
+        _lg_scaffold = "gamedev" if (
+            getattr(self, "_target_scaffold", "") == "gamedev"
+            or self.plan_manager.section("Design") is not None
+        ) else "react-app"
+        loop_check = self.loop_guard.check(scaffold_kind=_lg_scaffold)
         if loop_check.detected:
             log.warning(f"Loop detected ({loop_check.loop_type}): {loop_check.description}")
             if loop_check.forced_action:
@@ -3229,7 +3609,17 @@ class Agent:
                 # project_init / file_edit are hard to force cleanly
                 # (project_init is wave-only; file_edit needs an old_str)
                 # so only force file_write / shell_exec / message_result.
-                if loop_check.forced_action in ("file_write", "shell_exec", "message_result"):
+                # Round K 2026-04-20: emit_design added to the hard-
+                # force list. Round K's wave received 6 "call emit_design"
+                # nudges in a row and ignored each one, ending with 0
+                # emit_design attempts in 25 session rows. Advisory
+                # nudges are toothless for emit_design too — hard-force
+                # restricts the schema so the wave PHYSICALLY cannot
+                # emit anything else (the tool-filter at agent.py:2345
+                # exposes ONLY the forced tool).
+                if loop_check.forced_action in (
+                    "file_write", "shell_exec", "message_result", "emit_design"
+                ):
                     self._loop_forced_tool = loop_check.forced_action
 
         # Closed-loop feedback — record outcome and inject steering advice
@@ -3255,7 +3645,15 @@ class Agent:
         # Propagate active project to filesystem path resolver
         if self.phase_machine.project_path:
             set_active_project(self.phase_machine.project_path)
-        phase_ctx = self.phase_machine.context_note()
+        # Pass scaffold_kind so the phase-machine nudges route to
+        # emit_design (gamedev) or project_init (react-app) correctly.
+        # Round J 2026-04-20: default react-app advice was contradicting
+        # the GAMEDEV OVERRIDE and sending the wave into a read-spiral.
+        _phase_scaffold = "gamedev" if (
+            getattr(self, "_target_scaffold", "") == "gamedev"
+            or self.plan_manager.section("Design") is not None
+        ) else "react-app"
+        phase_ctx = self.phase_machine.context_note(scaffold_kind=_phase_scaffold)
         if phase_ctx:
             self.state.add_system_note(phase_ctx)
             log.info(f"Phase machine: {phase_ctx[:60]}")
@@ -4162,7 +4560,7 @@ class Agent:
                 except Exception as e:
                     log.debug(f"Mid-loop auto-wire skipped: {e}")
 
-        # 8z. Generate nudge — visual projects should use Z-Image-Turbo for assets
+        # 8z. Generate nudge — visual projects should use ERNIE-Image-Turbo for assets
         if self.state.iteration > 0 and self.state.iteration % 12 == 0:
             has_generated = any(
                 t == "generate_image" or t == "webdev_generate_assets"
@@ -4180,7 +4578,7 @@ class Agent:
                 if any(k in user_req.lower() for k in visual_keywords):
                     self.state.add_system_note(
                         "GENERATE REMINDER: Use generate_image to create textures, icons, "
-                        "backgrounds, and visual assets. Z-Image-Turbo generates in ~2 seconds. "
+                        "backgrounds, and visual assets. ERNIE-Image-Turbo generates in ~2 seconds. "
                         "Don't use placeholder SVGs when you can generate real images."
                     )
 
@@ -4247,7 +4645,28 @@ class Agent:
             # Each gate is a small function; adding a new one is appending
             # to DELIVER_GATES, not interleaving an if-branch here. Driver
             # returns the first failure or None.
-            if self._project_init_called:
+            # Round G 2026-04-20 finding: gamedev deliveries don't call
+            # project_init (emit_design is the engine-only alternative),
+            # so this gate skipped entirely and the empty-entities design
+            # shipped without being caught. Extend the gate to also fire
+            # when a game_definition.json was emitted under deliverables/.
+            _has_gamedev_delivery = False
+            try:
+                _dv = Path(self.config.workspace_dir) / "deliverables"
+                if _dv.exists():
+                    for d in _dv.iterdir():
+                        if (d / "public" / "game_definition.json").is_file():
+                            _has_gamedev_delivery = True
+                            break
+            except Exception:
+                pass
+            # Round H 2026-04-20: wave shipped WITH NO deliverable at all
+            # (88s read-spiral on schema.ts/catalog.ts, then message_result).
+            # The earlier `_has_gamedev_delivery` check missed this because
+            # the file never existed. For gamedev tasks, always fire the
+            # gate chain so gamedev_probe can bounce a no-deliverable ship.
+            _is_gamedev_task = getattr(self, "_target_scaffold", "") == "gamedev"
+            if self._project_init_called or _has_gamedev_delivery or _is_gamedev_task:
                 from .deliver_gates import run_deliver_gates
                 # Pick the most-recently-touched deliverable as the project
                 # under gate check. Same logic the old inline gates used.
@@ -4264,6 +4683,13 @@ class Agent:
                 _flags = {
                     "app_source_written": self._app_source_written,
                     "first_write_done": self._first_write_done,
+                    # Gap #22 (Round N 2026-04-20): code_write_gate's gamedev
+                    # branch at deliver_gates.py:101 checks
+                    # `state_flags.get("target_scaffold", "")` — without this
+                    # key, every gamedev delivery was misrouted to the React
+                    # branch's "App.tsx not written" message, masking the
+                    # actual issue (game_definition.json missing).
+                    "target_scaffold": getattr(self, "_target_scaffold", ""),
                 }
                 _failure = run_deliver_gates(
                     state_flags=_flags,
@@ -4280,8 +4706,37 @@ class Agent:
             # A build is distinguished by project_init having been called;
             # without that, this is a chat/research reply and the compile/
             # runtime/undertow checks don't apply.
+            #
+            # Exception: turn-1 narrative leakage. Small-model drones sometimes
+            # emit `message_result("Starting Phase 1: Scaffolding ...")` as if
+            # it were a narration/thinking tool, ending the build at 0s with
+            # no code produced (seen twice in a row during 2026-04-20 audit).
+            # When the USER message looks like a build request and the drone
+            # fires message_result before any tool has run, intercept and
+            # nudge instead of shipping a meta-reply as the deliverable.
             is_conversational = len(result.content) < 300
             if is_conversational and not self._project_init_called:
+                user_req = (
+                    self.state.conversation[1].content.lower()
+                    if len(self.state.conversation) > 1 else ""
+                )
+                build_hints = ("build", "create", "make a", "scaffold", "landing",
+                               "website", "dashboard", "app ", "page", "portfolio",
+                               "brand", "studio")
+                looks_like_build = any(h in user_req for h in build_hints)
+                nothing_built_yet = len(self._tool_history) <= 1
+                if looks_like_build and nothing_built_yet:
+                    self.state.add_system_note(
+                        "message_result called before any build work. "
+                        "STOP narrating — message_result is the DELIVER tool, "
+                        "not a thinking/announcement channel. Call project_init "
+                        "NOW to scaffold the project, then write src/App.tsx."
+                    )
+                    self._delivery_attempts -= 1
+                    return (
+                        "BLOCKED: message_result is delivery, not narration. "
+                        "Call project_init to start the build."
+                    )
                 self._delivery_attempts = 0
                 self.state.task_complete = True
                 return result.content
@@ -4292,9 +4747,14 @@ class Agent:
             # advisory on second fail. Operator framing: "when all is
             # quiet, time for vision QA before final delivery."
             import os as _osv
+            # Gamedev deliveries land game_definition.json without calling
+            # project_init — honor those too. Vision gate / probe dispatcher
+            # will select the correct probe based on deliverable shape.
             if (_osv.environ.get("TSUNAMI_VISION_GATE") != "0"
-                and self._project_init_called
-                and getattr(self, "_build_passed_at", None) is not None):
+                and (self._project_init_called or _has_gamedev_delivery
+                     or _is_gamedev_task)
+                and (getattr(self, "_build_passed_at", None) is not None
+                     or _has_gamedev_delivery or _is_gamedev_task)):
                 deliverables = Path(self.config.workspace_dir) / "deliverables"
                 projects = sorted(
                     [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
@@ -4387,6 +4847,54 @@ class Agent:
                                 pass
                     except Exception as _vde:
                         log.debug(f"vision gate at deliver skipped: {_vde}")
+                    # Gap #20 (§14 item 6, addressed 2026-04-20): gamedev
+                    # scaffolds produce dist/index.html (engine-SPA) AND
+                    # public/game_definition.json. Vision-gate only looks
+                    # at the rendered SPA; the compiled design is a separate
+                    # artifact that needs its own probe. Run BOTH for
+                    # gamedev — the probe is triangulation evidence, not a
+                    # vision substitute.
+                    if getattr(self, "_target_scaffold", "") == "gamedev":
+                        try:
+                            from .core.dispatch import probe_for_delivery
+                            pcheck = await probe_for_delivery(proj, task_text)
+                            raw = pcheck.get("raw", "")
+                            if not pcheck["passed"] and pcheck["issues"]:
+                                pf = getattr(self, "_probe_fail_count", 0) + 1
+                                self._probe_fail_count = pf
+                                if pf <= 1:
+                                    log.warning(
+                                        f"[gamedev-probe@deliver] FAIL (try {pf}) — "
+                                        f"{proj.name}: {pcheck['issues']}"
+                                    )
+                                    try:
+                                        self.plan_manager.mark_status("Deliver", "failed")
+                                        self.plan_manager.append_note(
+                                            "Deliver", f"Gamedev probe FAIL: {pcheck['issues']}"
+                                        )
+                                    except Exception:
+                                        pass
+                                    self.state.add_system_note(
+                                        f"GAMEDEV PROBE FAILED on game_definition.json:\n"
+                                        f"{pcheck['issues']}\n"
+                                        f"Fix the reported issue(s) and try message_result again."
+                                    )
+                                    self._delivery_attempts -= 1
+                                    return "Gamedev probe flagged issues. See system note."
+                                else:
+                                    log.warning(
+                                        f"[gamedev-probe@deliver] FAIL #{pf} — shipping with advisory"
+                                    )
+                                    try:
+                                        self.plan_manager.append_note(
+                                            "Deliver", f"Gamedev probe advisory: {pcheck['issues']}"
+                                        )
+                                    except Exception:
+                                        pass
+                            elif pcheck["passed"] and not raw.startswith("(skip"):
+                                log.info(f"[gamedev-probe@deliver] PASS ({proj.name})")
+                        except Exception as _pde:
+                            log.debug(f"gamedev probe dispatch skipped: {_pde}")
                     break
 
             # Fast-path: if an earlier shell_exec "vite build" already passed

@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -82,10 +83,15 @@ async def pull_levers(
     html_path: str,
     levers: list[Lever],
     port: int = 9876,
+    system_note: str | None = None,
 ) -> QAReport:
     """Serve an HTML file and pull every lever the wave gave us.
 
     Returns a QAReport with pass/fail per lever.
+
+    `system_note`, when provided, is a direction-set markdown body
+    (from `pick_direction_set`) threaded into every eddy/VLM call
+    this run makes. None preserves baseline behavior.
     """
     abs_path = str(Path(html_path).resolve())
     serve_dir = str(Path(abs_path).parent)
@@ -343,7 +349,7 @@ async def pull_levers(
 
             # Pull each lever
             for lever in levers:
-                result = await _pull_one(page, lever, console_msgs)
+                result = await _pull_one(page, lever, console_msgs, system_note)
                 report.results.append(result)
                 if not result.passed:
                     report.passed = False
@@ -375,15 +381,20 @@ async def pull_levers(
     return report
 
 
-async def _pull_one(page, lever: Lever, console_msgs: list) -> LeverResult:
+async def _pull_one(
+    page,
+    lever: Lever,
+    console_msgs: list,
+    system_note: str | None = None,
+) -> LeverResult:
     """Pull a single lever and report what happened."""
 
     try:
         if lever.action == "screenshot":
-            return await _lever_screenshot(page, lever)
+            return await _lever_screenshot(page, lever, system_note)
 
         elif lever.action == "press":
-            return await _lever_press(page, lever)
+            return await _lever_press(page, lever, system_note)
 
         elif lever.action == "click":
             return await _lever_click(page, lever)
@@ -392,7 +403,7 @@ async def _pull_one(page, lever: Lever, console_msgs: list) -> LeverResult:
             return await _lever_ghost_classes(page, lever)
 
         elif lever.action == "read_text":
-            return await _lever_read_text(page, lever)
+            return await _lever_read_text(page, lever, system_note)
 
         elif lever.action == "console":
             errors = [text for typ, text in console_msgs if typ == "error"]
@@ -432,7 +443,7 @@ async def _pull_one(page, lever: Lever, console_msgs: list) -> LeverResult:
 # ──────────────────── lever implementations ────────────────────
 
 
-async def _lever_screenshot(page, lever: Lever) -> LeverResult:
+async def _lever_screenshot(page, lever: Lever, system_note: str | None = None) -> LeverResult:
     """Take a screenshot, describe it, and judge on OBSERVABLE facts only.
 
     Pass/fail rule (2026-04-13, post-tension-removal):
@@ -449,7 +460,7 @@ async def _lever_screenshot(page, lever: Lever) -> LeverResult:
     screenshot_bytes = await page.screenshot()
     stats, pixel_desc = _describe_screenshot(screenshot_bytes)
 
-    vlm_desc = await _vlm_describe_screenshot(screenshot_bytes)
+    vlm_desc = await _vlm_describe_screenshot(screenshot_bytes, system_note=system_note)
     desc = vlm_desc or pixel_desc
 
     # Observable pass criterion: page isn't blank. A blank page is a real
@@ -464,7 +475,7 @@ async def _lever_screenshot(page, lever: Lever) -> LeverResult:
 
     verdict = ""
     if lever.expect:
-        verdict = await _eddy_compare(desc, lever.expect)
+        verdict = await _eddy_compare(desc, lever.expect, system_note=system_note)
 
     if is_blank:
         return LeverResult(
@@ -475,7 +486,7 @@ async def _lever_screenshot(page, lever: Lever) -> LeverResult:
     return LeverResult(lever=lever, passed=True, saw=desc, detail=verdict)
 
 
-async def _lever_press(page, lever: Lever) -> LeverResult:
+async def _lever_press(page, lever: Lever, system_note: str | None = None) -> LeverResult:
     """Press a key, check if pixels or DOM changed."""
     dom_before = await page.evaluate("document.body.innerText")
     before = await page.screenshot()
@@ -499,7 +510,7 @@ async def _lever_press(page, lever: Lever) -> LeverResult:
     saw = f"pressed {lever.key}, {', '.join(parts)}"
 
     if lever.expect:
-        verdict = await _eddy_compare(saw, lever.expect)
+        verdict = await _eddy_compare(saw, lever.expect, system_note=system_note)
         passed = verdict.startswith("PASS")
         return LeverResult(lever=lever, passed=passed, saw=saw, detail=verdict)
 
@@ -1156,7 +1167,7 @@ async def _lever_sequence(page, lever: Lever, console_msgs: list) -> LeverResult
     return LeverResult(lever=lever, passed=True, saw=all_saw)
 
 
-async def _lever_read_text(page, lever: Lever) -> LeverResult:
+async def _lever_read_text(page, lever: Lever, system_note: str | None = None) -> LeverResult:
     """Read text content from a selector."""
     try:
         text = await page.evaluate(
@@ -1167,7 +1178,7 @@ async def _lever_read_text(page, lever: Lever) -> LeverResult:
         saw = f"'{lever.selector}' says: {text[:200]}"
 
         if lever.expect:
-            verdict = await _eddy_compare(saw, lever.expect)
+            verdict = await _eddy_compare(saw, lever.expect, system_note=system_note)
             passed = verdict.startswith("PASS")
             return LeverResult(lever=lever, passed=passed, saw=saw, detail=verdict)
 
@@ -1273,7 +1284,10 @@ def _screenshots_differ(before_bytes: bytes, after_bytes: bytes, threshold: floa
         return False  # can't tell, assume no change
 
 
-async def _vlm_describe_screenshot(screenshot_bytes: bytes) -> str | None:
+async def _vlm_describe_screenshot(
+    screenshot_bytes: bytes,
+    system_note: str | None = None,
+) -> str | None:
     """Ask the eddy (which is multimodal Gemma-4) to describe the screenshot.
 
     Returns a short semantic description ("A note-taking app with a textarea
@@ -1281,9 +1295,23 @@ async def _vlm_describe_screenshot(screenshot_bytes: bytes) -> str | None:
     as a fallback — if this VLM path succeeds, the caller should prefer it
     because the downstream _eddy_compare() judges semantic match, not pixel
     match.
+
+    `system_note`, when provided, is a direction-set markdown body appended
+    to the system prompt. It steers the VLM toward specific questions
+    (brand cohesion, bug symptoms, game juice, …) rather than the generic
+    one-sentence describe. See `pick_direction_set`.
     """
     import base64
     b64 = base64.b64encode(screenshot_bytes).decode()
+    system_base = (
+        "You are a UI describer. One sentence: what is visible on screen "
+        "(page title, main elements, layout). Be concrete."
+    )
+    system_content = (
+        f"{system_base}\n\nWhen forming the sentence, let the following "
+        f"direction set bias what you mention:\n\n{system_note}"
+        if system_note else system_base
+    )
     try:
         # 120s timeout — under heavy QA load the gpu_sem queue can delay
         # multimodal calls 2-3 min. Better to wait than fall back to pixel
@@ -1295,7 +1323,7 @@ async def _vlm_describe_screenshot(screenshot_bytes: bytes) -> str | None:
                 json={
                     "model": "tsunami",
                     "messages": [
-                        {"role": "system", "content": "You are a UI describer. One sentence: what is visible on screen (page title, main elements, layout). Be concrete."},
+                        {"role": "system", "content": system_content},
                         {"role": "user", "content": [
                             {"type": "text", "text": "Describe this screenshot in one sentence."},
                             {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
@@ -1320,10 +1348,20 @@ async def _vlm_describe_screenshot(screenshot_bytes: bytes) -> str | None:
     return None
 
 
-async def _eddy_compare(saw: str, expected: str) -> str:
+async def _eddy_compare(
+    saw: str,
+    expected: str,
+    system_note: str | None = None,
+) -> str:
     """Ask the eddy: does what we saw match what was expected?
 
     The eddy is dumb. It just says PASS or FAIL and what it noticed.
+
+    `system_note`, when provided, is a direction-set markdown body
+    (Questions + PASS/FAIL criteria) appended to the system prompt.
+    The eddy still emits PASS/FAIL on the single expected-vs-saw
+    comparison, but is now primed to weigh the checklist. See
+    `pick_direction_set`.
     """
     prompt = f"""Expected: {expected}
 Saw: {saw}
@@ -1334,6 +1372,12 @@ One line:
 PASS: [why it matches]
 FAIL: [what's wrong]"""
 
+    system_base = "You are QA. One line answers only."
+    system_content = (
+        f"{system_base}\n\nApply the following direction set as the rubric "
+        f"for your yes/no:\n\n{system_note}"
+        if system_note else system_base
+    )
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.post(
@@ -1341,7 +1385,7 @@ FAIL: [what's wrong]"""
                 json={
                     "model": "qwen",
                     "messages": [
-                        {"role": "system", "content": "You are QA. One line answers only."},
+                        {"role": "system", "content": system_content},
                         {"role": "user", "content": prompt},
                     ],
                     "max_tokens": 80,
@@ -1361,6 +1405,155 @@ FAIL: [what's wrong]"""
         log.debug(f"Eddy compare failed: {e}")
 
     return "UNCLEAR: eddy unavailable"
+
+
+# ──────────────────── direction sets ────────────────────
+
+
+@dataclass
+class _DirectionSet:
+    """Parsed undertow_scaffolds/*.md file."""
+    path: Path
+    name: str
+    applies_to: tuple[str, ...]
+    phase: str
+    weight: str
+    body: str
+
+
+def _parse_direction_set(path: Path) -> _DirectionSet | None:
+    """Parse an undertow_scaffolds/*.md file.
+
+    Frontmatter is a YAML-ish block bounded by `---` lines at top. Keys:
+      name        : str
+      applies_to  : [scaffold, scaffold, ...] or ["*"]
+      phase       : deliver|polish|fix|audit  (or "*")
+      weight      : strict|advisory
+
+    Body is everything after the second `---`. Files without frontmatter
+    are rejected — we want the schema contract to be explicit.
+    """
+    try:
+        text = path.read_text()
+    except Exception:
+        return None
+    if not text.startswith("---"):
+        return None
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)$", text, re.DOTALL)
+    if not m:
+        return None
+    head, body = m.group(1), m.group(2).strip()
+
+    fields: dict[str, str] = {}
+    for line in head.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ":" not in line:
+            continue
+        k, v = line.split(":", 1)
+        fields[k.strip().lower()] = v.strip()
+
+    name = fields.get("name", path.stem)
+    phase = fields.get("phase", "deliver") or "deliver"
+    weight = fields.get("weight", "advisory") or "advisory"
+
+    raw_applies = fields.get("applies_to", "")
+    # Accept JSON-style list, bare word, or comma-list.
+    raw_applies = raw_applies.strip()
+    if raw_applies.startswith("[") and raw_applies.endswith("]"):
+        raw_applies = raw_applies[1:-1]
+    applies = tuple(
+        tok.strip().strip('"').strip("'")
+        for tok in raw_applies.split(",")
+        if tok.strip()
+    ) or ("*",)
+
+    return _DirectionSet(
+        path=path,
+        name=name,
+        applies_to=applies,
+        phase=phase,
+        weight=weight,
+        body=body,
+    )
+
+
+def _load_direction_sets(scaffold_dir: Path) -> list[_DirectionSet]:
+    if not scaffold_dir.is_dir():
+        return []
+    out: list[_DirectionSet] = []
+    for path in sorted(scaffold_dir.glob("*.md")):
+        ds = _parse_direction_set(path)
+        if ds is not None:
+            out.append(ds)
+    return out
+
+
+def pick_direction_set(
+    task: str,
+    scaffold: str,
+    phase: str = "deliver",
+    scaffold_dir: Path | None = None,
+    allow_fallback: bool = True,
+    style_name: str | None = None,
+) -> str | None:
+    """Pick the undertow_scaffolds/*.md body matching (scaffold, phase).
+
+    Returns the markdown body (Questions + PASS/FAIL sections) that the
+    caller passes as `system_note` into `_eddy_compare` and
+    `_vlm_describe_screenshot`. Returns None when nothing fits — in which
+    case the eddy/VLM run their baseline prompts unchanged.
+
+    Selection order:
+      0. If `style_name` is provided and matches an undertow_scaffolds/
+         file (e.g., `photo_studio.md`), return that body — doctrine-
+         specific rubrics beat scaffold-specific ones. Strip optional
+         `seed_` prefix so `seed_photo_studio` → `photo_studio.md`.
+      1. Filter files whose `applies_to` contains `scaffold` or "*" AND
+         whose `phase` matches `phase` or "*".
+      2. Prefer weight=strict over weight=advisory.
+      3. Tie-break by lexicographic filename (deterministic, cheap).
+      4. When `allow_fallback` and no specific match, return the body of
+         `web_polish.md` if it exists and its applies_to covers "*".
+
+    `task` is accepted for future keyword routing (mirroring
+    `pick_scaffold`) but not yet consulted — scaffold+phase is the primary
+    routing signal. Adding task keywords later is non-breaking.
+    """
+    del task  # reserved for keyword routing; currently unused
+    root = scaffold_dir or (Path(__file__).parent / "undertow_scaffolds")
+
+    # Step 0: doctrine-specific rubric
+    if style_name:
+        base = style_name[5:] if style_name.startswith("seed_") else style_name
+        doctrine_path = root / f"{base}.md"
+        if doctrine_path.is_file():
+            return doctrine_path.read_text()
+
+    sets = _load_direction_sets(root)
+    if not sets:
+        return None
+
+    def _matches(ds: _DirectionSet) -> bool:
+        scaffold_ok = scaffold in ds.applies_to or "*" in ds.applies_to
+        phase_ok = ds.phase == phase or ds.phase == "*"
+        return scaffold_ok and phase_ok
+
+    matches = [ds for ds in sets if _matches(ds)]
+    # web_polish.md is the generic fallback — it should not win against a
+    # domain-specific file. Demote it to last by moving it out of the main
+    # match list when other matches exist.
+    specific = [ds for ds in matches if ds.path.stem != "web_polish"]
+    if specific:
+        specific.sort(key=lambda ds: (0 if ds.weight == "strict" else 1, ds.path.name))
+        return specific[0].body
+
+    if allow_fallback:
+        for ds in matches:
+            if ds.path.stem == "web_polish":
+                return ds.body
+    return None
 
 
 # ──────────────────── formatting ────────────────────
@@ -1487,8 +1680,22 @@ def generate_levers(user_request: str, html_content: str = "") -> list[Lever]:
     return levers
 
 
-async def run_drag(html_path: str, port: int = 9876, user_request: str = "") -> dict:
-    """Full QA run — eddy generates test plan, undertow executes it."""
+async def run_drag(
+    html_path: str,
+    port: int = 9876,
+    user_request: str = "",
+    scaffold: str | None = None,
+    phase: str = "deliver",
+    style_name: str | None = None,
+) -> dict:
+    """Full QA run — eddy generates test plan, undertow executes it.
+
+    `scaffold` (e.g. "dashboard", "landing", "gamedev") selects an
+    undertow_scaffolds/*.md direction set via `pick_direction_set`.
+    When None, no direction set is applied — baseline eddy prompts run.
+    `phase` is the lifecycle stage (deliver/polish/fix/audit); direction
+    sets declare which phase they apply to.
+    """
     # Read HTML for hints
     html_content = ""
     try:
@@ -1510,6 +1717,24 @@ async def run_drag(html_path: str, port: int = 9876, user_request: str = "") -> 
     except Exception:
         pass
 
+    # Resolve the direction set once per run so every eddy/VLM call in the
+    # lever loop gets the same rubric. Absent scaffold → None → baseline
+    # prompts. pick_direction_set itself is cheap (sorted glob + regex),
+    # but there's no reason to repeat it per-lever.
+    system_note: str | None = None
+    if scaffold or style_name:
+        try:
+            system_note = pick_direction_set(
+                user_request, scaffold or "", phase, style_name=style_name
+            )
+            if system_note:
+                log.info(
+                    f"Undertow: direction set loaded for scaffold={scaffold} "
+                    f"style={style_name} phase={phase} ({len(system_note)} chars)"
+                )
+        except Exception as e:
+            log.debug(f"pick_direction_set failed: {e}")
+
     # Generate levers from user request
     if user_request:
         # Enrich the screenshot expectation with reference context
@@ -1525,7 +1750,7 @@ async def run_drag(html_path: str, port: int = 9876, user_request: str = "") -> 
             Lever(action="screenshot"),
         ]
 
-    report = await pull_levers(html_path, levers, port=port)
+    report = await pull_levers(html_path, levers, port=port, system_note=system_note)
 
     # Flag untested features
     warnings = []

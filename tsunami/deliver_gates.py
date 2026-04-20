@@ -87,8 +87,48 @@ def code_write_gate(
     must exist (build shipped). Scaffold stub alone doesn't count —
     `state_flags['app_source_written']` flips only on a real write to
     src/App.tsx / src/App.jsx / src/main.ts / src/main.tsx.
+
+    Round H 2026-04-20 finding: for gamedev tasks the deliverable is
+    public/game_definition.json, NOT src/App.tsx. The React-oriented
+    advisory ("write App.tsx") was actively misleading on gamedev
+    deliveries. Scaffold-aware branch below checks for game_definition.json
+    when target_scaffold=gamedev.
     """
     name = "code_write"
+    scaffold = state_flags.get("target_scaffold", "") or ""
+
+    # Gamedev branch — require game_definition.json, reject App.tsx guidance
+    if scaffold == "gamedev":
+        try:
+            if project_dir and (project_dir / "public" / "game_definition.json").is_file():
+                return GateResult(
+                    passed=True, name=name,
+                    message="public/game_definition.json present",
+                )
+            # Also accept root-level game_definition.json as a fallback
+            if project_dir and (project_dir / "game_definition.json").is_file():
+                return GateResult(
+                    passed=True, name=name,
+                    message="game_definition.json present (project root)",
+                )
+        except Exception:
+            pass
+        return GateResult(
+            passed=False,
+            name=name,
+            message="game_definition.json not emitted",
+            system_note=(
+                "BLOCKED: no public/game_definition.json exists. For "
+                "gamedev tasks you deliver by calling emit_design(design={"
+                "...}, project_name='...') — NOT file_write and NOT "
+                "project_init. The Node compiler writes the JSON through "
+                "validation. Do NOT write src/App.tsx — the gamedev "
+                "scaffold is engine-only. See plan_scaffolds/gamedev.md "
+                "and the GAMEDEV OVERRIDE in the system prompt."
+            ),
+        )
+
+    # React-shape scaffolds: original App.tsx check
     if state_flags.get("app_source_written"):
         return GateResult(passed=True, name=name)
     # Dist-built fallback — accept a successful prior build as positive

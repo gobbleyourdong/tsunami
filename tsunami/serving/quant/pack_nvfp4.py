@@ -134,6 +134,16 @@ def main() -> int:
     )
     print(f"[pack_nvfp4] model loaded in {time.time()-t0:.1f}s", flush=True)
 
+    # Qwen3Next's calibration adapter reads `config.norm_topk_prob` but
+    # Qwen3_5MoeTextConfig doesn't declare that attr. Verified via source
+    # inspection: Qwen3_5MoeTopKRouter.forward always normalizes top-k
+    # (router_top_value /= router_top_value.sum(...)), so True is the
+    # correct default. Set on text_config (where the adapter looks).
+    tc = getattr(model.config, "text_config", model.config)
+    if not hasattr(tc, "norm_topk_prob"):
+        tc.norm_topk_prob = True
+        print("[pack_nvfp4] patched text_config.norm_topk_prob=True for MoE adapter", flush=True)
+
     # --- Dataset ---
     print(f"[pack_nvfp4] loading dataset {DATASET_NAME} [:{NUM_SAMPLES}] …", flush=True)
     ds = load_dataset(DATASET_NAME, split=f"train_sft[:{NUM_SAMPLES}]")

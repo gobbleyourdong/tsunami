@@ -1,29 +1,43 @@
 import React from "react"
 
 interface FlexProps extends React.HTMLAttributes<HTMLDivElement> {
-  direction?: "row" | "col"
-  align?: "start" | "center" | "end" | "stretch"
-  justify?: "start" | "center" | "end" | "between" | "around"
-  gap?: 0 | 1 | 2 | 3 | 4 | 6 | 8
+  direction?: "row" | "col" | "column" | "row-reverse" | "col-reverse" | "column-reverse"
+  align?: "start" | "center" | "end" | "stretch" | "baseline"
+  justify?: "start" | "center" | "end" | "between" | "around" | "evenly"
+  gap?: number
+  spacing?: number  // Mantine-style alias for gap
   wrap?: boolean
+  inline?: boolean
+}
+
+const DIR: Record<string, string> = {
+  row: "flex-row",
+  "row-reverse": "flex-row-reverse",
+  col: "flex-col",
+  column: "flex-col",
+  "col-reverse": "flex-col-reverse",
+  "column-reverse": "flex-col-reverse",
 }
 
 export function Flex({
   direction = "row",
   align,
   justify,
-  gap = 0,
+  gap,
+  spacing,
   wrap = false,
+  inline = false,
   className = "",
   children,
   ...props
 }: FlexProps) {
+  const g = gap ?? spacing ?? 0
   const cls = [
-    "flex",
-    direction === "col" ? "flex-col" : "flex-row",
+    inline ? "inline-flex" : "flex",
+    DIR[direction] ?? "flex-row",
     align ? `items-${align}` : "",
     justify ? `justify-${justify}` : "",
-    gap ? `gap-${gap}` : "",
+    g ? `gap-${g}` : "",
     wrap ? "flex-wrap" : "",
     className,
   ]

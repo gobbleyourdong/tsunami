@@ -41,6 +41,13 @@ log = logging.getLogger("tsunami.progress")
 # 10+ iters without being a stall.
 _CODE_WRITE_TOOLS: frozenset[str] = frozenset({
     "file_write", "file_edit", "file_append", "project_init",
+    # Gap #34 (Round T post-mortem 2026-04-20): emit_design writes
+    # public/game_definition.json — a real delivery artifact on gamedev
+    # scaffolds. Without this, a wave that successfully emit_design'd
+    # would still trip "no_code_writes" false-positive and get a
+    # scaffold-wrong "Write App.tsx NOW" nudge (or even a long_stall
+    # forced exit after iter 30+).
+    "emit_design",
 })
 
 
@@ -86,24 +93,38 @@ def detect_progress_signals(
     stall_check_after: int = 30,
     stall_window: int = 20,
     hard_cap: int = 60,
+    scaffold_kind: str = "react-app",
 ) -> list[ProgressSignal]:
     """Return the list of progress signals that fire this iteration.
 
     Defaults match the pre-refactor agent.py values. Each threshold is
     a parameter so callers can tune per-scaffold / per-task (gamedev
     runs need longer nudges; utility-app runs can cap sooner).
+
+    Gap #33 (Round T post-mortem 2026-04-20): the "no_code_writes"
+    nudge hardcoded "Write App.tsx NOW" — wrong for gamedev where
+    the deliverable is public/game_definition.json via emit_design.
+    scaffold_kind="gamedev" routes to the correct advisory.
     """
     out: list[ProgressSignal] = []
 
     # Early nudge: drone has elapsed iter budget but written nothing yet.
     if (iteration == early_nudge_at
             and no_code_writes_in(tool_history)):
+        if scaffold_kind == "gamedev":
+            _action_msg = (
+                "Call emit_design(design={...}, project_name='...') NOW. "
+                "The gamedev deliverable is public/game_definition.json, "
+                "NOT src/App.tsx — the engine is scaffold-only."
+            )
+        else:
+            _action_msg = "Write App.tsx NOW."
         out.append(ProgressSignal(
             name="no_code_writes",
             action="nudge",
             message=(
                 f"Pressure building. {iteration} iterations, zero writes. "
-                "Write App.tsx NOW."
+                + _action_msg
             ),
         ))
 

@@ -3,20 +3,23 @@ import { useState, useEffect } from "react"
 interface SlideshowProps {
   images: string[]
   interval?: number  // ms between slides
+  duration?: number  // alias drones reach for
+  autoplay?: boolean
   height?: number
   showDots?: boolean
   showArrows?: boolean
 }
 
 /** Auto-advancing image slideshow with dots and arrows. */
-export default function Slideshow({ images, interval = 4000, height = 400, showDots = true, showArrows = true }: SlideshowProps) {
+export function Slideshow({ images, interval, duration, autoplay = true, height = 400, showDots = true, showArrows = true }: SlideshowProps) {
   const [current, setCurrent] = useState(0)
+  const ms = interval ?? duration ?? 4000
 
   useEffect(() => {
-    if (images.length <= 1) return
-    const id = setInterval(() => setCurrent(i => (i + 1) % images.length), interval)
+    if (!autoplay || images.length <= 1) return
+    const id = setInterval(() => setCurrent(i => (i + 1) % images.length), ms)
     return () => clearInterval(id)
-  }, [images.length, interval])
+  }, [images.length, ms, autoplay])
 
   const go = (dir: number) => setCurrent(i => (i + dir + images.length) % images.length)
 
@@ -45,3 +48,5 @@ export default function Slideshow({ images, interval = 4000, height = 400, showD
     </div>
   )
 }
+
+export default Slideshow

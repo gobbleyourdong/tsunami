@@ -24,6 +24,13 @@ log = logging.getLogger("tsunami.loop_guard")
 
 HARD_LOOP_THRESHOLD = 3    # identical (tool, args_hash) repeated
 SOFT_LOOP_THRESHOLD = 5    # same tool_name repeated
+# Gamedev-specific threshold — Round U 2026-04-20 timed out with 6
+# file_reads when iter 5's emit_design generation ran slow. Tripping
+# at 4 file_reads saves one iteration's worth of budget (~5-10 min of
+# unused token budget when first-token is slow). React scaffolds keep
+# the old threshold because a 5-read design phase for a visual app
+# is sometimes legitimate.
+SOFT_LOOP_THRESHOLD_GAMEDEV = 4
 PROGRESS_WINDOW = 8        # iterations without progress
 
 
@@ -91,8 +98,16 @@ class LoopGuard:
         else:
             self._recent_gen_prompts.append("")
 
-    def check(self) -> LoopDetection:
-        """Check for loop patterns. Returns detection result."""
+    def check(self, scaffold_kind: str = "react-app") -> LoopDetection:
+        """Check for loop patterns. Returns detection result.
+
+        scaffold_kind influences the forced_action suggestion —
+        gamedev tasks should be routed to emit_design rather than
+        project_init when a read-spiral triggers. Round K 2026-04-20
+        captured 'LOOP DETECTED: ... call project_init' firing on a
+        gamedev run directly after the GAMEDEV OVERRIDE said not to.
+        """
+        self._scaffold_kind = scaffold_kind
 
         # Hard loop: 3 identical fingerprints in a row
         if len(self.fingerprints) >= HARD_LOOP_THRESHOLD:
@@ -147,9 +162,12 @@ class LoopGuard:
                     forced_action="file_write",
                 )
 
-        # Soft loop: same tool type 5x in a row
-        if len(self.tool_names) >= SOFT_LOOP_THRESHOLD:
-            recent_tools = self.tool_names[-SOFT_LOOP_THRESHOLD:]
+        # Soft loop: same tool type N in a row. Gamedev uses a lower
+        # threshold (4) to save iteration budget when first-token is slow.
+        is_gamedev = getattr(self, "_scaffold_kind", "") == "gamedev"
+        soft_thresh = SOFT_LOOP_THRESHOLD_GAMEDEV if is_gamedev else SOFT_LOOP_THRESHOLD
+        if len(self.tool_names) >= soft_thresh:
+            recent_tools = self.tool_names[-soft_thresh:]
             if len(set(recent_tools)) == 1:
                 tool = recent_tools[0]
                 # Suppress for generate_image when each call targets a
@@ -159,23 +177,22 @@ class LoopGuard:
                 # not a loop. Only fire when the drone is churning on
                 # the same-or-near-same generation repeatedly.
                 if tool == "generate_image":
-                    recent_fps = self.fingerprints[-SOFT_LOOP_THRESHOLD:]
-                    if len(set(recent_fps)) >= SOFT_LOOP_THRESHOLD - 1:
-                        # 4+ distinct fingerprints out of 5 calls — real
-                        # multi-image work, not a stall.
+                    recent_fps = self.fingerprints[-soft_thresh:]
+                    if len(set(recent_fps)) >= soft_thresh - 1:
+                        # Most distinct fingerprints — real multi-image work, not a stall.
                         pass
                     else:
                         return LoopDetection(
                             detected=True,
                             loop_type="soft",
-                            description=f"{tool} called {SOFT_LOOP_THRESHOLD}x consecutively with repeated targets",
+                            description=f"{tool} called {soft_thresh}x consecutively with repeated targets",
                             forced_action=self._suggest_break_action(tool),
                         )
                 else:
                     return LoopDetection(
                         detected=True,
                         loop_type="soft",
-                        description=f"{tool} called {SOFT_LOOP_THRESHOLD}x consecutively",
+                        description=f"{tool} called {soft_thresh}x consecutively",
                         forced_action=self._suggest_break_action(tool),
                     )
 
@@ -183,11 +200,18 @@ class LoopGuard:
         if len(self.progress_marks) >= PROGRESS_WINDOW:
             recent = self.progress_marks[-PROGRESS_WINDOW:]
             if not any(recent):
+                # For gamedev, emit_design is the analog of project_init
+                # (both are the "bootstrap this deliverable" tool).
+                stall_action = (
+                    "emit_design"
+                    if getattr(self, "_scaffold_kind", "") == "gamedev"
+                    else "project_init"
+                )
                 return LoopDetection(
                     detected=True,
                     loop_type="progress",
                     description=f"No progress in {PROGRESS_WINDOW} iterations",
-                    forced_action="project_init",
+                    forced_action=stall_action,
                 )
 
         return LoopDetection(detected=False)
@@ -200,21 +224,35 @@ class LoopGuard:
         model will either refuse or blow away work. In that case suggest
         file_edit for read-loops and message_result for write-loops (which
         usually indicates "task done, just ship it").
+
+        Scaffold-aware (Round K 2026-04-20 fix): for gamedev tasks,
+        project_init is the WRONG tool (gamedev is engine-only) —
+        suggest emit_design instead. emit_design + project_init are
+        mutually exclusive by scaffold.
         """
         read_tools = {"file_read", "match_grep", "match_glob", "file_list"}
         search_tools = {"search_web", "browser_navigate"}
+        is_gamedev = getattr(self, "_scaffold_kind", "") == "gamedev"
 
         # Detect whether project_init already ran — scan tool_names history.
         project_already_init = "project_init" in self.tool_names
+        # Detect whether emit_design already ran successfully (for gamedev)
+        emit_design_already = "emit_design" in self.tool_names
 
         if stuck_tool in read_tools:
-            # Stuck re-reading files (common after tsc failures) — the model
-            # is looking for answers in source it's already seen. Force it
-            # to use file_edit to ACT on the error instead of looking more.
+            # Stuck re-reading files — model is looking for answers in
+            # source it's already seen. Force it to ACT.
+            if is_gamedev:
+                # emit_design is the bootstrap tool for gamedev. If it
+                # already ran once (and we're still stuck), force
+                # message_result — wave has a design on disk and should ship.
+                return "message_result" if emit_design_already else "emit_design"
             if project_already_init:
                 return "file_edit"
             return "project_init"
         elif stuck_tool in search_tools:
+            if is_gamedev:
+                return "emit_design" if not emit_design_already else "message_result"
             return "project_init"
         elif stuck_tool == "shell_exec":
             # Stuck running commands → force writing code
@@ -231,8 +269,13 @@ class LoopGuard:
             # app that uses them. Force a file_write to pivot to App.tsx.
             # AURUM v13 burned 12 iters cycling through gt/r/x/one
             # regenerations with progressively vaguer prompts.
+            # For gamedev, the pivot is emit_design not file_write.
+            if is_gamedev:
+                return "emit_design" if not emit_design_already else "message_result"
             return "file_write"
         else:
+            if is_gamedev:
+                return "emit_design" if not emit_design_already else "message_result"
             return "project_init" if not project_already_init else "file_edit"
 
     def reset(self):

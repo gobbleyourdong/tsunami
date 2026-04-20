@@ -14,19 +14,22 @@ interface ScrollRevealProps {
 }
 
 
-// Tailwind classes that affect the PARENT grid/flex layout. When
-// a drone writes `<ScrollReveal><div className="lg:col-span-5">…</div>
-// </ScrollReveal>`, the CSS grid parent sees ScrollReveal's wrapper as
-// one cell (default width) and the col-span on the nested div is
-// invisible to the grid algorithm. We scan the single child's
-// className for these prefixes and hoist them onto ScrollReveal's
-// wrapper — the drone's output "just works" either way.
+// Tailwind classes that POSITION this element inside a grid parent.
+// When a drone writes `<ScrollReveal><div className="lg:col-span-5">…
+// </div></ScrollReveal>`, the grid sees ScrollReveal's wrapper as a
+// default-width cell and the col-span on the nested div is invisible
+// to the grid algorithm. We scan the single child's className for
+// these prefixes and hoist them onto the wrapper so the grid sees
+// the correct cell size.
 //
-// Pattern matches: `col-span-5`, `lg:col-span-7`, `md:col-start-3`,
-// `row-span-2`, `flex-1`, `shrink-0`, `grow`, `basis-1/3`, `order-2`,
-// `self-start`, `justify-self-end`, `w-1/3`, `md:w-2/3`, `min-w-0`.
+// CRITICAL: this list is GRID-ITEM ONLY. `flex-col`, `w-full`,
+// `w-1/3` etc are the element's OWN intrinsic layout; hoisting
+// them breaks the child's internal children (v5 Models config
+// overflowed after `flex-col` was promoted and the child lost
+// its direction). Only prefixes that tell the GRID PARENT where
+// to place this element are safe to hoist.
 const LAYOUT_CLASS_RE =
-  /(?:^|\s)((?:[a-z]+:)?(?:col-span-|col-start-|col-end-|row-span-|row-start-|row-end-|flex-|shrink|grow|basis-|order-|self-|justify-self-|place-self-|w-|min-w-|max-w-)[\w/.-]*)/g
+  /(?:^|\s)((?:[a-z]+:)?(?:col-span-|col-start-|col-end-|row-span-|row-start-|row-end-|self-(?:auto|start|end|center|stretch|baseline)|justify-self-|place-self-|order-)[\w/.-]*)/g
 
 const ANIM_TO_DIR: Record<string, RevealDirection> = {
   "slide-up": "up",

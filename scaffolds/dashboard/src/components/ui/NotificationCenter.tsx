@@ -12,7 +12,8 @@ interface Notification {
 }
 
 interface NotificationCenterProps {
-  notifications: Notification[]
+  notifications?: Notification[]
+  toasts?: Notification[]  // alias drones reach for
   onDismiss: (id: string) => void
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left"
   maxVisible?: number
@@ -94,8 +95,9 @@ const POSITION_STYLES = {
   "bottom-left": { bottom: 16, left: 16 },
 } as const
 
-export default function NotificationCenter({ notifications, onDismiss, position = "top-right", maxVisible = 5 }: NotificationCenterProps) {
-  const visible = notifications.slice(-maxVisible)
+export function NotificationCenter({ notifications, toasts, onDismiss, position = "top-right", maxVisible = 5 }: NotificationCenterProps) {
+  const list = notifications ?? toasts ?? []
+  const visible = list.slice(-maxVisible)
   const pos = POSITION_STYLES[position]
 
   return (
@@ -112,3 +114,5 @@ export default function NotificationCenter({ notifications, onDismiss, position 
     </div>
   )
 }
+
+export default NotificationCenter

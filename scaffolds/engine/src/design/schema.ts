@@ -157,6 +157,19 @@ export type MechanicType =
   | 'RoleAssignment' | 'CrowdSimulation'
   | 'TimeReverseMechanic' | 'PhysicsModifier'
   | 'MinigamePool'
+  // v2 placeholders — JRPG battle cluster (F-A1 partial promotion,
+  // 2026-04-20). Pulled from scaffolds/.claude/game_essence/
+  // catalog_proposals.md pass-4. These six hit the essence-corpus
+  // ≥3-cite bar (FF4 + Chrono Trigger + FF7). Still NOT runtime-
+  // implemented — OUT_OF_SCOPE_V1 in catalog.ts line 702 explicitly
+  // routes "JRPG battle system" to v2 pending BattleSystem sub-
+  // schema. The compiler will decline to emit runtime code for
+  // these; they exist in the type union so the design compiler
+  // accepts their names and the sigma struggle-signal telemetry
+  // distinguishes "wave invented a mechanic" from "wave used a
+  // promoted-but-not-yet-implemented mechanic."
+  | 'ATBCombat' | 'TurnBasedCombat' | 'PartyComposition'
+  | 'LevelUpProgression' | 'WorldMapTravel' | 'EquipmentLoadout'
 
 export interface MechanicInstance {
   id: MechanicId

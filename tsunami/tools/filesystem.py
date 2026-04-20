@@ -232,10 +232,26 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
     except OSError:
         parent_resolved = ""
     if parent_resolved == workspace_resolved and not p.exists():
+        # Scaffold-aware hint — the remediation for gamedev is
+        # emit_design (JSON via the Node compiler), NOT project_init
+        # (which scaffolds React+Vite). Guess from the filename shape.
+        fname = p.name.lower()
+        if fname in ("game_definition.json", "game_design.json") or (
+            fname.startswith("game_") and fname.endswith(".json")
+        ):
+            hint = (
+                "For gamedev deliverables, call emit_design(design={...}, "
+                "project_name='...') instead of file_write — it writes to "
+                "deliverables/<project>/public/game_definition.json and "
+                "runs the design-script validator. See "
+                "plan_scaffolds/gamedev.md for the shape."
+            )
+        else:
+            hint = "Call project_init if you need a fresh scaffold."
         return (
             f"BLOCKED: {p.name} would land directly in workspace/ root. "
             f"Put files inside workspace/deliverables/<project>/ instead. "
-            f"Call project_init if you need a fresh scaffold."
+            f"{hint}"
         )
 
     # QA-3 Fire 73: block writes to any path with a `node_modules/` component.
@@ -422,17 +438,44 @@ class FileWrite(BaseTool):
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Path to write to"},
-                "content": {"type": "string", "description": "Full file content"},
+                # Widened to accept dict/list for forgiving gamedev flow —
+                # when the wave tries to write game_definition.json via
+                # file_write, Qwen commonly passes the design as an object.
+                # We serialize to indented JSON on the fly. String path
+                # remains the common case.
+                "content": {
+                    "type": ["string", "object", "array"],
+                    "description": (
+                        "Full file content. Accepts a string; if a dict or "
+                        "list is passed, it's JSON-serialized with indent=2 "
+                        "automatically (common for .json files)."
+                    ),
+                },
             },
             "required": ["path", "content"],
         }
 
-    async def execute(self, path: str | None = None, content: str | None = None,
+    async def execute(self, path: str | None = None,
+                      content: "str | dict | list | None" = None,
                       file_path: str | None = None, **kw) -> ToolResult:
         # D20: accept qwen-canonical file_path alongside training-canonical path.
         path = path if path else file_path
         if not path or content is None:
             return ToolResult("file_write: path (or file_path) and content are required", is_error=True)
+        # Auto-JSON-serialize dict/list content. The wave sometimes
+        # calls file_write with a dict intending to dump JSON — make
+        # the tool tolerant and do the right thing. Captured live
+        # failure mode at /tmp/live_zelda_round2 Round D 2026-04-20.
+        if isinstance(content, (dict, list)):
+            try:
+                import json as _json
+                content = _json.dumps(content, indent=2, ensure_ascii=False)
+            except Exception as e:
+                return ToolResult(
+                    f"file_write: content was {type(content).__name__} "
+                    f"but JSON-serialization failed: {e}",
+                    is_error=True,
+                )
         try:
             p = _resolve_path(path, self.config.workspace_dir, _active_project)
             err = _is_safe_write(p, self.config.workspace_dir)

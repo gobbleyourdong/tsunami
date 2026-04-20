@@ -133,23 +133,51 @@ class PhaseMachine:
         self._advance(Phase.WRITE)
         log.info(f"Phase: scaffold skipped → WRITE (project: {project_path})")
 
-    def context_note(self) -> str | None:
+    def context_note(self, scaffold_kind: str = "react-app") -> str | None:
         """Phase-aware guidance note. Returns None if no nudge needed.
 
         Only fires when the agent is stalling in a phase. Early iterations
         get no nudges — let the model work.
+
+        scaffold_kind (default 'react-app') adjusts the redirect message
+        for gamedev tasks — calling project_init / file_write(App.tsx)
+        on a gamedev task contradicts the GAMEDEV OVERRIDE and has
+        caused live read-spirals (Round J 2026-04-20).
         """
+        is_gamedev = scaffold_kind == "gamedev"
         if self.phase == Phase.SCAFFOLD and self.iters_in_phase >= 4:
+            if is_gamedev:
+                return (
+                    "[PHASE:SCAFFOLD-gamedev] 4 iterations without "
+                    "emitting a design. Call emit_design(design={...}, "
+                    "project_name='...') NOW. Do NOT call project_init "
+                    "— gamedev scaffold is engine-only. The wave reads "
+                    "schema.ts + catalog.ts, composes entities + mechanics "
+                    "+ scenes, then ships via emit_design."
+                )
             return (
                 "[PHASE:SCAFFOLD] 4 iterations without scaffolding. "
                 "Call project_init to set up the project NOW."
             )
 
         if self.phase == Phase.WRITE:
-            if self.iters_in_phase >= 8 and self.files_written == 0:
+            if self.iters_in_phase >= 5 and self.files_written == 0:
+                if is_gamedev:
+                    return (
+                        "[PHASE:WRITE-gamedev] 5 iterations without "
+                        "emit_design. The gamedev deliverable is "
+                        "public/game_definition.json — call emit_design, "
+                        "NOT file_write(App.tsx). Use entity names from "
+                        "the CONTENT CATALOG directive in your user_message."
+                    )
                 return (
-                    "[PHASE:WRITE] 8 iterations without writing any files. "
-                    "Call file_write to create code NOW."
+                    "[PHASE:WRITE] 5 iterations without writing any files. "
+                    "STOP generating images now — you have enough assets. "
+                    "Call file_write on src/App.tsx with the full page code. "
+                    "Missing images will render as broken <img> — that is "
+                    "FINE, the build still passes and the vision gate will "
+                    "flag anything critical. Shipping compiled code matters "
+                    "more than having every asset ready."
                 )
             if self.files_written >= 1 and self.iters_in_phase >= 6:
                 return (

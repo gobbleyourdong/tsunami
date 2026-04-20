@@ -15,7 +15,7 @@ import logging
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger("tsunami.observer")
@@ -126,7 +126,7 @@ class Observer:
         )
 
         obs = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z",
             "tool": tool_name,
             "input": input_record,
             "output": output_record,
@@ -328,7 +328,7 @@ Rules:
         metrics_file = self.obs_dir / "usage.jsonl"
         try:
             record = {
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z",
                 "model": model,
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
