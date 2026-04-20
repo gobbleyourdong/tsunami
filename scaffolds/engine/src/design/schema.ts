@@ -197,6 +197,9 @@ export type MechanicParams =
   | ProceduralRoomChainParams | BulletPatternParams | RouteMapParams
   // v1.1 audio extension (defined below, after the existing param shapes)
   | ChipMusicParams | SfxLibraryParams
+  // v1.2 JRPG cluster (added 2026-04-20 per GAMEDEV_FRAMEWORK_PLAN.md Phase 3)
+  | ATBCombatParams | TurnBasedCombatParams | PartyCompositionParams
+  | LevelUpProgressionParams | WorldMapTravelParams | EquipmentLoadoutParams
   // v2 placeholders — shape not yet specified; compiler declines
   | { type: 'RoleAssignment'       | 'CrowdSimulation'
             | 'TimeReverseMechanic' | 'PhysicsModifier' | 'MinigamePool';
@@ -756,6 +759,76 @@ export interface SfxrParams {
 
 export interface SfxLibraryParams {
   sfx: Record<string, SfxrParams>
+}
+
+// ───────── v1.2 JRPG extension ─────────
+//
+// Added 2026-04-20 per GAMEDEV_FRAMEWORK_PLAN.md Phase 3. Corpus
+// analysis (JOB-A) confirmed these 6 as the JRPG canonical cluster:
+// FF / Chrono Trigger / Dragon Quest / Pokemon / EarthBound shared
+// surface. Distinguish ATBCombat (real-time meters) from
+// TurnBasedCombat (discrete turns). PartyComposition is the roster-
+// and-formation manager both build on.
+
+export interface ATBCombatParams {
+  party_size: number
+  /** Global multiplier on ATB bar fill rate. 1.0 = default. */
+  atb_speed: number
+  /** Top-level command menu shown per actor when ATB fills. */
+  command_menu: string[]
+  /** Allow front/back row toggle mid-battle (FF5+ feature). */
+  can_swap_rows?: boolean
+}
+
+export interface TurnBasedCombatParams {
+  /** How turn order is determined each round. */
+  turn_order: 'speed_desc' | 'fixed' | 'random'
+  party_size: number
+  command_menu: string[]
+  can_flee: boolean
+}
+
+export interface PartyCompositionParams {
+  /** Active-battle slot count (FF: 4, Pokemon: 6, Chrono: 3). */
+  max_active: number
+  /** Reserve roster total including active. */
+  max_roster: number
+  /** Allow swap during battle (FF10 mechanic). */
+  can_swap_mid_battle: boolean
+  /** Default battle formation id (resolved by a FormationSpec table,
+   *  which lives in data/* for the scaffold using this mechanic). */
+  default_formation: string
+}
+
+export interface LevelUpProgressionParams {
+  /** XP-to-next-level curve shape. */
+  xp_curve: 'linear' | 'quadratic' | 'exponential' | 'custom'
+  /** XP required to reach level 2 (scales by curve). */
+  base_xp: number
+  /** Flat stat deltas applied per level-up. */
+  stat_gains: Record<string, number>
+  /** Spells / abilities learned at specific levels (optional). */
+  learn_at_level?: Record<number, string>
+  max_level: number
+}
+
+export interface WorldMapTravelParams {
+  /** Travel mode for traversing the map. */
+  map_mode: 'walk' | 'vehicle' | 'teleport_menu'
+  /** Scene ids reachable from this map. */
+  scenes: string[]
+  /** Per-step probability of a random encounter on walkable tiles. */
+  encounter_rate: number
+  /** Unlockable fast-travel vehicles (airship, submarine, etc.). */
+  vehicles?: string[]
+}
+
+export interface EquipmentLoadoutParams {
+  /** Ordered slot names (rendered in the equip menu in this order). */
+  slots: string[]
+  /** Which stats each slot's item contributes to when equipped.
+   *  slot_name → list of stat keys it can modify via item bonuses. */
+  stat_mapping: Record<string, string[]>
 }
 
 // ───────── validator result ─────────

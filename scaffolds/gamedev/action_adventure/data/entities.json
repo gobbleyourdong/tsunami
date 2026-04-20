@@ -1,0 +1,67 @@
+{
+  "archetypes": {
+    "player": {
+      "mesh": "capsule",
+      "controller": "topdown",
+      "components": ["Health(6)", "Inventory", "Score", "Checkpoint"],
+      "tags": ["player", "controllable", "damageable"],
+      "sprite_ref": "sprites/player_link"
+    },
+    "grunt_melee": {
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "chase",
+      "components": ["Health(2)", "Resource('damage',1)"],
+      "tags": ["enemy", "damageable", "melee_attacker"],
+      "sprite_ref": "sprites/enemy_octorok"
+    },
+    "grunt_ranged": {
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "patrol",
+      "components": ["Health(2)", "Resource('damage',1)"],
+      "tags": ["enemy", "damageable", "ranged_attacker"],
+      "sprite_ref": "sprites/enemy_moblin_archer"
+    },
+    "heavy_armored": {
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "chase",
+      "components": ["Health(5)", "Resource('armor',2)", "Resource('damage',2)"],
+      "tags": ["enemy", "damageable", "heavy", "armored"],
+      "sprite_ref": "sprites/enemy_darknut"
+    },
+    "boss_dungeon1": {
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:boss_gohma",
+      "components": ["Health(12)", "Resource('damage',3)"],
+      "tags": ["enemy", "damageable", "boss", "dungeon_1"],
+      "sprite_ref": "sprites/boss_gohma"
+    },
+    "heart_pickup": {
+      "mesh": "sphere",
+      "controller": "none",
+      "trigger": "pickup",
+      "components": ["Resource('heal_amount',2)"],
+      "tags": ["pickup", "consumable", "health"],
+      "sprite_ref": "sprites/item_heart"
+    },
+    "key_pickup": {
+      "mesh": "sphere",
+      "controller": "none",
+      "trigger": "pickup",
+      "components": ["Resource('key_id',1)"],
+      "tags": ["pickup", "key", "dungeon_1"],
+      "sprite_ref": "sprites/item_key"
+    },
+    "locked_door": {
+      "mesh": "box",
+      "controller": "none",
+      "trigger": "block",
+      "components": [],
+      "tags": ["door", "locked", "dungeon_1"],
+      "sprite_ref": "sprites/door_locked"
+    }
+  }
+}

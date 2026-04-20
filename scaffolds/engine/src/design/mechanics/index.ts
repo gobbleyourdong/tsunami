@@ -58,3 +58,5 @@ import './route_map'
 // Phase 5 — audio v1.1 (2 mechanics).
 import './chip_music'
 import './sfx_library'
+// Phase 6 — JRPG v1.2 cluster. Implementations land incrementally per cycle.
+import './level_up_progression'

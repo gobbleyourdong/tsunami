@@ -1,0 +1,10 @@
+{
+  "title": "Tsunami Custom Game",
+  "mode": "2d",
+  "width": 1280,
+  "height": 720,
+  "pixelPerfect": false,
+  "gravity": [0, 0],
+  "physicsRate": 60,
+  "starting_scene": "main"
+}

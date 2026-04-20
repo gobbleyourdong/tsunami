@@ -26,6 +26,7 @@ export * from './math/quat'
 // Layer 1
 export * from './systems'      // HealthSystem/Inventory/Score/Checkpoint
 export * from './components'   // Component type shapes + helpers
+export * from './assets'       // Asset pool query helper (queryByTag / getAsset)
 
 // Layer 2
 export * from './mechanics'    // Catalog runtime (via design/mechanics/)

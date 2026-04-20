@@ -1,0 +1,61 @@
+{
+  "rooms": {
+    "overworld_start": {
+      "kind": "overworld",
+      "size": [16, 16],
+      "biome": "grassland",
+      "spawns": ["player"],
+      "connections": { "north": "overworld_forest", "east": "overworld_field", "south": "overworld_shop" }
+    },
+    "overworld_forest": {
+      "kind": "overworld",
+      "size": [16, 16],
+      "biome": "forest",
+      "spawns": ["grunt_melee", "grunt_melee"],
+      "connections": { "south": "overworld_start", "north": "dungeon1_entrance" }
+    },
+    "overworld_field": {
+      "kind": "overworld",
+      "size": [16, 16],
+      "biome": "grassland",
+      "spawns": ["grunt_ranged", "heart_pickup"],
+      "connections": { "west": "overworld_start", "east": "overworld_cliffs" }
+    },
+    "overworld_cliffs": {
+      "kind": "overworld",
+      "size": [16, 16],
+      "biome": "mountain",
+      "spawns": ["heavy_armored"],
+      "connections": { "west": "overworld_field" }
+    },
+    "overworld_shop": {
+      "kind": "overworld",
+      "size": [8, 8],
+      "biome": "village",
+      "spawns": [],
+      "connections": { "north": "overworld_start" }
+    },
+    "dungeon1_entrance": {
+      "kind": "dungeon",
+      "size": [16, 16],
+      "biome": "dungeon",
+      "spawns": ["grunt_melee", "key_pickup"],
+      "connections": { "south": "overworld_forest", "north": "dungeon1_corridor" }
+    },
+    "dungeon1_corridor": {
+      "kind": "dungeon",
+      "size": [16, 16],
+      "biome": "dungeon",
+      "spawns": ["grunt_ranged", "locked_door"],
+      "connections": { "south": "dungeon1_entrance", "north": "dungeon1_boss" }
+    },
+    "dungeon1_boss": {
+      "kind": "dungeon",
+      "size": [16, 16],
+      "biome": "dungeon",
+      "spawns": ["boss_dungeon1"],
+      "connections": { "south": "dungeon1_corridor" }
+    }
+  },
+  "starting_room": "overworld_start"
+}

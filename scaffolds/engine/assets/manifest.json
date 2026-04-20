@@ -1,0 +1,79 @@
+{
+  "$schema": "./manifest.schema.json",
+  "version": "0.1.0",
+  "generated": "2026-04-20",
+  "source_categories": "JOB-C ASSET_INVENTORY.md (corpus analysis)",
+  "root": "scaffolds/engine/assets/",
+  "sprites": {
+    "characters/humanoid_warrior":  { "path": "sprites/characters/humanoid_warrior.svg",  "tags": ["character","melee","humanoid","warrior","protagonist"], "w": 40, "h": 56 },
+    "characters/humanoid_mage":     { "path": "sprites/characters/humanoid_mage.svg",     "tags": ["character","caster","humanoid","mage","protagonist"], "w": 40, "h": 56 },
+    "characters/humanoid_shooter":  { "path": "sprites/characters/humanoid_shooter.svg",  "tags": ["character","ranged","humanoid","shooter","protagonist"], "w": 40, "h": 56 },
+    "characters/humanoid_civilian": { "path": "sprites/characters/humanoid_civilian.svg", "tags": ["character","npc","civilian","humanoid"], "w": 40, "h": 56 },
+    "characters/humanoid_knight":   { "path": "sprites/characters/humanoid_knight.svg",   "tags": ["character","melee","armored","humanoid","knight"], "w": 40, "h": 56 },
+
+    "enemies/grunt":        { "path": "sprites/enemies/enemy_grunt.svg",   "tags": ["enemy","melee","grunt"], "w": 40, "h": 56 },
+    "enemies/archer":       { "path": "sprites/enemies/enemy_archer.svg",  "tags": ["enemy","ranged","archer"], "w": 40, "h": 56 },
+    "enemies/zombie":       { "path": "sprites/enemies/enemy_zombie.svg",  "tags": ["enemy","melee","slow","horror"], "w": 40, "h": 56 },
+    "enemies/ghost":        { "path": "sprites/enemies/enemy_ghost.svg",   "tags": ["enemy","flying","ethereal","horror"], "w": 40, "h": 56 },
+    "enemies/dragon":       { "path": "sprites/enemies/enemy_dragon.svg",  "tags": ["enemy","boss","large","creature","fantasy"], "w": 40, "h": 56 },
+    "enemies/boss_giant":   { "path": "sprites/enemies/boss_giant.svg",    "tags": ["enemy","boss","large","phase-fight"], "w": 40, "h": 56 },
+
+    "items/heart":      { "path": "sprites/items/heart.svg",    "tags": ["item","pickup","hp","restore","health"], "w": 32, "h": 32 },
+    "items/gem":        { "path": "sprites/items/gem.svg",      "tags": ["item","pickup","gem","collectible"], "w": 32, "h": 32 },
+    "items/key":        { "path": "sprites/items/key.svg",      "tags": ["item","key","unlock","progression"], "w": 32, "h": 32 },
+    "items/potion":     { "path": "sprites/items/potion.svg",   "tags": ["item","consumable","potion","rpg"], "w": 32, "h": 32 },
+    "items/bomb":       { "path": "sprites/items/bomb.svg",     "tags": ["item","weapon","bomb","explosive"], "w": 32, "h": 32 },
+    "items/coin":       { "path": "sprites/items/coin.svg",     "tags": ["item","currency","coin","pickup"], "w": 32, "h": 32 },
+    "items/map":        { "path": "sprites/items/map.svg",      "tags": ["item","navigation","map"], "w": 32, "h": 32 },
+    "items/triforce":   { "path": "sprites/items/triforce.svg", "tags": ["item","artifact","quest","zelda"], "w": 32, "h": 32 },
+
+    "weapons/sword":    { "path": "sprites/weapons/sword.svg",   "tags": ["weapon","melee","sword","edged"], "w": 48, "h": 16 },
+    "weapons/bow":      { "path": "sprites/weapons/bow.svg",     "tags": ["weapon","ranged","bow","projectile"], "w": 48, "h": 16 },
+    "weapons/staff":    { "path": "sprites/weapons/staff.svg",   "tags": ["weapon","magic","staff","caster"], "w": 48, "h": 16 },
+    "weapons/pistol":   { "path": "sprites/weapons/pistol.svg",  "tags": ["weapon","ranged","gun","pistol"], "w": 48, "h": 16 },
+    "weapons/rifle":    { "path": "sprites/weapons/rifle.svg",   "tags": ["weapon","ranged","gun","rifle","auto"], "w": 48, "h": 16 },
+    "weapons/shotgun":  { "path": "sprites/weapons/shotgun.svg", "tags": ["weapon","ranged","gun","shotgun","spread"], "w": 48, "h": 16 },
+    "weapons/plasma":   { "path": "sprites/weapons/plasma.svg",  "tags": ["weapon","ranged","energy","plasma","scifi"], "w": 48, "h": 16 },
+    "weapons/dagger":   { "path": "sprites/weapons/dagger.svg",  "tags": ["weapon","melee","dagger","fast","edged"], "w": 48, "h": 16 },
+
+    "tiles/grass":      { "path": "sprites/tiles/grass.svg",  "tags": ["tile","biome","grass","pastoral","green"], "w": 32, "h": 32 },
+    "tiles/stone":      { "path": "sprites/tiles/stone.svg",  "tags": ["tile","biome","stone","dungeon","gray"], "w": 32, "h": 32 },
+    "tiles/water":      { "path": "sprites/tiles/water.svg",  "tags": ["tile","biome","water","aquatic","blue"], "w": 32, "h": 32 },
+    "tiles/snow":       { "path": "sprites/tiles/snow.svg",   "tags": ["tile","biome","snow","arctic","white"], "w": 32, "h": 32 },
+    "tiles/desert":     { "path": "sprites/tiles/desert.svg", "tags": ["tile","biome","desert","arid","sand"], "w": 32, "h": 32 },
+    "tiles/space":      { "path": "sprites/tiles/space.svg",  "tags": ["tile","biome","space","cosmic","scifi"], "w": 32, "h": 32 },
+    "tiles/tech":       { "path": "sprites/tiles/tech.svg",   "tags": ["tile","biome","tech","industrial","cyberpunk"], "w": 32, "h": 32 },
+    "tiles/lava":       { "path": "sprites/tiles/lava.svg",   "tags": ["tile","biome","lava","volcanic","hell"], "w": 32, "h": 32 },
+
+    "ui/bar_horizontal": { "path": "sprites/ui/bar_horizontal.svg", "tags": ["ui","bar","horizontal","health","mana"], "w": 64, "h": 20 },
+    "ui/bar_vertical":   { "path": "sprites/ui/bar_vertical.svg",   "tags": ["ui","bar","vertical","health","mana"], "w": 64, "h": 20 },
+    "ui/score_counter":  { "path": "sprites/ui/score_counter.svg",  "tags": ["ui","score","counter","numeric"], "w": 64, "h": 20 },
+    "ui/minimap_frame":  { "path": "sprites/ui/minimap_frame.svg",  "tags": ["ui","minimap","frame","navigation"], "w": 64, "h": 20 },
+    "ui/dialog_box":     { "path": "sprites/ui/dialog_box.svg",     "tags": ["ui","dialog","text","narrative"], "w": 64, "h": 20 },
+    "ui/inventory_slot": { "path": "sprites/ui/inventory_slot.svg", "tags": ["ui","inventory","slot","grid"], "w": 64, "h": 20 },
+    "ui/menu_frame":     { "path": "sprites/ui/menu_frame.svg",     "tags": ["ui","menu","frame"], "w": 64, "h": 20 },
+    "ui/crosshair":      { "path": "sprites/ui/crosshair.svg",      "tags": ["ui","crosshair","aim","fps"], "w": 64, "h": 20 }
+  },
+  "sounds": {
+    "_note": "Sound files not yet populated — placeholder manifest entries for categories identified in JOB-C. Add .wav/.ogg under sounds/ and register here as they're created.",
+    "_planned_families": [
+      "hit/generic", "hit/metallic", "hit/soft",
+      "pickup/coin", "pickup/heart", "pickup/key", "pickup/powerup",
+      "menu/confirm", "menu/cancel", "menu/hover",
+      "attack/sword", "attack/gun", "attack/magic",
+      "death/generic", "death/player",
+      "victory", "defeat",
+      "footstep/grass", "footstep/stone", "footstep/metal",
+      "ambient/forest", "ambient/dungeon", "ambient/arena"
+    ]
+  },
+  "fonts": {
+    "_note": "Font files not yet populated. Planned families below.",
+    "_planned_families": [
+      "pixel-retro",
+      "fantasy-serif",
+      "scifi-geometric",
+      "standard-sans"
+    ]
+  }
+}

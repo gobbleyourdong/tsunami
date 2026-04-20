@@ -1,0 +1,13 @@
+{
+  "_comment": "Game-rule config. Determines win condition, match length, team layout.",
+  "_conventions": {
+    "win_condition": "one of: 'best_of_n' | 'highest_score_at_clock_end' | 'last_team_standing' | 'first_to_n_captures' | 'custom'",
+    "match_format": "one of: 'single_round' | 'score_vs_clock' | 'waves' | 'story_mode'"
+  },
+  "match_format": "single_round",
+  "teams": 1,
+  "players_per_team": 1,
+  "win_condition": "custom",
+  "clock_sec": null,
+  "goal_value": 0
+}

@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "title": "Action-Adventure Scaffold Seed",
+    "shape": "action",
+    "vibe": ["overworld", "dungeon-crawl", "lock-and-key", "8-rooms"],
+    "target_session_sec": 900
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 16 } },
+    "sandbox": false
+  },
+  "starting_room": "overworld_start",
+  "starting_inventory": ["sword"],
+  "win_condition": {
+    "kind": "boss_defeated",
+    "archetype": "boss_dungeon1"
+  },
+  "lose_condition": {
+    "kind": "health_zero",
+    "archetype": "player"
+  }
+}

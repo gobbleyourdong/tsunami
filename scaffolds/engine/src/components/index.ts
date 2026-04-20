@@ -157,6 +157,34 @@ export interface ScoreComponent {
   team_id?: number
 }
 
+/** Level / XP progression. Added per JOB-B corpus census (100% coverage). */
+export interface LevelComponent {
+  current: number
+  xp: number
+  /** XP required to reach the next level. */
+  xp_to_next?: number
+  /** Character class / job / archetype id — per JOB-B (93% coverage). */
+  class?: string
+}
+
+/** Currency holdings. Map because JRPG-style games have multiple
+ *  currencies (gold + rupees + tokens). Single-currency games use
+ *  one key like {gold: N}. Added per JOB-B corpus census (78% coverage). */
+export interface CurrencyComponent {
+  [kind: string]: number
+}
+
+/** Active status effects (buffs / debuffs). Added per JOB-B corpus
+ *  census (52% coverage). Pairs with the StatusStack mechanic. */
+export interface StatusEffectComponent {
+  active: Array<{
+    id: string           // effect id (e.g. "poison", "haste", "shield")
+    remaining: number    // duration in seconds (or turns for tbs)
+    magnitude?: number   // optional strength (e.g. poison-5 vs poison-20)
+    source?: string      // entity id of the inflictor
+  }>
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────
 
 /** Component-bag shape — what gets attached to EntityDef.properties. */
@@ -176,6 +204,9 @@ export interface ComponentBag {
   Sprite?: SpriteComponent
   Animator?: AnimatorComponent
   Score?: ScoreComponent
+  Level?: LevelComponent
+  Currency?: CurrencyComponent
+  StatusEffect?: StatusEffectComponent
   // Open-ended: unknown component kinds pass through.
   [custom: string]: unknown
 }

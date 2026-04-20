@@ -1,0 +1,20 @@
+{
+  "name": "gamedev-action-adventure-scaffold",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Top-down action-adventure scaffold (Zelda-like). Extends custom/ with RoomGraph + LockAndKey + CameraFollow prewired and 5 overworld + 3 dungeon rooms.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "engine": "file:../../engine"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
+  }
+}

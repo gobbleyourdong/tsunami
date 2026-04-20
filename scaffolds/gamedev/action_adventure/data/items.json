@@ -1,0 +1,49 @@
+{
+  "items": {
+    "sword": {
+      "kind": "weapon",
+      "slot": "primary",
+      "damage": 1,
+      "range": 1.2,
+      "tags": ["melee", "starting"],
+      "sprite_ref": "sprites/item_sword"
+    },
+    "bow": {
+      "kind": "weapon",
+      "slot": "secondary",
+      "damage": 1,
+      "range": 8.0,
+      "ammo_resource": "arrows",
+      "tags": ["ranged", "consumes_arrow"],
+      "sprite_ref": "sprites/item_bow"
+    },
+    "bomb": {
+      "kind": "weapon",
+      "slot": "secondary",
+      "damage": 3,
+      "range": 2.5,
+      "ammo_resource": "bombs",
+      "tags": ["ranged", "aoe", "destructible_wall_key"],
+      "sprite_ref": "sprites/item_bomb"
+    },
+    "heart": {
+      "kind": "consumable",
+      "effect": "heal",
+      "amount": 2,
+      "tags": ["health", "drop"],
+      "sprite_ref": "sprites/item_heart"
+    },
+    "key": {
+      "kind": "key",
+      "opens_tag": "dungeon_1",
+      "tags": ["key", "dungeon_1"],
+      "sprite_ref": "sprites/item_key"
+    },
+    "compass": {
+      "kind": "quest",
+      "effect": "reveal_boss_room",
+      "tags": ["quest", "dungeon_1"],
+      "sprite_ref": "sprites/item_compass"
+    }
+  }
+}

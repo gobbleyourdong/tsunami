@@ -21,6 +21,9 @@ import {
   type TagsComponent,
   type TeamComponent,
   type HitboxComponent,
+  type LevelComponent,
+  type CurrencyComponent,
+  type StatusEffectComponent,
   type ComponentBag,
 } from '../src/components'
 
@@ -139,5 +142,31 @@ describe('Phase 1 — component shapes carry expected fields', () => {
   it('TeamComponent with faction for PvE factions', () => {
     const t: TeamComponent = { team_id: 2, faction: 'moblins' }
     expect(t.faction).toBe('moblins')
+  })
+
+  it('LevelComponent — RPG progression (added via JOB-B)', () => {
+    const l: LevelComponent = {
+      current: 12, xp: 3400, xp_to_next: 4000, class: 'mage',
+    }
+    expect(l.current).toBe(12)
+    expect(l.class).toBe('mage')
+  })
+
+  it('CurrencyComponent — multi-currency map (JRPG has gold + rupees)', () => {
+    const c: CurrencyComponent = { gold: 150, rupees: 42 }
+    expect(c.gold).toBe(150)
+    expect(c.rupees).toBe(42)
+  })
+
+  it('StatusEffectComponent — stack of active buffs/debuffs', () => {
+    const s: StatusEffectComponent = {
+      active: [
+        { id: 'poison', remaining: 4.5, magnitude: 10, source: 'boss_a' },
+        { id: 'haste', remaining: 10.0, magnitude: 1.5 },
+      ],
+    }
+    expect(s.active).toHaveLength(2)
+    expect(s.active[0].id).toBe('poison')
+    expect(s.active[1].magnitude).toBe(1.5)
   })
 })

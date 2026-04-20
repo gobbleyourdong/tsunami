@@ -1,0 +1,15 @@
+[
+  {
+    "_comment": "Universal entity example — replace with your roster.",
+    "_usage": "Genre scaffolds rename this to characters.json / enemies.json / npcs.json and populate with per-genre content.",
+    "id": "example_player",
+    "name": "Example Player",
+    "components": {
+      "Health": { "current": 100, "max": 100 },
+      "Position": { "x": 400, "y": 360 },
+      "Velocity": { "vx": 0, "vy": 0, "max_speed": 180 },
+      "Tags": ["player"],
+      "Controller": { "channel": "player1" }
+    }
+  }
+]

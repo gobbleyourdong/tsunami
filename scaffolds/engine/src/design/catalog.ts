@@ -682,6 +682,116 @@ export const CATALOG: Record<MechanicType, CatalogEntry> = {
     example_params: {},
     tier: 'v2',
   },
+
+  // ──── v1.2 JRPG placeholders — added 2026-04-20 per
+  // GAMEDEV_FRAMEWORK_PLAN.md Phase 3. Corpus analysis (JOB-A) confirmed
+  // these 6 are the canonical JRPG cluster (FF/Chrono/Pokemon/Dragon Quest
+  // shared surface). Runtime implementations land per-cycle.
+
+  ATBCombat: {
+    type: 'ATBCombat',
+    description: 'Active-Time-Battle loop — turns queued by per-party-member charge meters that fill in real time. Classic FF4/FF6/FF7-IX pacing. Each actor\'s action window opens when their ATB bar fills; input during an open window queues the command. Distinct from TurnBasedCombat (discrete turns) by the clock-pressure vibe.',
+    example_params: {
+      party_size: 4,
+      atb_speed: 1.0,             // global multiplier
+      command_menu: ['attack', 'magic', 'item', 'defend'],
+      can_swap_rows: false,       // front/back row toggle (FF5+)
+    },
+    needs_mechanic_types: ['PartyComposition'],
+    requires_components: ['Health', 'Stats'],
+    tier: 'v1_ext',
+    priority_class: 'default',
+    composability_score: 'medium',
+    common_patches: ['tune atb_speed', 'add command', 'add status effects'],
+  },
+
+  TurnBasedCombat: {
+    type: 'TurnBasedCombat',
+    description: 'Discrete turn order — actors take turns based on Speed stat or fixed party/enemy alternation. Dragon Quest / Pokemon / early FF pacing. No real-time pressure; menu-driven. Distinct from ATBCombat (meters) by its hard turn-boundary semantics.',
+    example_params: {
+      turn_order: 'speed_desc',   // or 'fixed' | 'random'
+      party_size: 4,
+      command_menu: ['attack', 'magic', 'item', 'run'],
+      can_flee: true,
+    },
+    needs_mechanic_types: ['PartyComposition'],
+    requires_components: ['Health', 'Stats'],
+    tier: 'v1_ext',
+    priority_class: 'default',
+    composability_score: 'medium',
+    common_patches: ['adjust turn_order', 'toggle can_flee', 'add command'],
+  },
+
+  PartyComposition: {
+    type: 'PartyComposition',
+    description: 'Roster + active-formation management — which characters are in the party, which are active (battle-visible) vs reserve, per-character class / job / stats tracking. JRPG staple (FF party of 4, Chrono Trigger trio, Pokemon team-of-6).',
+    example_params: {
+      max_active: 4,
+      max_roster: 8,
+      can_swap_mid_battle: false,
+      default_formation: 'row_standard',
+    },
+    emits_fields: ['active_party', 'reserve_party'],
+    requires_components: ['Team', 'Health', 'Stats'],
+    tier: 'v1_ext',
+    composability_score: 'high',
+    common_patches: ['resize max_active', 'add formation', 'unlock mid-battle swap'],
+  },
+
+  LevelUpProgression: {
+    type: 'LevelUpProgression',
+    description: 'XP → level curve. Each gain applies stat deltas (HP/MP/ATK/DEF/etc.) plus optional spell-learn-at-level. Universal RPG progression but also appears in action-RPGs, roguelikes, and metroidvania power-ups. Per JOB-A census: appears across all genres with leveling content.',
+    example_params: {
+      xp_curve: 'quadratic',     // or 'linear' | 'exponential'
+      base_xp: 100,
+      stat_gains: { hp: 5, mp: 2, atk: 1, def: 1 },
+      learn_at_level: { 5: 'fire', 10: 'blizzard', 15: 'cure' },
+      max_level: 99,
+    },
+    needs_mechanic_types: [],    // standalone — any Stats-bearing entity can level
+    requires_components: ['Stats', 'Level'],
+    emits_fields: ['level', 'xp', 'xp_to_next'],
+    emits_conditions: true,      // emits "<entity>.leveled_up"
+    tier: 'v1_ext',
+    composability_score: 'high',
+    common_patches: ['adjust xp_curve', 'add learn_at_level entry', 'tune stat_gains'],
+  },
+
+  WorldMapTravel: {
+    type: 'WorldMapTravel',
+    description: 'Overworld navigation between discrete scenes (towns, dungeons, fields). Typically a separate "world map" scene distinct from battle/town scenes. Modes: walk (classic FF/DQ), airship/vehicle unlock later, random encounters per tile-type. Distinct from RoomGraph (room-to-room within a single scene) — this is scene-to-scene with travel semantics.',
+    example_params: {
+      map_mode: 'walk',           // 'walk' | 'vehicle' | 'teleport_menu'
+      scenes: ['town_alpha', 'forest', 'dungeon_1', 'town_beta'],
+      encounter_rate: 0.08,       // per-step probability on random-encounter tiles
+      vehicles: [],               // unlockable fast-travel options
+    },
+    needs_mechanic_types: [],
+    emits_conditions: true,       // emits "arrived.<scene>"
+    tier: 'v1_ext',
+    composability_score: 'medium',
+    common_patches: ['add vehicle', 'tune encounter_rate', 'add scene', 'unlock airship'],
+  },
+
+  EquipmentLoadout: {
+    type: 'EquipmentLoadout',
+    description: 'Per-character equippable slots (weapon / armor / accessory / etc.) with stat-deltas applied while equipped. Slot count and kinds are configurable. Drives character power curves in RPGs. Pairs with Inventory (source of items) + Stats (target of deltas).',
+    example_params: {
+      slots: ['weapon', 'head', 'body', 'accessory1', 'accessory2'],
+      stat_mapping: {
+        weapon: ['atk', 'hit_rate'],
+        head: ['def', 'mdef'],
+        body: ['def', 'mdef', 'hp_bonus'],
+        accessory1: ['atk', 'def', 'mdef', 'speed'],
+        accessory2: ['atk', 'def', 'mdef', 'speed'],
+      },
+    },
+    needs_mechanic_types: [],
+    requires_components: ['Stats', 'Inventory'],
+    tier: 'v1_ext',
+    composability_score: 'high',
+    common_patches: ['add slot', 'expand stat_mapping', 'add hidden passive slot'],
+  },
 }
 
 // ───────── domain-map / out-of-scope ─────────
