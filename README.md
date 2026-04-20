@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.png?v=11" alt="ツNami — the agent that builds" width="800">
+  <img src="docs/banner.png?v=12" alt="ツNami — the agent that builds" width="800">
 </p>
 
 <h1 align="center">tsunami</h1>
