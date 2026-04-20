@@ -118,6 +118,20 @@ stack smoke test: `python3 tsunami/tests/test_stack_smoke.py`. end-to-end build 
 
 ---
 
+## want to contribute?
+
+**file an issue. don't open a PR.**
+
+one dev drives the train. **the train has no brakes.** core files rewrite themselves within hours, PRs conflict before reviewers touch them, rebases eat the weekend. an issue is the contract:
+
+- describe the feature or bug in one paragraph
+- attach a repro if it's a bug, a mock or sketch if it's a feature
+- tag it with the surface (`agent`, `undertow`, `ernie`, `scaffold/<name>`, `eval`)
+
+good ideas get built. you get credit in the commit. if you genuinely need to ship code yourself, say so in the issue — we'll carve out a branch with a contract so the rebase pain lands on me, not you.
+
+---
+
 ## license
 
 MIT. fork it, ship it, don't pretend you built it.
