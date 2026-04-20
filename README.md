@@ -2,7 +2,8 @@
   <img src="docs/banner.png?v=9" alt="tsuNami — the agent that builds" width="800">
 </p>
 
-<h1 align="center">tsunami ♡</h1>
+<h1 align="center">tsunami</h1>
+<h2 align="center">ツNami ♡</h2>
 
 <p align="center"><b><i>an ai coding agent that lives on your computer.<br/>nothing leaves your machine. ever.</i></b></p>
 
