@@ -51,6 +51,7 @@ _GENRE_MAP: dict[str, str] = {
     "ninja_garden":      "cross/ninja_garden",
     "rhythm_fighter":    "cross/rhythm_fighter",
     "action_rpg_atb":    "cross/action_rpg_atb",
+    "metroid_runs":      "cross/metroid_runs",
     # Common spellings + hyphen variants
     "action-adventure":  "action_adventure",
     "adventure":         "action_adventure",
@@ -94,6 +95,10 @@ _GENRE_MAP: dict[str, str] = {
     "action-rpg":        "cross/action_rpg_atb",
     "action-rpg-atb":    "cross/action_rpg_atb",
     "zelda-ff":          "cross/action_rpg_atb",
+    "metroid-runs":      "cross/metroid_runs",
+    "metroidvania-roguelike": "cross/metroid_runs",
+    "spelunky-metroid":  "cross/metroid_runs",
+    "dead-cells":        "cross/metroid_runs",
     "cross":             "cross/magic_hoops",
     "cross-genre":       "cross/magic_hoops",
     "canary":            "cross/magic_hoops",
