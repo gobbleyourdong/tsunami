@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, ReactNode } from "react"
+import { useEffect, useRef, useState, ReactNode, isValidElement, Children, cloneElement } from "react"
 
 type RevealDirection = "up" | "down" | "left" | "right" | "fade"
 
@@ -12,6 +12,21 @@ interface ScrollRevealProps {
   once?: boolean     // only animate once
   className?: string
 }
+
+
+// Tailwind classes that affect the PARENT grid/flex layout. When
+// a drone writes `<ScrollReveal><div className="lg:col-span-5">…</div>
+// </ScrollReveal>`, the CSS grid parent sees ScrollReveal's wrapper as
+// one cell (default width) and the col-span on the nested div is
+// invisible to the grid algorithm. We scan the single child's
+// className for these prefixes and hoist them onto ScrollReveal's
+// wrapper — the drone's output "just works" either way.
+//
+// Pattern matches: `col-span-5`, `lg:col-span-7`, `md:col-start-3`,
+// `row-span-2`, `flex-1`, `shrink-0`, `grow`, `basis-1/3`, `order-2`,
+// `self-start`, `justify-self-end`, `w-1/3`, `md:w-2/3`, `min-w-0`.
+const LAYOUT_CLASS_RE =
+  /(?:^|\s)((?:[a-z]+:)?(?:col-span-|col-start-|col-end-|row-span-|row-start-|row-end-|flex-|shrink|grow|basis-|order-|self-|justify-self-|place-self-|w-|min-w-|max-w-)[\w/.-]*)/g
 
 const ANIM_TO_DIR: Record<string, RevealDirection> = {
   "slide-up": "up",
@@ -61,13 +76,42 @@ export function ScrollReveal({
     fade: "none",
   }
 
+  // Auto-hoist layout classes from a single child element. Drone-
+  // written JSX like `<ScrollReveal><div className="lg:col-span-5">…</div>
+  // </ScrollReveal>` should render the ScrollReveal wrapper as the
+  // col-span-5 grid cell, not a default-sized cell containing a
+  // col-span-5 div. We inspect the only child; if it's a single element
+  // whose className contains layout-affecting classes, we move those
+  // onto our wrapper.
+  let hoistedClassName = className || ""
+  let patchedChildren: ReactNode = children
+  const kids = Children.toArray(children)
+  if (kids.length === 1 && isValidElement(kids[0])) {
+    const only = kids[0] as import("react").ReactElement<{ className?: string }>
+    const childCls = only.props?.className || ""
+    if (typeof childCls === "string" && childCls) {
+      const hoisted: string[] = []
+      const remaining = childCls.replace(LAYOUT_CLASS_RE, (m, cls) => {
+        hoisted.push(cls)
+        return " "
+      }).replace(/\s+/g, " ").trim()
+      if (hoisted.length > 0) {
+        hoistedClassName = [className, ...hoisted].filter(Boolean).join(" ")
+        // Re-clone the child with the layout classes stripped so they
+        // don't double up (child would then re-apply col-span and fight
+        // with the wrapper's grid-cell size).
+        patchedChildren = cloneElement(only, { className: remaining || undefined })
+      }
+    }
+  }
+
   return (
-    <div ref={ref} className={className} style={{
+    <div ref={ref} className={hoistedClassName || undefined} style={{
       opacity: visible ? 1 : 0,
       transform: visible ? "none" : transforms[dir],
       transition: `opacity ${duration}ms ease ${delay}ms, transform ${duration}ms ease ${delay}ms`,
     }}>
-      {children}
+      {patchedChildren}
     </div>
   )
 }
