@@ -1,13 +1,13 @@
 """Discovery tools — match_glob, match_grep, summarize_file.
 
-Audit D22 fix: the training data at `training/native_toolcall_formatter.py`
-declares these as core tools that every fine-tuned example sees. The
-registry marked them "deprecated, removed from codebase" — so every
-fine-tune session emits a tool call the registry can't route, producing
+Audit D22 fix: the fine-tune's native_toolcall_formatter declares these
+as core tools that every fine-tuned example sees. The registry had
+marked them "deprecated, removed from codebase" — so every fine-tune
+session emitted a tool call the registry couldn't route, producing
 "unknown tool" errors and driving the model to fall back to
 `shell_exec "find"/"rg"` for capabilities that should be native.
 
-Trained schemas reproduced verbatim from native_toolcall_formatter.py
+Schemas reproduced verbatim from the fine-tune's tool-declaration set
 (top-level `TOOL_SCHEMAS`). Same field names the model was trained to
 emit; execute() accepts both directory+pattern (training) and any
 qwen-style path aliases for resilience.

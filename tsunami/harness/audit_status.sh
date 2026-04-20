@@ -105,6 +105,6 @@ echo "  best adoption: ${best_adoption_pct}% ($best_adoption_run)"
 echo ""
 
 echo "▸ SERVER"
-python3 scripts/overnight/server_monitor.py 2>&1 | head -1 | sed 's/^/  /'
+python3 -m tsunami.harness.server_monitor 2>&1 | head -1 | sed 's/^/  /'
 ls ~/.tsunami/opportunistic_runs/*.pending 2>/dev/null | head -1 | sed 's/^/  pending: /'
 echo ""

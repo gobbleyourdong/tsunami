@@ -61,3 +61,4 @@ import './sfx_library'
 // Phase 6 — JRPG v1.2 cluster. Implementations land incrementally per cycle.
 import './level_up_progression'
 import './turn_based_combat'
+import './atb_combat'

@@ -11,10 +11,10 @@ Runs as a long-lived loop:
 Never modifies tsunami's agent.py — runs it as a black-box subprocess.
 Workers share the `:8090` llama-server; isolation via per-worker
 deliverable dir (TSUNAMI_WORKSPACE_DIR) so dist/ folders don't
-collide. Probe is F-B1/F-I4 from scripts/overnight/probe.py.
+collide. Probe is F-B1/F-I4 from tsunami/harness/probe.py.
 
 Usage:
-    python scripts/overnight/worker.py \
+    python -m tsunami.harness.worker \
         --id worker_001 \
         --root ~/.tsunami/overnight \
         --dry-run        # use `echo` instead of tsunami for plumbing tests
@@ -124,7 +124,7 @@ def _run_tsunami(row: dict, worker_dir: Path, dry_run: bool) -> dict:
     else:
         # `python -m tsunami --task <prompt> --workspace <worker_dir>`
         # must run from the repo root so the package imports. REPO is
-        # resolved at module import from scripts/overnight/worker.py's
+        # resolved at module import from tsunami/harness/worker.py's
         # location; override by passing TSUNAMI_REPO env.
         repo = os.environ.get("TSUNAMI_REPO") or str(
             Path(__file__).resolve().parent.parent.parent

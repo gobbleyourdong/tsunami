@@ -140,5 +140,5 @@ def generate_phase_note(phase: str, tool_history: list[str]) -> str | None:
 
 # NB: ModelCapability (TypeScript-reverse-string probe + grep classifier)
 # was removed 2026-04-13 — only used by tests, never wired into the agent.
-# If we ever want capability gating, do it from real eval scores
-# (training/eval.py L1-L5), not a one-off probe.
+# If we ever want capability gating, do it from real eval scores, not a
+# one-off probe.

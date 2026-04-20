@@ -7,7 +7,7 @@ full scheduler — workers self-pull from matrix.jsonl via fcntl lock
 watch for triggers, reap on exit.
 
 Usage:
-    python scripts/overnight/dispatcher.py \
+    python -m tsunami.harness.dispatcher \
         --root ~/.tsunami/overnight \
         --workers 4 \
         --dry-run          # worker.py --dry-run per worker

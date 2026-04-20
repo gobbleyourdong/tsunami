@@ -136,4 +136,4 @@ class TestPhaseNotes:
 
 # NB: TestModelCapability removed 2026-04-13 alongside ModelCapability itself —
 # the probe was tested-but-never-wired-into-agent dead code. If we ever want
-# capability gating, drive it from real eval scores (training/eval.py L1-L5).
+# capability gating, drive it from real eval scores, not a one-off probe.

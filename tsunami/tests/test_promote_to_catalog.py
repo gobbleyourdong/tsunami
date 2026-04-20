@@ -8,7 +8,7 @@ from pathlib import Path
 REPO = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(REPO))
 
-from scripts.overnight.promote_to_catalog import (  # noqa: E402
+from tsunami.harness.promote_to_catalog import (  # noqa: E402
     parse_promoted, parse_shipped, drift_report,
     render_stub_schema, render_stub_catalog, render_check,
 )

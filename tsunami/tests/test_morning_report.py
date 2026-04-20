@@ -9,7 +9,7 @@ from pathlib import Path
 REPO = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(REPO))
 
-from scripts.overnight.morning_report import (  # noqa: E402
+from tsunami.harness.morning_report import (  # noqa: E402
     section_coverage, section_stall, section_new_gaps,
     section_cold_start, build_report, render_md,
 )
