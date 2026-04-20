@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.png?v=5" alt="tsunami — the wave that builds" width="800">
+  <img src="docs/banner.png?v=9" alt="ツNami — the agent that builds" width="800">
 </p>
 
 # tsunami
