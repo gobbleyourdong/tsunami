@@ -1,0 +1,123 @@
+{
+  "mechanics": [
+    {
+      "id": "atb_combat_core",
+      "type": "ATBCombat",
+      "params": {
+        "party_size": 4,
+        "atb_speed": 1.0,
+        "command_menu": ["Attack", "Magic", "Item", "Defend", "Flee"],
+        "can_swap_rows": true
+      },
+      "requires_tags": ["party_member", "enemy"]
+    },
+    {
+      "id": "party_roster",
+      "type": "PartyComposition",
+      "params": {
+        "max_active": 4,
+        "max_roster": 4,
+        "can_swap_mid_battle": false,
+        "default_formation": "standard"
+      },
+      "requires_tags": ["party_member"]
+    },
+    {
+      "id": "xp_level_curve",
+      "type": "LevelUpProgression",
+      "params": {
+        "xp_curve": "quadratic",
+        "base_xp": 30,
+        "stat_gains": { "str": 1, "def": 1, "mag": 1, "mdf": 1, "spd": 1 },
+        "learn_at_level": {
+          "3": "blizzard",
+          "5": "fira",
+          "7": "cura",
+          "10": "raise",
+          "14": "curaga",
+          "20": "meteor"
+        },
+        "max_level": 99
+      },
+      "requires_tags": ["party_member"]
+    },
+    {
+      "id": "world_map",
+      "type": "WorldMapTravel",
+      "params": {
+        "map_mode": "walk",
+        "scenes": [
+          "baron_town",
+          "baron_field",
+          "mist_cave",
+          "mist_village",
+          "kaipo_town",
+          "antlion_desert",
+          "world_map_overworld",
+          "final_castle"
+        ],
+        "encounter_rate": 0.08,
+        "vehicles": ["airship"]
+      },
+      "requires_tags": ["party_member"]
+    },
+    {
+      "id": "equipment_loadout",
+      "type": "EquipmentLoadout",
+      "params": {
+        "slots": ["weapon", "armor", "accessory_1", "accessory_2"],
+        "stat_mapping": {
+          "weapon": ["str", "mag", "spd"],
+          "armor": ["def", "mdf"],
+          "accessory_1": ["def", "mdf", "spd"],
+          "accessory_2": ["mag", "mdf", "spd"]
+        }
+      },
+      "requires_tags": ["party_member"]
+    },
+    {
+      "id": "town_shops",
+      "type": "Shop",
+      "params": {
+        "shop_ref": "equipment.json",
+        "buy_multiplier": 1.0,
+        "sell_multiplier": 0.5,
+        "available_in_tags": ["town"]
+      },
+      "requires_tags": ["party_member", "town"]
+    },
+    {
+      "id": "npc_dialogs",
+      "type": "DialogTree",
+      "params": {
+        "dialogs_ref": "data/dialogs.json",
+        "triggered_by_tag": "npc_interactable"
+      },
+      "requires_tags": ["party_member"]
+    },
+    {
+      "id": "main_hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "cecil", "component": "Health", "label": "Cecil HP" },
+          { "archetype": "rydia", "component": "Health", "label": "Rydia HP" },
+          { "archetype": "rosa",  "component": "Health", "label": "Rosa HP" },
+          { "archetype": "edge",  "component": "Health", "label": "Edge HP" }
+        ],
+        "layout": "bottom"
+      },
+      "requires_tags": ["party_member"]
+    },
+    {
+      "id": "party_wipe_gameover",
+      "type": "LoseOnZero",
+      "params": {
+        "archetype": { "any_of": ["cecil", "rydia", "rosa", "edge"] },
+        "field": "Health",
+        "emit_condition": "party_wipe"
+      },
+      "requires_tags": ["party_member"]
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "regions": {
+    "baron_town": {
+      "kind": "town",
+      "display_name": "Baron",
+      "map_sprite_ref": "sprites/maps/baron_town",
+      "encounter_rate": 0.0,
+      "connections": ["baron_field"],
+      "has_inn": true,
+      "has_shop": true,
+      "tags": ["town", "starting", "kingdom_of_baron"]
+    },
+    "baron_field": {
+      "kind": "field",
+      "display_name": "Baron Plains",
+      "map_sprite_ref": "sprites/maps/baron_field",
+      "encounter_rate": 0.08,
+      "encounter_table": ["goblin", "imp"],
+      "connections": ["baron_town", "mist_cave", "kaipo_town"],
+      "tags": ["field", "grassland"]
+    },
+    "mist_cave": {
+      "kind": "dungeon",
+      "display_name": "Mist Cave",
+      "map_sprite_ref": "sprites/maps/mist_cave",
+      "encounter_rate": 0.12,
+      "encounter_table": ["imp", "skeleton", "zombie"],
+      "connections": ["baron_field", "mist_village"],
+      "boss": "mist_dragon",
+      "tags": ["dungeon", "cave"]
+    },
+    "mist_village": {
+      "kind": "town",
+      "display_name": "Mist Village",
+      "map_sprite_ref": "sprites/maps/mist_village",
+      "encounter_rate": 0.0,
+      "connections": ["mist_cave"],
+      "has_inn": true,
+      "has_shop": true,
+      "tags": ["town", "village"]
+    },
+    "kaipo_town": {
+      "kind": "town",
+      "display_name": "Kaipo",
+      "map_sprite_ref": "sprites/maps/kaipo_town",
+      "encounter_rate": 0.0,
+      "connections": ["baron_field", "antlion_desert"],
+      "has_inn": true,
+      "has_shop": true,
+      "tags": ["town", "desert_oasis"]
+    },
+    "antlion_desert": {
+      "kind": "dungeon",
+      "display_name": "Antlion's Den",
+      "map_sprite_ref": "sprites/maps/antlion_desert",
+      "encounter_rate": 0.15,
+      "encounter_table": ["sand_worm", "skeleton"],
+      "connections": ["kaipo_town"],
+      "boss": "antlion",
+      "tags": ["dungeon", "desert"]
+    },
+    "world_map_overworld": {
+      "kind": "overworld",
+      "display_name": "World Map",
+      "map_sprite_ref": "sprites/maps/world_overworld",
+      "encounter_rate": 0.05,
+      "encounter_table": ["goblin", "sand_worm", "zombie"],
+      "connections": ["baron_town", "kaipo_town", "mist_village", "final_castle"],
+      "requires_vehicle": null,
+      "tags": ["overworld"]
+    },
+    "final_castle": {
+      "kind": "dungeon",
+      "display_name": "Zeromus Castle",
+      "map_sprite_ref": "sprites/maps/final_castle",
+      "encounter_rate": 0.0,
+      "connections": ["world_map_overworld"],
+      "boss": "zeromus",
+      "tags": ["dungeon", "final"]
+    }
+  },
+  "starting_region": "baron_town"
+}

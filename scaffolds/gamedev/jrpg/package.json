@@ -1,0 +1,20 @@
+{
+  "name": "gamedev-jrpg-scaffold",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JRPG scaffold (Final Fantasy IV / Dragon Quest III / Chrono Trigger lineages). Ships 4 party members + 8 world regions + 12 spells + 15 equipment items + ATB combat prewired.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "engine": "file:../../engine"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
+  }
+}

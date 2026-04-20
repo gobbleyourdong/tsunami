@@ -1,0 +1,131 @@
+{
+  "enemies": {
+    "goblin": {
+      "display_name": "Goblin",
+      "battler_sprite_ref": "sprites/enemies/goblin",
+      "components": ["Health(8)", "Resource('mana',0)"],
+      "stats": { "str": 4, "def": 2, "mag": 0, "mdf": 1, "spd": 5 },
+      "xp_reward": 10,
+      "gp_reward": 6,
+      "drop_table": [
+        { "item": "potion", "rate": 0.10 }
+      ],
+      "ai": "chase",
+      "tags": ["enemy", "grunt", "random_encounter"]
+    },
+    "imp": {
+      "display_name": "Imp",
+      "battler_sprite_ref": "sprites/enemies/imp",
+      "components": ["Health(12)", "Resource('mana',6)"],
+      "stats": { "str": 3, "def": 2, "mag": 6, "mdf": 4, "spd": 7 },
+      "xp_reward": 14,
+      "gp_reward": 8,
+      "drop_table": [
+        { "item": "ether", "rate": 0.05 }
+      ],
+      "ai": "utility:caster",
+      "known_spells": ["fire"],
+      "tags": ["enemy", "caster", "random_encounter"]
+    },
+    "skeleton": {
+      "display_name": "Skeleton",
+      "battler_sprite_ref": "sprites/enemies/skeleton",
+      "components": ["Health(16)", "Resource('mana',0)"],
+      "stats": { "str": 6, "def": 5, "mag": 0, "mdf": 2, "spd": 4 },
+      "xp_reward": 20,
+      "gp_reward": 12,
+      "drop_table": [
+        { "item": "potion", "rate": 0.15 },
+        { "item": "bronze_sword", "rate": 0.02 }
+      ],
+      "ai": "chase",
+      "weakness": ["fire", "holy"],
+      "tags": ["enemy", "undead", "random_encounter"]
+    },
+    "zombie": {
+      "display_name": "Zombie",
+      "battler_sprite_ref": "sprites/enemies/zombie",
+      "components": ["Health(20)", "Resource('mana',0)"],
+      "stats": { "str": 7, "def": 4, "mag": 0, "mdf": 2, "spd": 3 },
+      "xp_reward": 22,
+      "gp_reward": 10,
+      "drop_table": [
+        { "item": "phoenix_down", "rate": 0.04 }
+      ],
+      "ai": "chase",
+      "weakness": ["fire", "holy"],
+      "tags": ["enemy", "undead", "random_encounter"]
+    },
+    "sand_worm": {
+      "display_name": "Sand Worm",
+      "battler_sprite_ref": "sprites/enemies/sand_worm",
+      "components": ["Health(28)", "Resource('mana',0)"],
+      "stats": { "str": 9, "def": 6, "mag": 0, "mdf": 4, "spd": 4 },
+      "xp_reward": 30,
+      "gp_reward": 18,
+      "drop_table": [
+        { "item": "bronze_armor", "rate": 0.03 }
+      ],
+      "ai": "chase",
+      "tags": ["enemy", "beast", "random_encounter"]
+    },
+    "mist_dragon": {
+      "display_name": "Mist Dragon",
+      "battler_sprite_ref": "sprites/enemies/mist_dragon",
+      "components": ["Health(220)", "Resource('mana',40)"],
+      "stats": { "str": 14, "def": 10, "mag": 10, "mdf": 9, "spd": 10 },
+      "xp_reward": 150,
+      "gp_reward": 120,
+      "drop_table": [
+        { "item": "mythril_sword", "rate": 1.0 }
+      ],
+      "ai": "bt:mist_dragon_phases",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:mist_dragon_breath" },
+        { "health_threshold": 0.5, "behavior": "bt:mist_dragon_mistform" }
+      ],
+      "tags": ["enemy", "boss", "dragon", "dungeon_mist_cave"]
+    },
+    "antlion": {
+      "display_name": "Antlion",
+      "battler_sprite_ref": "sprites/enemies/antlion",
+      "components": ["Health(340)", "Resource('mana',20)"],
+      "stats": { "str": 18, "def": 12, "mag": 4, "mdf": 8, "spd": 7 },
+      "xp_reward": 260,
+      "gp_reward": 200,
+      "drop_table": [
+        { "item": "sand_ruby", "rate": 1.0 }
+      ],
+      "ai": "bt:antlion_counter",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:antlion_normal" },
+        { "health_threshold": 0.4, "behavior": "bt:antlion_counter_rage" }
+      ],
+      "tags": ["enemy", "boss", "insect", "dungeon_antlion_desert"]
+    },
+    "zeromus": {
+      "display_name": "Zeromus",
+      "battler_sprite_ref": "sprites/enemies/zeromus",
+      "components": ["Health(1200)", "Resource('mana',240)"],
+      "stats": { "str": 28, "def": 20, "mag": 26, "mdf": 22, "spd": 15 },
+      "xp_reward": 0,
+      "gp_reward": 0,
+      "drop_table": [],
+      "ai": "bt:zeromus_phases",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:zeromus_meteor" },
+        { "health_threshold": 0.5, "behavior": "bt:zeromus_bigbang" },
+        { "health_threshold": 0.15, "behavior": "bt:zeromus_desperation" }
+      ],
+      "tags": ["enemy", "boss", "final_boss", "final_castle"]
+    }
+  },
+  "encounter_groups": {
+    "baron_field_group_a": { "enemies": ["goblin", "goblin"],           "weight": 0.6 },
+    "baron_field_group_b": { "enemies": ["goblin", "imp"],              "weight": 0.4 },
+    "mist_cave_group_a":   { "enemies": ["imp", "skeleton"],            "weight": 0.5 },
+    "mist_cave_group_b":   { "enemies": ["zombie", "zombie"],           "weight": 0.3 },
+    "mist_cave_group_c":   { "enemies": ["skeleton", "skeleton", "imp"],"weight": 0.2 },
+    "antlion_group":       { "enemies": ["sand_worm", "skeleton"],      "weight": 1.0 }
+  }
+}

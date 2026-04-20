@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "title": "JRPG Scaffold Seed",
+    "shape": "action",
+    "vibe": ["snes-era-jrpg", "atb-combat", "four-party", "world-map-exploration"],
+    "target_session_sec": 3600
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 32 } },
+    "sandbox": false
+  },
+  "starting_party": ["cecil", "rydia", "rosa", "edge"],
+  "starting_formation": "standard",
+  "starting_region": "baron_town",
+  "starting_gold": 200,
+  "starting_inventory": [
+    { "item": "potion", "count": 5 },
+    { "item": "ether",  "count": 2 }
+  ],
+  "combat_style": "atb",
+  "win_condition": {
+    "kind": "boss_defeated",
+    "archetype": "zeromus"
+  },
+  "lose_condition": {
+    "kind": "party_wipe",
+    "archetype_any_of": ["cecil", "rydia", "rosa", "edge"]
+  },
+  "party_ref": "party.json",
+  "world_map_ref": "world_map.json",
+  "battles_ref": "battles.json",
+  "spells_ref": "spells.json",
+  "equipment_ref": "equipment.json",
+  "mechanics_ref": "mechanics.json"
+}

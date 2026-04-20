@@ -1,0 +1,143 @@
+{
+  "spells": {
+    "fire": {
+      "school": "offense",
+      "element": "fire",
+      "tier": 1,
+      "mana_cost": 5,
+      "target_scope": "single_enemy",
+      "power": 20,
+      "hit_rate": 0.95,
+      "animation_ref": "fx/fire_cast",
+      "source_essence": "1987_final_fantasy"
+    },
+    "fira": {
+      "school": "offense",
+      "element": "fire",
+      "tier": 2,
+      "mana_cost": 15,
+      "target_scope": "all_enemies",
+      "power": 45,
+      "hit_rate": 0.95,
+      "animation_ref": "fx/fira_cast",
+      "source_essence": "1987_final_fantasy"
+    },
+    "blizzard": {
+      "school": "offense",
+      "element": "ice",
+      "tier": 1,
+      "mana_cost": 5,
+      "target_scope": "single_enemy",
+      "power": 20,
+      "hit_rate": 0.95,
+      "animation_ref": "fx/blizzard_cast",
+      "source_essence": "1987_final_fantasy"
+    },
+    "thunder": {
+      "school": "offense",
+      "element": "lightning",
+      "tier": 1,
+      "mana_cost": 5,
+      "target_scope": "single_enemy",
+      "power": 20,
+      "hit_rate": 0.95,
+      "animation_ref": "fx/thunder_cast",
+      "source_essence": "1987_final_fantasy"
+    },
+    "meteor": {
+      "school": "offense",
+      "element": "non_elemental",
+      "tier": 4,
+      "mana_cost": 60,
+      "target_scope": "all_enemies",
+      "power": 180,
+      "hit_rate": 1.0,
+      "animation_ref": "fx/meteor_cast",
+      "source_essence": "1991_final_fantasy_iv"
+    },
+    "cure": {
+      "school": "heal",
+      "element": "holy",
+      "tier": 1,
+      "mana_cost": 4,
+      "target_scope": "single_ally",
+      "power": 25,
+      "hit_rate": 1.0,
+      "animation_ref": "fx/cure_cast",
+      "source_essence": "1987_final_fantasy"
+    },
+    "cura": {
+      "school": "heal",
+      "element": "holy",
+      "tier": 2,
+      "mana_cost": 12,
+      "target_scope": "single_ally",
+      "power": 70,
+      "hit_rate": 1.0,
+      "animation_ref": "fx/cura_cast",
+      "source_essence": "1987_final_fantasy"
+    },
+    "curaga": {
+      "school": "heal",
+      "element": "holy",
+      "tier": 3,
+      "mana_cost": 25,
+      "target_scope": "all_allies",
+      "power": 90,
+      "hit_rate": 1.0,
+      "animation_ref": "fx/curaga_cast",
+      "source_essence": "1991_final_fantasy_iv"
+    },
+    "raise": {
+      "school": "heal",
+      "element": "holy",
+      "tier": 3,
+      "mana_cost": 30,
+      "target_scope": "single_ally",
+      "power": 0,
+      "effect": "revive_half_hp",
+      "hit_rate": 1.0,
+      "animation_ref": "fx/raise_cast",
+      "source_essence": "1987_final_fantasy"
+    },
+    "sleep": {
+      "school": "status",
+      "element": "status",
+      "tier": 1,
+      "mana_cost": 6,
+      "target_scope": "single_enemy",
+      "power": 0,
+      "effect": "sleep",
+      "duration_turns": 4,
+      "hit_rate": 0.70,
+      "animation_ref": "fx/sleep_cast",
+      "source_essence": "1988_dragon_quest_iii"
+    },
+    "silence": {
+      "school": "status",
+      "element": "status",
+      "tier": 1,
+      "mana_cost": 6,
+      "target_scope": "single_enemy",
+      "power": 0,
+      "effect": "silence",
+      "duration_turns": 5,
+      "hit_rate": 0.75,
+      "animation_ref": "fx/silence_cast",
+      "source_essence": "1987_final_fantasy"
+    },
+    "haste": {
+      "school": "status",
+      "element": "status",
+      "tier": 2,
+      "mana_cost": 12,
+      "target_scope": "single_ally",
+      "power": 0,
+      "effect": "speed_up_50",
+      "duration_turns": 5,
+      "hit_rate": 1.0,
+      "animation_ref": "fx/haste_cast",
+      "source_essence": "1995_chrono_trigger"
+    }
+  }
+}

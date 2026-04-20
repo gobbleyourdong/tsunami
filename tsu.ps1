@@ -193,7 +193,7 @@ start_server(host='0.0.0.0', port=3000)
 
 # Start WebSocket bridge (agent to UI on port 3002)
 $BridgePid = $null
-$bridgePath = Join-Path (Join-Path $DIR "desktop") "ws_bridge.py"
+$bridgePath = Join-Path (Join-Path $DIR "ui") "ws_bridge.py"
 if (Test-Path $bridgePath) {
     $bridgeLog = Join-Path $env:TEMP "tsunami_bridge.log"
     $bridgeProc = Start-Process -FilePath python -ArgumentList $bridgePath `
@@ -209,7 +209,7 @@ if (Test-Path $bridgePath) {
 
 # Start file watcher (pushes file changes to UI on port 3003)
 $WatcherPid = $null
-$watcherPath = Join-Path (Join-Path $DIR "desktop") "file_watcher.py"
+$watcherPath = Join-Path (Join-Path $DIR "ui") "file_watcher.py"
 if (Test-Path $watcherPath) {
     $watcherLog = Join-Path $env:TEMP "tsunami_watcher.log"
     $watcherProc = Start-Process -FilePath python -ArgumentList $watcherPath `

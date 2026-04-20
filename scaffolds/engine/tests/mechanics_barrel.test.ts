@@ -39,15 +39,16 @@ describe('Phase 1 — mechanics barrel', () => {
     expect(missing).toEqual([])
   })
 
-  it('does NOT have the 8 still-missing mechanics registered', () => {
+  it('does NOT have the 5 still-missing mechanics registered', () => {
     const MISSING: MechanicType[] = [
       'RoleAssignment', 'CrowdSimulation',
       'TimeReverseMechanic', 'PhysicsModifier', 'MinigamePool',
-      'PartyComposition',
-      'WorldMapTravel', 'EquipmentLoadout',
       // LevelUpProgression landed 2026-04-20 — removed from missing list
       // TurnBasedCombat landed 2026-04-20 (Cycle 10) — removed from missing list
       // ATBCombat landed 2026-04-20 (Cycle 11) — removed from missing list
+      // PartyComposition landed 2026-04-20 (Cycle 12) — removed from missing list
+      // WorldMapTravel landed 2026-04-20 (Cycle 13) — removed from missing list
+      // EquipmentLoadout landed 2026-04-20 (Cycle 14) — JRPG v1.2 cluster complete
     ]
     // This list shrinks each cycle as Phase 3 catches up.
     const present: MechanicType[] = []
