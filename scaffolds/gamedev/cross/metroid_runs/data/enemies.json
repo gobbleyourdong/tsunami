@@ -1,0 +1,61 @@
+{
+  "enemies": {
+    "zoomer": {
+      "source_essence": "1986_metroid",
+      "display_name": "Zoomer",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "patrol",
+      "components": ["Health(8)", "Resource('contact_damage',6)"],
+      "tags": ["enemy", "damageable", "ground_patrol", "low_tier"],
+      "sprite_ref": "sprites/enemies/zoomer",
+      "drop_table": [ { "item": "small_health_orb", "rate": 0.4 }, { "item": "missile_pickup", "rate": 0.05 } ]
+    },
+    "skree": {
+      "source_essence": "1986_metroid",
+      "display_name": "Skree",
+      "mesh": "sphere",
+      "controller": "none",
+      "ai": "fsm:skree_drop_on_overhead_pass",
+      "components": ["Health(12)", "Resource('contact_damage',10)"],
+      "tags": ["enemy", "damageable", "ceiling_dropper"],
+      "sprite_ref": "sprites/enemies/skree",
+      "drop_table": [ { "item": "small_health_orb", "rate": 0.5 } ]
+    },
+    "zebesian_pirate": {
+      "source_essence": "1994_super_metroid",
+      "display_name": "Zebesian Pirate",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:zebesian_jump_shoot",
+      "components": ["Health(40)", "Resource('contact_damage',12)"],
+      "tags": ["enemy", "damageable", "ranged_attacker", "mid_tier"],
+      "sprite_ref": "sprites/enemies/zebesian",
+      "attack_kind": "ranged_plasma",
+      "projectile": { "kind": "plasma_shot", "speed": 9.0, "damage": 12 },
+      "drop_table": [ { "item": "missile_pickup", "rate": 0.2 } ]
+    },
+    "bat_swarm_unit": {
+      "source_essence": "1986_castlevania",
+      "display_name": "Bat (swarm unit)",
+      "mesh": "sphere",
+      "controller": "none",
+      "ai": "bt:swarm_orbit_player",
+      "components": ["Health(4)", "Resource('contact_damage',4)"],
+      "tags": ["enemy", "damageable", "flying", "swarm_unit"],
+      "sprite_ref": "sprites/enemies/bat",
+      "drop_table": [ { "item": "small_health_orb", "rate": 0.3 } ]
+    },
+    "shadow_blob": {
+      "source_essence": "2018_dead_cells",
+      "display_name": "Shadow Blob",
+      "mesh": "sphere",
+      "controller": "none",
+      "ai": "chase",
+      "components": ["Health(20)", "Resource('contact_damage',10)"],
+      "tags": ["enemy", "damageable", "shadow_runner", "procedural_room_filler"],
+      "sprite_ref": "sprites/enemies/shadow_blob",
+      "drop_table": [ { "item": "soul_fragment", "rate": 0.7 } ]
+    }
+  }
+}

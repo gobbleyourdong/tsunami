@@ -1,0 +1,20 @@
+{
+  "name": "gamedev-platformer-scaffold",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Platformer scaffold (Super Mario Bros / Mega Man 2 / Celeste lineages). Ships 4-5 levels + 6 enemies + 5 powerups + PhysicsModifier/CheckpointProgression/PickupLoop prewired.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "engine": "file:../../engine"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
+  }
+}

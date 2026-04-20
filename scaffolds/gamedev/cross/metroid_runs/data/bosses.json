@@ -1,0 +1,101 @@
+{
+  "bosses": {
+    "boss_kraid_substitute": {
+      "source_essence": "1986_metroid",
+      "display_name": "Kraid (substitute)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:kraid_phase_machine",
+      "components": ["Health(160)", "Resource('contact_damage',20)"],
+      "tags": ["enemy", "damageable", "boss", "ability_dropper"],
+      "sprite_ref": "sprites/bosses/kraid",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:kraid_phase1_belly_spike" },
+        { "health_threshold": 0.4, "behavior": "bt:kraid_phase2_jaw_chomp_summon", "summons": ["zoomer", "zoomer"] }
+      ],
+      "drops_ability_on_first_kill": "morph_ball",
+      "drops_ability_persists_across_runs": true
+    },
+    "boss_ridley_substitute": {
+      "source_essence": "1986_metroid",
+      "display_name": "Ridley (substitute)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:ridley_phase_machine",
+      "components": ["Health(220)", "Resource('contact_damage',26)"],
+      "tags": ["enemy", "damageable", "boss", "flying", "ability_dropper"],
+      "sprite_ref": "sprites/bosses/ridley",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:ridley_phase1_swoop" },
+        { "health_threshold": 0.5, "behavior": "bt:ridley_phase2_fireball_arc" },
+        { "health_threshold": 0.2, "behavior": "bt:ridley_phase3_grounded_charge" }
+      ],
+      "drops_ability_on_first_kill": "double_jump",
+      "drops_ability_persists_across_runs": true
+    },
+    "boss_phantoon_substitute": {
+      "source_essence": "1994_super_metroid",
+      "display_name": "Phantoon (substitute)",
+      "mesh": "sphere",
+      "controller": "none",
+      "ai": "bt:phantoon_phase_machine",
+      "components": ["Health(180)", "Resource('contact_damage',18)"],
+      "tags": ["enemy", "damageable", "boss", "ghost", "ability_dropper"],
+      "sprite_ref": "sprites/bosses/phantoon",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:phantoon_phase1_eye_open_fire" },
+        { "health_threshold": 0.5, "behavior": "bt:phantoon_phase2_fade_strike" }
+      ],
+      "drops_ability_on_first_kill": "wall_climb",
+      "drops_ability_persists_across_runs": true
+    },
+    "boss_concierge": {
+      "source_essence": "2018_dead_cells",
+      "display_name": "Concierge (substitute)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:concierge_phase_machine",
+      "components": ["Health(240)", "Resource('contact_damage',22)"],
+      "tags": ["enemy", "damageable", "boss", "ability_dropper"],
+      "sprite_ref": "sprites/bosses/concierge",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:concierge_phase1_punch_combo" },
+        { "health_threshold": 0.4, "behavior": "bt:concierge_phase2_summon_minions", "summons": ["shadow_blob", "shadow_blob"] }
+      ],
+      "drops_ability_on_first_kill": "dash",
+      "drops_ability_persists_across_runs": true
+    },
+    "boss_giant": {
+      "source_essence": "2018_dead_cells",
+      "display_name": "The Giant (substitute)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:giant_phase_machine",
+      "components": ["Health(320)", "Resource('contact_damage',28)"],
+      "tags": ["enemy", "damageable", "boss", "ability_dropper"],
+      "sprite_ref": "sprites/bosses/giant",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:giant_phase1_stomp_aoe" },
+        { "health_threshold": 0.5, "behavior": "bt:giant_phase2_ground_slam_pursue" }
+      ],
+      "drops_ability_on_first_kill": "shield_bash",
+      "drops_ability_persists_across_runs": true
+    },
+    "boss_kraid_substitute_alt": {
+      "source_essence": "1986_metroid",
+      "display_name": "Kraid Echo (alt)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:kraid_phase_machine",
+      "components": ["Health(200)", "Resource('contact_damage',24)"],
+      "tags": ["enemy", "damageable", "boss", "ability_dropper", "post_alpha_only"],
+      "sprite_ref": "sprites/bosses/kraid_echo",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:kraid_phase1_belly_spike" },
+        { "health_threshold": 0.3, "behavior": "bt:kraid_phase2_jaw_chomp_summon", "summons": ["skree", "zoomer"] }
+      ],
+      "drops_ability_on_first_kill": "ice_beam",
+      "drops_ability_persists_across_runs": true
+    }
+  }
+}

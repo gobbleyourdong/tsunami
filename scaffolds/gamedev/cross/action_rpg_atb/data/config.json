@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "title": "Action-RPG with ATB Battle Boundary — Cross-Genre Canary",
+    "shape": "action",
+    "vibe": ["zelda-field", "ff4-atb-battle", "scene-transition-on-contact", "shared-equipment-across-scenes"],
+    "target_session_sec": 1500,
+    "cross_genre_blend": ["action_adventure", "jrpg"]
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 16 } },
+    "sandbox": false
+  },
+  "starting_room": "overworld_start",
+  "starting_party": "main_party",
+  "starting_inventory": [
+    { "item": "potion_small", "count": 3 },
+    { "item": "ether_small",  "count": 1 }
+  ],
+  "starting_keys_small": 0,
+  "starting_keys_boss": 0,
+  "starting_gold": 100,
+  "scenes": ["field", "battle"],
+  "starting_scene": "field",
+  "player_ref":     "player.json",
+  "party_ref":      "party.json",
+  "enemies_ref":    "enemies.json",
+  "rooms_ref":      "rooms.json",
+  "battles_ref":    "battles.json",
+  "equipment_ref":  "equipment.json",
+  "mechanics_ref":  "mechanics.json",
+  "rules_ref":      "rules.json"
+}

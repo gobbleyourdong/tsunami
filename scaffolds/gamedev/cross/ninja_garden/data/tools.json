@@ -1,0 +1,99 @@
+{
+  "tools": {
+    "katana_basic": {
+      "source_essence": "1988_ninja_gaiden",
+      "display_name": "Katana (basic)",
+      "slot": "primary_melee",
+      "kind": "melee_chain",
+      "damage": 12,
+      "swing_arc_deg": 110,
+      "max_range": 1.6,
+      "combo_chain_max": 3,
+      "combo_window_frames": 24,
+      "noise_radius_on_swing": 1.0,
+      "tags": ["weapon", "melee", "chainable", "starting"],
+      "sprite_ref": "sprites/tools/katana_basic"
+    },
+    "shuriken_pouch": {
+      "source_essence": "1988_ninja_gaiden",
+      "display_name": "Shuriken Pouch",
+      "slot": "ranged",
+      "kind": "thrown_lethal",
+      "damage": 8,
+      "ammo_type": "shuriken_ammo",
+      "ammo_per_shot": 1,
+      "projectile_speed": 12.0,
+      "noise_radius_on_throw": 0.5,
+      "tags": ["weapon", "thrown", "starting", "low_noise"],
+      "sprite_ref": "sprites/tools/shuriken"
+    },
+    "smoke_bomb_pouch": {
+      "source_essence": "1990_revenge_of_shinobi",
+      "display_name": "Smoke Bomb",
+      "slot": "utility",
+      "kind": "thrown_concealment",
+      "damage": 0,
+      "ammo_type": "smoke_bomb_ammo",
+      "ammo_per_shot": 1,
+      "effect": { "kind": "visibility_block_and_alert_decay", "radius": 4.0, "duration_frames": 180 },
+      "noise_radius_on_throw": 0.3,
+      "tags": ["utility", "concealment", "starting"],
+      "sprite_ref": "sprites/tools/smoke_bomb"
+    },
+    "kunai_pouch": {
+      "source_essence": "1990_revenge_of_shinobi",
+      "display_name": "Kunai Pouch",
+      "slot": "ranged",
+      "kind": "thrown_lethal_silent",
+      "damage": 14,
+      "ammo_type": "kunai_ammo",
+      "ammo_per_shot": 1,
+      "projectile_speed": 11.0,
+      "noise_radius_on_throw": 0.2,
+      "tags": ["weapon", "thrown", "silent_kill_capable"],
+      "sprite_ref": "sprites/tools/kunai"
+    },
+    "kusarigama": {
+      "source_essence": "1990_revenge_of_shinobi",
+      "display_name": "Kusarigama (chain-sickle)",
+      "slot": "primary_melee",
+      "kind": "melee_chain_grapple",
+      "damage": 18,
+      "swing_arc_deg": 130,
+      "max_range": 3.0,
+      "combo_chain_max": 4,
+      "combo_window_frames": 28,
+      "grapple_pull_distance": 5.0,
+      "noise_radius_on_swing": 1.5,
+      "craft_required": true,
+      "craft_recipe": "kusarigama_recipe",
+      "tags": ["weapon", "melee", "chainable", "grapple", "craftable"],
+      "sprite_ref": "sprites/tools/kusarigama"
+    },
+    "grappling_hook": {
+      "source_essence": "2011_terraria",
+      "display_name": "Grappling Hook",
+      "slot": "traversal",
+      "kind": "rope_anchor",
+      "damage": 0,
+      "max_range": 12.0,
+      "rope_pull_speed": 8.0,
+      "noise_radius_on_use": 0.5,
+      "tags": ["traversal", "grapple"],
+      "sprite_ref": "sprites/tools/grappling_hook"
+    },
+    "crafting_recipe_basic_shuriken": {
+      "source_essence": "2011_terraria",
+      "display_name": "Recipe: Basic Shuriken",
+      "slot": "recipe",
+      "kind": "recipe_card",
+      "damage": 0,
+      "produces_item": "shuriken",
+      "produces_count": 5,
+      "ingredients": [ { "item": "iron_ingot", "count": 1 }, { "item": "wood_log", "count": 1 } ],
+      "crafting_bench": "smithing_bench",
+      "tags": ["recipe", "starting"],
+      "sprite_ref": "sprites/tools/recipe_card"
+    }
+  }
+}

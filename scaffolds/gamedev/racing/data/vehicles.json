@@ -1,0 +1,97 @@
+{
+  "vehicles": {
+    "kart_light": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Light Kart (Mario/Luigi class)",
+      "kart_style": true,
+      "sprite_ref": "sprites/vehicles/kart_light",
+      "stats": {
+        "top_speed": 62,
+        "acceleration": 0.82,
+        "handling": 0.80,
+        "weight": 0.40
+      },
+      "components": ["Health(3)", "Resource('boost_charge',0)"],
+      "tags": ["vehicle", "kart", "light_weight"]
+    },
+    "kart_medium": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Medium Kart (Peach/Yoshi class)",
+      "kart_style": true,
+      "sprite_ref": "sprites/vehicles/kart_medium",
+      "stats": {
+        "top_speed": 66,
+        "acceleration": 0.75,
+        "handling": 0.72,
+        "weight": 0.55
+      },
+      "components": ["Health(3)", "Resource('boost_charge',0)"],
+      "tags": ["vehicle", "kart", "medium_weight"]
+    },
+    "kart_heavy": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Heavy Kart (Bowser/DK class)",
+      "kart_style": true,
+      "sprite_ref": "sprites/vehicles/kart_heavy",
+      "stats": {
+        "top_speed": 72,
+        "acceleration": 0.65,
+        "handling": 0.60,
+        "weight": 0.85
+      },
+      "components": ["Health(3)", "Resource('boost_charge',0)"],
+      "tags": ["vehicle", "kart", "heavy_weight"]
+    },
+    "sim_sedan_basic": {
+      "source_essence": "1997_gran_turismo",
+      "display_name": "Honda Civic SiR (entry-class)",
+      "kart_style": false,
+      "sprite_ref": "sprites/vehicles/civic_sir",
+      "stats": {
+        "top_speed": 210,
+        "acceleration": 0.55,
+        "handling": 0.70,
+        "weight": 1.05,
+        "grip_dry": 0.88,
+        "grip_wet": 0.65,
+        "torque_curve_ref": "data/torque_curves/civic_sir.json"
+      },
+      "components": ["Health(1)", "Resource('fuel',100)", "Resource('tire_wear',0)"],
+      "tags": ["vehicle", "sim", "entry_class", "fwd"]
+    },
+    "sim_sports_mid": {
+      "source_essence": "1997_gran_turismo",
+      "display_name": "Mazda RX-7 FD (mid-class)",
+      "kart_style": false,
+      "sprite_ref": "sprites/vehicles/rx7_fd",
+      "stats": {
+        "top_speed": 265,
+        "acceleration": 0.72,
+        "handling": 0.84,
+        "weight": 1.15,
+        "grip_dry": 0.92,
+        "grip_wet": 0.68,
+        "torque_curve_ref": "data/torque_curves/rx7_fd.json"
+      },
+      "components": ["Health(1)", "Resource('fuel',100)", "Resource('tire_wear',0)"],
+      "tags": ["vehicle", "sim", "mid_class", "rwd", "rotary"]
+    },
+    "sim_supercar": {
+      "source_essence": "1997_gran_turismo",
+      "display_name": "Ferrari F40 LM (top-class)",
+      "kart_style": false,
+      "sprite_ref": "sprites/vehicles/f40_lm",
+      "stats": {
+        "top_speed": 340,
+        "acceleration": 0.95,
+        "handling": 0.88,
+        "weight": 0.95,
+        "grip_dry": 0.96,
+        "grip_wet": 0.62,
+        "torque_curve_ref": "data/torque_curves/f40_lm.json"
+      },
+      "components": ["Health(1)", "Resource('fuel',100)", "Resource('tire_wear',0)"],
+      "tags": ["vehicle", "sim", "top_class", "rwd", "supercar"]
+    }
+  }
+}

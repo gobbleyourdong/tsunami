@@ -1,0 +1,85 @@
+{
+  "biomes": {
+    "forest_outskirts": {
+      "source_essence": "2011_terraria",
+      "display_name": "Forest Outskirts",
+      "tile_palette_ref": "sprites/biomes/forest",
+      "tile_kinds": ["grass", "dirt", "wood", "stone", "leaves"],
+      "ambient_light": 1.0,
+      "music_ref": "audio/bgm/forest_day",
+      "music_night_ref": "audio/bgm/forest_night",
+      "encounter_table": [
+        { "enemy_id": "bandit_grunt",  "weight": 0.6 },
+        { "enemy_id": "shadow_ninja",  "weight": 0.2, "night_only": true }
+      ],
+      "loot_table_ground": [
+        { "item": "wood_log",   "rate": 0.7 },
+        { "item": "berry",      "rate": 0.4 },
+        { "item": "rope_strip", "rate": 0.2 }
+      ],
+      "structure_seeds": [ "tree_basic", "shrine_small_ruined", "bandit_camp" ],
+      "background_layers": ["sky_blue", "forest_distant", "forest_mid"]
+    },
+    "stone_caverns": {
+      "source_essence": "2011_terraria",
+      "display_name": "Stone Caverns",
+      "tile_palette_ref": "sprites/biomes/cave",
+      "tile_kinds": ["stone", "dirt", "ore_iron", "ore_copper", "water"],
+      "ambient_light": 0.3,
+      "music_ref": "audio/bgm/cave_dim",
+      "music_night_ref": "audio/bgm/cave_dim",
+      "encounter_table": [
+        { "enemy_id": "yokai_kappa",   "weight": 0.5, "near_water": true },
+        { "enemy_id": "shadow_ninja",  "weight": 0.4 }
+      ],
+      "loot_table_ground": [
+        { "item": "stone_block", "rate": 0.8 },
+        { "item": "iron_ingot",  "rate": 0.15 },
+        { "item": "copper_ingot","rate": 0.20 }
+      ],
+      "structure_seeds": ["cave_pool", "ore_vein_iron", "ore_vein_copper", "kappa_pond"],
+      "background_layers": ["cave_dark", "cave_drips"]
+    },
+    "shrine_canopy": {
+      "source_essence": "1990_revenge_of_shinobi",
+      "display_name": "Shrine Canopy",
+      "tile_palette_ref": "sprites/biomes/shrine",
+      "tile_kinds": ["wood_lacquered", "stone", "tatami", "rope_bridge", "leaves"],
+      "ambient_light": 0.7,
+      "music_ref": "audio/bgm/shrine_dusk",
+      "music_night_ref": "audio/bgm/shrine_night",
+      "encounter_table": [
+        { "enemy_id": "tengu_archer",  "weight": 0.6, "perched_on_structure": true },
+        { "enemy_id": "samurai_heavy", "weight": 0.3 }
+      ],
+      "loot_table_ground": [
+        { "item": "wood_log",     "rate": 0.5 },
+        { "item": "feather",      "rate": 0.3 },
+        { "item": "shrine_charm", "rate": 0.05 }
+      ],
+      "structure_seeds": ["torii_gate", "rope_bridge_long", "shrine_main_locked", "stone_lantern"],
+      "background_layers": ["sky_dusk", "mountain_distant", "shrine_silhouette"]
+    },
+    "volcanic_depths": {
+      "source_essence": "1988_ninja_gaiden",
+      "display_name": "Volcanic Depths",
+      "tile_palette_ref": "sprites/biomes/volcano",
+      "tile_kinds": ["obsidian", "lava", "stone", "ore_gold", "fire_geyser"],
+      "ambient_light": 0.5,
+      "music_ref": "audio/bgm/volcano_lit",
+      "music_night_ref": "audio/bgm/volcano_lit",
+      "encounter_table": [
+        { "enemy_id": "samurai_heavy", "weight": 0.5 },
+        { "enemy_id": "shadow_ninja",  "weight": 0.4 }
+      ],
+      "loot_table_ground": [
+        { "item": "obsidian_shard", "rate": 0.7 },
+        { "item": "ore_gold",       "rate": 0.10 },
+        { "item": "fire_essence",   "rate": 0.20 }
+      ],
+      "structure_seeds": ["lava_pool", "obsidian_pillar", "boss_arena_volcanic"],
+      "background_layers": ["volcano_glow", "ash_particles"]
+    }
+  },
+  "starting_biome": "forest_outskirts"
+}

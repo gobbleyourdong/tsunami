@@ -1,0 +1,61 @@
+{
+  "parties": {
+    "main_party": {
+      "max_active": 4,
+      "max_roster": 4,
+      "default_formation": "balanced_front_back",
+      "members": ["hero_warrior", "rana_blackmage", "lily_whitemage", "kage_thief"]
+    }
+  },
+  "members": {
+    "hero_warrior": {
+      "source_essence": "1991_final_fantasy_iv",
+      "display_name": "Hero (warrior)",
+      "archetype": "warrior",
+      "starting_level": 1,
+      "stats": { "str": 12, "def": 10, "mag": 4, "mdf": 6, "spd": 7 },
+      "components": ["Health(40)", "Resource('mana',8)", "Resource('xp',0)", "Resource('level',1)", "Inventory"],
+      "equipment_slots": { "weapon": "short_sword", "armor": "leather_tunic", "accessory_1": null, "accessory_2": null },
+      "battler_sprite_ref": "sprites/battlers/hero",
+      "tags": ["party_member", "warrior", "front_row"]
+    },
+    "rana_blackmage": {
+      "source_essence": "1991_final_fantasy_iv",
+      "display_name": "Rana",
+      "archetype": "black_mage",
+      "starting_level": 1,
+      "stats": { "str": 4, "def": 4, "mag": 14, "mdf": 11, "spd": 9 },
+      "components": ["Health(22)", "Resource('mana',22)", "Resource('xp',0)", "Resource('level',1)", "Inventory"],
+      "equipment_slots": { "weapon": "oak_rod", "armor": "cloth_robe", "accessory_1": null, "accessory_2": null },
+      "battler_sprite_ref": "sprites/battlers/rana",
+      "tags": ["party_member", "mage", "back_row"]
+    },
+    "lily_whitemage": {
+      "source_essence": "1991_final_fantasy_iv",
+      "display_name": "Lily",
+      "archetype": "white_mage",
+      "starting_level": 1,
+      "stats": { "str": 5, "def": 5, "mag": 12, "mdf": 13, "spd": 8 },
+      "components": ["Health(24)", "Resource('mana',20)", "Resource('xp',0)", "Resource('level',1)", "Inventory"],
+      "equipment_slots": { "weapon": "oak_bow", "armor": "cloth_robe", "accessory_1": null, "accessory_2": null },
+      "battler_sprite_ref": "sprites/battlers/lily",
+      "tags": ["party_member", "healer", "back_row"]
+    },
+    "kage_thief": {
+      "source_essence": "1995_chrono_trigger",
+      "display_name": "Kage",
+      "archetype": "thief",
+      "starting_level": 1,
+      "stats": { "str": 10, "def": 7, "mag": 6, "mdf": 7, "spd": 13 },
+      "components": ["Health(30)", "Resource('mana',10)", "Resource('xp',0)", "Resource('level',1)", "Inventory"],
+      "equipment_slots": { "weapon": "dagger", "armor": "leather_tunic", "accessory_1": null, "accessory_2": null },
+      "battler_sprite_ref": "sprites/battlers/kage",
+      "tags": ["party_member", "thief", "front_row", "steal_capable"]
+    }
+  },
+  "formations": {
+    "balanced_front_back": { "front": ["hero_warrior", "kage_thief"], "back": ["rana_blackmage", "lily_whitemage"] },
+    "all_front":          { "front": ["hero_warrior", "kage_thief", "rana_blackmage", "lily_whitemage"], "back": [] }
+  },
+  "battle_command_menu": ["Attack", "Magic", "Item", "Defend", "Flee"]
+}

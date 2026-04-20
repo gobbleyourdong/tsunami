@@ -1,0 +1,109 @@
+{
+  "mechanics": [
+    {
+      "id": "procedural_run_layout",
+      "type": "ProceduralRoomChain",
+      "params": {
+        "seeds_ref": "seeds.json",
+        "default_seed_field": "starting_seed_policy",
+        "rooms_ref": "rooms.json",
+        "room_template_pool_field": "default_template_pool",
+        "always_first_room_field": "always_first_room",
+        "boss_room_max_per_run": 1,
+        "deterministic_per_seed": true,
+        "regenerate_on_run_start": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "ability_walls_lock_and_key",
+      "type": "LockAndKey",
+      "params": {
+        "locks_ref": "abilities.json#ability_unlock_gating.doors_or_walls_keyed_by_ability",
+        "lock_tag_field": "wall_tag",
+        "key_predicate": "player_has_persistent_ability(<requires_ability>)",
+        "consume_on_pass": false
+      },
+      "requires_tags": ["morph_ball_tunnel", "high_ledge_door", "wall_climb_shaft", "frozen_pillar", "dash_dash_gap"]
+    },
+    {
+      "id": "boss_arena_lock_gated_trigger",
+      "type": "GatedTrigger",
+      "params": {
+        "trigger_kind": "boss_door_locked",
+        "owner_tag": "boss_door_locked",
+        "predicate": "all_room_enemies_dead_in_current_room_chain",
+        "on_satisfied_action": "unlock_boss_door"
+      },
+      "requires_tags": ["boss_door_locked"]
+    },
+    {
+      "id": "ability_item_use",
+      "type": "ItemUse",
+      "params": {
+        "owner_tag": "player",
+        "abilities_ref": "abilities.json",
+        "ability_unlock_via_tag": "ability_dropper",
+        "ability_grant_field": "drops_ability_on_first_kill",
+        "ability_persist_field": "drops_ability_persists_across_runs",
+        "weapon_slot_starts_with": "primary_arm_cannon"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "ability_physics_modifiers",
+      "type": "PhysicsModifier",
+      "params": {
+        "owner_tag": "player",
+        "modifiers_ref": "abilities.json#abilities",
+        "active_when_persistent_ability_held_field": "ability_tag",
+        "stack_modifiers": true,
+        "runtime_toggle_via_persistent_ability_grant": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "checkpoint_run_start_only",
+      "type": "CheckpointProgression",
+      "params": {
+        "owner_tag": "player",
+        "respawn_on_zero": false,
+        "death_kind": "permadeath_per_run",
+        "on_death_action": "start_new_run_at_room_start_chamber",
+        "preserve_persistent_state_fields_field": "persistent_state_fields",
+        "wipe_per_run_state_fields_field": "per_run_state_fields"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "boss_phase_machine",
+      "type": "BossPhases",
+      "params": {
+        "boss_tag": "boss",
+        "phases_field": "phases",
+        "summons_resolver_ref": "enemies.json",
+        "first_kill_grants_ability_field": "drops_ability_on_first_kill",
+        "first_kill_persists_field": "drops_ability_persists_across_runs"
+      },
+      "requires_tags": ["boss"]
+    },
+    {
+      "id": "metroid_runs_hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "samus_runner_player", "component": "Health",        "label": "HP" },
+          { "archetype": "samus_runner_player", "component": "missiles",      "label": "Missiles" },
+          { "archetype": "samus_runner_player", "component": "energy_tanks",  "label": "E-Tanks" },
+          { "archetype": "samus_runner_player", "component": "run_xp",        "label": "Run XP" },
+          { "archetype": "samus_runner_player", "component": "meta_xp",       "label": "Meta XP" },
+          { "archetype": "samus_runner_player", "component": "current_run_id","label": "Run #" }
+        ],
+        "layout": "corners",
+        "show_persistent_abilities_dock": true,
+        "show_room_minimap_per_run": true
+      },
+      "requires_tags": ["player"]
+    }
+  ]
+}

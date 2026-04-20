@@ -1,0 +1,112 @@
+{
+  "_comment": "8-mechanic composition per JOB-Q Proposition 3. Every type is registered in the engine mechanic registry. Execution-order matters: RhythmTrack must tick before AttackFrames (AttackFrames reads current beat-phase from RhythmTrack for damage multiplier lookup).",
+  "mechanics": [
+    {
+      "id": "beat_clock",
+      "type": "RhythmTrack",
+      "params": {
+        "beatmap_ref": "crossbeat_120bpm",
+        "bgm_ref": "crossbeat_120bpm",
+        "on_beat_window_beats": 0.125,
+        "time_signature": [4, 4]
+      }
+    },
+    {
+      "id": "p1_frames",
+      "type": "AttackFrames",
+      "params": {
+        "owner_tag": "fighter_p1",
+        "timing_unit": "beats",
+        "on_beat_damage_multiplier": 1.5,
+        "off_beat_damage_multiplier": 0.5,
+        "beat_source_ref": "beat_clock"
+      },
+      "requires_tags": ["fighter"]
+    },
+    {
+      "id": "p2_frames",
+      "type": "AttackFrames",
+      "params": {
+        "owner_tag": "fighter_p2",
+        "timing_unit": "beats",
+        "on_beat_damage_multiplier": 1.5,
+        "off_beat_damage_multiplier": 0.5,
+        "beat_source_ref": "beat_clock"
+      },
+      "requires_tags": ["fighter"]
+    },
+    {
+      "id": "p1_combo",
+      "type": "ComboAttacks",
+      "params": {
+        "owner_id": "p1",
+        "moveset_ref": "ryu_beat_moveset",
+        "input_channel": "player1"
+      }
+    },
+    {
+      "id": "p2_combo",
+      "type": "ComboAttacks",
+      "params": {
+        "owner_id": "p2",
+        "moveset_ref": "ken_beat_moveset",
+        "input_channel": "player2"
+      }
+    },
+    {
+      "id": "rhythm_bonus_stack",
+      "type": "StatusStack",
+      "params": {
+        "status_id": "rhythm_bonus",
+        "max_stacks": 3,
+        "decay_on_beat": true,
+        "apply_on_event": "on_beat_hit"
+      }
+    },
+    {
+      "id": "stage_music",
+      "type": "ChipMusic",
+      "params": {
+        "base_track_ref": "crossbeat_120bpm",
+        "bpm": 120,
+        "loop": true,
+        "drives_beat_clock": true
+      }
+    },
+    {
+      "id": "fight_sfx",
+      "type": "SfxLibrary",
+      "params": {
+        "presets": {
+          "on_beat_hit":  "sfxr_percussive_hit",
+          "off_beat_hit": "sfxr_muted_hit",
+          "block":        "sfxr_block",
+          "whiff":        "sfxr_whiff",
+          "round_start":  "sfxr_round_start"
+        }
+      }
+    },
+    {
+      "id": "hud_fight",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "ryu_beat", "component": "Health", "label": "P1" },
+          { "archetype": "ken_beat", "component": "Health", "label": "P2" },
+          { "mechanic": "beat_clock", "field": "current_beat_phase", "label": "BEAT" },
+          { "mechanic": "rhythm_bonus_stack", "field": "stacks", "label": "BONUS" }
+        ],
+        "layout": "corners"
+      }
+    },
+    {
+      "id": "win_rounds",
+      "type": "WinOnCount",
+      "params": {
+        "watch_singleton": "rounds_won_p1",
+        "count_target": 2,
+        "count_condition": "rounds_best_of_3"
+      }
+    }
+  ]
+}

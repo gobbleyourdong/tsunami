@@ -1,0 +1,45 @@
+{
+  "_comment": "Per-stage beatmap data. beats_per_bar defines the timing grid AttackFrames reads via RhythmTrack. accent_beats mark the downbeats that trigger the on_beat_damage_multiplier window. The window itself is config.match_rules.on_beat_window_beats wide (default 0.125 = 1/8 beat either side of accent).",
+  "beatmaps": {
+    "crossbeat_120bpm": {
+      "bpm": 120,
+      "beats_per_bar": 4,
+      "bar_count_per_loop": 32,
+      "accent_beats": [1, 3],
+      "bassline_pattern": "boom-clap-boom-boom-clap",
+      "note_events": [
+        { "beat": 0.0,  "kind": "kick" },
+        { "beat": 1.0,  "kind": "snare" },
+        { "beat": 2.0,  "kind": "kick" },
+        { "beat": 2.75, "kind": "hi-hat" },
+        { "beat": 3.0,  "kind": "snare" }
+      ]
+    },
+    "rap_instrumental_94bpm": {
+      "bpm": 94,
+      "beats_per_bar": 4,
+      "bar_count_per_loop": 16,
+      "accent_beats": [1, 3],
+      "bassline_pattern": "kick-rest-snare-rest",
+      "note_events": [
+        { "beat": 0.0, "kind": "kick" },
+        { "beat": 2.0, "kind": "snare" }
+      ]
+    },
+    "metal_fast_160bpm": {
+      "bpm": 160,
+      "beats_per_bar": 4,
+      "bar_count_per_loop": 64,
+      "accent_beats": [1, 3],
+      "bassline_pattern": "double-kick-blast",
+      "note_events": [
+        { "beat": 0.0,  "kind": "kick" },
+        { "beat": 0.5,  "kind": "kick" },
+        { "beat": 1.0,  "kind": "snare" },
+        { "beat": 1.5,  "kind": "kick" },
+        { "beat": 2.0,  "kind": "snare" },
+        { "beat": 3.0,  "kind": "snare" }
+      ]
+    }
+  }
+}

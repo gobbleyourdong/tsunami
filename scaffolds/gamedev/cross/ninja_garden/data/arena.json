@@ -1,0 +1,40 @@
+{
+  "arena": {
+    "starting_biome": "forest_outskirts",
+    "world_seed": 7740193,
+    "world_size_tiles": [4096, 1024],
+    "procedural_terrain_persistence": true,
+    "structure_persistence_after_destruction": true,
+    "day_night_cycle_seconds": 720,
+    "day_seconds": 480,
+    "night_seconds": 240,
+    "stealth_recommended_phase": "night",
+    "open_combat_phase_modifier": {
+      "day":   { "enemy_alert_decay_multiplier": 1.0,  "loot_drop_multiplier": 1.0 },
+      "night": { "enemy_alert_decay_multiplier": 0.5,  "loot_drop_multiplier": 1.4, "stealth_kill_xp_bonus": 1.5 }
+    },
+    "biome_progression_default": [
+      "forest_outskirts",
+      "stone_caverns",
+      "shrine_canopy",
+      "volcanic_depths"
+    ],
+    "boss_unlock_order": [
+      { "boss_id": "ogre_king_jubokko",   "unlock_after_biome_explored_pct": 0.4, "biome": "forest_outskirts" },
+      { "boss_id": "shadow_shogun_kage",  "unlock_after_biome_explored_pct": 0.5, "biome": "shrine_canopy" },
+      { "boss_id": "sky_dragon_ryujin",   "unlock_after_prev_boss":          true, "biome": "volcanic_depths" }
+    ],
+    "crafting_benches": [
+      { "id": "smithing_bench",   "structure_seed": "smithing_bench_placeable", "produces_categories": ["weapon", "tool"] },
+      { "id": "alchemy_table",    "structure_seed": "alchemy_table_placeable",  "produces_categories": ["potion", "smoke_bomb_ammo"] },
+      { "id": "shrine_altar",     "structure_seed": "shrine_altar_placeable",   "produces_categories": ["charm", "talisman"] }
+    ],
+    "starting_recipes_known": [
+      "shuriken_recipe",
+      "smoke_bomb_recipe",
+      "wood_block_recipe"
+    ],
+    "respawn_seconds": 8,
+    "respawn_location": "last_checkpoint_or_world_spawn"
+  }
+}

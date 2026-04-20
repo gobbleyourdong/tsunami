@@ -65,3 +65,9 @@ import './atb_combat'
 import './party_composition'
 import './world_map_travel'
 import './equipment_loadout'
+// Phase 3 residual — v1.3 physics extension (Cycle 16).
+import './physics_modifier'
+// Phase 3 residual — v1.3 time extension (Cycle 22).
+import './time_reverse_mechanic'
+// Phase 3 residual — v1.3 role extension (Cycle 26).
+import './role_assignment'

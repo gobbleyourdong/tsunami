@@ -1,0 +1,46 @@
+{
+  "player": {
+    "archetype_id": "shinobi_player",
+    "mesh": "capsule",
+    "controller": "platformer",
+    "components": [
+      "Health(80)",
+      "Resource('chakra',60)",
+      "Resource('chakra_max',60)",
+      "Resource('stealth_meter',100)",
+      "Resource('noise_radius',2.0)",
+      "Inventory",
+      "Score",
+      "Checkpoint",
+      "Resource('craft_recipes_known',0)",
+      "Resource('shuriken_ammo',8)",
+      "Resource('kunai_ammo',6)",
+      "Resource('smoke_bomb_ammo',2)"
+    ],
+    "tags": ["player", "controllable", "damageable", "stealth_capable", "shinobi", "can_craft"],
+    "sprite_ref": "sprites/shinobi/player_idle",
+    "movement": {
+      "walk_speed": 4.5,
+      "run_speed": 7.5,
+      "jump_height": 3.4,
+      "double_jump_height": 2.8,
+      "wall_grab_enabled": true,
+      "wall_grab_max_frames": 90,
+      "wall_jump_horizontal_impulse": 6.0,
+      "wall_jump_vertical_impulse": 3.5,
+      "wall_slide_gravity_scale": 0.25,
+      "dash_distance": 5.0,
+      "dash_frames": 8,
+      "dash_cooldown_frames": 24,
+      "coyote_frames": 5,
+      "jump_buffer_frames": 6,
+      "crouch_speed": 1.8,
+      "crouch_noise_multiplier": 0.3,
+      "stand_noise_multiplier": 1.0,
+      "run_noise_multiplier": 1.8
+    },
+    "stances": ["standing", "crouch", "wall_grab"],
+    "starting_inventory": ["katana_basic", "shuriken_pouch", "smoke_bomb_pouch", "crafting_recipe_basic_shuriken"],
+    "stealth_kill_unlock_tag": "unaware_only"
+  }
+}

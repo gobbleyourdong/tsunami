@@ -1,0 +1,102 @@
+{
+  "room_templates": {
+    "room_start_chamber": {
+      "kind": "spawn_room",
+      "size": [16, 12],
+      "biome": "crateria",
+      "spawns": ["samus_runner_player"],
+      "exits": [ { "side": "right", "kind": "open_corridor" } ],
+      "always_first_room": true,
+      "requires_ability": null
+    },
+    "room_basic_corridor": {
+      "kind": "corridor",
+      "size": [24, 8],
+      "biome_pool": ["crateria", "brinstar"],
+      "enemy_pool": ["zoomer", "skree", "bat_swarm_unit"],
+      "enemy_count_range": [2, 4],
+      "exits": [ { "side": "left", "kind": "open_corridor" }, { "side": "right", "kind": "open_corridor" } ],
+      "requires_ability": null
+    },
+    "room_morph_ball_tunnel": {
+      "kind": "ability_gate",
+      "size": [16, 8],
+      "biome_pool": ["brinstar"],
+      "enemy_pool": ["zoomer"],
+      "enemy_count_range": [1, 2],
+      "exits": [ { "side": "left", "kind": "open_corridor" }, { "side": "right", "kind": "morph_ball_tunnel", "wall_tag": "morph_ball_tunnel" } ],
+      "requires_ability": "morph_ball"
+    },
+    "room_high_ledge_chamber": {
+      "kind": "ability_gate",
+      "size": [20, 14],
+      "biome_pool": ["norfair"],
+      "enemy_pool": ["zebesian_pirate"],
+      "enemy_count_range": [1, 2],
+      "exits": [ { "side": "left", "kind": "open_corridor" }, { "side": "top", "kind": "high_ledge_door", "wall_tag": "high_ledge_door" } ],
+      "requires_ability": "double_jump"
+    },
+    "room_wall_climb_shaft": {
+      "kind": "ability_gate",
+      "size": [12, 24],
+      "biome_pool": ["norfair", "ridleys_lair"],
+      "enemy_pool": ["bat_swarm_unit", "shadow_blob"],
+      "enemy_count_range": [3, 5],
+      "exits": [ { "side": "bottom", "kind": "open_corridor" }, { "side": "top", "kind": "wall_climb_shaft", "wall_tag": "wall_climb_shaft" } ],
+      "requires_ability": "wall_climb"
+    },
+    "room_frozen_pillar_door": {
+      "kind": "ability_gate",
+      "size": [16, 10],
+      "biome_pool": ["maridia"],
+      "enemy_pool": ["zebesian_pirate", "shadow_blob"],
+      "enemy_count_range": [2, 3],
+      "exits": [ { "side": "left", "kind": "open_corridor" }, { "side": "right", "kind": "frozen_pillar", "wall_tag": "frozen_pillar" } ],
+      "requires_ability": "ice_beam"
+    },
+    "room_dash_dash_gap": {
+      "kind": "ability_gate",
+      "size": [32, 8],
+      "biome_pool": ["dead_cells_promenade"],
+      "enemy_pool": ["shadow_blob"],
+      "enemy_count_range": [2, 3],
+      "exits": [ { "side": "left", "kind": "open_corridor" }, { "side": "right", "kind": "dash_dash_gap", "wall_tag": "dash_dash_gap" } ],
+      "requires_ability": "dash"
+    },
+    "room_treasure_alcove": {
+      "kind": "loot_room",
+      "size": [12, 8],
+      "biome_pool": ["crateria", "brinstar", "norfair", "maridia", "ridleys_lair"],
+      "enemy_pool": [],
+      "loot_pool": ["energy_tank_pickup", "missile_capacity_upgrade", "soul_fragment"],
+      "loot_count_range": [1, 2],
+      "exits": [ { "side": "left", "kind": "open_corridor" } ],
+      "requires_ability": null,
+      "rare_room": true
+    },
+    "room_boss_arena": {
+      "kind": "boss_arena",
+      "size": [24, 18],
+      "biome_pool": ["ridleys_lair", "tourian_substitute", "dead_cells_throne"],
+      "enemy_pool": [],
+      "boss_pool": ["boss_kraid_substitute", "boss_ridley_substitute", "boss_phantoon_substitute", "boss_concierge", "boss_giant", "boss_kraid_substitute_alt"],
+      "exits": [ { "side": "left", "kind": "boss_door", "wall_tag": "boss_door_locked" } ],
+      "requires_ability": null,
+      "rare_room": true,
+      "max_per_run": 1
+    }
+  },
+  "default_template_pool": [
+    "room_basic_corridor",
+    "room_basic_corridor",
+    "room_basic_corridor",
+    "room_morph_ball_tunnel",
+    "room_high_ledge_chamber",
+    "room_wall_climb_shaft",
+    "room_frozen_pillar_door",
+    "room_dash_dash_gap",
+    "room_treasure_alcove",
+    "room_boss_arena"
+  ],
+  "always_first_room": "room_start_chamber"
+}

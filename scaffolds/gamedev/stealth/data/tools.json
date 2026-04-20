@@ -1,0 +1,92 @@
+{
+  "tools": {
+    "silenced_pistol": {
+      "source_essence": "1998_metal_gear_solid",
+      "display_name": "Silenced Pistol (SOCOM)",
+      "slot": "primary",
+      "kind": "ranged_lethal",
+      "damage": 25,
+      "ammo_per_shot": 1,
+      "ammo_type": "9mm",
+      "noise_radius_on_fire": 1.5,
+      "max_range": 30.0,
+      "tags": ["weapon", "silenced", "starting"],
+      "sprite_ref": "sprites/tools/socom"
+    },
+    "stun_baton": {
+      "source_essence": "1998_metal_gear_solid",
+      "display_name": "Stun Baton",
+      "slot": "melee",
+      "kind": "melee_nonlethal",
+      "damage": 0,
+      "stun_damage": 40,
+      "noise_radius_on_hit": 0.5,
+      "max_range": 1.2,
+      "tags": ["weapon", "nonlethal", "melee"],
+      "sprite_ref": "sprites/tools/stun_baton"
+    },
+    "chaff_grenade": {
+      "source_essence": "1998_metal_gear_solid",
+      "display_name": "Chaff Grenade",
+      "slot": "utility",
+      "kind": "thrown_disrupt",
+      "damage": 0,
+      "effect": { "kind": "disable_cameras_and_radios", "radius": 6.0, "duration_frames": 180 },
+      "noise_radius_on_throw": 2.0,
+      "ammo_per_shot": 1,
+      "ammo_type": "chaff",
+      "tags": ["utility", "disruption"],
+      "sprite_ref": "sprites/tools/chaff_grenade"
+    },
+    "smoke_grenade": {
+      "source_essence": "1998_metal_gear_solid",
+      "display_name": "Smoke Grenade",
+      "slot": "utility",
+      "kind": "thrown_concealment",
+      "damage": 0,
+      "effect": { "kind": "visibility_block", "radius": 5.0, "duration_frames": 240 },
+      "noise_radius_on_throw": 1.0,
+      "ammo_per_shot": 1,
+      "ammo_type": "smoke",
+      "tags": ["utility", "concealment"],
+      "sprite_ref": "sprites/tools/smoke_grenade"
+    },
+    "body_drag_action": {
+      "source_essence": "1998_metal_gear_solid",
+      "display_name": "Body Drag (Action)",
+      "slot": "action",
+      "kind": "interact",
+      "damage": 0,
+      "movement_speed_while_dragging": 1.0,
+      "tags": ["action", "interact", "starting"],
+      "sprite_ref": null,
+      "applies_to_tag": "unconscious_body"
+    },
+    "throw_rock": {
+      "source_essence": "1998_thief_dark_project",
+      "display_name": "Throw Rock (Distract)",
+      "slot": "utility",
+      "kind": "thrown_distract",
+      "damage": 0,
+      "effect": { "kind": "create_noise_at_impact", "noise_radius": 5.0, "investigate_attractor": true },
+      "noise_radius_on_throw": 0.3,
+      "ammo_per_shot": 1,
+      "ammo_type": "rock",
+      "tags": ["utility", "distract"],
+      "sprite_ref": "sprites/tools/rock"
+    },
+    "lockpick": {
+      "source_essence": "1998_thief_dark_project",
+      "display_name": "Lockpick Set",
+      "slot": "action",
+      "kind": "interact",
+      "damage": 0,
+      "unlock_difficulty_max": 3,
+      "frames_per_attempt": 120,
+      "noise_radius_on_use": 0.8,
+      "tags": ["action", "interact", "unlock"],
+      "sprite_ref": "sprites/tools/lockpick",
+      "applies_to_tag": "lockpickable_door"
+    }
+  }
+}

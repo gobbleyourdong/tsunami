@@ -1,0 +1,76 @@
+{
+  "field_sprites": {
+    "octorok_field": {
+      "source_essence": "1986_legend_of_zelda",
+      "display_name": "Octorok (field-roamer)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "patrol",
+      "components": ["Health(1)", "Resource('contact_damage',0)"],
+      "tags": ["enemy_field", "encounter_trigger", "ground_patrol"],
+      "sprite_ref": "sprites/field/octorok",
+      "encounter_group": "octorok_pair",
+      "respawn_seconds": 30
+    },
+    "moblin_field": {
+      "source_essence": "1986_legend_of_zelda",
+      "display_name": "Moblin (field-roamer)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "patrol",
+      "components": ["Health(1)", "Resource('contact_damage',0)"],
+      "tags": ["enemy_field", "encounter_trigger", "ground_patrol"],
+      "sprite_ref": "sprites/field/moblin",
+      "encounter_group": "moblin_squad",
+      "respawn_seconds": 45
+    },
+    "imp_field": {
+      "source_essence": "1991_final_fantasy_iv",
+      "display_name": "Imp (field-roamer)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "chase",
+      "components": ["Health(1)", "Resource('contact_damage',0)"],
+      "tags": ["enemy_field", "encounter_trigger", "caster_pack"],
+      "sprite_ref": "sprites/field/imp",
+      "encounter_group": "imp_trio",
+      "respawn_seconds": 30
+    },
+    "skeleton_field": {
+      "source_essence": "1988_dragon_quest_iii",
+      "display_name": "Skeleton (field-roamer)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "chase",
+      "components": ["Health(1)", "Resource('contact_damage',0)"],
+      "tags": ["enemy_field", "encounter_trigger", "undead_pack"],
+      "sprite_ref": "sprites/field/skeleton",
+      "encounter_group": "skeleton_pair",
+      "respawn_seconds": 60
+    },
+    "darknut_field": {
+      "source_essence": "1986_legend_of_zelda",
+      "display_name": "Darknut (field-roamer, mid-tier)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "patrol",
+      "components": ["Health(1)", "Resource('contact_damage',0)"],
+      "tags": ["enemy_field", "encounter_trigger", "armored_pack"],
+      "sprite_ref": "sprites/field/darknut",
+      "encounter_group": "darknut_pair",
+      "respawn_seconds": 90
+    },
+    "boss_gohma_field_marker": {
+      "source_essence": "1986_legend_of_zelda",
+      "display_name": "Gohma (boss-room marker)",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "idle",
+      "components": ["Health(1)", "Resource('contact_damage',0)"],
+      "tags": ["enemy_field", "encounter_trigger", "boss_marker", "no_respawn"],
+      "sprite_ref": "sprites/field/gohma_egg",
+      "encounter_group": "gohma_boss_battle",
+      "respawn_seconds": -1
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "racers": {
+    "player": {
+      "display_name": "Player",
+      "vehicle_ref": "kart_light",
+      "ai_kind": null,
+      "controller": "topdown",
+      "components": ["Health(3)", "Score", "Checkpoint", "Resource('current_lap',0)", "Resource('current_position',1)", "Resource('boost_charge',0)"],
+      "tags": ["racer", "player", "controllable"],
+      "sprite_ref": "sprites/racers/player_mario"
+    },
+    "ai_mario": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Mario (AI)",
+      "vehicle_ref": "kart_light",
+      "ai_kind": "rubberband",
+      "ai_difficulty": 0.8,
+      "controller": "none",
+      "components": ["Health(3)", "Checkpoint", "Resource('current_lap',0)", "Resource('boost_charge',0)"],
+      "tags": ["racer", "ai", "rival"],
+      "sprite_ref": "sprites/racers/mario_kart"
+    },
+    "ai_bowser": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Bowser (AI)",
+      "vehicle_ref": "kart_heavy",
+      "ai_kind": "rubberband",
+      "ai_difficulty": 0.9,
+      "controller": "none",
+      "components": ["Health(3)", "Checkpoint", "Resource('current_lap',0)", "Resource('boost_charge',0)"],
+      "tags": ["racer", "ai", "rival", "heavy"],
+      "sprite_ref": "sprites/racers/bowser_kart"
+    },
+    "ai_peach": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Peach (AI)",
+      "vehicle_ref": "kart_medium",
+      "ai_kind": "fixed",
+      "ai_difficulty": 0.7,
+      "controller": "none",
+      "components": ["Health(3)", "Checkpoint", "Resource('current_lap',0)", "Resource('boost_charge',0)"],
+      "tags": ["racer", "ai", "rival"],
+      "sprite_ref": "sprites/racers/peach_kart"
+    },
+    "ai_luigi": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Luigi (AI)",
+      "vehicle_ref": "kart_light",
+      "ai_kind": "adaptive",
+      "ai_difficulty": 0.75,
+      "controller": "none",
+      "components": ["Health(3)", "Checkpoint", "Resource('current_lap',0)", "Resource('boost_charge',0)"],
+      "tags": ["racer", "ai", "rival"],
+      "sprite_ref": "sprites/racers/luigi_kart"
+    },
+    "ai_yoshi": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Yoshi (AI)",
+      "vehicle_ref": "kart_medium",
+      "ai_kind": "fixed",
+      "ai_difficulty": 0.65,
+      "controller": "none",
+      "components": ["Health(3)", "Checkpoint", "Resource('current_lap',0)", "Resource('boost_charge',0)"],
+      "tags": ["racer", "ai", "rival"],
+      "sprite_ref": "sprites/racers/yoshi_kart"
+    }
+  }
+}

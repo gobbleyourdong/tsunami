@@ -1,0 +1,71 @@
+{
+  "bosses": {
+    "ogre_king_jubokko": {
+      "source_essence": "1988_ninja_gaiden",
+      "display_name": "Ogre King Jubokko",
+      "biome_lock": "forest_outskirts",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:ogre_king_phase_machine",
+      "components": ["Health(280)", "Resource('rage',0)", "Resource('damage',16)"],
+      "tags": ["enemy", "damageable", "boss", "biome_lord", "tree_yokai"],
+      "sprite_ref": "sprites/bosses/ogre_king",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:ogre_phase1_branch_swipe", "duration_min_seconds": 25 },
+        { "health_threshold": 0.6, "behavior": "bt:ogre_phase2_root_summon",  "summons": ["bandit_grunt", "bandit_grunt"] },
+        { "health_threshold": 0.25, "behavior": "bt:ogre_phase3_enraged_charge" }
+      ],
+      "spawn_arena_structure_seed": "boss_arena_forest",
+      "drop_table": [
+        { "item": "ogre_horn",   "rate": 1.0 },
+        { "item": "iron_ingot",  "rate": 1.0, "count_min": 3, "count_max": 5 }
+      ],
+      "stealth_kill_one_shot_when": null
+    },
+    "shadow_shogun_kage": {
+      "source_essence": "1990_revenge_of_shinobi",
+      "display_name": "Shadow Shogun Kage",
+      "biome_lock": "shrine_canopy",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:shadow_shogun_phase_machine",
+      "components": ["Health(420)", "Resource('shadow_clones',0)", "Resource('damage',22)"],
+      "tags": ["enemy", "damageable", "boss", "biome_lord", "ninja_master"],
+      "sprite_ref": "sprites/bosses/shadow_shogun",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:shogun_phase1_dual_blades" },
+        { "health_threshold": 0.5, "behavior": "bt:shogun_phase2_clone_split", "summons_field": "shadow_clones", "clone_count": 3 },
+        { "health_threshold": 0.15, "behavior": "bt:shogun_phase3_desperation_storm" }
+      ],
+      "spawn_arena_structure_seed": "boss_arena_shrine",
+      "drop_table": [
+        { "item": "shadow_essence", "rate": 1.0 },
+        { "item": "katana_blade_fragment", "rate": 1.0, "count_min": 2, "count_max": 4 }
+      ],
+      "stealth_kill_one_shot_when": null
+    },
+    "sky_dragon_ryujin": {
+      "source_essence": "1988_ninja_gaiden",
+      "display_name": "Sky-Dragon Ryujin (final boss)",
+      "biome_lock": "volcanic_depths",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:sky_dragon_phase_machine",
+      "components": ["Health(900)", "Resource('flight_alt',6.0)", "Resource('damage',32)"],
+      "tags": ["enemy", "damageable", "boss", "final_boss", "flying", "fire_breath"],
+      "sprite_ref": "sprites/bosses/sky_dragon",
+      "phases": [
+        { "health_threshold": 1.0, "behavior": "bt:dragon_phase1_strafing_fire" },
+        { "health_threshold": 0.7, "behavior": "bt:dragon_phase2_lava_pillars" },
+        { "health_threshold": 0.4, "behavior": "bt:dragon_phase3_grounded_charge" },
+        { "health_threshold": 0.15, "behavior": "bt:dragon_phase4_tail_sweep_desperate" }
+      ],
+      "spawn_arena_structure_seed": "boss_arena_volcanic",
+      "drop_table": [
+        { "item": "dragon_scale",    "rate": 1.0, "count_min": 5, "count_max": 8 },
+        { "item": "ryujin_relic",    "rate": 1.0 }
+      ],
+      "stealth_kill_one_shot_when": null
+    }
+  }
+}

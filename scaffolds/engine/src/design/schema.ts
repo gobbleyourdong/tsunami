@@ -200,9 +200,14 @@ export type MechanicParams =
   // v1.2 JRPG cluster (added 2026-04-20 per GAMEDEV_FRAMEWORK_PLAN.md Phase 3)
   | ATBCombatParams | TurnBasedCombatParams | PartyCompositionParams
   | LevelUpProgressionParams | WorldMapTravelParams | EquipmentLoadoutParams
+  // v1.3 physics extension (added 2026-04-20 Cycle 16) — promoted from v2
+  | PhysicsModifierParams
+  // v1.3 time extension (added 2026-04-20 Cycle 22) — promoted from v2
+  | TimeReverseMechanicParams
+  // v1.3 role extension (added 2026-04-20 Cycle 26) — promoted from v2
+  | RoleAssignmentParams
   // v2 placeholders — shape not yet specified; compiler declines
-  | { type: 'RoleAssignment'       | 'CrowdSimulation'
-            | 'TimeReverseMechanic' | 'PhysicsModifier' | 'MinigamePool';
+  | { type: 'CrowdSimulation' | 'MinigamePool';
       [key: string]: unknown }
 
 // ───────── param shapes ─────────
@@ -829,6 +834,70 @@ export interface EquipmentLoadoutParams {
   /** Which stats each slot's item contributes to when equipped.
    *  slot_name → list of stat keys it can modify via item bonuses. */
   stat_mapping: Record<string, string[]>
+}
+
+// ──── v1.3 physics extension — promoted from v2 placeholder Cycle 16.
+// Global physics modifier for whole-scene gravity / friction / time-scale
+// changes. Platformer scaffolds tune gravity via this (coyote-frame-adjacent);
+// VVVVVV-style games flip gravity; Superhot slows time.
+
+// ──── v1.3 time extension — promoted from v2 placeholder Cycle 22.
+// Rewind-style time reversal. Distinct from PhysicsModifier.time_scale
+// (which only slows/speeds forward-time): this records per-entity
+// snapshots into a ring buffer and plays them backwards on rewind.
+// Archetypes: Braid (selective per-object rewind), Prince of Persia:
+// Sands of Time (player-only rewind with resource gate), Titanfall 2
+// "Effect and Cause" (scene-scoped phase shift).
+
+export interface TimeReverseMechanicParams {
+  /** Max seconds of history retained. Longer = more memory per entity. */
+  rewind_duration_sec: number
+  /** Snapshots per second stored in the ring buffer. Tradeoff: higher
+   *  = smoother rewind, more memory. 30 is typical for gameplay feel. */
+  snapshot_rate_hz: number
+  /** Tag filter — only entities with this tag are recorded/rewound.
+   *  Omit for scene-wide rewind. */
+  affects_tag?: string
+  /** Resource component to spend while rewinding (e.g. "SandsOfTime");
+   *  the mechanic decrements this per-second during rewind. Omit to
+   *  disable the resource gate entirely. */
+  resource_component?: string
+  /** Drain rate of the resource during rewind (units per second). */
+  resource_drain_rate?: number
+}
+
+// ──── v1.3 role extension — promoted from v2 placeholder Cycle 26.
+// Runtime role assignment — maps role ids to entity ids. The same
+// entity can hold multiple roles (leader + healer). Changing the
+// 'player_controlled' role hot-swaps which entity the input channel
+// drives (Lemmings job-assignment, Lost Vikings character-swap,
+// RTS squad delegation, LBP drop-in-drop-out multiplayer).
+
+export interface RoleAssignmentParams {
+  /** Declared role ids the scaffold will use (validated at assign-time). */
+  roles: string[]
+  /** Optional initial assignment — role_id → entity_id. */
+  initial_assignments?: Record<string, string>
+  /** Allow the same entity to hold multiple roles simultaneously.
+   *  false = reassigning a role that's already held steals it from
+   *  the previous holder. true = it's additive (entity has both). */
+  allow_multi_role?: boolean
+  /** Optional tag filter — only entities with this tag are assignable. */
+  assignable_tag?: string
+}
+
+export interface PhysicsModifierParams {
+  /** Gravity multiplier. 1.0 = default (whatever the base scene uses).
+   *  Negative = inverted gravity (VVVVVV-style flip). 0 = floaty. */
+  gravity_scale: number
+  /** Global friction multiplier for sliding surfaces. 1.0 = default. */
+  friction_scale: number
+  /** Time scale. 1.0 = real-time. <1 = slow-mo (Superhot-style);
+   *  >1 = fast-forward (Chrono Trigger's haste at the scene level). */
+  time_scale: number
+  /** Optional tag filter — only entities carrying this tag are affected.
+   *  Omit to apply globally to the whole scene. */
+  affects_tag?: string
 }
 
 // ───────── validator result ─────────

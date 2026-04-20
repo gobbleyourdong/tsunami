@@ -1,0 +1,59 @@
+{
+  "powerups": {
+    "mushroom_boost": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Mushroom Boost",
+      "trigger": "pickup",
+      "components": ["Resource('boost_amount',1.5)"],
+      "tags": ["pickup", "powerup", "self_boost"],
+      "sprite_ref": "sprites/items/mushroom",
+      "effect": { "kind": "speed_boost", "multiplier": 1.5, "duration_frames": 90 },
+      "score_reward": 0
+    },
+    "triple_mushroom": {
+      "source_essence": "1996_mario_kart_64",
+      "display_name": "Triple Mushroom",
+      "trigger": "pickup",
+      "components": ["Resource('boost_charges',3)"],
+      "tags": ["pickup", "powerup", "self_boost", "stockpile"],
+      "sprite_ref": "sprites/items/triple_mushroom",
+      "effect": { "kind": "stockpile_boost", "charges": 3, "per_charge_multiplier": 1.5, "per_charge_duration_frames": 90 }
+    },
+    "green_shell": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Green Shell",
+      "trigger": "pickup",
+      "components": ["Resource('shell_count',1)"],
+      "tags": ["pickup", "weapon", "projectile_straight"],
+      "sprite_ref": "sprites/items/green_shell",
+      "effect": { "kind": "throw_projectile_straight", "speed": 24.0, "damage_on_hit": 1, "stun_frames_on_hit": 60 }
+    },
+    "red_shell": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Red Shell",
+      "trigger": "pickup",
+      "components": ["Resource('shell_count',1)"],
+      "tags": ["pickup", "weapon", "projectile_homing"],
+      "sprite_ref": "sprites/items/red_shell",
+      "effect": { "kind": "throw_projectile_homing", "speed": 22.0, "damage_on_hit": 1, "stun_frames_on_hit": 60, "target": "next_racer_ahead" }
+    },
+    "banana": {
+      "source_essence": "1992_super_mario_kart",
+      "display_name": "Banana Peel",
+      "trigger": "pickup",
+      "components": ["Resource('banana_count',1)"],
+      "tags": ["pickup", "weapon", "trap_drop"],
+      "sprite_ref": "sprites/items/banana",
+      "effect": { "kind": "drop_trap", "spin_out_frames": 60 }
+    },
+    "lightning_bolt": {
+      "source_essence": "1996_mario_kart_64",
+      "display_name": "Lightning Bolt",
+      "trigger": "pickup",
+      "components": ["Resource('lightning_count',1)"],
+      "tags": ["pickup", "weapon", "global_disrupt"],
+      "sprite_ref": "sprites/items/lightning",
+      "effect": { "kind": "shrink_all_other_racers", "duration_frames": 240, "stun_frames_on_initial_hit": 30 }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "title": "Metroid Runs — Metroidvania-Roguelike Cross-Genre Canary",
+    "shape": "metroidvania",
+    "vibe": ["procedural-per-run", "ability-gated-traversal", "permadeath-per-run", "permanent-meta-progression"],
+    "target_session_sec": 1800,
+    "cross_genre_blend": ["action_adventure", "platformer", "rogue_like"]
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 32 } },
+    "gravity": [0.0, -22.0, 0.0],
+    "sandbox": false
+  },
+  "starting_seed_policy": "random_per_run",
+  "first_run_seed": 100001,
+  "world_seed_override": null,
+  "permadeath_mode": true,
+  "starting_persistent_abilities": [],
+  "starting_max_hp": 99,
+  "starting_missile_capacity": 5,
+  "player_ref":     "player.json",
+  "enemies_ref":    "enemies.json",
+  "abilities_ref":  "abilities.json",
+  "rooms_ref":      "rooms.json",
+  "seeds_ref":      "seeds.json",
+  "bosses_ref":     "bosses.json",
+  "mechanics_ref":  "mechanics.json",
+  "rules_ref":      "rules.json"
+}

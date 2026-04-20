@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "title": "Platformer Scaffold Seed",
+    "shape": "action",
+    "vibe": ["2d-platformer", "nes-to-snes", "mario-to-megaman-to-celeste-lineage", "precision-jumping"],
+    "target_session_sec": 1200
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 32 } },
+    "gravity": [0.0, -20.0, 0.0],
+    "sandbox": false
+  },
+  "starting_level": "1-1",
+  "lives_start": 3,
+  "scoring_mode": "accumulate_score",
+  "starting_player_state": "small",
+  "starting_inventory": [],
+  "starting_coins": 0,
+  "extra_life_coin_threshold": 100,
+  "win_condition": {
+    "kind": "reach_level",
+    "target_level": "game_complete"
+  },
+  "lose_condition": {
+    "kind": "lives_zero",
+    "archetype": "mario_like_player"
+  },
+  "player_ref": "player.json",
+  "enemies_ref": "enemies.json",
+  "powerups_ref": "powerups.json",
+  "levels_ref": "levels.json",
+  "mechanics_ref": "mechanics.json"
+}

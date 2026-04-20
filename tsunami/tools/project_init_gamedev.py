@@ -43,7 +43,14 @@ _GENRE_MAP: dict[str, str] = {
     "action_adventure":  "action_adventure",
     "fighting":          "fighting",
     "jrpg":              "jrpg",
+    "platformer":        "platformer",
+    "fps":               "fps",
+    "stealth":           "stealth",
+    "racing":            "racing",
     "magic_hoops":       "cross/magic_hoops",
+    "ninja_garden":      "cross/ninja_garden",
+    "rhythm_fighter":    "cross/rhythm_fighter",
+    "action_rpg_atb":    "cross/action_rpg_atb",
     # Common spellings + hyphen variants
     "action-adventure":  "action_adventure",
     "adventure":         "action_adventure",
@@ -53,6 +60,40 @@ _GENRE_MAP: dict[str, str] = {
     "jrpg-classic":      "jrpg",
     "final-fantasy":     "jrpg",
     "dragon-quest":      "jrpg",
+    "platform":          "platformer",
+    "mario":             "platformer",
+    "super-mario":       "platformer",
+    "megaman":           "platformer",
+    "celeste":           "platformer",
+    "shooter":           "fps",
+    "first-person":      "fps",
+    "first-person-shooter": "fps",
+    "doom":              "fps",
+    "quake":             "fps",
+    "half-life":         "fps",
+    "sneak":             "stealth",
+    "infiltration":      "stealth",
+    "metal-gear":        "stealth",
+    "thief":             "stealth",
+    "splinter-cell":     "stealth",
+    "race":              "racing",
+    "kart":              "racing",
+    "mario-kart":        "racing",
+    "outrun":            "racing",
+    "out-run":           "racing",
+    "gran-turismo":      "racing",
+    "ninja-garden":      "cross/ninja_garden",
+    "terraria":          "cross/ninja_garden",
+    "ninja-gaiden":      "cross/ninja_garden",
+    "shinobi":           "cross/ninja_garden",
+    "sandbox-action":    "cross/ninja_garden",
+    "rhythm-fighter":    "cross/rhythm_fighter",
+    "rhythm-fighting":   "cross/rhythm_fighter",
+    "beat-fighter":      "cross/rhythm_fighter",
+    "parappa-fighter":   "cross/rhythm_fighter",
+    "action-rpg":        "cross/action_rpg_atb",
+    "action-rpg-atb":    "cross/action_rpg_atb",
+    "zelda-ff":          "cross/action_rpg_atb",
     "cross":             "cross/magic_hoops",
     "cross-genre":       "cross/magic_hoops",
     "canary":            "cross/magic_hoops",
@@ -119,7 +160,13 @@ class ProjectInitGamedev(BaseTool):
         "Available genres: 'custom' (universal base), 'action_adventure' "
         "(Zelda/Metroid lineage), 'fighting' (SF2/MK2/Tekken lineage), "
         "'jrpg' (FF4/DQ3/Chrono Trigger lineage, ATB combat), "
-        "'magic_hoops' (cross-genre canary: sports+fighting+RPG). "
+        "'platformer' (SMB/Mega Man 2/Celeste lineage), "
+        "'fps' (Doom/Quake/Half-Life lineage, hitscan+projectile weapons), "
+        "'stealth' (MGS/Thief/Splinter Cell lineage, VisionCone detection), "
+        "'racing' (Out Run/Mario Kart/Gran Turismo lineage, checkpoint-based scoring), "
+        "'magic_hoops' (cross-genre canary #1: sports+fighting+RPG), "
+        "'ninja_garden' (cross-genre canary #2: sandbox+action+stealth, Terraria × Ninja Gaiden × Shinobi), "
+        "'rhythm_fighter' (cross-genre canary #3: fighting+rhythm, SF2 × PaRappa × Gitaroo Man). "
         "Installs deps and starts the dev server."
     )
 
@@ -135,7 +182,7 @@ class ProjectInitGamedev(BaseTool):
                     "type": "string",
                     "description": (
                         "Genre scaffold to copy. One of: custom, "
-                        "action_adventure, fighting, jrpg, magic_hoops."
+                        "action_adventure, fighting, jrpg, platformer, fps, stealth, racing, magic_hoops, ninja_garden, rhythm_fighter."
                     ),
                 },
             },
@@ -161,7 +208,7 @@ class ProjectInitGamedev(BaseTool):
             avail = sorted({v for v in _GENRE_MAP.values()})
             return ToolResult(
                 f"Unknown genre {genre!r}. Available: "
-                f"custom, action_adventure, fighting, jrpg, magic_hoops. "
+                f"custom, action_adventure, fighting, jrpg, platformer, fps, stealth, racing, magic_hoops, ninja_garden, rhythm_fighter. "
                 f"(Scaffolds on disk: {avail})",
                 is_error=True,
             )

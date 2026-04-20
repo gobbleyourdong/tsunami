@@ -1,0 +1,112 @@
+{
+  "mechanics": [
+    {
+      "id": "camera_follow_player",
+      "type": "CameraFollow",
+      "params": {
+        "target_tag": "player",
+        "lerp": 0.12,
+        "deadzone": [3.0, 1.0],
+        "lock_vertical_on_ground": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "level_checkpoints",
+      "type": "CheckpointProgression",
+      "params": {
+        "owner_tag": "player",
+        "respawn_on_zero": true,
+        "checkpoint_field": "Checkpoint",
+        "consume_life_on_respawn": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "powerup_pickup_loop",
+      "type": "PickupLoop",
+      "params": {
+        "pickup_tag": "pickup",
+        "owner_tag": "player",
+        "by_effect_kind": true
+      },
+      "requires_tags": ["pickup", "player"]
+    },
+    {
+      "id": "boss_door_keys",
+      "type": "LockAndKey",
+      "params": {
+        "locks": [
+          { "lock_tag": "boss_lock", "key_tag": "level_cleared", "world": "world_2" }
+        ]
+      },
+      "requires_tags": ["boss_lock"]
+    },
+    {
+      "id": "lose_when_lives_zero",
+      "type": "LoseOnZero",
+      "params": {
+        "archetype": "mario_like_player",
+        "field": "lives",
+        "emit_condition": "game_over"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "win_on_final_flag",
+      "type": "WinOnCount",
+      "params": {
+        "archetype": "mario_like_player",
+        "count": 1,
+        "comparison": "gte",
+        "emit_condition": "reached_game_complete_flag"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "main_hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "mario_like_player", "component": "Health", "label": "HP" },
+          { "archetype": "mario_like_player", "component": "Score", "label": "Score" },
+          { "archetype": "mario_like_player", "component": "lives", "label": "Lives" },
+          { "archetype": "mario_like_player", "component": "coins", "label": "Coins" }
+        ],
+        "layout": "top"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "stage_music",
+      "type": "ChipMusic",
+      "params": {
+        "tracks": {
+          "overworld": "audio/bgm/overworld",
+          "underground": "audio/bgm/underground",
+          "air_man_stage": "audio/bgm/air_man_stage",
+          "boss_battle": "audio/bgm/boss_battle",
+          "celeste_peak": "audio/bgm/celeste_peak"
+        },
+        "track_by_level_theme": true
+      },
+      "requires_tags": []
+    },
+    {
+      "id": "sfx_library",
+      "type": "SfxLibrary",
+      "params": {
+        "events": {
+          "jump": "audio/sfx/jump",
+          "stomp": "audio/sfx/stomp",
+          "coin_pickup": "audio/sfx/coin",
+          "powerup_grab": "audio/sfx/powerup",
+          "mario_death": "audio/sfx/mario_death",
+          "1up": "audio/sfx/1up",
+          "boss_hit": "audio/sfx/boss_hit"
+        }
+      },
+      "requires_tags": []
+    }
+  ]
+}

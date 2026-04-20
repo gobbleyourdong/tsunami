@@ -1,0 +1,79 @@
+{
+  "abilities": {
+    "morph_ball": {
+      "source_essence": "1986_metroid",
+      "display_name": "Morph Ball",
+      "kind": "physics_modifier",
+      "modifier_target": "player_collision_height",
+      "effect": { "kind": "shrink_collision", "ratio": 0.4, "enable_traversal_tag": "morph_ball_only" },
+      "ability_tag": "morph_ball",
+      "is_persistent": true,
+      "drops_from": "boss_kraid_substitute",
+      "tags": ["traversal", "starting_optional"]
+    },
+    "double_jump": {
+      "source_essence": "1986_metroid",
+      "display_name": "Space Jump",
+      "kind": "physics_modifier",
+      "modifier_target": "player_jump",
+      "effect": { "kind": "extra_jump_count", "amount": 1 },
+      "ability_tag": "double_jump",
+      "is_persistent": true,
+      "drops_from": "boss_ridley_substitute",
+      "tags": ["traversal", "mobility_unlock"]
+    },
+    "wall_climb": {
+      "source_essence": "1994_super_metroid",
+      "display_name": "Wall Climb",
+      "kind": "physics_modifier",
+      "modifier_target": "player_wall_grab",
+      "effect": { "kind": "enable_wall_grab", "max_frames": 90, "wall_jump_horizontal_impulse": 6.0, "wall_jump_vertical_impulse": 3.5 },
+      "ability_tag": "wall_climb",
+      "is_persistent": true,
+      "drops_from": "boss_phantoon_substitute",
+      "tags": ["traversal", "mobility_unlock"]
+    },
+    "dash": {
+      "source_essence": "2018_dead_cells",
+      "display_name": "Roll Dash",
+      "kind": "physics_modifier",
+      "modifier_target": "player_dash",
+      "effect": { "kind": "enable_dash", "distance": 5.0, "frames": 8, "cooldown_frames": 24 },
+      "ability_tag": "dash",
+      "is_persistent": true,
+      "drops_from": "boss_concierge",
+      "tags": ["traversal", "combat_modifier"]
+    },
+    "shield_bash": {
+      "source_essence": "2018_dead_cells",
+      "display_name": "Shield Bash",
+      "kind": "physics_modifier",
+      "modifier_target": "player_block",
+      "effect": { "kind": "enable_block_with_counter", "block_window_frames": 10, "counter_damage_multiplier": 2.0 },
+      "ability_tag": "shield_bash",
+      "is_persistent": true,
+      "drops_from": "boss_giant",
+      "tags": ["combat_modifier"]
+    },
+    "ice_beam": {
+      "source_essence": "1986_metroid",
+      "display_name": "Ice Beam",
+      "kind": "weapon_modifier",
+      "modifier_target": "player_primary_weapon",
+      "effect": { "kind": "freeze_on_hit", "duration_frames": 90 },
+      "ability_tag": "ice_beam",
+      "is_persistent": true,
+      "drops_from": "boss_kraid_substitute_alt",
+      "tags": ["weapon_modifier", "lock_key_substitute"]
+    }
+  },
+  "ability_unlock_gating": {
+    "doors_or_walls_keyed_by_ability": [
+      { "wall_tag": "morph_ball_tunnel",  "requires_ability": "morph_ball" },
+      { "wall_tag": "high_ledge_door",    "requires_ability": "double_jump" },
+      { "wall_tag": "wall_climb_shaft",   "requires_ability": "wall_climb" },
+      { "wall_tag": "frozen_pillar",      "requires_ability": "ice_beam" },
+      { "wall_tag": "dash_dash_gap",      "requires_ability": "dash" }
+    ]
+  }
+}

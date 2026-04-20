@@ -1,0 +1,20 @@
+{
+  "name": "gamedev-ninja-garden-canary",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-genre canary #2 — Terraria sandbox × Ninja Gaiden action × Shinobi stealth. Architectural test for procedural-terrain persistence + stealth/combat co-resolution.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "engine": "file:../../../engine"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
+  }
+}

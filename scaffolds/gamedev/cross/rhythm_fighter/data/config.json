@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "title": "Rhythm Fighter",
+    "shape": "cross_genre_fighting_rhythm",
+    "vibe": ["sf2_combo", "parappa_beat_window", "on-beat-damage-multiplier"],
+    "target_session_sec": 600
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "arena", "arena": { "shape": "rect" } }
+  },
+  "match_rules": {
+    "rounds_per_match": 3,
+    "round_timer": 99,
+    "win_condition": "best_of_n",
+    "on_beat_damage_multiplier": 1.5,
+    "off_beat_damage_multiplier": 0.5,
+    "on_beat_window_beats": 0.125
+  },
+  "starting_matchup": ["ryu_beat", "ken_beat"],
+  "starting_stage": "crossbeat_arena",
+  "_comment": "Cross-genre canary #3 — tests RhythmTrack × AttackFrames timing coupling. Move startup/active/recovery timing expressible in beat-fractions rather than frames. On-beat hits = 1.5x damage, off-beat = 0.5x. Exercises the mechanic-execution-order invariant (RhythmTrack fires before AttackFrames each tick)."
+}

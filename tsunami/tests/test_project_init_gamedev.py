@@ -41,7 +41,7 @@ class TestScaffoldsOnDisk:
     def test_engine_root_exists(self):
         assert ENGINE_DIR.is_dir(), f"missing {ENGINE_DIR}"
 
-    @pytest.mark.parametrize("sub", ["custom", "action_adventure", "fighting", "jrpg", "cross/magic_hoops"])
+    @pytest.mark.parametrize("sub", ["custom", "action_adventure", "fighting", "jrpg", "platformer", "fps", "stealth", "racing", "cross/magic_hoops", "cross/ninja_garden", "cross/rhythm_fighter"])
     def test_genre_dir_exists(self, sub):
         d = GAMEDEV_DIR / sub
         assert d.is_dir(), f"missing scaffold dir {d}"
@@ -57,7 +57,13 @@ class TestResolveGenre:
         assert _resolve_genre("action_adventure") == "action_adventure"
         assert _resolve_genre("fighting") == "fighting"
         assert _resolve_genre("jrpg") == "jrpg"
+        assert _resolve_genre("platformer") == "platformer"
+        assert _resolve_genre("fps") == "fps"
+        assert _resolve_genre("stealth") == "stealth"
+        assert _resolve_genre("racing") == "racing"
         assert _resolve_genre("magic_hoops") == "cross/magic_hoops"
+        assert _resolve_genre("ninja_garden") == "cross/ninja_garden"
+        assert _resolve_genre("rhythm_fighter") == "cross/rhythm_fighter"
 
     def test_aliases(self):
         assert _resolve_genre("action-adventure") == "action_adventure"
@@ -66,6 +72,19 @@ class TestResolveGenre:
         assert _resolve_genre("brawler") == "fighting"
         assert _resolve_genre("rpg") == "jrpg"
         assert _resolve_genre("final-fantasy") == "jrpg"
+        assert _resolve_genre("mario") == "platformer"
+        assert _resolve_genre("celeste") == "platformer"
+        assert _resolve_genre("doom") == "fps"
+        assert _resolve_genre("first-person-shooter") == "fps"
+        assert _resolve_genre("metal-gear") == "stealth"
+        assert _resolve_genre("sneak") == "stealth"
+        assert _resolve_genre("kart") == "racing"
+        assert _resolve_genre("mario-kart") == "racing"
+        assert _resolve_genre("gran-turismo") == "racing"
+        assert _resolve_genre("terraria") == "cross/ninja_garden"
+        assert _resolve_genre("ninja-gaiden") == "cross/ninja_garden"
+        assert _resolve_genre("rhythm-fighter") == "cross/rhythm_fighter"
+        assert _resolve_genre("parappa-fighter") == "cross/rhythm_fighter"
         assert _resolve_genre("cross-genre") == "cross/magic_hoops"
         assert _resolve_genre("canary") == "cross/magic_hoops"
 
@@ -163,7 +182,13 @@ class TestEndToEndCopy:
         ("action_adventure", "action_adventure"),
         ("fighting", "fighting"),
         ("jrpg", "jrpg"),
+        ("platformer", "platformer"),
+        ("fps", "fps"),
+        ("stealth", "stealth"),
+        ("racing", "racing"),
         ("magic_hoops", "cross/magic_hoops"),
+        ("ninja_garden", "cross/ninja_garden"),
+        ("rhythm_fighter", "cross/rhythm_fighter"),
     ])
     def test_copy_and_rewrite(self, genre, expected_sub):
         sub = _resolve_genre(genre)

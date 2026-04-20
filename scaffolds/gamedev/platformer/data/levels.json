@@ -1,0 +1,120 @@
+{
+  "levels": {
+    "1-1": {
+      "source_essence": "1985_super_mario_bros",
+      "display_name": "World 1-1",
+      "theme": "overworld_day",
+      "bg_sprite_ref": "sprites/bg/overworld_day",
+      "music_ref": "audio/bgm/overworld",
+      "width_tiles": 210,
+      "height_tiles": 14,
+      "spawn_point": [2, 2],
+      "checkpoints": [ [85, 2] ],
+      "exit": { "kind": "flagpole", "tile": [196, 2], "next_level": "1-2" },
+      "enemies": [
+        { "id": "goomba", "tile": [22, 2] },
+        { "id": "goomba", "tile": [40, 2] },
+        { "id": "koopa_troopa", "tile": [100, 2] },
+        { "id": "goomba", "tile": [160, 2] },
+        { "id": "goomba", "tile": [165, 2] }
+      ],
+      "powerups": [
+        { "id": "super_mushroom", "tile": [16, 6], "in_block": true },
+        { "id": "fire_flower", "tile": [77, 8], "in_block": true },
+        { "id": "one_up", "tile": [107, 6], "in_block": true, "secret": true }
+      ],
+      "coins_positions": [[20, 4], [21, 4], [22, 4], [56, 5], [57, 5], [106, 4], [107, 4]],
+      "secret_areas": [ { "entry_tile": [108, 2], "kind": "warp_pipe", "exit_tile": [162, 2] } ]
+    },
+    "1-2": {
+      "source_essence": "1985_super_mario_bros",
+      "display_name": "World 1-2 (Underground)",
+      "theme": "underground",
+      "bg_sprite_ref": "sprites/bg/underground",
+      "music_ref": "audio/bgm/underground",
+      "width_tiles": 224,
+      "height_tiles": 14,
+      "spawn_point": [2, 10],
+      "checkpoints": [ [100, 10] ],
+      "exit": { "kind": "warp_pipe", "tile": [218, 10], "next_level": "2-1" },
+      "enemies": [
+        { "id": "goomba", "tile": [30, 10] },
+        { "id": "koopa_troopa", "tile": [80, 10] },
+        { "id": "piranha_plant", "tile": [140, 12] },
+        { "id": "goomba", "tile": [180, 10] }
+      ],
+      "powerups": [
+        { "id": "super_mushroom", "tile": [24, 8], "in_block": true },
+        { "id": "star", "tile": [168, 8], "in_block": true, "secret": true }
+      ],
+      "coins_positions": [[14,7],[15,7],[16,7],[70,8],[71,8],[72,8],[155,7],[156,7]],
+      "secret_areas": [ { "entry_tile": [76, 10], "kind": "warp_zone_pipe", "exit_level": "4-1" } ]
+    },
+    "2-1": {
+      "source_essence": "1988_mega_man_2",
+      "display_name": "World 2-1 (Air Man Stage)",
+      "theme": "sky_platforms",
+      "bg_sprite_ref": "sprites/bg/sky_platforms",
+      "music_ref": "audio/bgm/air_man_stage",
+      "width_tiles": 320,
+      "height_tiles": 20,
+      "spawn_point": [2, 10],
+      "checkpoints": [ [110, 10], [230, 10] ],
+      "exit": { "kind": "boss_door", "tile": [310, 10], "next_level": "2-boss" },
+      "enemies": [
+        { "id": "met", "tile": [20, 10] },
+        { "id": "met", "tile": [45, 10] },
+        { "id": "sniper_joe", "tile": [90, 10] },
+        { "id": "met", "tile": [140, 14] },
+        { "id": "sniper_joe", "tile": [200, 10] },
+        { "id": "met", "tile": [260, 10] }
+      ],
+      "powerups": [
+        { "id": "energy_capsule", "tile": [120, 12] },
+        { "id": "energy_capsule", "tile": [240, 12] }
+      ],
+      "secret_areas": []
+    },
+    "2-boss": {
+      "source_essence": "1988_mega_man_2",
+      "display_name": "World 2 Boss — Air Man",
+      "theme": "boss_arena",
+      "bg_sprite_ref": "sprites/bg/boss_arena_sky",
+      "music_ref": "audio/bgm/boss_battle",
+      "width_tiles": 20,
+      "height_tiles": 14,
+      "spawn_point": [2, 10],
+      "checkpoints": [],
+      "exit": { "kind": "level_complete_on_boss_defeat", "next_level": "3-1" },
+      "enemies": [ { "id": "robot_master_airman", "tile": [14, 10] } ],
+      "powerups": [],
+      "boss_lock": true
+    },
+    "3-1": {
+      "source_essence": "2018_celeste",
+      "display_name": "World 3-1 (Celeste-style dash gauntlet)",
+      "theme": "snow_mountain",
+      "bg_sprite_ref": "sprites/bg/snow_mountain",
+      "music_ref": "audio/bgm/celeste_peak",
+      "width_tiles": 180,
+      "height_tiles": 24,
+      "spawn_point": [2, 20],
+      "checkpoints": [ [60, 18], [120, 14] ],
+      "exit": { "kind": "end_of_level_flag", "tile": [172, 6], "next_level": "game_complete" },
+      "enemies": [
+        { "id": "thwomp", "tile": [50, 12] },
+        { "id": "thwomp", "tile": [95, 8] }
+      ],
+      "powerups": [
+        { "id": "one_up", "tile": [30, 18], "secret": true },
+        { "id": "energy_capsule", "tile": [130, 10] }
+      ],
+      "precision_platforming": {
+        "dash_required_gaps": [[40, 14], [80, 10], [140, 6]],
+        "coyote_time_required_edges": [[110, 18], [150, 10]]
+      },
+      "secret_areas": [ { "entry_tile": [30, 20], "kind": "b_side_gate", "exit_level": "3-1b" } ]
+    }
+  },
+  "starting_level": "1-1"
+}

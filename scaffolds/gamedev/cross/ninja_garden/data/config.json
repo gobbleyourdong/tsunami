@@ -1,0 +1,21 @@
+{
+  "meta": {
+    "title": "Ninja Garden",
+    "shape": "cross_genre_sandbox_action_stealth",
+    "vibe": ["terraria_sandbox", "ninja_gaiden_action", "shinobi_stealth"],
+    "target_session_sec": 1800
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "sidescroller_with_depth", "arena": { "shape": "rect" } },
+    "gravity": [0.0, -18.0, 0.0],
+    "sandbox": true
+  },
+  "starting_class": "shinobi",
+  "starting_biome": "forest_outskirts",
+  "starting_inventory": ["shuriken", "kunai"],
+  "starting_chakra": 60,
+  "day_night_cycle_sec": 720,
+  "_comment": "Cross-genre canary: Terraria's open 2D sandbox (procedural terrain + day/night + persistence) fused with Ninja Gaiden / Shinobi sidescrolling action (wall-grab, combo attacks, stealth kills). Architectural invariants tested: (1) procedural-terrain persistence across scene boundaries via ProceduralRoomChain; (2) stealth-vs-combat co-resolution on the same enemy via VisionCone + ComboAttacks composing; (3) day/night phase modifier flipping encounter economy without scene swap."
+}

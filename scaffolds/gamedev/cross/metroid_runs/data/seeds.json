@@ -1,0 +1,87 @@
+{
+  "seed_configurations": {
+    "seed_alpha": {
+      "world_seed": 100001,
+      "room_count": 12,
+      "room_template_weights": {
+        "room_basic_corridor":     6,
+        "room_morph_ball_tunnel":  1,
+        "room_high_ledge_chamber": 1,
+        "room_wall_climb_shaft":   1,
+        "room_treasure_alcove":    2,
+        "room_boss_arena":         1
+      },
+      "boss_in_run": "boss_kraid_substitute",
+      "expected_layout_signature": "alpha_short_morph_focus",
+      "demonstration_note": "Same seed → identical room sequence + identical enemy spawns + identical loot drops (deterministic)."
+    },
+    "seed_beta": {
+      "world_seed": 200002,
+      "room_count": 18,
+      "room_template_weights": {
+        "room_basic_corridor":     8,
+        "room_high_ledge_chamber": 2,
+        "room_wall_climb_shaft":   2,
+        "room_frozen_pillar_door": 1,
+        "room_treasure_alcove":    4,
+        "room_boss_arena":         1
+      },
+      "boss_in_run": "boss_ridley_substitute",
+      "expected_layout_signature": "beta_long_vertical_focus",
+      "demonstration_note": "Different seed → different room ordering + different boss + different loot positions."
+    },
+    "seed_gamma": {
+      "world_seed": 300003,
+      "room_count": 15,
+      "room_template_weights": {
+        "room_basic_corridor":     5,
+        "room_dash_dash_gap":      2,
+        "room_frozen_pillar_door": 1,
+        "room_wall_climb_shaft":   1,
+        "room_treasure_alcove":    5,
+        "room_boss_arena":         1
+      },
+      "boss_in_run": "boss_concierge",
+      "expected_layout_signature": "gamma_dash_treasure_loop",
+      "demonstration_note": "Different boss-in-run drops different ability — gamma run unlocks dash if not already persistent."
+    },
+    "seed_delta": {
+      "world_seed": 400004,
+      "room_count": 20,
+      "room_template_weights": {
+        "room_basic_corridor":      9,
+        "room_morph_ball_tunnel":   1,
+        "room_high_ledge_chamber":  1,
+        "room_wall_climb_shaft":    1,
+        "room_frozen_pillar_door":  1,
+        "room_dash_dash_gap":       1,
+        "room_treasure_alcove":     5,
+        "room_boss_arena":          1
+      },
+      "boss_in_run": "boss_phantoon_substitute",
+      "expected_layout_signature": "delta_wide_balanced",
+      "demonstration_note": "Same `default_template_pool`, different room_count → ProceduralRoomChain produces a longer sequence."
+    },
+    "seed_epsilon_repeat_of_alpha": {
+      "world_seed": 100001,
+      "room_count": 12,
+      "room_template_weights": {
+        "room_basic_corridor":     6,
+        "room_morph_ball_tunnel":  1,
+        "room_high_ledge_chamber": 1,
+        "room_wall_climb_shaft":   1,
+        "room_treasure_alcove":    2,
+        "room_boss_arena":         1
+      },
+      "boss_in_run": "boss_kraid_substitute",
+      "expected_layout_signature": "alpha_short_morph_focus",
+      "demonstration_note": "Identical config to seed_alpha — runtime test asserts both produce identical room-id sequence (determinism check)."
+    }
+  },
+  "starting_seed_policy": {
+    "kind": "random_per_run",
+    "first_run_uses_seed_alpha": true,
+    "subsequent_runs_random_seed": true,
+    "force_seed_field_override_via_config": "world_seed_override"
+  }
+}

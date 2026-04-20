@@ -1,0 +1,29 @@
+{
+  "player": {
+    "archetype_id": "field_avatar",
+    "display_name": "Hero (field avatar)",
+    "mesh": "capsule",
+    "controller": "topdown",
+    "components": [
+      "Health(40)",
+      "Resource('mana',10)",
+      "Resource('xp',0)",
+      "Resource('level',1)",
+      "Inventory",
+      "Score",
+      "Checkpoint",
+      "Resource('keys_small',0)",
+      "Resource('keys_boss',0)"
+    ],
+    "tags": ["player", "controllable", "damageable", "field_protagonist", "leads_party"],
+    "sprite_ref": "sprites/field/hero",
+    "movement": {
+      "walk_speed": 4.5,
+      "dash_distance": 2.5,
+      "dash_cooldown_frames": 30
+    },
+    "field_tools": ["bow", "bomb", "grappling_hook"],
+    "starting_field_tool_equipped": "bow",
+    "leads_party_id": "main_party"
+  }
+}

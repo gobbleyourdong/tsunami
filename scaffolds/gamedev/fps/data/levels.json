@@ -1,0 +1,85 @@
+{
+  "levels": {
+    "e1m1_hangar": {
+      "source_essence": "1993_doom",
+      "display_name": "E1M1: Hangar",
+      "music_ref": "audio/bgm/at_dooms_gate",
+      "skybox_ref": "sprites/skybox/mars_base",
+      "rooms": {
+        "start_zigzag": {
+          "spawn_point": [2, 2],
+          "enemies": [],
+          "pickups": [ { "id": "shotgun", "pos": [6, 2] }, { "id": "shells", "pos": [6, 3] } ],
+          "doors": [ { "to": "courtyard", "kind": "normal", "pos": [8, 2] } ]
+        },
+        "courtyard": {
+          "enemies": [ { "id": "zombie_marine", "pos": [12, 5] }, { "id": "zombie_marine", "pos": [14, 7] }, { "id": "imp", "pos": [18, 10] } ],
+          "pickups": [ { "id": "medikit_small", "pos": [15, 6] }, { "id": "clip", "pos": [13, 8] } ],
+          "doors": [ { "to": "start_zigzag", "kind": "normal", "pos": [10, 5] }, { "to": "slime_bridge", "kind": "normal", "pos": [22, 6] }, { "to": "blue_key_room", "kind": "locked_blue", "pos": [20, 3] } ]
+        },
+        "slime_bridge": {
+          "enemies": [ { "id": "imp", "pos": [25, 5] }, { "id": "pinky_demon", "pos": [30, 7] } ],
+          "pickups": [ { "id": "armor_bonus", "pos": [28, 6] }, { "id": "rocket_launcher", "pos": [33, 7], "secret": true } ],
+          "doors": [ { "to": "courtyard", "kind": "normal", "pos": [24, 6] }, { "to": "exit_room", "kind": "normal", "pos": [36, 7] } ]
+        },
+        "blue_key_room": {
+          "enemies": [ { "id": "zombie_marine", "pos": [22, 2] }, { "id": "imp", "pos": [24, 2] } ],
+          "pickups": [ { "id": "key_blue", "pos": [26, 2] }, { "id": "medikit_large", "pos": [25, 4] } ],
+          "doors": [ { "to": "courtyard", "kind": "normal", "pos": [21, 3] } ]
+        },
+        "exit_room": {
+          "enemies": [],
+          "pickups": [],
+          "doors": [ { "to": "slime_bridge", "kind": "normal", "pos": [35, 7] } ],
+          "exit_switch": { "pos": [38, 7], "next_level": "e1m8_phobos_anomaly" }
+        }
+      }
+    },
+    "e1m8_phobos_anomaly": {
+      "source_essence": "1993_doom",
+      "display_name": "E1M8: Phobos Anomaly (Boss)",
+      "music_ref": "audio/bgm/sinister",
+      "skybox_ref": "sprites/skybox/phobos_anomaly",
+      "rooms": {
+        "arena_approach": {
+          "spawn_point": [2, 2],
+          "enemies": [ { "id": "imp", "pos": [6, 5] }, { "id": "imp", "pos": [8, 5] } ],
+          "pickups": [ { "id": "medikit_large", "pos": [4, 4] } ],
+          "doors": [ { "to": "boss_arena", "kind": "star_altar_trigger", "pos": [12, 5] } ]
+        },
+        "boss_arena": {
+          "enemies": [ { "id": "cacodemon", "pos": [18, 8] }, { "id": "cacodemon", "pos": [22, 8] } ],
+          "pickups": [],
+          "doors": [],
+          "exit_switch": { "pos": [20, 14], "next_level": "xen_interloper" }
+        }
+      }
+    },
+    "xen_interloper": {
+      "source_essence": "1998_half_life",
+      "display_name": "Xen Borderworld Intrusion",
+      "music_ref": "audio/bgm/half_life_valve_theme",
+      "skybox_ref": "sprites/skybox/xen_alien",
+      "rooms": {
+        "teleport_deposit": {
+          "spawn_point": [2, 2],
+          "enemies": [ { "id": "headcrab", "pos": [5, 3] }, { "id": "headcrab", "pos": [7, 4] } ],
+          "pickups": [ { "id": "crowbar", "pos": [3, 2] }, { "id": "battery", "pos": [4, 2] } ],
+          "doors": [ { "to": "xen_platforms", "kind": "normal", "pos": [9, 3] } ]
+        },
+        "xen_platforms": {
+          "enemies": [ { "id": "headcrab", "pos": [14, 5] }, { "id": "imp", "pos": [18, 7] } ],
+          "pickups": [ { "id": "plasma_rifle", "pos": [16, 4], "secret": true }, { "id": "cell", "pos": [20, 4] } ],
+          "doors": [ { "to": "cyberdemon_core", "kind": "locked_red", "pos": [24, 6] } ]
+        },
+        "cyberdemon_core": {
+          "enemies": [ { "id": "cyberdemon", "pos": [30, 8] } ],
+          "pickups": [ { "id": "bfg_9000", "pos": [26, 10], "secret": true }, { "id": "medikit_large", "pos": [28, 10] } ],
+          "doors": [],
+          "exit_switch": { "pos": [33, 8], "next_level": "game_complete" }
+        }
+      }
+    }
+  },
+  "starting_level": "e1m1_hangar"
+}

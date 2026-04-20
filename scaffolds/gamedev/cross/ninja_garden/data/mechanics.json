@@ -1,0 +1,167 @@
+{
+  "mechanics": [
+    {
+      "id": "world_procedural_terrain",
+      "type": "ProceduralRoomChain",
+      "params": {
+        "seed_field": "world_seed",
+        "biomes_ref": "biomes.json",
+        "biome_progression_field": "biome_progression_default",
+        "world_size_tiles_field": "world_size_tiles",
+        "structure_seed_resolver": "biomes.<biome_id>.structure_seeds",
+        "persist_modifications": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "shinobi_physics",
+      "type": "PhysicsModifier",
+      "params": {
+        "owner_tag": "player",
+        "modifiers": {
+          "wall_grab":   { "enabled_field": "wall_grab_enabled",   "duration_frames_field": "wall_grab_max_frames" },
+          "wall_jump":   { "horizontal_impulse_field": "wall_jump_horizontal_impulse", "vertical_impulse_field": "wall_jump_vertical_impulse" },
+          "wall_slide":  { "gravity_scale_field": "wall_slide_gravity_scale" },
+          "double_jump": { "extra_height_field": "double_jump_height" },
+          "dash":        { "distance_field": "dash_distance", "frames_field": "dash_frames", "cooldown_frames_field": "dash_cooldown_frames" }
+        }
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "katana_combo_chain",
+      "type": "ComboAttacks",
+      "params": {
+        "owner_tag": "player",
+        "weapons_with_combos": ["katana_basic", "kusarigama"],
+        "combo_chain_max_field": "combo_chain_max",
+        "combo_window_frames_field": "combo_window_frames",
+        "damage_scaling_per_link": [1.0, 1.15, 1.3, 1.5]
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "weapon_attack_frames",
+      "type": "AttackFrames",
+      "params": {
+        "owner_tag": "player",
+        "tools_ref": "tools.json",
+        "stealth_kill_one_shot_check": true,
+        "open_combat_uses_full_hp": true,
+        "noise_on_swing_field": "noise_radius_on_swing"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "crafting_inventory_combine",
+      "type": "InventoryCombine",
+      "params": {
+        "owner_tag": "player",
+        "recipe_storage": "Resource('craft_recipes_known',0)",
+        "starting_recipes_field": "starting_recipes_known",
+        "benches_field": "crafting_benches",
+        "consumes_ingredients": true,
+        "produces_field": "produces_item",
+        "produces_count_field": "produces_count"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "shrine_locks",
+      "type": "LockAndKey",
+      "params": {
+        "locks": [
+          { "lock_tag": "shrine_main_locked", "key_item": "ogre_horn",       "biome": "shrine_canopy" },
+          { "lock_tag": "boss_arena_volcanic_door", "key_item": "shadow_essence", "biome": "volcanic_depths" }
+        ]
+      },
+      "requires_tags": ["shrine_main_locked", "boss_arena_volcanic_door"]
+    },
+    {
+      "id": "player_item_use",
+      "type": "ItemUse",
+      "params": {
+        "owner_tag": "player",
+        "slots": ["primary_melee", "ranged", "utility", "traversal"],
+        "starting_equipped": "katana_basic",
+        "hotkey_number_mapping": {
+          "1": "katana_basic",
+          "2": "shuriken_pouch",
+          "3": "kunai_pouch",
+          "4": "smoke_bomb_pouch",
+          "5": "kusarigama",
+          "6": "grappling_hook"
+        }
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "boss_phase_machine",
+      "type": "BossPhases",
+      "params": {
+        "boss_tag": "boss",
+        "phases_field": "phases",
+        "summons_resolver": true,
+        "arena_lock_until_defeated": true
+      },
+      "requires_tags": ["boss"]
+    },
+    {
+      "id": "enemy_vision_cones",
+      "type": "VisionCone",
+      "params": {
+        "owner_tag": "enemy",
+        "target_tag": "player",
+        "alert_field": "alert",
+        "default_fov_deg": 80,
+        "default_range": 8.0,
+        "line_of_sight_blocking_tags": ["wall", "tree_trunk", "smoke_cloud", "structure_solid"],
+        "stealth_kill_requires_alert_state_field": "stealth_kill_one_shot_when",
+        "noise_alerts_when_player_within_hearing": true
+      },
+      "requires_tags": ["enemy", "player"]
+    },
+    {
+      "id": "checkpoint_spawn_shrines",
+      "type": "CheckpointProgression",
+      "params": {
+        "owner_tag": "player",
+        "respawn_on_zero": true,
+        "checkpoint_field": "Checkpoint",
+        "checkpoint_structure_tag": "shrine_altar",
+        "respawn_seconds_field": "respawn_seconds"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "shinobi_camera_follow",
+      "type": "CameraFollow",
+      "params": {
+        "target_tag": "player",
+        "lerp": 0.13,
+        "deadzone": [3.0, 1.5],
+        "look_ahead_in_dash": 1.5,
+        "lock_y_during_wall_grab": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "ninja_garden_hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "shinobi_player", "component": "Health",         "label": "HP" },
+          { "archetype": "shinobi_player", "component": "chakra",         "label": "Chakra" },
+          { "archetype": "shinobi_player", "component": "stealth_meter",  "label": "Stealth" },
+          { "archetype": "shinobi_player", "component": "shuriken_ammo",  "label": "Shuriken" },
+          { "archetype": "shinobi_player", "component": "kunai_ammo",     "label": "Kunai" }
+        ],
+        "layout": "corners",
+        "show_minimap": true,
+        "show_day_night_clock": true,
+        "show_enemy_alert_indicators": true
+      },
+      "requires_tags": ["player"]
+    }
+  ]
+}

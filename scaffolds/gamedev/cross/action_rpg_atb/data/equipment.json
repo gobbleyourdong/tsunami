@@ -1,0 +1,18 @@
+{
+  "equipment": {
+    "short_sword":   { "slot": "weapon",      "stat_modifiers": { "str": 2 },  "equippable_by_tags": ["warrior", "thief"], "buy_price": 100, "sell_price": 50, "tags": ["weapon", "sword", "tier1"] },
+    "bronze_sword":  { "slot": "weapon",      "stat_modifiers": { "str": 5 },  "equippable_by_tags": ["warrior", "thief"], "buy_price": 400, "sell_price": 200, "tags": ["weapon", "sword", "tier2"] },
+    "dagger":        { "slot": "weapon",      "stat_modifiers": { "str": 2, "spd": 1 }, "equippable_by_tags": ["warrior", "thief", "mage"], "buy_price": 80, "sell_price": 40, "tags": ["weapon", "dagger", "tier1"] },
+    "oak_rod":       { "slot": "weapon",      "stat_modifiers": { "mag": 3 }, "equippable_by_tags": ["mage"], "buy_price": 100, "sell_price": 50, "tags": ["weapon", "rod", "tier1"] },
+    "oak_bow":       { "slot": "weapon",      "stat_modifiers": { "str": 2, "spd": 1 }, "equippable_by_tags": ["healer", "thief"], "buy_price": 120, "sell_price": 60, "tags": ["weapon", "bow", "tier1"] },
+    "leather_tunic": { "slot": "armor",       "stat_modifiers": { "def": 3 }, "equippable_by_tags": ["warrior", "thief"], "buy_price": 100, "sell_price": 50, "tags": ["armor", "light", "tier1"] },
+    "cloth_robe":    { "slot": "armor",       "stat_modifiers": { "def": 1, "mdf": 3 }, "equippable_by_tags": ["mage", "healer"], "buy_price": 100, "sell_price": 50, "tags": ["armor", "cloth", "tier1"] },
+    "iron_shield":   { "slot": "accessory_1", "stat_modifiers": { "def": 3, "mdf": 1 }, "equippable_by_tags": ["warrior"], "buy_price": 400, "sell_price": 200, "tags": ["accessory", "shield", "tier2"] },
+    "ribbon":        { "slot": "accessory_1", "stat_modifiers": { "mdf": 5 }, "status_resist": ["sleep", "silence", "poison", "confuse"], "equippable_by_tags": ["warrior", "thief", "mage", "healer"], "buy_price": 0, "sell_price": 0, "tags": ["accessory", "status_resist", "quest_drop"] },
+    "potion_small":  { "slot": "consumable",  "use_effect": { "kind": "heal_hp", "amount": 30, "target_scope": "single_ally" }, "buy_price": 30, "sell_price": 15, "tags": ["consumable", "heal"] },
+    "ether_small":   { "slot": "consumable",  "use_effect": { "kind": "restore_mp", "amount": 15, "target_scope": "single_ally" }, "buy_price": 150, "sell_price": 75, "tags": ["consumable", "mana"] },
+    "phoenix_down":  { "slot": "consumable",  "use_effect": { "kind": "revive", "amount": 50, "target_scope": "single_ally" }, "buy_price": 500, "sell_price": 100, "tags": ["consumable", "revive"] },
+    "boss_heart_container": { "slot": "passive_upgrade", "effect": { "kind": "increase_party_max_hp", "amount": 4 }, "buy_price": 0, "sell_price": 0, "tags": ["passive", "boss_drop"] },
+    "compass_dungeon_1":    { "slot": "quest", "effect": { "kind": "reveal_dungeon_boss_room" }, "buy_price": 0, "sell_price": 0, "tags": ["quest", "dungeon_1"] }
+  }
+}

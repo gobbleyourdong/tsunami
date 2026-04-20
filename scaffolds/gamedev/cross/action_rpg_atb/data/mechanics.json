@@ -1,0 +1,132 @@
+{
+  "mechanics": [
+    {
+      "id": "field_room_graph",
+      "type": "RoomGraph",
+      "params": {
+        "rooms_ref": "rooms.json",
+        "transition_kind": "screen_flip",
+        "starting_room": "overworld_start",
+        "active_in_scene": "field"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "dungeon_locks",
+      "type": "LockAndKey",
+      "params": {
+        "locks": [
+          { "lock_tag": "locked_small", "key_field": "keys_small", "consume_count": 1 },
+          { "lock_tag": "locked_boss",  "key_field": "keys_boss",  "consume_count": 1 }
+        ],
+        "active_in_scene": "field"
+      },
+      "requires_tags": ["locked_small", "locked_boss"]
+    },
+    {
+      "id": "field_item_use",
+      "type": "ItemUse",
+      "params": {
+        "owner_tag": "player",
+        "slots": ["field_tool"],
+        "starting_equipped": "bow",
+        "active_in_scene": "field",
+        "battle_slots_ref": "party.json#battle_command_menu"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "field_camera_follow",
+      "type": "CameraFollow",
+      "params": {
+        "target_tag": "player",
+        "lerp": 0.15,
+        "deadzone": [2.0, 1.5],
+        "active_in_scene": "field"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "battle_atb_combat",
+      "type": "ATBCombat",
+      "params": {
+        "party_size": 4,
+        "atb_speed": 1.0,
+        "command_menu": ["Attack", "Magic", "Item", "Defend", "Flee"],
+        "can_swap_rows": true,
+        "active_in_scene": "battle",
+        "encounter_groups_ref": "battles.json"
+      },
+      "requires_tags": ["party_member", "encounter_trigger"]
+    },
+    {
+      "id": "party_roster",
+      "type": "PartyComposition",
+      "params": {
+        "max_active": 4,
+        "max_roster": 4,
+        "can_swap_mid_battle": false,
+        "default_formation": "balanced_front_back",
+        "persists_across_scenes": true
+      },
+      "requires_tags": ["party_member"]
+    },
+    {
+      "id": "shared_equipment_loadout",
+      "type": "EquipmentLoadout",
+      "params": {
+        "slots": ["weapon", "armor", "accessory_1", "accessory_2"],
+        "stat_mapping": {
+          "weapon":      ["str", "mag", "spd"],
+          "armor":       ["def", "mdf"],
+          "accessory_1": ["def", "mdf", "spd"],
+          "accessory_2": ["mag", "mdf", "spd"]
+        },
+        "shared_across_scenes": true
+      },
+      "requires_tags": ["party_member"]
+    },
+    {
+      "id": "boss_phase_machine",
+      "type": "BossPhases",
+      "params": {
+        "boss_tag": "boss",
+        "phases_field": "phases",
+        "active_in_scene": "battle",
+        "summons_resolver_ref": "battles.json#battle_actors"
+      },
+      "requires_tags": ["boss"]
+    },
+    {
+      "id": "dual_layout_hud",
+      "type": "HUD",
+      "params": {
+        "field_layout": {
+          "fields": [
+            { "archetype": "field_avatar", "component": "Health",     "label": "HP" },
+            { "archetype": "field_avatar", "component": "Inventory",  "label": "Items" },
+            { "archetype": "field_avatar", "component": "keys_small", "label": "Keys" },
+            { "archetype": "field_avatar", "component": "keys_boss",  "label": "Boss Key" }
+          ],
+          "layout": "top",
+          "active_in_scene": "field"
+        },
+        "battle_layout": {
+          "fields": [
+            { "archetype": "hero_warrior",  "component": "Health", "label": "Hero HP" },
+            { "archetype": "hero_warrior",  "component": "mana",   "label": "Hero MP" },
+            { "archetype": "rana_blackmage","component": "Health", "label": "Rana HP" },
+            { "archetype": "rana_blackmage","component": "mana",   "label": "Rana MP" },
+            { "archetype": "lily_whitemage","component": "Health", "label": "Lily HP" },
+            { "archetype": "lily_whitemage","component": "mana",   "label": "Lily MP" },
+            { "archetype": "kage_thief",    "component": "Health", "label": "Kage HP" },
+            { "archetype": "kage_thief",    "component": "mana",   "label": "Kage MP" }
+          ],
+          "layout": "bottom",
+          "active_in_scene": "battle"
+        }
+      },
+      "requires_tags": ["player", "party_member"]
+    }
+  ]
+}

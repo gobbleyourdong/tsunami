@@ -1,0 +1,57 @@
+{
+  "rules": {
+    "per_run_reset_policy": {
+      "kind": "permadeath_per_run",
+      "on_player_death": [
+        "increment_current_run_id",
+        "wipe_per_run_state_fields",
+        "regenerate_room_chain_with_new_seed",
+        "respawn_at_room_start_chamber",
+        "preserve_persistent_state_fields"
+      ],
+      "wipe_per_run_state_fields_whitelist": [
+        "Health",
+        "missiles",
+        "energy_tanks",
+        "run_xp",
+        "Inventory",
+        "Score",
+        "current_run_room"
+      ],
+      "preserve_persistent_state_fields_whitelist": [
+        "meta_xp",
+        "persistent_abilities",
+        "boss_kill_log",
+        "max_hp_upgrades",
+        "missile_capacity_upgrades",
+        "current_run_id"
+      ]
+    },
+    "ability_persistence": {
+      "rule": "abilities granted by drops_ability_on_first_kill flag persist across runs",
+      "first_kill_only": true,
+      "subsequent_kills_grant_meta_xp_only": true,
+      "meta_xp_per_repeat_kill": 50
+    },
+    "max_hp_upgrade_persistence": {
+      "rule": "energy_tank_pickup permanently increases max HP across runs",
+      "amount_per_pickup": 100,
+      "max_stacks": 14
+    },
+    "missile_capacity_upgrade_persistence": {
+      "rule": "missile_capacity_upgrade permanently increases missile capacity across runs",
+      "amount_per_pickup": 5,
+      "max_stacks": 30
+    },
+    "win_condition": {
+      "kind": "all_bosses_killed",
+      "boss_kill_log_target_count": 6,
+      "boss_kill_log_targets": ["boss_kraid_substitute", "boss_ridley_substitute", "boss_phantoon_substitute", "boss_concierge", "boss_giant", "boss_kraid_substitute_alt"],
+      "tracked_in_persistent_field": "boss_kill_log"
+    },
+    "lose_condition": {
+      "kind": "no_lose_only_run_reset",
+      "comment": "Permadeath-per-run is the canonical roguelike-loop; player can never permanently lose, only restart with retained persistent progression."
+    }
+  }
+}

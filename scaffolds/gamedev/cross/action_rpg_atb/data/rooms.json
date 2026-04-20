@@ -1,0 +1,83 @@
+{
+  "rooms": {
+    "overworld_start": {
+      "kind": "overworld",
+      "size": [16, 16],
+      "biome": "grassland",
+      "spawns": ["field_avatar"],
+      "field_enemies": [],
+      "connections": { "north": "overworld_forest", "east": "overworld_field" }
+    },
+    "overworld_forest": {
+      "kind": "overworld",
+      "size": [16, 16],
+      "biome": "forest",
+      "spawns": [],
+      "field_enemies": [
+        { "id": "octorok_field", "pos": [4, 8] },
+        { "id": "octorok_field", "pos": [12, 12] }
+      ],
+      "connections": { "south": "overworld_start", "north": "dungeon_entrance" }
+    },
+    "overworld_field": {
+      "kind": "overworld",
+      "size": [16, 16],
+      "biome": "grassland",
+      "spawns": [],
+      "field_enemies": [
+        { "id": "moblin_field", "pos": [6, 4] },
+        { "id": "imp_field",    "pos": [10, 10] }
+      ],
+      "pickups": [ { "id": "heart_pickup", "pos": [3, 8] } ],
+      "connections": { "west": "overworld_start", "east": "overworld_cliffs" }
+    },
+    "overworld_cliffs": {
+      "kind": "overworld",
+      "size": [16, 16],
+      "biome": "mountain",
+      "spawns": [],
+      "field_enemies": [ { "id": "darknut_field", "pos": [8, 6] } ],
+      "connections": { "west": "overworld_field" }
+    },
+    "dungeon_entrance": {
+      "kind": "dungeon",
+      "size": [16, 16],
+      "biome": "dungeon",
+      "spawns": [],
+      "field_enemies": [
+        { "id": "skeleton_field", "pos": [5, 4] },
+        { "id": "imp_field",      "pos": [11, 10] }
+      ],
+      "pickups": [ { "id": "key_small", "pos": [12, 12] } ],
+      "connections": { "south": "overworld_forest", "north": "dungeon_corridor" }
+    },
+    "dungeon_corridor": {
+      "kind": "dungeon",
+      "size": [16, 16],
+      "biome": "dungeon",
+      "spawns": [],
+      "field_enemies": [ { "id": "darknut_field", "pos": [8, 8] } ],
+      "doors": [ { "from_dir": "north", "tag": "locked_small", "consumes_field": "keys_small" } ],
+      "connections": { "south": "dungeon_entrance", "north": "dungeon_boss_anteroom" }
+    },
+    "dungeon_boss_anteroom": {
+      "kind": "dungeon",
+      "size": [16, 16],
+      "biome": "dungeon",
+      "spawns": [],
+      "field_enemies": [],
+      "pickups": [ { "id": "key_boss", "pos": [8, 8] } ],
+      "connections": { "south": "dungeon_corridor", "north": "dungeon_boss" }
+    },
+    "dungeon_boss": {
+      "kind": "dungeon_boss",
+      "size": [16, 16],
+      "biome": "dungeon",
+      "spawns": [],
+      "field_enemies": [ { "id": "boss_gohma_field_marker", "pos": [8, 8] } ],
+      "doors": [ { "from_dir": "south", "tag": "locked_boss", "consumes_field": "keys_boss" } ],
+      "connections": { "south": "dungeon_boss_anteroom" }
+    }
+  },
+  "starting_room": "overworld_start"
+}

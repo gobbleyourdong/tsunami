@@ -1,0 +1,114 @@
+{
+  "mechanics": [
+    {
+      "id": "race_camera_follow",
+      "type": "CameraFollow",
+      "params": {
+        "target_tag": "player",
+        "mode": "behind_chase",
+        "lerp": 0.10,
+        "deadzone": [0.5, 0.5],
+        "tilt_with_steering": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "lap_checkpoints",
+      "type": "CheckpointProgression",
+      "params": {
+        "owner_tag": "racer",
+        "respawn_on_zero": false,
+        "checkpoint_field": "Checkpoint",
+        "advance_on_ordered_visit": true,
+        "completes_lap_on_full_circuit": true,
+        "lap_field": "current_lap"
+      },
+      "requires_tags": ["racer"]
+    },
+    {
+      "id": "powerup_pickup_loop",
+      "type": "PickupLoop",
+      "params": {
+        "pickup_tag": "pickup",
+        "owner_tag": "racer",
+        "by_effect_kind": true,
+        "respawn_after_pickup_frames": 240
+      },
+      "requires_tags": ["pickup", "racer"]
+    },
+    {
+      "id": "race_hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "current_lap",      "label": "Lap" },
+          { "archetype": "player", "component": "current_position", "label": "Pos" },
+          { "archetype": "player", "component": "boost_charge",     "label": "Boost" }
+        ],
+        "layout": "corners",
+        "show_minimap": true,
+        "show_lap_split_times": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "win_on_lap_complete_first",
+      "type": "WinOnCount",
+      "params": {
+        "archetype": "player",
+        "field": "current_lap",
+        "count": 3,
+        "comparison": "gte",
+        "additional_predicate": { "kind": "current_position", "value": 1 },
+        "emit_condition": "race_won_first_place"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "lose_on_dnf",
+      "type": "LoseOnZero",
+      "params": {
+        "archetype": "player",
+        "field": "Health",
+        "emit_condition": "player_dnf_or_eliminated",
+        "applies_in_modes": ["elimination", "battle"]
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "race_music",
+      "type": "ChipMusic",
+      "params": {
+        "tracks": {
+          "mario_circuit": "audio/bgm/mario_circuit",
+          "donut_plains":  "audio/bgm/donut_plains",
+          "koopa_beach":   "audio/bgm/koopa_beach",
+          "rainbow_road":  "audio/bgm/rainbow_road",
+          "gran_turismo_main": "audio/bgm/gran_turismo_main",
+          "final_lap_speedup": "audio/bgm/final_lap_speedup"
+        },
+        "track_by_track_id": true,
+        "speedup_on_final_lap": true
+      },
+      "requires_tags": []
+    },
+    {
+      "id": "race_sfx",
+      "type": "SfxLibrary",
+      "params": {
+        "events": {
+          "engine_idle":     "audio/sfx/engine_idle",
+          "engine_rev":      "audio/sfx/engine_rev",
+          "tire_screech":    "audio/sfx/tire_screech",
+          "powerup_grab":    "audio/sfx/powerup_grab",
+          "shell_throw":     "audio/sfx/shell_throw",
+          "shell_hit":       "audio/sfx/shell_hit",
+          "lap_complete":    "audio/sfx/lap_complete",
+          "race_finish_1st": "audio/sfx/race_finish_1st",
+          "race_finish_lose":"audio/sfx/race_finish_lose"
+        }
+      },
+      "requires_tags": []
+    }
+  ]
+}

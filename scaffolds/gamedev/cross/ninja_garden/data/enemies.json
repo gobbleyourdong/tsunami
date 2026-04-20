@@ -1,0 +1,118 @@
+{
+  "enemies": {
+    "bandit_grunt": {
+      "source_essence": "1988_ninja_gaiden",
+      "display_name": "Bandit Grunt",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:patrol_with_vision_alert",
+      "components": ["Health(20)", "Resource('alert',0)"],
+      "tags": ["enemy", "damageable", "melee_attacker", "patrolling", "stealth_killable", "drops_loot"],
+      "sprite_ref": "sprites/enemies/bandit_grunt",
+      "vision_cone": { "fov_deg": 70, "range": 7.0, "alert_threshold": 1.0 },
+      "hearing_radius": 4.0,
+      "alert_states": ["unaware", "suspicious", "alerted"],
+      "attack_kind": "melee_swing",
+      "attack_damage": 8,
+      "attack_range": 1.4,
+      "attack_cooldown_frames": 50,
+      "stealth_kill_one_shot_when": "unaware",
+      "open_combat_hp": 20,
+      "drop_table": [
+        { "item": "wood_log",   "rate": 0.6 },
+        { "item": "rope_strip", "rate": 0.3 },
+        { "item": "shuriken",   "rate": 0.2 }
+      ]
+    },
+    "shadow_ninja": {
+      "source_essence": "1990_revenge_of_shinobi",
+      "display_name": "Shadow Ninja",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:ninja_dash_strike_then_disappear",
+      "components": ["Health(35)", "Resource('alert',0)"],
+      "tags": ["enemy", "damageable", "fast_dasher", "ranged_thrower", "alert_only_after_first_hit"],
+      "sprite_ref": "sprites/enemies/shadow_ninja",
+      "vision_cone": { "fov_deg": 110, "range": 9.0, "alert_threshold": 0.5 },
+      "hearing_radius": 6.0,
+      "alert_states": ["lurking", "engaged", "fleeing"],
+      "attack_kind": "thrown_projectile",
+      "projectile": { "kind": "shuriken", "speed": 12.0, "damage": 10 },
+      "secondary_attack_kind": "dash_slash",
+      "dash_distance": 4.5,
+      "stealth_kill_one_shot_when": "lurking",
+      "drop_table": [
+        { "item": "shuriken",     "rate": 0.7 },
+        { "item": "smoke_powder", "rate": 0.4 }
+      ]
+    },
+    "samurai_heavy": {
+      "source_essence": "1990_revenge_of_shinobi",
+      "display_name": "Samurai Heavy",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:samurai_block_then_counter",
+      "components": ["Health(70)", "Resource('block_stamina',40)", "Resource('alert',0)"],
+      "tags": ["enemy", "damageable", "heavy_armored", "shielded", "melee_attacker", "boss_minion"],
+      "sprite_ref": "sprites/enemies/samurai",
+      "vision_cone": { "fov_deg": 80, "range": 8.0, "alert_threshold": 1.0 },
+      "hearing_radius": 5.0,
+      "alert_states": ["guarding", "engaged", "enraged"],
+      "attack_kind": "melee_overhead",
+      "attack_damage": 18,
+      "attack_range": 1.8,
+      "attack_cooldown_frames": 65,
+      "block_chance": 0.6,
+      "stealth_kill_one_shot_when": "guarding",
+      "open_combat_extra_hp_when_alerted": 30,
+      "drop_table": [
+        { "item": "iron_ingot", "rate": 0.5 },
+        { "item": "katana_blade_fragment", "rate": 0.2 }
+      ]
+    },
+    "yokai_kappa": {
+      "source_essence": "1988_ninja_gaiden",
+      "display_name": "Kappa Yokai",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:kappa_water_lurk_jump_grab",
+      "components": ["Health(30)", "Resource('water_sustain',1)"],
+      "tags": ["enemy", "damageable", "amphibious", "grab_attacker", "water_biome"],
+      "sprite_ref": "sprites/enemies/kappa",
+      "vision_cone": { "fov_deg": 100, "range": 5.0, "alert_threshold": 1.0 },
+      "hearing_radius": 3.0,
+      "alert_states": ["submerged", "engaged"],
+      "attack_kind": "grab_pull",
+      "attack_damage": 12,
+      "attack_range": 1.6,
+      "attack_cooldown_frames": 70,
+      "stealth_kill_one_shot_when": "submerged",
+      "drop_table": [
+        { "item": "kappa_shell", "rate": 0.4 },
+        { "item": "moss_bundle", "rate": 0.6 }
+      ]
+    },
+    "tengu_archer": {
+      "source_essence": "1988_ninja_gaiden",
+      "display_name": "Tengu Archer",
+      "mesh": "capsule",
+      "controller": "none",
+      "ai": "bt:tengu_perch_snipe",
+      "components": ["Health(25)", "Resource('alert',0)"],
+      "tags": ["enemy", "damageable", "ranged_attacker", "perched", "flying", "shrine_biome"],
+      "sprite_ref": "sprites/enemies/tengu",
+      "vision_cone": { "fov_deg": 95, "range": 14.0, "alert_threshold": 0.7 },
+      "hearing_radius": 5.0,
+      "alert_states": ["perched", "alerted"],
+      "attack_kind": "ranged_arrow",
+      "projectile": { "kind": "feather_arrow", "speed": 14.0, "damage": 12 },
+      "attack_cooldown_frames": 80,
+      "stealth_kill_one_shot_when": "perched",
+      "drop_table": [
+        { "item": "feather",      "rate": 0.7 },
+        { "item": "wood_log",     "rate": 0.4 },
+        { "item": "tengu_charm",  "rate": 0.05 }
+      ]
+    }
+  }
+}

@@ -1663,6 +1663,33 @@ class Agent:
             except Exception as _ce:
                 log.debug(f"Content catalog skipped: {_ce}")
 
+        # F-I3b: per-genre content pool fallback (JOB-P / Cycle 19).
+        # When F-I3 missed (prompt didn't name a specific title) but
+        # pick_genre succeeded, inject canonical names from
+        # GENRE_CONTENT_POOL.md (JOB-M corpus output). Generalizes the
+        # AUDIT Round T 18% content-adoption lift across all 6 genre
+        # scaffolds. Short-circuits when F-I3 already fired — avoids
+        # double-injection.
+        if (
+            not existing_context
+            and not content_directive
+            and genre_name
+            and _target_scaffold == "gamedev"
+        ):
+            try:
+                from .genre_scaffolds.content_pool import (
+                    format_genre_content_directive, should_emit_genre_pool,
+                )
+                if should_emit_genre_pool(user_message, fi3_hit=bool(content_essence)):
+                    _pool_directive = format_genre_content_directive(
+                        genre_name, user_message
+                    )
+                    if _pool_directive:
+                        content_directive = _pool_directive
+                        log.info(f"Genre content pool injected (F-I3b): {genre_name}")
+            except Exception as _pe:
+                log.debug(f"Genre content pool skipped: {_pe}")
+
         context_parts = [effective_message]
         if style_directive:
             context_parts.append(style_directive)

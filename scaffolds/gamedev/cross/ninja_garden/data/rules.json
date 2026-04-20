@@ -1,0 +1,39 @@
+{
+  "rules": {
+    "win_condition": {
+      "kind": "compound_any",
+      "predicates": [
+        { "kind": "boss_defeated", "boss_id": "sky_dragon_ryujin" },
+        { "kind": "hold_arena_for_n_nights", "arena_tag": "shrine_altar", "nights": 7, "no_player_death_during": true }
+      ]
+    },
+    "lose_condition": {
+      "kind": "permadeath_off_default",
+      "permadeath_optional_field": "permadeath_mode",
+      "default_respawn_at_checkpoint": true,
+      "respawn_seconds_field": "respawn_seconds",
+      "drops_inventory_on_death_in_permadeath": true
+    },
+    "structure_persistence": {
+      "player_built_blocks_persist": true,
+      "player_destroyed_terrain_persists": true,
+      "enemy_modifications_persist": false,
+      "world_resets_only_on_new_seed": true
+    },
+    "stealth_vs_combat_resolution": {
+      "stealth_kill_one_shot_when_field": "stealth_kill_one_shot_when",
+      "stealth_kill_requires_unalerted_state": true,
+      "stealth_kill_xp_bonus": 1.5,
+      "open_combat_uses_full_hp": true,
+      "alerted_enemy_extra_hp_field": "open_combat_extra_hp_when_alerted",
+      "smoke_bomb_resets_alert_to_unaware": true,
+      "alert_decay_after_smoke_seconds": 4
+    },
+    "day_night_modifiers": {
+      "use_arena_field": "open_combat_phase_modifier"
+    },
+    "boss_progression": {
+      "use_arena_field": "boss_unlock_order"
+    }
+  }
+}

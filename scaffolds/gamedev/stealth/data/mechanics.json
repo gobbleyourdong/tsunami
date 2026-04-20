@@ -1,0 +1,123 @@
+{
+  "mechanics": [
+    {
+      "id": "guard_vision_cones",
+      "type": "VisionCone",
+      "params": {
+        "owner_tag": "guard",
+        "target_tag": "player",
+        "alert_field": "alert",
+        "suspicion_field": "suspicion",
+        "default_fov_deg": 60,
+        "default_range": 10.0,
+        "line_of_sight_blocking_tags": ["wall", "door_closed", "smoke_cloud"],
+        "light_level_affects_detection": true
+      },
+      "requires_tags": ["guard", "player"]
+    },
+    {
+      "id": "hiding_spot_hotspots",
+      "type": "HotspotMechanic",
+      "params": {
+        "owner_tag": "player",
+        "hotspot_tag": "hiding_spot",
+        "on_enter_effect": { "kind": "set_stealth_meter", "value": 100 },
+        "on_exit_effect": { "kind": "decay_stealth_meter" },
+        "conceal_from_guards": true
+      },
+      "requires_tags": ["player", "hiding_spot"]
+    },
+    {
+      "id": "keycard_door_locks",
+      "type": "LockAndKey",
+      "params": {
+        "locks": [
+          { "lock_tag": "locked_keycard_1", "key_item": "keycard_level_1" },
+          { "lock_tag": "locked_keycard_2", "key_item": "keycard_level_2" }
+        ]
+      },
+      "requires_tags": ["locked_keycard_1", "locked_keycard_2"]
+    },
+    {
+      "id": "player_item_use",
+      "type": "ItemUse",
+      "params": {
+        "owner_tag": "player",
+        "slots": ["primary", "melee", "utility", "action"],
+        "starting_equipped": "silenced_pistol",
+        "action_slot_contextual": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "objective_pickup_loop",
+      "type": "PickupLoop",
+      "params": {
+        "pickup_tag": "objective_item",
+        "owner_tag": "player",
+        "by_effect_kind": true
+      },
+      "requires_tags": ["player", "objective_item"]
+    },
+    {
+      "id": "stealth_hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "snake_like_player", "component": "Health",        "label": "HP" },
+          { "archetype": "snake_like_player", "component": "stealth_meter", "label": "Stealth" },
+          { "archetype": "snake_like_player", "component": "alarm_level",   "label": "Alarm" }
+        ],
+        "layout": "corners",
+        "show_guard_alert_indicators": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "game_over_on_alarm_or_death",
+      "type": "LoseOnZero",
+      "params": {
+        "archetype": "snake_like_player",
+        "field": "Health",
+        "emit_condition": "player_died_or_captured"
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "stealth_music_per_alarm",
+      "type": "ChipMusic",
+      "params": {
+        "tracks": {
+          "infiltration": "audio/bgm/mgs_infiltration",
+          "discovery":    "audio/bgm/mgs_discovery",
+          "alert":        "audio/bgm/mgs_alert",
+          "thief_stealth":"audio/bgm/thief_stealth"
+        },
+        "track_by_alarm_level": {
+          "0": "infiltration",
+          "1": "infiltration",
+          "2": "discovery",
+          "3": "alert"
+        }
+      },
+      "requires_tags": []
+    },
+    {
+      "id": "stealth_sfx_library",
+      "type": "SfxLibrary",
+      "params": {
+        "events": {
+          "footstep_stand":  "audio/sfx/footstep_concrete",
+          "footstep_crouch": "audio/sfx/footstep_soft",
+          "alert_question":  "audio/sfx/mgs_question_mark",
+          "alert_exclaim":   "audio/sfx/mgs_exclamation",
+          "body_drag":       "audio/sfx/body_drag",
+          "silenced_fire":   "audio/sfx/socom_silenced",
+          "lockpick_tick":   "audio/sfx/lockpick_tick",
+          "knockout":        "audio/sfx/knockout_thud"
+        }
+      },
+      "requires_tags": []
+    }
+  ]
+}

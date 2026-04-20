@@ -1,0 +1,34 @@
+{
+  "stages": {
+    "crossbeat_arena": {
+      "display_name": "Crossbeat Arena",
+      "bg_sprite": "sprites/stages/crossbeat_arena",
+      "bgm_ref": "crossbeat_120bpm",
+      "bpm": 120,
+      "time_signature": [4, 4],
+      "boundary": { "kind": "rect", "width": 14 },
+      "on_beat_fx": "stage_pulse_on_beat",
+      "tags": ["stage", "balanced"]
+    },
+    "rap_stage": {
+      "display_name": "Rap Arena",
+      "bg_sprite": "sprites/stages/rap_stage",
+      "bgm_ref": "rap_instrumental_94bpm",
+      "bpm": 94,
+      "time_signature": [4, 4],
+      "boundary": { "kind": "rect", "width": 14 },
+      "on_beat_fx": "stage_pulse_on_beat",
+      "tags": ["stage", "rhythm_themed"]
+    },
+    "metal_coliseum": {
+      "display_name": "Metal Coliseum",
+      "bg_sprite": "sprites/stages/metal_coliseum",
+      "bgm_ref": "metal_fast_160bpm",
+      "bpm": 160,
+      "time_signature": [4, 4],
+      "boundary": { "kind": "rect", "width": 14 },
+      "on_beat_fx": "stage_flash_on_beat",
+      "tags": ["stage", "fast"]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "characters": {
+    "ryu_beat": {
+      "display_name": "Ryu (Beat)",
+      "health": 100,
+      "components": ["Health(100)", "Resource('super_meter',0)", "Resource('rhythm_bonus',0)"],
+      "tags": ["fighter", "shoto", "balanced"],
+      "sprite_ref": "sprites/fighters/ryu_beat",
+      "stage_affinity": "crossbeat_arena",
+      "move_list_ref": "ryu_beat_moveset"
+    },
+    "ken_beat": {
+      "display_name": "Ken (Beat)",
+      "health": 100,
+      "components": ["Health(100)", "Resource('super_meter',0)", "Resource('rhythm_bonus',0)"],
+      "tags": ["fighter", "shoto", "rushdown"],
+      "sprite_ref": "sprites/fighters/ken_beat",
+      "stage_affinity": "crossbeat_arena",
+      "move_list_ref": "ken_beat_moveset"
+    },
+    "parappa_beat": {
+      "display_name": "P-Beat",
+      "health": 85,
+      "components": ["Health(85)", "Resource('super_meter',0)", "Resource('rhythm_bonus',0)", "Resource('mic_charge',0)"],
+      "tags": ["fighter", "rhythmic", "zoner"],
+      "sprite_ref": "sprites/fighters/parappa_beat",
+      "stage_affinity": "rap_stage",
+      "move_list_ref": "parappa_beat_moveset"
+    }
+  }
+}

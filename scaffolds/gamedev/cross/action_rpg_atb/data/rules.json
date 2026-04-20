@@ -1,0 +1,51 @@
+{
+  "rules": {
+    "scene_transition": {
+      "field_to_battle": {
+        "trigger_kind": "enemy_field_contact",
+        "trigger_tag": "encounter_trigger",
+        "encounter_group_lookup_field": "encounter_group",
+        "transition_animation": "swirl_dissolve",
+        "transition_frames": 30,
+        "freeze_field_state_during": true
+      },
+      "battle_to_field": {
+        "trigger_kind": "battle_resolved",
+        "victory_action": "return_to_field_room",
+        "victory_grants": ["xp_total", "gp_total", "drop_table"],
+        "victory_despawns_field_enemy": true,
+        "flee_action": "return_to_field_room",
+        "flee_keeps_field_enemy_alive": true,
+        "wipe_action": "game_over",
+        "transition_animation": "swirl_dissolve_reverse",
+        "transition_frames": 30
+      }
+    },
+    "scene_state_persistence": {
+      "party_hp_persists_across_transitions": true,
+      "party_mp_persists_across_transitions": true,
+      "party_xp_persists_across_transitions": true,
+      "party_level_persists_across_transitions": true,
+      "equipment_persists_across_transitions": true,
+      "inventory_persists_across_transitions": true,
+      "field_avatar_position_persists_after_battle": true,
+      "field_room_state_persists": true,
+      "boss_room_state_persistent_after_clear": true
+    },
+    "battle_flee_option": {
+      "enabled": true,
+      "flee_chance_base": 0.7,
+      "flee_chance_speed_modifier": 0.05,
+      "flee_disabled_for_boss_encounters": true
+    },
+    "win_condition": {
+      "kind": "boss_defeated",
+      "boss_id": "gohma_boss",
+      "encounter_group": "gohma_boss_battle"
+    },
+    "lose_condition": {
+      "kind": "party_wipe",
+      "archetype_any_of": ["hero_warrior", "rana_blackmage", "lily_whitemage", "kage_thief"]
+    }
+  }
+}

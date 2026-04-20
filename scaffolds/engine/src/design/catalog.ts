@@ -652,9 +652,18 @@ export const CATALOG: Record<MechanicType, CatalogEntry> = {
   // v2 placeholders — shape not specified; compiler emits out_of_scope error.
   RoleAssignment: {
     type: 'RoleAssignment',
-    description: 'v2 placeholder — runtime BT swap on archetype instance (Lemmings). Not implemented.',
-    example_params: {},
-    tier: 'v2',
+    description: 'Runtime role-to-entity mapping. Same entity can hold multiple roles (leader + healer) when allow_multi_role=true; otherwise reassigning steals the role from the prior holder. Archetypes: Lemmings job-assignment (dig / build / bash / climb), Lost Vikings character-swap (player-controlled role bounces between 3 protagonists), LBP drop-in-drop-out multiplayer, RTS squad delegation. Promoted to v1 in Cycle 26 with runtime + tests.',
+    example_params: {
+      roles: ['player_controlled', 'leader', 'healer', 'scout'],
+      initial_assignments: { player_controlled: 'viking_erik' },
+      allow_multi_role: false,
+    },
+    requires_components: [],
+    emits_fields: ['role_assignments'],
+    tier: 'v1_ext',
+    priority_class: 'default',
+    composability_score: 'medium',
+    common_patches: ['add role id', 'toggle allow_multi_role', 'narrow assignable_tag for restricted roles'],
   },
   CrowdSimulation: {
     type: 'CrowdSimulation',
@@ -664,15 +673,34 @@ export const CATALOG: Record<MechanicType, CatalogEntry> = {
   },
   TimeReverseMechanic: {
     type: 'TimeReverseMechanic',
-    description: 'v2 placeholder — record/playback of entity state (Braid, Prince of Persia Sands). Not implemented.',
-    example_params: {},
-    tier: 'v2',
+    description: 'Rewind-style time reversal — records per-entity snapshots into a ring buffer and plays them backwards on rewind. Archetypes: Braid (selective per-object rewind), Prince of Persia: Sands of Time (player-only rewind gated by SandsOfTime resource), Titanfall 2 "Effect and Cause" (scene-scoped phase shift). Distinct from PhysicsModifier.time_scale which only scales forward time. Promoted to v1 in Cycle 22 with runtime + tests.',
+    example_params: {
+      rewind_duration_sec: 10,
+      snapshot_rate_hz: 30,
+      resource_component: 'SandsOfTime',
+      resource_drain_rate: 1.0,
+    },
+    requires_components: [],
+    emits_fields: ['is_rewinding', 'rewind_resource_left'],
+    tier: 'v1_ext',
+    priority_class: 'default',
+    composability_score: 'medium',
+    common_patches: ['lengthen rewind_duration_sec', 'add resource gate', 'narrow affects_tag for selective rewind'],
   },
   PhysicsModifier: {
     type: 'PhysicsModifier',
-    description: 'v2 placeholder — toggle gravity/time/friction globally (VVVVVV, Superhot). Not implemented.',
-    example_params: {},
-    tier: 'v2',
+    description: 'Global physics scale — modify gravity, friction, and time-scale for the whole scene or a tag-filtered subset. Platformers tune gravity here; VVVVVV-style flipper games use negative gravity; Superhot slows time. Promoted to v1 in Cycle 16 with runtime + tests.',
+    example_params: {
+      gravity_scale: 1.0,
+      friction_scale: 1.0,
+      time_scale: 1.0,
+    },
+    requires_components: [],  // state-only — modifies whatever physics systems read from game.physics
+    emits_fields: ['gravity_scale', 'friction_scale', 'time_scale'],
+    tier: 'v1_ext',
+    priority_class: 'default',
+    composability_score: 'high',
+    common_patches: ['tune gravity_scale for jump-feel', 'set time_scale < 1 for slow-mo', 'invert gravity for VVVVVV flip'],
   },
 
   // v2 anthology pattern — per numerics note_011
