@@ -1,13 +1,13 @@
 <p align="center">
-  <img src="docs/banner.png?v=9" alt="ツNami — the agent that builds" width="800">
+  <img src="docs/banner.png?v=9" alt="tsuNami — the agent that builds" width="800">
 </p>
 
-<h1 align="center">tsunami 津波 ♡</h1>
+<h1 align="center">tsunami ♡</h1>
 
 <p align="center"><b><i>an ai coding agent that lives on your computer.<br/>nothing leaves your machine. ever.</i></b></p>
 
 <p align="center">
-  you type a prompt. <b>Nami (ナミ)</b> scaffolds a project, writes the code, compiles it,<br/>
+  you type a prompt. <b>Nami</b> scaffolds a project, writes the code, compiles it,<br/>
   drives a real browser to QA the output, and hands you a working build.<br/>
   on your GPU. no OpenAI. no Anthropic. no Google. no API keys. no telemetry.<br/>
   no "unexpected usage" email at 2am.
@@ -34,9 +34,9 @@ the installer clones the repo, finds your GPU, downloads the models, lights up t
 
 ---
 
-## meet Nami ナミ ✿
+## meet Nami ✿
 
-Nami is the agent. she's the **ナミ** in **ツナミ** — literally the *wave* half of *tsunami*. 津 (tsu, harbor) + 波 (nami, wave) = 津波.
+Nami is the agent. she's the *Nami* in *tsu-Nami* — the wave half of the name. **tsu** + **Nami** = tsunami.
 
 she's a coder who happens to run on your hardware. when you ask her to build something she:
 
@@ -155,8 +155,8 @@ good ideas get built. you get credit in the commit. if you genuinely need to shi
 
 ## license ✧
 
-**public domain.** ツNami is a utility service for the open web, not a product.
+**public domain.** tsuNami is a utility service for the open web, not a product.
 
 released under [the Unlicense](https://unlicense.org/). fork it, ship it, sell it, rename it — there's no copyright to assign, no license to honour, no attribution clause to trip on. it belongs to everybody now.
 
-<p align="center"><sub>made with ♡ by one dev and a lot of coffee · 津波 2026</sub></p>
+<p align="center"><sub>made with ♡ by one dev and a lot of coffee · tsunami 2026</sub></p>
