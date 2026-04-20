@@ -492,20 +492,71 @@ class Agent:
         # explicitly writes `deliverables/<name>` in the prompt.
         import re
         save_match = re.search(r'deliverables/([a-z0-9_-]+)', msg)
-        if not save_match:
+
+        # Gamedev exception: if the prompt asks for a game AND pick_genre
+        # returns a supported gamedev genre, auto-provision via
+        # project_init_gamedev. The drone's gamedev system-prompt assumes
+        # a scaffold is already provisioned ("Do NOT write App.tsx, ONE
+        # file: src/main.ts"), so without this step a prompt like "Build
+        # a 2D platformer called Lava Leap" silently no-ops on the drone
+        # (no directory exists to edit). Safe to auto-fire because the
+        # name-extraction below is name-agnostic — genre drives the
+        # scaffold-pick, project_name is just the deliverable dir.
+        gamedev_genre = ""
+        try:
+            from .genre_scaffolds import pick_genre
+            from .planfile import pick_scaffold
+            if pick_scaffold(user_message) == "gamedev":
+                gamedev_genre, _ = pick_genre(user_message, "gamedev")
+        except Exception:
+            gamedev_genre = ""
+
+        if not save_match and not gamedev_genre:
             return ""
-        project_name = save_match.group(1)
+
+        # Extract project name from `deliverables/X` when present, else
+        # derive from prompt (gamedev path only — the adversary-vector
+        # concern in the pre-existing comment doesn't apply to
+        # project_init_gamedev since it picks from a closed list of
+        # scaffold dirs, not arbitrary npm packages).
+        if save_match:
+            project_name = save_match.group(1)
+        else:
+            # Derive a slug from the prompt. Look for "called <name>" or
+            # "named <name>" first; fall back to first 5 words of the
+            # build verb's object.
+            called = re.search(r'(?:called|named|titled)\s+([A-Z][A-Za-z0-9 ]+?)(?:[.,!?]|$|\n)', user_message)
+            if called:
+                raw = called.group(1).strip()
+                project_name = "-".join(raw.lower().split())[:40]
+            else:
+                # Strip common build verbs then take first word-sequence.
+                stripped = re.sub(r'^(build|create|make|develop|design)\s+(a|an|the)?\s*',
+                                  '', msg).strip()
+                words = stripped.split()[:4]
+                project_name = "-".join(words).replace(",", "").replace(".", "")[:40]
+            # Sanitize
+            project_name = re.sub(r'[^a-z0-9_-]', '', project_name) or "game"
 
         # Check if project already exists
         project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
         if (project_dir / "package.json").exists():
             return ""
 
-        # Provision via project_init
+        # Provision — gamedev path uses project_init_gamedev with detected
+        # genre; otherwise default project_init.
         try:
-            from .tools.project_init import ProjectInit
-            init_tool = ProjectInit(self.config)
-            result = await init_tool.execute(name=project_name, prompt=user_message)
+            if gamedev_genre:
+                from .tools.project_init_gamedev import ProjectInitGamedev
+                init_tool = ProjectInitGamedev(self.config)
+                result = await init_tool.execute(name=project_name, genre=gamedev_genre)
+                if not result.is_error:
+                    log.info(f"Pre-scaffold (gamedev): provisioned '{project_name}' "
+                             f"with genre='{gamedev_genre}'")
+            else:
+                from .tools.project_init import ProjectInit
+                init_tool = ProjectInit(self.config)
+                result = await init_tool.execute(name=project_name, prompt=user_message)
             if not result.is_error:
                 log.info(f"Pre-scaffold: provisioned '{project_name}'")
                 # User-supplied image passthrough: if the user dropped

@@ -143,7 +143,11 @@ _ALWAYS_TOOLS: tuple[str, ...] = (
 # drone simply cannot see or emit them, no filtering needed.
 _WAVE_ONLY_TOOLS: frozenset[str] = frozenset({
     "project_init",    # pre_scaffold invokes this
-    "project_init_gamedev",  # gamedev variant — wave-fired for genre scaffolds
+    # project_init_gamedev intentionally NOT wave-only — drone needs to
+    # call it directly when the prompt asks for a game genre but doesn't
+    # write `deliverables/<name>` (which is the only trigger for pre-
+    # scaffold). Exposing it in the drone schema lets the model pick the
+    # genre from the prompt text and provision the scaffold itself.
     "riptide",         # grounding gate uses for bbox extraction
     "undertow",        # delivery gate uses for QA
     "plan_update",     # wave maintains plan.md
