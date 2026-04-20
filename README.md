@@ -31,7 +31,7 @@ iwr -useb https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps
 tsunami
 ```
 
-the installer clones the repo, finds your GPU, downloads the models, lights up the four local servers, opens the UI. run `tsunami` again next time — same command, ツNami's waiting.
+the installer clones the repo, detects your GPU, installs the Python inference stack (transformers + diffusers + playwright + supporting libs), and wires the `tsunami` shell alias. Model weights (~57 GB) pull lazily from HuggingFace on the first `tsu up` — no separate download step, HF cache handles re-use after that. Run `tsunami` again next time — same command, ツNami's waiting.
 
 ---
 
@@ -115,8 +115,8 @@ small-model drones fail in predictable ways — they'll generate 11 images befor
 
 ## the honest parts ✿
 
-- **40 GB+ VRAM** recommended. less and you'll be swapping the LM to system memory. you won't like it.
-- **~2 min cold start** (model load + multi-shape warmup). subsequent builds are real-time.
+- **60 GB+ unified memory** recommended for the full stack running at once (Qwen LM ~35 GB + ERNIE Turbo ~22 GB + embed ~1.2 GB + overhead). 40 GB works if you accept swapping the LM down when ERNIE is generating. less than 40 and you're in misery territory.
+- **~2 min cold start per tier** on first boot (weights download + warmup). subsequent boots read HF cache at `~/.cache/huggingface/hub` and take ~90s. once up, builds are real-time.
 - **QA is playwright-backed**, not vibes. false-positive rate is below what a model could generate from prose heuristics. false-negatives happen when the model writes code that compiles but renders wrong in edge cases we haven't levered yet.
 - **smaller drones ignore nudges.** some of the twelve layers are advisory; the hard ones (L7 turn-1 narration block, L9 image-ceiling enforce, asset-existence gate) reject at the exec site.
 - **this codebase is under lightspeed development.** core files rewrite themselves within hours. expect rebases. the train has no brakes.
