@@ -1,0 +1,62 @@
+{
+  "_notation": "input field uses numpad (236=qcf, 214=qcb, 623=dp) — reused from fighting scaffold moves.json",
+  "spells": {
+    "fireball": {
+      "input": "236+A",
+      "mana_cost": 20,
+      "cooldown_sec": 2.0,
+      "damage": 18,
+      "damage_type": "fire",
+      "projectile_speed": 12,
+      "hitbox": { "offset_x": 1.2, "width": 1.0, "height": 0.8, "active_frames": 20 },
+      "sfx_ref": "sfx/attack/magic_fireball"
+    },
+    "ice_bolt": {
+      "input": "214+A",
+      "mana_cost": 22,
+      "cooldown_sec": 2.0,
+      "damage": 15,
+      "damage_type": "ice",
+      "projectile_speed": 14,
+      "status_effect": { "id": "slow", "remaining": 2.5, "magnitude": 0.5 },
+      "hitbox": { "offset_x": 1.2, "width": 0.8, "height": 0.8, "active_frames": 18 },
+      "sfx_ref": "sfx/attack/magic_ice"
+    },
+    "heal": {
+      "input": "22+B",
+      "mana_cost": 30,
+      "cooldown_sec": 5.0,
+      "heal_amount": 25,
+      "target": "self",
+      "sfx_ref": "sfx/attack/magic_heal"
+    },
+    "shield": {
+      "input": "22+A",
+      "mana_cost": 25,
+      "cooldown_sec": 6.0,
+      "status_effect": { "id": "shield", "remaining": 3.0, "magnitude": 0.5 },
+      "target": "self",
+      "sfx_ref": "sfx/attack/magic_shield"
+    },
+    "push": {
+      "input": "63+A",
+      "mana_cost": 15,
+      "cooldown_sec": 1.2,
+      "damage": 2,
+      "knockback": 6.0,
+      "range": 2.5,
+      "_comment": "Low damage but strong knockback — used to push the ball or disrupt opponent shots",
+      "hitbox": { "offset_x": 1.0, "width": 2.0, "height": 1.5, "active_frames": 8 },
+      "sfx_ref": "sfx/attack/magic_push"
+    },
+    "blink": {
+      "input": "22+C",
+      "mana_cost": 10,
+      "cooldown_sec": 4.0,
+      "teleport_distance": 5.0,
+      "target": "self",
+      "_comment": "Fast repositioning — escape a pressure cast or reach the ball",
+      "sfx_ref": "sfx/attack/magic_blink"
+    }
+  }
+}

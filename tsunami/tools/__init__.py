@@ -143,6 +143,7 @@ _ALWAYS_TOOLS: tuple[str, ...] = (
 # drone simply cannot see or emit them, no filtering needed.
 _WAVE_ONLY_TOOLS: frozenset[str] = frozenset({
     "project_init",    # pre_scaffold invokes this
+    "project_init_gamedev",  # gamedev variant — wave-fired for genre scaffolds
     "riptide",         # grounding gate uses for bbox extraction
     "undertow",        # delivery gate uses for QA
     "plan_update",     # wave maintains plan.md
@@ -172,7 +173,7 @@ _TOOLBOXES: dict[str, tuple[str, ...]] = {
     "planning": ("plan_update", "plan_advance", "emit_design"),
     "assets":   ("generate_image", "edit_image", "riptide", "undertow"),
     "qa":       ("undertow", "message_chat"),
-    "scaffold": ("project_init", "file_append", "summarize_file"),
+    "scaffold": ("project_init", "project_init_gamedev", "file_append", "summarize_file"),
 }
 
 
@@ -214,6 +215,7 @@ def build_registry(config) -> ToolRegistry:
     from .undertow import Undertow
     from .riptide import Riptide
     from .project_init import ProjectInit
+    from .project_init_gamedev import ProjectInitGamedev
     from .generate import GenerateImage, EditImage
     from .plan import PlanUpdate, PlanAdvance
     from .emit_design import EmitDesignTool
@@ -234,6 +236,7 @@ def build_registry(config) -> ToolRegistry:
         MessageResult, MessageChat,
         SearchWeb,
         ProjectInit,
+        ProjectInitGamedev,
         Undertow, Riptide, GenerateImage, EditImage,
         PlanUpdate, PlanAdvance,
         EmitDesignTool,

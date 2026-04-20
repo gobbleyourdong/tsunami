@@ -1,240 +1,151 @@
 # Plan: {goal}
 
-Game-design plan — drone emits a single `game_definition.json` via
-the `emit_design` tool. The engine at scaffolds/engine/ consumes that
-JSON and runs the game. No raw React — scene/mechanic composition only.
+Game-dev plan — drone provisions a **pre-built genre scaffold** and then
+edits `data/*.json` + `src/scenes/*.ts` to specialize it. Scaffolds ship
+PLAYABLE: scenes, mechanics, placeholder assets, and catalog wiring are
+all prewired from `@engine/mechanics`. Your job is **content**, not
+skeleton-building.
 
-Reference examples: training/gamedev_examples/*.ts (snake, pong,
-flappy, asteroids, platformer, racing, etc.). Each is one scene with
-a handful of mechanics (move, collide, spawn, score).
+Available genres (scaffolds at `scaffolds/gamedev/<genre>/`):
 
-## BEFORE YOU EMIT (F-A4: source-before-priors)
-
-**Step 0 — Read the catalog BEFORE the first emit_design call.** The
-engine catalog is the source of truth for which MechanicType values
-the compiler accepts. Do not invent types from priors — they will fail
-validation (Qwen has a training cutoff; the catalog has moved since).
-
-**The absolute path to each file is provided in the system prompt's
-`# GAMEDEV OVERRIDE (turn-1)` block** — use those paths verbatim with
-`file_read`. `schema.ts` carries the `MechanicType` string-literal
-union — the complete list of accepted types. Your emitted design's
-`mechanics[].type` values MUST match one of those literals.
-
-If your prompt calls for a mechanic the catalog lacks (e.g., an exotic
-fighting-game stance system), emit the closest existing type and
-leave a code-comment proposing a NEW mechanic for
-`scaffolds/.claude/game_essence/catalog_proposals.md`.
-
-**Step 0b — Check the full CatalogEntry metadata for any mechanic
-you're unsure about** — `catalog.ts` absolute path is also in the
-GAMEDEV OVERRIDE block. Each entry carries description + example_params
-+ needs_mechanic_types + tier. Use the example_params structure when
-setting your design's params — don't reshape them.
+| genre              | ships                                                          |
+|--------------------|----------------------------------------------------------------|
+| `custom`           | universal base — single scene, mountMechanic helper            |
+| `action_adventure` | Overworld + Dungeon + GameOver; CameraFollow + RoomGraph + LockAndKey + BossPhases; 4 enemy archetypes + 6 items (Zelda/Metroid/Tomb Raider heritage) |
+| `fighting`         | CharSelect → VsScreen → Fight → Victory; ComboAttacks + AttackFrames + HUD; 6 fighters + 6 stages (SF2/MK2/Tekken3 heritage) |
+| `magic_hoops`      | Single Match scene — cross-genre canary (sports + fighting + RPG magic); 2 wizards, 6 spells, 2 goals, score_vs_clock rules |
 
 ## TOC
 - [>] [Concept](#concept)
-- [ ] [Entities](#entities)
-- [ ] [Mechanics](#mechanics)
-- [ ] [Scenes](#scenes)
-- [ ] [Design](#design)
+- [ ] [Provision](#provision)
+- [ ] [Customize](#customize)
 - [ ] [Build](#build)
 - [ ] [Play](#play)
 - [ ] [Deliver](#deliver)
 
 ## Concept
-One-line identity: what is the game.
-- Genre: arcade / platformer / puzzle / racing / rhythm / shooter /
-  action-adventure / metroidvania / fps / jrpg / rts / stealth / ...
-  (see injected GENRE directive when scaffold=gamedev)
-- Core verb: jump / dodge / shoot / match / solve / chase / explore
-- Win/lose condition: score target, reach goal, survive timer
-- Reference from training/gamedev_examples/: pick the closest analog
 
-## Entities
-Game objects with position, velocity, sprite/shape, health.
-- Player: one per scene, input-driven movement
-- Obstacles: cars, enemies, walls (static or moving)
-- Collectibles: coins, logs, power-ups
-- Each entity has a `type`, optional `sprite` or `color+shape`, and
-  a set of attached mechanics
+One-line identity: what is the game. Pick the closest genre; if the
+prompt spans multiple (e.g. "sports game with magic PvP"), use
+`magic_hoops` as the cross-genre template.
 
-**If a CONTENT CATALOG directive was injected** (prompt names a
-specific game replica like "Zelda-like"), use the named enemies/
-bosses/items from that directive VERBATIM. Do not invent "Enemy 1"
+- Genre: action-adventure / fighting / custom / magic_hoops
+- Core verb: explore / combo / shoot / match / chase
+- Win/lose condition: ships with the scaffold — tune in `data/rules.json`
+
+## Provision
+
+**Step 1** — call `project_init_gamedev` with a project name + genre:
+
+```
+project_init_gamedev(name="zelda-like", genre="action_adventure")
+```
+
+The tool copies `scaffolds/gamedev/<genre>/` → `workspace/deliverables/<name>/`,
+symlinks the engine as a sibling, rewrites path aliases so `@engine/*`
+resolves, runs `npm install`, and starts the dev server. It returns a
+list of files that are the **primary edit surface** — typically
+`data/*.json` and `src/scenes/*.ts`.
+
+**Do NOT** write `game_definition.json`, `App.tsx`, or hand-author a
+scaffold. The genre scaffolds are the scaffolding.
+
+## Customize
+
+The genre scaffold is already playable. You're tuning its **content**
+(characters, items, rooms, spells, rules) and possibly adding a new
+scene or remounting a different mechanic.
+
+### Data files (`data/*.json`)
+
+Every genre scaffold has at minimum:
+- `config.json` — viewport, starting scene, mode
+- `rules.json` — win condition, timers, HP-per-respawn, etc.
+
+Plus genre-specific files:
+- `action_adventure`: `rooms.json` (room graph), `entities.json` (enemy
+  archetypes + items)
+- `fighting`: `characters.json` (6 fighters), `moves.json` (frame data
+  per fighter), `stages.json`
+- `magic_hoops`: `arena.json` (court + goals + ball), `characters.json`
+  (wizards + HP + mana), `spells.json` (6 spells with mana + cooldowns)
+
+**If a CONTENT CATALOG directive was injected** (prompt names a specific
+replica like "Zelda-like"), use the named enemies/bosses/items from
+that directive VERBATIM in `data/entities.json`. Don't invent "Enemy 1"
 when the catalog says "Octorok."
 
-## Mechanics
-Declarative behaviors from the engine catalog. Each mechanic has a
-`type` + `params`. The `type` must match a `MechanicType` literal from
-schema.ts (read at Step 0 above).
+### Scenes (`src/scenes/*.ts`)
 
-**High-frequency mechanics by genre** (full list in schema.ts — these
-are starting points, not restrictions):
+Each scene already mounts its mechanics via `mountMechanic('Type',
+params)` from `@engine/mechanics`. Common customizations:
+- Add a scene (boss room, victory screen) by copying an existing scene
+  and wiring its mechanics
+- Swap a mechanic (e.g. replace `CameraFollow` with `FixedCamera` in
+  action_adventure) by editing `tryMount()` calls
+- Add a cross-genre mechanic — look up the type in
+  `scaffolds/engine/src/design/schema.ts` `MechanicType` union
 
-| Genre              | Typical mechanics                                   |
-|--------------------|-----------------------------------------------------|
-| platformer         | PhysicsModifier · CameraFollow · PickupLoop · CheckpointProgression · AttackFrames |
-| action_adventure   | RoomGraph · LockAndKey · ItemUse · CameraFollow · HUD · ComboAttacks |
-| fps                | CameraFollow · BulletPattern · WaveSpawner · HUD · AttackFrames |
-| metroidvania       | RoomGraph · LockAndKey · GatedTrigger · ItemUse · PhysicsModifier |
-| jrpg               | DialogTree · Shop · InventoryCombine · LevelSequence · HUD |
-| rts                | UtilityAI · RoleAssignment · CrowdSimulation · WaveSpawner · HUD |
-| universal          | HUD · LoseOnZero · WinOnCount · ScoreCombos · Difficulty · ChipMusic · SfxLibrary |
+**Architecture rule:** scenes import ONLY from `@engine/mechanics`.
+Never `from '../../mechanics'` or `../../components`. The magic_hoops
+canary test enforces this — treat it as the ceiling for every scaffold.
 
-Audio (always useful):
-- `ChipMusic`: base_track + overlay_tracks + bpm + mixer (5-channel
-  chiptune). Track arrays are lists of {note, duration, channel}
-  events; tempo via BPM ref or flat number.
-- `SfxLibrary`: named sfxr patches keyed to events (onJump, onCollect).
+### Adding a new mechanic type
 
-Full catalog: schema.ts (type union) + catalog.ts (metadata).
-
-## Assets (sprites)
-If the game needs visuals beyond colored shapes, emit an
-`assets.manifest.json` at project root alongside game_definition.json.
-Each asset has id, category (sprite|tileset|background), prompt, and
-optional metadata. The build step runs `tools/build_sprites.py
-<project_dir>` which:
-- Calls generate_asset() per entry (ERNIE-Image-Turbo at :8092)
-- Caches PNGs by prompt hash
-- Copies to public/sprites/<id>.png
-- Emits public/sprites/manifest.json for src/sprites/loader.ts
-
-Reference entities in the design via `sprite: <id>` instead of a
-color+shape.
-
-## Scenes
-Each scene is a bounded playfield with entities + mechanics + win/lose.
-- main: the gameplay scene
-- gameover: shown when lose condition hits (optional — drone can
-  default to restart)
-- Transitions: flow[] defines scene order
-
-**For action_adventure / metroidvania / jrpg**: emit AT LEAST 2 scenes
-(overworld + dungeon, or towns + world-map). A single-scene game in
-these genres fails the genre directive's would_falsify criterion.
-
-## Design
-
-**Tool-call shape** — emit_design takes TWO sibling parameters:
-`design` (the JSON object below) and `project_name` (a kebab-case
-string). Call it like:
-
-```
-emit_design(design={...see below...}, project_name="zelda-overworld")
-```
-
-Do NOT put `project_name` INSIDE the design object — the tool validator
-rejects calls with missing top-level project_name. Round N captured 3
-consecutive emit_design calls failing this way.
-
-**Design shape** — `design` payload below. Field names MATCH
-`scaffolds/engine/src/design/schema.ts` DesignScript interface exactly.
-Do NOT emit `entities` or `scenes` at root — those names are NOT
-schema fields and the validator reads `raw.archetypes` + `raw.flow`
-ONLY (see validate.ts:79, 141). Round K/L captured waves emitting
-`entities: [...]` and failing validation with `tag_requirement` /
-`archetype not declared` errors because no archetype existed.
-
-```json
-{
-  "meta": {
-    "title": "Human-facing title",
-    "shape": "action",
-    "vibe": ["classic", "top_down", "dungeon_crawl"]
-  },
-  "config": {
-    "mode": "2d",
-    "camera": "orthographic",
-    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 20 } }
-  },
-  "singletons": {},
-  "archetypes": {
-    "player": {
-      "controller": "topdown",
-      "components": ["Health(4)", "Inventory"],
-      "tags": ["player"],
-      "sprite_ref": "link"
-    },
-    "octorok": {
-      "controller": "none",
-      "ai": "patrol",
-      "components": ["Health(1)"],
-      "tags": ["enemy"],
-      "sprite_ref": "octorok_red"
-    }
-  },
-  "mechanics": [
-    { "id": "cam", "type": "CameraFollow",
-      "params": { "target": "player" } },
-    { "id": "rg",  "type": "RoomGraph",
-      "params": { "scenes": ["overworld", "dungeon_1"] } }
-  ],
-  "flow": {
-    "kind": "scene",
-    "name": "overworld",
-    "transition": { "type": "fade" }
-  }
-}
-```
-
-**Key rules**:
-- `archetypes` is a **dict** keyed by archetype id (NOT a list)
-- Each archetype has `components: string[]` and `tags: string[]` (both required)
-- `mechanics` IS a list of `{ id, type, params }` objects
-- `flow` is a **single FlowNode** object (NOT a list) — see schema.ts
-  types for `{ kind: 'scene' | 'level_sequence' | 'room_graph' | ... }`
-- If a mechanic like `CheckpointProgression` declares `requires_tags`,
-  one of your `archetypes` MUST have that tag (e.g. `tags: ["checkpoint"]`)
-  or validation fails with `tag_requirement`
-
-Emit the full game_definition.json via the `emit_design` tool. It
-deposits to `public/game_definition.json` which the scaffold's main.ts
-loads at boot. Do NOT write App.tsx — the scaffold is engine-only.
-
-**emit_design tool-call shape**: the `design` parameter accepts a
-JSON object. Pass it as an object (`{"design": {...}}`), not as a
-stringified JSON (`{"design": "{\"project_name\": ...}"}`). The Python
-side handles both but the object form is cache-friendlier and avoids
-tool-arg validation quirks.
-
-If the design is large, consider splitting into multiple mechanics
-definitions and referencing them by id rather than inlining
-everything into a single monolithic object.
+If the catalog in `scaffolds/engine/src/design/schema.ts` lacks the
+exact mechanic you need, **don't invent one inline**. Options:
+1. Find the closest match from the 46 `MechanicType` literals and tune
+   its params.
+2. If genuinely novel, propose it in
+   `scaffolds/.claude/game_essence/catalog_proposals.md` — a future
+   pass will land the runtime + tests. Do NOT block a scaffold build
+   on a new mechanic.
 
 ## Build
+
+```
 shell_exec cd {project_path} && npm run build
-(tsc + vite; no React tests for gamedev — the design compiler's own
-validator is the gate)
+```
+
+The scaffold's `tsc` step catches missing imports. If it fails, read
+the error and edit the offending scene/data file — don't rebuild the
+scaffold from scratch.
 
 ## Play
-Delivery-time gate: `core/gamedev_probe.py` validates
-`public/game_definition.json` shape + catalog composition.
 
-Pass criteria:
-- game_definition.json exists and parses
-- ≥1 scene, ≥1 entity, ≥1 mechanic
-- All mechanic `type` values are known MechanicType literals
-- ≥1 catalog mechanic (not 100% invented types)
+Delivery gate checks:
+- `package.json`, `tsconfig.json`, `vite.config.ts` exist (scaffold
+  was provisioned correctly)
+- `data/*.json` all parse
+- Every `tryMount('X', ...)` mechanic name in `src/scenes/*.ts` is a
+  registered `MechanicType` (the canary invariant)
+- Scene imports come from `@engine/mechanics` (no relative-up imports
+  bypassing the Layer 2 barrel)
 
-Vision gate: VLM judges the running canvas — is it rendering? Does
-the scene match the declared genre?
+Vision gate: VLM judges the running canvas — is the scene rendering,
+is content visible, does it match the declared genre?
 
 ## Deliver
-message_result with a one-line description of the game built.
+
+`message_result` with a one-line description of what was built. The
+scaffold ships with a README documenting the genre's default
+customization paths — don't restate it, just point to the deliverable.
 
 ## Known failure modes (don't repeat)
 
-- **Don't write src/App.tsx** — gamedev scaffold is engine-only; the
-  deliver-gate will reject App.tsx writes on gamedev projects.
-- **Don't pass the entire design as a string** — inline JSON strings
-  >10 KB can crash some tool plumbing. Pass the design as a structured
-  object in the tool arguments.
-- **Don't invent MechanicType values** — unknown types fail validation
-  at compile time. Read schema.ts at Step 0; when the catalog lacks
-  what you need, use the nearest existing type and comment a NEW
-  proposal.
-- **Don't skip emit_design and try file_write on design.json** — the
-  safety gate blocks writes to workspace root; and even if you write
-  it yourself, the compiler validation pass won't fire.
+- **Don't call `emit_design`** on a gamedev task when a matching genre
+  scaffold exists. `emit_design` is a fallback for genres without a
+  scaffold (rts, tbs, interactive fiction, etc.) and even those are
+  better served by widening the catalog than by bespoke JSON emission.
+- **Don't write `App.tsx`** — gamedev scaffolds are engine-only. The
+  delivery gate rejects `App.tsx` writes on gamedev projects.
+- **Don't hand-author `game_definition.json`** — the genre scaffold
+  replaces this with `data/*.json` files that the scene loads at boot.
+  The old flow used a single compiled design; the new flow uses
+  multiple live-loaded JSON files + prewired scenes.
+- **Don't import mechanics via relative paths** from a scene — always
+  `from '@engine/mechanics'`. The magic_hoops canary test fails if
+  any scaffold breaks this; treat it as an invariant.
+- **Don't invent `MechanicType` values** — use `catalog.ts` for the
+  full registered list. If the catalog lacks something, propose it in
+  `catalog_proposals.md` and use the nearest existing type for now.

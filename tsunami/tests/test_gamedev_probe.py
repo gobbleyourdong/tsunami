@@ -30,8 +30,15 @@ def _setup(tmp: Path, game_def: dict | None) -> Path:
 
 
 def test_dispatch_map_has_gamedev():
+    # The gamedev entry now points at the routing dispatcher — it picks
+    # between gamedev_probe (legacy) and gamedev_scaffold_probe (new)
+    # based on on-disk markers. The legacy probe stays reachable via
+    # _gamedev_probe_legacy for direct-dispatch callers.
+    from tsunami.core.dispatch import _gamedev_probe_legacy
+    from tsunami.core.gamedev_scaffold_probe import gamedev_probe_dispatch
     assert "gamedev" in _PROBES
-    assert _PROBES["gamedev"] is gamedev_probe
+    assert _PROBES["gamedev"] is gamedev_probe_dispatch
+    assert _gamedev_probe_legacy is gamedev_probe
 
 
 def test_no_game_def_fails():

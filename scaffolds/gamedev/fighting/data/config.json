@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "title": "Fighting Scaffold Seed",
+    "shape": "fighter",
+    "vibe": ["1v1-versus", "2d-and-3d", "arcade-6-button", "rounds"],
+    "target_session_sec": 180
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 16 } },
+    "sandbox": false
+  },
+  "match_rules": {
+    "rounds_per_match": 3,
+    "round_timer": 99,
+    "win_condition": "best_of_n",
+    "draw_on_timeout": "higher_health_wins",
+    "double_ko_behavior": "round_void",
+    "super_meter_max": 100,
+    "super_meter_carryover": "reset_on_round_start"
+  },
+  "input_scheme": {
+    "default": "arcade_6btn",
+    "available": ["arcade_6btn", "fightpad", "tekken_4btn"],
+    "command_buffer_frames": 8,
+    "charge_frames_required": 55
+  },
+  "stage_select": {
+    "default_stage": "suzaku_castle",
+    "random_allowed": true,
+    "affinity_auto_assign": true
+  },
+  "characters_ref": "characters.json",
+  "moves_ref": "moves.json",
+  "stages_ref": "stages.json"
+}

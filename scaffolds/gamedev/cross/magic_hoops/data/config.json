@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "title": "Magic Hoops",
+    "shape": "action",
+    "vibe": ["1v1-versus", "sports", "magic", "cross-genre"],
+    "target_session_sec": 180
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 24 } },
+    "sandbox": false
+  },
+  "starting_scene": "match",
+  "viewport": { "width": 1280, "height": 720 }
+}

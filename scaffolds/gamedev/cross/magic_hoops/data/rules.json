@@ -1,0 +1,11 @@
+{
+  "match_format": "score_vs_clock",
+  "teams": 2,
+  "players_per_team": 1,
+  "win_condition": "highest_score_at_clock_end",
+  "goal_value": 2,
+  "clock_sec": 180,
+  "respawn_sec": 3,
+  "hp_loss_respawns": true,
+  "_comment": "score_vs_clock is a cross-genre composition: sports-style scoreboard+clock + fighting-style HP-to-zero knockout (fighter respawns after respawn_sec). Winner = highest team score when clock hits 0, OR instant win if opponent team is all KO'd with 0 respawns left (not applicable at players_per_team=1)."
+}

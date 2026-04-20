@@ -200,7 +200,7 @@ def test_probe_surfaces_content_from_gamedev_deliverable():
     named content and mechanic types."""
     import json
     import tempfile
-    from scripts.overnight.probe import run as _probe_run
+    from tsunami.content_probe import run as _probe_run
     body = load_content_catalog("1986_legend_of_zelda")
     names = extract_content_names(body)
     with tempfile.TemporaryDirectory() as td:

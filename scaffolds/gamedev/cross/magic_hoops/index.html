@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tsunami Gamedev — Magic Hoops (cross-genre canary)</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #0a0c12; color: #f5f5f5;
+        font-family: system-ui, -apple-system, sans-serif; height: 100%; }
+      #app { width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+      .boot-banner { padding: 0.75rem 1.5rem; border-bottom: 1px solid #333;
+        font-size: 0.85rem; color: #aaa; }
+      .boot-banner b { color: #c7e; }
+      .boot-banner .tag { color: #7af; }
+      #canvas-host { flex: 1; position: relative; background: #111; }
+      canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="boot-banner">
+        <b>magic hoops</b> · <span class="tag">cross-genre canary</span> ·
+        sports scoring + fighting combat + RPG magic · pure composition from
+        <code>@engine/mechanics</code> — <em>no new primitives</em>
+      </div>
+      <div id="canvas-host"><canvas id="game-canvas"></canvas></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

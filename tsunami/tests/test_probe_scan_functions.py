@@ -17,9 +17,10 @@ from pathlib import Path
 
 REPO = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(REPO))
-sys.path.insert(0, str(REPO / "scripts" / "overnight"))
 
-import probe  # noqa: E402
+# content_probe lives in the tsunami package now (was
+# scripts/overnight/probe.py pre-2026-04-20).
+from tsunami import content_probe as probe  # noqa: E402
 
 
 def test_scan_mechanic_imports_basic():

@@ -1,0 +1,42 @@
+{
+  "characters": {
+    "gandalf_red": {
+      "display_name": "Gandalf",
+      "team_id": 1,
+      "archetype": "wizard_fire",
+      "health": 100,
+      "mana": 100,
+      "stats": { "str": 8, "int": 16, "spd": 10 },
+      "spellbook": ["fireball", "shield", "push"],
+      "spawn": [4, 6],
+      "respawn": [2, 6],
+      "fighter_sprite_ref": "sprites/characters/humanoid_mage",
+      "portrait_sprite_ref": "sprites/characters/humanoid_mage",
+      "components": [
+        "Health(100)",
+        "Resource('mana',100)",
+        "Score"
+      ],
+      "tags": ["fighter", "wizard", "team_1", "player"]
+    },
+    "merlin_blue": {
+      "display_name": "Merlin",
+      "team_id": 2,
+      "archetype": "wizard_ice",
+      "health": 100,
+      "mana": 120,
+      "stats": { "str": 6, "int": 18, "spd": 11 },
+      "spellbook": ["ice_bolt", "heal", "blink"],
+      "spawn": [20, 6],
+      "respawn": [22, 6],
+      "fighter_sprite_ref": "sprites/characters/humanoid_mage",
+      "portrait_sprite_ref": "sprites/characters/humanoid_mage",
+      "components": [
+        "Health(100)",
+        "Resource('mana',120)",
+        "Score"
+      ],
+      "tags": ["fighter", "wizard", "team_2", "player"]
+    }
+  }
+}

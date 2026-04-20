@@ -28,6 +28,7 @@ from ._probe_common import result as _result, skip as _skip
 from .electron_probe import electron_probe
 from .extension_probe import extension_probe
 from .gamedev_probe import gamedev_probe
+from .gamedev_scaffold_probe import gamedev_probe_dispatch
 from .openapi_probe import openapi_probe
 from .server_probe import server_probe
 from .sse_probe import sse_probe
@@ -46,10 +47,16 @@ _PROBES = {
     "auth-app":         server_probe,
     "fullstack":        server_probe,
     "ai-app":           sse_probe,
-    "gamedev":          gamedev_probe,   # F-B5 — validates
-                                         # public/game_definition.json
-                                         # shape + catalog composition
+    # F-B5 — gamedev has two delivery shapes:
+    #   - legacy: public/game_definition.json (handled by gamedev_probe)
+    #   - new:    data/*.json + src/scenes/*.ts (handled by
+    #             gamedev_scaffold_probe)
+    # gamedev_probe_dispatch picks at call time based on on-disk markers.
+    "gamedev":          gamedev_probe_dispatch,
 }
+# Direct handle to the legacy probe for callers that want to bypass the
+# scaffold router (introspection + tests).
+_gamedev_probe_legacy = gamedev_probe
 
 
 def detect_scaffold(project_dir: Path) -> str | None:
@@ -133,6 +140,20 @@ def detect_scaffold(project_dir: Path) -> str | None:
             if any(m in s for m in auth_markers):
                 return "auth-app"
         return "fullstack"
+
+    # 8. gamedev — two shapes:
+    #   - new scaffold flow: package.json name `gamedev-*-scaffold` +
+    #     a populated data/ dir with *.json (scaffold deliverable)
+    #   - legacy flow: public/game_definition.json emitted by the
+    #     wave's emit_design tool
+    pkg_name = (pkg.get("name") or "") if isinstance(pkg, dict) else ""
+    data_dir = project_dir / "data"
+    if pkg_name.startswith("gamedev-") and data_dir.is_dir() and any(data_dir.glob("*.json")):
+        return "gamedev"
+    if (project_dir / "public" / "game_definition.json").is_file():
+        return "gamedev"
+    if (project_dir / "game_definition.json").is_file():
+        return "gamedev"
 
     return None
 

@@ -60,3 +60,4 @@ import './chip_music'
 import './sfx_library'
 // Phase 6 — JRPG v1.2 cluster. Implementations land incrementally per cycle.
 import './level_up_progression'
+import './turn_based_combat'

@@ -1,0 +1,16 @@
+{
+  "boundary": { "kind": "rect", "size": [24, 12] },
+  "surface": "court",
+  "goals": [
+    { "team_id": 1, "position": [1, 6], "radius": 1.5, "sprite_ref": "sprites/ui/minimap_frame" },
+    { "team_id": 2, "position": [23, 6], "radius": 1.5, "sprite_ref": "sprites/ui/minimap_frame" }
+  ],
+  "ball": {
+    "spawn": [12, 6],
+    "restitution": 0.85,
+    "friction": 0.12,
+    "radius": 0.4
+  },
+  "music_ref": "sfx/ambient/arena",
+  "background_sprite": "sprites/tiles/stone"
+}

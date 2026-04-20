@@ -37,7 +37,7 @@ from pathlib import Path
 REPO = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(REPO))
 
-from scripts.overnight import probe as _probe  # noqa: E402
+from tsunami import content_probe as _probe  # noqa: E402
 
 
 def _iso_now() -> str:
