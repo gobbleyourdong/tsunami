@@ -16,7 +16,7 @@ Research:
 
 Vision (force multiplier for small models):
   riptide (extract element positions from a reference image)
-  generate_image (create reference via Z-Image-Turbo)
+  generate_image (create reference via ERNIE-Image-Turbo)
 
 Discovery (audit D22 restore — the fine-tune was trained to emit these
 in every example's tool set):

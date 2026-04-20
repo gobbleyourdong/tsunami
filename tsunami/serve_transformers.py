@@ -587,9 +587,12 @@ class ImageRequest(BaseModel):
     prompt: str
     width: int = 1024
     height: int = 1024
-    # Z-Image-Turbo official sampling recipe: 9 steps (= 8 DiT forwards),
-    # guidance_scale 0.0. Guidance > 0 on turbo models produces over-smooth
-    # output with anti-aliased edges that destroy fine subject detail.
+    # Default recipe covers both supported local image models:
+    #   - Z-Image-Turbo: 9 steps (= 8 DiT forwards), guidance_scale 0.0
+    #   - ERNIE-Image-Turbo (on :8092 dedicated server): 8 steps, guidance 1.0
+    # ERNIE is the production path; these defaults are for legacy local loads.
+    # Guidance > 0 on turbo models produces over-smooth output with
+    # anti-aliased edges that destroy fine subject detail.
     steps: int = 9
     guidance_scale: float = 0.0
     seed: int = -1  # -1 → server picks a fresh random seed per call
@@ -614,9 +617,10 @@ def _load_image_model():
     try:
         # AutoPipelineForText2Image auto-selects the right Diffusers pipeline
         # class based on the model's model_index.json. Previously hardcoded
-        # FluxPipeline, which broke for Z-Image-Turbo (different architecture,
-        # different required submodules). Auto handles Flux, SD, SD-Turbo,
-        # Z-Image, Kandinsky, etc.
+        # FluxPipeline, which broke when we added Z-Image-Turbo (different
+        # architecture, different required submodules). Auto handles Flux,
+        # SD, SD-Turbo, Z-Image, Kandinsky, ERNIE, etc. — whichever model id
+        # the caller points --image-model at.
         from diffusers import AutoPipelineForText2Image
         image_pipe = AutoPipelineForText2Image.from_pretrained(
             image_model_id,
@@ -709,10 +713,11 @@ async def _generate_image_impl(req: ImageRequest):
             return {"error": "No image model configured. Start with --image-model"}
         start = time.time()
         try:
-            # Without an explicit torch.Generator, Z-Image-Turbo's sampler
-            # is effectively deterministic — repeated calls with identical
-            # prompts return the same image, which breaks batch generation
-            # (banners, sprite sheets, variations). Seed the Generator
+            # Without an explicit torch.Generator, most Turbo samplers
+            # (Z-Image, ERNIE) are effectively deterministic — repeated
+            # calls with identical prompts return the same image, which
+            # breaks batch generation (banners, sprite sheets, variations).
+            # Seed the Generator
             # directly from the request, defaulting to a fresh random seed
             # when the caller didn't specify one.
             seed = int(req.seed) if req.seed is not None and req.seed >= 0 \
@@ -757,11 +762,13 @@ def main():
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--load-in-8bit", action="store_true", help="8-bit quantization via bitsandbytes")
     parser.add_argument("--load-in-4bit", action="store_true", help="4-bit quantization via bitsandbytes")
-    parser.add_argument("--image-model", default="Tongyi-MAI/Z-Image-Turbo",
-                        help="Image generation model. Options: "
-                             "Tongyi-MAI/Z-Image-Turbo (default, best text rendering), "
-                             "black-forest-labs/FLUX.2-klein-4B (faster, smaller). "
-                             "Set to 'none' to disable image generation.")
+    parser.add_argument("--image-model", default="none",
+                        help="Local image generation model. Default 'none' — "
+                             "production routes image requests to the dedicated "
+                             "ERNIE-Image-Turbo server on :8092 via SD_SERVER_URL, "
+                             "so the text proxy doesn't need to host a diffuser. "
+                             "Set to a HuggingFace id (e.g. Tongyi-MAI/Z-Image-Turbo, "
+                             "black-forest-labs/FLUX.2-klein-4B) to load in-process.")
     parser.add_argument("--low-vram", action="store_true", help="Swap language/image models to save VRAM (for <16GB GPUs)")
     args = parser.parse_args()
 

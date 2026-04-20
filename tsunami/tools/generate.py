@@ -379,11 +379,13 @@ class GenerateImage(BaseTool):
                 f"crisp pixelated boundary, sharp silhouette"
             )
 
-        # Z-Image-Turbo on the tsunami server (/v1/images/generate on :8090)
-        # is the canonical backend. Placeholder is the last-ditch fallback for
-        # when the server is up but the image model wasn't loaded at startup.
-        # SD-Turbo in-process was removed — Z-Image follows prompts better and
-        # is the prod model.
+        # ERNIE-Image-Turbo on the dedicated ernie_server (:8092) is the
+        # canonical backend — better text rendering + prompt adherence than
+        # any prior image model we ran. The text-proxy on :8090 can also
+        # route images when SD_SERVER_URL is set, but we go direct to :8092
+        # to avoid hangs when the proxy was launched with --image-model none.
+        # Placeholder is the last-ditch fallback when neither backend is
+        # reachable.
         # ERNIE-Image-Turbo only accepts these seven resolutions (DiT
         # bucket set):
         #   1024x1024 (square)
@@ -414,9 +416,19 @@ class GenerateImage(BaseTool):
             _sprite_target = (width, height)
             _gen_w, _gen_h = 1024, 1024
 
-        for backend in [self._try_zimage_server, self._try_placeholder]:
+        # Per-run counter (instance state; registry instantiates once per agent
+        # run, see tsunami/tools/__init__.py). Used to append a budget hint to
+        # the tool result once the drone has already generated enough images
+        # for a typical landing/brand page. Complements the phase_machine +
+        # agent.py image-ceiling nudges but rides on the tool-response path,
+        # which the model always reads.
+        if not hasattr(self, "_call_count"):
+            self._call_count = 0
+
+        for backend in [self._try_ernie_server, self._try_placeholder]:
             result = await backend(prompt, p, _gen_w, _gen_h, style)
             if not result.is_error:
+                self._call_count += 1
                 # Sprite downscale: if drone asked for sub-256 dims, we
                 # generated at 1024² — now box/nearest-downsample the
                 # file in-place to the requested sprite size. Preserves
@@ -455,25 +467,46 @@ class GenerateImage(BaseTool):
                         result = ToolResult(result.content + f"\nExtracted alpha (mode={tag})")
                     except Exception as e:
                         log.warning(f"Alpha extraction failed: {e}")
+
+                # Budget hint on the tool-response path. At image 3 the drone
+                # has the core set (logo + hero + one supporting); at 5+ the
+                # budget is spent. Hints are additive to result.content so
+                # nothing downstream breaks — just extra text the model reads.
+                if self._call_count == 3:
+                    result = ToolResult(
+                        result.content +
+                        "\n[budget: 3 images — you now have the core set "
+                        "(logo + hero + one supporting). For most landing / "
+                        "brand pages this is enough. Call file_write on "
+                        "src/App.tsx next unless the task explicitly needs "
+                        "a gallery, founder portrait, or multi-model catalog.]"
+                    )
+                elif self._call_count >= 5:
+                    result = ToolResult(
+                        result.content +
+                        f"\n[budget exceeded: {self._call_count} images "
+                        "generated. STOP — additional generations are "
+                        "almost certainly unnecessary. Write src/App.tsx "
+                        "NOW; missing optional images render as broken "
+                        "<img> which is acceptable.]"
+                    )
                 return result
 
         return ToolResult("No image generation backend available", is_error=True)
 
-    async def _try_zimage_server(self, prompt: str, path: Path, w: int, h: int, style: str) -> ToolResult:
-        """Call Z-Image-Turbo on the tsunami server (:8090/v1/images/generate).
+    async def _try_ernie_server(self, prompt: str, path: Path, w: int, h: int, style: str) -> ToolResult:
+        """Call ERNIE-Image-Turbo on the dedicated image server (:8092).
 
-        Z-Image-Turbo (Tongyi-MAI/Z-Image-Turbo) is the prod image model.
-        Expects the tsunami server was started with --image-model set to
-        Tongyi-MAI/Z-Image-Turbo (the default). If the server is up but
-        --image-model was "none", returns is_error so the placeholder
-        fallback can run.
+        Endpoint is configurable via TSUNAMI_IMAGE_ENDPOINT. Falls through
+        to the placeholder SVG backend on any error (server down, model not
+        loaded, network fault).
         """
         import base64, random
         try:
-            # Prefer the dedicated image endpoint (:8092 ernie_server).
+            # Go direct to the dedicated image endpoint (:8092 ernie_server).
             # The text-model proxy on :8090 only routes images if SD_SERVER_URL
-            # is set in its env, which isn't guaranteed. Going direct avoids
-            # the hang when the proxy has `--image-model none`.
+            # is set in its env, which isn't guaranteed. Direct avoids the
+            # hang when the proxy has `--image-model none`.
             import os as _oie
             endpoint = (
                 _oie.environ.get("TSUNAMI_IMAGE_ENDPOINT")
@@ -482,10 +515,10 @@ class GenerateImage(BaseTool):
             if not endpoint.startswith("http"):
                 endpoint = f"http://{endpoint}"
             import httpx
-            # Always pass a fresh random seed — without one Z-Image-Turbo's
-            # sampler defaults to deterministic output, so repeated calls
-            # with the same prompt return the same image. Users chaining
-            # generations (banners, sprite sheets, variations) need variety.
+            # Always pass a fresh random seed — without one the sampler
+            # defaults to deterministic output, so repeated calls with the
+            # same prompt return the same image. Users chaining generations
+            # (banners, sprite sheets, variations) need variety.
             seed = random.randint(0, 2**31 - 1)
             async with httpx.AsyncClient(timeout=180) as client:
                 resp = await client.post(
@@ -503,27 +536,27 @@ class GenerateImage(BaseTool):
                 )
                 if resp.status_code != 200:
                     return ToolResult(
-                        f"Z-Image server returned {resp.status_code}: {resp.text[:200]}",
+                        f"ERNIE image server returned {resp.status_code}: {resp.text[:200]}",
                         is_error=True,
                     )
                 data = resp.json()
                 if "error" in data:
                     return ToolResult(
-                        f"Z-Image server error: {data['error']}",
+                        f"ERNIE image server error: {data['error']}",
                         is_error=True,
                     )
                 if not data.get("data") or not data["data"][0].get("b64_json"):
-                    return ToolResult("Z-Image server returned no image", is_error=True)
+                    return ToolResult("ERNIE image server returned no image", is_error=True)
                 b64 = data["data"][0]["b64_json"]
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(base64.b64decode(b64))
                 url_hint = _public_url_hint(path)
                 return ToolResult(
-                    f"Image generated and saved to {path} (Z-Image-Turbo {w}x{h}, 4 steps)"
+                    f"Image generated and saved to {path} (ERNIE-Image-Turbo {w}x{h}, 8 steps)"
                     + (f"\nReference in JSX as <img src=\"{url_hint}\" />" if url_hint else "")
                 )
         except Exception as e:
-            return ToolResult(f"Z-Image call failed: {e}", is_error=True)
+            return ToolResult(f"ERNIE image call failed: {e}", is_error=True)
 
     async def _try_placeholder(self, prompt: str, path: Path, w: int, h: int, style: str) -> ToolResult:
         """Generate a placeholder SVG when no real backend is available."""
@@ -547,8 +580,8 @@ class GenerateImage(BaseTool):
         svg_path.write_text(svg)
         return ToolResult(
             f"Placeholder SVG saved to {svg_path}. "
-            f"Start the tsunami server with --image-model Tongyi-MAI/Z-Image-Turbo "
-            f"to generate real images."
+            f"Start the ERNIE image server (tsunami/serving/ernie_server.py on :8092) "
+            f"or set TSUNAMI_IMAGE_ENDPOINT to generate real images."
         )
 
 

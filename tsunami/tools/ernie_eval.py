@@ -3,7 +3,7 @@
 A throwaway bench rig — loads Q4_K_M DiT via our custom gguf_ops, pairs it
 with the bf16 Mistral3 text encoder / VAE / scheduler from the Baidu
 snapshot, generates one image, reports per-step time and peak VRAM. Does
-NOT touch prod (Z-Image runs on sd-server :8092, unaffected).
+NOT touch prod (ERNIE-Image-Turbo runs on ernie_server :8092, unaffected).
 
 The VAE is the one Baidu ships inside the ERNIE-Image-Turbo repo (168 MB
 bf16, 32 latent channels, same architecture BFL introduced with Flux.2 —
