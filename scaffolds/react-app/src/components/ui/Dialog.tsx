@@ -57,7 +57,7 @@ export function Dialog({ open, isOpen, onClose, onOpenChange, title, description
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            {title && <h2 style={{ fontSize: 'var(--text-lg, 1.25rem)', fontWeight: 700, marginBottom: 4, color: '#fff' }}>{title}</h2>}
+            {title && <h2 style={{ fontSize: 'var(--text-lg, 1.25rem)', fontWeight: 700, marginBottom: 4, color: 'var(--text, #fff)' }}>{title}</h2>}
             {description && <p style={{ color: 'var(--text-muted, #7a7f8e)', fontSize: 'var(--text-sm, 0.875rem)', marginBottom: 16, lineHeight: 1.6 }}>{description}</p>}
           </div>
           <button

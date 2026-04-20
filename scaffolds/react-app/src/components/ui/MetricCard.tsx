@@ -95,7 +95,11 @@ export function MetricCard({
           fontFamily: "var(--font-mono)",
           fontSize: "var(--text-2xl)",
           fontWeight: 700,
-          color: "#fff",
+          color: "var(--text, #fff)",  // honors the theme token; light
+                                       // doctrines (tokens_light.css /
+                                       // tokens_neutral.css) set --text
+                                       // to near-black so values aren't
+                                       // invisible on white card bg
           lineHeight: 1.1,
           letterSpacing: "-0.02em",
         }}

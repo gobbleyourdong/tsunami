@@ -33,7 +33,7 @@ export function Kanban({ columns, onMove }: KanbanProps) {
             marginBottom: 14, paddingBottom: 10,
             borderBottom: '1px solid var(--border, rgba(255,255,255,0.06))',
           }}>
-            <span style={{ fontWeight: 700, fontSize: 'var(--text-sm, 0.875rem)', color: '#fff' }}>
+            <span style={{ fontWeight: 700, fontSize: 'var(--text-sm, 0.875rem)', color: 'var(--text, #fff)' }}>
               {col.title}
             </span>
             <span style={{
