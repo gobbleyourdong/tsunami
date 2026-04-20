@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.png?v=9" alt="tsuNami — the agent that builds" width="800">
+  <img src="docs/banner.png?v=9" alt="ツNami — the agent that builds" width="800">
 </p>
 
 <h1 align="center">tsunami</h1>
@@ -37,9 +37,7 @@ the installer clones the repo, finds your GPU, downloads the models, lights up t
 
 ## meet Nami ✿
 
-Nami is the agent. she's the *Nami* in *tsu-Nami* — the wave half of the name. **tsu** + **Nami** = tsunami.
-
-she's a coder who happens to run on your hardware. when you ask her to build something she:
+Nami is the agent — a coder who happens to run on your hardware. when you ask her to build something she:
 
 - reads the brief, thinks about it, picks a scaffold
 - auto-grounds any reference image with computer vision before planning
@@ -156,8 +154,8 @@ good ideas get built. you get credit in the commit. if you genuinely need to shi
 
 ## license ✧
 
-**public domain.** tsuNami is a utility service for the open web, not a product.
+**public domain.** ツNami is a utility service for the open web, not a product.
 
 released under [the Unlicense](https://unlicense.org/). fork it, ship it, sell it, rename it — there's no copyright to assign, no license to honour, no attribution clause to trip on. it belongs to everybody now.
 
-<p align="center"><sub>made with ♡ by one dev and a lot of coffee · tsunami 2026</sub></p>
+<p align="center"><sub>made with ♡ by one dev and a lot of coffee · ツNami 2026</sub></p>
