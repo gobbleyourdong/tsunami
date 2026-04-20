@@ -134,4 +134,6 @@ good ideas get built. you get credit in the commit. if you genuinely need to shi
 
 ## license
 
-MIT. fork it, ship it, don't pretend you built it.
+**public domain.** this is a utility service for the open web, not a product.
+
+released under [the Unlicense](https://unlicense.org/). fork it, ship it, sell it, rename it — we don't care and we can't stop you. there is no copyright to assign, no license to honour, no attribution clause to trip on. it belongs to everybody now.
