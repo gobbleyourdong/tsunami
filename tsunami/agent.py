@@ -49,6 +49,14 @@ log = logging.getLogger("tsunami.agent")
 # Maximum watcher re-generations per step to prevent infinite recursion
 MAX_WATCHER_REVISIONS = 2
 
+# Compile-error parser for TypeScript/Vite output.
+# Matches `src/App.tsx(163,6): error TSNNNN: msg` and pulls path/line/msg.
+# Lifted to module scope in pass #9 — was `re.compile(...)` inside the
+# auto-build error enrichment loop, paying the compile cost per build.
+_COMPILE_ERROR_RE = re.compile(
+    r"^(?:.*?)(?P<path>[\w./-]+?)\((?P<line>\d+),\d+\):\s*(?P<msg>.*)$"
+)
+
 
 class Agent:
     """The autonomous agent. The heartbeat."""
@@ -4667,13 +4675,10 @@ class Agent:
                                         # file_edit directly without re-reading the file. Parse
                                         # "src/App.tsx(163,6): error TSNNNN: msg" into (path,
                                         # line, message) then pull ±3 lines from the file.
-                                        import re as _re
-                                        err_re = _re.compile(
-                                            r"^(?:.*?)(?P<path>[\w./-]+?)\((?P<line>\d+),\d+\):\s*(?P<msg>.*)$"
-                                        )
+                                        # Pattern lifted to module scope as _COMPILE_ERROR_RE.
                                         enriched = []
                                         for e in errors:
-                                            m = err_re.match(e)
+                                            m = _COMPILE_ERROR_RE.match(e)
                                             if not m:
                                                 enriched.append(e); continue
                                             rel_path = m.group("path")
