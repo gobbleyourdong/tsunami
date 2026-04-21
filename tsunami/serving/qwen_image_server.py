@@ -350,10 +350,15 @@ async def edit(req: EditRequest):
         # `true_cfg_scale`; `guidance_scale=1.0` is the explicit non-distilled
         # value per the model card. We keep EditRequest.strength in the API
         # for caller-side bookkeeping but don't plumb it to the pipe.
+        # height/width MUST be forwarded — silently dropping them makes the
+        # resolution_sweep tool produce identical output at every res, since
+        # the pipe falls back to an internal default (~1024²) regardless.
         gen_args = dict(
             prompt=req.prompt,
             image=img,
             negative_prompt=req.negative_prompt,
+            height=req.height,
+            width=req.width,
             num_inference_steps=req.num_inference_steps,
             true_cfg_scale=req.guidance_scale,
             guidance_scale=DEFAULT_DISTILLED_GUIDANCE,
