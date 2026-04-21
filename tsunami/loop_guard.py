@@ -31,6 +31,17 @@ SOFT_LOOP_THRESHOLD = 5    # same tool_name repeated
 # the old threshold because a 5-read design phase for a visual app
 # is sometimes legitimate.
 SOFT_LOOP_THRESHOLD_GAMEDEV = 4
+# Scaffold-first gamedev: file_read is NEVER legitimate in the
+# drone's job (data/*.json, schema.ts, catalog.ts, App.test.tsx all
+# inlined in the system prompt — see tsunami/prompt.py:264-269,319-
+# 328). Round 1's _scaffold_first_block already returns is_error on
+# data/*.json reads, but the drone can still spiral on src/*.ts /
+# node_modules/... / plans/current.md. Session 1776736395 captured a
+# spiral where the generic HARD_LOOP_THRESHOLD=3 let the drone burn
+# 3 iterations of the same file_read before firing. For scaffold-
+# first, two identical file_read calls is already a strong enough
+# signal to intervene — the drone has already been told once.
+HARD_LOOP_THRESHOLD_SCAFFOLD_FIRST_READ = 2
 PROGRESS_WINDOW = 8        # iterations without progress
 
 
@@ -108,6 +119,35 @@ class LoopGuard:
         gamedev run directly after the GAMEDEV OVERRIDE said not to.
         """
         self._scaffold_kind = scaffold_kind
+
+        # Tighter hard loop for scaffold-first gamedev file_read:
+        # 2 identical file_read calls fires. See HARD_LOOP_THRESHOLD_
+        # SCAFFOLD_FIRST_READ rationale above. Only applies to file_read
+        # — scaffold-first drones edit data/*.json via file_write at
+        # legitimate repeat counts, so those stay on the generic
+        # threshold.
+        is_scaffold_first_gd = (
+            getattr(self, "_scaffold_kind", "") == "gamedev"
+            and getattr(self, "_gamedev_mode", "legacy") == "scaffold_first"
+        )
+        if (is_scaffold_first_gd
+                and len(self.fingerprints) >= HARD_LOOP_THRESHOLD_SCAFFOLD_FIRST_READ
+                and self.tool_names[-1] == "file_read"):
+            recent = self.fingerprints[-HARD_LOOP_THRESHOLD_SCAFFOLD_FIRST_READ:]
+            recent_tools = self.tool_names[-HARD_LOOP_THRESHOLD_SCAFFOLD_FIRST_READ:]
+            if (len(set(recent)) == 1
+                    and all(t == "file_read" for t in recent_tools)):
+                return LoopDetection(
+                    detected=True,
+                    loop_type="hard",
+                    description=(
+                        f"Identical file_read call repeated "
+                        f"{HARD_LOOP_THRESHOLD_SCAFFOLD_FIRST_READ}x in "
+                        f"scaffold-first gamedev. Data files are inlined — "
+                        f"use file_write to edit, then message_result."
+                    ),
+                    forced_action=self._suggest_break_action("file_read"),
+                )
 
         # Hard loop: 3 identical fingerprints in a row
         if len(self.fingerprints) >= HARD_LOOP_THRESHOLD:
