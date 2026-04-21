@@ -431,21 +431,10 @@ def _load_pipe():
     if _args.fp8_path:
         torch.cuda.empty_cache()
 
-    # Startup LoRA — operator can specify at boot for sprite-sheet workflows.
-    # Caveat: PEFT's LoRA injection only recognizes standard torch.nn.Linear,
-    # not our _FP8Linear. So when the transformer has been swapped to fp8,
-    # the startup LoRA attach would crash. Skip it; log loudly so the
-    # operator remembers to attach via /v1/admin/lora on a bf16 path if
-    # they want to use LoRA. A proper fix (subclassing nn.Linear so PEFT
-    # can wrap _FP8Linear) is a focused follow-up.
+    # Startup LoRA — works on both the bf16 path (via PEFT) and the fp8 path
+    # (via ComfyUI-style direct merge, see _attach_lora_fp8_merge).
     if _args.lora and _args.lora != "none":
-        if _args.fp8_path:
-            log.warning(
-                f"[startup] --lora {_args.lora} requested but --fp8-path is "
-                "set. PEFT doesn't recognize _FP8Linear; skipping LoRA attach."
-            )
-        else:
-            _attach_lora_sync(_args.lora, scale=1.0)
+        _attach_lora_sync(_args.lora, scale=1.0)
 
     torch.cuda.synchronize()
     vram = torch.cuda.memory_allocated() / (1024**3)
@@ -456,26 +445,215 @@ def _load_pipe():
 
 def _attach_lora_sync(name: str, scale: float = 1.0) -> None:
     """Core LoRA attach — sync helper used by startup + admin endpoint.
+
+    Routes on whether any transformer Linear has been swapped to _FP8Linear:
+      - Pure bf16 path: `_pipe.load_lora_weights(...)` (PEFT wrapper, diffusers-native).
+      - Mixed fp8 path: ComfyUI-style direct merge — dequant fp8 weights to
+        bf16, add (α/rank)·(B @ A) delta, re-quantize back to fp8. Works on
+        both _FP8Linear and plain Linear layers in the same transformer.
+
     Raises HTTPException on unknown registry name."""
     if name not in _LORA_REGISTRY:
         raise HTTPException(400,
             f"unknown lora name {name!r}; registered: {list(_LORA_REGISTRY)}")
     repo = _LORA_REGISTRY[name]
-    log.info(f"Attaching LoRA: {name} ({repo}, scale={scale})")
-    _pipe.load_lora_weights(repo, adapter_name=name)
-    # diffusers' set_adapters wants the full list of active adapters
-    active = _loaded_loras + [name] if name not in _loaded_loras else list(_loaded_loras)
-    scales = [scale] * len(active)
-    _pipe.set_adapters(active, adapter_weights=scales)
+
+    has_fp8 = any(isinstance(m, _FP8Linear) for m in _pipe.transformer.modules())
+    if has_fp8:
+        log.info(f"Attaching LoRA (fp8 merge path): {name} ({repo}, scale={scale})")
+        _attach_lora_fp8_merge(repo, name, scale)
+    else:
+        log.info(f"Attaching LoRA (PEFT path): {name} ({repo}, scale={scale})")
+        _pipe.load_lora_weights(repo, adapter_name=name)
+        active = _loaded_loras + [name] if name not in _loaded_loras else list(_loaded_loras)
+        scales = [scale] * len(active)
+        _pipe.set_adapters(active, adapter_weights=scales)
     if name not in _loaded_loras:
         _loaded_loras.append(name)
 
 
 def _detach_all_loras_sync() -> None:
+    """Detach all LoRAs. For the PEFT path this is reversible; for the
+    fp8-merge path the weights were modified in place, so a true detach
+    requires reloading the transformer from the fp8 safetensors. For now
+    we just clear the tracker and log; operator can restart the server
+    to get a clean fp8 base back."""
     log.info(f"Detaching all LoRAs ({_loaded_loras})")
-    if hasattr(_pipe, "unload_lora_weights"):
+    has_fp8 = any(isinstance(m, _FP8Linear) for m in _pipe.transformer.modules())
+    if has_fp8:
+        log.warning(
+            "[detach] fp8-merge LoRAs were merged in-place; /v1/admin/lora detach "
+            "only clears the tracker. Restart server with --fp8-path for a fresh base."
+        )
+    elif hasattr(_pipe, "unload_lora_weights"):
         _pipe.unload_lora_weights()
     _loaded_loras.clear()
+
+
+def _download_lora_state_dict(repo_id: str) -> dict[str, torch.Tensor]:
+    """Download a LoRA's safetensors from HF and return the state_dict.
+    Mirrors what diffusers.load_lora_weights does internally but without
+    the PEFT injection step — we just need the weights to merge manually.
+
+    LoRA authors use inconsistent filenames. Enumerate the repo's actual
+    .safetensors files and prefer ones whose name looks like a LoRA (small,
+    contains "lora"/"lightning"/"adapter", or is the sole .safetensors)."""
+    from huggingface_hub import hf_hub_download, list_repo_files
+    from safetensors.torch import load_file
+
+    # First try the well-known PEFT/diffusers filenames.
+    canonical = [
+        "pytorch_lora_weights.safetensors",
+        "adapter_model.safetensors",
+    ]
+    for fname in canonical:
+        try:
+            path = hf_hub_download(repo_id, fname)
+            log.info(f"[lora-merge] loaded canonical {fname}")
+            return load_file(path)
+        except Exception:
+            continue
+
+    # Fall back to repo enumeration — pick the smallest .safetensors whose
+    # name contains lora/lightning/adapter hints. Avoid obvious full-model
+    # files (fp8_scaled, bf16 with huge sizes).
+    try:
+        files = [f for f in list_repo_files(repo_id) if f.endswith(".safetensors")]
+    except Exception as e:
+        raise RuntimeError(f"could not enumerate {repo_id}: {e}") from e
+
+    hints = ("lora", "lightning", "adapter")
+    candidates = sorted(
+        f for f in files
+        if any(h in f.lower() for h in hints)
+        and "fp8" not in f.lower()
+        and "fp32" not in f.lower() or "lora" in f.lower()
+    )
+    if not candidates:
+        raise RuntimeError(
+            f"no LoRA-looking .safetensors in {repo_id}; available: {files}"
+        )
+    # Prefer bf16 variant if present (smaller, same math as fp32).
+    for f in candidates:
+        if "bf16" in f.lower():
+            path = hf_hub_download(repo_id, f)
+            log.info(f"[lora-merge] picked bf16 variant: {f}")
+            return load_file(path)
+    # Otherwise pick the first candidate.
+    path = hf_hub_download(repo_id, candidates[0])
+    log.info(f"[lora-merge] picked: {candidates[0]}")
+    return load_file(path)
+
+
+def _attach_lora_fp8_merge(repo_id: str, name: str, scale: float) -> None:
+    """ComfyUI-style direct-merge LoRA attach — dequant fp8 weight, add the
+    α/rank·(B@A) delta, re-quantize back to fp8_e4m3fn.
+
+    Key mapping: the diffusers-style LoRA uses keys like
+      `transformer.transformer_blocks.N.attn.to_q.lora_A.default.weight`
+    which strips to base module path `transformer_blocks.N.attn.to_q`. The
+    multi_angles LoRA for fal/Qwen-Image-Edit-2511 uses `lora_down`/`lora_up`
+    PEFT diffusers convention — we handle both naming families.
+    """
+    sd = _download_lora_state_dict(repo_id)
+    transformer = _pipe.transformer
+
+    # Group the state_dict by target module path.
+    #   grouped[module_path] = {"up": Tensor?, "down": Tensor?, "alpha": float?}
+    grouped: dict[str, dict[str, torch.Tensor]] = {}
+
+    def _classify_key(k: str) -> tuple[Optional[str], Optional[str]]:
+        """Return (base_path, part) where part ∈ {up, down, alpha} or None."""
+        # Strip the "transformer." prefix the LoRA may carry.
+        k2 = k[len("transformer."):] if k.startswith("transformer.") else k
+        # Diffusers/PEFT format: ..to_q.lora_A.default.weight
+        for suffix, part in (
+            (".lora_A.default.weight", "down"),
+            (".lora_B.default.weight", "up"),
+            (".lora_A.weight", "down"),
+            (".lora_B.weight", "up"),
+            (".lora_down.weight", "down"),
+            (".lora_up.weight", "up"),
+            (".alpha", "alpha"),
+        ):
+            if k2.endswith(suffix):
+                return k2[: -len(suffix)], part
+        return None, None
+
+    for k, v in sd.items():
+        base, part = _classify_key(k)
+        if base is None:
+            continue
+        grouped.setdefault(base, {})[part] = v
+    log.info(f"[lora-merge] {len(grouped)} candidate target modules in LoRA")
+
+    device = next(transformer.parameters()).device
+    merged = 0
+    skipped = 0
+    for path, parts in grouped.items():
+        up = parts.get("up")
+        down = parts.get("down")
+        alpha = parts.get("alpha")
+        if up is None or down is None:
+            skipped += 1
+            continue
+        # Resolve the module in the transformer
+        try:
+            module = transformer.get_submodule(path)
+        except AttributeError:
+            skipped += 1
+            continue
+
+        rank = down.shape[0]  # (rank, in_dim)
+        alpha_val = float(alpha.item()) if alpha is not None else float(rank)
+        eff_scale = scale * (alpha_val / rank)
+
+        # Compute delta once in bf16 on GPU.
+        up_dev = up.to(device=device, dtype=torch.bfloat16)
+        down_dev = down.to(device=device, dtype=torch.bfloat16)
+        delta = (up_dev.flatten(1) @ down_dev.flatten(1)).reshape(
+            (up_dev.shape[0], down_dev.shape[-1])
+        ).mul_(eff_scale)
+
+        if isinstance(module, _FP8Linear):
+            # Dequant → add delta → re-quantize, keeping input_scale intact.
+            w_bf16 = module.weight_fp8.to(torch.bfloat16) * module.weight_scale
+            # Handle LoRA targeting only a slice (e.g. q of fused qkv)
+            if delta.shape != w_bf16.shape:
+                log.warning(
+                    f"[lora-merge] {path}: delta shape {list(delta.shape)} != "
+                    f"weight shape {list(w_bf16.shape)} — skipping (partial-target "
+                    f"not yet supported on fp8 path)"
+                )
+                skipped += 1
+                continue
+            w_bf16.add_(delta)
+            # Re-quantize with a fresh per-tensor scale. float8_e4m3fn absmax
+            # is 448.0; scale = absmax(weight)/448 guarantees representability.
+            abs_max = w_bf16.abs().max().clamp(min=1e-8)
+            new_scale = (abs_max / 448.0).to(torch.float32)
+            module.weight_fp8.copy_((w_bf16 / new_scale).to(torch.float8_e4m3fn))
+            module.weight_scale.copy_(new_scale)
+            # input_scale is activation statistics; LoRA doesn't change it.
+            merged += 1
+        elif isinstance(module, torch.nn.Linear):
+            # Plain bf16 path — merge in place on the existing .weight.
+            if delta.shape != module.weight.shape:
+                log.warning(
+                    f"[lora-merge] {path}: delta shape mismatch for plain Linear; "
+                    "skipping"
+                )
+                skipped += 1
+                continue
+            with torch.no_grad():
+                module.weight.add_(delta.to(module.weight.dtype))
+            merged += 1
+        else:
+            skipped += 1
+    log.info(
+        f"[lora-merge] merged {merged} LoRA deltas, skipped {skipped} "
+        f"(mismatch/unsupported)"
+    )
 
 
 @app.get("/healthz")
