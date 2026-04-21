@@ -730,7 +730,7 @@ class Agent:
     def _fix_a_after_write(self, written_path: str) -> None:
         """FIX-A — update the pending checklist after a file_write lands on
         a tracked data/*.json file. Skips silently if FIX-A wasn't seeded."""
-        pending = getattr(self, "_pending_data_files", None)
+        pending = self._pending_data_files
         if not pending:
             return
         try:
@@ -782,7 +782,7 @@ class Agent:
         file_write. Best-effort; non-fatal on any exception."""
         if not path:
             return
-        fails: dict[str, int] = getattr(self, "_edit_fail_count_by_path", None) or {}
+        fails: dict[str, int] = self._edit_fail_count_by_path
         fails[path] = fails.get(path, 0) + 1
         self._edit_fail_count_by_path = fails
         count = fails[path]
@@ -883,7 +883,7 @@ class Agent:
                         task_text = self.state.conversation[1].content[:200] if len(self.state.conversation) > 1 else ""
                         # Prepend doctrine hint so the VLM judges against the
                         # injected style (not a generic "clean UI" baseline).
-                        _sn = getattr(self, "_style_name", "")
+                        _sn = self._style_name
                         if _sn:
                             task_text = f"[doctrine={_sn}] {task_text}"
                         _tgt = _tl.target_path(project_dir)
@@ -944,7 +944,7 @@ class Agent:
         test_name = failure.get("test", "") or "(unknown)"
 
         # Track consecutive same-test fails
-        last = getattr(self, "_last_failing_test", None)
+        last = self._last_failing_test
         streak = self._fail_streak
         if last == test_name:
             streak += 1
@@ -1049,7 +1049,7 @@ class Agent:
             plan_toc = self.plan_manager.to_toc()
         except Exception:
             pass
-        behaviors = getattr(self, "_seeded_behaviors", []) or []
+        behaviors = self._seeded_behaviors
         # Scaffold kind is determined by the plan: gamedev plan has a
         # "Design" section (emit_design target), react-build has
         # "Components" etc. Read once, pass through — avoids brittle
@@ -1063,7 +1063,7 @@ class Agent:
         if (self.plan_manager.section("Design") is not None
                 or self.plan_manager.section("Provision") is not None
                 or self.plan_manager.section("Customize") is not None
-                or getattr(self, "_scaffold_name", "") == "gamedev"):
+                or self._scaffold_name == "gamedev"):
             _scaffold_kind = "gamedev"
         # Detect scaffold-first (has data/*.json seed) vs legacy
         # engine-only flow. Loop-guard reads this attr to pick the right
@@ -1543,7 +1543,7 @@ class Agent:
             err = _check_deliverable_complete(self.config.workspace_dir)
             if not err:
                 return ""
-            if getattr(self, "_last_gate_printed", None) != err:
+            if self._last_gate_printed != err:
                 print(f"\n  {err}", flush=True)
                 self._last_gate_printed = err
             return f"\n{err}"
@@ -2097,11 +2097,11 @@ class Agent:
             # instead of the React-biased "Write App.tsx NOW".
             _prog_scaffold = (
                 "gamedev"
-                if (getattr(self, "_target_scaffold", "") == "gamedev"
+                if (self._target_scaffold == "gamedev"
                     or self.plan_manager.section("Design") is not None
                     or self.plan_manager.section("Provision") is not None
                     or self.plan_manager.section("Customize") is not None
-                    or getattr(self, "_scaffold_name", "") == "gamedev")
+                    or self._scaffold_name == "gamedev")
                 else "react-app"
             )
             for _sig in detect_progress_signals(
@@ -2295,7 +2295,7 @@ class Agent:
                             # don't bounce. Prevents the "built + delivered
                             # but undertow pedant → retry spiral → timeout"
                             # failure mode we hit on T2 repeatedly.
-                            build_ok = bool(getattr(self, "_build_passed_at", None))
+                            build_ok = bool(self._build_passed_at)
                             model_delivered = any(
                                 t == "message_result" for t in self._tool_history_model[-3:]
                             )
@@ -2372,13 +2372,13 @@ class Agent:
                         run_id=self.session_id,
                         project_dir=_proj_dir or "",
                         prompt=user_message,
-                        scaffold=getattr(self, "_target_scaffold", "") or getattr(self, "_scaffold_name", ""),
-                        style=getattr(self, "_style_name", ""),
-                        genre=getattr(self, "_genre_name", ""),
-                        content_essence=getattr(self, "_content_essence", ""),
+                        scaffold=self._target_scaffold or self._scaffold_name,
+                        style=self._style_name,
+                        genre=self._genre_name,
+                        content_essence=self._content_essence,
                         tool_history=list(self._tool_history),
                         iter_count=self.state.iteration,
-                        build_pass_count=1 if getattr(self, "_build_passed_at", None) is not None else 0,
+                        build_pass_count=1 if self._build_passed_at is not None else 0,
                         vision_pass=self._vision_fail_count == 0,
                         tokens_in=getattr(self.cost_tracker, "total_input_tokens", None),
                         tokens_out=getattr(self.cost_tracker, "total_output_tokens", None),
@@ -2448,7 +2448,7 @@ class Agent:
         # message_result to bail) — one-shot gets bypassed when the
         # drone emits text-mode tool calls that don't match, since the
         # reject doesn't consume the forced_tool flag by itself.
-        _pending_force = getattr(self, "_loop_forced_tool", None)
+        _pending_force = self._loop_forced_tool
         if _pending_force:
             force_tool = _pending_force
             log.warning(f"Loop-guard force: next tool constrained to {force_tool}")
@@ -2629,7 +2629,7 @@ class Agent:
         # written code-first in src/main.ts using @engine primitives
         # directly, not via mechanic JSON. Drone just file_writes main.ts.)
 
-        build_passed_at = getattr(self, "_build_passed_at", None)
+        build_passed_at = self._build_passed_at
         if build_passed_at is not None:
             last_tool = self._tool_history[-1] if self._tool_history else None
             # If still not message_result on the iter AFTER build passed,
@@ -2668,7 +2668,7 @@ class Agent:
                                 from .vision_gate import vision_check
                                 from . import target_layout as _tl
                                 task_text = self.state.conversation[1].content[:200] if len(self.state.conversation) > 1 else ""
-                                _sn = getattr(self, "_style_name", "")
+                                _sn = self._style_name
                                 if _sn:
                                     task_text = f"[doctrine={_sn}] {task_text}"
                                 _tgt = _tl.target_path(proj)
@@ -2799,7 +2799,7 @@ class Agent:
         if (self.plan_manager.section("Design") is not None
                 or self.plan_manager.section("Provision") is not None
                 or self.plan_manager.section("Customize") is not None
-                or getattr(self, "_scaffold_name", "") == "gamedev"):
+                or self._scaffold_name == "gamedev"):
             opened.append("planning")  # holds emit_design, plan_update, plan_advance
         # Open the assets toolbox (generate_image) whenever a deliverable
         # is active. Drones need image generation for hero photos, sprite
@@ -2864,7 +2864,7 @@ class Agent:
             if (self.plan_manager.section("Design") is not None
                 or self.plan_manager.section("Provision") is not None
                 or self.plan_manager.section("Customize") is not None
-                or getattr(self, "_scaffold_name", "") == "gamedev"):
+                or self._scaffold_name == "gamedev"):
                 _scaffold_first = False
                 if self.active_project:
                     from .tools.filesystem import is_scaffold_first_gamedev
@@ -2931,7 +2931,7 @@ class Agent:
         # rewrite: file_write on a path already written this run
         if response.tool_call and response.tool_call.name == "file_write":
             path = str(response.tool_call.arguments.get("path", ""))
-            seen_paths = getattr(self, "_token_written_paths", set())
+            seen_paths = self._token_written_paths
             if path and path in seen_paths:
                 ledger_entry["waste"].append("rewrite")
                 # Direct-mode rewrite gate: after 2 consecutive file_writes
@@ -2942,8 +2942,8 @@ class Agent:
                 # parsed the tool_call cleanly; no reroute). Replace the
                 # tool_call with a synthetic shell_exec targeting the
                 # project's dev/build command.
-                rw_count = getattr(self, "_rewrite_count", {}).get(path, 0) + 1
-                rw_map = getattr(self, "_rewrite_count", {})
+                rw_count = self._rewrite_count.get(path, 0) + 1
+                rw_map = self._rewrite_count
                 rw_map[path] = rw_count
                 self._rewrite_count = rw_map
                 if rw_count >= 2:
@@ -2989,7 +2989,7 @@ class Agent:
         # read_repeat: file_read of same path twice
         if response.tool_call and response.tool_call.name == "file_read":
             path = str(response.tool_call.arguments.get("path", ""))
-            seen_reads = getattr(self, "_token_read_paths", set())
+            seen_reads = self._token_read_paths
             if path and path in seen_reads:
                 ledger_entry["waste"].append("read_repeat")
             if path:
@@ -3007,7 +3007,6 @@ class Agent:
         if ledger_completion > 3000:
             ledger_entry["waste"].append("oversize")
         # Stash the entry on the agent; eval_tiered.py reads it.
-        self._token_ledger = getattr(self, "_token_ledger", [])
         self._token_ledger.append(ledger_entry)
         if ledger_entry["waste"]:
             log.warning(
@@ -3132,7 +3131,7 @@ class Agent:
                     # the emit_design force here is the scaffold-first
                     # contract: at this stall depth, only emit_design
                     # is productive. For react-app, force file_write.
-                    _is_gamedev = getattr(self, "_target_scaffold", "") == "gamedev"
+                    _is_gamedev = self._target_scaffold == "gamedev"
                     if _is_gamedev:
                         log.warning(
                             "Round 18: gamedev read-stall, forcing emit_design"
@@ -3400,7 +3399,7 @@ class Agent:
                     # Scaffold-aware: gamedev writes via emit_design,
                     # not file_write(App.tsx). Round J captured this
                     # nudge firing against the GAMEDEV OVERRIDE.
-                    _rr_gd = getattr(self, "_target_scaffold", "") == "gamedev"
+                    _rr_gd = self._target_scaffold == "gamedev"
                     if _rr_gd:
                         self.state.add_system_note(
                             f"You've called {repeated_tool} {len(last_3_names)} times in a row. "
@@ -3510,7 +3509,7 @@ class Agent:
                 self._image_ceiling_fired = True
                 # Scaffold-aware — Round J finding: gamedev path wants
                 # emit_design, not file_write(App.tsx).
-                _ic_gd = getattr(self, "_target_scaffold", "") == "gamedev"
+                _ic_gd = self._target_scaffold == "gamedev"
                 if _ic_gd:
                     self.state.add_system_note(
                         "IMAGE CEILING HIT. You've generated 5+ images without "
@@ -3558,7 +3557,7 @@ class Agent:
         # (which doesn't need old_content matching). JOB-INT-10 §6 escape-
         # hatch. Fires only after soft counter-signal was ignored twice.
         if tool_call.name == "file_edit":
-            _fails = getattr(self, "_edit_fail_count_by_path", {}) or {}
+            _fails = self._edit_fail_count_by_path
             _ep = str(tool_call.arguments.get("path", ""))
             if _ep and _fails.get(_ep, 0) >= 3:
                 _rel = _ep.split("deliverables/", 1)[-1] if "deliverables/" in _ep else _ep
@@ -3666,7 +3665,7 @@ class Agent:
         # flag is latched until the next file_write resets it (see above).
         if (tool_call.name == "generate_image"
                 and self._image_ceiling_fired):
-            _ic_gd_reject = getattr(self, "_target_scaffold", "") == "gamedev"
+            _ic_gd_reject = self._target_scaffold == "gamedev"
             if _ic_gd_reject:
                 reject_msg = (
                     "IMAGE CEILING ENFORCED (gamedev): You've generated 5+ "
@@ -3977,7 +3976,7 @@ class Agent:
         # Loop-guard force cleanup: if the drone successfully emitted
         # the tool we were forcing (or message_result as a bailout),
         # clear the persistent force so normal schemas resume.
-        _pf = getattr(self, "_loop_forced_tool", None)
+        _pf = self._loop_forced_tool
         if _pf and not result.is_error and tool_call.name in (_pf, "message_result"):
             self._loop_forced_tool = None
             log.info(f"Loop-guard force satisfied: {tool_call.name} matched {_pf}")
@@ -4047,7 +4046,7 @@ class Agent:
         # (react-app). Round K 2026-04-20 captured the old default
         # firing "call project_init" on a gamedev run.
         _lg_scaffold = "gamedev" if (
-            getattr(self, "_target_scaffold", "") == "gamedev"
+            self._target_scaffold == "gamedev"
             or self.plan_manager.section("Design") is not None
         ) else "react-app"
         loop_check = self.loop_guard.check(scaffold_kind=_lg_scaffold)
@@ -4108,7 +4107,7 @@ class Agent:
         # Round J 2026-04-20: default react-app advice was contradicting
         # the GAMEDEV OVERRIDE and sending the wave into a read-spiral.
         _phase_scaffold = "gamedev" if (
-            getattr(self, "_target_scaffold", "") == "gamedev"
+            self._target_scaffold == "gamedev"
             or self.plan_manager.section("Design") is not None
         ) else "react-app"
         phase_ctx = self.phase_machine.context_note(scaffold_kind=_phase_scaffold)
@@ -4300,7 +4299,7 @@ class Agent:
         elif tool_call.name == "file_edit" and not result.is_error:
             # Reset the fail counter on a successful edit.
             path = tool_call.arguments.get("path", "")
-            fails = getattr(self, "_edit_fail_count_by_path", None)
+            fails = self._edit_fail_count_by_path
             if fails and path in fails:
                 del fails[path]
 
@@ -4854,8 +4853,8 @@ class Agent:
                         qa = await run_drag(
                             written_path,
                             user_request=user_req,
-                            scaffold=getattr(self, "_scaffold_name", None),
-                            style_name=getattr(self, "_style_name", None),
+                            scaffold=self._scaffold_name,
+                            style_name=self._style_name,
                         )
                         failed = qa.get("levers_failed", 0)
                         total = qa.get("levers_total", 0)
@@ -5172,7 +5171,7 @@ class Agent:
             # The earlier `_has_gamedev_delivery` check missed this because
             # the file never existed. For gamedev tasks, always fire the
             # gate chain so gamedev_probe can bounce a no-deliverable ship.
-            _is_gamedev_task = getattr(self, "_target_scaffold", "") == "gamedev"
+            _is_gamedev_task = self._target_scaffold == "gamedev"
             if self._project_init_called or _has_gamedev_delivery or _is_gamedev_task:
                 from .deliver_gates import run_deliver_gates
                 # Pick the most-recently-touched deliverable as the project
@@ -5196,13 +5195,13 @@ class Agent:
                     # key, every gamedev delivery was misrouted to the React
                     # branch's "App.tsx not written" message, masking the
                     # actual issue (game_definition.json missing).
-                    "target_scaffold": getattr(self, "_target_scaffold", ""),
+                    "target_scaffold": self._target_scaffold,
                     # JOB-INT-6 2026-04-21: scaffold-first gamedev delivery
                     # checks data/*.json differ from seed under
                     # scaffolds/gamedev/<genre>/data/. Without this key, the
                     # gate can't locate the seed to compare against and
                     # the scaffold-first success branch never fires.
-                    "target_genre": getattr(self, "_genre_name", ""),
+                    "target_genre": self._genre_name,
                 }
                 _failure = run_deliver_gates(
                     state_flags=_flags,
@@ -5266,7 +5265,7 @@ class Agent:
             if (_osv.environ.get("TSUNAMI_VISION_GATE") != "0"
                 and (self._project_init_called or _has_gamedev_delivery
                      or _is_gamedev_task)
-                and (getattr(self, "_build_passed_at", None) is not None
+                and (self._build_passed_at is not None
                      or _has_gamedev_delivery or _is_gamedev_task)):
                 deliverables = Path(self.config.workspace_dir) / "deliverables"
                 projects = sorted(
@@ -5276,7 +5275,7 @@ class Agent:
                 for proj in projects[:1]:
                     dist_html = proj / "dist" / "index.html"
                     task_text = self.state.conversation[1].content[:200] if len(self.state.conversation) > 1 else ""
-                    _sn = getattr(self, "_style_name", "")
+                    _sn = self._style_name
                     if _sn:
                         task_text = f"[doctrine={_sn}] {task_text}"
                     if not dist_html.is_file():
@@ -5367,7 +5366,7 @@ class Agent:
                     # artifact that needs its own probe. Run BOTH for
                     # gamedev — the probe is triangulation evidence, not a
                     # vision substitute.
-                    if getattr(self, "_target_scaffold", "") == "gamedev":
+                    if self._target_scaffold == "gamedev":
                         try:
                             from .core.dispatch import probe_for_delivery
                             pcheck = await probe_for_delivery(proj, task_text)
@@ -5418,7 +5417,7 @@ class Agent:
             # uncompile itself mid-session without a file_write, and if the
             # agent wrote new code since build-pass, _build_passed_at gets
             # cleared (see the file_write handler below).
-            build_already_passed = getattr(self, "_build_passed_at", None) is not None
+            build_already_passed = self._build_passed_at is not None
             skip_compile_gate = build_already_passed
 
             # 10a. Swell compile gate — vite build must pass for React deliveries
@@ -5548,8 +5547,8 @@ class Agent:
                     qa = await run_drag(
                         last_html,
                         user_request=user_req,
-                        scaffold=getattr(self, "_scaffold_name", None),
-                        style_name=getattr(self, "_style_name", None),
+                        scaffold=self._scaffold_name,
+                        style_name=self._style_name,
                     )
 
                     log.info(
