@@ -2951,11 +2951,21 @@ class Agent:
                 # Check if build already passed — verification stall
                 has_delivered = any(t == "message_chat" for t in self._tool_history[-15:])
                 if has_delivered and self.state.iteration > 5:
-                    log.warning("Verification stall: build looks done, forcing delivery")
-                    self.state.add_system_note(
-                        "VERIFICATION STALL: You've been checking the build for 8+ calls "
-                        "without making changes. The build compiled. Call message_result NOW."
+                    # pain_advisory_verification_stall (round 13, sev 3):
+                    # the old path emitted an advisory 'VERIFICATION
+                    # STALL... Call message_result NOW' and let the drone
+                    # keep spinning. Convert to structural: set
+                    # _loop_forced_tool so the next iter's drone schema
+                    # is locked to message_result only (same mechanism
+                    # the loop_guard.detected branch uses at L3884).
+                    # Combined with the force_tool log line at L2316
+                    # the drone sees the forced-schema reason on the
+                    # next iteration without needing the advisory copy.
+                    log.warning(
+                        "Verification stall: build looks done, forcing "
+                        "message_result on next iter via _loop_forced_tool"
                     )
+                    self._loop_forced_tool = "message_result"
                 else:
                     log.warning(f"Read-only sequence: {len(recent)} consecutive reads")
                     # Positive redirect beats limiter messaging: tell the
