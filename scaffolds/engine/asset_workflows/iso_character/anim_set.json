@@ -1,0 +1,37 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "iso_character",
+  "covers_plan_categories": [2],
+  "projection": "iso_dimetric_2to1",
+  "elevation_deg": 26.57,
+  "canvas": {"w": 1024, "h": 1024},
+  "character_pct": 0.30,
+  "frame_out_sizes": [128, 256, 512],
+  "blockout_phase": {
+    "frames_per_direction": 1,
+    "directions": ["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
+    "total_frames": 8,
+    "ernie_calls": 8,
+    "note": "One canonical mid-stride pose per direction; shared seed across directions for identity preservation."
+  },
+  "future_animation_targets": {
+    "idle": {"frames_per_direction": 4, "loop": true},
+    "walk": {"frames_per_direction": 8, "loop": true},
+    "run": {"frames_per_direction": 8, "loop": true},
+    "attack": {"frames_per_direction": 6, "loop": false},
+    "hurt": {"frames_per_direction": 3, "loop": false},
+    "death": {"frames_per_direction": 6, "loop": false},
+    "cast": {"frames_per_direction": 5, "loop": false}
+  },
+  "future_animation_budget": {
+    "total_frames": 320,
+    "note": "8 dir × (4 idle + 8 walk + 8 run + 6 attack + 3 hurt + 6 death + 5 cast) = 8 × 40 = 320 frames for a full Diablo-scale iso move-set. Per-character, one-time cost."
+  },
+  "rotation_angles_supported": [8, 16, 32],
+  "rotation_angles_default": 8,
+  "ernie_call_count": {
+    "blockout_round": 8,
+    "full_animation_future": 320,
+    "note": "This round ships the 8-frame blockout only. Animation + rotation workflows expand the blockout into the full 320-frame sheet when they ship."
+  }
+}
