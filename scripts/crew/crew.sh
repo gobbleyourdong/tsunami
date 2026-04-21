@@ -9,7 +9,7 @@ DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 REPO="$(cd "$DIR/../.." && pwd)"
 STATE="$HOME/.tsunami/crew"
 
-NAMES=(reef tide kelp coral current)
+NAMES=(reef tide kelp coral current shoal)
 
 mkdir -p "$STATE"
 for n in "${NAMES[@]}"; do

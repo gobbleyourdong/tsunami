@@ -1,6 +1,6 @@
-# Crew — overnight 5-instance orchestration
+# Crew — overnight 6-instance orchestration
 
-Five named Claude instances churning on parallel pools. Each has a plan, a reads-from-others section, a phase checklist, and a bonus long-churn-infinite phase. The crew's job is to explode tsunami coverage without blocking on single-threaded Qwen inference.
+Six named Claude instances churning on parallel pools. Each has a plan, a reads-from-others section, a phase checklist, and a bonus long-churn-infinite phase. The crew's job is to explode tsunami coverage without blocking on single-threaded Qwen inference.
 
 ## The crew
 
@@ -9,10 +9,11 @@ Five named Claude instances churning on parallel pools. Each has a plan, a reads
 | **Reef** 🌊 | Scaffold Factory — new genres, web-app subtypes, CLI, mobile, ML-training scaffolds | `scaffolds/<category>/<name>/` + canary tests |
 | **Tide** 🌀 | Probe Factory — new verticals + hardened delivery-gate probes | `tsunami/core/*_probe.py` + `tests/fixtures/<vertical>/{pass,fail}/` |
 | **Kelp** 🌿 | Orchestration Hardening — pain points + replay tests | patches to `agent.py`/`loop_guard.py`/`phase_machine.py` + `tsunami/tests/replays/` |
-| **Coral** 🪸 | Telemetry Miner — reads logs, emits work queues | `~/.tsunami/crew/coral/{gap_queue,vertical_gap,pain_points}.jsonl` |
+| **Coral** 🪸 | Telemetry Miner — reads logs, emits work queues | `~/.tsunami/crew/coral/{gap_queue,vertical_gap,pain_points,asset_gap}.jsonl` |
 | **Current** 🌊 | Counter-Propagating Auditor — adversarial attacks on scaffolds + probes | `~/.tsunami/crew/current/attacks/*.json` + PR comments |
+| **Shoal** 🐟 | ERNIE Sprite & Asset Pipeline — 55+ workflows (characters, VFX, tilesets, blocks, props, UI) with explicit animation sets per category | `scaffolds/engine/asset_workflows/<category>/` + `scaffolds/engine/asset_library/` |
 
-Cross-feed: **Coral → Reef/Tide/Kelp** (what to build), **Reef/Tide/Kelp → Current** (what to attack), **Current → Coral** (what broke).
+Cross-feed: **Coral → Reef/Tide/Kelp/Shoal** (what to build), **Reef/Tide/Kelp/Shoal → Current** (what to attack), **Current → Coral** (what broke). Shoal is the visual-assets specialist — every scaffold Reef ships needs an asset workflow from Shoal.
 
 ## Launch
 
