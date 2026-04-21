@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "config-generator"
+version = "0.1.0"
+description = "Scaffold for a CLI that renders config files (YAML/JSON/TOML/ini/env) from Jinja2 templates + parameter inputs."
+requires-python = ">=3.11"
+dependencies = [
+  "click>=8.1",
+  "jinja2>=3.1",
+  "pyyaml>=6.0",
+]
+
+[project.scripts]
+config-generator = "config_generator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+config_generator = ["templates/*.j2"]

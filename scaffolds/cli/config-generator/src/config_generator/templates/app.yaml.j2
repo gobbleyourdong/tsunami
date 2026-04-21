@@ -1,0 +1,10 @@
+app:
+  name: {{ app.name }}
+  version: {{ app.version | default('0.1.0') }}
+  env: {{ app.env | default('development') }}
+server:
+  host: {{ server.host | default('0.0.0.0') }}
+  port: {{ server.port | default(8080) }}
+database:
+  url: {{ database.url }}
+  pool_size: {{ database.pool_size | default(5) }}

@@ -1,0 +1,12 @@
+app:
+  name: "orbit"
+  env: "production"
+server:
+  host: "0.0.0.0"
+  port: 8080
+database:
+  url: "postgres://orbit:secret@localhost:5432/orbit"
+  pool_size: 10
+features:
+  dark_mode: true
+  beta_api: false

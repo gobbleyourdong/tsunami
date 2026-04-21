@@ -144,6 +144,14 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
              "file converter", "file-converter", "format converter"):
         if (SCAFFOLDS_DIR / "cli" / "file-converter").exists():
             return "cli/file-converter"
+    # config-generator: template → config rendering + validation.
+    # Keywords are specific enough to avoid catching generic
+    # "configuration" on a web-app task.
+    if needs("config generator", "config-generator", "generate config",
+             "render config", "template config", "jinja config",
+             "jinja2 config", "envsubst-like", "consul-template"):
+        if (SCAFFOLDS_DIR / "cli" / "config-generator").exists():
+            return "cli/config-generator"
     if needs("cli tool", "command line tool", "command-line tool",
              "process jsonl", "process csv", "stdin pipeline",
              "data processor", "data-processor", "pipeline cli",
@@ -345,6 +353,8 @@ class ProjectInit(BaseTool):
         "cli/data-processor": "cli/data-processor",
         "file-converter":   "cli/file-converter",
         "cli/file-converter": "cli/file-converter",
+        "config-generator": "cli/config-generator",
+        "cli/config-generator": "cli/config-generator",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:
