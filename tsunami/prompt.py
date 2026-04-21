@@ -214,6 +214,37 @@ def _load_scaffold_params(project_path: str) -> str:
         return ""
 
 
+def _load_gamedev_data(project_path: str) -> str:
+    """Inline the scaffold's `data/*.json` files into the prompt.
+
+    Gamedev scaffold-first flow: the drone's job is to edit data/*.json
+    with the task's content. If those files aren't in context upfront,
+    the drone wastes 4-5 iterations reading them (and often gets
+    loop-guarded into exit before writing anything). Inlining them in
+    the system prompt collapses read-then-write into write-only.
+
+    Returns a formatted markdown block or empty string if no data dir.
+    """
+    from pathlib import Path
+    import json as _json
+    data_dir = Path(project_path) / "data"
+    if not data_dir.is_dir():
+        return ""
+    blocks: list[str] = []
+    for p in sorted(data_dir.glob("*.json")):
+        try:
+            txt = p.read_text()
+            # Compact-reparse to strip any trailing whitespace drift.
+            parsed = _json.loads(txt)
+            compact = _json.dumps(parsed, indent=2)
+        except Exception:
+            compact = p.read_text()
+        blocks.append(f"=== data/{p.name} (current seed — edit this file) ===\n{compact}")
+    if not blocks:
+        return ""
+    return "\nCurrent scaffold data (these are what you edit):\n\n" + "\n\n".join(blocks) + "\n"
+
+
 def build_edit_prompt(project_name: str, project_path: str, task: str,
                       plan_toc: str = "", behaviors: list | None = None,
                       scaffold_kind: str = "react-app") -> str:
@@ -230,6 +261,12 @@ def build_edit_prompt(project_name: str, project_path: str, task: str,
     plan_block = f"\nPlan (plans/current.md — file_read for section detail):\n{plan_toc}\n" if plan_toc else ""
     scaffold_yaml = _load_scaffold_params(project_path)
     scaffold_block = f"\nScaffold parameters (components + exact props — DO NOT hallucinate props not listed):\n```yaml\n{scaffold_yaml}\n```\n" if scaffold_yaml else ""
+    # Gamedev scaffold-first: inline every data/*.json upfront so the
+    # drone writes directly instead of burning iterations on reads.
+    if scaffold_kind == "gamedev":
+        gd_block = _load_gamedev_data(project_path)
+        if gd_block:
+            scaffold_block = scaffold_block + gd_block
 
     # Grounding data (replicator tasks): inline reference.md so drone
     # doesn't need file_read. Drone matches bboxes into layout.css.
@@ -296,52 +333,59 @@ def build_edit_prompt(project_name: str, project_path: str, task: str,
     # filesystem sniffing.
 
     if scaffold_kind == "gamedev":
+        # Scaffold-first flow (Phase 9): the project was provisioned
+        # via project_init_gamedev which copied a genre scaffold from
+        # scaffolds/gamedev/<genre>/. The scaffold SHIPS PLAYABLE — it
+        # already has src/main.ts, src/scenes/*.ts, data/*.json seed
+        # files, and all mechanics prewired from @engine/mechanics.
+        #
+        # Your job is CONTENT CUSTOMIZATION via data/*.json edits. NOT
+        # rewriting main.ts. NOT touching scenes. The scenes read from
+        # data/*.json at boot — editing enemies.json / levels.json /
+        # etc. is enough to make the game match the task.
         instructions = (
-            "This is an ENGINE-ONLY game scaffold. NO React, NO App.tsx. "
-            "The entry is src/main.ts. Write your game as a single "
-            "self-contained TypeScript file using @engine primitives:\n"
-            "  import { KeyboardInput } from '@engine/input/keyboard'\n"
-            "  import { ScoreSystem } from '@engine/systems/score'\n"
-            "  import { FrameLoop } from '@engine/renderer/frame'\n"
-            "  // getElementById('game') for the canvas\n\n"
-            "EXACT @engine API (use these signatures, no improvising):\n"
-            "  // Keyboard — POLLING style, NOT event callbacks\n"
-            "  const keys = new KeyboardInput();\n"
-            "  keys.bind();  // once, call before loop\n"
-            "  // per-frame: keys.update(); then check keys.isDown('ArrowUp'),\n"
-            "  // keys.justPressed('Space'), keys.justReleased('Enter').\n"
-            "  // Valid codes: 'ArrowUp/Down/Left/Right', 'Space', 'Enter', 'Escape', letters 'KeyA'..'KeyZ'.\n"
-            "  // NO .on(...) / NO addEventListener / NO event handlers.\n\n"
-            "  // FrameLoop — no constructor args, assign handlers to properties\n"
-            "  const loop = new FrameLoop();  // NO callback arg\n"
-            "  loop.onUpdate = (stats) => { /* stats.dt, stats.elapsed, stats.fps */ };\n"
-            "  loop.onRender = (stats) => { /* draw to canvas */ };\n"
-            "  loop.start();  // begin; loop.stop() to pause\n"
-            "  // NOTE: `new FrameLoop(cb)` does NOT work — constructor takes no args\n\n"
-            "  // ScoreSystem — fields: score (number), combo, multiplier,\n"
-            "  //   highScore. Methods: addPoints(base) returns new total, reset().\n"
-            "  const score = new ScoreSystem();\n"
-            "  score.addPoints(10);  // NOT score.value += 10\n"
-            "  ctx.fillText(`Score: ${score.score}`, x, y);  // read via .score\n\n"
-            "Reference scaffolds with real mechanic wiring live under "
-            "scaffolds/gamedev/{action_adventure,fighting,custom,cross}. "
-            "Each is a Vite+TS project with data/*.json payloads and "
-            "src/scenes/*.ts using canvas 2d + KeyboardInput polling + "
-            "requestAnimationFrame.\n\n"
-            "For pixel art assets (sprites): additionally file_write an "
-            "`assets.manifest.json` at project root listing each asset "
-            "{id, category, prompt}. Build step runs tools/build_sprites.py "
-            "which calls ERNIE-Image-Turbo (:8092). For music, Web Audio "
-            "directly (pure synthesis) or `new Audio('/sfx/x.wav')` for "
-            "pre-baked samples under public/sfx/.\n\n"
-            "Do NOT write src/App.tsx or src/index.css. Do NOT import pixi, "
-            "react, or phaser — use @engine primitives. ONE file: src/main.ts. "
-            "Auto-build runs vite; vision gate judges the rendered canvas.\n\n"
-            "BUDGET: keep main.ts UNDER 400 LINES. Your output is capped at "
-            "~5000 tokens per turn — going beyond truncates mid-expression. "
-            "Strip extras (no comment blocks, no TODO sections, no unused "
-            "helpers). Tight single-file game with exactly the mechanics the "
-            "task requests — nothing more."
+            "This is a SCAFFOLD-FIRST gamedev project. It's already "
+            "playable out of the box — scenes, mechanics, and an engine "
+            "are all wired up. Your job is CONTENT CUSTOMIZATION only.\n\n"
+            "THE ONLY THING YOU EDIT: `data/*.json` files (enemies.json / "
+            "levels.json / player.json / powerups.json / etc.). These "
+            "files drive the scenes at boot. Rename entries, add new "
+            "ones, adjust stats, rearrange level order — the scene code "
+            "picks up changes automatically on reload.\n\n"
+            "DO NOT:\n"
+            "- DO NOT rewrite src/main.ts — it's already correct. Touching "
+            "it will break the scene-boot chain. If the task seems to "
+            "require new logic, it almost certainly just needs a data "
+            "change.\n"
+            "- DO NOT rewrite src/scenes/*.ts — they import the exact "
+            "mechanics the genre needs from @engine/mechanics. The "
+            "mechanic types + params are determined by the scaffold's "
+            "data/mechanics.json (already seeded).\n"
+            "- DO NOT invent engine APIs like `createApp`, `scenes: {...}`, "
+            "`new Engine()`, or `from '@/engine/core'`. The real engine "
+            "primitives live at `@engine/mechanics`, `@engine/input/keyboard`, "
+            "`@engine/renderer/frame`, etc., and the scaffold already "
+            "imports them correctly.\n"
+            "- DO NOT write src/App.tsx or import React / Phaser / Pixi.\n\n"
+            "RECOMMENDED FLOW:\n"
+            "1. `file_read` one data file (e.g. data/enemies.json) to see "
+            "the shape the scaffold expects.\n"
+            "2. `file_write` the data file(s) with customized content — "
+            "names, stats, level layouts, etc. from the task prompt. Keep "
+            "the schema identical (same keys, same types).\n"
+            "3. If the task names specific things (enemy names, level "
+            "names, boss names), put those names EXACTLY in the data. The "
+            "scene text + HUD read them at render time.\n"
+            "4. `message_result` with a one-line summary when done.\n\n"
+            "REFERENCE: every genre scaffold under `scaffolds/gamedev/<genre>/` "
+            "has a README.md documenting which data/*.json files customize "
+            "which content (add enemy / add level / tune stats). The same "
+            "structure is in your copy. The auto-build step runs "
+            "`tsc --noEmit && vite build` — if the build fails, the error "
+            "tells you which schema field you broke.\n\n"
+            "BUDGET: JSON edits are small. Each data/*.json stays under "
+            "~300 lines. Your output is capped at ~5000 tokens per turn, "
+            "so one file per turn is the rhythm."
         )
     else:
         instructions = (

@@ -201,12 +201,16 @@ class LoopGuard:
             recent = self.progress_marks[-PROGRESS_WINDOW:]
             if not any(recent):
                 # For gamedev, emit_design is the analog of project_init
-                # (both are the "bootstrap this deliverable" tool).
-                stall_action = (
-                    "emit_design"
-                    if getattr(self, "_scaffold_kind", "") == "gamedev"
-                    else "project_init"
-                )
+                # for legacy engine-only; for scaffold-first, force
+                # file_write (drone should be editing data/*.json).
+                is_gamedev = getattr(self, "_scaffold_kind", "") == "gamedev"
+                mode = getattr(self, "_gamedev_mode", "legacy")
+                if is_gamedev and mode == "scaffold_first":
+                    stall_action = "file_write"
+                elif is_gamedev:
+                    stall_action = "emit_design"
+                else:
+                    stall_action = "project_init"
                 return LoopDetection(
                     detected=True,
                     loop_type="progress",
@@ -243,15 +247,24 @@ class LoopGuard:
             # Stuck re-reading files — model is looking for answers in
             # source it's already seen. Force it to ACT.
             if is_gamedev:
-                # emit_design is the bootstrap tool for gamedev. If it
-                # already ran once (and we're still stuck), force
-                # message_result — wave has a design on disk and should ship.
+                # Scaffold-first projects have a pre-provisioned data/
+                # dir; the fix is to file_write a data/*.json, NOT to
+                # call emit_design (which would overwrite the scaffold).
+                # Detection: scaffold-first sets `_gamedev_mode` =
+                # 'scaffold_first' on the loop-guard instance.
+                mode = getattr(self, "_gamedev_mode", "legacy")
+                if mode == "scaffold_first":
+                    return "file_write"
+                # Legacy engine-only flow: emit_design is the bootstrap.
                 return "message_result" if emit_design_already else "emit_design"
             if project_already_init:
                 return "file_edit"
             return "project_init"
         elif stuck_tool in search_tools:
             if is_gamedev:
+                mode = getattr(self, "_gamedev_mode", "legacy")
+                if mode == "scaffold_first":
+                    return "file_write"
                 return "emit_design" if not emit_design_already else "message_result"
             return "project_init"
         elif stuck_tool == "shell_exec":
@@ -275,6 +288,9 @@ class LoopGuard:
             return "file_write"
         else:
             if is_gamedev:
+                mode = getattr(self, "_gamedev_mode", "legacy")
+                if mode == "scaffold_first":
+                    return "file_write"
                 return "emit_design" if not emit_design_already else "message_result"
             return "project_init" if not project_already_init else "file_edit"
 

@@ -525,15 +525,29 @@ class Agent:
             # Derive a slug from the prompt. Look for "called <name>" or
             # "named <name>" first; fall back to first 5 words of the
             # build verb's object.
-            called = re.search(r'(?:called|named|titled)\s+([A-Z][A-Za-z0-9 ]+?)(?:[.,!?]|$|\n)', user_message)
+            # "called / named / titled <Name>" — capture 1-4 words of
+            # leading-Capital tokens; terminate on em-dash, en-dash,
+            # hyphen, dot, comma, bang, question, or EOS.
+            called = re.search(
+                r'(?:called|named|titled)\s+([A-Z][A-Za-z0-9]*(?:\s+[A-Z][A-Za-z0-9]*){0,3})',
+                user_message,
+            )
             if called:
                 raw = called.group(1).strip()
                 project_name = "-".join(raw.lower().split())[:40]
             else:
-                # Strip common build verbs then take first word-sequence.
+                # Strip common build verbs + article + "2d/3d" prefix,
+                # then take first word-sequence up to the next stop
+                # character.
                 stripped = re.sub(r'^(build|create|make|develop|design)\s+(a|an|the)?\s*',
                                   '', msg).strip()
+                stripped = re.sub(r'^(2d|3d)\s+', '', stripped).strip()
+                # Stop at first dash/em-dash/colon/comma — everything
+                # after is parameter detail, not the project's name.
+                stripped = re.split(r'[—–\-:,.]', stripped, maxsplit=1)[0]
                 words = stripped.split()[:4]
+                # Drop noise words that slip through.
+                words = [w for w in words if w not in {'called', 'named', 'titled', 'a', 'the', 'an'}]
                 project_name = "-".join(words).replace(",", "").replace(".", "")[:40]
             # Sanitize
             project_name = re.sub(r'[^a-z0-9_-]', '', project_name) or "game"
@@ -894,6 +908,17 @@ class Agent:
         _scaffold_kind = "react-app"
         if self.plan_manager.section("Design") is not None:
             _scaffold_kind = "gamedev"
+        # Detect scaffold-first (has data/*.json seed) vs legacy
+        # engine-only flow. Loop-guard reads this attr to pick the right
+        # forced_action when the drone stalls.
+        if _scaffold_kind == "gamedev":
+            _gd_mode = "scaffold_first" if (
+                (Path(project_path) / "data").is_dir() and
+                any((Path(project_path) / "data").glob("*.json"))
+            ) else "legacy"
+            self.loop_guard._scaffold_kind = "gamedev"
+            self.loop_guard._gamedev_mode = _gd_mode
+            log.info(f"Loop-guard mode set: gamedev/{_gd_mode}")
         new_prompt = build_edit_prompt(
             self.active_project, project_path, task,
             plan_toc=plan_toc, behaviors=behaviors,
@@ -4510,27 +4535,47 @@ class Agent:
                         comp_dir = proj / "src" / "components"
                         # Engine awareness — fire at iter 1 AND periodically thereafter
                         if self._is_engine_project(proj):
-                            # Step 7: replaced the old inline prose dump with a
-                            # loader for tsunami/context/design_script.md. The
-                            # file is the canonical source of truth for the
-                            # design-script workflow (schema summary, emit_design
-                            # usage, mechanic catalog); keeping it in a separate
-                            # file lets authors update it without editing
-                            # agent.py and keeps the system-note budget honest.
-                            try:
-                                ctx_path = Path(__file__).resolve().parent / "context" / "design_script.md"
-                                guide = ctx_path.read_text(encoding="utf-8")
-                            except Exception as e:
-                                log.warning(f"Engine awareness: failed to load design_script.md ({e}); "
-                                             "falling back to minimal hint")
+                            # Scaffold-first gamedev projects (those copied from
+                            # scaffolds/gamedev/<genre>/ via project_init_gamedev)
+                            # have a `data/` directory with playable seed JSON
+                            # files. Those drones should NOT use emit_design — they
+                            # edit data/*.json instead. Swap the injected guide
+                            # based on which flow the project uses.
+                            is_scaffold_first = (proj / "data").is_dir() and any(
+                                (proj / "data").glob("*.json")
+                            )
+                            if is_scaffold_first:
                                 guide = (
-                                    "ENGINE project — use emit_design(name, design) with a JSON "
-                                    "DesignScript matching scaffolds/engine/src/design/schema.ts. "
-                                    "Do NOT hand-write src/main.ts; the compiler emits it."
+                                    "SCAFFOLD-FIRST GAMEDEV PROJECT. This project was "
+                                    "provisioned via project_init_gamedev and ships playable.\n"
+                                    "- Your job: customize `data/*.json` files with the task's "
+                                    "content (names, counts, stats). The scaffold's scenes "
+                                    "read these files at boot.\n"
+                                    "- DO NOT call emit_design — that's the legacy flow and "
+                                    "will NOT integrate with this scaffold's scenes.\n"
+                                    "- DO NOT rewrite src/main.ts or src/scenes/*.ts — they "
+                                    "are already correct and wired into @engine/mechanics.\n"
+                                    "- The data files are inlined above in the system prompt. "
+                                    "Write each modified file via file_write, then message_result."
                                 )
+                            else:
+                                # Step 7: legacy flow loader for
+                                # tsunami/context/design_script.md (the canonical
+                                # emit_design workflow doc).
+                                try:
+                                    ctx_path = Path(__file__).resolve().parent / "context" / "design_script.md"
+                                    guide = ctx_path.read_text(encoding="utf-8")
+                                except Exception as e:
+                                    log.warning(f"Engine awareness: failed to load design_script.md ({e}); "
+                                                 "falling back to minimal hint")
+                                    guide = (
+                                        "ENGINE project — use emit_design(name, design) with a JSON "
+                                        "DesignScript matching scaffolds/engine/src/design/schema.ts. "
+                                        "Do NOT hand-write src/main.ts; the compiler emits it."
+                                    )
                             self.state.add_system_note(guide)
-                            log.info(f"Engine awareness: injected design_script.md "
-                                     f"({len(guide)} chars) at iter {self.state.iteration}")
+                            log.info(f"Engine awareness ({'scaffold-first' if is_scaffold_first else 'legacy'}): "
+                                     f"injected {len(guide)} chars at iter {self.state.iteration}")
                         # UI-components awareness — periodic only; not time-critical
                         elif _periodic and readme.exists() and ui_dir.exists():
                             ui_components = [f.stem for f in ui_dir.iterdir()

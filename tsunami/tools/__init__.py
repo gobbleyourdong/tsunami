@@ -124,16 +124,18 @@ class ToolRegistry:
 # iteration regardless of phase. Wave injects more via phase→toolbox
 # mapping (see _PHASE_TOOLBOXES below).
 _ALWAYS_TOOLS: tuple[str, ...] = (
-    "file_write", "file_edit",
+    "file_write", "file_edit", "file_read",
     "message_result",
-    # Minimal hand-tools. Drones working a scaffold need to change files
-    # and deliver — that's it. Everything else (file_read, shell_exec,
-    # match_grep) was letting the drone spiral on exploration/diagnosis
-    # when the wave already inlined the scaffold params, test source, and
-    # App.tsx stub into the system prompt. On build fail, the wave
-    # re-emits with the compile errors; drone rewrites. No reads needed.
-    # file_read returns via the "read" toolbox when a FIX/DIAGNOSE phase
-    # explicitly opens it.
+    # Minimal hand-tools. React scaffolds historically needed only write
+    # tools — the wave inlined scaffold params into the prompt, so
+    # file_read was redundant and let the drone spiral on diagnosis.
+    # Gamedev scaffold-first flow FLIPPED this — the drone needs to
+    # inspect data/*.json to see the schema before rewriting it, or it
+    # invents a shape (seen in Cycle-scaffold-first testing where the
+    # drone rewrote src/main.ts with hallucinated `@/engine/core.createApp`
+    # instead of editing data/ which it couldn't read).
+    # file_read is cheap — the read-spiral loop-guard still fires at 5
+    # consecutive read-only iterations, so the safety valve is intact.
 )
 
 
