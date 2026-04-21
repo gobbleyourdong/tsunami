@@ -1,8 +1,13 @@
 ---
 name: rhythm_fighter
 kind: cross_genre_canary
-anchors: cross_canary
+applies_to: [gamedev]
+mood: hybrid, beat-driven combat, timing-gated specials
 corpus_share: 1
+anchors: [cross_canary, rhythm_heritage, fighting_heritage]
+default_mechanics: [AttackFrames, ComboAttacks, RhythmTrack, StateMachineMechanic]
+recommended_mechanics: [WaveSpawner, HUD, LoseOnZero, StatusStack]
+would_falsify: if a rhythm_fighter delivery ships without a RhythmTrack-gated timing window on special moves, OR without AttackFrames hit-stun, OR without ComboAttacks → RhythmTrack alignment that defines the canary's cross-genre premise, the directive was ignored — measured via mechanic adoption probe for RhythmTrack + ComboAttacks + AttackFrames co-occurrence in scene files
 ---
 
 # rhythm_fighter (cross-genre canary)

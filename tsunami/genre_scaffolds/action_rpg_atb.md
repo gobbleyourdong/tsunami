@@ -1,8 +1,13 @@
 ---
 name: action_rpg_atb
 kind: cross_genre_canary
-anchors: cross_canary
+applies_to: [gamedev]
+mood: hybrid, real-time-with-pauses, meter-driven tempo
 corpus_share: 1
+anchors: [cross_canary, action_rpg_heritage, atb_jrpg_heritage]
+default_mechanics: [AttackFrames, ATBCombat, LevelUpProgression, StatusStack]
+recommended_mechanics: [HUD, ComboAttacks, EquipmentLoadout, CheckpointProgression]
+would_falsify: if an action_rpg_atb delivery ships without AttackFrames (the action substrate), OR without ATBCombat + LevelUpProgression (the atb-jrpg substrate), OR without scene-level coupling (attacks deplete and refill the ATB meter on real-time tempo), the hybrid collapses to one parent genre — measured via mechanic adoption probe requiring AttackFrames + ATBCombat in the same scene
 ---
 
 # action_rpg_atb (cross-genre canary)

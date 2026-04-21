@@ -1,8 +1,13 @@
 ---
 name: metroid_runs
 kind: cross_genre_canary
-anchors: cross_canary
+applies_to: [gamedev]
+mood: hybrid, ability-gated exploration, death-restart cadence
 corpus_share: 1
+anchors: [cross_canary, metroidvania_heritage, roguelite_heritage]
+default_mechanics: [PhysicsModifier, LockAndKey, RoomGraph, CheckpointProgression]
+recommended_mechanics: [PickupLoop, LevelUpProgression, HUD, ProceduralRoomChain]
+would_falsify: if a metroid_runs delivery ships without LockAndKey + RoomGraph (the metroidvania substrate), OR without ProceduralRoomChain + CheckpointProgression (the roguelite substrate — randomized layouts + run-boundary resets), OR without scene-level coupling (ability gates persist across runs while map resets), the cross-genre premise collapses — measured via mechanic adoption probe for LockAndKey + ProceduralRoomChain co-occurrence plus CheckpointProgression in save-related data
 ---
 
 # metroid_runs (cross-genre canary)
