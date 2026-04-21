@@ -1,0 +1,30 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "dialogue_portrait",
+  "is_animated": false,
+  "projection": "shoulders_up_portrait",
+  "canvas_default": {"w": 512, "h": 512},
+  "canvas_options": [
+    {"w": 512, "h": 512, "label": "standard dialogue"},
+    {"w": 768, "h": 768, "label": "high-detail RPG"},
+    {"w": 1024, "h": 1024, "label": "Fire Emblem dense"}
+  ],
+  "bg_mode": "icon",
+  "bg_mode_options": ["icon", "photo"],
+  "bg_mode_note": "icon = magenta chromakey → transparent RGBA; photo = solid non-magenta background for UI-matted frames (override color via style_modifiers)",
+  "gen_strategy": "per_emotion_same_character",
+  "gen_strategy_note": "Seed pinned per character; varying only the emotion_description placeholder across 7 passes holds identity.",
+  "emotions": {
+    "neutral":     {"frame_hint": "eyes level, mouth closed, shoulders relaxed, neutral resting face"},
+    "happy":       {"frame_hint": "genuine smile, eyes slightly narrowed in warmth, shoulders slightly raised"},
+    "sad":         {"frame_hint": "sad expression, eyebrows angled upward-inward, mouth downturned slightly, shoulders slumped"},
+    "angry":       {"frame_hint": "angry expression, brows furrowed deeply, mouth tight and downturned, jaw set, shoulders tensed forward"},
+    "surprised":   {"frame_hint": "surprised expression, eyebrows raised high, mouth open in O-shape, eyes wide"},
+    "determined":  {"frame_hint": "determined expression, brows set firmly, mouth set with slight clench, eyes focused and forward"},
+    "hurt":        {"frame_hint": "hurt expression, one eye partially closed in pain, mouth strained, shoulders flinched protectively"}
+  },
+  "ernie_call_count": {
+    "per_character": 7,
+    "note": "One call per emotion. Seed is pinned per character; same seed reused across all 7 to preserve identity."
+  }
+}
