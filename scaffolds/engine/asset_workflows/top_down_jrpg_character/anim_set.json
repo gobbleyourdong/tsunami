@@ -1,0 +1,32 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "top_down_jrpg_character",
+  "covers_plan_categories": [5],
+  "projection": "orthographic_top_down_small",
+  "canvas_gen": {"w": 1024, "h": 1024},
+  "frame_out_sizes": [48, 64],
+  "frame_out_default": 48,
+  "character_pct": 0.20,
+  "gen_strategy": "per_direction_single_frame_for_blockout",
+  "downscale_filter": "NEAREST",
+  "downscale_filter_note": "Pixel-art requires hard-pixel downscaling. Do NOT use LANCZOS or bicubic — it smears the 1-pixel edges characteristic of the style.",
+  "blockout_phase": {
+    "directions": ["N", "E", "S", "W"],
+    "frames_per_direction": 1,
+    "total_frames": 4,
+    "ernie_calls": 4,
+    "note": "One mid-stride pose per direction. Future character_animation workflow expands to 3 frames per direction (12 total) using middle-frame = idle convention."
+  },
+  "future_animation_targets": {
+    "walk": {"frames_per_direction": 3, "loop": true, "middle_frame_is_idle": true},
+    "note": "3-frame walk pattern: middle / left-foot / middle / right-foot. Middle frame doubles as idle pose — no separate idle anim in the classic RPG Maker convention."
+  },
+  "future_full_budget": {
+    "total_frames": 12,
+    "note": "4 dir × 3 frames = 12. Tiny compared to ARPG-scale top_down_character's 137."
+  },
+  "ernie_call_count": {
+    "blockout_round": 4,
+    "full_animation_future": 12
+  }
+}
