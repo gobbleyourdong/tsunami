@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Production-firing audit for Kelp's orchestration fixes.
+"""Production-firing audit — reference implementation of sigma v10.
 
-Each row in scripts/crew/kelp/fix_registry.jsonl names a fix + a
+Each row in scripts/audit/fix_registry.jsonl names a fix + a
 signature string it should produce when it fires (gate error text,
 log line, tailored reject, etc.). This script scans recent session
 JSONL files in workspace/.history for each signature and reports:
@@ -11,17 +11,18 @@ JSONL files in workspace/.history for each signature and reports:
   - which fixes are refactors / predicate-only (expect_nonzero=False,
     verified via unit tests not log mining)
 
-Motivation: Round 10 mining audit (kelp 2026-04-21) discovered that
-Rounds 1, 2, and 6 were dead code on real deliverables for the
-two-week window they'd been shipped. The pattern is generic — any
-structural fix that keys on a brittle predicate can silently stop
-firing after an upstream change. Running this script as a post-push
-step catches the class of bug before it accumulates.
+Origin: discovered 2026-04-21 overnight campaign; the protocol was
+promoted to the canonical Sigma Method as the new v10 principle
+"Production-Firing Audit." The motivating observation: structural
+fixes that key on a brittle predicate can silently stop firing after
+an upstream change. Unit tests keep passing because the fixture
+satisfies the predicate; production traces never do. This tool
+closes the fixture-vs-production gap.
 
 Usage:
-  python3 scripts/crew/kelp/audit_production.py                # last 80 sessions
-  python3 scripts/crew/kelp/audit_production.py --since 200   # wider window
-  python3 scripts/crew/kelp/audit_production.py --slug scaffold_first_gate_hoist
+  python3 scripts/audit/audit_production.py                # last 80 sessions
+  python3 scripts/audit/audit_production.py --since 200    # wider window
+  python3 scripts/audit/audit_production.py --slug scaffold_first_gate_hoist
 """
 
 from __future__ import annotations
@@ -35,7 +36,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent.parent
 HISTORY = REPO / "workspace" / ".history"
-REGISTRY = REPO / "scripts" / "crew" / "kelp" / "fix_registry.jsonl"
+REGISTRY = REPO / "scripts" / "audit" / "fix_registry.jsonl"
 
 
 @dataclass
