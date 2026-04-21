@@ -63,10 +63,15 @@ _lock = asyncio.Lock()           # serialize gens (diffusers pipes aren't reentr
 _swap_lock = asyncio.Lock()      # LoRA/model swap lock, separate from _lock
 _args: argparse.Namespace = None  # type: ignore
 
-# Locked from the Qwen-Image-Edit-2511 model card:
-DEFAULT_STEPS_BASE = 30           # non-lightning base steps
+# Locked from the Qwen-Image-Edit-2511 model card's Quick Start sample:
+#   num_inference_steps=40, true_cfg_scale=4.0, guidance_scale=1.0,
+#   negative_prompt=" ", num_images_per_prompt=1
+# (see https://huggingface.co/Qwen/Qwen-Image-Edit-2511)
+DEFAULT_STEPS_BASE = 40           # non-lightning base steps (per model card)
 DEFAULT_STEPS_LIGHTNING = 8       # lightning-distilled steps
-DEFAULT_GUIDANCE = 4.0            # Qwen-Image-Edit classifier-free default
+DEFAULT_GUIDANCE = 4.0            # → pipe's true_cfg_scale (real CFG)
+DEFAULT_DISTILLED_GUIDANCE = 1.0  # → pipe's guidance_scale (distilled bonus);
+                                  # 1.0 = "no bonus", correct for non-distilled base
 DEFAULT_SIZE = 1024
 
 # LoRA registry — HF repo ids for each named adapter. Keeps the
@@ -300,11 +305,10 @@ async def generate(req: GenRequest):
         raise HTTPException(503, "pipeline not loaded")
     t0 = time.time()
     async with _lock:
-        # QwenImageEditPlusPipeline's `guidance_scale` is the DISTILLED
-        # guidance (meaningful only for the lightning variant). For normal
-        # CFG in the non-distilled path, use `true_cfg_scale` — that's the
-        # field the API-level `guidance_scale` (default 4.0) should route
-        # to. Same fix pattern as /v1/images/edit and /v1/images/animate.
+        # Model-card-exact call shape. true_cfg_scale carries real CFG;
+        # guidance_scale=1.0 is the explicit "no distilled-guidance bonus"
+        # value for the non-distilled base model. Same fix pattern applied
+        # to /v1/images/edit and /v1/images/animate below.
         gen_args = dict(
             prompt=req.prompt,
             negative_prompt=req.negative_prompt,
@@ -312,6 +316,7 @@ async def generate(req: GenRequest):
             width=req.width,
             num_inference_steps=req.num_inference_steps,
             true_cfg_scale=req.guidance_scale,
+            guidance_scale=DEFAULT_DISTILLED_GUIDANCE,
             num_images_per_prompt=req.n,
         )
         if req.seed is not None:
@@ -342,14 +347,16 @@ async def edit(req: EditRequest):
         # Qwen-Image-Edit-Plus-2511's pipe has no `strength` / `denoising_strength`
         # param — it's a true-edit model conditioned on the input image rather
         # than an img2img that reuses input latents. The CFG knob exposed is
-        # `true_cfg_scale` (default 4.0). We keep EditRequest.strength in the
-        # API for caller-side bookkeeping but don't plumb it to the pipe.
+        # `true_cfg_scale`; `guidance_scale=1.0` is the explicit non-distilled
+        # value per the model card. We keep EditRequest.strength in the API
+        # for caller-side bookkeeping but don't plumb it to the pipe.
         gen_args = dict(
             prompt=req.prompt,
             image=img,
             negative_prompt=req.negative_prompt,
             num_inference_steps=req.num_inference_steps,
             true_cfg_scale=req.guidance_scale,
+            guidance_scale=DEFAULT_DISTILLED_GUIDANCE,
             num_images_per_prompt=req.n,
         )
         if req.seed is not None:
@@ -409,13 +416,16 @@ async def animate(req: AnimateRequest):
             # `strength` is kept in NudgeStep for bookkeeping (Σstrength is the
             # drift-bound metric the sigma invariant watches) but is NOT a pipe
             # kwarg for QwenImageEditPlusPipeline — that pipe is a true-edit
-            # model, not an img2img. The CFG knob is `true_cfg_scale`.
+            # model, not an img2img. The CFG knob is `true_cfg_scale`;
+            # guidance_scale=1.0 is the explicit non-distilled value per the
+            # model card.
             result = _pipe(
                 prompt=step.delta,
                 image=current_img,
                 negative_prompt=req.negative_prompt,
                 num_inference_steps=step.num_inference_steps,
                 true_cfg_scale=step.guidance_scale,
+                guidance_scale=DEFAULT_DISTILLED_GUIDANCE,
                 num_images_per_prompt=1,
                 generator=generator,
             )

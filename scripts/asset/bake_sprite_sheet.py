@@ -251,7 +251,10 @@ class BakeServer:
              height: int = 1024, width: int = 1024) -> None:
         """Run one /v1/images/edit call, saving to save_path."""
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        steps = self.steps_override if self.steps_override is not None else 30
+        # Model-card defaults for Qwen-Image-Edit-2511 non-distilled:
+        # 40 steps, true_cfg_scale=4.0. Overrides apply when caller sets
+        # --steps/--cfg (e.g. for a distilled schedule).
+        steps = self.steps_override if self.steps_override is not None else 40
         cfg = self.cfg_override if self.cfg_override is not None else 4.0
         payload = {
             "path": str(base_path),
