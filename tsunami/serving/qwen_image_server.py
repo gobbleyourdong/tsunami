@@ -239,18 +239,29 @@ def _load_pipe():
     load_kwargs = {"torch_dtype": torch.bfloat16}
     if _args.fp8_path:
         from diffusers import QwenImageTransformer2DModel
-        log.info(f"[fp8] loading transformer via from_single_file: {_args.fp8_path}")
+        from tsunami.serving._zero_copy import load_state_dict_zero_copy
+        log.info(f"[fp8] zero-copy loading transformer weights: {_args.fp8_path}")
         ft0 = time.time()
-        # diffusers needs `config` to pick the right model class; point it at
-        # the base repo's transformer subfolder — that's where the diffusers
-        # config lives for Qwen-Image-Edit-2511.
-        load_kwargs["transformer"] = QwenImageTransformer2DModel.from_single_file(
-            _args.fp8_path,
-            config=_args.model,
-            subfolder="transformer",
-            torch_dtype=torch.bfloat16,  # computation dtype; fp8 weights stay fp8
+        # Two-step: (1) fastsafetensors streams weights straight to GPU — one
+        # copy, no CPU intermediate. (2) Construct the transformer shell on
+        # meta device (zero memory), then load the pre-GPU state_dict via
+        # `assign=True` so tensors keep their storage instead of being copied
+        # again. Net: fp8 weights traverse NVMe → GPU exactly once.
+        sd = load_state_dict_zero_copy(_args.fp8_path, device=_args.device)
+        with torch.device("meta"):
+            transformer = QwenImageTransformer2DModel.from_config(
+                QwenImageTransformer2DModel.load_config(
+                    _args.model, subfolder="transformer"
+                )
+            )
+        missing, unexpected = transformer.load_state_dict(sd, strict=False, assign=True)
+        log.info(
+            f"[fp8] transformer loaded in {time.time()-ft0:.1f}s "
+            f"(missing={len(missing)}, unexpected={len(unexpected)})"
         )
-        log.info(f"[fp8] transformer loaded in {time.time()-ft0:.1f}s")
+        # Free the dict reference (tensors are now owned by the module).
+        del sd
+        load_kwargs["transformer"] = transformer
 
     _pipe = AutoPipelineForImage2Image.from_pretrained(_args.model, **load_kwargs)
     _pipe = _pipe.to(_args.device)
