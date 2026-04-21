@@ -1,0 +1,116 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", sans-serif;
+  background: #0b0d10;
+  color: #e8eaed;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 520px;
+  margin: 0 auto;
+  background: #0b0d10;
+}
+
+.chat-header {
+  padding: env(safe-area-inset-top, 1rem) 1rem 0.75rem;
+  padding-top: max(env(safe-area-inset-top, 0.75rem), 0.75rem);
+  border-bottom: 1px solid #1f2329;
+  background: #0b0d10;
+}
+
+.chat-header h1 { font-size: 1.05rem; font-weight: 600; }
+.chat-header .status { font-size: 0.72rem; color: #7b848f; margin-top: 2px; }
+
+.chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.msg {
+  max-width: 75%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.msg.them {
+  align-self: flex-start;
+  background: #1f2329;
+  border-bottom-left-radius: 4px;
+}
+
+.msg.me {
+  align-self: flex-end;
+  background: #0061ff;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.msg-meta {
+  font-size: 0.68rem;
+  opacity: 0.6;
+  margin-top: 3px;
+}
+
+.chat-input {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  padding-bottom: max(env(safe-area-inset-bottom, 0.75rem), 0.75rem);
+  border-top: 1px solid #1f2329;
+  background: #0b0d10;
+}
+
+.chat-input input {
+  flex: 1;
+  background: #161a1f;
+  border: 1px solid #1f2329;
+  color: #e8eaed;
+  padding: 0.7rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.chat-input input:focus {
+  outline: none;
+  border-color: #0061ff;
+}
+
+.chat-input button {
+  background: #0061ff;
+  color: #fff;
+  border: none;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.chat-input button:disabled { background: #2a2f37; cursor: not-allowed; }
+
+.offline-banner {
+  background: #3a2411;
+  color: #f4b86d;
+  text-align: center;
+  padding: 0.35rem;
+  font-size: 0.78rem;
+}

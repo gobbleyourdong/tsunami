@@ -210,6 +210,15 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "auth-app").exists():
             return "auth-app"
 
+    # 3c. Mobile PWA scaffolds. MUST be checked before the realtime
+    # branch because "chat" in the realtime keyword set would otherwise
+    # catch "mobile chat pwa". Multi-word signals only — bare "mobile"
+    # is too generic (landing pages say "mobile first" etc.).
+    if needs("mobile chat", "chat pwa", "pwa chat", "mobile messaging",
+             "chat app pwa", "installable chat"):
+        if (SCAFFOLDS_DIR / "mobile" / "chat").exists():
+            return "mobile/chat"
+
     # 4. Needs realtime (chat, live chat, multiplayer, websockets)
     # Removed bare "live" — it caught 'live-updating', 'live preview',
     # 'live color picker', etc. on regular react-app tasks. "live chat"
@@ -307,6 +316,7 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "web" / "blog").exists():
             return "web/blog"
 
+
     # 7. Presentation (landing, portfolio)
     if needs("landing", "portfolio", "marketing", "homepage", "website",
              "showcase", "brochure", "about"):
@@ -400,6 +410,8 @@ class ProjectInit(BaseTool):
         "infra/docker-compose": "infra/docker-compose",
         "blog":             "web/blog",
         "web/blog":         "web/blog",
+        "mobile/chat":      "mobile/chat",
+        "pwa-chat":         "mobile/chat",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:

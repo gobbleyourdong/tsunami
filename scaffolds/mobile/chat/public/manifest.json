@@ -1,0 +1,21 @@
+{
+  "name": "Chat",
+  "short_name": "Chat",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "description": "PWA chat scaffold",
+  "icons": [
+    {
+      "src": "https://placehold.co/192x192/111/fff?text=Chat",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://placehold.co/512x512/111/fff?text=Chat",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
