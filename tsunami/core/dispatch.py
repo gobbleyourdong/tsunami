@@ -27,6 +27,7 @@ from pathlib import Path
 
 from ._probe_common import result as _result, skip as _skip
 from .cli_probe import cli_probe
+from .data_pipeline_probe import data_pipeline_probe
 from .electron_probe import electron_probe
 from .extension_probe import extension_probe
 from .gamedev_probe import gamedev_probe
@@ -75,6 +76,10 @@ _PROBES = {
     # validation; doesn't run `docker build`. Fingerprint: Dockerfile
     # or compose.yml at root / docker/ / deploy/.
     "infra":            infra_probe,
+    # Tide 005 — Data pipeline (ETL scripts + DBT projects). Offline
+    # static check: entry + data-lib import + source marker + sink
+    # marker, OR dbt_project.yml + models/*.sql with SELECT.
+    "data-pipeline":    data_pipeline_probe,
 }
 # Direct handle to the legacy probe for callers that want to bypass the
 # scaffold router (introspection + tests).
@@ -247,7 +252,33 @@ def detect_scaffold(project_dir: Path) -> str | None:
         except OSError:
             pass
 
-    # 11. cli — has CLI entry-point markers. Checked AFTER web/server
+    # 11. data-pipeline — DBT project OR pipeline-named entry with
+    # a data library imported. Checked BEFORE cli because pipeline.py
+    # would otherwise route to cli_probe (which would --help-pass
+    # but miss source/sink/data-lib requirements). Distinguished
+    # from training by data-lib imports (pandas/polars/sqlalchemy)
+    # vs ML frameworks (torch/transformers).
+    if (project_dir / "dbt_project.yml").is_file():
+        return "data-pipeline"
+    _pipeline_entries = ("pipeline.py", "etl.py", "ingest.py",
+                         "transform.py", "src/pipeline.py",
+                         "src/etl.py", "scripts/pipeline.py",
+                         "pipelines/main.py")
+    for rel in _pipeline_entries:
+        p = project_dir / rel
+        if not p.is_file():
+            continue
+        try:
+            head = p.read_text(encoding="utf-8", errors="replace")[:4000]
+        except OSError:
+            continue
+        data_libs = ("pandas", "polars", "pyarrow", "sqlalchemy",
+                     "duckdb", "pyspark", "apache_beam", "boto3",
+                     "snowflake", "psycopg", "pymongo", "sqlite3")
+        if any(f"import {m}" in head or f"from {m}" in head for m in data_libs):
+            return "data-pipeline"
+
+    # 12. cli — has CLI entry-point markers. Checked AFTER web/server
     # fingerprints so a fullstack app with a helper bin/ script doesn't
     # misroute to cli_probe. A pure CLI tool (no react, no server/ dir,
     # no openapi) with any of:
