@@ -1,0 +1,31 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "tree_static",
+  "is_animated": false,
+  "projection": "multi — top_down orthographic + iso_side 3/4",
+  "canvas": {"w": 1024, "h": 1024},
+  "subject_pct": 0.70,
+  "out_sizes": [128, 192, 256],
+  "gen_strategy": "per_species_projection",
+  "species": {
+    "oak":            {"seeds": {"top_down": 9001, "iso_side": 9101}, "priority": 1},
+    "pine":           {"seeds": {"top_down": 9002, "iso_side": 9102}, "priority": 1},
+    "palm":           {"seeds": {"top_down": 9003, "iso_side": 9103}, "priority": 1},
+    "dead":           {"seeds": {"top_down": 9004, "iso_side": 9104}, "priority": 2},
+    "cherry_blossom": {"seeds": {"top_down": 9005, "iso_side": 9105}, "priority": 2}
+  },
+  "ernie_call_count": {
+    "total": 10,
+    "priority_1_only": 6,
+    "note": "5 species × 2 projections = 10 sprites baseline. Priority-1 (oak/pine/palm) covers temperate+desert biomes."
+  },
+  "optional_anims": {
+    "wind_sway": {
+      "flag": "OPTIONAL-ANIM",
+      "frames": 8,
+      "loop": true,
+      "per_frame_ms": 120,
+      "note": "Most scaffolds prefer runtime CSS/shader sway over baked frames. This anim is a fallback for static-renderer scaffolds. Per-frame gen follows the same per_species_projection pattern with pose_description cycling through ±5° rotation phases."
+    }
+  }
+}

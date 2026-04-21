@@ -1,0 +1,54 @@
+"""Postprocess for tree_static. Single-image STATIC, so the pipeline is
+thinner than the animated workflows: just alpha-crop + resize + thumbnail.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+
+def alpha_bbox(img: Image.Image) -> tuple[int, int, int, int] | None:
+    a = np.array(img.split()[-1])
+    ys, xs = np.where(a > 0)
+    if len(xs) == 0:
+        return None
+    return int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+
+
+def crop_and_resize(src: Path, out_dir: Path, pad_px: int = 16, out_height: int = 288) -> Path:
+    """Tight alpha-bbox crop, preserve aspect ratio, resize to out_height."""
+    img = Image.open(src).convert("RGBA")
+    bbox = alpha_bbox(img)
+    if bbox is None:
+        raise ValueError(f"empty alpha on {src}")
+    x0, y0, x1, y1 = bbox
+    x0 = max(0, x0 - pad_px)
+    y0 = max(0, y0 - pad_px)
+    x1 = min(img.size[0], x1 + pad_px)
+    y1 = min(img.size[1], y1 + pad_px)
+    cropped = img.crop((x0, y0, x1, y1))
+    w, h = cropped.size
+    scale = out_height / h
+    tw = max(1, int(w * scale))
+    resized = cropped.resize((tw, out_height), Image.NEAREST)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dst = out_dir / src.name
+    resized.save(dst, format="PNG")
+    return dst
+
+
+def to_thumbnail(src: Path, dst: Path, max_px: int = 256, max_bytes: int = 48_000) -> Path:
+    img = Image.open(src).convert("RGBA")
+    side = max_px
+    while True:
+        w, h = img.size
+        scale = min(side / max(w, h), 1.0)
+        tw, th = max(1, int(w * scale)), max(1, int(h * scale))
+        thumb = img.resize((tw, th), Image.NEAREST) if scale < 1 else img
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        thumb.save(dst, format="PNG", optimize=True)
+        if dst.stat().st_size <= max_bytes or side <= 32:
+            return dst
+        side //= 2
