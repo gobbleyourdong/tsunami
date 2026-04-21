@@ -270,6 +270,47 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
     return None
 
 
+def _scaffold_first_block(resolved: Path) -> str | None:
+    """Detect scaffold-first-gamedev read attempts on inlined data files.
+
+    Returns a block-reason string when the resolved path is a data/*.json
+    inside a gamedev scaffold project; None otherwise. The drone's
+    system prompt already inlines every data/*.json in scaffold-first
+    mode, so re-reading them is waste that has been observed as live
+    read-spiral failure mode (Round J, 2026-04-20, ice-cavern session).
+    """
+    try:
+        if resolved.suffix != ".json":
+            return None
+        if resolved.parent.name != "data":
+            return None
+        # Project dir = grandparent of the data/*.json file.
+        project_dir = resolved.parent.parent
+        pkg = project_dir / "package.json"
+        if not pkg.is_file():
+            return None
+        import json as _json
+        try:
+            pkg_data = _json.loads(pkg.read_text(errors="replace"))
+        except Exception:
+            return None
+        name = (pkg_data.get("name") or "").lower()
+        if not (name.startswith("gamedev-") and name.endswith("-scaffold")):
+            return None
+        # Confirmed: scaffold-first gamedev project, reading an inlined
+        # data/*.json. Block.
+        return (
+            f"[file_read BLOCKED — scaffold-first gamedev]\n"
+            f"  {resolved.name} is already inlined in your system prompt.\n"
+            f"  Scroll up and you have the complete file content.\n"
+            f"  Next action: file_write with the updated JSON, then message_result.\n"
+            f"  This is a hard gate — the read won't be allowed and will keep\n"
+            f"  returning this message. Use what's already in context."
+        )
+    except Exception:
+        return None
+
+
 def _resolve_path(path: str, workspace_dir: str, active_project: str | None = None) -> Path:
     """Resolve a file path to an absolute path inside the workspace.
 
@@ -382,6 +423,17 @@ class FileRead(BaseTool):
                 return ToolResult(f"File not found: {path}", is_error=True)
             if not p.is_file():
                 return ToolResult(f"Not a file: {path}", is_error=True)
+
+            # Scaffold-first gamedev hard gate: the drone's system prompt
+            # inlines every data/*.json. Reading them again is pure waste
+            # and the model (Qwen3.6-35B) has been observed read-spiraling
+            # on them despite explicit warnings (session 1776736395,
+            # ice-cavern, 2026-04-20). Convention beats instruction (v5):
+            # make the rule structural. Returns as an error so the drone
+            # can't proceed-as-if-read — it has to pick a different action.
+            block_reason = _scaffold_first_block(p)
+            if block_reason:
+                return ToolResult(block_reason, is_error=True)
 
             # Pre-read size gate (.
             # Only enforce when no explicit limit was provided (user wants whole file)
