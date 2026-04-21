@@ -1699,7 +1699,7 @@ async def run_drag(
     # Read HTML for hints
     html_content = ""
     try:
-        html_content = open(html_path).read()
+        html_content = Path(html_path).read_text(encoding="utf-8", errors="replace")
     except Exception:
         pass
 
