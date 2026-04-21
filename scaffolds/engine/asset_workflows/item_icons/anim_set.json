@@ -1,0 +1,61 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "item_icons",
+  "is_animated": false,
+  "covers_plan_categories": [39, 40, 41],
+  "gen_canvas": {"w": 512, "h": 512},
+  "gen_strategy": "per_subject_single_call",
+  "bg_mode": "icon",
+  "keep_largest_only": true,
+  "categories": {
+    "weapon": {
+      "plan_cat": 39,
+      "out_px": 256,
+      "seed_base": 11000,
+      "subjects": {
+        "sword":   {"seed_offset": 1, "desc": "longsword with a crossguard and leather-wrapped grip"},
+        "axe":     {"seed_offset": 2, "desc": "one-handed battle axe with a curved steel head and wooden haft"},
+        "bow":     {"seed_offset": 3, "desc": "recurve bow with nocked arrow, leather grip wrap"},
+        "staff":   {"seed_offset": 4, "desc": "wizard staff with a glowing crystal mounted at the top"},
+        "dagger":  {"seed_offset": 5, "desc": "short dagger with a stubby crossguard and a sharpened point"},
+        "spear":   {"seed_offset": 6, "desc": "long polearm spear with a diamond-shaped steel tip"},
+        "gun":     {"seed_offset": 7, "desc": "revolver pistol with a wooden grip and a short barrel"},
+        "shield":  {"seed_offset": 8, "desc": "round kite shield with a metal rim and a heraldic emblem"}
+      }
+    },
+    "consumable": {
+      "plan_cat": 40,
+      "out_px": 128,
+      "seed_base": 12000,
+      "subjects": {
+        "potion_red":   {"seed_offset": 1, "desc": "round glass flask with a cork stopper filled with swirling red liquid"},
+        "potion_blue":  {"seed_offset": 2, "desc": "round glass flask with a cork stopper filled with swirling blue liquid"},
+        "potion_green": {"seed_offset": 3, "desc": "round glass flask with a cork stopper filled with swirling green liquid"},
+        "food":         {"seed_offset": 4, "desc": "roasted turkey leg with a paper napkin wrap around the bone"},
+        "coin":         {"seed_offset": 5, "desc": "single gold coin with a simple face embossed on it, viewed at 3/4 angle"},
+        "gem":          {"seed_offset": 6, "desc": "faceted purple gemstone, cut like a teardrop, catching light on the top facet"},
+        "key":          {"seed_offset": 7, "desc": "brass skeleton key with an ornate bow and a small rectangular bit"},
+        "scroll":       {"seed_offset": 8, "desc": "rolled parchment scroll tied with a red ribbon, ends slightly frayed"}
+      }
+    },
+    "equipment": {
+      "plan_cat": 41,
+      "out_px": 256,
+      "seed_base": 13000,
+      "subjects": {
+        "helmet":      {"seed_offset": 1, "desc": "knight helmet with a full-face visor and a small plume crest on top"},
+        "chest_plate": {"seed_offset": 2, "desc": "steel chest armor with shoulder pauldrons and articulated ridges down the front"},
+        "gloves":      {"seed_offset": 3, "desc": "pair of leather gauntlets with metal knuckle plates, shown together"},
+        "boots":       {"seed_offset": 4, "desc": "pair of steel-toed leather boots with metal shin guards, shown together"},
+        "cloak":       {"seed_offset": 5, "desc": "hooded travel cloak with a heavy weave and a silver clasp at the throat"},
+        "amulet":      {"seed_offset": 6, "desc": "silver amulet on a chain with a small blue gemstone set in the center"},
+        "ring":        {"seed_offset": 7, "desc": "gold ring with a single emerald gemstone, plain band"}
+      }
+    }
+  },
+  "ernie_call_count": {
+    "total_full_library": 23,
+    "per_canary_round": 3,
+    "note": "23 = 8 weapons + 8 consumables + 7 equipment. Full library build is a dedicated round; canary round here is 1 icon per category."
+  }
+}
