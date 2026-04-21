@@ -19,7 +19,11 @@
 
 ## ERNIE constants (load-bearing)
 
-- Model: **ERNIE-Image-Turbo bf16** (:8092), swap-capable to Base for keeper quality (50-step)
+- Model: **ERNIE-Image-Turbo bf16**, swap-capable to Base for keeper quality (50-step)
+- **Endpoint:** `$SHOAL_ERNIE_URL` (env var). Defaults to `http://localhost:8092` if unset — the shared Spark instance used by interactive flows + other crew members' sporadic asset needs.
+  - **Production setup:** operator runs a dedicated RunPod GPU with ERNIE-Image-Turbo on it; export `SHOAL_ERNIE_URL=http://<runpod-ip>:8092` before `crew.sh launch` so Shoal doesn't contend with local :8092.
+  - **Fallback behavior:** if `$SHOAL_ERNIE_URL` is set but unreachable, Shoal retries 3× with exponential backoff, then falls back to `http://localhost:8092` and logs a `contended` warning to `~/.tsunami/crew/shoal/log.jsonl`. Better to be slow on a shared endpoint than to block entirely.
+  - **Implementation hook:** `tsunami/tools/generate_image.py` reads `SHOAL_ERNIE_URL` when `caller == "shoal"`; use the existing `ernie_url` parameter; add it if missing.
 - Defaults: **steps=8, CFG=1.0, 1024×1024**
 - **`use_pe=false` FOREVER** — pe degrades text rendering and adds decorative artifacts (literal quotes/asterisks, glitch nudges)
 - **`mode='icon'`** → magenta chromakey drop → transparent PNG. Use for sprite cutouts, characters, items, VFX.

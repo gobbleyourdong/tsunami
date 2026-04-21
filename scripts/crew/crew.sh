@@ -30,10 +30,25 @@ spawn_one() {
     return
   fi
 
-  local prompt="You are ${name^} — one of 5 crew instances working the tsunami overnight campaign. Read your plan carefully and execute it. Your plan file: ${plan_path}. Repo root: ${REPO}. Runtime state: ${STATE}/${name}/. Read the plans of the other 4 crew members under ${DIR}/{reef,tide,kelp,coral,current}/plan.md to understand the coordination. Start with your phase checklist, then enter the bonus long churn infinite loop. Commit and push artifacts as you produce them. Log one-liner per round to ${STATE}/${name}/log.jsonl."
+  local prompt="You are ${name^} — one of 6 crew instances working the tsunami overnight campaign. Read your plan carefully and execute it. Your plan file: ${plan_path}. Repo root: ${REPO}. Runtime state: ${STATE}/${name}/. Read the plans of the other 5 crew members under ${DIR}/{reef,tide,kelp,coral,current,shoal}/plan.md to understand the coordination. Start with your phase checklist, then enter the bonus long churn infinite loop. Commit and push artifacts as you produce them. Log one-liner per round to ${STATE}/${name}/log.jsonl."
+
+  # Per-instance env: Shoal reads SHOAL_ERNIE_URL (falls back to localhost:8092
+  # if unset or unreachable). Operator sets this to a dedicated RunPod GPU
+  # endpoint so Shoal doesn't contend with local :8092 interactive flows.
+  local env_overrides=""
+  case "$name" in
+    shoal)
+      # Shoal's plan documents the fallback semantics — pass env through
+      # and let the agent + generate_image tool handle retry/fallback.
+      env_overrides="SHOAL_ERNIE_URL=${SHOAL_ERNIE_URL:-http://localhost:8092}"
+      ;;
+  esac
 
   echo "  $name: launching → $log"
-  nohup claude -p "$prompt" \
+  if [ -n "$env_overrides" ]; then
+    echo "     env: $env_overrides"
+  fi
+  env $env_overrides nohup claude -p "$prompt" \
     --permission-mode bypassPermissions \
     --add-dir "$REPO" --add-dir "$STATE/$name" \
     > "$log" 2>&1 &
@@ -110,14 +125,14 @@ case "$cmd" in
 Usage: $0 <command>
 
 Commands:
-  launch      Spawn all 5 instances (Reef, Tide, Kelp, Coral, Current)
+  launch      Spawn all 6 instances (Reef, Tide, Kelp, Coral, Current, Shoal)
   status      Show which instances are running + last log round
   tail <name> Tail the active log for one instance
   stop        SIGTERM all, grace, SIGKILL stragglers
   restart     Stop + relaunch
 
-Plans: $DIR/{reef,tide,kelp,coral,current}/plan.md
-State: $STATE/{reef,tide,kelp,coral,current}/
+Plans: $DIR/{reef,tide,kelp,coral,current,shoal}/plan.md
+State: $STATE/{reef,tide,kelp,coral,current,shoal}/
 EOF
     ;;
 esac

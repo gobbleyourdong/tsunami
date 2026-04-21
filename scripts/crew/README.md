@@ -18,11 +18,14 @@ Cross-feed: **Coral → Reef/Tide/Kelp/Shoal** (what to build), **Reef/Tide/Kelp
 ## Launch
 
 ```bash
-./scripts/crew/crew.sh launch       # spawns 5 instances
+./scripts/crew/seed.sh              # bootstrap Coral's queues (idempotent)
+./scripts/crew/crew.sh launch       # spawn all 6 instances
 ./scripts/crew/crew.sh status       # health check
 ./scripts/crew/crew.sh tail <name>  # tail a specific log
 ./scripts/crew/crew.sh stop         # SIGTERM all, grace, SIGKILL stragglers
 ```
+
+First-run must `seed.sh` before `launch` — the crew reads Coral's queues on startup and needs work items to make progress. `seed.sh` is idempotent (appends only new IDs); safe to re-run.
 
 ## Per-instance state dirs
 
