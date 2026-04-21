@@ -334,13 +334,17 @@ async def edit(req: EditRequest):
     img = _load_input_image(req)
     t0 = time.time()
     async with _lock:
+        # Qwen-Image-Edit-Plus-2511's pipe has no `strength` / `denoising_strength`
+        # param — it's a true-edit model conditioned on the input image rather
+        # than an img2img that reuses input latents. The CFG knob exposed is
+        # `true_cfg_scale` (default 4.0). We keep EditRequest.strength in the
+        # API for caller-side bookkeeping but don't plumb it to the pipe.
         gen_args = dict(
             prompt=req.prompt,
             image=img,
             negative_prompt=req.negative_prompt,
-            strength=req.strength,
             num_inference_steps=req.num_inference_steps,
-            guidance_scale=req.guidance_scale,
+            true_cfg_scale=req.guidance_scale,
             num_images_per_prompt=req.n,
         )
         if req.seed is not None:
@@ -397,13 +401,16 @@ async def animate(req: AnimateRequest):
     async with _lock:
         for i, step in enumerate(req.nudges):
             step_t0 = time.time()
+            # `strength` is kept in NudgeStep for bookkeeping (Σstrength is the
+            # drift-bound metric the sigma invariant watches) but is NOT a pipe
+            # kwarg for QwenImageEditPlusPipeline — that pipe is a true-edit
+            # model, not an img2img. The CFG knob is `true_cfg_scale`.
             result = _pipe(
                 prompt=step.delta,
                 image=current_img,
                 negative_prompt=req.negative_prompt,
-                strength=step.strength,
                 num_inference_steps=step.num_inference_steps,
-                guidance_scale=step.guidance_scale,
+                true_cfg_scale=step.guidance_scale,
                 num_images_per_prompt=1,
                 generator=generator,
             )
