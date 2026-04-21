@@ -519,38 +519,15 @@ class Agent:
         # concern in the pre-existing comment doesn't apply to
         # project_init_gamedev since it picks from a closed list of
         # scaffold dirs, not arbitrary npm packages).
-        if save_match:
-            project_name = save_match.group(1)
-        else:
-            # Derive a slug from the prompt. Look for "called <name>" or
-            # "named <name>" first; fall back to first 5 words of the
-            # build verb's object.
-            # "called / named / titled <Name>" — capture 1-4 words of
-            # leading-Capital tokens; terminate on em-dash, en-dash,
-            # hyphen, dot, comma, bang, question, or EOS.
-            called = re.search(
-                r'(?:called|named|titled)\s+([A-Z][A-Za-z0-9]*(?:\s+[A-Z][A-Za-z0-9]*){0,3})',
-                user_message,
-            )
-            if called:
-                raw = called.group(1).strip()
-                project_name = "-".join(raw.lower().split())[:40]
-            else:
-                # Strip common build verbs + article + "2d/3d" prefix,
-                # then take first word-sequence up to the next stop
-                # character.
-                stripped = re.sub(r'^(build|create|make|develop|design)\s+(a|an|the)?\s*',
-                                  '', msg).strip()
-                stripped = re.sub(r'^(2d|3d)\s+', '', stripped).strip()
-                # Stop at first dash/em-dash/colon/comma — everything
-                # after is parameter detail, not the project's name.
-                stripped = re.split(r'[—–\-:,.]', stripped, maxsplit=1)[0]
-                words = stripped.split()[:4]
-                # Drop noise words that slip through.
-                words = [w for w in words if w not in {'called', 'named', 'titled', 'a', 'the', 'an'}]
-                project_name = "-".join(words).replace(",", "").replace(".", "")[:40]
-            # Sanitize
-            project_name = re.sub(r'[^a-z0-9_-]', '', project_name) or "game"
+        # Derivation is delegated to pre_scaffold_naming.derive_project_name
+        # so the regex corpus can be pinned by regression tests
+        # (tsunami/tests/test_replay_pre_scaffold_name_extraction.py).
+        # save=<path> short-circuits: caller already resolved the slug.
+        from .pre_scaffold_naming import derive_project_name
+        project_name = derive_project_name(
+            user_message,
+            save_hint=save_match.group(1) if save_match else None,
+        )
 
         # Check if project already exists
         project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name

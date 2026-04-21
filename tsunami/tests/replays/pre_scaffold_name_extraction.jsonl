@@ -1,0 +1,21 @@
+{"kind":"meta","slug":"pre_scaffold_name_extraction","severity":2,"source_commits":["e056b66","4f8094a","d99baf5"],"recorded":"2026-04-20","round":"J","model_observed":"Qwen3.6-35B","symptom":"name extraction regex mishandled em-dash in 'Build a 2D platformer called X — 3 levels' — the capture group stopped mid-name or swallowed parameter detail","root_cause":"original regex '(called|named|titled)\\s+(\\S+(?:\\s+\\S+){0,4})' greedy-consumed past the dash; subsequent tightening landed in stages (e056b66 → 4f8094a → d99baf5) without a regression anchor","fix_approach":"extract derive_project_name() into tsunami/pre_scaffold_naming.py; pin the regex + fallback behavior with a corpus of 15+ prompts so a future regex refactor can't silently drift it","fix_location":"tsunami/pre_scaffold_naming.py::derive_project_name + agent.py delegation","principle":"v7 — formalization exposes drift; once the regex has a test corpus, edits are forced to stay aware of the cases"}
+{"kind":"case","desc":"canonical 'called Lava Leap' → lava-leap","prompt":"Build a 2D platformer called Lava Leap","expect":"lava-leap"}
+{"kind":"case","desc":"em-dash separates name from parameter detail","prompt":"Build a 2D platformer called Lava Leap — 3 levels","expect":"lava-leap"}
+{"kind":"case","desc":"en-dash separator","prompt":"Build a platformer called Ice Cavern – 5 rooms","expect":"ice-cavern"}
+{"kind":"case","desc":"hyphen separator","prompt":"Build a game called Silent Blade - stealth mission","expect":"silent-blade"}
+{"kind":"case","desc":"colon separator","prompt":"Build a game titled Crystal Saga: return of the king","expect":"crystal-saga"}
+{"kind":"case","desc":"single-token name after em-dash","prompt":"Build a platformer called X — 3 levels","expect":"x"}
+{"kind":"case","desc":"'named' keyword","prompt":"Build a dashboard named Analytics Hub","expect":"analytics-hub"}
+{"kind":"case","desc":"'titled' keyword","prompt":"Build a game titled Neon Drift","expect":"neon-drift"}
+{"kind":"case","desc":"4-word name (regex allows up to 4 Capital tokens)","prompt":"Build a game called The Last Starfighter Alpha","expect":"the-last-starfighter-alpha"}
+{"kind":"case","desc":"explicit save=<path> hint short-circuits","prompt":"whatever","save_hint":"my-custom-slug","expect":"my-custom-slug"}
+{"kind":"case","desc":"no 'called' keyword — fallback takes first 4 words","prompt":"Build a racing game with 5 tracks","expect":"racing-game-with-5"}
+{"kind":"case","desc":"no-called fallback + em-dash stop","prompt":"Build a racing game — 5 tracks","expect":"racing-game"}
+{"kind":"case","desc":"2D prefix stripped","prompt":"Build a 2D shooter space arena","expect":"shooter-space-arena"}
+{"kind":"case","desc":"3D prefix stripped","prompt":"Build a 3D RPG dungeon quest","expect":"rpg-dungeon-quest"}
+{"kind":"case","desc":"lowercase in 'called' target → fallback path (regex requires leading capital; 'called' is dropped as noise word)","prompt":"Build a game called darkness rising","expect":"game-darkness-rising"}
+{"kind":"case","desc":"empty prompt → 'game' fallback","prompt":"","expect":"game"}
+{"kind":"case","desc":"only whitespace → 'game' fallback","prompt":"   ","expect":"game"}
+{"kind":"case","desc":"name with digits embedded (regex allows A-Za-z0-9)","prompt":"Build a game titled Quake2 Arena","expect":"quake2-arena"}
+{"kind":"case","desc":"regex stops at non-alphanumeric symbol in capture","prompt":"Build a game called Crystal@Saga","expect":"crystal"}
+{"kind":"case","desc":"slug truncated to 40 chars","prompt":"Build a game called ABCDEFGHIJ Klmnopqrst Uvwxyza Bcdefghij Klmnopqr","expect":"abcdefghij-klmnopqrst-uvwxyza-bcdefghij"}
