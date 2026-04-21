@@ -1,0 +1,24 @@
+primitive: fire_flicker_loop
+category: vfx
+frame_count: 4
+reversible: false
+base_hint: >
+  any on-fire entity — tree, brazier, torch, campfire, burning barrel —
+  where the base already shows active flames; this primitive varies the
+  flame silhouette without changing the underlying object
+guidance: >
+  Loop for the "on_fire" state. The tree/torch/etc. is already burning
+  at frame 0; this primitive wiggles the flame tips and shifts the
+  glow pattern frame-to-frame. Never extinguishes, never spreads.
+
+nudges:
+  - delta: "flames flicker wider, tongues leaning slightly right,
+      glow pulses brighter"
+    strength: 0.25
+  - delta: "flame tips taper narrower, reaching upward in a tall peak"
+    strength: 0.25
+  - delta: "flames broaden again, tongues leaning slightly left this
+      time, sparks rising"
+    strength: 0.25
+  - delta: "flames return to baseline shape, steady glow"
+    strength: 0.2

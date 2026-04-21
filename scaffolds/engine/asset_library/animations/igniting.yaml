@@ -1,0 +1,32 @@
+primitive: igniting
+category: vfx
+frame_count: 5
+reversible: false
+base_hint: >
+  any flammable entity in its non-burning baseline state — healthy tree,
+  dry wooden object, cloth, straw; entity must be recognizable and
+  non-metallic
+guidance: >
+  One-shot transition from "not on fire" to "fully engulfed". Frame 0
+  = input entity, frame 4 = active fire at full size. Chain strength
+  gradient rises across the sequence (smoke → sparks → flames) so the
+  fire plausibly grows. Not reversible — fire spreading is a thermo-
+  dynamic one-way door; un-ignition handled by water_extinguish OR
+  fire_fizzling primitives.
+
+nudges:
+  - delta: "faint smoke rising from the base, surface darkening at
+      contact points"
+    strength: 0.3
+  - delta: "small orange flames starting at the base, licking upward
+      a few inches"
+    strength: 0.4
+  - delta: "flames climb higher, covering the lower half, bark/surface
+      charring visibly"
+    strength: 0.45
+  - delta: "flames engulf most of the upper structure, thick smoke,
+      bright orange glow"
+    strength: 0.45
+  - delta: "fully engulfed in tall flames, radiant heat distortion,
+      dense black smoke column"
+    strength: 0.4

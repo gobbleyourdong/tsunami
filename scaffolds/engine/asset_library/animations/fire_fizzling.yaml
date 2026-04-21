@@ -1,0 +1,30 @@
+primitive: fire_fizzling
+category: vfx
+frame_count: 5
+reversible: false
+base_hint: >
+  entity in on_fire state — flames must be active in the input; output
+  transitions to charred/smoldering remains
+guidance: >
+  Natural burnout. Fire dies from lack of fuel rather than being
+  extinguished. Frame 0 = active full engulfment, frame 4 = charred
+  remains with thin smoke wisps. Use when no intervention event fires
+  — the tree/object burned all the way out. The endpoint state
+  (charred) should match the entity's "charred" state definition.
+
+nudges:
+  - delta: "flames shrinking, tongues shorter and fewer, more dark
+      embers visible"
+    strength: 0.35
+  - delta: "fire reduced to scattered small flames along the surface,
+      heavy charring exposed"
+    strength: 0.4
+  - delta: "only glowing embers remain, no tall flames, smoke thin and
+      grey"
+    strength: 0.4
+  - delta: "embers dimming to dull red, surface fully blackened and
+      cracked, thin smoke wisps"
+    strength: 0.35
+  - delta: "charred structure, all fire out, faint smoke trails from
+      cracks, small ash piles at base"
+    strength: 0.35

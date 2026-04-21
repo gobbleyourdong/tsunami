@@ -1,0 +1,30 @@
+primitive: water_extinguish
+category: vfx
+frame_count: 5
+reversible: false
+base_hint: >
+  entity in on_fire state — flames active; output transitions to
+  extinguished (wet, sooty, steam rising, flames gone)
+guidance: >
+  Intervention transition — fire stopped by water event. Different
+  endpoint than fire_fizzling: the object is WET, recoverable, not
+  fully charred. Pairs with a water_splash_impact_3 overlay VFX that
+  the transition author attaches separately if the engine runtime
+  supports overlay tracks.
+
+nudges:
+  - delta: "thick white steam billowing where water hits the flames,
+      fire partially obscured"
+    strength: 0.4
+  - delta: "flames visibly smaller, more steam than fire, wet sheen
+      appearing on surface"
+    strength: 0.45
+  - delta: "only scattered small flames remain, heavy steam cloud,
+      water droplets glistening on the structure"
+    strength: 0.45
+  - delta: "last flames snuffed out, dense steam plume, surface wet
+      and darkened, a few glowing embers cooling"
+    strength: 0.4
+  - delta: "no flames, steam dissipating, object wet and sooty,
+      charring blackened but intact, droplets falling"
+    strength: 0.35

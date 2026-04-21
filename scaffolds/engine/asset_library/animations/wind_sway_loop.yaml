@@ -1,0 +1,24 @@
+primitive: wind_sway_loop
+category: environment
+frame_count: 4
+reversible: true
+base_hint: tree, plant, banner, or any flexible-silhouette object with
+  distinguishable upper structure that can lean
+guidance: >
+  Ambient breeze loop. Keep nudges small — the character/identity must
+  remain perfectly recognizable; only the silhouette's upper extension
+  shifts. Plays as a 4-frame cycle (and its reverse if the entity is
+  flagged reversible).
+
+nudges:
+  - delta: "branches lean slightly to the left, leaves rustling in a
+      light breeze"
+    strength: 0.2
+  - delta: "branches lean further left at the peak of the gust, foliage
+      pulled taut in that direction"
+    strength: 0.2
+  - delta: "branches return toward center as the gust eases, foliage
+      settling"
+    strength: 0.2
+  - delta: "branches settled, leaves still quivering faintly"
+    strength: 0.15
