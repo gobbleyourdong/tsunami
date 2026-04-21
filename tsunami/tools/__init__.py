@@ -212,6 +212,72 @@ def toolboxes_for_phase(phase: str) -> list[str]:
     return list(_PHASE_TOOLBOXES.get(phase, ()))
 
 
+def rewrite_message_chat_pattern_hallucination(
+    tool_call,
+    allowed_names: set[str],
+    current_phase: str,
+    log_,
+) -> bool:
+    """Convert message_chat(text, done=true) → message_result(text) in place.
+
+    Sigma v8 M8 failure #2: pattern hallucination from adjacent precedents.
+    The Qwen3.6-35B base has `message_chat` baked in from earlier corpora
+    and emits it in phases where only `message_result` is allowed
+    (sessions 1776734971 / 1776735292 / 1776736683 / 1776737677 on
+    2026-04-20). When the drone emits `message_chat(text=..., done=true)`,
+    its intent is 1:1 the final-output channel — the same thing
+    `message_result(text=...)` delivers.
+
+    Rewrite rather than reject: the drone will keep emitting the same
+    token sequence regardless of the error (prompt-level corrections
+    don't dislodge trained patterns). Convert it structurally so the
+    intent lands on the first attempt. Convention beats instruction.
+
+    Preconditions for rewrite (all must hold):
+      - The call is `message_chat`
+      - `message_chat` is NOT in the current allowed schema — DELIVER /
+        POLISH legitimately expose it through the `qa` toolbox, so we
+        must never rewrite a legitimate call.
+      - `message_result` IS in the current allowed schema (rewriting to
+        something that would also be rejected would just shift the
+        failure one layer).
+      - `done=true` (or unset — default True). `done=false` is a status
+        update, a different intent — falls through to the reject path
+        with a dedicated error message.
+
+    Returns True if a rewrite happened, False otherwise. Mutates the
+    tool_call in place (name + arguments) on rewrite; leaves it
+    untouched otherwise.
+
+    `log_` is the caller's logger instance — accepted as a parameter so
+    the helper doesn't need to reach into module state, which keeps it
+    directly testable without an Agent context.
+    """
+    if tool_call.name != "message_chat":
+        return False
+    if "message_chat" in allowed_names:
+        return False
+    if "message_result" not in allowed_names:
+        return False
+    args = tool_call.arguments or {}
+    done_val = args.get("done", True)
+    done_true = done_val is True or str(done_val).lower() == "true"
+    if not done_true:
+        return False
+    text = args.get("text", "") or ""
+    if log_ is not None:
+        log_.warning(
+            "message_chat→message_result rewrite (pattern hallucination, "
+            f"phase={current_phase}, text_len={len(text)})"
+        )
+    tool_call.name = "message_result"
+    # message_result accepts `text`; MessageChat also uses `text`. We
+    # preserve `content` too for defensive compatibility with any
+    # downstream reader that reaches for it.
+    tool_call.arguments = {"text": text, "content": text}
+    return True
+
+
 def build_registry(config) -> ToolRegistry:
     """Build the 22-tool registry: core + planning + discovery + background-shell + append."""
     from .filesystem import FileRead, FileWrite, FileEdit, FileAppend

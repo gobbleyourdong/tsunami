@@ -3343,6 +3343,17 @@ class Agent:
                 self._image_ceiling_fired = False
 
         # 6. Execute the tool — with argument safety
+
+        # message_chat → message_result rewrite (sigma v8 M8 failure #2:
+        # pattern hallucination from adjacent precedents). See
+        # `_rewrite_message_chat_pattern_hallucination` in .tools for
+        # the rationale + replay evidence.
+        _allowed_names = {s.get("function", {}).get("name") for s in all_schemas}
+        from .tools import rewrite_message_chat_pattern_hallucination
+        rewrite_message_chat_pattern_hallucination(
+            tool_call, _allowed_names, current_phase, log,
+        )
+
         tool = self.registry.get(tool_call.name)
         if tool is None:
             error_msg = f"Unknown tool: {tool_call.name}. Available: {self.registry.names()}"
@@ -3353,12 +3364,24 @@ class Agent:
         # emit tools by text-mode extraction. Reject any text-mode call
         # for a tool that wasn't in the drone schema this turn (wave-only,
         # or outside the opened toolbox).
-        _allowed_names = {s.get("function", {}).get("name") for s in all_schemas}
         if _allowed_names and tool_call.name not in _allowed_names:
-            reject_msg = (
-                f"Tool '{tool_call.name}' is not available in this phase. "
-                f"Available: {sorted(_allowed_names)}"
-            )
+            # Specialized helper for message_chat(done=false) — the
+            # rewrite above only catches done=true. A status update in
+            # a build phase is a pattern-hallucination signal that the
+            # drone should be emitting an action tool, not narrating.
+            if tool_call.name == "message_chat":
+                reject_msg = (
+                    f"Tool 'message_chat' is not available in this phase. "
+                    f"If you're done, use message_result(text=...). "
+                    f"If you're still working, skip the status update and "
+                    f"emit the next action tool directly. "
+                    f"Available: {sorted(_allowed_names)}"
+                )
+            else:
+                reject_msg = (
+                    f"Tool '{tool_call.name}' is not available in this phase. "
+                    f"Available: {sorted(_allowed_names)}"
+                )
             log.warning(f"Tool '{tool_call.name}' blocked (not in drone schema)")
             self.state.add_tool_result(tool_call.name, tool_call.arguments, reject_msg, is_error=True)
             return reject_msg
