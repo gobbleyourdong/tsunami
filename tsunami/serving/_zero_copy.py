@@ -84,7 +84,13 @@ def load_state_dict_zero_copy(
     from fastsafetensors import fastsafe_open
 
     path = str(path)
-    log.info(f"[zero-copy] loading {path} → {device} via fastsafetensors")
+    # fastsafetensors needs a device with explicit index. Normalize "cuda"
+    # → "cuda:0"; leave "cuda:N" and "cpu" alone.
+    device_norm = device
+    if device == "cuda":
+        device_norm = "cuda:0"
+    log.info(f"[zero-copy] loading {path} → {device_norm} via fastsafetensors")
+    device = device_norm
     sd: dict[str, torch.Tensor] = {}
     with fastsafe_open(
         filenames=[path],
@@ -101,4 +107,60 @@ def load_state_dict_zero_copy(
     return sd
 
 
-__all__ = ["load_state_dict_zero_copy"]
+import contextlib
+
+
+@contextlib.contextmanager
+def patch_diffusers_load_state_dict(device: str = "cuda:0"):
+    """Temporarily monkey-patch `diffusers.models.model_loading_utils
+    .load_state_dict` to use fastsafetensors. This preserves all of
+    diffusers' quant-aware module construction (e.g. `from_single_file`
+    detects `weight_scale` keys in the safetensors and swaps standard
+    Linear layers for QuantLinear subclasses automatically) — we only
+    substitute the file-read step with zero-copy DMA.
+
+    The patched load_state_dict keeps the original signature; extra
+    kwargs that fastsafetensors doesn't support (`dduf_entries`,
+    `disable_mmap`, `map_location`) are silently ignored, but the
+    return-type contract (a plain dict of GPU-resident Tensors) is
+    preserved.
+
+    Usage:
+
+        with patch_diffusers_load_state_dict(device="cuda:0"):
+            model = SomeDiffusersModel.from_single_file(fp8_path, ...)
+
+    Inside the `with` block, any call from diffusers to load a
+    .safetensors file routes through fastsafetensors. On exit, the
+    original loader is restored.
+
+    Falls through gracefully if fastsafetensors isn't installed —
+    diffusers' default loader stays in effect, unchanged.
+    """
+    if not _fastsafetensors_available():
+        log.info("[zero-copy] patch noop — fastsafetensors not installed")
+        yield
+        return
+
+    import diffusers.models.model_loading_utils as _mlu
+    original = _mlu.load_state_dict
+
+    def _patched(checkpoint_file, dduf_entries=None, disable_mmap=False,
+                 map_location="cpu"):
+        # Only intercept .safetensors; fall through for .ckpt / .gguf / etc.
+        if isinstance(checkpoint_file, dict):
+            return checkpoint_file
+        path_str = str(checkpoint_file)
+        if not path_str.endswith(".safetensors") or dduf_entries:
+            return original(checkpoint_file, dduf_entries=dduf_entries,
+                            disable_mmap=disable_mmap, map_location=map_location)
+        return load_state_dict_zero_copy(path_str, device=device)
+
+    _mlu.load_state_dict = _patched
+    try:
+        yield
+    finally:
+        _mlu.load_state_dict = original
+
+
+__all__ = ["load_state_dict_zero_copy", "patch_diffusers_load_state_dict"]

@@ -239,29 +239,25 @@ def _load_pipe():
     load_kwargs = {"torch_dtype": torch.bfloat16}
     if _args.fp8_path:
         from diffusers import QwenImageTransformer2DModel
-        from tsunami.serving._zero_copy import load_state_dict_zero_copy
-        log.info(f"[fp8] zero-copy loading transformer weights: {_args.fp8_path}")
+        from tsunami.serving._zero_copy import patch_diffusers_load_state_dict
+        log.info(f"[fp8] loading transformer via from_single_file (zero-copy): {_args.fp8_path}")
         ft0 = time.time()
-        # Two-step: (1) fastsafetensors streams weights straight to GPU — one
-        # copy, no CPU intermediate. (2) Construct the transformer shell on
-        # meta device (zero memory), then load the pre-GPU state_dict via
-        # `assign=True` so tensors keep their storage instead of being copied
-        # again. Net: fp8 weights traverse NVMe → GPU exactly once.
-        sd = load_state_dict_zero_copy(_args.fp8_path, device=_args.device)
-        with torch.device("meta"):
-            transformer = QwenImageTransformer2DModel.from_config(
-                QwenImageTransformer2DModel.load_config(
-                    _args.model, subfolder="transformer"
-                )
+        # Monkey-patch diffusers' load_state_dict → fastsafetensors. This
+        # keeps all of from_single_file's quant-aware module construction
+        # (detecting weight_scale keys, swapping Linear→QuantLinear, wiring
+        # scale buffers) while cutting the file-read step from CPU double-
+        # copy to one-copy DMA. Patch is scoped to this load via a context
+        # manager so other loaders stay unaffected.
+        with patch_diffusers_load_state_dict(device=_args.device):
+            load_kwargs["transformer"] = QwenImageTransformer2DModel.from_single_file(
+                _args.fp8_path,
+                config=_args.model,
+                subfolder="transformer",
+                # Do NOT set torch_dtype here — that would upcast fp8_e4m3fn
+                # weights to bf16 during load. Let diffusers preserve the
+                # file's native dtype; the pipe casts activations at forward.
             )
-        missing, unexpected = transformer.load_state_dict(sd, strict=False, assign=True)
-        log.info(
-            f"[fp8] transformer loaded in {time.time()-ft0:.1f}s "
-            f"(missing={len(missing)}, unexpected={len(unexpected)})"
-        )
-        # Free the dict reference (tensors are now owned by the module).
-        del sd
-        load_kwargs["transformer"] = transformer
+        log.info(f"[fp8] transformer loaded in {time.time()-ft0:.1f}s")
 
     _pipe = AutoPipelineForImage2Image.from_pretrained(_args.model, **load_kwargs)
     _pipe = _pipe.to(_args.device)
