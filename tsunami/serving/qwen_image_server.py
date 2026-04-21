@@ -217,9 +217,19 @@ app = FastAPI(title="Qwen-Image-Edit server")
 def _load_pipe():
     """Load the edit pipeline once. Uses diffusers' AutoPipelineForImage2Image
     which dispatches to QwenImageEditPipeline for the Qwen-Image-Edit-2511
-    repo. bf16 on CUDA."""
+    repo. bf16 on CUDA.
+
+    FP8 note: an earlier experiment wired optimum-quanto post-load
+    quantization via PipelineQuantizationConfig(QuantoConfig("float8")) —
+    reverted. That path quantizes bf16 weights to float8 tensors but then
+    DEQUANTIZES to bf16 for every matmul (no native FP8 tensor-core path),
+    producing quality regression AND no speedup. Proper FP8 for this
+    pipeline needs a native-FP8 weights file (e.g. ComfyUI's
+    Qwen-Image-Edit-2511 fp8mixed.safetensors) loaded through a custom
+    loader similar to tsunami/serving/serve_qwen36_fp8.py's pattern.
+    Tracked in project_qwen_image_fp8_investigation.md."""
     global _pipe, _loaded_model
-    log.info(f"Loading pipeline: {_args.model}")
+    log.info(f"Loading pipeline: {_args.model} (bf16)")
     t0 = time.time()
     try:
         from diffusers import AutoPipelineForImage2Image
@@ -492,7 +502,7 @@ def main():
                     help="HF repo id for the base pipeline")
     ap.add_argument("--lora", default="none",
                     help="LoRA name to attach at startup (registry: "
-                         "multiple_angles / none)")
+                         "multiple_angles / lightning / none)")
     ap.add_argument("--port", type=int, default=8094)
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--device", default="cuda")
