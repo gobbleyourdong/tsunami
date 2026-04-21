@@ -87,6 +87,12 @@ class LoopGuard:
         # template body verbatim for different models instead of filling
         # in the <subject> placeholder with per-asset descriptors.
         self._recent_gen_prompts: list[str] = []
+        # Set by agent.py at pre-scaffold / _swap_in_edit_prompt time.
+        # Declared here so check() / check_no_progress() can read them
+        # as direct attributes instead of `getattr(..., default)` across
+        # 9 sites. Defaults mirror the pre-declared fallbacks verbatim.
+        self._scaffold_kind: str = ""
+        self._gamedev_mode: str = "legacy"
 
     def record(self, tool_name: str, args: dict, made_progress: bool):
         """Record a tool call."""
@@ -127,8 +133,8 @@ class LoopGuard:
         # legitimate repeat counts, so those stay on the generic
         # threshold.
         is_scaffold_first_gd = (
-            getattr(self, "_scaffold_kind", "") == "gamedev"
-            and getattr(self, "_gamedev_mode", "legacy") == "scaffold_first"
+            self._scaffold_kind == "gamedev"
+            and self._gamedev_mode == "scaffold_first"
         )
         if (is_scaffold_first_gd
                 and len(self.fingerprints) >= HARD_LOOP_THRESHOLD_SCAFFOLD_FIRST_READ
@@ -204,7 +210,7 @@ class LoopGuard:
 
         # Soft loop: same tool type N in a row. Gamedev uses a lower
         # threshold (4) to save iteration budget when first-token is slow.
-        is_gamedev = getattr(self, "_scaffold_kind", "") == "gamedev"
+        is_gamedev = self._scaffold_kind == "gamedev"
         soft_thresh = SOFT_LOOP_THRESHOLD_GAMEDEV if is_gamedev else SOFT_LOOP_THRESHOLD
         if len(self.tool_names) >= soft_thresh:
             recent_tools = self.tool_names[-soft_thresh:]
@@ -243,8 +249,8 @@ class LoopGuard:
                 # For gamedev, emit_design is the analog of project_init
                 # for legacy engine-only; for scaffold-first, force
                 # file_write (drone should be editing data/*.json).
-                is_gamedev = getattr(self, "_scaffold_kind", "") == "gamedev"
-                mode = getattr(self, "_gamedev_mode", "legacy")
+                is_gamedev = self._scaffold_kind == "gamedev"
+                mode = self._gamedev_mode
                 if is_gamedev and mode == "scaffold_first":
                     stall_action = "file_write"
                 elif is_gamedev:
@@ -276,7 +282,7 @@ class LoopGuard:
         """
         read_tools = {"file_read", "match_grep", "match_glob", "file_list"}
         search_tools = {"search_web", "browser_navigate"}
-        is_gamedev = getattr(self, "_scaffold_kind", "") == "gamedev"
+        is_gamedev = self._scaffold_kind == "gamedev"
 
         # Detect whether project_init already ran — scan tool_names history.
         project_already_init = "project_init" in self.tool_names
@@ -292,7 +298,7 @@ class LoopGuard:
                 # call emit_design (which would overwrite the scaffold).
                 # Detection: scaffold-first sets `_gamedev_mode` =
                 # 'scaffold_first' on the loop-guard instance.
-                mode = getattr(self, "_gamedev_mode", "legacy")
+                mode = self._gamedev_mode
                 if mode == "scaffold_first":
                     return "file_write"
                 # Legacy engine-only flow: emit_design is the bootstrap.
@@ -302,7 +308,7 @@ class LoopGuard:
             return "project_init"
         elif stuck_tool in search_tools:
             if is_gamedev:
-                mode = getattr(self, "_gamedev_mode", "legacy")
+                mode = self._gamedev_mode
                 if mode == "scaffold_first":
                     return "file_write"
                 return "emit_design" if not emit_design_already else "message_result"
@@ -328,7 +334,7 @@ class LoopGuard:
             return "file_write"
         else:
             if is_gamedev:
-                mode = getattr(self, "_gamedev_mode", "legacy")
+                mode = self._gamedev_mode
                 if mode == "scaffold_first":
                     return "file_write"
                 return "emit_design" if not emit_design_already else "message_result"
