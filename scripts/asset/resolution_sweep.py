@@ -43,14 +43,27 @@ _REPO = Path(__file__).resolve().parent.parent.parent
 DEFAULT_RESOLUTIONS = [256, 384, 512, 640, 768, 896, 1024]
 
 
-def _edit(server: str, base_path: Path, prompt: str, resolution: int,
+def _edit(server: str, canonical_path: Path, prompt: str, resolution: int,
           seed: int, save_path: Path, negative_prompt: str = "",
-          steps: int = 30, cfg: float = 4.0,
+          steps: int = 40, cfg: float = 4.0,
           timeout_s: int = 900) -> float:
-    """Call /v1/images/edit. Returns elapsed seconds."""
+    """Call /v1/images/edit. Returns elapsed seconds.
+
+    Takes a CANONICAL high-res base image (prepared once by the caller)
+    and downscales it to exactly (resolution × resolution) before handing
+    to the pipe. Matching input and output sizes keeps each res point a
+    clean apples-to-apples test — every call sees an input at its own
+    target size, all derived from the same canonical source, so the only
+    variable across the sweep is the requested output size."""
     save_path.parent.mkdir(parents=True, exist_ok=True)
+    # Downscale canonical → target resolution, cached per-run per-res so the
+    # sweep isn't paying the resize cost inside the timing.
+    resized_path = save_path.parent / f"__input_{resolution:04d}.png"
+    if not resized_path.is_file():
+        im = Image.open(canonical_path)
+        im.resize((resolution, resolution), Image.LANCZOS).save(resized_path)
     payload = {
-        "path": str(base_path),
+        "path": str(resized_path),
         "prompt": prompt,
         "negative_prompt": negative_prompt,
         "height": resolution,
@@ -142,6 +155,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--cell-size", type=int, default=512,
                    help="grid cell pixel size (display; all frames upscale to "
                         "this size via NEAREST for fair comparison)")
+    p.add_argument("--canonical-res", type=int, default=1024,
+                   help="resolution the base image is upscaled to ONCE as the "
+                        "canonical HD source; every sweep point downscales from "
+                        "this canonical to its target. Prevents low-res source "
+                        "material from confounding the sweep (default 1024).")
     return p.parse_args()
 
 
@@ -178,6 +196,19 @@ def main() -> int:
     frames: list[tuple[int, Path]] = []
     timings: list[dict] = []
 
+    # Build the canonical HD source once — upscale the base to
+    # canonical_res via LANCZOS, save alongside the per-res inputs.
+    # Every sweep point derives its input from THIS canonical, so no
+    # point is penalized by degraded source material.
+    canonical_path = frames_dir / f"__canonical_{args.canonical_res:04d}.png"
+    src = Image.open(args.base)
+    src.resize((args.canonical_res, args.canonical_res),
+               Image.LANCZOS).save(canonical_path)
+    log.info(
+        f"[sweep] canonical HD source: {src.size} → "
+        f"{args.canonical_res}×{args.canonical_res} at {canonical_path.name}"
+    )
+
     log.info(
         f"[sweep] base={args.base} prompt={args.prompt[:60]!r} seed={args.seed} "
         f"resolutions={args.resolutions}"
@@ -187,7 +218,7 @@ def main() -> int:
         save_path = frames_dir / f"edit_{res:04d}.png"
         log.info(f"[sweep] {res}×{res} → running /edit …")
         try:
-            elapsed = _edit(args.server, args.base, args.prompt, res,
+            elapsed = _edit(args.server, canonical_path, args.prompt, res,
                             args.seed, save_path,
                             negative_prompt=args.negative_prompt,
                             steps=args.steps, cfg=args.cfg)
