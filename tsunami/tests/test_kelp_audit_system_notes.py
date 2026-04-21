@@ -112,11 +112,13 @@ class TestKnownAdvisories:
             s["line"] for s in result["sites"]
             if s["category"] == "advisory"
         }
-        # At minimum 8 of the 10 baseline advisories should still be
-        # advisory. Leaving 2 slack for mid-session line drift.
-        assert len(advisory_lines) >= 8, (
+        # Baseline was 10 at round 13. Rounds 14-17 converted 4 sites
+        # structurally, leaving ~6 advisories. A drop below 4 would
+        # mean something dramatic (mass refactor) and is worth review.
+        assert len(advisory_lines) >= 4, (
             f"advisory line count dropped to {len(advisory_lines)} — "
-            f"below the minimum. If intentional, update the baseline."
+            f"below 4, which is an unusually large conversion. Verify "
+            f"the drop is intentional and update the baseline."
         )
 
 

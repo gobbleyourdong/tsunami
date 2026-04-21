@@ -3297,10 +3297,18 @@ class Agent:
                             "reference them in JSX as <img src=\"/assets/...\">."
                         )
                 elif repeated_tool == "search_web":
-                    self.state.add_system_note(
-                        "STOP SEARCHING. You've searched 3 times in a row. Use the results you "
-                        "already have and start building. Call file_write or project_init next."
+                    # pain_advisory_stop_searching (round 13, sev 3):
+                    # old path emitted 'STOP SEARCHING' advisory and
+                    # let the drone search again. Convert to structural:
+                    # force file_write next iter. If the drone doesn't
+                    # have a project yet, file_write's safety-gate will
+                    # surface that; the force-clear path at L3785
+                    # releases when file_write succeeds (or drone
+                    # escapes to message_result).
+                    log.warning(
+                        "Round 17: search_web 3x stall, forcing file_write"
                     )
+                    self._loop_forced_tool = "file_write"
                 elif repeated_tool == "shell_exec":
                     # Check if the last shell results contain compile errors
                     last_results = [
@@ -3308,23 +3316,37 @@ class Agent:
                         if e.role == "tool_result" and ("Error" in e.content or "error" in e.content)
                     ]
                     if last_results:
-                        error_sample = last_results[-1][:500]
-                        self.state.add_system_note(
-                            f"STOP running shell_exec. The build is failing. You MUST fix the code.\n"
-                            f"Use file_read to see the current code, then file_edit to fix the errors.\n"
-                            f"DO NOT call shell_exec again until you've edited the file.\n"
-                            f"Last error:\n{error_sample}"
+                        # pain_advisory_stop_running_shell_exec (round 13,
+                        # sev 3): build is failing and drone keeps
+                        # re-running shell_exec. Force file_edit so the
+                        # drone is structurally required to fix code
+                        # before the next build attempt.
+                        log.warning(
+                            "Round 17: shell_exec 3x with errors, forcing "
+                            "file_edit to break the build-retry loop"
                         )
+                        self._loop_forced_tool = "file_edit"
                     else:
-                        self.state.add_system_note(
-                            f"You've run shell_exec 3 times in a row. If the build is failing, "
-                            f"read the error and fix the code. If it's passing, call message_result."
+                        # shell_exec 3x with no errors = verification
+                        # stall variant. Same conversion as round 16:
+                        # force message_result.
+                        log.warning(
+                            "Round 17: shell_exec 3x no errors, forcing "
+                            "message_result (verification stall variant)"
                         )
+                        self._loop_forced_tool = "message_result"
                 else:
-                    self.state.add_system_note(
-                        f"You're calling {repeated_tool} repeatedly. Try a different approach. "
-                        f"If the task is done, call message_result."
+                    # Generic repeated-tool stall. Force message_result
+                    # since we can't infer a better next action for an
+                    # unknown tool class. If the drone was actually
+                    # making progress the force-clear at L3785 would
+                    # have released the prior force; a stall here means
+                    # the safest escape is delivery.
+                    log.warning(
+                        f"Round 17: {repeated_tool} 3x stall, forcing "
+                        f"message_result"
                     )
+                    self._loop_forced_tool = "message_result"
                 # End of per-tool repetition branches
 
         # Image-gen ceiling (SURGE failure mode): drone generated 11 images
