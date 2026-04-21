@@ -1,0 +1,21 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "autotile_47_masks",
+  "is_animated": false,
+  "uses_ernie": false,
+  "uses_ernie_note": "algorithmic mask generation + PIL compositing; no diffusion model in the critical path",
+  "projection": "orthographic_top_down_tile",
+  "tile_px": 128,
+  "bitmask_convention": {
+    "bit_positions": {"N": 1, "NE": 2, "E": 4, "SE": 8, "S": 16, "SW": 32, "W": 64, "NW": 128},
+    "corner_dependency_rule": "a corner bit is normalized to 0 unless BOTH its adjacent edge bits are set — this collapses 256 raw combinations to 47 canonical tiles",
+    "reference": "Godot auto_tile_coord, GameMaker autotile, RPG Maker VX autotile — all use this 47-tile Wang-corner scheme"
+  },
+  "mask_count": 47,
+  "mask_source": "algorithmically rendered via PIL.ImageDraw at build time (see postprocess.write_all_masks)",
+  "output_naming": "mask_<bitmask>.png  (bitmask value 0-255 in 3-digit zero-padded form; only 47 values in the valid set)",
+  "ernie_call_count": {
+    "total": 0,
+    "note": "no ERNIE calls — this workflow is pure algorithmic"
+  }
+}
