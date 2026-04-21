@@ -300,13 +300,18 @@ async def generate(req: GenRequest):
         raise HTTPException(503, "pipeline not loaded")
     t0 = time.time()
     async with _lock:
+        # QwenImageEditPlusPipeline's `guidance_scale` is the DISTILLED
+        # guidance (meaningful only for the lightning variant). For normal
+        # CFG in the non-distilled path, use `true_cfg_scale` — that's the
+        # field the API-level `guidance_scale` (default 4.0) should route
+        # to. Same fix pattern as /v1/images/edit and /v1/images/animate.
         gen_args = dict(
             prompt=req.prompt,
             negative_prompt=req.negative_prompt,
             height=req.height,
             width=req.width,
             num_inference_steps=req.num_inference_steps,
-            guidance_scale=req.guidance_scale,
+            true_cfg_scale=req.guidance_scale,
             num_images_per_prompt=req.n,
         )
         if req.seed is not None:
