@@ -1,0 +1,9 @@
+{
+  "meta": {
+    "title": "Puzzle Platformer Roguelite",
+    "cross_genre": ["puzzle", "platformer", "roguelite"],
+    "target_mood": "Catherine block-pushing × Celeste movement × Into-the-Breach run structure"
+  },
+  "viewport": { "width": 640, "height": 480 },
+  "run": { "rooms_per_run": 8, "lives_per_run": 3 }
+}

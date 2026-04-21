@@ -3390,6 +3390,22 @@ class Agent:
                         f"tool_result. "
                         f"Available: {sorted(_allowed_names)}"
                     )
+            elif tool_call.name in ("match_glob", "match_grep"):
+                # pain_match_glob_wrong_phase (sev 2, 3 sessions 2026-04-20):
+                # drone calls match_glob mid-WRITE to enumerate scaffold
+                # files. The project structure is already inlined via
+                # scaffold_params and (for gamedev) data/*.json blocks.
+                # Reconnaissance here is wasted context. Point at file_read
+                # with a concrete path — the drone almost always knows
+                # what file it wanted; match_glob was a detour.
+                reject_msg = (
+                    f"Tool '{tool_call.name}' is not available in this phase. "
+                    f"The project structure is already inlined in your "
+                    f"system prompt (scaffold params, data/*.json for "
+                    f"gamedev). Use file_read with the explicit path you "
+                    f"need instead of searching. "
+                    f"Available: {sorted(_allowed_names)}"
+                )
             else:
                 reject_msg = (
                     f"Tool '{tool_call.name}' is not available in this phase. "

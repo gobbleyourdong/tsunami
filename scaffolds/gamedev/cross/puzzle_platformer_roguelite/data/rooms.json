@@ -1,0 +1,67 @@
+{
+  "room_pool": [
+    {
+      "id": "pushblock_intro",
+      "tags": ["puzzle", "intro"],
+      "difficulty": 1,
+      "puzzle_objects": [
+        { "kind": "pushblock", "at": [4, 3], "weight": 1 },
+        { "kind": "pressure_plate", "at": [7, 3], "activates": "gate_a" }
+      ],
+      "locks": [ { "id": "gate_a", "opens_on": "pressure_plate_held" } ]
+    },
+    {
+      "id": "key_and_door",
+      "tags": ["puzzle"],
+      "difficulty": 2,
+      "puzzle_objects": [
+        { "kind": "key", "at": [2, 4], "id": "red_key" }
+      ],
+      "locks": [ { "id": "red_door", "requires_key": "red_key" } ]
+    },
+    {
+      "id": "ice_traversal",
+      "tags": ["platformer", "movement"],
+      "difficulty": 2,
+      "physics_mod": { "friction_mul": 0.15 }
+    },
+    {
+      "id": "windy_gap",
+      "tags": ["platformer", "hazard"],
+      "difficulty": 3,
+      "physics_mod": { "gravity_mul": 1.0, "wind_x": 40 }
+    },
+    {
+      "id": "timed_switch_run",
+      "tags": ["puzzle", "platformer"],
+      "difficulty": 3,
+      "puzzle_objects": [
+        { "kind": "switch", "at": [2, 4], "activates": "timed_bridge", "duration_sec": 3 }
+      ],
+      "locks": [ { "id": "timed_bridge", "opens_on": "switch_timed" } ]
+    },
+    {
+      "id": "mirror_maze",
+      "tags": ["puzzle", "reflection"],
+      "difficulty": 4,
+      "puzzle_objects": [
+        { "kind": "mirror", "at": [4, 3], "orientation": "diagonal" },
+        { "kind": "laser_source", "at": [0, 3], "color": "red" },
+        { "kind": "laser_sink", "at": [7, 3], "color": "red", "activates": "exit" }
+      ],
+      "locks": [ { "id": "exit", "opens_on": "laser_connected" } ]
+    },
+    {
+      "id": "boss_gauntlet",
+      "tags": ["boss", "combined"],
+      "difficulty": 5,
+      "puzzle_objects": [
+        { "kind": "pressure_plate", "at": [3, 5], "activates": "phase_1" }
+      ]
+    }
+  ],
+  "chain": {
+    "length": 8,
+    "rule": "difficulty_ascending_with_one_shortcut"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "player": {
+    "id": "player_1",
+    "archetype": "climber",
+    "components": ["Health(1)", "Position(64, 400)", "Lives(3)"],
+    "movement": {
+      "walk_speed": 160,
+      "jump_height": 120,
+      "coyote_frames": 6,
+      "double_jump": false,
+      "dash_frames": 8,
+      "dash_cooldown_ms": 300
+    }
+  }
+}

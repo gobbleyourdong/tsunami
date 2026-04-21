@@ -1,0 +1,34 @@
+{
+  "relics": {
+    "boots_of_coyote": {
+      "tier": "common",
+      "effect": { "coyote_frames_bonus": 4 },
+      "description": "+4 coyote frames. Forgive your late jumps."
+    },
+    "low_gravity_feather": {
+      "tier": "common",
+      "effect": { "gravity_mul": 0.85 },
+      "description": "Floatier falls; same jump height."
+    },
+    "double_jump_wings": {
+      "tier": "rare",
+      "effect": { "double_jump": true },
+      "description": "One extra mid-air jump."
+    },
+    "time_reversal_hourglass": {
+      "tier": "rare",
+      "effect": { "time_reverse_sec": 2, "cooldown_sec": 15 },
+      "description": "Rewind 2 seconds on hold."
+    },
+    "ghost_lives": {
+      "tier": "epic",
+      "effect": { "lives_bonus": 2 },
+      "description": "+2 lives per run."
+    },
+    "lockpick": {
+      "tier": "epic",
+      "effect": { "skip_one_lock": true },
+      "description": "One locked door per run opens without its key."
+    }
+  }
+}
