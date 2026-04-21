@@ -69,22 +69,36 @@ async def wait_for_http(
 
 
 async def spawn_child(
-    cmd: str,
+    cmd: str | list[str],
     cwd: Path,
     env_extra: dict[str, str] | None = None,
 ) -> asyncio.subprocess.Process:
     """Spawn `cmd` in a new process group so we can kill the whole tree.
 
-    `npm run …` forks node under a shell, which forks again for user
-    code. A plain `proc.kill()` only reaps the shell; the server child
-    keeps its port. `start_new_session=True` + `killpg` tears down
-    everything in one signal.
+    SECURITY (sev-5 class patch, 2026-04-21): argv-list form via
+    asyncio.create_subprocess_exec, not shell interpretation. String
+    input is shlex.split first, then passed as argv. Shell metachars
+    in filenames (;, $, backticks, &, |) pass verbatim as argv bytes.
+    Closes the probe_shell_pattern RCE class Current flagged post
+    cli_probe (17f29cc).
+
+    `npm run …` keeps working — npm handles its own argv parsing.
+    Existing callers pass static strings like "npm run server"; new
+    callers can pass a list directly to skip shlex.
+
+    `start_new_session=True` + `killpg` tears down the whole tree
+    (npm → node → user code) in one signal.
     """
+    import shlex
     env = os.environ.copy()
     if env_extra:
         env.update(env_extra)
-    return await asyncio.create_subprocess_shell(
-        cmd,
+    argv = cmd if isinstance(cmd, list) else shlex.split(cmd)
+    if not argv:
+        raise ValueError(f"spawn_child: empty command after shlex.split({cmd!r})")
+    spawn = asyncio.create_subprocess_exec
+    return await spawn(
+        *argv,
         cwd=str(cwd),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,

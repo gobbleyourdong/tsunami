@@ -52,8 +52,19 @@ async def electron_probe(project_dir: Path,
     if not main_ref:
         return result(False, "package.json has no 'main' field — electron won't know which file to load")
 
-    proc = await asyncio.create_subprocess_shell(
-        f"{build_cmd} 2>&1",
+    # SECURITY (sev-5 class patch, 2026-04-21): argv-list form via
+    # create_subprocess_exec, not shell interpolation. Previous
+    # `f"{build_cmd} 2>&1"` ran through /bin/sh — if build_cmd ever
+    # gets constructed from attacker input, that's an RCE. stderr
+    # already merges into stdout via stderr=STDOUT so the 2>&1 was
+    # redundant. Closes probe_shell_pattern class (Current finding).
+    import shlex
+    argv = shlex.split(build_cmd)
+    if not argv:
+        return result(False, f"build_cmd empty after shlex.split: {build_cmd!r}")
+    spawn = asyncio.create_subprocess_exec
+    proc = await spawn(
+        *argv,
         cwd=str(project_dir),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
