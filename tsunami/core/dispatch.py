@@ -28,6 +28,7 @@ from pathlib import Path
 from ._probe_common import result as _result, skip as _skip
 from .cli_probe import cli_probe
 from .data_pipeline_probe import data_pipeline_probe
+from .docs_probe import docs_probe
 from .electron_probe import electron_probe
 from .extension_probe import extension_probe
 from .gamedev_probe import gamedev_probe
@@ -80,6 +81,10 @@ _PROBES = {
     # static check: entry + data-lib import + source marker + sink
     # marker, OR dbt_project.yml + models/*.sql with SELECT.
     "data-pipeline":    data_pipeline_probe,
+    # Tide 006 — Docs site (MkDocs, Docusaurus, VitePress, Sphinx,
+    # Hugo, Astro, Jekyll, bare markdown). Static check — doesn't
+    # build. Requires config OR docs/ tree + content pages + homepage.
+    "docs":             docs_probe,
 }
 # Direct handle to the legacy probe for callers that want to bypass the
 # scaffold router (introspection + tests).
@@ -301,7 +306,39 @@ def detect_scaffold(project_dir: Path) -> str | None:
         if (project_dir / rel).is_file():
             return "cli"
 
-    # 12. infra — Dockerfile or docker-compose at root / docker/ / deploy/.
+    # 12. docs — SSG config OR a bare docs/ tree with ≥2 .md files.
+    # Ordered BEFORE infra because a docs site can trivially ship with
+    # a Dockerfile for hosting, and we want docs to win that routing.
+    for rel in ("mkdocs.yml", "docusaurus.config.js", "docusaurus.config.ts",
+                ".vitepress/config.js", ".vitepress/config.ts",
+                ".vitepress/config.mjs", "astro.config.mjs", "astro.config.js",
+                "astro.config.ts", "hugo.toml", "hugo.yaml"):
+        if (project_dir / rel).is_file():
+            return "docs"
+    # conf.py is ambiguous (Sphinx vs. generic Python config) — require
+    # index.rst alongside to claim docs.
+    if (project_dir / "conf.py").is_file() and (
+        (project_dir / "index.rst").is_file()
+        or (project_dir / "docs" / "index.rst").is_file()
+        or (project_dir / "source" / "index.rst").is_file()
+    ):
+        return "docs"
+    # _config.yml + _posts/ indicates jekyll; _config.yml alone is too
+    # weak (many projects use it for other tooling).
+    if (project_dir / "_config.yml").is_file() and (project_dir / "_posts").is_dir():
+        return "docs"
+    # Bare docs: docs/ or content/ with ≥3 .md files and an index/README
+    for content_root in ("docs", "content"):
+        d = project_dir / content_root
+        if not d.is_dir():
+            continue
+        mds = list(d.rglob("*.md"))
+        if len(mds) >= 3 and any(
+            m.name.lower() in ("index.md", "readme.md", "intro.md") for m in mds
+        ):
+            return "docs"
+
+    # 13. infra — Dockerfile or docker-compose at root / docker/ / deploy/.
     # Last in priority order because an infra deliverable can piggy-back
     # on any web/cli/training project (dockerizing an existing app).
     # We only claim "infra" when THE PRIMARY shipping artifact is the

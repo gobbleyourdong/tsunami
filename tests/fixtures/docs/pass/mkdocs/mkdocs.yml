@@ -1,0 +1,7 @@
+site_name: Test Docs
+theme:
+  name: material
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Reference: reference.md
