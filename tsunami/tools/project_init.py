@@ -272,6 +272,15 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "data-viz").exists():
             return "data-viz"
 
+    # 6c. Documentation site (sidebar + prose + search).
+    # Checked before the generic "landing" bucket because docs-specific
+    # keywords ("docs site", "api reference") are more specific.
+    if needs("docs site", "documentation site", "doc site",
+             "api reference", "reference site", "user guide",
+             "docs portal", "knowledge base"):
+        if (SCAFFOLDS_DIR / "web" / "docs-site").exists():
+            return "web/docs-site"
+
     # 7. Presentation (landing, portfolio)
     if needs("landing", "portfolio", "marketing", "homepage", "website",
              "showcase", "brochure", "about"):
@@ -355,6 +364,8 @@ class ProjectInit(BaseTool):
         "cli/file-converter": "cli/file-converter",
         "config-generator": "cli/config-generator",
         "cli/config-generator": "cli/config-generator",
+        "docs-site":        "web/docs-site",
+        "web/docs-site":    "web/docs-site",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:

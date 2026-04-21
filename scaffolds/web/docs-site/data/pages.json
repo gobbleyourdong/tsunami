@@ -1,0 +1,30 @@
+{
+  "introduction": {
+    "title": "Introduction",
+    "body": "# Welcome\n\nThis is a starting scaffold for a documentation site. Replace this page and the other entries in `data/pages.json` with your own content. Nav structure lives in `data/nav.json`.\n\n## Features\n\n- Sidebar navigation (sections + pages)\n- Client-side search over page bodies\n- Dark/light theme toggle\n- Code blocks with inline `monospace`\n\n```bash\nnpm install\nnpm run dev\n```\n"
+  },
+  "installation": {
+    "title": "Installation",
+    "body": "# Installation\n\n```bash\nnpm install\n```\n\nRequires Node 18+."
+  },
+  "quickstart": {
+    "title": "Quickstart",
+    "body": "# Quickstart\n\nEdit `data/pages.json` to add your content. Each key becomes a route slug.\n\n```ts\nimport { pages } from './src/data/docs'\nconsole.log(pages.introduction.title)\n```\n"
+  },
+  "configuration": {
+    "title": "Configuration",
+    "body": "# Configuration\n\nConfig examples go here."
+  },
+  "deployment": {
+    "title": "Deployment",
+    "body": "# Deployment\n\nBuild: `npm run build`. Output lands in `dist/`."
+  },
+  "api": {
+    "title": "API reference",
+    "body": "# API\n\nReference tables, request/response examples."
+  },
+  "cli": {
+    "title": "CLI reference",
+    "body": "# CLI\n\nCommand list + flags."
+  }
+}

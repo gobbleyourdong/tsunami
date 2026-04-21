@@ -1,0 +1,135 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f6f7f9;
+  --fg: #111417;
+  --fg-muted: #5b6472;
+  --border: #e3e6ea;
+  --accent: #3b82f6;
+  --code-bg: #f3f4f6;
+  --code-fg: #1f2937;
+}
+
+html[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-subtle: #161b22;
+  --fg: #e6edf3;
+  --fg-muted: #8b949e;
+  --border: #30363d;
+  --accent: #58a6ff;
+  --code-bg: #1e242c;
+  --code-fg: #d4dae0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  line-height: 1.6;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--bg-subtle);
+  border-right: 1px solid var(--border);
+  padding: 1.5rem 1rem;
+  overflow-y: auto;
+}
+
+.sidebar .brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.sidebar .section-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  margin: 1rem 0 0.5rem;
+}
+
+.sidebar a {
+  display: block;
+  padding: 0.4rem 0.5rem;
+  color: var(--fg);
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.sidebar a:hover { background: var(--bg); }
+.sidebar a.active { background: var(--accent); color: #fff; }
+
+.content {
+  padding: 2.5rem 3rem;
+  max-width: 780px;
+}
+
+.content h1 { font-size: 2rem; margin-bottom: 1rem; }
+.content h2 { font-size: 1.4rem; margin: 1.8rem 0 0.6rem; }
+.content p  { margin-bottom: 1rem; color: var(--fg-muted); }
+
+.content code {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.88em;
+}
+
+.content pre {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.content pre code { background: transparent; padding: 0; }
+
+.searchbox {
+  margin-bottom: 1rem;
+}
+
+.searchbox input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.9rem;
+}
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-top: 1rem;
+}
+
+.results {
+  list-style: none;
+  margin-top: 0.5rem;
+}
+
+.results li {
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.results li:hover { background: var(--bg); }

@@ -1,0 +1,26 @@
+{
+  "sections": [
+    {
+      "title": "Getting Started",
+      "pages": [
+        { "slug": "introduction", "title": "Introduction" },
+        { "slug": "installation", "title": "Installation" },
+        { "slug": "quickstart",   "title": "Quickstart" }
+      ]
+    },
+    {
+      "title": "Guides",
+      "pages": [
+        { "slug": "configuration", "title": "Configuration" },
+        { "slug": "deployment",    "title": "Deployment" }
+      ]
+    },
+    {
+      "title": "Reference",
+      "pages": [
+        { "slug": "api",  "title": "API reference" },
+        { "slug": "cli",  "title": "CLI reference" }
+      ]
+    }
+  ]
+}
