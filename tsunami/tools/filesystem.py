@@ -270,6 +270,129 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
     return None
 
 
+def _suggest_similar_paths(
+    requested: str, workspace_dir: str, limit: int = 3,
+) -> list[str]:
+    """Return up to `limit` existing workspace-relative paths that look
+    like `requested`. Used by file_read / file_edit "File not found"
+    errors to help the drone recover from path-prefix guessing.
+
+    Pain_file_read_path_guessing (sev 3, 6 sessions 2026-04-20): the
+    drone writes `data/foo.json`, `workspace/deliverables/<p>/data/foo.
+    json`, `deliverables/<p>/data/foo.json`, `node_modules/@engine/...`
+    in succession — 12 "File not found" errors spread across sessions.
+    Each miss burns an iteration. Naming the 3 nearest existing paths
+    in the error lets the drone pick the right prefix on the next turn
+    instead of re-guessing.
+
+    Scoring:
+      1. Exact basename match (strongest — wrong prefix, right file)
+      2. difflib get_close_matches on basename
+      3. difflib get_close_matches on full relative path (backstop)
+
+    Bounded by MAX_SCAN files to keep the worst-case walk cheap on
+    large workspaces. Prunes build / cache / vendored dirs that would
+    drown useful matches. Returns paths relative to `workspace_dir`.
+    Returns [] on any IO error or empty candidate pool — caller treats
+    as "no suggestions" and falls back to the bare error message.
+    """
+    import os
+    from difflib import get_close_matches
+
+    MAX_SCAN = 5000
+    PRUNE_DIRS = {
+        "node_modules", ".git", ".next", ".cache", "dist", "build",
+        "__pycache__", ".venv", ".pytest_cache", ".tsunami",
+        ".history", ".context", "coverage",
+    }
+
+    try:
+        ws = Path(workspace_dir).resolve()
+    except (OSError, ValueError):
+        return []
+    if not ws.is_dir():
+        return []
+
+    requested_str = str(requested).strip().lstrip("./")
+    if not requested_str:
+        return []
+    requested_base = os.path.basename(requested_str).lower()
+
+    # Scan under deliverables/ if present (drones almost always target
+    # project files); fall back to full workspace if no deliverables yet.
+    deliv = ws / "deliverables"
+    roots = [deliv] if deliv.is_dir() else [ws]
+    candidates: list[str] = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in PRUNE_DIRS]
+            for fname in filenames:
+                abs_path = Path(dirpath) / fname
+                try:
+                    rel = abs_path.relative_to(ws)
+                except ValueError:
+                    continue
+                candidates.append(str(rel))
+                if len(candidates) >= MAX_SCAN:
+                    break
+            if len(candidates) >= MAX_SCAN:
+                break
+    if not candidates:
+        return []
+
+    seen: set[str] = set()
+    ranked: list[str] = []
+
+    def _add(cand: str) -> None:
+        if cand in seen or len(ranked) >= limit:
+            return
+        seen.add(cand)
+        ranked.append(cand)
+
+    # Rank 1: exact basename match (drone wrote the right file, wrong prefix).
+    if requested_base:
+        for cand in candidates:
+            if os.path.basename(cand).lower() == requested_base:
+                _add(cand)
+            if len(ranked) >= limit:
+                break
+
+    # Rank 2: fuzzy basename match (typos, near-miss filenames).
+    if len(ranked) < limit and requested_base:
+        base_map: dict[str, list[str]] = {}
+        for cand in candidates:
+            base_map.setdefault(os.path.basename(cand).lower(), []).append(cand)
+        matches = get_close_matches(
+            requested_base, list(base_map.keys()), n=limit * 2, cutoff=0.7,
+        )
+        for m in matches:
+            for cand in base_map[m]:
+                _add(cand)
+                if len(ranked) >= limit:
+                    break
+            if len(ranked) >= limit:
+                break
+
+    # Rank 3: fuzzy full-path match (catches different basenames with
+    # similar overall shape, e.g. a renamed sibling directory).
+    if len(ranked) < limit:
+        matches = get_close_matches(
+            requested_str.lower(),
+            [c.lower() for c in candidates], n=limit * 2, cutoff=0.6,
+        )
+        lower_to_cand = {c.lower(): c for c in candidates}
+        for m in matches:
+            cand = lower_to_cand.get(m)
+            if cand:
+                _add(cand)
+            if len(ranked) >= limit:
+                break
+
+    return ranked
+
+
 def is_scaffold_first_gamedev(project_dir: Path) -> bool:
     """True iff project_dir is a provisioned scaffold-first gamedev project.
 
@@ -432,7 +555,18 @@ class FileRead(BaseTool):
         try:
             p = _resolve_path(path, self.config.workspace_dir, _active_project)
             if not p.exists():
-                return ToolResult(f"File not found: {path}", is_error=True)
+                suggestions = _suggest_similar_paths(
+                    path, self.config.workspace_dir, limit=3,
+                )
+                msg = f"File not found: {path}"
+                if suggestions:
+                    bullets = "\n".join(f"  - {s}" for s in suggestions)
+                    msg = (
+                        f"{msg}\n"
+                        f"Did you mean one of these existing paths?\n"
+                        f"{bullets}"
+                    )
+                return ToolResult(msg, is_error=True)
             if not p.is_file():
                 return ToolResult(f"Not a file: {path}", is_error=True)
 
@@ -705,7 +839,18 @@ class FileEdit(BaseTool):
             if err:
                 return ToolResult(err, is_error=True)
             if not p.exists():
-                return ToolResult(f"File not found: {path}", is_error=True)
+                suggestions = _suggest_similar_paths(
+                    path, self.config.workspace_dir, limit=3,
+                )
+                msg = f"File not found: {path}"
+                if suggestions:
+                    bullets = "\n".join(f"  - {s}" for s in suggestions)
+                    msg = (
+                        f"{msg}\n"
+                        f"Did you mean one of these existing paths?\n"
+                        f"{bullets}"
+                    )
+                return ToolResult(msg, is_error=True)
 
             content = p.read_text()
             count = content.count(old_text)
