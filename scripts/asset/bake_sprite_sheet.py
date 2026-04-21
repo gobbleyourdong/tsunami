@@ -341,15 +341,29 @@ def derive_states(plan: BakePlan, base_path: Path, out_dir: Path,
     state_dir.mkdir(parents=True, exist_ok=True)
     state_images: dict[str, Path] = {}
 
-    # Upscale the base to full generation resolution. Frames inherit this
-    # size because QwenImageEditPlusPipeline preserves input dims when
-    # height/width aren't explicitly overridden.
+    # Upscale the base to full generation resolution AND composite onto a
+    # magenta (#FF00FF) key-color background, matching the shape
+    # tsunami/tools/generate.py emits in mode="icon".
+    #
+    # Why magenta: the Qwen pipe's _load_input_image does `convert("RGB")`
+    # which flattens RGBA → RGB with (0,0,0) black where alpha=0. That
+    # silently hands the model a black background, which (a) bleeds into
+    # the model's fire/flame outputs as dark smoke and (b) can't be
+    # chromakeyed out later without mutilating anything in the subject
+    # that's also dark. Magenta is the established key-color for the
+    # repo's extraction pipeline (tools/pixel_extract.py uses Lab-space
+    # detection in the magenta/lime/cyan corner of the gamut), so any
+    # magenta the model preserves through its edits cleanly keys out to
+    # alpha at the terminal pass.
     full_res_base = state_dir / "__base_upscaled.png"
-    src = Image.open(base_path).convert("RGBA")
-    src.resize((base_resolution, base_resolution), Image.LANCZOS).save(full_res_base)
+    src_rgba = Image.open(base_path).convert("RGBA").resize(
+        (base_resolution, base_resolution), Image.LANCZOS)
+    magenta_bg = Image.new("RGB", src_rgba.size, (255, 0, 255))
+    magenta_bg.paste(src_rgba, (0, 0), src_rgba)
+    magenta_bg.save(full_res_base)
     log.info(
-        f"[derive] base upscaled {src.size} → "
-        f"{base_resolution}×{base_resolution} at {full_res_base}"
+        f"[derive] base upscaled → {base_resolution}×{base_resolution} "
+        f"on magenta key-color background at {full_res_base}"
     )
 
     for name in plan.derivation_order:
