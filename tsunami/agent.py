@@ -3124,14 +3124,43 @@ class Agent:
         if tool_call.name == "file_read":
             if not hasattr(self, "_files_already_read"):
                 self._files_already_read: set[str] = set()
-            read_path = str(tool_call.arguments.get("path", "")).strip()
+            # Accept both canonical (path) and qwen-canonical (file_path)
+            # aliases — the file_read tool already coalesces these at
+            # execution time, so the dedup cache must too or the second
+            # call under a different kwarg sneaks past.
+            read_path = str(
+                tool_call.arguments.get("path")
+                or tool_call.arguments.get("file_path")
+                or ""
+            ).strip()
             if read_path and read_path in self._files_already_read:
-                self.state.add_system_note(
-                    f"You already have {read_path} in context from an earlier file_read. "
-                    f"Skip the re-read and use what you've seen — unless the file was "
-                    f"modified since (a file_write/file_edit on it would have invalidated "
-                    f"the cache)."
+                # pain_advisory_already_in_context_nudge (round 13, sev 3):
+                # this was an advisory — the note fired but the actual
+                # file_read ran anyway, wasting an iteration's worth of
+                # content tokens on the identical bytes. Convert to
+                # structural: short-circuit the dispatch with a cached-
+                # skip tool_result so the drone sees a brief ack instead
+                # of the full file re-dump. Cache invalidation is
+                # already handled by the file_write/file_edit branch
+                # above (removes path from _files_already_read).
+                cached_msg = (
+                    f"[file_read cached — skipped] {read_path} is already "
+                    f"in your context from an earlier file_read this "
+                    f"session. Scroll up to reuse it. If the file has "
+                    f"changed since, emit file_write or file_edit first "
+                    f"(that invalidates the cache) and then re-read."
                 )
+                self.state.add_tool_result(
+                    tool_call.name, tool_call.arguments, cached_msg,
+                    is_error=False,
+                )
+                # Record in tool_history so loop_guard sees the skip as a
+                # distinct step, but do NOT execute the tool. Return the
+                # cached-skip message as _step's result — matches the
+                # convention of other short-circuit paths in this method
+                # (reject_msg, error_msg returns).
+                self._tool_history.append("file_read")
+                return cached_msg
             if read_path:
                 self._files_already_read.add(read_path)
 
