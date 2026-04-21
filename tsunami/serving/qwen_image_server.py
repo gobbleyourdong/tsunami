@@ -213,23 +213,197 @@ def _pack_image(img: Image.Image, response_format: str, save_path: Optional[str]
 app = FastAPI(title="Qwen-Image-Edit server")
 
 
+def _native_fp8_available() -> bool:
+    """True if torch._scaled_mm is available AND the default CUDA device has
+    FP8 tensor cores. Hopper (sm_90) and Blackwell (sm_100+) support native
+    FP8. Ada/Ampere/earlier CUDA don't — we'll fall back to lazy-dequant
+    (same storage savings, bf16 matmul)."""
+    if not hasattr(torch, "_scaled_mm"):
+        return False
+    if not torch.cuda.is_available():
+        return False
+    try:
+        major, _minor = torch.cuda.get_device_capability()
+        return major >= 9  # sm_90 Hopper and up
+    except Exception:
+        return False
+
+
+class _FP8Linear(torch.nn.Module):
+    """nn.Linear drop-in that stores weights as float8_e4m3fn + scalar
+    scales (from Comfy-Org's `fp8mixed` layout).
+
+    On FP8-capable hardware (Hopper, Blackwell, …): native FP8 matmul via
+    torch._scaled_mm, output in bf16. No dequant round-trip; the matmul
+    consumes fp8 directly.
+
+    On other hardware (Ampere, Ada, ROCm, MPS, CPU): lazy-dequant fallback
+    — weight stored as fp8 (VRAM savings preserved), but each forward
+    dequantizes `fp8.to(bf16) * scale` and calls F.linear. Same numerical
+    correctness as bf16 matmul, no speed win but no regression.
+
+    Backend decision is made once at module-construction time based on the
+    current CUDA device; the chosen code path is called per forward.
+    """
+
+    def __init__(self, weight_fp8: torch.Tensor, weight_scale: torch.Tensor,
+                 input_scale: Optional[torch.Tensor],
+                 bias: Optional[torch.Tensor]):
+        super().__init__()
+        self.register_buffer("weight_fp8", weight_fp8.contiguous())
+        self.register_buffer("weight_scale", weight_scale.to(torch.float32))
+        if input_scale is not None:
+            self.register_buffer("input_scale", input_scale.to(torch.float32))
+        else:
+            self.register_buffer("input_scale",
+                                 torch.tensor(1.0, dtype=torch.float32))
+        if bias is not None:
+            self.bias = torch.nn.Parameter(bias)
+        else:
+            self.bias = None
+        self.out_features, self.in_features = weight_fp8.shape
+        self._native = _native_fp8_available()
+
+    def _forward_native(self, x: torch.Tensor) -> torch.Tensor:
+        orig_shape = x.shape
+        x2d = x.reshape(-1, orig_shape[-1])
+        M, _K = x2d.shape
+        # Blackwell FP8 kernel wants M % 16 == 0 — pad + trim.
+        pad = (16 - M % 16) % 16
+        if pad:
+            x2d = torch.nn.functional.pad(x2d, (0, 0, 0, pad))
+        x_fp8 = (x2d / self.input_scale).to(torch.float8_e4m3fn)
+        out = torch._scaled_mm(
+            x_fp8,
+            self.weight_fp8.t(),
+            scale_a=self.input_scale,
+            scale_b=self.weight_scale,
+            out_dtype=torch.bfloat16,
+        )
+        if pad:
+            out = out[:M]
+        if self.bias is not None:
+            out = out + self.bias.to(torch.bfloat16)
+        return out.reshape(*orig_shape[:-1], self.out_features)
+
+    def _forward_dequant(self, x: torch.Tensor) -> torch.Tensor:
+        # Fallback: dequant fp8 → bf16 each forward, then standard F.linear.
+        # Storage is still fp8 (VRAM win preserved), just no FP8 compute.
+        w = self.weight_fp8.to(torch.bfloat16) * self.weight_scale
+        return torch.nn.functional.linear(x, w, self.bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self._native:
+            return self._forward_native(x)
+        return self._forward_dequant(x)
+
+
+def _patch_transformer_with_fp8(transformer, safetensors_path: str) -> None:
+    """Walk the transformer, swap each Linear whose key exists in the comfy
+    fp8 safetensors for an _FP8LazyLinear carrying the fp8 weight + scale.
+
+    Modules/keys without an fp8 equivalent (e.g. embeddings, norms, small
+    projections the comfy file left in bf16) are left untouched.
+    """
+    from safetensors import safe_open
+
+    with safe_open(safetensors_path, framework="pt", device="cpu") as f:
+        all_keys = set(f.keys())
+        # Build a fast lookup: prefix -> (weight_key, scale_key, input_scale_key,
+        # bias_key) for fp8 entries.
+        fp8_pairs: dict[str, tuple[str, str, Optional[str], Optional[str]]] = {}
+        for k in all_keys:
+            if not k.endswith(".weight"):
+                continue
+            scale_key = k + "_scale"
+            if scale_key not in all_keys:
+                continue
+            prefix = k[:-len(".weight")]
+            bias_key = prefix + ".bias"
+            in_scale_key = prefix + ".input_scale"
+            fp8_pairs[prefix] = (
+                k, scale_key,
+                in_scale_key if in_scale_key in all_keys else None,
+                bias_key if bias_key in all_keys else None,
+            )
+
+        with_in_scale = sum(1 for v in fp8_pairs.values() if v[2])
+        log.info(
+            f"[fp8] comfy file has {len(fp8_pairs)} fp8-quantized Linears "
+            f"({with_in_scale} with calibrated input_scale)"
+        )
+
+        # Walk the transformer. Any module with a `weight` of shape (out, in)
+        # and a key-prefix in fp8_pairs gets swapped. Weights load to CPU
+        # here — caller's `_pipe.to(device)` moves the whole pipeline at
+        # once, avoiding transient bf16+fp8 double-allocation on GPU.
+        swapped = 0
+        for name, module in list(transformer.named_modules()):
+            if name not in fp8_pairs:
+                continue
+            if not isinstance(module, torch.nn.Linear):
+                continue
+            w_key, s_key, in_s_key, b_key = fp8_pairs[name]
+            w_fp8 = f.get_tensor(w_key)
+            w_scale = f.get_tensor(s_key)
+            in_scale = f.get_tensor(in_s_key) if in_s_key else None
+            b = f.get_tensor(b_key) if b_key else None
+            if w_fp8.shape != module.weight.shape:
+                log.warning(
+                    f"[fp8] shape mismatch at {name}: comfy={list(w_fp8.shape)} "
+                    f"model={list(module.weight.shape)} — skipping"
+                )
+                continue
+            new_mod = _FP8Linear(w_fp8, w_scale, in_scale, b)
+            parent_name, _, child_name = name.rpartition(".")
+            parent = transformer.get_submodule(parent_name) if parent_name else transformer
+            setattr(parent, child_name, new_mod)
+            swapped += 1
+
+        log.info(f"[fp8] swapped {swapped} Linears → _FP8Linear (native FP8 GEMM)")
+
+        # Also load any bf16 keys (e.g. img_in, txt_in, norm_out) that exist
+        # in the comfy file and in the transformer — preserves comfy's
+        # calibration choices over the HF bf16 defaults.
+        bf16_sd = {}
+        for k in all_keys:
+            if k.endswith("_scale") or k.endswith(".comfy_quant"):
+                continue
+            if k.startswith("__"):
+                continue
+            # Skip keys that belonged to an fp8 pair we already swapped
+            if any(k.startswith(prefix + ".") or k == prefix + ".weight" or k == prefix + ".bias"
+                   for prefix in fp8_pairs):
+                continue
+            t = f.get_tensor(k)
+            if t.dtype in (torch.bfloat16, torch.float32, torch.float16):
+                bf16_sd[k] = t
+        if bf16_sd:
+            missing, unexpected = transformer.load_state_dict(bf16_sd, strict=False)
+            log.info(
+                f"[fp8] loaded {len(bf16_sd)} bf16 keys (missing={len(missing)}, "
+                f"unexpected={len(unexpected)})"
+            )
+
+
 @app.on_event("startup")
 def _load_pipe():
     """Load the edit pipeline once. Uses diffusers' AutoPipelineForImage2Image
     which dispatches to QwenImageEditPipeline for the Qwen-Image-Edit-2511
-    repo. bf16 on CUDA.
+    repo.
 
-    FP8 note: an earlier experiment wired optimum-quanto post-load
-    quantization via PipelineQuantizationConfig(QuantoConfig("float8")) —
-    reverted. That path quantizes bf16 weights to float8 tensors but then
-    DEQUANTIZES to bf16 for every matmul (no native FP8 tensor-core path),
-    producing quality regression AND no speedup. Proper FP8 for this
-    pipeline needs a native-FP8 weights file (e.g. ComfyUI's
-    Qwen-Image-Edit-2511 fp8mixed.safetensors) loaded through a custom
-    loader similar to tsunami/serving/serve_qwen36_fp8.py's pattern.
-    Tracked in project_qwen_image_fp8_investigation.md."""
+    With --fp8-path <safetensors>: starts from the bf16 pipeline (gets all
+    the VAE/text-encoder/scheduler scaffolding), then swaps the transformer's
+    Linear modules for _FP8Linear instances carrying Comfy-Org's
+    pre-quantized fp8_e4m3fn weights + per-tensor scales. On Hopper/Blackwell
+    the forward uses native FP8 matmul (torch._scaled_mm); elsewhere it
+    lazy-dequants to bf16. Storage is fp8 either way.
+
+    bf16-only path: plain AutoPipelineForImage2Image.from_pretrained."""
     global _pipe, _loaded_model
-    log.info(f"Loading pipeline: {_args.model} (bf16)")
+    precision_note = (f"fp8-transformer (comfy: {_args.fp8_path})"
+                      if _args.fp8_path else "bf16")
+    log.info(f"Loading pipeline: {_args.model} ({precision_note})")
     t0 = time.time()
     try:
         from diffusers import AutoPipelineForImage2Image
@@ -241,16 +415,43 @@ def _load_pipe():
         _args.model,
         torch_dtype=torch.bfloat16,
     )
-    _pipe = _pipe.to(_args.device)
     _loaded_model = _args.model
+
+    if _args.fp8_path:
+        # Patch BEFORE .to(cuda). The bf16 transformer weights are still on
+        # CPU at this point; swapping them here means only fp8 tensors ever
+        # hit GPU, giving the full VRAM savings. If we patched post-.to(cuda)
+        # we'd briefly allocate 54 GB of bf16 + 20 GB of fp8 simultaneously.
+        log.info(f"[fp8] patching transformer with {_args.fp8_path} (on CPU)")
+        pt0 = time.time()
+        _patch_transformer_with_fp8(_pipe.transformer, _args.fp8_path)
+        log.info(f"[fp8] transformer patch complete in {time.time()-pt0:.1f}s")
+
+    _pipe = _pipe.to(_args.device)
+    if _args.fp8_path:
+        torch.cuda.empty_cache()
+
     # Startup LoRA — operator can specify at boot for sprite-sheet workflows.
+    # Caveat: PEFT's LoRA injection only recognizes standard torch.nn.Linear,
+    # not our _FP8Linear. So when the transformer has been swapped to fp8,
+    # the startup LoRA attach would crash. Skip it; log loudly so the
+    # operator remembers to attach via /v1/admin/lora on a bf16 path if
+    # they want to use LoRA. A proper fix (subclassing nn.Linear so PEFT
+    # can wrap _FP8Linear) is a focused follow-up.
     if _args.lora and _args.lora != "none":
-        _attach_lora_sync(_args.lora, scale=1.0)
+        if _args.fp8_path:
+            log.warning(
+                f"[startup] --lora {_args.lora} requested but --fp8-path is "
+                "set. PEFT doesn't recognize _FP8Linear; skipping LoRA attach."
+            )
+        else:
+            _attach_lora_sync(_args.lora, scale=1.0)
 
     torch.cuda.synchronize()
     vram = torch.cuda.memory_allocated() / (1024**3)
     log.info(f"Pipeline loaded in {time.time()-t0:.1f}s ({_loaded_model}), "
-             f"resident VRAM {vram:.2f} GB, loras={_loaded_loras}")
+             f"resident VRAM {vram:.2f} GB, loras={_loaded_loras}, "
+             f"precision={'fp8+bf16' if _args.fp8_path else 'bf16'}")
 
 
 def _attach_lora_sync(name: str, scale: float = 1.0) -> None:
@@ -503,6 +704,15 @@ def main():
     ap.add_argument("--lora", default="none",
                     help="LoRA name to attach at startup (registry: "
                          "multiple_angles / lightning / none)")
+    ap.add_argument("--fp8-path", default=None,
+                    help="Path to a Comfy-Org fp8mixed safetensors (e.g. "
+                         "qwen_image_edit_2511_fp8mixed.safetensors). When "
+                         "set, transformer Linears are replaced by _FP8Linear "
+                         "modules that store weights as float8_e4m3fn and do "
+                         "native FP8 matmul via torch._scaled_mm on "
+                         "Hopper/Blackwell, falling back to lazy-dequant bf16 "
+                         "matmul on older hardware. Storage savings are "
+                         "preserved in both paths.")
     ap.add_argument("--port", type=int, default=8094)
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--device", default="cuda")
