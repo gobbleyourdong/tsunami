@@ -3377,6 +3377,42 @@ class Agent:
                     f"emit the next action tool directly. "
                     f"Available: {sorted(_allowed_names)}"
                 )
+            elif tool_call.name == "shell_exec":
+                # pain_shell_exec_wrong_phase (sev 3, 3 sessions 2026-04-20):
+                # drone calls shell_exec to "verify the build" mid-WRITE
+                # phase. In scaffold-first gamedev there is no build step;
+                # in plain WRITE the agent auto-builds after file_write.
+                # Either way, shell_exec here is redundant. Name the right
+                # next action explicitly — the generic sorted() dump doesn't
+                # give the drone enough signal to converge.
+                _scaffold_first_sx = False
+                if self.active_project:
+                    try:
+                        from .tools.filesystem import is_scaffold_first_gamedev
+                        from pathlib import Path as _P_sx
+                        _scaffold_first_sx = is_scaffold_first_gamedev(
+                            _P_sx(self.config.workspace_dir) / "deliverables"
+                            / self.active_project
+                        )
+                    except Exception:
+                        _scaffold_first_sx = False
+                if _scaffold_first_sx:
+                    reject_msg = (
+                        f"Tool 'shell_exec' is not available in this phase. "
+                        f"This is a scaffold-first gamedev project — there "
+                        f"is no build step. The scaffold ships playable; "
+                        f"call message_result(text='...') to deliver. "
+                        f"Available: {sorted(_allowed_names)}"
+                    )
+                else:
+                    reject_msg = (
+                        f"Tool 'shell_exec' is not available in this phase. "
+                        f"The build runs automatically after file_write. "
+                        f"If you need to diagnose, write your changes first "
+                        f"and the build output will come back in the next "
+                        f"tool_result. "
+                        f"Available: {sorted(_allowed_names)}"
+                    )
             else:
                 reject_msg = (
                     f"Tool '{tool_call.name}' is not available in this phase. "

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 
 from ._probe_common import result as _result, skip as _skip
@@ -34,6 +35,7 @@ from .mobile_probe import mobile_probe
 from .openapi_probe import openapi_probe
 from .server_probe import server_probe
 from .sse_probe import sse_probe
+from .training_probe import training_probe
 from .ws_probe import ws_probe
 
 log = logging.getLogger("tsunami.core.dispatch")
@@ -63,6 +65,11 @@ _PROBES = {
     # by expo/react-native deps OR public/manifest.json without
     # manifest_version (chrome-extension uses that key; PWA doesn't).
     "mobile":           mobile_probe,
+    # Tide 003 — ML training-recipe (fine-tune, pretrain, eval).
+    # Fingerprinted by pyproject with train*/finetune* console script,
+    # or conventional train.py/finetune.py/main.py at root with ML
+    # framework imports. Probe is static — doesn't run training.
+    "training":         training_probe,
 }
 # Direct handle to the legacy probe for callers that want to bypass the
 # scaffold router (introspection + tests).
@@ -195,7 +202,47 @@ def detect_scaffold(project_dir: Path) -> str | None:
         if has_sw:
             return "mobile"
 
-    # 10. cli — has CLI entry-point markers. Checked AFTER web/server
+    # 10. training — ML training-recipe. Checked BEFORE cli because
+    # a training repo often ships a `train.py` entry that would
+    # otherwise route to cli_probe (which would pass it on --help
+    # but miss the framework / checkpoint / config requirements).
+    # Fingerprint: conventional training entry + ML framework import,
+    # OR pyproject [project.scripts] with a train*/finetune*/pretrain*
+    # named script.
+    _training_entries = ("train.py", "finetune.py", "fine_tune.py",
+                         "pretrain.py", "src/train.py", "src/finetune.py",
+                         "scripts/train.py", "scripts/finetune.py")
+    for rel in _training_entries:
+        p = project_dir / rel
+        if not p.is_file():
+            continue
+        try:
+            head = p.read_text(encoding="utf-8", errors="replace")[:4000]
+        except OSError:
+            continue
+        ml_imports = ("torch", "transformers", "pytorch_lightning", "lightning",
+                      "tensorflow", "keras", "jax", "flax", "accelerate",
+                      "peft", "unsloth", "trl")
+        if any(f"import {m}" in head or f"from {m}" in head for m in ml_imports):
+            return "training"
+    # pyproject script hint
+    pyproj = project_dir / "pyproject.toml"
+    if pyproj.is_file():
+        try:
+            t = pyproj.read_text(encoding="utf-8", errors="replace")
+            if any(
+                re.search(rf"(?m)^\s*{name}\w*\s*=\s*['\"]", t)
+                for name in ("train", "finetune", "fine_tune", "pretrain")
+            ):
+                # Only promote if the project also imports an ML framework
+                # somewhere (prevents a 'train' script that's actually a
+                # model-training cli for e.g. a shell game from misrouting).
+                if any(m in t for m in ("torch", "transformers", "lightning")):
+                    return "training"
+        except OSError:
+            pass
+
+    # 11. cli — has CLI entry-point markers. Checked AFTER web/server
     # fingerprints so a fullstack app with a helper bin/ script doesn't
     # misroute to cli_probe. A pure CLI tool (no react, no server/ dir,
     # no openapi) with any of:

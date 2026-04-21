@@ -204,6 +204,20 @@ class PhaseMachine:
                     "more than having every asset ready."
                 )
             if self.files_written >= 1 and self.iters_in_phase >= 6:
+                # Scaffold-first gamedev ships playable — there is no
+                # vite build step and shell_exec isn't in the drone
+                # schema. Telling the drone "Run: shell_exec with 'npx
+                # vite build'" caused 3 sessions of wrong-phase reject
+                # loops (pain_shell_exec_wrong_phase, 2026-04-20 ninja-
+                # grove / silent-blade). For scaffold-first gamedev the
+                # terminal action is message_result directly.
+                if is_gamedev and is_scaffold_first:
+                    return (
+                        "[PHASE:WRITE-gamedev-scaffold-first] Data "
+                        "files customized. There is no build step — "
+                        "the scaffold ships playable. Call "
+                        "message_result(text='...') to deliver."
+                    )
                 return (
                     "[PHASE:WRITE] Code written. Time to compile. "
                     "Run: shell_exec with 'npx vite build'."
