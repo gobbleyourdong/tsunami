@@ -1,0 +1,324 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "vfx_library",
+  "projection": "2d_stage_centered",
+  "canvas": {"w": 1024, "h": 1024},
+  "gen_strategy": "per_frame",
+  "gen_strategy_note": "Per-frame ERNIE calls. No character-identity constraint, so parallel pipelines help linearly.",
+  "frame_out_sizes": [64, 128, 256],
+  "vfx": {
+    "impact_burst": {
+      "flag": "ANIM",
+      "frames": 6,
+      "loop": false,
+      "per_frame_ms": 40,
+      "seed_base": 8001,
+      "color_palette": "white-hot core with yellow and orange falloff",
+      "poses": [
+        "starting radial burst at 10% diameter, bright white core, thin shell",
+        "expanding burst at 30% diameter, white-yellow core, orange shell",
+        "peak radial at 60% diameter, full brightness, visible debris particles",
+        "post-peak at 80% diameter, yellow shell fading to orange edge",
+        "fading halo at 100% diameter, orange tint, 50% opacity",
+        "final wisp at 120% diameter, 10% opacity, nearly gone"
+      ]
+    },
+    "ring_shockwave": {
+      "flag": "ANIM",
+      "frames": 5,
+      "loop": false,
+      "per_frame_ms": 50,
+      "seed_base": 8002,
+      "color_palette": "cyan-to-white gradient",
+      "poses": [
+        "thin starting ring at 20% diameter, bright cyan-white",
+        "expanding ring at 50% diameter, white edge, cyan interior void",
+        "large ring at 80% diameter, edge thinner, ring translucent",
+        "very large ring at 110% diameter, edge faint, mostly transparent",
+        "final ring at 130% diameter, barely visible outline"
+      ]
+    },
+    "dash_trail_loop": {
+      "flag": "LOOP",
+      "frames": 4,
+      "loop": true,
+      "per_frame_ms": 50,
+      "seed_base": 8003,
+      "color_palette": "electric blue with white highlights",
+      "poses": [
+        "thin trailing streak, horizontal, left-tapered, 80% length",
+        "trailing streak with slight variation, wispy turbulence",
+        "trailing streak pulse wave, brighter core",
+        "trailing streak damped, fading edges"
+      ]
+    },
+    "hit_flash": {
+      "flag": "ANIM",
+      "frames": 3,
+      "loop": false,
+      "per_frame_ms": 35,
+      "seed_base": 8004,
+      "color_palette": "pure white with pale yellow edge",
+      "poses": [
+        "small white flash at point of impact, star-shape, 30% diameter",
+        "larger star-shape flash at 60% diameter, core still white",
+        "fading flash at 80% diameter, pale yellow, 40% opacity"
+      ]
+    },
+    "slash_diagonal": {
+      "flag": "ANIM",
+      "frames": 5,
+      "loop": false,
+      "per_frame_ms": 40,
+      "seed_base": 8005,
+      "color_palette": "silvery white with blue cold edge",
+      "poses": [
+        "start of slash, diagonal top-right to bottom-left, thin arc entering frame",
+        "slash mid-arc, 60% length, sharp edge visible, white core",
+        "full diagonal slash spanning frame, maximum length, bright",
+        "post-slash trail, 80% length, edge softer, 70% opacity",
+        "final wisp of slash, 50% length, 30% opacity"
+      ]
+    },
+    "explosion": {
+      "flag": "ANIM",
+      "frames": 10,
+      "loop": false,
+      "per_frame_ms": 45,
+      "seed_base": 8006,
+      "color_palette": "orange-yellow core with red-brown smoke tail",
+      "poses": [
+        "initial ignition flash, small bright yellow core at 15% diameter",
+        "rapid expansion, 40% diameter, yellow-orange with debris",
+        "peak fireball at 70% diameter, white-yellow core, orange shell",
+        "fireball expanding further at 85% diameter, orange-red shell, smoke starting at edges",
+        "fireball peaking at 100% diameter, mostly orange-red, heavy smoke halo",
+        "fireball beginning to fade, orange interior dimming, smoke dominant",
+        "smoke dominant at 100% diameter, black-gray smoke with orange underglow",
+        "smoke rising, thinner at bottom, 90% diameter, dark brown-gray",
+        "smoke dispersing, 80% diameter, lighter gray, 50% opacity",
+        "final wisps, 70% diameter, near-transparent gray smoke"
+      ]
+    },
+    "puff_of_smoke": {
+      "flag": "ANIM",
+      "frames": 5,
+      "loop": false,
+      "per_frame_ms": 80,
+      "seed_base": 8007,
+      "color_palette": "light gray with white highlights",
+      "poses": [
+        "small compact puff, 20% diameter, bright gray",
+        "expanding puff, 40% diameter, turbulent edges",
+        "peak puff at 60% diameter, gray-white, soft edges",
+        "puff dispersing, 75% diameter, 60% opacity, wispy edges",
+        "final wisp, 90% diameter, nearly transparent"
+      ]
+    },
+    "sparkle_twinkle": {
+      "flag": "LOOP",
+      "frames": 6,
+      "loop": true,
+      "per_frame_ms": 80,
+      "seed_base": 8008,
+      "color_palette": "white core with rainbow chromatic aberration",
+      "poses": [
+        "tiny point of light, 10% diameter, single bright pixel",
+        "small star shape with 4-point rays, 20% diameter, white core",
+        "medium star with 8-point rays, 40% diameter, rainbow edges",
+        "peak star with 12-point rays, 60% diameter, full chromatic",
+        "medium star returning, 40% diameter, rays shorter",
+        "small star fading, 25% diameter, dim rays"
+      ]
+    },
+    "lightning_bolt": {
+      "flag": "ANIM",
+      "frames": 4,
+      "loop": false,
+      "per_frame_ms": 35,
+      "seed_base": 8009,
+      "color_palette": "white-blue electric with purple edge",
+      "poses": [
+        "faint pre-discharge glow, vertical line, 50% opacity",
+        "full bolt with branching forks, vertical zigzag, maximum brightness, 90% height",
+        "bolt still visible with reduced branching, 75% brightness",
+        "afterglow, ghost of the bolt, 40% brightness, 80% height"
+      ]
+    },
+    "freeze_ice": {
+      "flag": "ANIM",
+      "frames": 5,
+      "loop": false,
+      "per_frame_ms": 60,
+      "seed_base": 8010,
+      "color_palette": "pale cyan with white crystalline highlights",
+      "poses": [
+        "initial frost dusting, small crystal specks forming in center",
+        "crystals growing outward, radial ice pattern at 40% diameter",
+        "peak frost with sharp crystal spikes, 70% diameter, brittle look",
+        "crystal shell complete at 100% diameter, geometric facets visible",
+        "crystals beginning to crack, 100% diameter, interior darkening"
+      ]
+    },
+    "burn_fire_loop": {
+      "flag": "LOOP",
+      "frames": 8,
+      "loop": true,
+      "per_frame_ms": 80,
+      "seed_base": 8011,
+      "color_palette": "orange-red fire with yellow core and dark smoke top",
+      "poses": [
+        "fire flame phase 1, base wide, tips low, yellow core",
+        "fire flame phase 2, tips rising, swirling right",
+        "fire flame phase 3, peak height, tips split",
+        "fire flame phase 4, tips crossing back left",
+        "fire flame phase 5, base widening slightly, tips falling",
+        "fire flame phase 6, tips low again, swirling center",
+        "fire flame phase 7, tips rising left side",
+        "fire flame phase 8, tips peaking, mirror of phase 3"
+      ]
+    },
+    "heal_pulse": {
+      "flag": "ANIM",
+      "frames": 6,
+      "loop": false,
+      "per_frame_ms": 65,
+      "seed_base": 8012,
+      "color_palette": "emerald green with soft gold highlights",
+      "poses": [
+        "small green orb at center, 20% diameter, gentle glow",
+        "orb expanding, 40% diameter, soft halo, gold highlights",
+        "orb at 60% diameter with rising sparkles",
+        "peak orb at 80% diameter, cross or plus-shape visible in center",
+        "orb fading at 90% diameter, halo dominant",
+        "final halo at 100% diameter, 40% opacity, green-gold wash"
+      ]
+    },
+    "poison_cloud": {
+      "flag": "LOOP",
+      "frames": 6,
+      "loop": true,
+      "per_frame_ms": 120,
+      "seed_base": 8013,
+      "color_palette": "sickly yellow-green with darker brown edges",
+      "poses": [
+        "low wispy cloud, 40% diameter, thin",
+        "cloud thickening, 55% diameter, turbulent",
+        "cloud peak, 70% diameter, denser center",
+        "cloud drifting, 70% diameter, offset left",
+        "cloud dispersing, 60% diameter, translucent",
+        "cloud reforming, 45% diameter, returning to baseline"
+      ]
+    },
+    "bleed_drops": {
+      "flag": "ANIM",
+      "frames": 4,
+      "loop": false,
+      "per_frame_ms": 70,
+      "seed_base": 8014,
+      "color_palette": "deep crimson with dark red shadows",
+      "poses": [
+        "single drop forming at top, thin streak down",
+        "drop detaching, falling, second drop forming above",
+        "two drops mid-fall, first nearing bottom",
+        "drops impacting, small splatter pattern at base"
+      ]
+    },
+    "confusion_swirl": {
+      "flag": "LOOP",
+      "frames": 6,
+      "loop": true,
+      "per_frame_ms": 90,
+      "seed_base": 8015,
+      "color_palette": "purple with pink highlights and white stars",
+      "poses": [
+        "swirl phase 1, spiral starting small, counter-clockwise",
+        "swirl phase 2, spiral expanding, stars appearing on arm",
+        "swirl phase 3, full spiral, multiple stars orbiting",
+        "swirl phase 4, spiral tightening, stars clustered",
+        "swirl phase 5, spiral offset to new position",
+        "swirl phase 6, spiral reforming original size, ready to loop"
+      ]
+    },
+    "charm_hearts": {
+      "flag": "LOOP",
+      "frames": 6,
+      "loop": true,
+      "per_frame_ms": 100,
+      "seed_base": 8016,
+      "color_palette": "pink and red with sparkle accents",
+      "poses": [
+        "single small heart rising from bottom, 15% size",
+        "two hearts at different heights, 20% size",
+        "three hearts scattered, one sparkling",
+        "four hearts peak height, pulse brightness",
+        "hearts fading as they rise higher",
+        "hearts nearly gone at top, new hearts forming at bottom"
+      ]
+    },
+    "sleep_Zs": {
+      "flag": "LOOP",
+      "frames": 4,
+      "loop": true,
+      "per_frame_ms": 180,
+      "seed_base": 8017,
+      "color_palette": "soft cyan-white with slight glow",
+      "poses": [
+        "single Z character rising from bottom, small, slight tilt",
+        "two Z characters at different heights, larger",
+        "three Z characters cascading, largest at top",
+        "Zs fading at top of frame, new Z forming at bottom"
+      ]
+    },
+    "stun_stars": {
+      "flag": "LOOP",
+      "frames": 4,
+      "loop": true,
+      "per_frame_ms": 120,
+      "seed_base": 8018,
+      "color_palette": "yellow stars with bright highlights",
+      "poses": [
+        "three stars orbiting at top of frame, positions 0/120/240 degrees",
+        "three stars orbited 90 degrees clockwise",
+        "three stars orbited another 90 degrees",
+        "three stars orbited 270 degrees total, ready to loop"
+      ]
+    },
+    "death_spiral": {
+      "flag": "ANIM",
+      "frames": 8,
+      "loop": false,
+      "per_frame_ms": 70,
+      "seed_base": 8019,
+      "color_palette": "dark purple to black with occasional ghostly highlights",
+      "poses": [
+        "small dark swirl forming at ground, 30% diameter",
+        "swirl growing, 45% diameter, purple-black",
+        "swirl with rising particles, 60% diameter",
+        "peak swirl, 75% diameter, ghostly wisps escaping top",
+        "swirl narrowing as it rises, 60% diameter, center higher",
+        "swirl thinning, 50% diameter, center at midframe",
+        "swirl narrow at top, 35% diameter, dissipating",
+        "final wisp at top, 25% diameter, 30% opacity"
+      ]
+    },
+    "shockwave_dust": {
+      "flag": "ANIM",
+      "frames": 4,
+      "loop": false,
+      "per_frame_ms": 55,
+      "seed_base": 8020,
+      "color_palette": "dusty brown-gray with lighter tan highlights",
+      "poses": [
+        "dust ring forming at ground, 40% diameter, wider than tall",
+        "dust ring expanding, 60% diameter, rising slightly",
+        "dust ring peak, 80% diameter, turbulent",
+        "dust dispersing, 100% diameter, wispy edges, 50% opacity"
+      ]
+    }
+  },
+  "ernie_call_count": {
+    "total": 117,
+    "note": "sum of frames across all 20 VFX. At ~9s/Turbo call on single pipeline = ~17.5 min wall-clock; ~6 min with 3-way parallelism."
+  }
+}
