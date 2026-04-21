@@ -43,9 +43,55 @@ _FILTERS = {
 }
 
 
+def _compose_rgba_sheet_from_unmix(bake_dir: Path, meta: dict) -> Image.Image:
+    """If extract_alpha_unmix has produced _rgba.png siblings, rebuild the
+    sheet from THOSE instead of the magenta-bg sheet.png. Returns a fresh
+    RGBA PIL image at the same layout the bake composed.
+
+    Returns None if the _rgba.png set is incomplete (any expected frame
+    missing) — caller then falls back to sheet.png.
+    """
+    src_fw = meta["frame_size"]["w"]
+    src_fh = meta["frame_size"]["h"]
+    rows = len(meta["rows"])
+    cols = max((r["frame_count"] for r in meta["rows"]), default=0)
+
+    out = Image.new("RGBA", (cols * src_fw, rows * src_fh), (0, 0, 0, 0))
+    any_used = False
+    for r in meta["rows"]:
+        for c in r["cells"]:
+            # Row's source frames live under transitions/<name>/ or
+            # loops/<name>/; derive from the row's `name` field plus the
+            # col_index. Bake stores frame_NNN.png → _rgba.png siblings.
+            # We don't know the exact dir from metadata alone, so search.
+            frame_idx = c["col_index"]
+            candidates = list(bake_dir.rglob(f"frame_{frame_idx:03d}_rgba.png"))
+            # Filter by row name match (transition id or loop name appears
+            # in the parent dir)
+            match = None
+            for p in candidates:
+                if r["name"].replace("→", "__") in str(p):
+                    match = p
+                    break
+            if match is None:
+                return None  # incomplete — fall back
+            cell = Image.open(match).convert("RGBA")
+            # Resize if sizes don't match (shouldn't normally)
+            if cell.size != (src_fw, src_fh):
+                cell = cell.resize((src_fw, src_fh), Image.LANCZOS)
+            out.paste(cell, (c["col_index"] * src_fw, r["row_index"] * src_fh))
+            any_used = True
+    return out if any_used else None
+
+
 def pixelize_sheet(bake_dir: Path, target_size: int,
                    filter_name: str = "lanczos") -> tuple[Path, Path]:
     """Read bake_dir's sheet.png + metadata.json, produce pixelized copies.
+
+    If `extract_alpha_unmix.py` has already produced `_rgba.png` siblings
+    for every frame, compose a fresh RGBA sheet from those — bypasses the
+    magenta background in sheet.png. Otherwise fall back to sheet.png
+    (which still has the magenta canvas visible).
 
     Returns (new_sheet_path, new_metadata_path)."""
     sheet_path = bake_dir / "sheet.png"
@@ -63,7 +109,13 @@ def pixelize_sheet(bake_dir: Path, target_size: int,
     rows = len(meta["rows"])
     cols = max((r["frame_count"] for r in meta["rows"]), default=0)
 
-    sheet = Image.open(sheet_path).convert("RGBA")
+    rgba_composed = _compose_rgba_sheet_from_unmix(bake_dir, meta)
+    if rgba_composed is not None:
+        sheet = rgba_composed
+        log.info(f"[pixelize] using _rgba.png siblings (alpha-extracted)")
+    else:
+        sheet = Image.open(sheet_path).convert("RGBA")
+        log.info(f"[pixelize] using sheet.png (magenta-bg — run extract_alpha_unmix first for clean RGBA)")
     expected_w, expected_h = cols * src_fw, rows * src_fh
     if sheet.size != (expected_w, expected_h):
         log.warning(
@@ -73,9 +125,29 @@ def pixelize_sheet(bake_dir: Path, target_size: int,
 
     # Whole-sheet one-shot downsample. cols*target, rows*target keeps each
     # cell at exactly target_size so downstream cell indexing stays clean.
+    #
+    # Critical: premultiply RGB by α before resize. Without this, LANCZOS
+    # (and bicubic/bilinear) mix RGB values from low-α "background" pixels
+    # into their high-α neighbors during downsample — producing colored
+    # fringes around the subject at low target sizes. Unpremultiplying
+    # after resize restores straight alpha. NEAREST is unaffected (no
+    # inter-pixel mixing), but the branch runs uniformly for simplicity.
     new_w, new_h = cols * target_size, rows * target_size
     filt = _FILTERS[filter_name]
-    pixelized = sheet.resize((new_w, new_h), filt)
+    import numpy as np
+    arr = np.asarray(sheet).astype(np.float32)  # H×W×4, 0-255
+    alpha = arr[..., 3:4] / 255.0
+    premult = arr.copy()
+    premult[..., :3] = premult[..., :3] * alpha
+    premult_im = Image.fromarray(premult.astype(np.uint8), mode="RGBA")
+    pm_small = premult_im.resize((new_w, new_h), filt)
+    pm_small_arr = np.asarray(pm_small).astype(np.float32)
+    small_alpha = pm_small_arr[..., 3:4] / 255.0
+    # Avoid divide-by-zero; where α is ~0, color doesn't matter so leave 0.
+    safe_a = np.clip(small_alpha, 1e-6, 1.0)
+    straight = pm_small_arr.copy()
+    straight[..., :3] = np.clip(pm_small_arr[..., :3] / safe_a, 0, 255)
+    pixelized = Image.fromarray(straight.astype(np.uint8), mode="RGBA")
 
     out_sheet = bake_dir / f"sheet_{target_size}.png"
     pixelized.save(out_sheet)
