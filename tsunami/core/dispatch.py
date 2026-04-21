@@ -364,29 +364,58 @@ async def probe_for_delivery(
     `scaffold` may be passed if the wave already knows it (from
     `project_init` return). Otherwise we fingerprint on-disk.
 
-    Returns `passed=True` with a skip marker when no probe matches —
-    don't let an unconfigured scaffold block delivery.
+    SECURITY (sev-5 patch, 2026-04-21): fail CLOSED on every
+    can't-verify path. The previous contract ("passed=True with skip
+    marker when no probe matches — don't let an unconfigured scaffold
+    block delivery") converted "I don't know" into "yes this is fine,"
+    which Current's 2026-04-20 finding showed allowed any
+    unclassifiable deliverable to ship. Post-patch: no fingerprint,
+    no registered probe, and probe exceptions all return
+    passed=False with an explicit issue string. Missing project dir
+    stays a skip (caller bug, not a deliverable-verification call).
     """
     project_dir = Path(project_dir)
     if not project_dir.is_dir():
+        # Caller supplied a bogus path — not a verification question.
+        # Skip (passed=True) preserves the ability to run the probe
+        # pipeline without a deliverable for introspection/tests.
         return _skip(f"no project dir: {project_dir}")
 
     picked = scaffold or detect_scaffold(project_dir)
     if picked is None:
-        return _skip("no scaffold fingerprint — probe dispatch disabled")
+        return _result(
+            False,
+            "delivery-gate: no scaffold fingerprint on the deliverable. "
+            "The dispatcher could not classify this project against any "
+            "known vertical (chrome-extension/electron/api-only/realtime/"
+            "auth-app/fullstack/ai-app/gamedev/cli/mobile/training/"
+            "data-pipeline/docs/infra). Either provision via project_init* "
+            "first, or add a fingerprint for this new vertical to "
+            "detect_scaffold() before shipping.",
+        )
 
     probe = _PROBES.get(picked)
     if probe is None:
-        return _skip(f"no probe registered for scaffold '{picked}'")
+        return _result(
+            False,
+            f"delivery-gate: scaffold '{picked}' has no registered "
+            "probe in _PROBES. Add one or rename the scaffold "
+            "fingerprint to match an existing probe.",
+        )
 
     log.info(f"[gate-dispatch] scaffold={picked} probe={probe.__name__} dir={project_dir}")
     try:
-        # sse_probe accepts project_dir as optional; others require it.
-        # Uniform call: all probes accept project_dir as first positional.
         return await probe(project_dir)
     except Exception as e:
+        # Probe crashes are deliverable-verification failures, NOT
+        # skip markers. A probe that can't complete cannot certify.
         log.warning(f"[gate-dispatch] probe threw: {e}")
-        return _skip(f"probe {probe.__name__} errored: {e}")
+        return _result(
+            False,
+            f"delivery-gate: probe '{probe.__name__}' raised "
+            f"{type(e).__name__}: {e}. A crashing probe cannot certify a "
+            "deliverable; fix the probe or the deliverable before retry.",
+        )
 
 
 __all__ = ["probe_for_delivery", "detect_scaffold"]

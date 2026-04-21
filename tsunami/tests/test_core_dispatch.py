@@ -95,12 +95,16 @@ def test_dispatch_missing_project_skips(tmp_path: Path):
     assert "no project dir" in r["raw"]
 
 
-def test_dispatch_no_fingerprint_skips(tmp_path: Path):
+def test_dispatch_no_fingerprint_fails_closed(tmp_path: Path):
+    """Post-sev-5 patch (2026-04-21): unclassifiable deliverable fails
+    CLOSED rather than shipping via skip. Current's finding showed the
+    old passed=True behavior let any deliverable the dispatcher couldn't
+    classify ship by default."""
     # Plain react-app — not in our probe set.
     _write_pkg(tmp_path, deps={"react": "^19"})
     r = asyncio.run(probe_for_delivery(tmp_path))
-    assert r["passed"] is True
-    assert "no scaffold fingerprint" in r["raw"]
+    assert r["passed"] is False
+    assert "no scaffold fingerprint" in r["issues"]
 
 
 def test_dispatch_explicit_scaffold_overrides_fingerprint(tmp_path: Path):
@@ -111,7 +115,26 @@ def test_dispatch_explicit_scaffold_overrides_fingerprint(tmp_path: Path):
     assert "dist" in r["issues"].lower()
 
 
-def test_dispatch_unknown_scaffold_skips(tmp_path: Path):
+def test_dispatch_unknown_scaffold_fails_closed(tmp_path: Path):
+    """Post-sev-5 patch: a scaffold name with no registered probe fails
+    CLOSED. Add the probe or rename the scaffold; don't ship
+    unverified."""
     r = asyncio.run(probe_for_delivery(tmp_path, scaffold="data-viz"))
-    assert r["passed"] is True
-    assert "no probe registered" in r["raw"]
+    assert r["passed"] is False
+    assert "no registered probe" in r["issues"]
+
+
+def test_dispatch_probe_exception_fails_closed(tmp_path: Path, monkeypatch):
+    """Post-sev-5 patch: a crashing probe fails CLOSED. Previously the
+    exception was caught and converted to passed=True via skip, letting
+    buggy probes ship deliverables they couldn't verify."""
+    from tsunami.core import dispatch
+
+    async def crasher(project_dir):
+        raise RuntimeError("boom — probe lost its mind")
+
+    monkeypatch.setitem(dispatch._PROBES, "data-viz", crasher)
+    r = asyncio.run(probe_for_delivery(tmp_path, scaffold="data-viz"))
+    assert r["passed"] is False
+    assert "raised RuntimeError" in r["issues"]
+    assert "boom" in r["issues"]
