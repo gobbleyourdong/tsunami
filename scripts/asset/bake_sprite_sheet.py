@@ -190,10 +190,14 @@ class BakeServer:
     each call's primitive-provided / endpoint-default values intact.
     """
 
-    def __init__(self, base_url: str, timeout_s: int = 900,
+    def __init__(self, base_url: str, timeout_s: int = 7200,
                  steps_override: Optional[int] = None,
                  cfg_override: Optional[float] = None,
                  negative_prompt: str = " "):
+        # 7200s (2 h) default timeout. /v1/images/animate is a SINGLE POST
+        # that runs the whole nudge chain server-side — a 6-frame chain at
+        # 1024² with 40 steps + CFG-on runs ~33 min, a 16-frame chain ~1h 30m.
+        # Previous 900s default silently truncated chains longer than 3 frames.
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
         self.steps_override = steps_override
