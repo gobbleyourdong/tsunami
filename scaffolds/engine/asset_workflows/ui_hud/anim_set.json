@@ -1,0 +1,52 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "ui_hud",
+  "is_animated": false,
+  "covers_plan_categories": [46, 47, 48],
+  "gen_canvas_default": {"w": 512, "h": 512},
+  "bg_mode": "icon",
+  "keep_largest_only": true,
+  "gen_strategy": "per_kind_subject_state",
+  "kinds": {
+    "panel": {
+      "plan_cat": 46,
+      "gen_canvas": {"w": 512, "h": 512},
+      "out_sizes": [
+        {"w": 256, "h": 256, "label": "small square"},
+        {"w": 384, "h": 192, "label": "wide banner"}
+      ],
+      "seed_base": 14000,
+      "supports_9slice": true,
+      "nine_slice_corner_px": 64
+    },
+    "button": {
+      "plan_cat": 47,
+      "gen_canvas": {"w": 512, "h": 512},
+      "states": ["idle", "hover", "active", "disabled"],
+      "out_sizes": [
+        {"w": 192, "h": 192, "label": "square"},
+        {"w": 256, "h": 96, "label": "pill"}
+      ],
+      "seed_base": 15000,
+      "state_seed_offsets": {"idle": 0, "hover": 1, "active": 2, "disabled": 3}
+    },
+    "bar": {
+      "plan_cat": 48,
+      "gen_canvas": {"w": 512, "h": 192},
+      "out_sizes": [
+        {"w": 384, "h": 64, "label": "standard"},
+        {"w": 256, "h": 32, "label": "compact"}
+      ],
+      "seed_base": 16000
+    }
+  },
+  "ernie_call_count": {
+    "minimal_hud_set": {
+      "panel": 1,
+      "button_all_states": 4,
+      "bar": 1,
+      "total": 6,
+      "note": "One full HUD set for one scaffold aesthetic. ~4s wall-clock with 3-ERNIE pool."
+    }
+  }
+}
