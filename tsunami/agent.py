@@ -889,7 +889,7 @@ class Agent:
                         _tgt = _tl.target_path(project_dir)
                         vcheck = await vision_check(dist_html, task_text, target_layout=_tgt)
                         if not vcheck["passed"] and vcheck["issues"]:
-                            vision_fails = getattr(self, "_vision_fail_count", 0) + 1
+                            vision_fails = self._vision_fail_count + 1
                             self._vision_fail_count = vision_fails
                             if vision_fails <= 1:
                                 # First failure — block delivery, hand drone the issues
@@ -945,7 +945,7 @@ class Agent:
 
         # Track consecutive same-test fails
         last = getattr(self, "_last_failing_test", None)
-        streak = getattr(self, "_fail_streak", 0)
+        streak = self._fail_streak
         if last == test_name:
             streak += 1
         else:
@@ -2265,11 +2265,11 @@ class Agent:
                 if _osu.environ.get("TSUNAMI_FORCE_UNDERTOW") != "1":
                     # No-op fast path: already-active vision gate fired
                     # via _auto_build_and_gate; no additional QA here.
-                    if not getattr(self, "_forced_undertow_done", False):
+                    if not self._forced_undertow_done:
                         self._forced_undertow_done = True
                         self._tool_history.append("undertow")
                         log.info("force-undertow gate: DISABLED (vision gate is the final QA)")
-                elif not getattr(self, "_forced_undertow_done", False):
+                elif not self._forced_undertow_done:
                     self._forced_undertow_done = True
                     dist_html = self._find_latest_dist_html()
                     if dist_html is not None:
@@ -2379,7 +2379,7 @@ class Agent:
                         tool_history=list(self._tool_history),
                         iter_count=self.state.iteration,
                         build_pass_count=1 if getattr(self, "_build_passed_at", None) is not None else 0,
-                        vision_pass=getattr(self, "_vision_fail_count", 0) == 0,
+                        vision_pass=self._vision_fail_count == 0,
                         tokens_in=getattr(self.cost_tracker, "total_input_tokens", None),
                         tokens_out=getattr(self.cost_tracker, "total_output_tokens", None),
                     )
@@ -2469,7 +2469,7 @@ class Agent:
         _grounding_on = _osg.environ.get("TSUNAMI_REPLICATOR_GROUNDING", "0") == "1"
         if (_grounding_on
                 and self.active_project
-                and not getattr(self, "_forced_grounding_done", False)
+                and not self._forced_grounding_done
                 and self.plan_manager.section("Grounding") is not None):
             from pathlib import Path as _Pth
             proj_src = _Pth(self.config.workspace_dir) / "deliverables" / self.active_project / "src"
@@ -2616,7 +2616,7 @@ class Agent:
             else:
                 # Gate blocked; don't call the model this iter — try again next iter.
                 # If both tools are unreachable, fall through so the run doesn't hang.
-                if not getattr(self, "_grounding_fail_count", 0):
+                if not self._grounding_fail_count:
                     self._grounding_fail_count = 1
                 else:
                     self._grounding_fail_count += 1
@@ -2641,7 +2641,7 @@ class Agent:
                 and last_tool is not None
                 and last_tool != "message_result"):
                 force_tool = "message_result"
-                fire_count = getattr(self, "_deliver_gate_fires", 0) + 1
+                fire_count = self._deliver_gate_fires + 1
                 self._deliver_gate_fires = fire_count
                 log.warning(
                     f"#14 deliver-gate FIRE: iter {self.state.iteration}, "
@@ -2674,7 +2674,7 @@ class Agent:
                                 _tgt = _tl.target_path(proj)
                                 vcheck = await vision_check(dist_html, task_text, target_layout=_tgt)
                                 if not vcheck["passed"] and vcheck["issues"]:
-                                    vf = getattr(self, "_vision_fail_count", 0) + 1
+                                    vf = self._vision_fail_count + 1
                                     self._vision_fail_count = vf
                                     if vf <= 1:
                                         log.warning(f"[vision-gate@bypass] FAIL (try {vf}): {vcheck['issues']}")
@@ -2774,11 +2774,11 @@ class Agent:
         # though no_scaffold_yet is True per the model-only history.
         # Empirically, thinking-on iter 1 with a pre-scaffolded project
         # burns 200+ seconds emitting a plan the drone doesn't need.
-        pre_scaffolded = getattr(self, "_project_init_called", False)
+        pre_scaffolded = self._project_init_called
         last_was_qa_failure = (
             len(self._tool_history_model) >= 1
             and self._tool_history_model[-1] == "undertow"
-            and getattr(self, "_forced_undertow_done", False)
+            and self._forced_undertow_done
         )
         # Thinking on only when: model needs to pick a scaffold (no
         # pre-scaffold, iter 1) OR recovering from a QA failure.
@@ -3506,7 +3506,7 @@ class Agent:
                     break
                 if t == "generate_image":
                     images_since_write += 1
-            if images_since_write >= 5 and not getattr(self, "_image_ceiling_fired", False):
+            if images_since_write >= 5 and not self._image_ceiling_fired:
                 self._image_ceiling_fired = True
                 # Scaffold-aware — Round J finding: gamedev path wants
                 # emit_design, not file_write(App.tsx).
@@ -3665,7 +3665,7 @@ class Agent:
         # CAN'T continue even if it chose to ignore the advisory copy. The
         # flag is latched until the next file_write resets it (see above).
         if (tool_call.name == "generate_image"
-                and getattr(self, "_image_ceiling_fired", False)):
+                and self._image_ceiling_fired):
             _ic_gd_reject = getattr(self, "_target_scaffold", "") == "gamedev"
             if _ic_gd_reject:
                 reject_msg = (
@@ -3806,7 +3806,7 @@ class Agent:
                         # iters it's not advancing the build. After two in
                         # a row, switch the nudge from "use file_write"
                         # to "stop writing, run shell_exec build".
-                        self._reroute_count = getattr(self, "_reroute_count", 0) + 1
+                        self._reroute_count = self._reroute_count + 1
                         if self._reroute_count >= 2:
                             self.state.add_system_note(
                                 f"The file is written (reroute #{self._reroute_count}). "
@@ -5290,7 +5290,7 @@ class Agent:
                             pcheck = await probe_for_delivery(proj, task_text)
                             raw = pcheck.get("raw", "")
                             if not pcheck["passed"] and pcheck["issues"]:
-                                pf = getattr(self, "_probe_fail_count", 0) + 1
+                                pf = self._probe_fail_count + 1
                                 self._probe_fail_count = pf
                                 if pf <= 1:
                                     log.warning(f"[gate@deliver] probe FAIL (try {pf}) — {proj.name}: {pcheck['issues']}")
@@ -5326,7 +5326,7 @@ class Agent:
                         _tgt = _tl.target_path(proj)
                         vcheck = await vision_check(dist_html, task_text, target_layout=_tgt)
                         if not vcheck["passed"] and vcheck["issues"]:
-                            vf = getattr(self, "_vision_fail_count", 0) + 1
+                            vf = self._vision_fail_count + 1
                             self._vision_fail_count = vf
                             if vf <= 1:
                                 log.warning(f"[vision-gate@deliver] FAIL (try {vf}): {vcheck['issues']}")
@@ -5373,7 +5373,7 @@ class Agent:
                             pcheck = await probe_for_delivery(proj, task_text)
                             raw = pcheck.get("raw", "")
                             if not pcheck["passed"] and pcheck["issues"]:
-                                pf = getattr(self, "_probe_fail_count", 0) + 1
+                                pf = self._probe_fail_count + 1
                                 self._probe_fail_count = pf
                                 if pf <= 1:
                                     log.warning(
