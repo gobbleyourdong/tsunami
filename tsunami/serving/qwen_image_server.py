@@ -20,7 +20,6 @@ re-rolls the character each time. Edit-mode preserves it.
 
 Memory footprint (bf16):
   Qwen-Image-Edit-2511:   ~27 GB on GPU (bf16 from ~54 GB disk)
-  Lightning distill:      same shape, fewer steps (4-8 vs 20-30)
   Multiple-Angles-LoRA:   ~150 MB
 
 Co-existence on DGX Spark (128 GB unified):
@@ -67,8 +66,7 @@ _args: argparse.Namespace = None  # type: ignore
 #   num_inference_steps=40, true_cfg_scale=4.0, guidance_scale=1.0,
 #   negative_prompt=" ", num_images_per_prompt=1
 # (see https://huggingface.co/Qwen/Qwen-Image-Edit-2511)
-DEFAULT_STEPS_BASE = 40           # non-lightning base steps (per model card)
-DEFAULT_STEPS_LIGHTNING = 8       # lightning-distilled steps
+DEFAULT_STEPS = 40                # per model card
 DEFAULT_GUIDANCE = 4.0            # → pipe's true_cfg_scale (real CFG)
 DEFAULT_DISTILLED_GUIDANCE = 1.0  # → pipe's guidance_scale (distilled bonus);
                                   # 1.0 = "no bonus", correct for non-distilled base
@@ -76,9 +74,12 @@ DEFAULT_SIZE = 1024
 
 # LoRA registry — HF repo ids for each named adapter. Keeps the
 # operator-facing `name` param stable even if we change providers.
+# Lightning/turbo distillation LoRAs are deliberately NOT listed: direct
+# A/B on 2026-04-21 showed visible quality loss on sprite-style edits
+# that no seed tweak could recover. Speed lever is not distillation for
+# this pipe.
 _LORA_REGISTRY: dict[str, str] = {
     "multiple_angles": "fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA",
-    "lightning": "lightx2v/Qwen-Image-Edit-2511-Lightning",
 }
 
 
@@ -88,7 +89,7 @@ class GenRequest(BaseModel):
     negative_prompt: Optional[str] = None
     height: int = DEFAULT_SIZE
     width: int = DEFAULT_SIZE
-    num_inference_steps: int = DEFAULT_STEPS_BASE
+    num_inference_steps: int = DEFAULT_STEPS
     guidance_scale: float = DEFAULT_GUIDANCE
     seed: Optional[int] = None
     n: int = Field(1, ge=1, le=4, description="num images")
@@ -132,7 +133,7 @@ class NudgeStep(BaseModel):
                             description="per-step edit strength; keep low (0.3-0.5) "
                                         "for identity preservation across chain")
     guidance_scale: float = DEFAULT_GUIDANCE
-    num_inference_steps: int = DEFAULT_STEPS_BASE
+    num_inference_steps: int = DEFAULT_STEPS
 
 
 class AnimateRequest(BaseModel):
@@ -480,8 +481,6 @@ def main():
     Usage:
       python -m tsunami.serving.qwen_image_server --port 8094
       python -m tsunami.serving.qwen_image_server --port 8094 --lora multiple_angles
-      python -m tsunami.serving.qwen_image_server --model Qwen/Qwen-Image-Edit-2511 \\
-                                                   --lora lightning --port 8094
     """
     global _args
     ap = argparse.ArgumentParser()
@@ -489,7 +488,7 @@ def main():
                     help="HF repo id for the base pipeline")
     ap.add_argument("--lora", default="none",
                     help="LoRA name to attach at startup (registry: "
-                         "multiple_angles / lightning / none)")
+                         "multiple_angles / none)")
     ap.add_argument("--port", type=int, default=8094)
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--device", default="cuda")

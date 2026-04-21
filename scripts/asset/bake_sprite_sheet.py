@@ -185,9 +185,9 @@ class BakeServer:
     than producing a partial sprite sheet that looks valid but lies.
 
     `steps_override` and `cfg_override`, when set, replace the per-call
-    num_inference_steps and guidance_scale values — used when the lightning
-    LoRA is attached (8 steps, CFG 1.0). Defaults (None) leave each call's
-    primitive-provided / endpoint-default values intact.
+    num_inference_steps and guidance_scale values — useful for A/B quality
+    experiments (e.g. 20 steps vs 40 at same seed). Defaults (None) leave
+    each call's primitive-provided / endpoint-default values intact.
     """
 
     def __init__(self, base_url: str, timeout_s: int = 900,
@@ -226,24 +226,20 @@ class BakeServer:
         except requests.RequestException:
             pass  # openapi optional; fail late if animate itself errors
 
-        # Warn on LoRA / --steps mismatches. Lightning wants 8 steps + CFG 1.0.
-        # Silent defaults of 30/4.0 against a lightning pipe waste ~4× time
-        # for no quality gain; conversely 8/1.0 against a non-distilled pipe
-        # produces visibly undercooked output. Loud warning here beats a
-        # downstream "the frames looked bad" post-mortem.
+        # Warn if a distillation LoRA ever slips into the registry again.
+        # The non-distilled base is the verdict for Qwen-Image-Edit-2511 —
+        # lightning/turbo variants produce visibly undercooked sprites
+        # (see feedback_qwen_lightning_worse.md). Warn loudly so the
+        # operator notices before burning a full bake on a regression.
         loras = [s.lower() for s in health.get("loaded_loras", [])]
-        has_lightning = any("lightning" in l or "turbo" in l for l in loras)
-        if has_lightning and self.steps_override is None:
+        suspect = [l for l in loras if "lightning" in l or "turbo" in l]
+        if suspect:
             log.warning(
-                f"[bake] lightning LoRA detected in {loras} but --steps not set. "
-                "Primitive YAML default (30) will waste ~4× inference time. "
-                "Pass --steps 8 --cfg 1.0 for distilled mode."
-            )
-        if not has_lightning and self.steps_override == 8:
-            log.warning(
-                f"[bake] --steps 8 but no lightning/turbo LoRA in {loras}. "
-                "Non-distilled Qwen-Image-Edit at 8 steps will look undercooked. "
-                "Attach lightning via /v1/admin/lora or drop --steps."
+                f"[bake] distillation LoRA detected: {suspect}. "
+                "Non-distilled base is the verdict for this pipe "
+                "(lightning trades too much quality for ~3× speed). "
+                "Detach via POST /v1/admin/lora {\"name\": \"none\"} "
+                "if this was unintended."
             )
 
     def edit(self, *, base_path: Path, prompt: str, save_path: Path,
@@ -621,13 +617,12 @@ def parse_args() -> argparse.Namespace:
                         "never rotate or edit on a pre-pixelized image.")
     p.add_argument("--steps", type=int, default=None,
                    help="override num_inference_steps for every edit + animate "
-                        "call (default: use primitive YAML value, typically 30). "
-                        "Pair with --cfg 1.0 when the lightning LoRA is attached: "
-                        "`--steps 8 --cfg 1.0`.")
+                        "call (default: use primitive YAML value, 40 per model "
+                        "card). Useful for A/B quality experiments at reduced "
+                        "step counts.")
     p.add_argument("--cfg", type=float, default=None,
-                   help="override guidance_scale for every call. Use 1.0 when "
-                        "the lightning/turbo LoRA is attached (distilled "
-                        "guidance makes CFG>1 pointless and slow).")
+                   help="override true_cfg_scale for every call (default 4.0 "
+                        "per model card).")
     p.add_argument("--seed", type=int, default=None,
                    help="deterministic seed for all edit/animate calls")
     p.add_argument("--dry-run", action="store_true",

@@ -134,11 +134,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--server", default="http://127.0.0.1:8094",
                    help="qwen_image_server base URL")
     p.add_argument("--steps", type=int, default=40,
-                   help="num_inference_steps (default 40 per model card; "
-                        "pass 8 only for lightning LoRA)")
+                   help="num_inference_steps (default 40 per model card)")
     p.add_argument("--cfg", type=float, default=4.0,
-                   help="true_cfg_scale (default 4.0 per model card; "
-                        "pass 1.0 only for lightning LoRA)")
+                   help="true_cfg_scale (default 4.0 per model card)")
     p.add_argument("--out", type=Path, required=True,
                    help="output grid PNG path")
     p.add_argument("--cell-size", type=int, default=512,
