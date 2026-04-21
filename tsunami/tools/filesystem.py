@@ -941,9 +941,34 @@ class FileEdit(BaseTool):
                 show = all_lines[:800]
                 preview = "\n".join(f"  {i+1}: {l}" for i, l in enumerate(show))
                 more = f"\n  ...({len(all_lines) - 800} more lines)" if len(all_lines) > 800 else ""
+                # pain_file_edit_find_mismatch (sev 2, 2 sessions 2026-04-20):
+                # find strings usually miss by whitespace / punctuation /
+                # underscores-vs-hyphens. When the first line of old_text
+                # is close to a real line in the file, naming that line
+                # explicitly converges faster than asking the drone to
+                # scan the full preview. Use difflib for a robust best-
+                # match score; only surface the hint when ratio > 0.6 so
+                # coincidental overlap (e.g. common JSON braces) doesn't
+                # produce misleading "closest match" noise.
+                hint = ""
+                first_old_line = old_text.splitlines()[0].strip() if old_text else ""
+                if first_old_line and len(all_lines) > 0:
+                    from difflib import get_close_matches
+                    candidates = [ln.strip() for ln in all_lines if ln.strip()]
+                    matches = get_close_matches(
+                        first_old_line, candidates, n=1, cutoff=0.6,
+                    )
+                    if matches and matches[0] != first_old_line:
+                        hint = (
+                            f"\nClosest actual line: {matches[0]!r}\n"
+                            f"Your find string:    {first_old_line!r}\n"
+                            f"Often the diff is whitespace, "
+                            f"underscores-vs-hyphens, or quote style."
+                        )
                 return ToolResult(
                     f"Text not found in {path}. Your find string doesn't match.\n"
-                    f"TIP: Use file_write to rewrite the entire file instead of file_edit.\n"
+                    f"TIP: Use file_write to rewrite the entire file instead of file_edit."
+                    f"{hint}\n"
                     f"Current file:\n{preview}{more}",
                     is_error=True
                 )
