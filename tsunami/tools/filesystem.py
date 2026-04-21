@@ -270,6 +270,31 @@ def _is_safe_write(p: Path, workspace_dir: str) -> str | None:
     return None
 
 
+def is_scaffold_first_gamedev(project_dir: Path) -> bool:
+    """True iff project_dir is a provisioned scaffold-first gamedev project.
+
+    Signal: project_dir/package.json has a `name` field starting with
+    `gamedev-` and ending with `-scaffold`. Used by the data/*.json read
+    gate below AND by agent.py's design-phase schema allowlist — the
+    latter must drop file_read for scaffold-first projects because the
+    drone already has schema.ts, catalog.ts, and every data/*.json
+    inlined in its system prompt (see tsunami/prompt.py:264-269).
+
+    Fails closed (returns False) on any IO or JSON error so a malformed
+    package.json doesn't lock the drone out of file_read everywhere.
+    """
+    try:
+        pkg = project_dir / "package.json"
+        if not pkg.is_file():
+            return False
+        import json as _json
+        data = _json.loads(pkg.read_text(errors="replace"))
+    except Exception:
+        return False
+    name = (data.get("name") or "").lower()
+    return name.startswith("gamedev-") and name.endswith("-scaffold")
+
+
 def _scaffold_first_block(resolved: Path) -> str | None:
     """Detect scaffold-first-gamedev read attempts on inlined data files.
 
@@ -284,21 +309,8 @@ def _scaffold_first_block(resolved: Path) -> str | None:
             return None
         if resolved.parent.name != "data":
             return None
-        # Project dir = grandparent of the data/*.json file.
-        project_dir = resolved.parent.parent
-        pkg = project_dir / "package.json"
-        if not pkg.is_file():
+        if not is_scaffold_first_gamedev(resolved.parent.parent):
             return None
-        import json as _json
-        try:
-            pkg_data = _json.loads(pkg.read_text(errors="replace"))
-        except Exception:
-            return None
-        name = (pkg_data.get("name") or "").lower()
-        if not (name.startswith("gamedev-") and name.endswith("-scaffold")):
-            return None
-        # Confirmed: scaffold-first gamedev project, reading an inlined
-        # data/*.json. Block.
         return (
             f"[file_read BLOCKED — scaffold-first gamedev]\n"
             f"  {resolved.name} is already inlined in your system prompt.\n"

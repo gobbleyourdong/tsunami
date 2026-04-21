@@ -1,0 +1,9 @@
+{
+  "name": "rn-bare",
+  "version": "0.1.0",
+  "main": "index.js",
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.73.0"
+  }
+}

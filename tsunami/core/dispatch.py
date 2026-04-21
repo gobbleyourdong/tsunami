@@ -30,6 +30,7 @@ from .electron_probe import electron_probe
 from .extension_probe import extension_probe
 from .gamedev_probe import gamedev_probe
 from .gamedev_scaffold_probe import gamedev_probe_dispatch
+from .mobile_probe import mobile_probe
 from .openapi_probe import openapi_probe
 from .server_probe import server_probe
 from .sse_probe import sse_probe
@@ -58,6 +59,10 @@ _PROBES = {
     # POSIX shebang scripts). Fingerprinted by package.json.bin,
     # pyproject.toml [project.scripts], or conventional bin/ + cli.py.
     "cli":              cli_probe,
+    # Tide 002 — Mobile (Expo/React Native native + PWA). Fingerprinted
+    # by expo/react-native deps OR public/manifest.json without
+    # manifest_version (chrome-extension uses that key; PWA doesn't).
+    "mobile":           mobile_probe,
 }
 # Direct handle to the legacy probe for callers that want to bypass the
 # scaffold router (introspection + tests).
@@ -105,7 +110,13 @@ def detect_scaffold(project_dir: Path) -> str | None:
         except json.JSONDecodeError:
             pass
 
-    # 2. electron-app
+    # 2. mobile — expo / react-native in deps beats generic react
+    # routing because RN apps usually also pull react. Checked BEFORE
+    # electron (RN apps sometimes pull electron-for-desktop side-builds).
+    if "expo" in deps or "react-native" in deps:
+        return "mobile"
+
+    # 3. electron-app
     if "electron" in deps or "electron-builder" in deps:
         return "electron-app"
 
@@ -160,7 +171,31 @@ def detect_scaffold(project_dir: Path) -> str | None:
     if (project_dir / "game_definition.json").is_file():
         return "gamedev"
 
-    # 9. cli — has CLI entry-point markers. Checked AFTER web/server
+    # 9. mobile (PWA variant) — public/manifest.json without
+    # manifest_version (chrome-ext uses that key) + a service worker.
+    # Service-worker requirement filters out generic react apps that
+    # just happen to ship a manifest.json; a dedicated PWA ships both.
+    pwa_manifest = None
+    for mp in (project_dir / "public" / "manifest.json",
+               project_dir / "manifest.json"):
+        if mp.is_file():
+            try:
+                md = json.loads(mp.read_text(encoding="utf-8"))
+                if not md.get("manifest_version"):
+                    pwa_manifest = mp
+                    break
+            except json.JSONDecodeError:
+                pass
+    if pwa_manifest is not None:
+        has_sw = any((project_dir / p).is_file() for p in (
+            "public/sw.js", "public/service-worker.js",
+            "public/workbox-sw.js", "src/sw.ts", "src/service-worker.ts",
+            "sw.js", "service-worker.js",
+        ))
+        if has_sw:
+            return "mobile"
+
+    # 10. cli — has CLI entry-point markers. Checked AFTER web/server
     # fingerprints so a fullstack app with a helper bin/ script doesn't
     # misroute to cli_probe. A pure CLI tool (no react, no server/ dir,
     # no openapi) with any of:

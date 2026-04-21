@@ -1,0 +1,8 @@
+{
+  "name": "ghost-expo",
+  "main": "nonexistent-App.tsx",
+  "dependencies": {
+    "expo": "~50.0.0",
+    "react-native": "0.73.0"
+  }
+}

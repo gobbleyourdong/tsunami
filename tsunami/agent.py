@@ -914,7 +914,15 @@ class Agent:
         # "Components" etc. Read once, pass through — avoids brittle
         # filesystem sniffing that the drone can invalidate by writing.
         _scaffold_kind = "react-app"
-        if self.plan_manager.section("Design") is not None:
+        # Gamedev detection — legacy emit_design flow had a "Design"
+        # section in the plan; scaffold-first flow has "Provision" +
+        # "Customize" instead (plan_scaffolds/gamedev.md rewrite in
+        # Phase 9). Either shape is gamedev. Also accept the
+        # `_scaffold_name` attr set during plan_manager.from_scaffold.
+        if (self.plan_manager.section("Design") is not None
+                or self.plan_manager.section("Provision") is not None
+                or self.plan_manager.section("Customize") is not None
+                or getattr(self, "_scaffold_name", "") == "gamedev"):
             _scaffold_kind = "gamedev"
         # Detect scaffold-first (has data/*.json seed) vs legacy
         # engine-only flow. Loop-guard reads this attr to pick the right
@@ -1975,7 +1983,10 @@ class Agent:
             _prog_scaffold = (
                 "gamedev"
                 if (getattr(self, "_target_scaffold", "") == "gamedev"
-                    or self.plan_manager.section("Design") is not None)
+                    or self.plan_manager.section("Design") is not None
+                    or self.plan_manager.section("Provision") is not None
+                    or self.plan_manager.section("Customize") is not None
+                    or getattr(self, "_scaffold_name", "") == "gamedev")
                 else "react-app"
             )
             for _sig in detect_progress_signals(
@@ -2670,7 +2681,10 @@ class Agent:
         # Scaffold-aware tool opening: gamedev tasks need emit_design
         # (the engine reads game_definition.json deposited by that tool).
         # Detect via plan scaffold — gamedev plan has a Design section.
-        if self.plan_manager.section("Design") is not None:
+        if (self.plan_manager.section("Design") is not None
+                or self.plan_manager.section("Provision") is not None
+                or self.plan_manager.section("Customize") is not None
+                or getattr(self, "_scaffold_name", "") == "gamedev"):
             opened.append("planning")  # holds emit_design, plan_update, plan_advance
         # Open the assets toolbox (generate_image) whenever a deliverable
         # is active. Drones need image generation for hero photos, sprite
@@ -2720,13 +2734,37 @@ class Agent:
             # move; blocking it produces the Round D failure mode where
             # the wave got told "Tool 'file_read' not available in this
             # phase" after the plan told it to read schema.ts.
-            if self.plan_manager.section("Design") is not None:
-                _fr = self.registry.get("file_read")
-                if _fr and not any(
-                    s.get("function", {}).get("name") == "file_read"
-                    for s in all_schemas
-                ):
-                    all_schemas.append(_fr.schema())
+            #
+            # BUT: scaffold-first gamedev projects already inline schema.ts,
+            # catalog.ts, every data/*.json, and App.test.tsx in the system
+            # prompt (see tsunami/prompt.py:264-269, 319-328). In that mode
+            # file_read is an attractive nuisance — the drone re-reads
+            # inlined files, burns 3-4 iterations, then eventually hits
+            # the phase filter. 7 sessions 2026-04-20 (pain_file_read_in_
+            # design_phase, sev=5) went exactly this way. Lock file_read
+            # out of the design-phase schema for scaffold-first gamedev
+            # so the drone can only emit_design. Convention beats
+            # instruction (v5). Non-scaffold-first gamedev keeps the
+            # Round-D-preserving file_read latitude.
+            if (self.plan_manager.section("Design") is not None
+                or self.plan_manager.section("Provision") is not None
+                or self.plan_manager.section("Customize") is not None
+                or getattr(self, "_scaffold_name", "") == "gamedev"):
+                _scaffold_first = False
+                if self.active_project:
+                    from .tools.filesystem import is_scaffold_first_gamedev
+                    from pathlib import Path as _P_sfg
+                    _scaffold_first = is_scaffold_first_gamedev(
+                        _P_sfg(self.config.workspace_dir) / "deliverables"
+                        / self.active_project
+                    )
+                if not _scaffold_first:
+                    _fr = self.registry.get("file_read")
+                    if _fr and not any(
+                        s.get("function", {}).get("name") == "file_read"
+                        for s in all_schemas
+                    ):
+                        all_schemas.append(_fr.schema())
         response = await self.model.generate(
             messages=messages,
             tools=all_schemas,
