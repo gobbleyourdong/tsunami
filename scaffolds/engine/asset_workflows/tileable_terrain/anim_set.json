@@ -1,0 +1,34 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "tileable_terrain",
+  "projection": "orthographic_top_down",
+  "canvas": {"w": 1024, "h": 1024},
+  "is_animated": false,
+  "gen_strategy": "per_material",
+  "gen_strategy_note": "One ERNIE call per material, seed pinned for reproducibility. No animation. postprocess.sample_tile_center + feather_edges produces the engine-sized tile.",
+  "tile_out_sizes": [64, 128],
+  "materials": {
+    "grass":      {"seed": 7001,  "tile_px": 64,  "priority": 1},
+    "stone":      {"seed": 7002,  "tile_px": 64,  "priority": 1},
+    "sand":       {"seed": 7003,  "tile_px": 64,  "priority": 1},
+    "water":      {"seed": 7004,  "tile_px": 64,  "priority": 1, "note": "static water — see animated A1-style workflow for flowing loop"},
+    "snow":       {"seed": 7005,  "tile_px": 64,  "priority": 1},
+    "lava":       {"seed": 7006,  "tile_px": 64,  "priority": 2, "note": "static lava surface — animated loop in future A1 workflow"},
+    "dirt":       {"seed": 7007,  "tile_px": 64,  "priority": 1},
+    "gravel":     {"seed": 7008,  "tile_px": 64,  "priority": 2},
+    "wood_plank": {"seed": 7009,  "tile_px": 64,  "priority": 1},
+    "tile_floor": {"seed": 7010,  "tile_px": 64,  "priority": 1},
+    "brick":      {"seed": 7011,  "tile_px": 64,  "priority": 1},
+    "moss":       {"seed": 7012,  "tile_px": 64,  "priority": 2}
+  },
+  "ernie_call_count": {
+    "total": 12,
+    "priority_1_only": 9,
+    "note": "12 materials total; 9 are priority-1 (every-scaffold baseline), 3 are priority-2 (biome-specific)."
+  },
+  "postprocess_pipeline": [
+    "sample_tile_center(field_1024, tile_px, seam_pad_px=16)",
+    "feather_edges(patch, feather_px=16)",
+    "verify_tileable(patch)  # writes canary_tile_wrap_<material>.png"
+  ]
+}
