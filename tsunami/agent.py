@@ -31,14 +31,14 @@ from .task_decomposer import decompose, is_complex_prompt
 from .git_detect import GitTracker
 from .microcompact import microcompact_if_needed
 from .semantic_dedup import dedup_messages
-from .model import LLMModel, LLMResponse, ToolCall, create_model
+from .model import LLMModel, ToolCall, create_model
 from .observer import Observer
 from .prompt import build_system_prompt
 from .session import save_session, save_session_summary, load_last_session_summary
 from .session_memory import SessionMemory
 from .state import AgentState
 from .tool_dedup import ToolDedup
-from .tool_result_storage import maybe_persist, TOOL_RESULT_CLEARED_MESSAGE
+from .tool_result_storage import maybe_persist
 from .tools import ToolRegistry, build_registry
 from .tools.plan import set_agent_state
 from .tools.filesystem import set_active_project
@@ -4233,7 +4233,7 @@ class Agent:
                     elements.append("main body/casing")
 
                     if elements:
-                        from .tools.riptide import Riptide, _parse_grounding_response
+                        from .tools.riptide import Riptide
                         vg = Riptide(self.config)
                         ground_result = await vg.execute(image_path=save_path, elements=elements)
                         if not ground_result.is_error:
@@ -5047,7 +5047,6 @@ class Agent:
             if "components/" in written_path and written_path.endswith(".tsx"):
                 try:
                     # Find the project dir from the written path
-                    import re as _re_wire
                     parts = written_path.split("deliverables/")
                     if len(parts) > 1:
                         project_name = parts[1].split("/")[0]
