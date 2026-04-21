@@ -176,25 +176,51 @@ async def cli_probe(
 
     entry_path, runner = entry
     rel = entry_path.relative_to(project_dir) if entry_path.is_relative_to(project_dir) else entry_path
-    cmd = f"{runner} ./{rel} --help" if runner else f"./{rel} --help"
+
+    # SECURITY (sev-5 patch, 2026-04-21): argv-list form via
+    # asyncio.create_subprocess_exec instead of create_subprocess_shell(f_string).
+    # The old cmd-string went through /bin/sh -c, which interprets ;,
+    # $, backticks, &, |, etc. in filenames as shell metacharacters. A
+    # malicious package.json `bin: "./tool; echo $SECRET > leaked.txt;"`
+    # achieved pre-delivery RCE with env-var exfiltration. Argv form
+    # calls execve directly so metacharacters pass verbatim. (Current
+    # finding: cli_probe_shell_injection_rce, sev 5.)
+    if runner:
+        argv = runner.split() + [str(entry_path), "--help"]
+    else:
+        # No runner = shebang-direct invocation. Require +x up front so
+        # the failure is a clear probe rejection rather than a timeout.
+        import os as _os
+        if not _os.access(str(entry_path), _os.X_OK):
+            return result(
+                False,
+                f"CLI entry `{rel}` is not executable and has no known "
+                "runner (no shebang or unrecognized extension). Either "
+                "set +x or declare via package.json bin / pyproject.",
+            )
+        argv = [str(entry_path), "--help"]
 
     try:
         # stdin=DEVNULL — deliverable MUST NOT inherit parent stdin.
         # start_new_session=True puts the child in its own process group
-        # so we can killpg the whole subtree on timeout (the shell
-        # wrapper won't propagate SIGKILL to its python/node child
-        # otherwise — tested with a 60s time.sleep fixture, killing
-        # just the /bin/sh PID leaves the child sleeping to completion).
-        proc = await asyncio.create_subprocess_shell(
-            cmd,
+        # so we can killpg the whole subtree on timeout.
+        spawn = asyncio.create_subprocess_exec
+        proc = await spawn(
+            *argv,
             cwd=str(project_dir),
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
         )
+    except (FileNotFoundError, PermissionError) as e:
+        return result(
+            False,
+            f"CLI entry cannot be executed: {type(e).__name__}: {e}. "
+            f"Tried argv={argv!r}.",
+        )
     except Exception as e:
-        return result(False, f"failed to spawn '{cmd}': {e}")
+        return result(False, f"failed to spawn argv={argv!r}: {e}")
 
     try:
         stdout, stderr = await asyncio.wait_for(
@@ -218,7 +244,7 @@ async def cli_probe(
             pass
         return result(
             False,
-            f"`{cmd}` did not return within {help_timeout_s}s — "
+            f"`{' '.join(argv)}` did not return within {help_timeout_s}s — "
             "CLI likely hangs on stdin or mis-wires argparse.",
         )
 

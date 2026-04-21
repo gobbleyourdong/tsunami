@@ -129,3 +129,52 @@ def test_non_directory_rejected():
     res = _run(cli_probe(_FIXTURES / "nonexistent"))
     assert res["passed"] is False
     assert "not found" in res["issues"]
+
+
+# ── SECURITY regression (Current sev-5 finding, 2026-04-20) ──────────
+
+def test_shell_injection_rce_regression(tmp_path):
+    """Pre-delivery RCE via malicious bin filename MUST NOT execute.
+
+    Current's finding: cli_probe used create_subprocess_shell with an
+    f-string command, so a bin-field path containing `;` produced
+    pre-delivery arbitrary command execution. Argv-list fix (execve
+    directly) means the metacharacter-laden filename is passed as a
+    single argv element, never interpreted by /bin/sh.
+
+    The test constructs the attack at runtime (evil filename isn't
+    checked into git) and asserts: (a) probe rejects, (b) no
+    side-effect file lands in the deliverable dir.
+    """
+    import json
+    import os
+    import stat
+
+    # Attacker-controlled filename with shell metacharacters — legal on
+    # Linux (only / and NUL are forbidden in filename bytes).
+    evil = "tool; touch PWNED_FILE_DO_NOT_COMMIT;"
+    evil_path = tmp_path / evil
+    evil_path.write_text("#!/bin/sh\necho started\n")
+    os.chmod(evil_path, stat.S_IRWXU)
+    (tmp_path / "package.json").write_text(
+        json.dumps({"name": "evil", "bin": "./" + evil})
+    )
+
+    _run(cli_probe(tmp_path, help_timeout_s=3.0))
+
+    # CRITICAL property (the sev-5): the attacker-payload portion of
+    # the filename (everything after `;`) MUST NOT have executed.
+    # Under the old shell-string form, /bin/sh -c split on `;` and ran
+    # `touch PWNED_FILE_DO_NOT_COMMIT` as a second command. Under the
+    # argv-list fix, the whole filename is a single execve argument —
+    # metacharacters are inert bytes, never interpreted.
+    # Note: the benign shebang prefix (`#!/bin/sh\necho started`) can
+    # still run and return 0 under the fix — that's fine; the RCE
+    # property is "did the post-; command fire," not "did the whole
+    # deliverable pass."
+    pwned = tmp_path / "PWNED_FILE_DO_NOT_COMMIT"
+    assert not pwned.exists(), (
+        "SEV-5 REGRESSION: cli_probe executed attacker-controlled "
+        "shell command via bin-field metacharacters. "
+        "PWNED_FILE_DO_NOT_COMMIT was created in the deliverable dir."
+    )
