@@ -25,6 +25,7 @@ import logging
 from pathlib import Path
 
 from ._probe_common import result as _result, skip as _skip
+from .cli_probe import cli_probe
 from .electron_probe import electron_probe
 from .extension_probe import extension_probe
 from .gamedev_probe import gamedev_probe
@@ -53,6 +54,10 @@ _PROBES = {
     #             gamedev_scaffold_probe)
     # gamedev_probe_dispatch picks at call time based on on-disk markers.
     "gamedev":          gamedev_probe_dispatch,
+    # Tide 001 — CLI tools (python click/argparse/typer, node commander,
+    # POSIX shebang scripts). Fingerprinted by package.json.bin,
+    # pyproject.toml [project.scripts], or conventional bin/ + cli.py.
+    "cli":              cli_probe,
 }
 # Direct handle to the legacy probe for callers that want to bypass the
 # scaffold router (introspection + tests).
@@ -154,6 +159,29 @@ def detect_scaffold(project_dir: Path) -> str | None:
         return "gamedev"
     if (project_dir / "game_definition.json").is_file():
         return "gamedev"
+
+    # 9. cli — has CLI entry-point markers. Checked AFTER web/server
+    # fingerprints so a fullstack app with a helper bin/ script doesn't
+    # misroute to cli_probe. A pure CLI tool (no react, no server/ dir,
+    # no openapi) with any of:
+    #   - package.json "bin" field
+    #   - pyproject.toml [project.scripts] or [tool.poetry.scripts]
+    #   - conventional bin/cli* / src/cli.* / cli.py / main.py at root
+    if isinstance(pkg, dict) and pkg.get("bin"):
+        return "cli"
+    pyproj = project_dir / "pyproject.toml"
+    if pyproj.is_file():
+        try:
+            t = pyproj.read_text(encoding="utf-8", errors="replace")
+            if "[project.scripts]" in t or "[tool.poetry.scripts]" in t:
+                return "cli"
+        except OSError:
+            pass
+    # conventional root-level cli entry files
+    for rel in ("bin/cli", "bin/cli.py", "bin/main", "bin/main.py",
+                "src/cli.py", "cli.py", "main.py"):
+        if (project_dir / rel).is_file():
+            return "cli"
 
     return None
 

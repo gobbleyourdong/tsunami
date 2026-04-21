@@ -1,0 +1,7 @@
+{
+  "name": "rich-cli",
+  "version": "0.1.0",
+  "bin": {
+    "rich": "./bin/cli.js"
+  }
+}
