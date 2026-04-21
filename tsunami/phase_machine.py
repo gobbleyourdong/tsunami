@@ -145,7 +145,22 @@ class PhaseMachine:
         caused live read-spirals (Round J 2026-04-20).
         """
         is_gamedev = scaffold_kind == "gamedev"
+        # Scaffold-first vs legacy gamedev: check whether the active
+        # project has a data/ dir (scaffold-first has it, legacy doesn't).
+        is_scaffold_first = False
+        if is_gamedev and self.project_path:
+            from pathlib import Path as _Path
+            pp = _Path(self.project_path)
+            data_dir = pp / "data"
+            is_scaffold_first = data_dir.is_dir() and any(data_dir.glob("*.json"))
         if self.phase == Phase.SCAFFOLD and self.iters_in_phase >= 4:
+            if is_gamedev and is_scaffold_first:
+                return (
+                    "[PHASE:SCAFFOLD-gamedev-scaffold-first] The scaffold "
+                    "is already provisioned. Do NOT call emit_design — "
+                    "customize data/*.json via file_write. The data files "
+                    "are inlined in your system prompt — write directly."
+                )
             if is_gamedev:
                 return (
                     "[PHASE:SCAFFOLD-gamedev] 4 iterations without "
@@ -162,6 +177,15 @@ class PhaseMachine:
 
         if self.phase == Phase.WRITE:
             if self.iters_in_phase >= 5 and self.files_written == 0:
+                if is_gamedev and is_scaffold_first:
+                    return (
+                        "[PHASE:WRITE-gamedev-scaffold-first] 5 iterations "
+                        "without a file_write. The data/*.json files are "
+                        "inlined in your system prompt — use file_write "
+                        "with the complete new JSON content. Do NOT call "
+                        "emit_design (legacy flow). Do NOT rewrite src/main.ts. "
+                        "One or more file_write on data/*.json, then message_result."
+                    )
                 if is_gamedev:
                     return (
                         "[PHASE:WRITE-gamedev] 5 iterations without "

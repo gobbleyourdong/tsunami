@@ -64,11 +64,21 @@ _KEYWORD_MAP: list[tuple[tuple[str, ...], str]] = [
       "mortal kombat", "2d fighter", "3d fighter",
       "fighting game"),
      "fighter"),
-    (("kart racer", "mario kart", "arcade racer"),
+    (("kart racer", "mario kart", "arcade racer",
+      "racing game", "race game", "racing called", "race called",
+      "gran turismo", "out run", "outrun"),
      "kart_racer"),
     (("open world", "gta-like", "sandbox game",
       "3d open world", "open-world"),
      "open_world"),
+    # Cross-genre canary explicit names. These map to their own
+    # scaffold dirs under scaffolds/gamedev/cross/ via the
+    # _GENRE_MAP aliases in project_init_gamedev.
+    (("magic_hoops", "magic-hoops"), "magic_hoops"),
+    (("ninja_garden", "ninja-garden"), "ninja_garden"),
+    (("rhythm_fighter", "rhythm-fighter"), "rhythm_fighter"),
+    (("action_rpg_atb", "action-rpg-atb"), "action_rpg_atb"),
+    (("metroid_runs", "metroid-runs"), "metroid_runs"),
 ]
 
 _ANCHOR_RE = re.compile(r"^anchors:\s*(.+?)\s*$", re.MULTILINE)

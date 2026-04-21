@@ -79,6 +79,7 @@ _GENRE_MAP: dict[str, str] = {
     "splinter-cell":     "stealth",
     "race":              "racing",
     "kart":              "racing",
+    "kart_racer":        "racing",
     "mario-kart":        "racing",
     "outrun":            "racing",
     "out-run":           "racing",

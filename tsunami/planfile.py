@@ -147,7 +147,25 @@ _DOMAIN_SIGNALS: list[tuple[tuple[str, ...], str]] = [
       "simulation game", "life sim",
       "immersive sim",
       "2d game", "3d game", "indie game",
-      "adventure game", "retro game"), "gamedev"),
+      "adventure game", "retro game",
+      # Bare-genre fallbacks — "racing game", "fighting game" etc.
+      # already match above as multi-word phrases, but the single-word
+      # "racing" / "race" / "stealth" prompts missed. Telemetry note:
+      # "Build a racing game called Neon Drift" misrouted to refactor
+      # because no keyword fired. Add the bare genre nouns.
+      "racing game", "race game",
+      "platformer game", "platformer called",
+      "rpg game", "rpg called",
+      "jrpg called", "jrpg game",
+      "fighting called", "platformer called",
+      "game called",
+      # Cross-genre canaries — explicit scaffold names as keywords
+      # so prompts like "magic_hoops canary" route to gamedev instead
+      # of misclassifying as refactor.
+      "magic_hoops", "magic-hoops", "ninja_garden", "ninja-garden",
+      "rhythm_fighter", "rhythm-fighter", "action_rpg_atb",
+      "action-rpg-atb", "metroid_runs", "metroid-runs",
+      "cross-genre canary", "cross genre canary"), "gamedev"),
     (("research", "investigate", "what is", "find out", "how does",
       "look up", "survey"), "research"),
     (("refactor", "rename", "extract", "cleanup", "split", "merge"),

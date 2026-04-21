@@ -567,6 +567,14 @@ class Agent:
                 if not result.is_error:
                     log.info(f"Pre-scaffold (gamedev): provisioned '{project_name}' "
                              f"with genre='{gamedev_genre}'")
+                    # Set loop_guard mode NOW — the old path only set
+                    # it inside _set_lite_prompt which fires on
+                    # compaction, long after the first few iters where
+                    # force_tool decisions matter. With mode set here,
+                    # read-spiral breaks push toward file_write (not
+                    # emit_design).
+                    self.loop_guard._scaffold_kind = "gamedev"
+                    self.loop_guard._gamedev_mode = "scaffold_first"
             else:
                 from .tools.project_init import ProjectInit
                 init_tool = ProjectInit(self.config)
@@ -4547,16 +4555,24 @@ class Agent:
                             if is_scaffold_first:
                                 guide = (
                                     "SCAFFOLD-FIRST GAMEDEV PROJECT. This project was "
-                                    "provisioned via project_init_gamedev and ships playable.\n"
-                                    "- Your job: customize `data/*.json` files with the task's "
-                                    "content (names, counts, stats). The scaffold's scenes "
-                                    "read these files at boot.\n"
-                                    "- DO NOT call emit_design — that's the legacy flow and "
-                                    "will NOT integrate with this scaffold's scenes.\n"
-                                    "- DO NOT rewrite src/main.ts or src/scenes/*.ts — they "
-                                    "are already correct and wired into @engine/mechanics.\n"
-                                    "- The data files are inlined above in the system prompt. "
-                                    "Write each modified file via file_write, then message_result."
+                                    "provisioned via project_init_gamedev and ships playable.\n\n"
+                                    "⚠️ CRITICAL — DO NOT CALL file_read. The full content of "
+                                    "every data/*.json file is ALREADY IN YOUR SYSTEM PROMPT "
+                                    "ABOVE. You have everything you need to write. If you call "
+                                    "file_read, you waste an iteration and risk being loop-guarded "
+                                    "out of the run before producing any output.\n\n"
+                                    "YOUR ONLY JOB: emit one `file_write` per file that needs "
+                                    "changing. Each file_write supplies the COMPLETE new JSON "
+                                    "content (not a diff, not an edit — the whole file).\n\n"
+                                    "RULES:\n"
+                                    "- file_write (NOT file_edit) — JSON structural edits are "
+                                    "brittle with file_edit's string-replace semantics.\n"
+                                    "- Do NOT call emit_design — legacy flow, will NOT integrate.\n"
+                                    "- Do NOT rewrite src/main.ts or src/scenes/*.ts — already "
+                                    "correct, wired into @engine/mechanics.\n"
+                                    "- When all requested files are written, call message_result.\n\n"
+                                    "Typical flow is 1-3 file_writes then message_result — "
+                                    "often ≤ 4 total iterations."
                                 )
                             else:
                                 # Step 7: legacy flow loader for
