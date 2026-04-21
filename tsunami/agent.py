@@ -693,24 +693,87 @@ class Agent:
             from .pending_files import format_checklist_update
             fname = Path(written_path).name.lower() if written_path else ""
             written = self._written_data_files
-            if fname and fname in pending and fname not in written:
-                written.append(fname)
+            if not fname or fname not in pending:
+                return
+            if fname in written:
+                # Redundant re-write of an already-completed file. Drone
+                # regressed — nudge it forward with a strong reminder that
+                # points at the remaining work.
                 remaining = [p for p in pending if p not in written]
                 if remaining:
-                    self.state.add_system_note(format_checklist_update(
-                        pending, written, self._mentioned_but_missing,
-                    ))
-                    log.info(
-                        f"FIX-A: wrote {fname}; {len(remaining)} still pending"
-                    )
-                else:
                     self.state.add_system_note(
-                        "All pending data files written. Next action: "
-                        "run a build-check, then message_result."
+                        f"REDUNDANT: you just re-wrote data/{fname} but "
+                        f"it was already complete. The remaining pending "
+                        f"file(s): {', '.join('data/' + r for r in remaining)}. "
+                        f"Your next action MUST be file_write on the first "
+                        f"remaining file — not another re-write."
                     )
-                    log.info("FIX-A: all pending data files complete")
+                    log.warning(
+                        f"FIX-A: redundant re-write of {fname}; "
+                        f"still pending: {', '.join(remaining)}"
+                    )
+                return
+            written.append(fname)
+            remaining = [p for p in pending if p not in written]
+            if remaining:
+                self.state.add_system_note(format_checklist_update(
+                    pending, written, self._mentioned_but_missing,
+                ))
+                log.info(
+                    f"FIX-A: wrote {fname}; {len(remaining)} still pending"
+                )
+            else:
+                self.state.add_system_note(
+                    "All pending data files written. Next action: "
+                    "run a build-check, then message_result."
+                )
+                log.info("FIX-A: all pending data files complete")
         except Exception as e:
             log.debug(f"FIX-A after_write skipped: {e}")
+
+    def _fix_b_edit_failed(self, path: str) -> None:
+        """FIX-B (JOB-INT-10) — break the file_edit retry loop. When an
+        edit fails on the same path 2+ times in a row, inject a system
+        note with the file's actual bytes and coerce the drone toward
+        file_write. Best-effort; non-fatal on any exception."""
+        if not path:
+            return
+        fails: dict[str, int] = getattr(self, "_edit_fail_count_by_path", None) or {}
+        fails[path] = fails.get(path, 0) + 1
+        self._edit_fail_count_by_path = fails
+        count = fails[path]
+        if count < 2:
+            return
+        try:
+            snippet = self._current_content_snippet(path, max_chars=220)
+            rel = path.split("deliverables/", 1)[-1] if "deliverables/" in path else path
+            self.state.add_system_note(
+                f"RETRY BREAKER: file_edit on {rel} has FAILED {count}x "
+                f"in a row — the `old_content` block does NOT match the "
+                f"actual file bytes. Stop editing this path. Your next "
+                f"action MUST be a file_write on {rel} with the FULL "
+                f"desired JSON content.\n"
+                f"Actual file starts with: {snippet}"
+            )
+            log.warning(
+                f"FIX-B: {count}x edit failures on {rel} — coerce to file_write"
+            )
+        except Exception as e:
+            log.debug(f"FIX-B edit_failed nudge skipped: {e}")
+
+    def _current_content_snippet(self, path: str, max_chars: int = 150) -> str:
+        """Read up to max_chars from ``path`` for the retry-breaker
+        counter-signal. Returns empty string on any read failure."""
+        try:
+            p = Path(path)
+            if not p.is_file():
+                return ""
+            text = p.read_text(encoding="utf-8", errors="replace")
+            if len(text) <= max_chars:
+                return text.strip()
+            return text[:max_chars].strip() + "..."
+        except Exception:
+            return ""
 
     async def _auto_build_and_gate(self, written_path: str) -> None:
         """Wave-side auto-build after a drone write. Decides task closure.
@@ -3487,6 +3550,28 @@ class Agent:
             tool_call, _allowed_names, current_phase, log,
         )
 
+        # FIX-B hard coercion: after 3+ file_edit failures on the same path,
+        # block further edits on it. Forces the drone to use file_write
+        # (which doesn't need old_content matching). JOB-INT-10 §6 escape-
+        # hatch. Fires only after soft counter-signal was ignored twice.
+        if tool_call.name == "file_edit":
+            _fails = getattr(self, "_edit_fail_count_by_path", {}) or {}
+            _ep = str(tool_call.arguments.get("path", ""))
+            if _ep and _fails.get(_ep, 0) >= 3:
+                _rel = _ep.split("deliverables/", 1)[-1] if "deliverables/" in _ep else _ep
+                _msg = (
+                    f"HARD BLOCK: file_edit on {_rel} blocked after 3 "
+                    f"consecutive failures. Your old_content doesn't match. "
+                    f"Use file_write(path='{_ep}', content={{...full JSON...}}) "
+                    f"with the COMPLETE replacement object. Do not attempt "
+                    f"file_edit on this path again — it will be blocked."
+                )
+                self.state.add_tool_result(
+                    tool_call.name, tool_call.arguments, _msg, is_error=True,
+                )
+                log.warning(f"FIX-B hard-block: file_edit {_rel} (fail_count={_fails.get(_ep, 0)})")
+                return _msg
+
         tool = self.registry.get(tool_call.name)
         if tool is None:
             error_msg = f"Unknown tool: {tool_call.name}. Available: {self.registry.names()}"
@@ -4203,12 +4288,25 @@ class Agent:
                 except Exception as e:
                     log.debug(f"Auto-ground skipped: {e}")
 
+        # FIX-B (JOB-INT-10): file_edit retry-loop breaker. When the drone
+        # issues the same file_edit on a path that's failed 2+ times,
+        # inject a strong counter-signal telling it to use file_write with
+        # full content + show the actual file bytes.
+        if tool_call.name == "file_edit" and result.is_error:
+            self._fix_b_edit_failed(tool_call.arguments.get("path", ""))
+        elif tool_call.name == "file_edit" and not result.is_error:
+            # Reset the fail counter on a successful edit.
+            path = tool_call.arguments.get("path", "")
+            fails = getattr(self, "_edit_fail_count_by_path", None)
+            if fails and path in fails:
+                del fails[path]
+
         # 8a0. Auto-scaffold — if .tsx written to deliverables without package.json, provision it
         if tool_call.name in ("file_write", "file_edit") and not result.is_error:
             written_path = tool_call.arguments.get("path", "")
             # FIX-A (JOB-INT-8): update the pending-file checklist when a
-            # file_write lands on a tracked data/*.json. No-ops silently
-            # when FIX-A wasn't seeded (non-gamedev / non-scaffold-first).
+            # file_write OR file_edit lands on a tracked data/*.json.
+            # No-ops silently when FIX-A wasn't seeded.
             self._fix_a_after_write(written_path)
             # Wave-side: mark plan Components/Architecture sections done
             # when the drone writes/edits a TSX file in deliverables/.
