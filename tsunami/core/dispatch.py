@@ -31,6 +31,7 @@ from .electron_probe import electron_probe
 from .extension_probe import extension_probe
 from .gamedev_probe import gamedev_probe
 from .gamedev_scaffold_probe import gamedev_probe_dispatch
+from .infra_probe import infra_probe
 from .mobile_probe import mobile_probe
 from .openapi_probe import openapi_probe
 from .server_probe import server_probe
@@ -70,6 +71,10 @@ _PROBES = {
     # or conventional train.py/finetune.py/main.py at root with ML
     # framework imports. Probe is static — doesn't run training.
     "training":         training_probe,
+    # Tide 004 — Infrastructure (Dockerfile + docker-compose). Static
+    # validation; doesn't run `docker build`. Fingerprint: Dockerfile
+    # or compose.yml at root / docker/ / deploy/.
+    "infra":            infra_probe,
 }
 # Direct handle to the legacy probe for callers that want to bypass the
 # scaffold router (introspection + tests).
@@ -264,6 +269,19 @@ def detect_scaffold(project_dir: Path) -> str | None:
                 "src/cli.py", "cli.py", "main.py"):
         if (project_dir / rel).is_file():
             return "cli"
+
+    # 12. infra — Dockerfile or docker-compose at root / docker/ / deploy/.
+    # Last in priority order because an infra deliverable can piggy-back
+    # on any web/cli/training project (dockerizing an existing app).
+    # We only claim "infra" when THE PRIMARY shipping artifact is the
+    # stack definition — no other fingerprint matched. This means: an
+    # existing web app with a Dockerfile routes to its web probe; a
+    # standalone "deploy the stack" deliverable routes here.
+    for rel in ("Dockerfile", "docker/Dockerfile", "deploy/Dockerfile",
+                "docker-compose.yml", "docker-compose.yaml",
+                "compose.yml", "compose.yaml"):
+        if (project_dir / rel).is_file():
+            return "infra"
 
     return None
 

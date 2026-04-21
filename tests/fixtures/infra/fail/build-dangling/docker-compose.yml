@@ -1,0 +1,5 @@
+services:
+  web:
+    build: ./nonexistent-service
+    ports:
+      - "3000:3000"
