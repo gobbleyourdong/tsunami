@@ -74,12 +74,16 @@ DEFAULT_SIZE = 1024
 
 # LoRA registry — HF repo ids for each named adapter. Keeps the
 # operator-facing `name` param stable even if we change providers.
-# Lightning/turbo distillation LoRAs are deliberately NOT listed: direct
-# A/B on 2026-04-21 showed visible quality loss on sprite-style edits
-# that no seed tweak could recover. Speed lever is not distillation for
-# this pipe.
+#
+# Lightning was removed on 2026-04-21 after an initial A/B showed
+# undercooked sprites, then re-added same day once the root cause was
+# understood (the earlier A/B was confounded: lightning was tested at
+# 8 steps + CFG 1.0 against crystal_v2 which was 30 steps + CFG *off*
+# + multi_angles attached — apples-to-oranges across 3 axes). Full
+# evaluation pending post-FP8-conversion + magenta-bg re-run.
 _LORA_REGISTRY: dict[str, str] = {
     "multiple_angles": "fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA",
+    "lightning":       "lightx2v/Qwen-Image-Edit-2511-Lightning",
 }
 
 
