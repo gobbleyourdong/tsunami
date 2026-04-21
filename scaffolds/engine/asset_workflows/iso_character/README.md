@@ -81,13 +81,32 @@ remaining 5 directions in 24 s.
 ## Library seeds
 
 `scaffolds/engine/asset_library/iso_character/`:
-- `barbarian_movement_blockout.png` (444 KB) — the full-resolution
-  8-direction sheet (production artifact, not a thumbnail)
-- `barbarian_movement_blockout.manifest.json` — engine source of truth
-- `barbarian_movement_blockout.manifest.spec.json` — forward-looking
-  spec for future animation + rotation workflows
-- `barbarian_movement_blockout_preview.png` — labeled dev view
-  (dark bg + per-cell labels)
+- **Barbarian** (hero character — seed `20_001`):
+  - `barbarian_movement_blockout.png` (444 KB) — 8-direction sheet
+  - `barbarian_movement_blockout.manifest.json` — engine source of truth
+  - `barbarian_movement_blockout.manifest.spec.json` — forward-looking spec
+  - `barbarian_movement_blockout_preview.png` — labeled dev view
+- **Goblin** (enemy character — seed `30_001`, added 2026-04-20):
+  - `goblin_movement_blockout.png` (488 KB) — 8-direction sheet
+  - `goblin_movement_blockout.manifest.json`
+  - `goblin_movement_blockout.manifest.spec.json`
+  - `goblin_movement_blockout_preview.png`
+
+Two characters now live in this workflow's library. Scaffolds can drop
+in either (or both) without re-establishing identity — each has its own
+seed-pinned description that the workflow's prompt template fills out
+per direction.
+
+**Adding a new character** is structurally identical to the barbarian /
+goblin process:
+1. Pick a new seed (convention: hero 2xxxx, enemy 3xxxx, NPC 4xxxx)
+2. Write a character-description string and a movement-pose-description
+3. Run 8 ERNIE calls via the 3-ERNIE pool (~25-50 s wall-clock)
+4. Call `postprocess.assemble_movement_loop_blockout(direction_to_frame,
+   ISO_LIB, character_id="<name>")`
+
+The library grows without re-reading the prompt_template or rewriting
+the pipeline.
 
 ## Findings from the canary round
 

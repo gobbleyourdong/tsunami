@@ -66,14 +66,23 @@ Three canary directions (S/E/N) + two blockout-assembly artifacts:
 
 `scaffolds/engine/asset_library/top_down_jrpg_character/`:
 
-- `barbarian_movement_blockout.png` (11 KB) — the 4-direction 48×48
-  sheet. Actual engine-consumed artifact.
-- `barbarian_movement_blockout_4x.png` (16 KB) — 4× NEAREST upscale
-  for easier human inspection (not for engine consumption).
-- `barbarian_movement_blockout.manifest.json` — engine cell-lookup
-- `barbarian_movement_blockout.manifest.spec.json` — forward metadata
-  (walk: 3 frames/direction, rotation_angles: 4)
-- `barbarian_movement_blockout_preview.png` — labeled dev view
+- **Barbarian** (hero — seed `20_001`):
+  - `barbarian_movement_blockout.png` (11 KB) — 4-direction 48×48 sheet
+  - `barbarian_movement_blockout_4x.png` (16 KB) — 4× NEAREST upscale
+    for easier human inspection
+  - `barbarian_movement_blockout.manifest.json` — engine cell-lookup
+  - `barbarian_movement_blockout.manifest.spec.json` — forward metadata
+  - `barbarian_movement_blockout_preview.png` — labeled dev view
+- **Goblin** (enemy — seed `30_001`, added 2026-04-20):
+  - `goblin_movement_blockout.png` (12 KB) — 4-direction 48×48 sheet
+  - `goblin_movement_blockout_4x.png` (18 KB) — 4× upscale
+  - `goblin_movement_blockout.manifest.json`
+  - `goblin_movement_blockout.manifest.spec.json`
+  - `goblin_movement_blockout_preview.png`
+
+Two characters now live in this workflow's library. JRPG scaffolds
+typically pair a hero with an enemy archetype; this library ships both
+ready to drop in. Seed convention: hero 2xxxx, enemy 3xxxx, NPC 4xxxx.
 
 ## Cross-projection identity
 

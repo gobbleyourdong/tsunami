@@ -1,0 +1,84 @@
+{
+  "cols": 4,
+  "rows": 2,
+  "cell_w": 256,
+  "cell_h": 256,
+  "gutter_px": 0,
+  "sheet_w": 1024,
+  "sheet_h": 512,
+  "frame_count": 8,
+  "cells": [
+    {
+      "index": 0,
+      "label": "N",
+      "cell_x": 0,
+      "cell_y": 0,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/iso_character/_staging_goblin/goblin_N.png"
+    },
+    {
+      "index": 1,
+      "label": "NE",
+      "cell_x": 256,
+      "cell_y": 0,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/iso_character/_staging_goblin/goblin_NE.png"
+    },
+    {
+      "index": 2,
+      "label": "E",
+      "cell_x": 512,
+      "cell_y": 0,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/iso_character/_staging_goblin/goblin_E.png"
+    },
+    {
+      "index": 3,
+      "label": "SE",
+      "cell_x": 768,
+      "cell_y": 0,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/iso_character/_staging_goblin/goblin_SE.png"
+    },
+    {
+      "index": 4,
+      "label": "S",
+      "cell_x": 0,
+      "cell_y": 256,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/iso_character/_staging_goblin/goblin_S.png"
+    },
+    {
+      "index": 5,
+      "label": "SW",
+      "cell_x": 256,
+      "cell_y": 256,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/iso_character/_staging_goblin/goblin_SW.png"
+    },
+    {
+      "index": 6,
+      "label": "W",
+      "cell_x": 512,
+      "cell_y": 256,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/iso_character/_staging_goblin/goblin_W.png"
+    },
+    {
+      "index": 7,
+      "label": "NW",
+      "cell_x": 768,
+      "cell_y": 256,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/iso_character/_staging_goblin/goblin_NW.png"
+    }
+  ]
+}
