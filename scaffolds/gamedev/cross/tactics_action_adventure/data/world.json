@@ -1,0 +1,20 @@
+{
+  "world_map": {
+    "nodes": [
+      { "id": "riverside_village", "kind": "town",    "links": ["forest_path", "river_bridge"] },
+      { "id": "forest_path",       "kind": "route",   "links": ["riverside_village", "old_ruins"] },
+      { "id": "old_ruins",         "kind": "dungeon", "links": ["forest_path", "shrine"] },
+      { "id": "river_bridge",      "kind": "route",   "links": ["riverside_village", "highlands"] },
+      { "id": "highlands",         "kind": "overworld", "links": ["river_bridge", "peak_temple"] },
+      { "id": "peak_temple",       "kind": "dungeon", "links": ["highlands"] },
+      { "id": "shrine",            "kind": "dungeon", "links": ["old_ruins"] }
+    ],
+    "start": "riverside_village"
+  },
+  "hotspots": [
+    { "id": "smith_stall",    "at_node": "riverside_village", "kind": "shop", "shop_ref": "smith" },
+    { "id": "tavern_keep",    "at_node": "riverside_village", "kind": "dialog", "dialog_ref": "tavern_intro" },
+    { "id": "ruin_door",      "at_node": "old_ruins",         "kind": "gate",  "requires_flag": "key_of_dawn" },
+    { "id": "mountain_sage",  "at_node": "peak_temple",       "kind": "dialog", "dialog_ref": "sage_prophecy" }
+  ]
+}

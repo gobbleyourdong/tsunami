@@ -1,0 +1,31 @@
+{
+  "party": {
+    "max_active": 3,
+    "members": {
+      "hero": {
+        "archetype": "hero",
+        "role": "tank",
+        "components": ["Health(120)", "Mana(40)", "Position(100, 100)"],
+        "moveset": ["slash", "guard", "rally"]
+      },
+      "mage": {
+        "archetype": "mage",
+        "role": "caster",
+        "components": ["Health(70)", "Mana(120)", "Position(120, 100)"],
+        "moveset": ["fire", "heal", "ward"]
+      },
+      "rogue": {
+        "archetype": "rogue",
+        "role": "dps",
+        "components": ["Health(85)", "Mana(60)", "Position(140, 100)"],
+        "moveset": ["backstab", "dash", "poison"]
+      },
+      "cleric": {
+        "archetype": "cleric",
+        "role": "healer",
+        "components": ["Health(90)", "Mana(100)", "Position(160, 100)"],
+        "moveset": ["heal_group", "resurrect", "purify"]
+      }
+    }
+  }
+}

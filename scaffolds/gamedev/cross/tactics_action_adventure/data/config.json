@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "title": "Tactics Action Adventure",
+    "cross_genre": ["tactics", "action", "adventure"],
+    "target_mood": "Octopath overworld × Zelda exploration × Fire Emblem combat encounters"
+  },
+  "viewport": { "width": 640, "height": 480 },
+  "mode_transitions": {
+    "overworld_to_combat": "on_enemy_contact",
+    "combat_to_overworld": "on_combat_resolve"
+  }
+}

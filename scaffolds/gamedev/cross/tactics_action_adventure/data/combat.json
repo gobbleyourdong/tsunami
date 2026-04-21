@@ -1,0 +1,18 @@
+{
+  "combat": {
+    "system": "atb",
+    "atb_rate_baseline": 1.0,
+    "role_rate_bonus": { "dps": 0.15, "tank": -0.1, "caster": -0.05, "healer": 0.0 },
+    "enemy_archetypes": {
+      "wolf":      { "components": ["Health(30)"], "moveset": ["bite", "howl"],       "ai_utility_weights": { "hp_low": 0.2, "aggro": 1.0 } },
+      "brigand":   { "components": ["Health(50)"], "moveset": ["slash", "lunge"],      "ai_utility_weights": { "hp_low": 0.3, "aggro": 0.8 } },
+      "warlock":   { "components": ["Health(60)"], "moveset": ["bolt", "drain"],       "ai_utility_weights": { "backline_target": 1.0, "mana_low": 0.4 } },
+      "golem":     { "components": ["Health(180)"], "moveset": ["slam", "tremor"],     "ai_utility_weights": { "hp_low": 0.1, "frontline_target": 1.0 } }
+    },
+    "encounters": {
+      "forest_ambush": { "enemies": ["wolf", "wolf", "brigand"],  "formation": "line" },
+      "ruin_guardian": { "enemies": ["golem"],                    "formation": "single" },
+      "cult_gathering":{ "enemies": ["warlock", "brigand", "brigand"], "formation": "triangle" }
+    }
+  }
+}

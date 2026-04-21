@@ -1,0 +1,54 @@
+{
+  "dialogs": {
+    "tavern_intro": {
+      "root": "greeting",
+      "nodes": {
+        "greeting": {
+          "speaker": "tavern_keep",
+          "text": "Traveler! You look like you've been on the road a while. Rest a spell?",
+          "choices": [
+            { "to": "ask_rumors", "label": "Heard any rumors?" },
+            { "to": "rent_room",  "label": "I'll take a room.", "requires_flag_not": "already_rested" },
+            { "to": "farewell",   "label": "Not tonight." }
+          ]
+        },
+        "ask_rumors": {
+          "speaker": "tavern_keep",
+          "text": "The old ruins up the forest path — folks say a relic's been stirring again.",
+          "set_flag": "knows_of_ruins",
+          "choices": [{ "to": "farewell", "label": "Thanks." }]
+        },
+        "rent_room": {
+          "speaker": "tavern_keep",
+          "text": "Sleep well.",
+          "set_flag": "already_rested",
+          "effect": "restore_party_hp",
+          "choices": [{ "to": "farewell", "label": "Goodnight." }]
+        },
+        "farewell": { "text": "Safe roads.", "end": true }
+      }
+    },
+    "sage_prophecy": {
+      "root": "first_meeting",
+      "nodes": {
+        "first_meeting": {
+          "speaker": "mountain_sage",
+          "text": "Three paths. Each ends in a truth you cannot unknow.",
+          "choices": [
+            { "to": "path_light",  "label": "Tell me of the light." },
+            { "to": "path_shadow", "label": "Tell me of the shadow." },
+            { "to": "path_silence","label": "Tell me of the silence." }
+          ]
+        },
+        "path_light":  { "speaker": "mountain_sage", "text": "Seek the shrine at river's edge.",      "set_flag": "path_light_chosen",  "end": true },
+        "path_shadow": { "speaker": "mountain_sage", "text": "The ruins hold what you must face.",    "set_flag": "path_shadow_chosen", "end": true },
+        "path_silence":{ "speaker": "mountain_sage", "text": "Walk home. Some stories end unwritten.", "set_flag": "path_silence_chosen","end": true }
+      }
+    }
+  },
+  "endings": {
+    "light_ending":  { "requires_flags": ["path_light_chosen"],  "epilogue": "Dawn broke over still water; the relic slept." },
+    "shadow_ending": { "requires_flags": ["path_shadow_chosen"], "epilogue": "The ruins spoke in a voice you now carry." },
+    "silence_ending":{ "requires_flags": ["path_silence_chosen"],"epilogue": "You walked home. The wind did not follow." }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "gamedev-tactics-action-adventure-scaffold",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CROSS-GENRE: tactics (ATB/turn-based combat) + action (real-time overworld) + adventure (dialog/branching). Composes ATBCombat/TurnBasedCombat/PartyComposition + CameraFollow/AttackFrames + DialogTree/HotspotMechanic/WorldMapTravel/EndingBranches. Pure composition from @engine/mechanics.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": { "engine": "file:../../../engine" },
+  "devDependencies": { "typescript": "^6.0.2", "vite": "^8.0.3" }
+}
