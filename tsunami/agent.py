@@ -265,6 +265,10 @@ class Agent:
         self._written_data_files: list[str] = []
         self._mentioned_but_missing: list[str] = []
         self._seeded_behaviors: list[str] = []
+        # FIX-A completion tracking (landed by gamedev instance post-pass-2;
+        # retroactively declared here for the same reasons).
+        self._fix_a_all_complete: bool = False
+        self._fix_a_all_complete_iter: int = 0
         self._scaffold_name: str = ""
         self._target_scaffold: str = ""
         self._style_name: str = ""
@@ -284,7 +288,7 @@ class Agent:
         still see the update. 41 inline constructions of this path existed
         pre-pass-#10; consolidated here to make path-shape changes grep-able.
         """
-        return self._deliverables_dir
+        return Path(self.config.workspace_dir) / "deliverables"
 
     def _on_context_overflow_trip(self, consecutive_errors: int) -> str:
         """Site A (context_overflow) trip handler — symmetric with
@@ -796,9 +800,15 @@ class Agent:
                 )
             else:
                 self.state.add_system_note(
-                    "All pending data files written. Next action: "
-                    "run a build-check, then message_result."
+                    "All pending data files written. YOUR NEXT ACTION "
+                    "MUST BE message_result(text=...) describing what "
+                    "you delivered. Do NOT file_read — you've already "
+                    "written everything the user asked for. Do NOT "
+                    "file_write additional files — the user only "
+                    "requested the pending ones. Deliver now."
                 )
+                self._fix_a_all_complete = True
+                self._fix_a_all_complete_iter = self.state.iteration
                 log.info("FIX-A: all pending data files complete")
         except Exception as e:
             log.debug(f"FIX-A after_write skipped: {e}")
@@ -2066,6 +2076,22 @@ class Agent:
         while True:
             self.state.iteration += 1
             iter_start = time.time()
+
+            # FIX-A follow-through: re-inject the "deliver now" nudge on
+            # each iter after all-complete fires. One-shot system_notes
+            # get compacted away within 2-3 iters; drones post-completion
+            # should see a fresh, escalating reminder every turn until
+            # message_result lands.
+            if self._fix_a_all_complete:
+                _since = self.state.iteration - self._fix_a_all_complete_iter
+                if _since >= 1:
+                    self.state.add_system_note(
+                        f"FIX-A (iter {_since} past completion): all "
+                        f"pending files ALREADY WRITTEN. Emit "
+                        f"message_result(text=...) NOW. Do NOT read, "
+                        f"do NOT write — you are DONE. Every extra "
+                        f"tool call delays delivery."
+                    )
 
             # WilsonLoop probe — telemetry-only. See tsunami/wilson_loop.py.
             if self._wilson.should_probe(self.state.iteration):
