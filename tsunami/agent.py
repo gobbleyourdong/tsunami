@@ -276,6 +276,16 @@ class Agent:
         self._token_read_paths: set = set()
         self._token_written_paths: set = set()
 
+    @property
+    def _deliverables_dir(self) -> Path:
+        """`workspace_dir/deliverables` — root of all per-project build dirs.
+
+        Cheap computed property so test harnesses that reassign workspace_dir
+        still see the update. 41 inline constructions of this path existed
+        pre-pass-#10; consolidated here to make path-shape changes grep-able.
+        """
+        return self._deliverables_dir
+
     def _on_context_overflow_trip(self, consecutive_errors: int) -> str:
         """Site A (context_overflow) trip handler — symmetric with
         ``_on_read_spiral_trip``. Returns the exit message; caller (the
@@ -376,7 +386,7 @@ class Agent:
                               "broken", "not working", "white screen", "blank page"]
         is_iteration = any(k in msg for k in iteration_keywords)
 
-        deliverables = Path(self.config.workspace_dir) / "deliverables"
+        deliverables = self._deliverables_dir
         if not deliverables.exists():
             return ""
 
@@ -592,7 +602,7 @@ class Agent:
         )
 
         # Check if project already exists
-        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+        project_dir = self._deliverables_dir / project_name
         if (project_dir / "package.json").exists():
             return ""
 
@@ -635,7 +645,7 @@ class Agent:
                 try:
                     import shutil as _sh
                     inputs_src = Path.home() / ".tsunami" / "inputs" / project_name
-                    project_path = Path(self.config.workspace_dir) / "deliverables" / project_name
+                    project_path = self._deliverables_dir / project_name
                     # Supplied-paths manifest: absolute paths of every file
                     # the user dropped in via the inputs/ overlay. Written
                     # to <project>/.tsunami/supplied.txt. generate_image's
@@ -855,7 +865,7 @@ class Agent:
         if len(parts) < 2:
             return
         project_name = parts[1].split("/")[0]
-        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+        project_dir = self._deliverables_dir / project_name
         if not (project_dir / "package.json").exists():
             return
 
@@ -1014,7 +1024,7 @@ class Agent:
             if comp_match:
                 comp_name = comp_match.group(1)
                 # Find the active project dir
-                _dl = Path(self.config.workspace_dir) / "deliverables"
+                _dl = self._deliverables_dir
                 if _dl.exists():
                     _dirs = sorted(
                         (d for d in _dl.iterdir()
@@ -1062,7 +1072,7 @@ class Agent:
                 task = m.content.split("\n\n", 1)[0][:400]
                 break
         from .prompt import build_edit_prompt
-        project_path = str(Path(self.config.workspace_dir) / "deliverables" / self.active_project)
+        project_path = str(self._deliverables_dir / self.active_project)
         # Pull current plan TOC (if any) so the drone sees the wave's
         # blackboard instead of re-parsing history each iter.
         plan_toc = ""
@@ -1113,7 +1123,7 @@ class Agent:
         Scans all projects the wave wrote to. If App.tsx is a stub
         but components exist, generate imports automatically.
         """
-        deliverables = Path(self.config.workspace_dir) / "deliverables"
+        deliverables = self._deliverables_dir
         if not deliverables.exists():
             return
 
@@ -1191,7 +1201,7 @@ class Agent:
         the 9B forgets steps because the plan is in context, not on disk.
         """
         # Find todo.md in the most recently written deliverable
-        deliverables = Path(self.config.workspace_dir) / "deliverables"
+        deliverables = self._deliverables_dir
         if not deliverables.exists():
             return
 
@@ -1216,7 +1226,7 @@ class Agent:
 
     def set_project(self, project_name: str) -> str:
         """Set the active project and load its tsunami.md context."""
-        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+        project_dir = self._deliverables_dir / project_name
         if not project_dir.exists():
             return f"Project '{project_name}' not found"
 
@@ -1395,7 +1405,7 @@ class Agent:
         unresolved var names so the delivery can report them.
         """
         import re as _re
-        deliverables = Path(self.config.workspace_dir) / "deliverables"
+        deliverables = self._deliverables_dir
         if not deliverables.exists():
             return set()
         projects = sorted(
@@ -1487,7 +1497,7 @@ class Agent:
         if no buildable deliverable exists yet. Used by the force-undertow
         gate to decide whether the end-of-run QA pass should fire."""
         try:
-            deliverables = Path(self.config.workspace_dir) / "deliverables"
+            deliverables = self._deliverables_dir
             if not deliverables.exists():
                 return None
             projects = [
@@ -1838,7 +1848,7 @@ class Agent:
                 _brief = _bs.generate_brand_brief(user_message, style_name=style_name)
                 if _brief.get("brand_name"):
                     _project_dir = (
-                        Path(self.config.workspace_dir) / "deliverables" / self.active_project
+                        self._deliverables_dir / self.active_project
                     )
                     _bs.write_brief_file(_brief, _project_dir)
                     brand_directive = _bs.format_brand_directive(_brief)
@@ -1862,7 +1872,7 @@ class Agent:
                 from . import target_layout as _tl
                 if _tl.is_enabled():
                     _project_dir = (
-                        Path(self.config.workspace_dir) / "deliverables" / self.active_project
+                        self._deliverables_dir / self.active_project
                     )
                     # Extract mood hint from style body for the ERNIE prompt
                     _mood = ""
@@ -2070,7 +2080,7 @@ class Agent:
             if build_passed_at and (self.state.iteration - build_passed_at) >= 10:
                 log.info(f"Safety valve: {self.state.iteration - build_passed_at} iters since build passed — forcing delivery")
                 # Find the project and deliver properly
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                deliverables = self._deliverables_dir
                 projects = sorted(
                     [d for d in deliverables.iterdir() if d.is_dir() and (d / "package.json").exists()],
                     key=lambda p: p.stat().st_mtime, reverse=True
@@ -2103,7 +2113,7 @@ class Agent:
                     # Don't check _gamedev_mode here: _swap_in_edit_prompt
                     # sets it milliseconds later on first context refresh,
                     # not at this point in the loop.
-                    existing_dir = Path(self.config.workspace_dir) / "deliverables" / Path(self.active_project).name
+                    existing_dir = self._deliverables_dir / Path(self.active_project).name
                     um = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
                     self._fix_a_seed_pending(existing_dir, um)
 
@@ -2392,7 +2402,7 @@ class Agent:
                     from .quality_telemetry import log_delivery as _q_log
                     _proj_dir = None
                     if self.active_project:
-                        _proj_dir = Path(self.config.workspace_dir) / "deliverables" / self.active_project
+                        _proj_dir = self._deliverables_dir / self.active_project
                     _q_log(
                         run_id=self.session_id,
                         project_dir=_proj_dir or "",
@@ -2680,7 +2690,7 @@ class Agent:
                     # path so synthetic message_results don't skip QA.
                     import os as _osb
                     if _osb.environ.get("TSUNAMI_VISION_GATE") != "0":
-                        deliverables = Path(self.config.workspace_dir) / "deliverables"
+                        deliverables = self._deliverables_dir
                         projects = sorted(
                             [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
                             key=lambda p: p.stat().st_mtime, reverse=True,
@@ -2732,7 +2742,7 @@ class Agent:
                     # eval logs.
                     _proj_name = ""
                     try:
-                        _dl = Path(self.config.workspace_dir) / "deliverables"
+                        _dl = self._deliverables_dir
                         if _dl.exists():
                             _dirs = sorted(
                                 [d for d in _dl.iterdir()
@@ -3371,7 +3381,7 @@ class Agent:
                     parts = last_path.split("deliverables/")
                     if len(parts) > 1:
                         project_name = parts[1].split("/")[0]
-                        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+                        project_dir = self._deliverables_dir / project_name
                         app_path = project_dir / "src" / "App.tsx"
                         comp_dir = project_dir / "src" / "components"
                         if app_path.exists() and comp_dir.exists():
@@ -3741,7 +3751,7 @@ class Agent:
             )
             if has_payload:
                 # Find the active project (works for both init and pre-scaffold)
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                deliverables = self._deliverables_dir
                 if deliverables.exists():
                     projects = sorted(
                         [d for d in deliverables.iterdir() if d.is_dir()],
@@ -3793,7 +3803,7 @@ class Agent:
                 )
                 xml_path = path_match.group(1).strip() if path_match else None
                 # Reroute to file_write on App.tsx
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                deliverables = self._deliverables_dir
                 if deliverables.exists():
                     projects = sorted(
                         [d for d in deliverables.iterdir() if d.is_dir()],
@@ -4189,7 +4199,7 @@ class Agent:
             if search_type == "image" or "image" in result.content.lower()[:50]:
                 # Find active project and save reference URLs
                 try:
-                    deliverables = Path(self.config.workspace_dir) / "deliverables"
+                    deliverables = self._deliverables_dir
                     if deliverables.exists():
                         # Find most recent project
                         projects = sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -4256,7 +4266,7 @@ class Agent:
                             # Write a layout.css file into the project with the grounded positions
                             # This is a FILE, not a note — the 9B imports it instead of guessing
                             try:
-                                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                                deliverables = self._deliverables_dir
                                 if deliverables.exists():
                                     projects = sorted(deliverables.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
                                     for proj in projects:
@@ -4365,7 +4375,7 @@ class Agent:
                     parts = written_path.split("deliverables/")
                     if len(parts) > 1:
                         project_name = parts[1].split("/")[0]
-                        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+                        project_dir = self._deliverables_dir / project_name
                         # Mutex with _pre_scaffold: if we already provisioned a
                         # project this session AND the drone is writing INTO
                         # that same project, there's nothing to auto-scaffold
@@ -4396,7 +4406,7 @@ class Agent:
                 goal = tool_call.arguments.get("goal", "")
                 if phases:
                     # Find the active project
-                    deliverables = Path(self.config.workspace_dir) / "deliverables"
+                    deliverables = self._deliverables_dir
                     if deliverables.exists():
                         projects = sorted(
                             [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
@@ -4431,7 +4441,7 @@ class Agent:
 
                 # If 3+ component phases AND a project with types.ts exists, auto-dispatch
                 if len(component_phases) >= 3:
-                    deliverables = Path(self.config.workspace_dir) / "deliverables"
+                    deliverables = self._deliverables_dir
                     if deliverables.exists():
                         projects = sorted(
                             [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
@@ -4611,7 +4621,7 @@ class Agent:
                         project_name = None
 
                     if project_name and project_name != serving_project:
-                        project_dir = str(Path(self.config.workspace_dir) / "deliverables" / project_name)
+                        project_dir = str(self._deliverables_dir / project_name)
                         if Path(project_dir).exists():
                             url = serve_project(project_dir)
                             if url.startswith("http"):
@@ -4637,7 +4647,7 @@ class Agent:
                         # Infer from phase_machine — e.g. "workspace/deliverables/my-app" → "my-app"
                         project_name = self.phase_machine.project_path.split("/")[-1] if self.phase_machine.project_path else None
                     if project_name:
-                        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+                        project_dir = self._deliverables_dir / project_name
                         if (project_dir / "package.json").exists() and (project_dir / "node_modules").exists():
                             import subprocess
                             # Use `npm run build` (not bare `npx vite build`) so the scaffold's
@@ -4831,7 +4841,7 @@ class Agent:
             recent = self._tool_history[-4:] if len(self._tool_history) >= 4 else []
             if len(recent) >= 4 and all(t in ("file_write", "file_edit") for t in recent):
                 # Find the active project
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                deliverables = self._deliverables_dir
                 if deliverables.exists():
                     projects = sorted(
                         [d for d in deliverables.iterdir() if d.is_dir() and (d / "package.json").exists()],
@@ -4930,7 +4940,7 @@ class Agent:
         _periodic = self.state.iteration > 0 and self.state.iteration % 10 == 0
         if _early or _periodic:
             try:
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                deliverables = self._deliverables_dir
                 if deliverables.exists():
                     projects = sorted(
                         [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
@@ -5013,7 +5023,7 @@ class Agent:
                 parts = written_path.split("deliverables/")
                 if len(parts) > 1:
                     project_name = parts[1].split("/")[0]
-                    todo_path = Path(self.config.workspace_dir) / "deliverables" / project_name / "todo.md"
+                    todo_path = self._deliverables_dir / project_name / "todo.md"
                     if todo_path.exists():
                         content = todo_path.read_text()
                         file_name = Path(written_path).stem
@@ -5043,7 +5053,7 @@ class Agent:
                         parts = written_path.split("deliverables/")
                         if len(parts) > 1:
                             project_name = parts[1].split("/")[0]
-                            ui_path = Path(self.config.workspace_dir) / "deliverables" / project_name / "src" / "components" / "ui" / f"{comp_name}.tsx"
+                            ui_path = self._deliverables_dir / project_name / "src" / "components" / "ui" / f"{comp_name}.tsx"
                             if ui_path.exists():
                                 self.state.add_system_note(
                                     f"DUPLICATE: {comp_name} already exists at components/ui/{comp_name}.tsx. "
@@ -5062,7 +5072,7 @@ class Agent:
                     parts = written_path.split("deliverables/")
                     if len(parts) > 1:
                         project_name = parts[1].split("/")[0]
-                        project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
+                        project_dir = self._deliverables_dir / project_name
                         app_path = project_dir / "src" / "App.tsx"
                         comp_dir = project_dir / "src" / "components"
                         if app_path.exists() and comp_dir.exists():
@@ -5140,8 +5150,8 @@ class Agent:
                     import re as _re2
                     match = _re2.search(r'deliverables/([^/\s]+)', msg.content)
                     if match:
-                        app_path = Path(self.config.workspace_dir) / "deliverables" / match.group(1) / "src" / "App.tsx"
-                        comp_dir = Path(self.config.workspace_dir) / "deliverables" / match.group(1) / "src" / "components"
+                        app_path = self._deliverables_dir / match.group(1) / "src" / "App.tsx"
+                        comp_dir = self._deliverables_dir / match.group(1) / "src" / "components"
                         if app_path.exists() and comp_dir.exists():
                             app_content = app_path.read_text()
                             has_components = any(comp_dir.iterdir())
@@ -5193,7 +5203,7 @@ class Agent:
             # when a game_definition.json was emitted under deliverables/.
             _has_gamedev_delivery = False
             try:
-                _dv = Path(self.config.workspace_dir) / "deliverables"
+                _dv = self._deliverables_dir
                 if _dv.exists():
                     for d in _dv.iterdir():
                         if (d / "public" / "game_definition.json").is_file():
@@ -5212,7 +5222,7 @@ class Agent:
                 # Pick the most-recently-touched deliverable as the project
                 # under gate check. Same logic the old inline gates used.
                 _project_dir = None
-                _deliverables = Path(self.config.workspace_dir) / "deliverables"
+                _deliverables = self._deliverables_dir
                 if _deliverables.exists():
                     _dirs = sorted(
                         (d for d in _deliverables.iterdir()
@@ -5302,7 +5312,7 @@ class Agent:
                      or _is_gamedev_task)
                 and (self._build_passed_at is not None
                      or _has_gamedev_delivery or _is_gamedev_task)):
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                deliverables = self._deliverables_dir
                 projects = sorted(
                     [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
                     key=lambda p: p.stat().st_mtime, reverse=True,
@@ -5458,7 +5468,7 @@ class Agent:
             # 10a. Swell compile gate — vite build must pass for React deliveries
             if self._delivery_attempts <= 5 and not skip_compile_gate:
                 try:
-                    deliverables = Path(self.config.workspace_dir) / "deliverables"
+                    deliverables = self._deliverables_dir
                     if deliverables.exists():
                         # Find the most recently modified project
                         projects = sorted(
@@ -5631,7 +5641,7 @@ class Agent:
 
             # Learn from this build — extract patterns for future sessions
             try:
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                deliverables = self._deliverables_dir
                 if deliverables.exists():
                     projects = sorted(
                         [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
@@ -5646,7 +5656,7 @@ class Agent:
 
             # Project history — record what prompt built this project
             try:
-                deliverables = Path(self.config.workspace_dir) / "deliverables"
+                deliverables = self._deliverables_dir
                 if deliverables.exists():
                     projects = sorted(
                         [d for d in deliverables.iterdir() if d.is_dir() and not d.name.startswith(".")],
