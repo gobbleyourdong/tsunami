@@ -87,6 +87,46 @@ def test_detect_no_package_json_returns_none(tmp_path: Path):
     assert detect_scaffold(tmp_path) is None
 
 
+def test_detect_gamedev_scaffold_first_via_structural_signature(tmp_path: Path):
+    """Gamedev scaffold-first projects are renamed by project_init_gamedev
+    so `pkg.name` no longer starts with 'gamedev-'. Detection must fall
+    back to structural markers (data/mechanics.json + src/scenes/).
+    Bug surfaced on copper-steel 2026-04-21."""
+    _write_pkg(tmp_path, deps={})  # name="test", not "gamedev-*"
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "mechanics.json").write_text("{}")
+    (tmp_path / "src" / "scenes").mkdir(parents=True)
+    assert detect_scaffold(tmp_path) == "gamedev"
+
+
+def test_detect_gamedev_legacy_name_prefix_still_works(tmp_path: Path):
+    """Pre-rename detection path still matches gamedev-* named seeds."""
+    (tmp_path / "package.json").write_text(json.dumps({
+        "name": "gamedev-fighting-scaffold", "version": "1.0.0",
+    }))
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "characters.json").write_text("{}")
+    assert detect_scaffold(tmp_path) == "gamedev"
+
+
+def test_detect_gamedev_legacy_game_definition_json(tmp_path: Path):
+    """Legacy emit_design flow (pre-scaffold-first) still works."""
+    _write_pkg(tmp_path, deps={})
+    (tmp_path / "public").mkdir()
+    (tmp_path / "public" / "game_definition.json").write_text("{}")
+    assert detect_scaffold(tmp_path) == "gamedev"
+
+
+def test_detect_gamedev_ignores_partial_signature(tmp_path: Path):
+    """data/ dir alone (no scenes/) should NOT fire gamedev — a plain
+    data-dashboard app shouldn't match."""
+    _write_pkg(tmp_path, deps={"react": "^19"})
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "stuff.json").write_text("{}")
+    # No src/scenes/ → should NOT match gamedev.
+    assert detect_scaffold(tmp_path) is None
+
+
 # ─────────────────── probe_for_delivery ───────────────────
 
 def test_dispatch_missing_project_skips(tmp_path: Path):

@@ -188,6 +188,15 @@ def detect_scaffold(project_dir: Path) -> str | None:
     data_dir = project_dir / "data"
     if pkg_name.startswith("gamedev-") and data_dir.is_dir() and any(data_dir.glob("*.json")):
         return "gamedev"
+    # Scaffold-first projects retain the seed package.json's description
+    # + src/scenes/ layout + data/mechanics.json even after the project
+    # name is customized. Detect by structural signature rather than
+    # package name, which `project_init_gamedev` rewrites to the
+    # deliverable's slug (breaks the startswith check above).
+    mechanics_json = data_dir / "mechanics.json"
+    scenes_dir = project_dir / "src" / "scenes"
+    if mechanics_json.is_file() and scenes_dir.is_dir():
+        return "gamedev"
     if (project_dir / "public" / "game_definition.json").is_file():
         return "gamedev"
     if (project_dir / "game_definition.json").is_file():

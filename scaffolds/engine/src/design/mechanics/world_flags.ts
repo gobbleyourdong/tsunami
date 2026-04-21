@@ -14,7 +14,7 @@
 
 import type { Game } from '../../game/game'
 
-export type WorldFlagValue = boolean | string | number
+export type WorldFlagValue = boolean | string | number | null
 
 /** Read a named flag from the active scene's world-flag store. */
 export function readWorldFlag(game: Game, key: string): WorldFlagValue | undefined {
