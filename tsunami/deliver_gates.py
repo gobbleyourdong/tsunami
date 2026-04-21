@@ -48,6 +48,47 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+# Scaffold seed root — used by _scaffold_first_modifications to compare
+# a deliverable's data/*.json against the genre's pristine seed.
+_SCAFFOLD_ROOT = Path(__file__).parent.parent / "scaffolds" / "gamedev"
+
+
+def _scaffold_first_modifications(project_dir: Path, genre: str) -> list[str]:
+    """Return sorted filenames of `data/*.json` in project_dir whose bytes
+    differ from the seed at scaffolds/gamedev/<genre>/data/. New files
+    (not in seed) count as customizations. Empty list means no
+    customization detected (drone copied seed but changed nothing).
+
+    Handles nested cross-canary genres ("cross/magic_hoops" etc.).
+    Also handles genre aliases — pick_genre returns signal names like
+    "fighter" but the scaffold dir is "fighting". Resolves via the
+    `project_init_gamedev._GENRE_MAP` source of truth.
+    """
+    # Resolve genre alias → on-disk dir name. pick_genre gives us the
+    # signal ("fighter", "kart_racer"), project_init_gamedev's _GENRE_MAP
+    # maps those to the dir names ("fighting", "racing", "cross/..").
+    try:
+        from .tools.project_init_gamedev import _resolve_genre
+        resolved = _resolve_genre(genre) or genre
+    except Exception:
+        resolved = genre
+    seed_dir = _SCAFFOLD_ROOT / resolved / "data"
+    project_data_dir = project_dir / "data"
+    if not seed_dir.is_dir() or not project_data_dir.is_dir():
+        return []
+    modified: list[str] = []
+    for project_file in project_data_dir.glob("*.json"):
+        seed_file = seed_dir / project_file.name
+        if not seed_file.is_file():
+            modified.append(project_file.name)
+            continue
+        try:
+            if project_file.read_bytes() != seed_file.read_bytes():
+                modified.append(project_file.name)
+        except Exception:
+            continue
+    return sorted(modified)
+
 log = logging.getLogger("tsunami.deliver_gates")
 
 
@@ -97,15 +138,17 @@ def code_write_gate(
     name = "code_write"
     scaffold = state_flags.get("target_scaffold", "") or ""
 
-    # Gamedev branch — require game_definition.json, reject App.tsx guidance
+    # Gamedev branch — two success paths: legacy emit_design (produces
+    # game_definition.json) OR scaffold-first (customizes data/*.json
+    # that differs from the seed). Per JOB-INT-6 spec 2026-04-21.
     if scaffold == "gamedev":
+        # Success-check 1 (legacy emit_design path)
         try:
             if project_dir and (project_dir / "public" / "game_definition.json").is_file():
                 return GateResult(
                     passed=True, name=name,
                     message="public/game_definition.json present",
                 )
-            # Also accept root-level game_definition.json as a fallback
             if project_dir and (project_dir / "game_definition.json").is_file():
                 return GateResult(
                     passed=True, name=name,
@@ -113,18 +156,37 @@ def code_write_gate(
                 )
         except Exception:
             pass
+
+        # Success-check 2 (scaffold-first path): data/*.json differs from
+        # seed. The drone customized content files instead of emitting
+        # a design — that's the scaffold-first flow.
+        genre = state_flags.get("target_genre", "") or ""
+        if genre and project_dir and (project_dir / "data").is_dir():
+            try:
+                modified = _scaffold_first_modifications(project_dir, genre)
+                if modified:
+                    preview = ", ".join(modified[:3])
+                    ellip = "..." if len(modified) > 3 else ""
+                    return GateResult(
+                        passed=True, name=name,
+                        message=(
+                            f"scaffold-first delivery: {len(modified)} data "
+                            f"file(s) customized ({preview}{ellip})"
+                        ),
+                    )
+            except Exception:
+                pass
+
         return GateResult(
             passed=False,
             name=name,
-            message="game_definition.json not emitted",
+            message="neither game_definition.json nor scaffold-first data/*.json customizations detected",
             system_note=(
-                "BLOCKED: no public/game_definition.json exists. For "
-                "gamedev tasks you deliver by calling emit_design(design={"
-                "...}, project_name='...') — NOT file_write and NOT "
-                "project_init. The Node compiler writes the JSON through "
-                "validation. Do NOT write src/App.tsx — the gamedev "
-                "scaffold is engine-only. See plan_scaffolds/gamedev.md "
-                "and the GAMEDEV OVERRIDE in the system prompt."
+                "BLOCKED: no public/game_definition.json AND no scaffold-first "
+                "customization detected. Either call emit_design(design={...}) "
+                "(legacy path) OR write customized data/*.json files that "
+                "differ from the seed scaffold (scaffold-first path). Do NOT "
+                "write src/App.tsx — the gamedev scaffold is engine-only."
             ),
         )
 
