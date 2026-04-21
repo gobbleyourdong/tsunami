@@ -59,6 +59,16 @@ Append to `data/equipment.json::equipment` with `slot` ∈ `{weapon, armor, acce
 
 Edit `Battle.ts::setup()`: replace the `ATBCombat` mount with `TurnBasedCombat` and adjust params to `{turn_order: 'speed_desc', party_size: 4, command_menu: [...], can_flee: true}`. Both mechanics expose `startCombat(party, enemies)` + `queueCommand(actor, kind, target)` — the scene hand-off doesn't change.
 
+### Generate party + NPC sprites
+This scaffold's overworld-facing party + NPC sprites follow a retro-RPG
+convention (3-frame walks × 4 directions, ~48×48 native scale). The canonical
+workflow for that lineage lives at
+`scaffolds/engine/asset_workflows/top_down_jrpg_character/` (Shoal plan cat. 5,
+shipping separately). For **battle-scene portraits and cut-in boss poses**
+reach for `scaffolds/engine/asset_workflows/top_down_character/` (the full
+ARPG move-set) instead — it over-generates for overworld but is the right
+fit for named portraits and scripted camera beats.
+
 ## Directory layout
 
 ```

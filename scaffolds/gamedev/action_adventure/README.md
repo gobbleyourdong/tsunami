@@ -29,6 +29,15 @@ Append to `data/items.json` with a `use_effect` (for weapons/consumables) or `ta
 ### Change rules
 `data/config.json` has `starting_room`, player HP, viewport size. `data/mechanics.json` controls camera lerp, room-transition style, lock-and-key pairs.
 
+### Generate new character sprites
+This scaffold's canonical 4-direction ARPG characters are produced by the
+`top_down_character` asset workflow:
+`scaffolds/engine/asset_workflows/top_down_character/`. See that dir's
+`README.md` for the ERNIE call budget (23 calls for a full move-set, 17 with
+east→west mirroring) and `prompt_template.md` for the parameterized prompt.
+Enemies use the reduced variant (idle+walk+attack+hurt+death) — same workflow,
+skip the `run` and `interact` anims.
+
 ## Directory layout
 
 ```

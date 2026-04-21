@@ -1,0 +1,104 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "top_down_character",
+  "projection": "orthographic_top_down",
+  "canvas": {"w": 1024, "h": 1024},
+  "character_pct": 0.25,
+  "frame_out_sizes": [128, 256],
+  "directions": {
+    "order": ["north", "east", "south", "west"],
+    "count": 4,
+    "baseline": "south",
+    "east_can_mirror_to_west": true
+  },
+  "anims": {
+    "idle": {
+      "frames": 4,
+      "directions": 1,
+      "loop": true,
+      "grid": [2, 2],
+      "per_frame_ms": 200,
+      "anchors": ["alttp_link_idle", "stardew_walk_centered"]
+    },
+    "walk": {
+      "frames": 8,
+      "directions": 4,
+      "loop": true,
+      "grid": [4, 2],
+      "per_frame_ms": 90,
+      "anchors": ["alttp_link_walk", "hld_drifter_walk"]
+    },
+    "run": {
+      "frames": 8,
+      "directions": 4,
+      "loop": true,
+      "grid": [4, 2],
+      "per_frame_ms": 70,
+      "anchors": ["hld_drifter_run"]
+    },
+    "attack_light": {
+      "frames": 5,
+      "directions": 4,
+      "loop": false,
+      "grid": [5, 1],
+      "per_frame_ms": 50,
+      "anchors": ["alttp_sword_slash"]
+    },
+    "attack_heavy": {
+      "frames": 7,
+      "directions": 4,
+      "loop": false,
+      "grid": [4, 2],
+      "per_frame_ms": 60,
+      "grid_note": "7 frames in 4x2; last cell is empty / duplicate final pose",
+      "anchors": ["alttp_spin_attack"]
+    },
+    "hurt": {
+      "frames": 3,
+      "directions": 1,
+      "loop": false,
+      "grid": [3, 1],
+      "per_frame_ms": 110,
+      "note": "direction-agnostic; engine rotates the shadow offset"
+    },
+    "death": {
+      "frames": 6,
+      "directions": 1,
+      "loop": false,
+      "grid": [3, 2],
+      "per_frame_ms": 140,
+      "note": "direction-agnostic collapse"
+    },
+    "interact": {
+      "frames": 3,
+      "directions": 4,
+      "loop": false,
+      "grid": [3, 1],
+      "per_frame_ms": 110,
+      "note": "reach / pickup / talk"
+    }
+  },
+  "total_frame_budget": {
+    "idle": 4,
+    "walk": 32,
+    "run": 32,
+    "attack_light": 20,
+    "attack_heavy": 28,
+    "hurt": 3,
+    "death": 6,
+    "interact": 12,
+    "total": 137
+  },
+  "ernie_call_count": {
+    "idle": 1,
+    "walk": 4,
+    "run": 4,
+    "attack_light": 4,
+    "attack_heavy": 4,
+    "hurt": 1,
+    "death": 1,
+    "interact": 4,
+    "total": 23,
+    "with_west_mirror": 17
+  }
+}
