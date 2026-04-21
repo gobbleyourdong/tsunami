@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "data-processor"
+version = "0.1.0"
+description = "Scaffold for a pipe-friendly CLI that filters / maps / counts record streams."
+requires-python = ">=3.10"
+dependencies = [
+  "click>=8.1",
+]
+
+[project.scripts]
+data-processor = "data_processor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

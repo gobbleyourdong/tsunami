@@ -127,6 +127,19 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
     def needs(*keywords):
         return any(_match_kw(all_text, k, plural_s=True) for k in keywords)
 
+    # 0.0 CLI verticals (Python). Checked first because the "cli" /
+    # "command-line" signal is explicit and non-overlapping with web
+    # scaffold keywords. Returns a nested scaffold path ("cli/<name>");
+    # ProjectInit.execute forks on the "cli/" prefix to use pip instead
+    # of npm. Keywords are multi-word where possible to avoid the "live"
+    # / "chat" class of mis-routing seen in the web branches.
+    if needs("cli tool", "command line tool", "command-line tool",
+             "process jsonl", "process csv", "stdin pipeline",
+             "data processor", "data-processor", "pipeline cli",
+             "jq-like", "miller-like"):
+        if (SCAFFOLDS_DIR / "cli" / "data-processor").exists():
+            return "cli/data-processor"
+
     # 0a. Chrome extension
     # Dropped "badge" — it's a generic web-UI idiom (notification dots,
     # card labels, the @/components/ui Badge); it mis-routed the AURUM
@@ -315,6 +328,10 @@ class ProjectInit(BaseTool):
         "auth-app":         "auth-app",
         "auth":             "auth-app",
         "authapp":          "auth-app",
+        # CLI verticals (Python). Nested paths trigger the pip-install branch.
+        "cli":              "cli/data-processor",
+        "data-processor":   "cli/data-processor",
+        "cli/data-processor": "cli/data-processor",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:
@@ -371,6 +388,13 @@ class ProjectInit(BaseTool):
                     "message_chat to clarify with the user.",
                     is_error=True,
                 )
+
+            # Python CLI scaffolds live at scaffolds/cli/<name> and use
+            # pip / pyproject.toml. npm/vite are irrelevant here, so
+            # fork early rather than threading "is-python" booleans
+            # through the web/game copy block below.
+            if scaffold_name.startswith("cli/"):
+                return self._init_cli_scaffold(name, project_dir, scaffold_name)
 
             if scaffold_name:
                 scaffold_dir = SCAFFOLDS_DIR / scaffold_name
@@ -514,3 +538,41 @@ class ProjectInit(BaseTool):
 
         except Exception as e:
             return ToolResult(f"Project init failed: {e}", is_error=True)
+
+    def _init_cli_scaffold(self, name: str, project_dir: Path, scaffold_name: str) -> ToolResult:
+        """Init a Python CLI scaffold. Copy tree, pip install -e, return help."""
+        scaffold_dir = SCAFFOLDS_DIR / scaffold_name
+        if not scaffold_dir.is_dir():
+            return ToolResult(
+                f"CLI scaffold not found at {scaffold_dir}", is_error=True,
+            )
+        try:
+            shutil.copytree(
+                scaffold_dir, project_dir,
+                ignore=shutil.ignore_patterns(
+                    "__pycache__", "*.egg-info", ".pytest_cache", "build", "dist",
+                ),
+            )
+            log.info(f"Copied CLI scaffold '{scaffold_name}' → {project_dir}")
+
+            install = subprocess.run(
+                ["pip", "install", "--quiet", "-e", "."],
+                cwd=str(project_dir), capture_output=True, text=True, timeout=120,
+            )
+            if install.returncode != 0:
+                return ToolResult(
+                    f"CLI scaffold copied but pip install -e failed: "
+                    f"{install.stderr[:300]}",
+                    is_error=True,
+                )
+
+            entry = scaffold_name.split("/", 1)[1]
+            return ToolResult(
+                f"Project '{name}' ready (scaffold: {scaffold_name}) at {project_dir}\n"
+                f"Entry point: `{entry}` (installed on PATH via pyproject.toml)\n"
+                f"Run: shell_exec '{entry} --help'\n"
+                f"Extend: edit src/data_processor/operators.py (add generators) "
+                f"and src/data_processor/cli.py (wire them into Click commands).",
+            )
+        except Exception as e:
+            return ToolResult(f"CLI scaffold init failed: {e}", is_error=True)

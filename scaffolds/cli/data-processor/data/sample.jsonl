@@ -1,0 +1,5 @@
+{"id": 1, "user": {"name": "alice", "city": "seattle"}, "status": "active",   "score": 0.92}
+{"id": 2, "user": {"name": "bob",   "city": "seattle"}, "status": "inactive", "score": 0.41}
+{"id": 3, "user": {"name": "carol", "city": "nyc"},     "status": "active",   "score": 0.88}
+{"id": 4, "user": {"name": "dan",   "city": "sf"},      "status": "active",   "score": 0.55}
+{"id": 5, "user": {"name": "eve",   "city": "nyc"},     "status": "inactive", "score": 0.12}
