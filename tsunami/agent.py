@@ -224,6 +224,50 @@ class Agent:
         self.active_project: str | None = None
         self.project_context: str = ""
 
+        # Lazy-init state consolidation (audit 2026-04-21): all lifetime
+        # attributes declared here instead of "first write creates them"
+        # scattered across the file. Before this block, 26 attrs were
+        # accessed via `getattr(self, "_X", default)` and only 11 were
+        # initialized. Moving the shape into __init__ means (1) grep finds
+        # the full set in one place, (2) type inference works, (3) there's
+        # no "attribute missing in edge-case code path" bug class.
+        # Defaults mirror the previous getattr fallbacks verbatim.
+
+        # Gate + delivery state
+        self._build_passed_at: float | None = None
+        self._deliver_gate_fires: int = 0
+        self._forced_grounding_done: bool = False
+        self._forced_undertow_done: bool = False
+        self._image_ceiling_fired: bool = False
+        self._last_gate_printed: str | None = None
+        self._loop_forced_tool: str | None = None
+
+        # Failure / retry counters
+        self._edit_fail_count_by_path: dict[str, int] = {}
+        self._fail_streak: int = 0
+        self._grounding_fail_count: int = 0
+        self._probe_fail_count: int = 0
+        self._reroute_count: int = 0
+        self._rewrite_count: dict[str, int] = {}
+        self._vision_fail_count: int = 0
+        self._last_failing_test: str | None = None
+
+        # Pre-scaffold / seeded context (populated by _pre_scaffold and kin)
+        self._pending_data_files: list[str] = []
+        self._written_data_files: list[str] = []
+        self._mentioned_but_missing: list[str] = []
+        self._seeded_behaviors: list[str] = []
+        self._scaffold_name: str = ""
+        self._target_scaffold: str = ""
+        self._style_name: str = ""
+        self._genre_name: str = ""
+        self._content_essence: str = ""
+
+        # Token accounting
+        self._token_ledger: list = []
+        self._token_read_paths: set = set()
+        self._token_written_paths: set = set()
+
     def _on_context_overflow_trip(self, consecutive_errors: int) -> str:
         """Site A (context_overflow) trip handler — symmetric with
         ``_on_read_spiral_trip``. Returns the exit message; caller (the
