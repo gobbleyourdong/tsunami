@@ -1,0 +1,98 @@
+entity: tree
+base: scaffolds/engine/asset_library/tree_static/baseline_oak_iso.png
+
+# Full state-graph for an in-world tree. Seven states span the common
+# game-logic scenarios (healthy / weather-affected / fire lifecycle /
+# long-term death). Events map to the game engine's signal set:
+# GUST / CALM / IGNITE / WATER / TIME / SNOW / THAW / LIGHTNING /
+# DAMAGE. Only transitions with existing animation primitives are
+# wired in v1 — the rest are declared as state pairs waiting for
+# their animation to land (see the commit-4 note about deferred
+# transitions).
+#
+# This graph demonstrates the full schema: derived states, multiple
+# branching transitions from a single source state (on_fire can go
+# to extinguished OR charred depending on event), and loops within
+# dynamic states (wind_sway while windy, fire_flicker while on_fire).
+
+states:
+  healthy_still:
+    source: base
+
+  windy:
+    derive_from: healthy_still
+    prompt: "branches swaying in a steady breeze, leaves rustling,
+      silhouette dynamic but rooted"
+
+  on_fire:
+    derive_from: healthy_still
+    prompt: "engulfed in active orange flames, bark charring, thick smoke
+      column rising from the crown"
+
+  extinguished:
+    derive_from: on_fire
+    prompt: "wet and sooty, charred bark visible under a wet sheen, steam
+      rising, flames gone, water droplets visible on remaining branches"
+
+  charred:
+    derive_from: on_fire
+    prompt: "burned out completely, black bark and skeletal branches,
+      no leaves, thin smoke wisps, small ash piles at the base"
+
+  snowy:
+    derive_from: healthy_still
+    prompt: "heavy snow accumulation on branches, frozen silhouette,
+      small icicles hanging from lower limbs"
+
+  dead_bare:
+    derive_from: healthy_still
+    prompt: "withered grey trunk, all leaves fallen, skeletal branches,
+      no visible fire damage — death by age or disease"
+
+transitions:
+  # Fire lifecycle — the three wired transitions, all primitives exist.
+  # NOTE: `"on"` is quoted because YAML 1.1 (PyYAML default) coerces
+  # bare `on`/`off`/`yes`/`no` to booleans. The game-semantic event
+  # keyword is worth preserving; a one-char quote is the cleanest fix.
+  - from: healthy_still
+    to: on_fire
+    "on": IGNITE
+    animation: igniting
+
+  - from: on_fire
+    to: extinguished
+    "on": WATER
+    animation: water_extinguish
+
+  - from: on_fire
+    to: charred
+    "on": TIME
+    animation: fire_fizzling
+
+# Loops — animations that play continuously while in a specific state
+loops:
+  # While in windy state, branches sway in the breeze
+  wind_sway_in_windy:
+    state: windy
+    animation: wind_sway_loop
+
+  # While in on_fire state, flames flicker on top of the engulfed tree
+  fire_flicker_in_on_fire:
+    state: on_fire
+    animation: fire_flicker_loop
+
+# DEFERRED (not yet wired — awaiting animation primitives that aren't in
+# the commit-3 seed set). When these primitives land, the transitions
+# can be added:
+#
+#   - GUST  / CALM:        healthy_still ↔ windy (need gust_pickup / reverse_of)
+#   - SNOW  / THAW:        healthy_still ↔ snowy (need snow_settle / reverse_of)
+#   - TIME drying:         extinguished → healthy_still (need drying primitive)
+#   - LIGHTNING:           healthy_still → on_fire (could alias igniting, or
+#                          get a dedicated lightning_strike primitive)
+#   - DAMAGE:              * → dead_bare (need withering primitive)
+#
+# Deferred transitions are intentionally commented out rather than
+# declared with null animation refs — the commit-2 validator rejects
+# transitions without animation or reverse_of, which is the right
+# behavior: an unwired transition would silently dead-code.

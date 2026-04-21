@@ -1,0 +1,53 @@
+entity: crystal_formation
+base: scaffolds/engine/asset_library/tree_static/baseline_oak_iso.png
+# NOTE on base: using the oak tree image as a placeholder — the v1
+# bake run will prove the pipeline works on ANY rigid-object base;
+# once a crystal asset lands in asset_library/, swap this field.
+# The schema validator doesn't care about the asset file's contents,
+# only that the bake tool can load it.
+
+# Minimal demonstration of:
+#   - A non-tree entity shape (two-state lifecycle)
+#   - Use of the `shattering` primitive in its forward direction
+#   - Use of `reverse_of` to get the inverse animation (shattering
+#     played backwards = a "formation" / "assembling" animation) for
+#     free, no separate primitive author time required
+#
+# In-game scenario: a crystal totem that breaks when struck by the
+# player and reforms if the player uses a RESTORE spell / event.
+#
+# Deliberately minimal — a two-state graph proves the schema composes
+# without the full tree's variety. Heavier entity examples (knight
+# with walk / attack / death) wait on character-category primitives
+# not in the commit-3 seed set.
+
+states:
+  pristine:
+    source: base
+
+  shattered:
+    derive_from: pristine
+    prompt: "shattered into scattered sharp shards and glowing dust,
+      original silhouette completely broken down, small crystal
+      fragments mid-fall"
+
+transitions:
+  # NOTE: "on" is quoted — YAML 1.1 coerces bare `on` to boolean True.
+  - from: pristine
+    to: shattered
+    "on": STRIKE
+    animation: shattering
+
+  - from: shattered
+    to: pristine
+    "on": RESTORE
+    # reverse_of uses the "from→to" identifier of another transition
+    # on this same entity. Runtime replays shattering's frames in
+    # reverse → fragments converge into pristine form. Zero extra
+    # primitive authoring; the shattering.yaml file does double duty.
+    reverse_of: "pristine→shattered"
+
+# This entity has no loops — pristine is static, shattered is static.
+# A more elaborate crystal might add a "glowing pulse" loop on pristine,
+# but that's additive and doesn't need to land in v1.
+loops: {}
