@@ -2038,50 +2038,9 @@ class Agent:
                     um = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
                     self._fix_a_seed_pending(existing_dir, um)
 
-            # (removed iter 2 auto-scaffold — pre-scaffold at line 544 handles this)
-            if False and self.state.iteration == 2 and "project_init" not in self._tool_history:
-                user_req = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
-                build_keywords = ["build", "create", "make", "app", "game", "dashboard", "website",
-                                  "calculator", "counter", "timer", "todo", "chat", "editor",
-                                  "landing", "store", "tracker", "manager", "player", "viewer"]
-                is_build = any(k in user_req.lower() for k in build_keywords)
-                if is_build:
-                    name_hint = "-".join(user_req.lower().split()[:5]).replace(",", "").replace("—", "").replace(".", "")[:30]
-                    log.info(f"Auto-scaffold at iter 2: build task detected, calling project_init('{name_hint}')")
-                    try:
-                        # Check if model already wrote App.tsx — preserve it
-                        saved_app = None
-                        deliverables = Path(self.config.workspace_dir) / "deliverables"
-                        for d in deliverables.iterdir() if deliverables.exists() else []:
-                            app_file = d / "src" / "App.tsx"
-                            if app_file.exists() and app_file.stat().st_size > 100:
-                                saved_app = (app_file, app_file.read_text())
-                                break
-
-                        tool = self.registry.get("project_init")
-                        if tool:
-                            result = await tool.execute(name=name_hint, dependencies=[])
-                            self.state.add_tool_result("project_init", {"name": name_hint}, result.content)
-                            self._tool_history.append("project_init")
-                            self._project_init_called = True
-
-                            # Restore model's App.tsx if scaffold overwrote it
-                            if saved_app:
-                                target = deliverables / name_hint / "src" / "App.tsx"
-                                if target.exists():
-                                    target.write_text(saved_app[1])
-                                    log.info(f"Auto-scaffold: restored model's App.tsx ({len(saved_app[1])} chars)")
-
-                            project_dir = f"workspace/deliverables/{name_hint}"
-                            self.state.add_system_note(
-                                f"Project scaffolded at {project_dir}/\n"
-                                f"To build: shell_exec with command=\"cd {project_dir} && npm run build\"\n"
-                                f"  (`npm run build` runs `tsc --noEmit && vite build` — the typecheck step catches "
-                                f"missing imports and type errors that bare `vite build` silently allows.)\n"
-                                f"To deliver: message_result when build passes."
-                            )
-                    except Exception as e:
-                        log.debug(f"Auto-scaffold at iter 2 failed: {e}")
+            # (iter-2 auto-scaffold retired — pre-scaffold at line 454 handles
+            # project provisioning before the loop; see commit history of
+            # _pre_scaffold for the replacement path.)
 
             # Progress signals — condition-based nudge / exit heuristics
             # lifted into tsunami/progress.py. Each signal is a named
@@ -5436,15 +5395,52 @@ class Agent:
                                     cwd=str(proj), capture_output=True, text=True, timeout=45,
                                 )
                                 if build.returncode != 0:
-                                    errors = [l.strip() for l in (build.stderr + "\n" + build.stdout).splitlines() if "error" in l.lower()][:3]
+                                    errors = [l.strip() for l in (build.stderr + "\n" + build.stdout).splitlines() if "error" in l.lower()][:6]
                                     if errors:
-                                        error_list = "\n".join(f"  - {e}" for e in errors)
-                                        log.info(f"Swell compile gate: FAIL — {len(errors)} errors in {proj.name}")
-                                        self.state.add_system_note(
-                                            f"SWELL COMPILE CHECK FAILED for {proj.name}:\n{error_list}\n"
-                                            f"Fix these build errors before delivering."
+                                        # FIX-C (JOB-INT-12): classify errors by locality.
+                                        # Framework errors (../engine/ or absolute-path outside
+                                        # deliverables) cannot be fixed by the drone — it has
+                                        # no write-access to engine code. Telling the drone to
+                                        # "fix these build errors" when they're framework-side
+                                        # puts it into a read-spiral on its own correct files.
+                                        def _is_framework(ln: str) -> bool:
+                                            return ("../engine/" in ln or "engine/src/" in ln
+                                                    or "../../engine" in ln)
+                                        framework_errs = [e for e in errors if _is_framework(e)][:3]
+                                        project_errs = [e for e in errors if not _is_framework(e)][:3]
+                                        if project_errs:
+                                            error_list = "\n".join(f"  - {e}" for e in project_errs)
+                                            fw_suffix = ""
+                                            if framework_errs:
+                                                fw_list = "\n".join(f"  - {e}" for e in framework_errs[:2])
+                                                fw_suffix = (
+                                                    f"\n(Additional framework-side errors logged for main "
+                                                    f"— not your responsibility, continue with project fixes "
+                                                    f"then re-deliver.)\n{fw_list}"
+                                                )
+                                            log.info(f"Swell compile gate: FAIL — {len(project_errs)} project errors, {len(framework_errs)} framework errors in {proj.name}")
+                                            self.state.add_system_note(
+                                                f"SWELL COMPILE CHECK FAILED for {proj.name}:\n{error_list}\n"
+                                                f"Fix these PROJECT-side build errors before delivering.{fw_suffix}"
+                                            )
+                                            return result.content
+                                        # All errors are framework-side — drone can't fix them.
+                                        # Log for main to address. Treat delivery as OK since
+                                        # the drone's own work is valid; engine issues are
+                                        # separate maintenance.
+                                        fw_list = "\n".join(f"  - {e}" for e in framework_errs[:3])
+                                        log.warning(
+                                            f"Swell compile gate: {len(framework_errs)} framework-side errors in {proj.name} "
+                                            f"(not drone-fixable — main should address): {framework_errs[:2]}"
                                         )
-                                        return result.content
+                                        self.state.add_system_note(
+                                            f"Compile check found {len(framework_errs)} errors in framework "
+                                            f"code (not your sandbox):\n{fw_list}\n"
+                                            f"Your project-side work is valid — delivery will proceed. "
+                                            f"These errors are logged for main to address separately."
+                                        )
+                                        # Don't return — fall through to runtime-health-gate
+                                        # + normal delivery flow.
                                     else:
                                         log.info(f"Swell compile gate: FAIL (no parsed errors) in {proj.name}")
                                 else:
