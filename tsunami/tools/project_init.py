@@ -218,6 +218,10 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
              "chat app pwa", "installable chat"):
         if (SCAFFOLDS_DIR / "mobile" / "chat").exists():
             return "mobile/chat"
+    if needs("mobile notes", "notes pwa", "pwa notes", "note-taking app",
+             "note taking pwa", "mobile note app"):
+        if (SCAFFOLDS_DIR / "mobile" / "notes").exists():
+            return "mobile/notes"
 
     # 4. Needs realtime (chat, live chat, multiplayer, websockets)
     # Removed bare "live" — it caught 'live-updating', 'live preview',
@@ -412,6 +416,8 @@ class ProjectInit(BaseTool):
         "web/blog":         "web/blog",
         "mobile/chat":      "mobile/chat",
         "pwa-chat":         "mobile/chat",
+        "mobile/notes":     "mobile/notes",
+        "pwa-notes":        "mobile/notes",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:
