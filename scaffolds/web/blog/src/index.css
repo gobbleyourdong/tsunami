@@ -1,0 +1,108 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: Georgia, "Times New Roman", serif;
+  background: #fdfdfd;
+  color: #1a1a1a;
+  line-height: 1.7;
+}
+
+.layout {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+.header {
+  border-bottom: 1px solid #ececec;
+  padding-bottom: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  color: #1a1a1a;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.tags {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.tags button {
+  background: transparent;
+  border: 1px solid #ddd;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  color: #555;
+}
+
+.tags button.active {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+}
+
+.post-card {
+  padding: 1.5rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+}
+
+.post-card:hover h2 { color: #0057b8; }
+
+.post-card h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  margin-bottom: 0.25rem;
+  transition: color 0.15s;
+}
+
+.post-meta {
+  font-size: 0.8rem;
+  color: #888;
+  font-family: -apple-system, sans-serif;
+}
+
+.post-excerpt {
+  margin-top: 0.5rem;
+  color: #555;
+}
+
+.post-detail h1 {
+  font-size: 2.1rem;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.post-detail .post-meta {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #ececec;
+}
+
+.post-detail h2 { font-size: 1.4rem; margin: 2rem 0 0.6rem; }
+.post-detail p  { margin-bottom: 1.2rem; }
+
+.back {
+  background: none;
+  border: none;
+  color: #0057b8;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+  padding: 0;
+}

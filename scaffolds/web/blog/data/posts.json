@@ -1,0 +1,40 @@
+{
+  "posts": [
+    {
+      "slug": "hello-world",
+      "title": "Hello, world",
+      "date": "2026-04-10",
+      "tags": ["announcement", "meta"],
+      "author": "anon",
+      "excerpt": "First post. This is a scaffold — delete me and write something real.",
+      "body": "# Hello\n\nThis is the scaffolded first post. Edit `data/posts.json` to add your own."
+    },
+    {
+      "slug": "writing-technical-posts",
+      "title": "Writing technical posts that ship",
+      "date": "2026-04-12",
+      "tags": ["writing", "process"],
+      "author": "anon",
+      "excerpt": "Three rules for posts engineers actually finish.",
+      "body": "# Writing technical posts that ship\n\n1. Start from a concrete problem you hit.\n2. Timebox the draft to one sitting.\n3. Ship the title before the body.\n\nThe rest is editing."
+    },
+    {
+      "slug": "small-tools-big-leverage",
+      "title": "Small tools, big leverage",
+      "date": "2026-04-15",
+      "tags": ["tools", "process"],
+      "author": "anon",
+      "excerpt": "A tiny CLI beats a big framework when the shape isn't stable yet.",
+      "body": "# Small tools, big leverage\n\nThe shape of the problem isn't clear until you've solved it once. A tiny CLI lets you hold the whole loop in your head while you find that shape."
+    },
+    {
+      "slug": "on-scaffolds",
+      "title": "On scaffolds — reference implementations vs templates",
+      "date": "2026-04-18",
+      "tags": ["architecture", "scaffolds"],
+      "author": "anon",
+      "excerpt": "Scaffolds are documentation you can execute.",
+      "body": "# On scaffolds\n\nA good scaffold teaches a shape. The reader copies it, breaks it, fixes it — and in the fixing, internalizes the invariants."
+    }
+  ]
+}

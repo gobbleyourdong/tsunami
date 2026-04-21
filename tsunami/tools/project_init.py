@@ -300,6 +300,13 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "infra" / "docker-compose").exists():
             return "infra/docker-compose"
 
+    # 6f. Blog — post list + detail + tag filter. Specific signals
+    # before the generic "landing" / react-app buckets.
+    if needs("blog", "personal blog", "dev blog", "writing platform",
+             "post list", "post detail", "blog site", "blog post"):
+        if (SCAFFOLDS_DIR / "web" / "blog").exists():
+            return "web/blog"
+
     # 7. Presentation (landing, portfolio)
     if needs("landing", "portfolio", "marketing", "homepage", "website",
              "showcase", "brochure", "about"):
@@ -391,6 +398,8 @@ class ProjectInit(BaseTool):
         "docker-compose":   "infra/docker-compose",
         "compose":          "infra/docker-compose",
         "infra/docker-compose": "infra/docker-compose",
+        "blog":             "web/blog",
+        "web/blog":         "web/blog",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:
