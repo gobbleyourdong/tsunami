@@ -281,6 +281,16 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "web" / "docs-site").exists():
             return "web/docs-site"
 
+    # 6d. E-commerce (product grid + cart + checkout). Checked before
+    # landing because ecommerce-specific keywords ("store", "shop",
+    # "cart") are more specific; "shop" is multi-word-guarded below
+    # to avoid catching "shopify app" on a generic landing page.
+    if needs("ecommerce", "e-commerce", "online store", "product catalog",
+             "shopping cart", "checkout flow", "product grid",
+             "online shop", "web store"):
+        if (SCAFFOLDS_DIR / "web" / "ecommerce").exists():
+            return "web/ecommerce"
+
     # 7. Presentation (landing, portfolio)
     if needs("landing", "portfolio", "marketing", "homepage", "website",
              "showcase", "brochure", "about"):
@@ -366,6 +376,9 @@ class ProjectInit(BaseTool):
         "cli/config-generator": "cli/config-generator",
         "docs-site":        "web/docs-site",
         "web/docs-site":    "web/docs-site",
+        "ecommerce":        "web/ecommerce",
+        "e-commerce":       "web/ecommerce",
+        "web/ecommerce":    "web/ecommerce",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:

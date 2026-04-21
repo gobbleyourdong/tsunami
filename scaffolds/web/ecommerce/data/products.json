@@ -1,0 +1,10 @@
+{
+  "products": [
+    { "id": "p-001", "name": "Studio Headphones",   "price_cents": 29900, "currency": "USD", "category": "audio",     "image": "https://placehold.co/400x400?text=Headphones",  "stock": 42, "description": "Closed-back, flat response, for mixing work." },
+    { "id": "p-002", "name": "Capsule Microphone",  "price_cents": 18900, "currency": "USD", "category": "audio",     "image": "https://placehold.co/400x400?text=Mic",         "stock": 17, "description": "Large-diaphragm condenser, cardioid pattern." },
+    { "id": "p-003", "name": "Mechanical Keyboard", "price_cents": 14900, "currency": "USD", "category": "desk",      "image": "https://placehold.co/400x400?text=Keyboard",    "stock": 60, "description": "Hot-swap switches, tenkeyless, ISO layout." },
+    { "id": "p-004", "name": "Mousepad",            "price_cents":  2900, "currency": "USD", "category": "desk",      "image": "https://placehold.co/400x400?text=Mousepad",    "stock": 120,"description": "Large cloth, stitched edges." },
+    { "id": "p-005", "name": "Desk Lamp",           "price_cents":  7900, "currency": "USD", "category": "desk",      "image": "https://placehold.co/400x400?text=Lamp",        "stock": 24, "description": "Adjustable color temperature, USB-C." },
+    { "id": "p-006", "name": "Notebook (set of 3)", "price_cents":  1800, "currency": "USD", "category": "stationery","image": "https://placehold.co/400x400?text=Notebook",    "stock": 200,"description": "A5 dot-grid, soft cover." }
+  ]
+}
