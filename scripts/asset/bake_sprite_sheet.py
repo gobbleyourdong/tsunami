@@ -182,11 +182,21 @@ class BakeServer:
     """HTTP client for a live qwen_image_server. All calls are blocking —
     the bake is inherently serial (each frame depends on the previous).
     Failures raise so the bake halts at the first broken chain rather
-    than producing a partial sprite sheet that looks valid but lies."""
+    than producing a partial sprite sheet that looks valid but lies.
 
-    def __init__(self, base_url: str, timeout_s: int = 900):
+    `steps_override` and `cfg_override`, when set, replace the per-call
+    num_inference_steps and guidance_scale values — used when the lightning
+    LoRA is attached (8 steps, CFG 1.0). Defaults (None) leave each call's
+    primitive-provided / endpoint-default values intact.
+    """
+
+    def __init__(self, base_url: str, timeout_s: int = 900,
+                 steps_override: Optional[int] = None,
+                 cfg_override: Optional[float] = None):
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
+        self.steps_override = steps_override
+        self.cfg_override = cfg_override
         self._check_online()
 
     def _check_online(self) -> None:
@@ -218,14 +228,16 @@ class BakeServer:
              height: int = 1024, width: int = 1024) -> None:
         """Run one /v1/images/edit call, saving to save_path."""
         save_path.parent.mkdir(parents=True, exist_ok=True)
+        steps = self.steps_override if self.steps_override is not None else 30
+        cfg = self.cfg_override if self.cfg_override is not None else 4.0
         payload = {
             "path": str(base_path),
             "prompt": prompt,
             "strength": strength,
             "height": height,
             "width": width,
-            "num_inference_steps": 30,
-            "guidance_scale": 4.0,
+            "num_inference_steps": steps,
+            "guidance_scale": cfg,
             "response_format": "save_path",
             "save_path": str(save_path),
         }
@@ -253,8 +265,12 @@ class BakeServer:
                 {
                     "delta": n.delta,
                     "strength": n.strength,
-                    "guidance_scale": n.guidance_scale,
-                    "num_inference_steps": n.num_inference_steps,
+                    "guidance_scale": (self.cfg_override
+                                       if self.cfg_override is not None
+                                       else n.guidance_scale),
+                    "num_inference_steps": (self.steps_override
+                                            if self.steps_override is not None
+                                            else n.num_inference_steps),
                 }
                 for n in primitive.nudges
             ],
@@ -577,6 +593,15 @@ def parse_args() -> argparse.Namespace:
                         "All state/transition/loop frames emit at this size. "
                         "Pixelization to the sprite grid is a SEPARATE pass — "
                         "never rotate or edit on a pre-pixelized image.")
+    p.add_argument("--steps", type=int, default=None,
+                   help="override num_inference_steps for every edit + animate "
+                        "call (default: use primitive YAML value, typically 30). "
+                        "Pair with --cfg 1.0 when the lightning LoRA is attached: "
+                        "`--steps 8 --cfg 1.0`.")
+    p.add_argument("--cfg", type=float, default=None,
+                   help="override guidance_scale for every call. Use 1.0 when "
+                        "the lightning/turbo LoRA is attached (distilled "
+                        "guidance makes CFG>1 pointless and slow).")
     p.add_argument("--seed", type=int, default=None,
                    help="deterministic seed for all edit/animate calls")
     p.add_argument("--dry-run", action="store_true",
@@ -610,8 +635,14 @@ def main() -> int:
         print(f"ERROR: base image not found at {base_path}", file=sys.stderr)
         return 2
 
-    server = BakeServer(args.server)
-    log.info(f"[bake] entity={graph.entity} base={base_path} out={out_dir}")
+    server = BakeServer(args.server,
+                        steps_override=args.steps,
+                        cfg_override=args.cfg)
+    log.info(
+        f"[bake] entity={graph.entity} base={base_path} out={out_dir} "
+        f"steps={args.steps or 'primitive-default'} "
+        f"cfg={args.cfg if args.cfg is not None else 'primitive-default'}"
+    )
 
     t0 = time.time()
     state_images = derive_states(plan, base_path, out_dir, server,

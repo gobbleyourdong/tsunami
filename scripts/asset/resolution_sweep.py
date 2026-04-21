@@ -45,6 +45,7 @@ DEFAULT_RESOLUTIONS = [256, 384, 512, 640, 768, 896, 1024]
 
 def _edit(server: str, base_path: Path, prompt: str, resolution: int,
           seed: int, save_path: Path, negative_prompt: str = "",
+          steps: int = 30, cfg: float = 4.0,
           timeout_s: int = 900) -> float:
     """Call /v1/images/edit. Returns elapsed seconds."""
     save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,8 +55,8 @@ def _edit(server: str, base_path: Path, prompt: str, resolution: int,
         "negative_prompt": negative_prompt,
         "height": resolution,
         "width": resolution,
-        "num_inference_steps": 30,
-        "guidance_scale": 4.0,
+        "num_inference_steps": steps,
+        "guidance_scale": cfg,
         "seed": seed,
         "response_format": "save_path",
         "save_path": str(save_path),
@@ -132,6 +133,12 @@ def parse_args() -> argparse.Namespace:
                    help=f"resolutions to sweep (default: {DEFAULT_RESOLUTIONS})")
     p.add_argument("--server", default="http://127.0.0.1:8094",
                    help="qwen_image_server base URL")
+    p.add_argument("--steps", type=int, default=30,
+                   help="num_inference_steps (default 30 non-distilled; "
+                        "pass 8 with the lightning LoRA)")
+    p.add_argument("--cfg", type=float, default=4.0,
+                   help="guidance_scale (default 4.0 non-distilled; "
+                        "pass 1.0 with the lightning LoRA)")
     p.add_argument("--out", type=Path, required=True,
                    help="output grid PNG path")
     p.add_argument("--cell-size", type=int, default=512,
@@ -180,7 +187,8 @@ def main() -> int:
         try:
             elapsed = _edit(args.server, args.base, args.prompt, res,
                             args.seed, save_path,
-                            negative_prompt=args.negative_prompt)
+                            negative_prompt=args.negative_prompt,
+                            steps=args.steps, cfg=args.cfg)
         except Exception as e:
             log.error(f"[sweep] {res}×{res} FAILED: {e}")
             timings.append({"resolution": res, "status": "failed", "error": str(e)})
@@ -207,6 +215,8 @@ def main() -> int:
         "seed": args.seed,
         "resolutions": args.resolutions,
         "cell_size": target,
+        "steps": args.steps,
+        "cfg": args.cfg,
         "timings": timings,
         "generated_at": int(time.time()),
     }
