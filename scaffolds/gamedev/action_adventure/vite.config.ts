@@ -4,7 +4,6 @@ import { resolve } from 'path'
 export default defineConfig({
   resolve: {
     alias: {
-      '@engine': resolve(__dirname, '../../engine/src/index.ts'),
       '@engine/': resolve(__dirname, '../../engine/src/') + '/',
     },
   },

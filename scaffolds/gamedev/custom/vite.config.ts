@@ -4,7 +4,6 @@ import { resolve } from 'path'
 export default defineConfig({
   resolve: {
     alias: {
-      '@engine': resolve(__dirname, '../../engine/src/index.ts'),
       // Allow deep imports like '@engine/mechanics', '@engine/components', etc.
       '@engine/': resolve(__dirname, '../../engine/src/') + '/',
     },
