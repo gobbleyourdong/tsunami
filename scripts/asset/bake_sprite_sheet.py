@@ -234,20 +234,29 @@ class BakeServer:
         except requests.RequestException:
             pass  # openapi optional; fail late if animate itself errors
 
-        # Warn if a distillation LoRA ever slips into the registry again.
-        # The non-distilled base is the verdict for Qwen-Image-Edit-2511 —
-        # lightning/turbo variants produce visibly undercooked sprites
-        # (see feedback_qwen_lightning_worse.md). Warn loudly so the
-        # operator notices before burning a full bake on a regression.
+        # Surface LoRA / --steps mismatches so they don't silently burn a
+        # bake. Distilled (lightning/turbo) wants 8 steps + CFG 1.0; non-
+        # distilled wants 40 steps + CFG 4.0 (model-card). Running one at
+        # the other's settings either wastes compute (non-distilled at
+        # distilled cadence) or produces undercooked frames (distilled at
+        # non-distilled cadence). Advise, don't block — the A/B-curious
+        # use case is legitimate.
         loras = [s.lower() for s in health.get("loaded_loras", [])]
-        suspect = [l for l in loras if "lightning" in l or "turbo" in l]
-        if suspect:
+        has_distill = any("lightning" in l or "turbo" in l for l in loras)
+        if has_distill and (self.steps_override or 40) > 10:
             log.warning(
-                f"[bake] distillation LoRA detected: {suspect}. "
-                "Non-distilled base is the verdict for this pipe "
-                "(lightning trades too much quality for ~3× speed). "
-                "Detach via POST /v1/admin/lora {\"name\": \"none\"} "
-                "if this was unintended."
+                f"[bake] distillation LoRA {loras} attached but --steps is "
+                f"{self.steps_override or 'unset (40 default)'}. "
+                "Lightning is tuned for 8 steps / CFG 1.0; running it at "
+                "40 steps wastes ~4× inference time with no quality gain."
+            )
+        if not has_distill and (self.steps_override or 40) < 20:
+            log.warning(
+                f"[bake] --steps {self.steps_override} but no distillation "
+                f"LoRA attached ({loras}). Non-distilled Qwen-Image-Edit at "
+                "fewer than ~20 steps produces visibly undercooked frames. "
+                "Either attach lightning via POST /v1/admin/lora or drop the "
+                "--steps override."
             )
 
     def edit(self, *, base_path: Path, prompt: str, save_path: Path,
