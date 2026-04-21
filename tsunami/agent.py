@@ -3010,14 +3010,32 @@ class Agent:
         # 3c0. Pre-execution validation — skip duplicate/wasteful tool calls
         if tool_call.name == "search_web":
             query = tool_call.arguments.get("query", "")
-            prev_queries = getattr(self, '_search_queries', set())
-            if query in prev_queries:
-                self.state.add_system_note(
-                    f"DUPLICATE SEARCH: You already searched for '{query[:60]}'. "
-                    f"Use the results you got earlier or try a different query."
+            # pain_advisory_duplicate_search (round 13, sev 2): the old
+            # path emitted a 'DUPLICATE SEARCH' advisory and let the
+            # tool run again. search_web is in NO_CACHE_TOOLS so the
+            # general tool_dedup layer never caught it — every
+            # duplicate query cost a real API round-trip. Convert to
+            # structural: keep a purpose-built query cache (keyed on
+            # query string, ignoring minor arg differences) and short-
+            # circuit the dispatch with the previous result + a brief
+            # '[search_web cached]' header. Drone gets the info it
+            # needs without the second round-trip.
+            if not hasattr(self, "_search_results_cache"):
+                self._search_results_cache: dict[str, str] = {}
+            if query and query in self._search_results_cache:
+                cached = self._search_results_cache[query]
+                cached_msg = (
+                    f"[search_web cached — no round-trip]\n"
+                    f"You already searched for this query earlier this "
+                    f"session. Reusing the prior result:\n\n"
+                    f"{cached}"
                 )
-            prev_queries.add(query)
-            self._search_queries = prev_queries
+                self.state.add_tool_result(
+                    tool_call.name, tool_call.arguments, cached_msg,
+                    is_error=False,
+                )
+                self._tool_history.append("search_web")
+                return cached_msg
 
         # 3c. Research gate — nudge research before writing code
         if tool_call.name in ("search_web", "browser_navigate"):
@@ -3743,6 +3761,19 @@ class Agent:
 
         # Cache the result for dedup (read-only tools only)
         self.tool_dedup.store(tool_call.name, tool_call.arguments, display_content, result.is_error)
+        # Round 15 structural dedup for search_web — NOT handled by
+        # tool_dedup (search_web is in NO_CACHE_TOOLS for time-
+        # sensitivity correctness). We keep a purpose-built query
+        # cache that's fine with minor arg drift: keyed on the query
+        # string alone so duplicate-intent calls short-circuit at the
+        # dispatch site. Only cache successful results — an is_error
+        # cache hit would lock the drone into the same failure.
+        if tool_call.name == "search_web" and not result.is_error:
+            query = tool_call.arguments.get("query", "")
+            if query:
+                if not hasattr(self, "_search_results_cache"):
+                    self._search_results_cache: dict[str, str] = {}
+                self._search_results_cache[query] = display_content
         # Invalidate cache after any write operation
         if tool_call.name in ("file_write", "file_edit", "file_append", "shell_exec"):
             self.tool_dedup.invalidate_on_write()
@@ -4948,6 +4979,12 @@ class Agent:
                     # branch's "App.tsx not written" message, masking the
                     # actual issue (game_definition.json missing).
                     "target_scaffold": getattr(self, "_target_scaffold", ""),
+                    # JOB-INT-6 2026-04-21: scaffold-first gamedev delivery
+                    # checks data/*.json differ from seed under
+                    # scaffolds/gamedev/<genre>/data/. Without this key, the
+                    # gate can't locate the seed to compare against and
+                    # the scaffold-first success branch never fires.
+                    "target_genre": getattr(self, "_genre_name", ""),
                 }
                 _failure = run_deliver_gates(
                     state_flags=_flags,
