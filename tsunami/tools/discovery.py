@@ -21,7 +21,10 @@ import subprocess
 from pathlib import Path
 
 from .base import BaseTool, ToolResult
-from .filesystem import _resolve_path, MAX_FILE_SIZE_BYTES, _active_project
+from .filesystem import (
+    _resolve_path, MAX_FILE_SIZE_BYTES, _active_project,
+    _scaffold_first_block, is_scaffold_first_inlined,
+)
 
 
 _MAX_RESULTS_DEFAULT = 100
@@ -97,6 +100,22 @@ class MatchGrep(BaseTool):
             base = _resolve_path(directory, self.config.workspace_dir, _active_project)
             if not base.exists():
                 return ToolResult(f"Directory not found: {directory}", is_error=True)
+
+            def _drop_inlined(hit_line: str) -> bool:
+                """True iff the hit line targets a scaffold-first inlined
+                file (pain_scaffold_first_match_grep_leak, sev 4). Current
+                2026-04-20 demonstrated pattern='.*' + file_pattern='data/
+                *.json' leaks every line of every inlined data file. Drop
+                hits rather than fail the whole call — other files in the
+                match set are still legitimate."""
+                try:
+                    rel = hit_line.split(":", 1)[0]
+                    # hit lines are `<relpath>:<lineno>:<content>`
+                    hp = (base / rel).resolve()
+                    return is_scaffold_first_inlined(hp)
+                except Exception:
+                    return False
+
             # Prefer ripgrep if installed — 10-100× faster than Python. Fall
             # back to a pure-Python scan if rg isn't available.
             rg = _which("rg")
@@ -110,7 +129,9 @@ class MatchGrep(BaseTool):
                         return ToolResult(f"match_grep(rg) failed: {out.stderr[:200]}", is_error=True)
                     if not text:
                         return ToolResult(f"No matches for /{pattern}/ in {base}")
-                    lines = text.split("\n")
+                    lines = [ln for ln in text.split("\n") if not _drop_inlined(ln)]
+                    if not lines:
+                        return ToolResult(f"No matches for /{pattern}/ in {base}")
                     header = f"[match_grep] {len(lines)} matches for /{pattern}/:"
                     return ToolResult(header + "\n" + "\n".join(lines[: int(limit)]))
                 except subprocess.TimeoutExpired:
@@ -123,6 +144,11 @@ class MatchGrep(BaseTool):
             hits = []
             for path in base.rglob(file_pattern):
                 if not path.is_file() or path.stat().st_size > MAX_FILE_SIZE_BYTES:
+                    continue
+                # Skip scaffold-first inlined files entirely — don't even
+                # open them (avoid sidechannel if is_scaffold_first_inlined
+                # itself is slow per-call).
+                if is_scaffold_first_inlined(path):
                     continue
                 try:
                     for n, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
@@ -169,6 +195,16 @@ class SummarizeFile(BaseTool):
                 return ToolResult(f"File not found: {path}", is_error=True)
             if not p.is_file():
                 return ToolResult(f"Not a file: {path}", is_error=True)
+            # Scaffold-first inlined file: summarize_file's head+tail
+            # preview equals the full file for typical data/*.json
+            # (< 50 lines). Current 2026-04-20 confirmed this as a
+            # 100% bypass of the file_read gate
+            # (pain_scaffold_first_summarize_leak, sev 5).
+            block_reason = _scaffold_first_block(
+                p, tool="summarize_file", op="summarize"
+            )
+            if block_reason:
+                return ToolResult(block_reason, is_error=True)
             size = p.stat().st_size
             text = p.read_text(errors="replace")
             lines = text.splitlines()

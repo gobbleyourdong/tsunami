@@ -443,32 +443,89 @@ def is_scaffold_first_gamedev(project_dir: Path) -> bool:
     return name.startswith("gamedev-") and name.endswith("-scaffold")
 
 
-def _scaffold_first_block(resolved: Path) -> str | None:
-    """Detect scaffold-first-gamedev read attempts on inlined data files.
+def _find_scaffold_first_project_for(resolved: Path) -> Path | None:
+    """Walk up from `resolved` looking for a scaffold-first gamedev
+    project root (is_scaffold_first_gamedev returns True for it).
+    Returns the project dir or None. Bounded walk — stops at filesystem
+    root or 12 levels up, whichever comes first."""
+    try:
+        current = resolved.parent
+        for _ in range(12):
+            if current in (current.parent, Path("/")):
+                break
+            if is_scaffold_first_gamedev(current):
+                return current
+            current = current.parent
+    except (OSError, ValueError):
+        return None
+    return None
 
-    Returns a block-reason string when the resolved path is a data/*.json
-    inside a gamedev scaffold project; None otherwise. The drone's
-    system prompt already inlines every data/*.json in scaffold-first
-    mode, so re-reading them is waste that has been observed as live
-    read-spiral failure mode (Round J, 2026-04-20, ice-cavern session).
+
+def is_scaffold_first_inlined(resolved: Path) -> bool:
+    """True iff `resolved` is an inlined file inside a scaffold-first
+    gamedev project — one the drone has already in its system prompt
+    and should not re-read by any mechanism.
+
+    Hoisted out of the former _scaffold_first_block so every reader
+    (file_read, file_edit, summarize_file, match_grep, file_append)
+    can key on the same gate. Current's audit 2026-04-20 found three
+    bypasses when only file_read had the gate: file_edit's 0-match
+    error dumped the full file, summarize_file's head+tail equaled
+    the whole file for typical data/*.json, match_grep iterated line-
+    by-line (pain_scaffold_first_gate_three_bypasses, sev 5).
+
+    Inlined-file predicate:
+      - resolved is under <project_root>/data/ (at any depth — Current
+        found a bypass via data/nested/foo.json because the old check
+        only matched parent.name == 'data')
+      - resolved's suffix is .json (case-insensitive — Current found a
+        bypass via data/Enemies.JSON)
+      - <project_root> is a scaffold-first gamedev project (dual-signal
+        predicate, see is_scaffold_first_gamedev above)
+
+    Returns False on any IO error so a malformed project doesn't lock
+    the drone out of every read everywhere.
     """
     try:
-        if resolved.suffix != ".json":
-            return None
-        if resolved.parent.name != "data":
-            return None
-        if not is_scaffold_first_gamedev(resolved.parent.parent):
-            return None
-        return (
-            f"[file_read BLOCKED — scaffold-first gamedev]\n"
-            f"  {resolved.name} is already inlined in your system prompt.\n"
-            f"  Scroll up and you have the complete file content.\n"
-            f"  Next action: file_write with the updated JSON, then message_result.\n"
-            f"  This is a hard gate — the read won't be allowed and will keep\n"
-            f"  returning this message. Use what's already in context."
-        )
+        if resolved.suffix.lower() != ".json":
+            return False
+        # Find the scaffold project root by walking up.
+        project = _find_scaffold_first_project_for(resolved)
+        if project is None:
+            return False
+        # Require resolved to be under project/data/ (at any depth).
+        data_root = project / "data"
+        try:
+            resolved.relative_to(data_root)
+        except ValueError:
+            return False
+        return True
     except Exception:
+        return False
+
+
+_SCAFFOLD_FIRST_BLOCK_REASON = (
+    "[{tool} BLOCKED — scaffold-first gamedev]\n"
+    "  {name} is already inlined in your system prompt.\n"
+    "  Scroll up and you have the complete file content.\n"
+    "  Next action: file_write with the updated JSON, then message_result.\n"
+    "  This is a hard gate — the {op} won't be allowed and will keep\n"
+    "  returning this message. Use what's already in context."
+)
+
+
+def _scaffold_first_block(resolved: Path, tool: str = "file_read",
+                          op: str = "read") -> str | None:
+    """Return a block-reason string when `resolved` is an inlined
+    scaffold-first file, None otherwise. Thin formatter on top of
+    is_scaffold_first_inlined — keeps the block message uniform
+    across readers so the drone sees the same pattern no matter which
+    tool it tried."""
+    if not is_scaffold_first_inlined(resolved):
         return None
+    return _SCAFFOLD_FIRST_BLOCK_REASON.format(
+        tool=tool, name=resolved.name, op=op,
+    )
 
 
 def _resolve_path(path: str, workspace_dir: str, active_project: str | None = None) -> Path:
@@ -863,6 +920,16 @@ class FileEdit(BaseTool):
             err = _is_safe_write(p, self.config.workspace_dir)
             if err:
                 return ToolResult(err, is_error=True)
+            # Scaffold-first inlined file: Current's 2026-04-20 audit
+            # showed FileEdit leaking the full file via the 0-match
+            # error's "Current file:" preview. Block the read-side of
+            # file_edit so the gate is uniform across file_read / edit /
+            # summarize / grep (pain_scaffold_first_gate_three_bypasses,
+            # sev 5). The drone can still file_write the data/*.json
+            # with the complete content from the system prompt.
+            block_reason = _scaffold_first_block(p, tool="file_edit", op="edit")
+            if block_reason:
+                return ToolResult(block_reason, is_error=True)
             if not p.exists():
                 suggestions = _suggest_similar_paths(
                     path, self.config.workspace_dir, limit=3,
@@ -1048,6 +1115,15 @@ class FileAppend(BaseTool):
             err = _is_safe_write(p, self.config.workspace_dir)
             if err:
                 return ToolResult(err, is_error=True)
+            # Scaffold-first inlined file: file_append reads existing
+            # content to prepend it to the new content (line below).
+            # That's the same exfil pattern FileEdit had. Block by the
+            # same predicate (pain_scaffold_first_gate_three_bypasses,
+            # Kelp Round 11). Drone should file_write the complete
+            # updated JSON instead.
+            block_reason = _scaffold_first_block(p, tool="file_append", op="append")
+            if block_reason:
+                return ToolResult(block_reason, is_error=True)
             existing = p.read_text() if p.exists() else ""
             exfil_err = check_outbound_exfil(existing + content, p.name, _session_task_prompt)
             if exfil_err:
