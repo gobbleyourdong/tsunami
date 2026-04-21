@@ -1,0 +1,26 @@
+{
+  "directions": [
+    "left"
+  ],
+  "projection": "side_profile_2d",
+  "anim_frame_targets": {
+    "idle": 6,
+    "walk": 8,
+    "run": 8,
+    "jump_up": 3,
+    "jump_peak": 1,
+    "jump_down": 2,
+    "land": 2,
+    "attack_light": 5,
+    "attack_heavy": 8,
+    "hurt": 3,
+    "death": 6,
+    "wall_slide": 2,
+    "dash": 4,
+    "crouch": 2,
+    "crouch_walk": 6
+  },
+  "rotation_angles": 1,
+  "per_frame_ms_default": 90,
+  "blockout_note": "Each cell is a single canonical mid-stride pose per direction. Future character_animation workflow will interpolate outward from this reference frame to produce full N-frame cycles."
+}

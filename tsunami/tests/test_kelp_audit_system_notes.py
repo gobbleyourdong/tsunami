@@ -103,22 +103,27 @@ class TestKnownAdvisories:
     def result(self):
         return _load_audit().audit()
 
-    def test_known_advisory_sites_still_classified_advisory(self, result):
-        """If a line was advisory and a kelp fix structuralized it,
-        the line number / content shifts and this test needs updating.
-        That's the correct path: update this test AS PART OF landing
-        the structural conversion so the census stays accurate."""
+    def test_advisory_floor_at_zero(self, result):
+        """Round 18 (2026-04-21) drove the advisory count to 0 for the
+        first time — every prompt-level nudge in agent.py was either
+        converted to structural enforcement (rounds 14-18) or reworded
+        to narrate real enforcement (round 18). This test keeps the
+        floor at 0 as the new invariant.
+
+        Prior baselines: round 13 = 10, round 14 = 9, round 15 = 8,
+        round 17 = 6, round 18 = 0. The test_advisory_count_does_not_
+        grow bound is the actual regression gate; this one just pins
+        the shape of the win."""
         advisory_lines = {
             s["line"] for s in result["sites"]
             if s["category"] == "advisory"
         }
-        # Baseline was 10 at round 13. Rounds 14-17 converted 4 sites
-        # structurally, leaving ~6 advisories. A drop below 4 would
-        # mean something dramatic (mass refactor) and is worth review.
-        assert len(advisory_lines) >= 4, (
-            f"advisory line count dropped to {len(advisory_lines)} — "
-            f"below 4, which is an unusually large conversion. Verify "
-            f"the drop is intentional and update the baseline."
+        assert len(advisory_lines) == 0, (
+            f"advisory count rose to {len(advisory_lines)} after reaching "
+            f"zero in round 18. Either convert the new site to a "
+            f"structural gate (preferred), reword if it narrates real "
+            f"enforcement, or update this floor if a deliberate "
+            f"advisory reintroduction is being shipped."
         )
 
 

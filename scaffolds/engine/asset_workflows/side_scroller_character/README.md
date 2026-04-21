@@ -62,12 +62,36 @@ Three canary renders in this directory (see `canary_prompts.jsonl`):
 Each is a 256-px PNG ≤ 50 KB. Full-res production sheets land in
 `workspace/asset_gen/side_scroller_character/` (gitignored).
 
-## Library seed
+## Library seeds
 
-`scaffolds/engine/asset_library/side_scroller_character/baseline_hunter.png` —
-the castlevania_walk_midstride render, used as a reference-identity anchor
-for `edit_image`-driven variations ("take this hunter but swap the cloak
-color to red," etc.).
+`scaffolds/engine/asset_library/side_scroller_character/`:
+- `baseline_hunter.png` — original castlevania-walk-mid-stride reference
+- **`barbarian_movement_blockout.png`** — 1-direction (left baseline) blockout
+  of the cross-projection barbarian. **Same character appears in
+  `iso_character/` and `top_down_character/` library slots** — one identity
+  across 3 projections, ready for any side-scrolling scaffold to drop in.
+- `barbarian_movement_blockout.manifest.json` — engine source of truth
+- `barbarian_movement_blockout.manifest.spec.json` — forward metadata
+  with `anim_frame_targets` for the full 15-anim platformer move-set
+  (idle 6 / walk 8 / run 8 / jump phases / attacks / hurt / death / dash /
+  crouch / wall-slide) that the future `character_animation` workflow
+  will fill in.
+- `barbarian_movement_blockout_preview.png` — labeled dev view
+
+Right-facing frames are produced by horizontal-flipping the shipped
+left-baseline frame — no separate gen needed.
+
+## Postprocess retrofit (2026-04-20)
+
+`postprocess.py` now imports from `_common/`:
+- `_common.sprite_sheet_asm` — canonical sheet assembler
+- `_common.character_blockout` — movement-loop blockout primitives
+
+New entrypoint: `assemble_movement_loop_blockout(left_frame, out_dir,
+character_id, cell_px)` — takes the single left-baseline frame and produces
+the same sheet + manifest + spec format that `iso_character` and
+`top_down_character` use. The future `character_animation` workflow consumes
+all three uniformly.
 
 ## Known caveats (from the canary corpus — read this)
 

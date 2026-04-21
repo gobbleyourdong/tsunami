@@ -1,0 +1,22 @@
+{
+  "directions": [
+    "N",
+    "E",
+    "S",
+    "W"
+  ],
+  "projection": "orthographic_top_down",
+  "anim_frame_targets": {
+    "idle": 4,
+    "walk": 8,
+    "run": 8,
+    "attack_light": 5,
+    "attack_heavy": 7,
+    "hurt": 3,
+    "death": 6,
+    "interact": 3
+  },
+  "rotation_angles": 4,
+  "per_frame_ms_default": 90,
+  "blockout_note": "Each cell is a single canonical mid-stride pose per direction. Future character_animation workflow will interpolate outward from this reference frame to produce full N-frame cycles."
+}

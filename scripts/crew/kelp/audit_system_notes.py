@@ -82,7 +82,16 @@ def classify(line_idx: int, lines: list[str]) -> tuple[str, str]:
     """(category, reason) for the system_note at line_idx."""
     window_before = "\n".join(lines[max(0, line_idx - 8):line_idx])
     window_after = "\n".join(lines[line_idx:line_idx + 8])
-    blob = " ".join(lines[line_idx:line_idx + 12])
+    # Scan for hedges only in non-comment lines inside the 12-line
+    # window. A `should` in a comment has no effect on what the drone
+    # sees in its system_note — it's code documentation, not advisory
+    # copy. Without this filter the classifier over-flags narration
+    # sites whose surrounding code includes advice-shaped comments.
+    blob_lines = [
+        ln for ln in lines[line_idx:line_idx + 12]
+        if not ln.lstrip().startswith("#")
+    ]
+    blob = " ".join(blob_lines)
 
     # Strong structural: error-return branch signals above
     if any(kw in window_before for kw in

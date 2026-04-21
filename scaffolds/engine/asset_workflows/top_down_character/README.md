@@ -61,12 +61,35 @@ Each is a 256-px PNG ≤ 50 KB — embedded thumbnails only. Full-resolution
 production sheets live in `workspace/asset_gen/top_down_character/` (gitignored)
 and are re-generated on demand.
 
-## Library seed
+## Library seeds
 
-`scaffolds/engine/asset_library/top_down_character/baseline_adventurer.png` —
-a canonical "green tunic adventurer" south-idle 2×2 grid that scaffolds can
-either use directly or pass to `edit_image` as a style anchor for their own
-character.
+`scaffolds/engine/asset_library/top_down_character/`:
+- `baseline_adventurer.png` — original green-tunic reference (grid-gen canary 001)
+- **`barbarian_movement_blockout.png`** — 4-direction (N/E/S/W) movement-loop
+  blockout of the cross-projection barbarian. Built via shared
+  `_common/character_blockout.py` helper; **same character appears in
+  `iso_character/barbarian_movement_blockout.png` and
+  `side_scroller_character/barbarian_movement_blockout.png`** — one identity
+  across 3 projections so scaffolds can pick the projection that matches
+  their engine without re-establishing the character.
+- `barbarian_movement_blockout.manifest.json` — cell coord + direction
+  label table (engine source of truth)
+- `barbarian_movement_blockout.manifest.spec.json` — forward metadata for
+  `anim_frame_targets` (future `character_animation` workflow) and
+  `rotation_angles` (future `character_rotation` workflow)
+- `barbarian_movement_blockout_preview.png` — labeled dev view
+
+## Postprocess retrofit (2026-04-20)
+
+`postprocess.py` now imports shared helpers from `_common/`:
+- `_common.sprite_sheet_asm` — canonical sheet assembler
+- `_common.character_blockout` — movement-loop blockout primitives
+
+The retrofitted entrypoint `assemble_movement_loop_blockout(direction_to_frame,
+out_dir, character_id, cell_px)` takes per-direction frame paths and produces
+the sheet + manifest + spec + labeled preview in one call. Use it instead of
+the older `slice_grid` + `stitch_master` pair when your gen strategy is
+per-direction-per-frame (the future-proof path).
 
 ## Known caveats (observed in the canary corpus — read before using in anger)
 
