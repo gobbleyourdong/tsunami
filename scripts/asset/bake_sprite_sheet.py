@@ -210,7 +210,7 @@ class BakeServer:
             raise RuntimeError(
                 f"bake server at {self.base_url} returned {r.status_code} for /healthz"
             )
-        paths = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+        health = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
         # Verify the animate endpoint is present — catches the "ran a stale
         # server" failure mode cheaply.
         try:
@@ -222,6 +222,26 @@ class BakeServer:
                 )
         except requests.RequestException:
             pass  # openapi optional; fail late if animate itself errors
+
+        # Warn on LoRA / --steps mismatches. Lightning wants 8 steps + CFG 1.0.
+        # Silent defaults of 30/4.0 against a lightning pipe waste ~4× time
+        # for no quality gain; conversely 8/1.0 against a non-distilled pipe
+        # produces visibly undercooked output. Loud warning here beats a
+        # downstream "the frames looked bad" post-mortem.
+        loras = [s.lower() for s in health.get("loaded_loras", [])]
+        has_lightning = any("lightning" in l or "turbo" in l for l in loras)
+        if has_lightning and self.steps_override is None:
+            log.warning(
+                f"[bake] lightning LoRA detected in {loras} but --steps not set. "
+                "Primitive YAML default (30) will waste ~4× inference time. "
+                "Pass --steps 8 --cfg 1.0 for distilled mode."
+            )
+        if not has_lightning and self.steps_override == 8:
+            log.warning(
+                f"[bake] --steps 8 but no lightning/turbo LoRA in {loras}. "
+                "Non-distilled Qwen-Image-Edit at 8 steps will look undercooked. "
+                "Attach lightning via /v1/admin/lora or drop --steps."
+            )
 
     def edit(self, *, base_path: Path, prompt: str, save_path: Path,
              strength: float = 0.75, seed: Optional[int] = None,
