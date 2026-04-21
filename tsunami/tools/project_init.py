@@ -320,6 +320,14 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "web" / "blog").exists():
             return "web/blog"
 
+    # 6g. ML fine-tune recipe. Multi-word signals so bare "train" /
+    # "model" doesn't hit (too generic on product-manager prompts).
+    if needs("finetune recipe", "fine-tune recipe", "lora fine-tune",
+             "lora finetune", "peft lora", "training recipe",
+             "llm fine-tune", "llm finetune"):
+        if (SCAFFOLDS_DIR / "training" / "finetune-recipe").exists():
+            return "training/finetune-recipe"
+
 
     # 7. Presentation (landing, portfolio)
     if needs("landing", "portfolio", "marketing", "homepage", "website",
@@ -418,6 +426,8 @@ class ProjectInit(BaseTool):
         "pwa-chat":         "mobile/chat",
         "mobile/notes":     "mobile/notes",
         "pwa-notes":        "mobile/notes",
+        "finetune-recipe":  "training/finetune-recipe",
+        "training/finetune-recipe": "training/finetune-recipe",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:
@@ -478,8 +488,9 @@ class ProjectInit(BaseTool):
             # Python CLI scaffolds live at scaffolds/cli/<name> and use
             # pip / pyproject.toml. npm/vite are irrelevant here, so
             # fork early rather than threading "is-python" booleans
-            # through the web/game copy block below.
-            if scaffold_name.startswith("cli/"):
+            # through the web/game copy block below. `training/` (ML
+            # recipes) follows the same shape — reuse the same helper.
+            if scaffold_name.startswith("cli/") or scaffold_name.startswith("training/"):
                 return self._init_cli_scaffold(name, project_dir, scaffold_name)
 
             # Infra scaffolds (docker-compose, k8s manifests, terraform)

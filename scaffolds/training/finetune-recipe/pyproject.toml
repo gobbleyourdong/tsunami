@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finetune-recipe"
+version = "0.1.0"
+description = "Scaffold for a LoRA fine-tuning recipe — HF transformers + peft + accelerate."
+requires-python = ">=3.10"
+dependencies = [
+  "pyyaml>=6.0",
+  "click>=8.1",
+]
+
+[project.optional-dependencies]
+# Heavy ML deps are optional so the scaffold's config/CLI surface can
+# be exercised without installing torch. The recipe script imports
+# these lazily; it errors with a helpful message if they're missing.
+ml = [
+  "torch>=2.1",
+  "transformers>=4.40",
+  "peft>=0.10",
+  "accelerate>=0.27",
+  "datasets>=2.18",
+  "bitsandbytes>=0.43; sys_platform == 'linux'",
+]
+
+[project.scripts]
+finetune-recipe = "finetune_recipe.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

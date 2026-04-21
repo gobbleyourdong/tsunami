@@ -1,0 +1,37 @@
+# Example LoRA fine-tune recipe config.
+#
+# Defaults follow Unsloth's current guidance for small-data runs:
+# r=16, alpha=r, all-linear targets, short schedule. Bump r only when
+# you have a *lot* of training examples — r=64 on 100 examples eats
+# the dataset's noise alongside its signal.
+
+model:
+  name: "Qwen/Qwen2.5-0.5B-Instruct"
+  trust_remote_code: true
+  dtype: "bfloat16"
+  quantize_4bit: false
+
+lora:
+  r: 16
+  alpha: 16
+  dropout: 0.05
+  target: "all-linear"
+
+train:
+  lr: 2.0e-5
+  epochs: 1
+  batch_size: 1
+  grad_accum: 8
+  max_steps: -1
+  warmup_ratio: 0.03
+  seed: 42
+  save_steps: 50
+  log_steps: 5
+
+data:
+  path: "data/sample.jsonl"
+  prompt_field: "prompt"
+  response_field: "response"
+  max_seq_len: 512
+
+output_dir: "runs/demo"
