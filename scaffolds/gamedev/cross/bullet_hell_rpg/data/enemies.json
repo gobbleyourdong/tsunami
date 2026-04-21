@@ -1,0 +1,60 @@
+{
+  "enemies": {
+    "grunt_straight": {
+      "archetype": "grunt",
+      "components": ["Health(20)", "Score(100)"],
+      "tags": ["grunt", "light"],
+      "pattern": {
+        "kind": "straight",
+        "bullets_per_burst": 1,
+        "bullet_speed": 180,
+        "interval_ms": 800
+      }
+    },
+    "grunt_spread": {
+      "archetype": "grunt_spread",
+      "components": ["Health(30)", "Score(150)"],
+      "tags": ["grunt", "spread"],
+      "pattern": {
+        "kind": "spread",
+        "bullets_per_burst": 5,
+        "angle_span_deg": 45,
+        "bullet_speed": 160,
+        "interval_ms": 1100
+      }
+    },
+    "weaver": {
+      "archetype": "weaver",
+      "components": ["Health(60)", "Score(400)"],
+      "tags": ["mid", "tracking"],
+      "pattern": {
+        "kind": "aimed",
+        "bullets_per_burst": 3,
+        "bullet_speed": 220,
+        "interval_ms": 700
+      }
+    },
+    "turret": {
+      "archetype": "turret",
+      "components": ["Health(120)", "Score(800)"],
+      "tags": ["heavy", "stationary"],
+      "pattern": {
+        "kind": "ring",
+        "bullets_per_burst": 12,
+        "bullet_speed": 150,
+        "interval_ms": 1800
+      }
+    },
+    "swarmer": {
+      "archetype": "swarmer",
+      "components": ["Health(15)", "Score(60)"],
+      "tags": ["grunt", "swarm"],
+      "pattern": {
+        "kind": "homing",
+        "bullets_per_burst": 1,
+        "bullet_speed": 130,
+        "interval_ms": 1400
+      }
+    }
+  }
+}

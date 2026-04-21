@@ -1,0 +1,9 @@
+{
+  "meta": {
+    "title": "Bullet Hell RPG",
+    "cross_genre": ["bullet_hell", "rpg"],
+    "target_mood": "arcade intensity + persistent progression"
+  },
+  "viewport": { "width": 480, "height": 720 },
+  "run": { "mode": "vertical_scroll", "run_duration_sec": 180 }
+}

@@ -1,0 +1,17 @@
+{
+  "progression": {
+    "xp_curve": [0, 100, 250, 500, 900, 1500, 2400, 3600, 5200, 7200],
+    "level_rewards": [
+      { "level": 2, "unlock": "focused_beam" },
+      { "level": 3, "unlock": "reinforced_suit" },
+      { "level": 5, "hp_bonus": 25 },
+      { "level": 7, "unlock": "doublefire_missile" },
+      { "level": 10, "hp_bonus": 50, "unlock": "master_pilot_title" }
+    ],
+    "status_effects": {
+      "focus": { "duration_sec": 6, "damage_mul": 1.25, "speed_mul": 0.85 },
+      "shield": { "duration_sec": 4, "damage_taken_mul": 0.0 },
+      "overdrive": { "duration_sec": 10, "fire_rate_mul": 1.5, "damage_mul": 1.1 }
+    }
+  }
+}

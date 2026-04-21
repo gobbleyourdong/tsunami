@@ -1,0 +1,12 @@
+{
+  "waves": [
+    { "at_sec":   2, "archetype": "grunt_straight", "count": 5,  "formation": "line" },
+    { "at_sec":  12, "archetype": "grunt_spread",   "count": 3,  "formation": "arc" },
+    { "at_sec":  25, "archetype": "swarmer",        "count": 10, "formation": "scatter" },
+    { "at_sec":  45, "archetype": "weaver",         "count": 2,  "formation": "pair" },
+    { "at_sec":  60, "archetype": "turret",         "count": 2,  "formation": "corners" },
+    { "at_sec":  90, "archetype": "grunt_spread",   "count": 6,  "formation": "wall" },
+    { "at_sec": 120, "archetype": "weaver",         "count": 4,  "formation": "diamond" }
+  ],
+  "end_condition": "boss_at_sec_150"
+}

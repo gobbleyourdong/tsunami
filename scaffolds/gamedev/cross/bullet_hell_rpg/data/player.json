@@ -1,0 +1,18 @@
+{
+  "player": {
+    "id": "player_1",
+    "archetype": "pilot",
+    "team_id": 1,
+    "components": [
+      "Health(100)",
+      "Mana(50)",
+      "Score(0)",
+      "Position(240, 600)"
+    ],
+    "starting_loadout": {
+      "primary_weapon": "spread_shot",
+      "secondary_weapon": "homing_missile",
+      "armor": "flight_suit"
+    }
+  }
+}

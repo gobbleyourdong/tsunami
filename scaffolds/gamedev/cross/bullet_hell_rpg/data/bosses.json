@@ -1,0 +1,15 @@
+{
+  "bosses": {
+    "the_archon": {
+      "archetype": "archon",
+      "components": ["Health(800)", "Score(10000)"],
+      "tags": ["boss"],
+      "phases": [
+        { "at_hp_pct": 100, "pattern": "ring",     "interval_ms": 900, "bullets_per_burst": 16 },
+        { "at_hp_pct":  66, "pattern": "spiral",   "interval_ms": 400, "bullets_per_burst":  3 },
+        { "at_hp_pct":  33, "pattern": "rainfall", "interval_ms": 180, "bullets_per_burst":  1, "desperation": true }
+      ],
+      "telegraph_sec": 1.5
+    }
+  }
+}

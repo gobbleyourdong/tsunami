@@ -1,0 +1,38 @@
+{
+  "equipment": {
+    "spread_shot": {
+      "slot": "primary_weapon",
+      "bullets_per_shot": 3,
+      "angle_span_deg": 20,
+      "bullet_speed": 420,
+      "cooldown_ms": 180,
+      "damage": 8
+    },
+    "focused_beam": {
+      "slot": "primary_weapon",
+      "bullets_per_shot": 1,
+      "angle_span_deg": 0,
+      "bullet_speed": 560,
+      "cooldown_ms": 90,
+      "damage": 14
+    },
+    "homing_missile": {
+      "slot": "secondary_weapon",
+      "bullets_per_shot": 2,
+      "homing": true,
+      "bullet_speed": 240,
+      "cooldown_ms": 1400,
+      "damage": 40
+    },
+    "flight_suit": {
+      "slot": "armor",
+      "hp_bonus": 0,
+      "speed_bonus_pct": 0
+    },
+    "reinforced_suit": {
+      "slot": "armor",
+      "hp_bonus": 50,
+      "speed_bonus_pct": -10
+    }
+  }
+}
