@@ -1,0 +1,58 @@
+{
+  "rules": {
+    "coop_mode": {
+      "max_players": 2,
+      "friendly_fire_default": true,
+      "coop_join_at_any_time": true,
+      "per_player_credit_pool": true,
+      "per_player_lives": true,
+      "shared_camera_target": "centroid",
+      "_note_job_y_proposal": "Approximates JOB-Y's CoopSharedScreen proposal; see mechanics.json#proposed_but_unused.CoopSharedScreen"
+    },
+    "continue_system": {
+      "enabled": true,
+      "countdown_seconds": 10,
+      "continue_input": "insert_coin_or_credit_button",
+      "on_continue_action": "respawn_at_death_location",
+      "on_timeout_action": "game_over_for_that_player",
+      "starting_credits_per_player": 3,
+      "max_credits_per_player": 9,
+      "_note_job_y_proposal": "Approximates JOB-Y's ArcadeContinueTimer proposal; see mechanics.json#proposed_but_unused.ArcadeContinueTimer"
+    },
+    "stage_progression": {
+      "kind": "linear_with_boss_gate",
+      "boss_gate_at_stage_end": true,
+      "screen_advance_on_enemies_cleared": true,
+      "screen_width_pixels": 400,
+      "_note_job_y_proposal": "Approximates JOB-Y's SideScrollBeatEmUpStage proposal; see mechanics.json#proposed_but_unused.SideScrollBeatEmUpStage"
+    },
+    "lives_and_respawn": {
+      "starting_lives_per_continue": 3,
+      "respawn_invuln_frames": 90,
+      "respawn_location": "edge_of_current_screen",
+      "hp_on_respawn": "full"
+    },
+    "action_economy": {
+      "moves_per_frame": 1,
+      "throwable_weapons_consume_on_throw": true,
+      "ground_pickups_have_1_use": true,
+      "grab_escape_via_mash": { "input": "wiggle_stick_or_mash_P", "required_mashes_min": 3, "required_mashes_max": 8 }
+    },
+    "win_condition": {
+      "kind": "defeat_final_boss_in_final_stage",
+      "final_boss_id": "belger_final_boss",
+      "final_stage_id": "stage_3_warehouse"
+    },
+    "lose_condition": {
+      "kind": "all_players_out_of_credits",
+      "triggers_game_over_screen": true,
+      "high_score_entry_on_game_over": true
+    },
+    "bonus_stages": {
+      "enabled": true,
+      "insert_after_stage": "stage_1_slum",
+      "bonus_stage_id": "stage_bonus_break_the_car",
+      "bonus_bypass_allowed": true
+    }
+  }
+}

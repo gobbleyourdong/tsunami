@@ -1,0 +1,54 @@
+{
+  "characters": {
+    "haggar_grappler": {
+      "source_essence": "1989_final_fight",
+      "display_name": "Mike Haggar",
+      "archetype": "grappler_heavy",
+      "portrait_sprite_ref": "sprites/portraits/haggar",
+      "fighter_sprite_ref": "sprites/fighters/haggar",
+      "starting_level": 1,
+      "stats": { "hp": 1000, "str": 16, "def": 12, "spd": 6, "grab_range": 1.8 },
+      "components": ["Health(1000)", "Resource('stun',100)", "Resource('special_meter',0)", "Inventory"],
+      "move_list_ref": "haggar_moveset",
+      "starting_weapon": null,
+      "can_use_pickup_weapons": true,
+      "tags": ["player", "controllable", "brawler", "grappler", "heavy"]
+    },
+    "cody_balanced": {
+      "source_essence": "1989_final_fight",
+      "display_name": "Cody Travers",
+      "archetype": "haymaker_balanced",
+      "portrait_sprite_ref": "sprites/portraits/cody",
+      "fighter_sprite_ref": "sprites/fighters/cody",
+      "starting_level": 1,
+      "stats": { "hp": 900, "str": 12, "def": 10, "spd": 8, "grab_range": 1.4 },
+      "components": ["Health(900)", "Resource('stun',90)", "Resource('special_meter',0)", "Inventory"],
+      "move_list_ref": "cody_moveset",
+      "starting_weapon": null,
+      "can_use_pickup_weapons": true,
+      "weapon_damage_bonus": { "knife": 1.2 },
+      "tags": ["player", "controllable", "brawler", "balanced"]
+    },
+    "guy_speedfighter": {
+      "source_essence": "1989_final_fight",
+      "display_name": "Guy",
+      "archetype": "speed_fighter",
+      "portrait_sprite_ref": "sprites/portraits/guy",
+      "fighter_sprite_ref": "sprites/fighters/guy",
+      "starting_level": 1,
+      "stats": { "hp": 800, "str": 9, "def": 9, "spd": 12, "grab_range": 1.2 },
+      "components": ["Health(800)", "Resource('stun',80)", "Resource('special_meter',0)", "Inventory"],
+      "move_list_ref": "guy_moveset",
+      "starting_weapon": null,
+      "can_use_pickup_weapons": true,
+      "tags": ["player", "controllable", "brawler", "fast", "ninja"]
+    }
+  },
+  "coop_config": {
+    "max_players": 2,
+    "friendly_fire_default": true,
+    "shared_camera_target": "centroid",
+    "per_player_credit_pool": true,
+    "per_player_lives": true
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "movesets": {
+    "haggar_moveset": {
+      "normals": [
+        { "name": "punch_jab_1",  "input": "P",       "damage": 8,  "startup_frames": 4,  "active_frames": 3, "recovery_frames": 10, "combo_link_into": "punch_jab_2" },
+        { "name": "punch_jab_2",  "input": "P",       "damage": 10, "startup_frames": 5,  "active_frames": 3, "recovery_frames": 12, "combo_link_into": "finisher_lariat", "link_window_frames": 20 },
+        { "name": "finisher_lariat","input": "P",     "damage": 20, "startup_frames": 10, "active_frames": 6, "recovery_frames": 30, "aoe_radius": 1.8, "knockdown": true },
+        { "name": "jump_kick",    "input": "J+K",     "damage": 14, "startup_frames": 8,  "active_frames": 8, "recovery_frames": 20, "airborne": true },
+        { "name": "crouch_sweep", "input": "D+K",     "damage": 10, "startup_frames": 7,  "active_frames": 3, "recovery_frames": 28, "knockdown": true }
+      ],
+      "grabs": [
+        { "name": "grab",             "input": "W+P (near)", "active_frames": 1, "grab_range": 1.8, "transitions_to": ["spinning_piledriver", "grab_throw_behind"] },
+        { "name": "spinning_piledriver","input": "360+P (in grab)", "damage": 40, "startup_frames": 24, "active_frames": 12, "recovery_frames": 40, "knockdown": true, "voice_callout": "whaaaa" },
+        { "name": "grab_throw_behind","input": "B+P (in grab)",   "damage": 20, "startup_frames": 6,  "active_frames": 6, "recovery_frames": 18, "knockdown": true, "repositions_behind": true }
+      ],
+      "specials": [
+        { "name": "desperation_lariat","input": "J+P (simultaneous)", "damage": 30, "startup_frames": 8, "active_frames": 30, "recovery_frames": 35, "aoe_radius": 2.2, "self_damage": 50, "invuln_frames": [1, 36], "clears_surrounding_enemies": true, "proposed_mechanic_tag": "SelfDamagingDesperation" }
+      ]
+    },
+    "cody_moveset": {
+      "normals": [
+        { "name": "punch_jab_1",   "input": "P", "damage": 8,  "startup_frames": 3, "active_frames": 3, "recovery_frames": 8,  "combo_link_into": "punch_jab_2" },
+        { "name": "punch_jab_2",   "input": "P", "damage": 10, "startup_frames": 4, "active_frames": 3, "recovery_frames": 10, "combo_link_into": "punch_jab_3", "link_window_frames": 16 },
+        { "name": "punch_jab_3",   "input": "P", "damage": 14, "startup_frames": 5, "active_frames": 4, "recovery_frames": 14, "knockdown": true },
+        { "name": "jump_kick",     "input": "J+K","damage": 12, "startup_frames": 7, "active_frames": 8, "recovery_frames": 18, "airborne": true },
+        { "name": "crouch_sweep",  "input": "D+K","damage": 10, "startup_frames": 6, "active_frames": 3, "recovery_frames": 22, "knockdown": true }
+      ],
+      "grabs": [
+        { "name": "grab",        "input": "W+P (near)", "active_frames": 1, "grab_range": 1.4, "transitions_to": ["knee_smash", "grab_throw"] },
+        { "name": "knee_smash",  "input": "P (in grab, x3)", "damage_per_hit": 6, "hit_count": 3, "total_frames": 30 },
+        { "name": "grab_throw",  "input": "B+P (in grab)",  "damage": 16, "startup_frames": 5, "active_frames": 5, "recovery_frames": 14, "knockdown": true }
+      ],
+      "specials": [
+        { "name": "desperation_spin","input": "J+P (simultaneous)","damage": 24,"startup_frames": 6,"active_frames": 24,"recovery_frames": 30,"aoe_radius": 2.0,"self_damage": 40,"invuln_frames": [1, 30],"clears_surrounding_enemies": true,"proposed_mechanic_tag": "SelfDamagingDesperation" }
+      ],
+      "weapon_override": {
+        "knife": [
+          { "name": "knife_stab",  "input": "P (holding knife)", "damage": 14, "bonus_over_fist": 1.2, "startup_frames": 4, "active_frames": 3, "recovery_frames": 10 },
+          { "name": "knife_throw", "input": "F+P (holding knife)", "damage": 18, "startup_frames": 6, "active_frames": 20, "recovery_frames": 24, "projectile_speed": 10.0, "consumes_weapon": true }
+        ]
+      }
+    },
+    "guy_moveset": {
+      "normals": [
+        { "name": "punch_jab_1",   "input": "P", "damage": 7,  "startup_frames": 3, "active_frames": 2, "recovery_frames": 7,  "combo_link_into": "punch_jab_2" },
+        { "name": "punch_jab_2",   "input": "P", "damage": 8,  "startup_frames": 3, "active_frames": 2, "recovery_frames": 8,  "combo_link_into": "punch_jab_3", "link_window_frames": 14 },
+        { "name": "punch_jab_3",   "input": "P", "damage": 10, "startup_frames": 3, "active_frames": 3, "recovery_frames": 9,  "combo_link_into": "elbow_drop_4", "link_window_frames": 14 },
+        { "name": "elbow_drop_4",  "input": "P", "damage": 18, "startup_frames": 6, "active_frames": 4, "recovery_frames": 24, "knockdown": true },
+        { "name": "wall_bounce_kick","input": "J+B (wall-jump)","damage": 16,"startup_frames": 8,"active_frames": 10,"recovery_frames": 20,"airborne": true,"requires_wall_adjacent": true },
+        { "name": "jump_kick",     "input": "J+K","damage": 11,"startup_frames": 6,"active_frames": 8,"recovery_frames": 16,"airborne": true },
+        { "name": "crouch_sweep",  "input": "D+K","damage": 8, "startup_frames": 5,"active_frames": 3,"recovery_frames": 18,"knockdown": true }
+      ],
+      "grabs": [
+        { "name": "grab",           "input": "W+P (near)", "active_frames": 1, "grab_range": 1.2, "transitions_to": ["shoulder_throw"] },
+        { "name": "shoulder_throw", "input": "B+P (in grab)", "damage": 14, "startup_frames": 4, "active_frames": 4, "recovery_frames": 12, "knockdown": true, "repositions_behind": true }
+      ],
+      "specials": [
+        { "name": "desperation_flip","input": "J+P (simultaneous)","damage": 22,"startup_frames": 5,"active_frames": 20,"recovery_frames": 26,"aoe_radius": 1.8,"self_damage": 30,"invuln_frames": [1, 26],"clears_surrounding_enemies": true,"proposed_mechanic_tag": "SelfDamagingDesperation" }
+      ]
+    }
+  },
+  "input_notation_key": {
+    "arcade_3btn": { "P": "punch", "K": "kick", "J": "jump" },
+    "directional_modifiers": { "F": "forward", "B": "back", "D": "down", "U": "up", "W": "walk-into (contact with enemy)" },
+    "grab_motion": { "360": "full circle motion", "in grab": "only during active grab-state frames" }
+  }
+}

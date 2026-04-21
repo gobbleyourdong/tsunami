@@ -552,6 +552,10 @@ class Agent:
                     # emit_design).
                     self.loop_guard._scaffold_kind = "gamedev"
                     self.loop_guard._gamedev_mode = "scaffold_first"
+                    # FIX-A (JOB-INT-8): decompose prompt for data/*.json
+                    # mentions + seed the pending-file checklist. Addresses
+                    # RC-1 read-after-write cascade from MULTI_FILE_STALL_ANALYSIS.
+                    self._fix_a_seed_pending(project_dir, user_message)
             else:
                 from .tools.project_init import ProjectInit
                 init_tool = ProjectInit(self.config)
@@ -654,6 +658,59 @@ class Agent:
             log.debug(f"Pre-scaffold failed: {e}")
 
         return ""
+
+    def _fix_a_seed_pending(self, project_dir: Path, user_message: str) -> None:
+        """FIX-A (JOB-INT-8) — decompose user prompt for data/*.json mentions
+        and seed the per-iter pending-file checklist. Best-effort; any failure
+        is logged at debug and leaves the drone flow unchanged."""
+        try:
+            from .pending_files import (
+                decompose_pending_files,
+                format_iter1_checklist,
+            )
+            data_dir = project_dir / "data"
+            pending, missing = decompose_pending_files(user_message, data_dir)
+            self._pending_data_files: list[str] = pending
+            self._written_data_files: list[str] = []
+            self._mentioned_but_missing: list[str] = missing
+            if pending:
+                self.state.add_system_note(format_iter1_checklist(pending, missing))
+                log.info(
+                    f"FIX-A: {len(pending)} pending data files — "
+                    f"{', '.join(pending)}"
+                    + (f"; {len(missing)} missing: {', '.join(missing)}" if missing else "")
+                )
+        except Exception as e:
+            log.debug(f"FIX-A seed_pending skipped: {e}")
+
+    def _fix_a_after_write(self, written_path: str) -> None:
+        """FIX-A — update the pending checklist after a file_write lands on
+        a tracked data/*.json file. Skips silently if FIX-A wasn't seeded."""
+        pending = getattr(self, "_pending_data_files", None)
+        if not pending:
+            return
+        try:
+            from .pending_files import format_checklist_update
+            fname = Path(written_path).name.lower() if written_path else ""
+            written = self._written_data_files
+            if fname and fname in pending and fname not in written:
+                written.append(fname)
+                remaining = [p for p in pending if p not in written]
+                if remaining:
+                    self.state.add_system_note(format_checklist_update(
+                        pending, written, self._mentioned_but_missing,
+                    ))
+                    log.info(
+                        f"FIX-A: wrote {fname}; {len(remaining)} still pending"
+                    )
+                else:
+                    self.state.add_system_note(
+                        "All pending data files written. Next action: "
+                        "run a build-check, then message_result."
+                    )
+                    log.info("FIX-A: all pending data files complete")
+        except Exception as e:
+            log.debug(f"FIX-A after_write skipped: {e}")
 
     async def _auto_build_and_gate(self, written_path: str) -> None:
         """Wave-side auto-build after a drone write. Decides task closure.
@@ -1907,6 +1964,14 @@ class Agent:
                     self.phase_machine.skip_scaffold(project_path)
                     set_active_project(project_path)
                     log.info(f"Pre-scaffold detected: {self.active_project}")
+                    # FIX-A (JOB-INT-8): existing-project scaffold-first
+                    # builds also benefit from the pending-file checklist.
+                    # Gate on the mode flag — only runs when scaffold-first
+                    # discipline is active.
+                    if getattr(self.loop_guard, "_gamedev_mode", "") == "scaffold_first":
+                        existing_dir = Path(self.config.workspace_dir) / "deliverables" / Path(self.active_project).name
+                        um = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                        self._fix_a_seed_pending(existing_dir, um)
 
             # (removed iter 2 auto-scaffold — pre-scaffold at line 544 handles this)
             if False and self.state.iteration == 2 and "project_init" not in self._tool_history:
@@ -4139,6 +4204,10 @@ class Agent:
         # 8a0. Auto-scaffold — if .tsx written to deliverables without package.json, provision it
         if tool_call.name in ("file_write", "file_edit") and not result.is_error:
             written_path = tool_call.arguments.get("path", "")
+            # FIX-A (JOB-INT-8): update the pending-file checklist when a
+            # file_write lands on a tracked data/*.json. No-ops silently
+            # when FIX-A wasn't seeded (non-gamedev / non-scaffold-first).
+            self._fix_a_after_write(written_path)
             # Wave-side: mark plan Components/Architecture sections done
             # when the drone writes/edits a TSX file in deliverables/.
             # The plan advances without needing the drone to call a

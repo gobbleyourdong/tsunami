@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "title": "Beat-em-up Scaffold Seed",
+    "shape": "action",
+    "vibe": ["arcade-side-scroll-brawler", "2p-coop", "3-character-select", "cps1-era", "metro-city-tour"],
+    "target_session_sec": 1200,
+    "genre": "beat_em_up"
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "orthographic",
+    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 32 } },
+    "gravity": [0.0, -22.0, 0.0],
+    "sandbox": false,
+    "coop_side_scroll_faux_z_depth": true
+  },
+  "starting_stage": "stage_1_slum",
+  "starting_character_player_1": "cody_balanced",
+  "starting_character_player_2": null,
+  "default_character_select_allowed": true,
+  "character_roster": ["haggar_grappler", "cody_balanced", "guy_speedfighter"],
+  "lives_per_continue": 3,
+  "starting_credits_per_player": 3,
+  "difficulty": "normal",
+  "difficulty_options": ["easy", "normal", "hard", "expert"],
+  "input_scheme": {
+    "default": "arcade_3btn",
+    "buttons": { "P": "punch", "K": "kick", "J": "jump" }
+  },
+  "win_condition": {
+    "kind": "defeat_final_boss",
+    "boss_id": "belger_final_boss",
+    "final_stage_id": "stage_3_warehouse"
+  },
+  "lose_condition": {
+    "kind": "all_players_out_of_credits"
+  },
+  "characters_ref": "characters.json",
+  "enemies_ref":    "enemies.json",
+  "stages_ref":     "stages.json",
+  "moves_ref":      "moves.json",
+  "pickups_ref":    "pickups.json",
+  "mechanics_ref":  "mechanics.json",
+  "rules_ref":      "rules.json"
+}

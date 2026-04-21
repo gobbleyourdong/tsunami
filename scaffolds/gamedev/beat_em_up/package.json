@@ -1,0 +1,20 @@
+{
+  "name": "gamedev-beat-em-up-scaffold",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Beat-em-up scaffold (Final Fight / Streets of Rage 2 / TMNT Arcade lineages). Ships 3 brawler archetypes + 6-8 enemies + 4-6 stages + grab/special/throw move tables + ComboAttacks/WaveSpawner prewired.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "engine": "file:../../engine"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
+  }
+}

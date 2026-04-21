@@ -1,0 +1,78 @@
+{
+  "pickups": {
+    "knife": {
+      "source_essence": "1989_final_fight",
+      "kind": "weapon",
+      "display_name": "Knife",
+      "sprite_ref": "sprites/pickups/knife",
+      "weapon_stats": { "damage_override": 14, "range": 1.2, "1_use_until_dropped": true, "throwable": true, "throw_damage": 18 },
+      "drop_spawns_in_breakable_props": ["barrel", "subway_sign"],
+      "tags": ["pickup", "weapon", "1_use"]
+    },
+    "pipe": {
+      "source_essence": "1989_final_fight",
+      "kind": "weapon",
+      "display_name": "Steel Pipe",
+      "sprite_ref": "sprites/pickups/pipe",
+      "weapon_stats": { "damage_override": 18, "range": 1.6, "knockback_bonus": 2.0, "multi_hit": true },
+      "drop_spawns_in_breakable_props": ["bench_bolt"],
+      "tags": ["pickup", "weapon", "reach"]
+    },
+    "katana": {
+      "source_essence": "1989_final_fight",
+      "kind": "weapon",
+      "display_name": "Katana",
+      "sprite_ref": "sprites/pickups/katana",
+      "weapon_stats": { "damage_override": 26, "range": 1.8, "multi_hit": true, "slice_arc_deg": 90 },
+      "drop_spawns_in_breakable_props": ["oil_drum"],
+      "drop_from_enemy_kill": ["sodom_midboss"],
+      "tags": ["pickup", "weapon", "heavy_damage"]
+    },
+    "chicken": {
+      "source_essence": "1989_final_fight",
+      "kind": "consumable_food",
+      "display_name": "Roast Chicken",
+      "sprite_ref": "sprites/pickups/chicken",
+      "heal_amount": 400,
+      "drop_spawns_in_breakable_props": ["trash_can", "turnstile_box", "crate"],
+      "tags": ["pickup", "consumable", "food", "heal_big"]
+    },
+    "hamburger": {
+      "source_essence": "1989_final_fight",
+      "kind": "consumable_food",
+      "display_name": "Hamburger",
+      "sprite_ref": "sprites/pickups/hamburger",
+      "heal_amount": 250,
+      "drop_spawns_in_breakable_props": ["trash_can"],
+      "tags": ["pickup", "consumable", "food", "heal_small"]
+    },
+    "coin_bag": {
+      "source_essence": "1989_final_fight",
+      "kind": "bonus_score",
+      "display_name": "Coin Bag",
+      "sprite_ref": "sprites/pickups/coin_bag",
+      "score_reward": 1000,
+      "drop_spawns_in_breakable_props": ["phone_booth", "barrel"],
+      "tags": ["pickup", "bonus"]
+    },
+    "jewel": {
+      "source_essence": "1989_final_fight",
+      "kind": "bonus_score",
+      "display_name": "Jewel",
+      "sprite_ref": "sprites/pickups/jewel",
+      "score_reward": 5000,
+      "drop_spawns_in_breakable_props": ["car_window"],
+      "tags": ["pickup", "bonus", "rare"]
+    },
+    "tires_bonus": {
+      "source_essence": "1989_final_fight",
+      "kind": "bonus_score",
+      "display_name": "Stack of Tires (Bonus)",
+      "sprite_ref": "sprites/pickups/tires",
+      "score_reward": 10000,
+      "drop_spawns_in_breakable_props": ["forklift_pallet"],
+      "bonus_only": true,
+      "tags": ["pickup", "bonus", "warehouse_exclusive"]
+    }
+  }
+}
