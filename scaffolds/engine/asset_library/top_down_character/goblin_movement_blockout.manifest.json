@@ -1,0 +1,48 @@
+{
+  "cols": 4,
+  "rows": 1,
+  "cell_w": 256,
+  "cell_h": 256,
+  "gutter_px": 0,
+  "sheet_w": 1024,
+  "sheet_h": 256,
+  "frame_count": 4,
+  "cells": [
+    {
+      "index": 0,
+      "label": "N",
+      "cell_x": 0,
+      "cell_y": 0,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/top_down_character/_staging_blockout/goblin_N.png"
+    },
+    {
+      "index": 1,
+      "label": "E",
+      "cell_x": 256,
+      "cell_y": 0,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/top_down_character/_staging_blockout/goblin_E.png"
+    },
+    {
+      "index": 2,
+      "label": "S",
+      "cell_x": 512,
+      "cell_y": 0,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/top_down_character/_staging_blockout/goblin_S.png"
+    },
+    {
+      "index": 3,
+      "label": "W",
+      "cell_x": 768,
+      "cell_y": 0,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/top_down_character/_staging_blockout/goblin_W.png"
+    }
+  ]
+}

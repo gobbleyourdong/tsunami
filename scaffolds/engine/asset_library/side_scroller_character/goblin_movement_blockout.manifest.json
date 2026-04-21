@@ -1,0 +1,21 @@
+{
+  "cols": 1,
+  "rows": 1,
+  "cell_w": 256,
+  "cell_h": 256,
+  "gutter_px": 0,
+  "sheet_w": 256,
+  "sheet_h": 256,
+  "frame_count": 1,
+  "cells": [
+    {
+      "index": 0,
+      "label": "left",
+      "cell_x": 0,
+      "cell_y": 0,
+      "cell_w": 256,
+      "cell_h": 256,
+      "source": "/home/jb/ComfyUI/CelebV-HQ/ark/scaffolds/engine/asset_library/side_scroller_character/_staging_blockout/goblin_left.png"
+    }
+  ]
+}
