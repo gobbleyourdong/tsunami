@@ -1966,12 +1966,14 @@ class Agent:
                     log.info(f"Pre-scaffold detected: {self.active_project}")
                     # FIX-A (JOB-INT-8): existing-project scaffold-first
                     # builds also benefit from the pending-file checklist.
-                    # Gate on the mode flag — only runs when scaffold-first
-                    # discipline is active.
-                    if getattr(self.loop_guard, "_gamedev_mode", "") == "scaffold_first":
-                        existing_dir = Path(self.config.workspace_dir) / "deliverables" / Path(self.active_project).name
-                        um = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
-                        self._fix_a_seed_pending(existing_dir, um)
+                    # _fix_a_seed_pending is self-gating — silently no-ops
+                    # when the project has no data/*.json (non-gamedev).
+                    # Don't check _gamedev_mode here: _swap_in_edit_prompt
+                    # sets it milliseconds later on first context refresh,
+                    # not at this point in the loop.
+                    existing_dir = Path(self.config.workspace_dir) / "deliverables" / Path(self.active_project).name
+                    um = self.state.conversation[1].content if len(self.state.conversation) > 1 else ""
+                    self._fix_a_seed_pending(existing_dir, um)
 
             # (removed iter 2 auto-scaffold — pre-scaffold at line 544 handles this)
             if False and self.state.iteration == 2 and "project_init" not in self._tool_history:
