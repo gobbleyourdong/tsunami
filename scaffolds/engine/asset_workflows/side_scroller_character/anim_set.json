@@ -1,0 +1,205 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "side_scroller_character",
+  "projection": "side_profile_2d",
+  "canvas": {"w": 1024, "h": 1024},
+  "character_pct": 0.30,
+  "frame_out_sizes": [64, 128, 256],
+  "directions": {
+    "baseline": "left",
+    "left_mirror_to_right": true,
+    "note": "right-facing produced by horizontal flip unless the character has handedness-specific gear"
+  },
+  "gen_strategy": "per_frame",
+  "gen_strategy_note": "Per top_down_character canary findings: grid-prompting does not produce animation phases. Each frame is its own ERNIE call with an explicit pose_description.",
+  "anims": {
+    "idle": {
+      "frames": 6,
+      "loop": true,
+      "per_frame_ms": 180,
+      "poses": [
+        "both feet planted flat, arms at sides, neutral breathing pose, head level",
+        "both feet planted flat, chest subtly expanded, shoulders slightly raised",
+        "both feet planted flat, slight forward lean, arms relaxed",
+        "both feet planted flat, chest subtly expanded, shoulders slightly raised (peak breath)",
+        "both feet planted flat, neutral posture returning",
+        "both feet planted flat, arms at sides, matching pose 0"
+      ],
+      "anchors": ["sotn_alucard_idle", "celeste_madeline_idle"]
+    },
+    "walk": {
+      "frames": 8,
+      "loop": true,
+      "per_frame_ms": 90,
+      "poses": [
+        "right foot lifted, knee at 25° and rising, left foot planted, arm swing opposite",
+        "right foot at apex of step, knee at 45°, body slightly crouched, arms swinging",
+        "right foot descending toward ground ahead of body, torso level",
+        "right foot planted ahead, left foot pushing off behind, weight shifting forward",
+        "left foot lifted, knee at 25° and rising, right foot planted ahead",
+        "left foot at apex of step, knee at 45°, body slightly crouched",
+        "left foot descending toward ground, torso level",
+        "left foot planted ahead, right foot pushing off behind"
+      ],
+      "anchors": ["sotn_alucard_walk", "mario_walk_cycle"]
+    },
+    "run": {
+      "frames": 8,
+      "loop": true,
+      "per_frame_ms": 65,
+      "poses": [
+        "forward-leaning sprint, right knee high at chest level, left leg fully extended behind",
+        "forward-leaning sprint, right foot stretching forward, left foot leaving ground",
+        "forward-leaning sprint, right foot striking ground ahead, left knee rising",
+        "forward-leaning sprint, push-off with right foot, left knee at chest",
+        "forward-leaning sprint, left knee high at chest level, right leg fully extended behind",
+        "forward-leaning sprint, left foot stretching forward, right foot leaving ground",
+        "forward-leaning sprint, left foot striking ground ahead, right knee rising",
+        "forward-leaning sprint, push-off with left foot, right knee at chest"
+      ],
+      "anchors": ["celeste_madeline_run", "hollow_knight_run"]
+    },
+    "jump_up": {
+      "frames": 3,
+      "loop": false,
+      "per_frame_ms": 55,
+      "poses": [
+        "crouched preparation, knees bent deeply, arms drawn back",
+        "explosive takeoff, legs extending, arms thrusting upward",
+        "rising through air, body fully extended vertically, arms raised"
+      ]
+    },
+    "jump_peak": {
+      "frames": 1,
+      "loop": false,
+      "per_frame_ms": 120,
+      "poses": [
+        "apex of jump, body compressed, legs tucked, arms at sides, floating"
+      ]
+    },
+    "jump_down": {
+      "frames": 2,
+      "loop": false,
+      "per_frame_ms": 80,
+      "poses": [
+        "falling, legs beginning to extend downward, arms slightly forward for balance",
+        "falling fast, legs fully extended downward preparing to land, arms out"
+      ]
+    },
+    "land": {
+      "frames": 2,
+      "loop": false,
+      "per_frame_ms": 70,
+      "poses": [
+        "feet striking ground, knees absorbing impact, deep crouch",
+        "rising from crouch, knees straightening, body returning to neutral"
+      ]
+    },
+    "attack_light": {
+      "frames": 5,
+      "loop": false,
+      "per_frame_ms": 50,
+      "poses": [
+        "wind-up: weapon arm drawn back, shoulders rotated away from target",
+        "anticipation: weight shifting forward, front foot stepping",
+        "strike: weapon arm fully extended forward, body rotated into target",
+        "follow-through: weapon arm crossing body after strike, shoulders squared",
+        "recovery: weapon arm returning to guard position"
+      ]
+    },
+    "attack_heavy": {
+      "frames": 8,
+      "loop": false,
+      "per_frame_ms": 55,
+      "poses": [
+        "deep wind-up: weapon raised high overhead, both hands gripping",
+        "charging: body coiled, knees bent, weapon beginning downward arc",
+        "descent phase one: weapon halfway through downward swing, shoulders rotating",
+        "descent phase two: weapon approaching target height, full body commitment",
+        "strike: weapon at target height, maximum extension, stance wide",
+        "impact follow-through: weapon past target, body leaning forward",
+        "recovery swing: weapon continuing through arc to opposite side",
+        "recovery stance: weapon being reset to guard, body squaring"
+      ]
+    },
+    "hurt": {
+      "frames": 3,
+      "loop": false,
+      "per_frame_ms": 110,
+      "poses": [
+        "impact: head snapped back, chest recoiling, arms thrown out",
+        "stagger: body bent backward, knees buckling, arms searching for balance",
+        "recovery: body returning to upright, wary guard posture"
+      ]
+    },
+    "death": {
+      "frames": 6,
+      "loop": false,
+      "per_frame_ms": 140,
+      "poses": [
+        "killing blow: head thrown back, arms flailing outward, body arched",
+        "falling: body tilting backward, legs giving way",
+        "collapsing: knees hitting ground, upper body still upright",
+        "crumpling: body folding forward, arms reaching for ground",
+        "on ground: body fully prone, limbs sprawled",
+        "still: body motionless on ground, legs bent in final position"
+      ]
+    },
+    "wall_slide": {
+      "frames": 2,
+      "loop": true,
+      "per_frame_ms": 90,
+      "poses": [
+        "pressed against wall with one hand, body facing wall, legs bent",
+        "pressed against wall with both hands, body facing wall, legs straighter mid-slide"
+      ]
+    },
+    "dash": {
+      "frames": 4,
+      "loop": false,
+      "per_frame_ms": 45,
+      "poses": [
+        "wind-up: body coiled low, one leg forward, arms tucked",
+        "launch: explosive forward motion, body nearly horizontal, trailing afterimage",
+        "mid-dash: body fully horizontal, legs streamlined, forward velocity clear",
+        "end: body starting to slow, feet reaching for ground, arms coming up"
+      ]
+    },
+    "crouch": {
+      "frames": 2,
+      "loop": false,
+      "per_frame_ms": 80,
+      "poses": [
+        "mid-crouch: knees bending, body lowering, arms drawn in",
+        "fully crouched: deep squat, heels on ground, body compact"
+      ]
+    },
+    "crouch_walk": {
+      "frames": 6,
+      "loop": true,
+      "per_frame_ms": 130,
+      "poses": [
+        "low crouch, right foot forward in small step, body low",
+        "low crouch, right foot planted, left foot beginning to move",
+        "low crouch, left foot forward in small step, weight shifting",
+        "low crouch, left foot planted, right foot beginning to move",
+        "low crouch, right foot beginning next step, continuous low profile",
+        "low crouch, returning to neutral crouched stance"
+      ]
+    }
+  },
+  "total_frame_budget": {
+    "idle": 6, "walk": 8, "run": 8,
+    "jump_up": 3, "jump_peak": 1, "jump_down": 2, "land": 2,
+    "attack_light": 5, "attack_heavy": 8,
+    "hurt": 3, "death": 6,
+    "wall_slide": 2, "dash": 4,
+    "crouch": 2, "crouch_walk": 6,
+    "total": 66
+  },
+  "ernie_call_count": {
+    "total": 66,
+    "with_right_mirror": 66,
+    "note": "right-facing is a horizontal flip so the gen count does not double; total = frame budget"
+  }
+}

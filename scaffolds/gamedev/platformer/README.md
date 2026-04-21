@@ -74,6 +74,17 @@ Append to `data/powerups.json::powerups`:
 
 Effects in seed: `grow` (small→big), `shoot` (fireball), `invincibility` (star), `extra_life` (1up), `dash` (Celeste-style). The mounted `PickupLoop` dispatches via `effect_on_collect`.
 
+### Generate new character sprites
+This scaffold's canonical 2D-profile characters are produced by the
+`side_scroller_character` asset workflow:
+`scaffolds/engine/asset_workflows/side_scroller_character/`. That dir's
+README documents the 66-frame full-move-set budget (idle / walk / run /
+jump / land / attack / hurt / death / wall-slide / dash / crouch), the
+per-frame generation pattern (NOT grid), and the honest caveats around
+copyright priors, pose fidelity, and baked shadows. Enemies use the same
+workflow with a reduced anim subset (idle+walk+hurt+death for
+basic walkers; idle+fly+dive+hurt+death for flyers).
+
 ## Directory layout
 
 ```
