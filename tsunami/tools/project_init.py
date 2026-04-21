@@ -133,6 +133,17 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
     # ProjectInit.execute forks on the "cli/" prefix to use pip instead
     # of npm. Keywords are multi-word where possible to avoid the "live"
     # / "chat" class of mis-routing seen in the web branches.
+    #
+    # Ordering within the CLI branch matters: file-converter checked
+    # first because its signal ("convert csv to jsonl") is more specific
+    # than the generic "data processor" signal. A prompt like "cli that
+    # converts csv to json" should land on file-converter, not
+    # data-processor.
+    if needs("convert csv", "convert jsonl", "convert yaml", "csv to json",
+             "csv to jsonl", "jsonl to csv", "yaml to json", "json to yaml",
+             "file converter", "file-converter", "format converter"):
+        if (SCAFFOLDS_DIR / "cli" / "file-converter").exists():
+            return "cli/file-converter"
     if needs("cli tool", "command line tool", "command-line tool",
              "process jsonl", "process csv", "stdin pipeline",
              "data processor", "data-processor", "pipeline cli",
@@ -332,6 +343,8 @@ class ProjectInit(BaseTool):
         "cli":              "cli/data-processor",
         "data-processor":   "cli/data-processor",
         "cli/data-processor": "cli/data-processor",
+        "file-converter":   "cli/file-converter",
+        "cli/file-converter": "cli/file-converter",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:
@@ -567,12 +580,13 @@ class ProjectInit(BaseTool):
                 )
 
             entry = scaffold_name.split("/", 1)[1]
+            pkg = entry.replace("-", "_")
             return ToolResult(
                 f"Project '{name}' ready (scaffold: {scaffold_name}) at {project_dir}\n"
                 f"Entry point: `{entry}` (installed on PATH via pyproject.toml)\n"
                 f"Run: shell_exec '{entry} --help'\n"
-                f"Extend: edit src/data_processor/operators.py (add generators) "
-                f"and src/data_processor/cli.py (wire them into Click commands).",
+                f"Extend: edit src/{pkg}/cli.py (Click entrypoint). "
+                f"See README.md in the project dir for the operator catalog.",
             )
         except Exception as e:
             return ToolResult(f"CLI scaffold init failed: {e}", is_error=True)

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "file-converter"
+version = "0.1.0"
+description = "Scaffold for a CLI that converts between tabular formats (csv/jsonl/json/tsv/yaml)."
+requires-python = ">=3.10"
+dependencies = [
+  "click>=8.1",
+  "pyyaml>=6.0",
+]
+
+[project.scripts]
+file-converter = "file_converter.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
