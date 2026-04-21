@@ -815,9 +815,12 @@ class Agent:
         except Exception as e:
             log.debug(f"FIX-B edit_failed nudge skipped: {e}")
 
-    def _current_content_snippet(self, path: str, max_chars: int = 150) -> str:
+    @staticmethod
+    def _current_content_snippet(path: str, max_chars: int = 150) -> str:
         """Read up to max_chars from ``path`` for the retry-breaker
-        counter-signal. Returns empty string on any read failure."""
+        counter-signal. Returns empty string on any read failure.
+        (staticmethod: no self usage; call as `agent._current_content_snippet(p)`
+        OR `Agent._current_content_snippet(p)` — both work.)"""
         try:
             p = Path(path)
             if not p.is_file():
@@ -1151,8 +1154,10 @@ class Agent:
                 app_path.write_text(auto_app)
                 log.info(f"Auto-wired {project_dir.name}/App.tsx with {len(components)} components")
 
-    def _is_engine_project(self, proj_dir: Path) -> bool:
-        """Check if a project uses the Tsunami Engine (game scaffold)."""
+    @staticmethod
+    def _is_engine_project(proj_dir: Path) -> bool:
+        """Check if a project uses the Tsunami Engine (game scaffold).
+        (staticmethod: pure path-based check, no self usage.)"""
         try:
             pkg = proj_dir / "package.json"
             if pkg.exists():
@@ -1498,7 +1503,8 @@ class Agent:
             log.debug(f"_find_latest_dist_html failed: {e}")
         return None
 
-    async def _system_run_undertow(self, html_path: Path):
+    @staticmethod
+    async def _system_run_undertow(html_path: Path):
         """Run undertow.pull_levers with a system-chosen minimal lever set
         (no `expect=` fields, so no eddy-LLM round-trip). Returns the
         QAReport, or None if undertow isn't importable / hits a setup error.
@@ -1513,6 +1519,7 @@ class Agent:
         analyzer) which trap the model in a no-win retry loop. Console
         errors are unambiguous ship-blockers — if they fire, the model
         has a concrete thing to fix.
+        (staticmethod: no self usage.)
         """
         try:
             from .undertow import Lever, pull_levers
