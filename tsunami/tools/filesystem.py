@@ -394,19 +394,44 @@ def _suggest_similar_paths(
 
 
 def is_scaffold_first_gamedev(project_dir: Path) -> bool:
-    """True iff project_dir is a provisioned scaffold-first gamedev project.
+    """True iff project_dir is a scaffold-first gamedev project.
 
-    Signal: project_dir/package.json has a `name` field starting with
-    `gamedev-` and ending with `-scaffold`. Used by the data/*.json read
-    gate below AND by agent.py's design-phase schema allowlist — the
-    latter must drop file_read for scaffold-first projects because the
-    drone already has schema.ts, catalog.ts, and every data/*.json
-    inlined in its system prompt (see tsunami/prompt.py:264-269).
+    Two signals — either alone is sufficient. This is a deliberate
+    defense-in-depth design after the 2026-04-20 kelp Round 10 audit
+    discovered that the package-name signal (initial implementation)
+    never fired on real deliverables:
+    project_init_gamedev.py:266 rewrites `package.json["name"]` from
+    `gamedev-platformer-scaffold` → the user's project slug (e.g.
+    `crystal-saga`) on provisioning, so the source-template marker
+    doesn't survive.
 
-    Fails closed (returns False) on any IO or JSON error so a malformed
-    package.json doesn't lock the drone out of file_read everywhere.
+    Signal 1 — layout invariant:
+      project_dir/data/*.json exists AND project_dir/src/scenes is a
+      directory. This is the Phaser-scene-plus-data-driver layout
+      every gamedev scaffold ships with (see scaffolds/gamedev/*/).
+      Survives the package.json rename and so covers all real
+      deliverables.
+
+    Signal 2 — legacy name marker:
+      package.json has `name` starting with `gamedev-` and ending
+      with `-scaffold`. Covers source templates under scaffolds/
+      AND any codebase that happens to preserve the scaffold marker
+      (pre-provisioning, or tests).
+
+    Fails closed (returns False) on any IO or JSON error so a
+    malformed project doesn't lock the drone out of file_read
+    everywhere.
     """
     try:
+        # Signal 1 — filesystem layout (covers provisioned deliverables).
+        data_dir = project_dir / "data"
+        scenes_dir = project_dir / "src" / "scenes"
+        if (data_dir.is_dir()
+                and any(data_dir.glob("*.json"))
+                and scenes_dir.is_dir()):
+            return True
+        # Signal 2 — legacy package-name marker (covers source templates,
+        # unprovisioned scaffolds, and any explicit opt-in).
         pkg = project_dir / "package.json"
         if not pkg.is_file():
             return False
