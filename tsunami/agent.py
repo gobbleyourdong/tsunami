@@ -501,7 +501,17 @@ class Agent:
         Like the classifier layer: analyze the prompt, pick the right scaffold,
         provision the project BEFORE the model starts. The model wakes up
         inside a ready project with a README.
+
+        Idempotent guard: if _project_init_called is already True, skip.
+        Covers the audit's double-fire concern where _pre_scaffold ran once
+        before the loop AND the mid-loop auto-scaffold path at the tool-
+        call postprocess (search `Auto-scaffold:` in this file) could both
+        provision the same project. The shared `_project_init_called` flag
+        makes the two paths mutex-friendly.
         """
+        if self._project_init_called:
+            log.debug("pre_scaffold: already provisioned this session, skipping")
+            return ""
         msg = user_message.lower().strip()
 
         # Skip questions — "what can you build?" is not a build request
@@ -4341,12 +4351,26 @@ class Agent:
                     if len(parts) > 1:
                         project_name = parts[1].split("/")[0]
                         project_dir = Path(self.config.workspace_dir) / "deliverables" / project_name
-                        if project_dir.exists() and not (project_dir / "package.json").exists():
+                        # Mutex with _pre_scaffold: if we already provisioned a
+                        # project this session AND the drone is writing INTO
+                        # that same project, there's nothing to auto-scaffold
+                        # — pre-scaffold handled it. Only fire retroactively
+                        # when the drone wrote to a DIFFERENT project (rare;
+                        # usually the drone confusing itself, but harmless to
+                        # provision what it wrote into).
+                        same_project = (
+                            self._project_init_called
+                            and self.active_project == project_name
+                        )
+                        if (not same_project
+                                and project_dir.exists()
+                                and not (project_dir / "package.json").exists()):
                             log.info(f"Auto-scaffold: {project_name} missing package.json, provisioning")
                             from .tools.project_init import ProjectInit
                             init_tool = ProjectInit(self.config)
                             scaffold_result = await init_tool.execute(name=project_name)
                             log.info(f"Auto-scaffold: {scaffold_result.content[:100]}")
+                            self._project_init_called = True
                 except Exception as e:
                     log.debug(f"Auto-scaffold skipped: {e}")
 
