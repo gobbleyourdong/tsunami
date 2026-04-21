@@ -1,0 +1,10 @@
+{
+  "name": "web",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "mkdir -p dist && cp server.js dist/server.js",
+    "start": "node dist/server.js"
+  }
+}

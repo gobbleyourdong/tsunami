@@ -291,6 +291,15 @@ def _pick_scaffold(name: str, dependencies: list[str], prompt: str = "") -> str:
         if (SCAFFOLDS_DIR / "web" / "ecommerce").exists():
             return "web/ecommerce"
 
+    # 6e. Infra — docker-compose multi-service stack. Keywords are
+    # multi-word / specific to avoid catching generic "compose" or
+    # "stack" on a React prompt.
+    if needs("docker compose", "docker-compose", "compose stack",
+             "multi-service stack", "compose.yml", "compose file",
+             "dockerfile stack", "compose up"):
+        if (SCAFFOLDS_DIR / "infra" / "docker-compose").exists():
+            return "infra/docker-compose"
+
     # 7. Presentation (landing, portfolio)
     if needs("landing", "portfolio", "marketing", "homepage", "website",
              "showcase", "brochure", "about"):
@@ -379,6 +388,9 @@ class ProjectInit(BaseTool):
         "ecommerce":        "web/ecommerce",
         "e-commerce":       "web/ecommerce",
         "web/ecommerce":    "web/ecommerce",
+        "docker-compose":   "infra/docker-compose",
+        "compose":          "infra/docker-compose",
+        "infra/docker-compose": "infra/docker-compose",
     }
 
     async def execute(self, name: str, dependencies: list = None, template: str = "", prompt: str = "", **kw) -> ToolResult:
@@ -442,6 +454,11 @@ class ProjectInit(BaseTool):
             # through the web/game copy block below.
             if scaffold_name.startswith("cli/"):
                 return self._init_cli_scaffold(name, project_dir, scaffold_name)
+
+            # Infra scaffolds (docker-compose, k8s manifests, terraform)
+            # are pure config trees — no install step. Copy + return.
+            if scaffold_name.startswith("infra/"):
+                return self._init_infra_scaffold(name, project_dir, scaffold_name)
 
             if scaffold_name:
                 scaffold_dir = SCAFFOLDS_DIR / scaffold_name
@@ -624,3 +641,21 @@ class ProjectInit(BaseTool):
             )
         except Exception as e:
             return ToolResult(f"CLI scaffold init failed: {e}", is_error=True)
+
+    def _init_infra_scaffold(self, name: str, project_dir: Path, scaffold_name: str) -> ToolResult:
+        """Init an infra scaffold. No install step — it's a config tree."""
+        scaffold_dir = SCAFFOLDS_DIR / scaffold_name
+        if not scaffold_dir.is_dir():
+            return ToolResult(
+                f"Infra scaffold not found at {scaffold_dir}", is_error=True,
+            )
+        try:
+            shutil.copytree(scaffold_dir, project_dir)
+            log.info(f"Copied infra scaffold '{scaffold_name}' → {project_dir}")
+            return ToolResult(
+                f"Project '{name}' ready (scaffold: {scaffold_name}) at {project_dir}\n"
+                f"Next step: copy .env.example → .env, fill in secrets.\n"
+                f"Run: shell_exec 'cd {project_dir} && docker compose up --build'",
+            )
+        except Exception as e:
+            return ToolResult(f"Infra scaffold init failed: {e}", is_error=True)

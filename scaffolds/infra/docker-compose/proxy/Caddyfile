@@ -1,0 +1,12 @@
+# Reverse proxy → web service on :3000.
+# Swap 'localhost' for your domain + add tls block when you deploy.
+
+:80 {
+    reverse_proxy web:3000
+    encode gzip
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
