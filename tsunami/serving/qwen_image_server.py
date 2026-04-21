@@ -118,6 +118,54 @@ class LoraSwapRequest(BaseModel):
                           description="LoRA strength multiplier; 1.0 = as-published")
 
 
+class NudgeStep(BaseModel):
+    """One step in a chain-edit animation. The `delta` describes only what
+    CHANGES from the previous frame, not the full pose. `strength` is low
+    by default (~0.4) to keep identity drift bounded across the chain."""
+    delta: str
+    strength: float = Field(0.4, ge=0.0, le=1.0,
+                            description="per-step edit strength; keep low (0.3-0.5) "
+                                        "for identity preservation across chain")
+    guidance_scale: float = DEFAULT_GUIDANCE
+    num_inference_steps: int = DEFAULT_STEPS_BASE
+
+
+class AnimateRequest(BaseModel):
+    """Chain-edit animation synthesis. Takes a base image and an ordered
+    chain of nudges. Each nudge edits the previous frame's output, so
+    identity drift is bounded by the sum of per-step strengths rather than
+    by each step independently (the star-vs-chain distinction — chain keeps
+    every frame close to its neighbor, so the character stays locked).
+
+    Use case: sprite-sheet animation (walk cycle, VFX destruction, state
+    transitions on environment entities). Load an animation primitive's
+    nudge list from asset_library/animations/*.yaml and pass it here.
+    """
+    # Base-image input uses the same shape as EditRequest so any caller
+    # that can prep an edit request can prep an animate request.
+    b64_json: Optional[str] = None
+    path: Optional[str] = None
+
+    nudges: list[NudgeStep] = Field(min_length=1, max_length=32,
+        description="ordered list of chain-edit steps; cap 32 to bound "
+                    "cumulative drift + wall-clock")
+    negative_prompt: Optional[str] = None
+    seed: Optional[int] = None
+
+    # Where frames land. If response_format=save_path, frame_<N>.png files
+    # are written under save_dir; if b64_json, frames come back inline.
+    response_format: str = Field("save_path", description="b64_json or save_path")
+    save_dir: Optional[str] = Field(None, description="required when response_format=save_path")
+
+
+class AnimateResponse(BaseModel):
+    created: int
+    frames: list[GenResponseImage]
+    timing: dict
+    total_strength: float   # Σ(step strengths) — proxy for cumulative drift bound
+    loaded_loras: list[str]
+
+
 class GenResponseImage(BaseModel):
     b64_json: Optional[str] = None
     save_path: Optional[str] = None
@@ -304,6 +352,97 @@ async def edit(req: EditRequest):
         created=int(time.time()),
         data=data,
         timing={"elapsed_s": round(time.time() - t0, 2)},
+        loaded_loras=list(_loaded_loras),
+    )
+
+
+@app.post("/v1/images/animate", response_model=AnimateResponse)
+async def animate(req: AnimateRequest):
+    """Chain-edit animation — run a sequence of nudges against the base
+    image, feeding each frame's output as the next frame's input. Identity
+    preserved across the whole chain because each step is a small delta
+    from the previous frame, not from the base.
+
+    Per-frame logging includes step index + strength so the production-
+    firing audit (sigma v10) can grep for this signature to confirm the
+    endpoint is alive.
+    """
+    if _pipe is None:
+        raise HTTPException(503, "pipeline not loaded")
+    if req.response_format == "save_path" and not req.save_dir:
+        raise HTTPException(400, "save_dir required when response_format=save_path")
+
+    # Load base as PIL.Image using the existing ImageInput helper shape.
+    base_input = ImageInput(b64_json=req.b64_json, path=req.path)
+    current_img = _load_input_image(base_input)
+
+    # Prepare save_dir up front (one mkdir, not per-frame).
+    save_dir_path: Optional[Path] = None
+    if req.save_dir:
+        save_dir_path = Path(req.save_dir)
+        save_dir_path.mkdir(parents=True, exist_ok=True)
+
+    generator = None
+    if req.seed is not None:
+        generator = torch.Generator(device=_args.device).manual_seed(req.seed)
+
+    frames: list[GenResponseImage] = []
+    total_strength = 0.0
+    t0 = time.time()
+    log.info(
+        f"[animate] chain of {len(req.nudges)} nudges, "
+        f"seed={req.seed}, save_dir={req.save_dir}"
+    )
+
+    async with _lock:
+        for i, step in enumerate(req.nudges):
+            step_t0 = time.time()
+            result = _pipe(
+                prompt=step.delta,
+                image=current_img,
+                negative_prompt=req.negative_prompt,
+                strength=step.strength,
+                num_inference_steps=step.num_inference_steps,
+                guidance_scale=step.guidance_scale,
+                num_images_per_prompt=1,
+                generator=generator,
+            )
+            current_img = result.images[0]
+            total_strength += step.strength
+            log.info(
+                f"[animate] step {i+1}/{len(req.nudges)}: "
+                f"strength={step.strength:.2f}, "
+                f"Σ={total_strength:.2f}, "
+                f"elapsed={time.time()-step_t0:.1f}s, "
+                f"delta={step.delta[:60]!r}"
+            )
+
+            # Pack and stash this frame.
+            if req.response_format == "save_path":
+                frame_path = save_dir_path / f"frame_{i:03d}.png"
+                current_img.save(frame_path)
+                frames.append(GenResponseImage(save_path=str(frame_path)))
+            else:
+                buf = io.BytesIO()
+                current_img.save(buf, format="PNG")
+                frames.append(GenResponseImage(
+                    b64_json=base64.b64encode(buf.getvalue()).decode("ascii")
+                ))
+
+    elapsed = round(time.time() - t0, 2)
+    log.info(
+        f"[animate] chain complete: {len(frames)} frames, "
+        f"Σstrength={total_strength:.2f}, {elapsed}s total, "
+        f"{elapsed/max(len(frames),1):.2f}s/frame"
+    )
+    return AnimateResponse(
+        created=int(time.time()),
+        frames=frames,
+        timing={
+            "elapsed_s": elapsed,
+            "per_frame_s": round(elapsed / max(len(frames), 1), 2),
+        },
+        total_strength=round(total_strength, 2),
         loaded_loras=list(_loaded_loras),
     )
 
