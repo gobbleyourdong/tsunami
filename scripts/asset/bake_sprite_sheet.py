@@ -200,8 +200,11 @@ class BakeServer:
         self._check_online()
 
     def _check_online(self) -> None:
+        # Generous timeout — the server's async loop can be unresponsive
+        # under GPU pressure from a prior in-flight request. Short 5s
+        # timeout gave false negatives in back-to-back run tests.
         try:
-            r = requests.get(f"{self.base_url}/healthz", timeout=5)
+            r = requests.get(f"{self.base_url}/healthz", timeout=180)
         except requests.RequestException as e:
             raise RuntimeError(
                 f"bake server unreachable at {self.base_url}: {e}"
@@ -214,7 +217,7 @@ class BakeServer:
         # Verify the animate endpoint is present — catches the "ran a stale
         # server" failure mode cheaply.
         try:
-            oapi = requests.get(f"{self.base_url}/openapi.json", timeout=5).json()
+            oapi = requests.get(f"{self.base_url}/openapi.json", timeout=180).json()
             if "/v1/images/animate" not in oapi.get("paths", {}):
                 raise RuntimeError(
                     f"server at {self.base_url} has no /v1/images/animate — "

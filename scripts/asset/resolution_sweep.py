@@ -159,9 +159,13 @@ def main() -> int:
         return 2
 
     # Check server health up front — nothing is more painful than starting
-    # a 20-minute sweep and finding the server died mid-way.
+    # a 20-minute sweep and finding the server died mid-way. Use a generous
+    # timeout because the server's async _lock may be held by a long-running
+    # edit call in flight from a prior client (healthz still responds but
+    # behind the lock wait) — short 5s timeout gave false negatives in
+    # back-to-back runs.
     try:
-        r = requests.get(f"{args.server.rstrip('/')}/healthz", timeout=5)
+        r = requests.get(f"{args.server.rstrip('/')}/healthz", timeout=180)
         if r.status_code != 200 or not r.json().get("pipe_loaded"):
             print(f"ERROR: server at {args.server} not ready: {r.text}",
                   file=sys.stderr)
