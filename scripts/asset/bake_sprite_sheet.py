@@ -192,11 +192,15 @@ class BakeServer:
 
     def __init__(self, base_url: str, timeout_s: int = 900,
                  steps_override: Optional[int] = None,
-                 cfg_override: Optional[float] = None):
+                 cfg_override: Optional[float] = None,
+                 negative_prompt: str = " "):
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
         self.steps_override = steps_override
         self.cfg_override = cfg_override
+        # Model card default is " " (single space) to engage CFG. Empty
+        # string DISABLES CFG in the Qwen-Image-Edit pipe.
+        self.negative_prompt = negative_prompt
         self._check_online()
 
     def _check_online(self) -> None:
@@ -255,6 +259,7 @@ class BakeServer:
         payload = {
             "path": str(base_path),
             "prompt": prompt,
+            "negative_prompt": self.negative_prompt,
             "strength": strength,
             "height": height,
             "width": width,
@@ -283,6 +288,7 @@ class BakeServer:
         save_dir.mkdir(parents=True, exist_ok=True)
         payload = {
             "path": str(base_path),
+            "negative_prompt": self.negative_prompt,
             "nudges": [
                 {
                     "delta": n.delta,
@@ -623,6 +629,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--cfg", type=float, default=None,
                    help="override true_cfg_scale for every call (default 4.0 "
                         "per model card).")
+    p.add_argument("--negative-prompt", default=" ",
+                   help="negative prompt for every edit + animate call. "
+                        "Default ' ' (single space) per model card — empty "
+                        "string DISABLES CFG in the pipe, which silently "
+                        "undercooks output.")
     p.add_argument("--seed", type=int, default=None,
                    help="deterministic seed for all edit/animate calls")
     p.add_argument("--dry-run", action="store_true",
@@ -658,11 +669,13 @@ def main() -> int:
 
     server = BakeServer(args.server,
                         steps_override=args.steps,
-                        cfg_override=args.cfg)
+                        cfg_override=args.cfg,
+                        negative_prompt=args.negative_prompt)
     log.info(
         f"[bake] entity={graph.entity} base={base_path} out={out_dir} "
         f"steps={args.steps or 'primitive-default'} "
-        f"cfg={args.cfg if args.cfg is not None else 'primitive-default'}"
+        f"cfg={args.cfg if args.cfg is not None else 'primitive-default'} "
+        f"neg={args.negative_prompt!r}"
     )
 
     t0 = time.time()
