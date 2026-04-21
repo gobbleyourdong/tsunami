@@ -42,7 +42,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ._probe_common import result
+from ._probe_common import result, read_text as _read, scan_markers as _scan
 
 
 _ENTRY_CANDIDATES = (
@@ -79,13 +79,6 @@ _SINK_MARKERS = (
     "load_table(", "load_", "bulk_insert", "to_gbq(",
     "s3_put", "blob.upload",
 )
-
-
-def _read(p: Path) -> str:
-    try:
-        return p.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
 
 
 def _find_entry(project_dir: Path) -> Path | None:
@@ -147,10 +140,6 @@ def _check_dbt(project_dir: Path) -> dict:
         True, "",
         raw=f"shape=dbt\nmodels={rel_models}/ ({len(sql_files)} .sql)",
     )
-
-
-def _scan(text: str, markers: tuple[str, ...]) -> list[str]:
-    return [m for m in markers if m in text]
 
 
 def _check_script(project_dir: Path, entry: Path) -> dict:

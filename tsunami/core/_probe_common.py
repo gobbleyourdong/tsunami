@@ -182,3 +182,30 @@ def result(passed: bool, issues: str = "", raw: str = "") -> dict:
 def skip(reason: str) -> dict:
     """Fall-through result: gate unavailable, don't block delivery."""
     return {"passed": True, "issues": "", "raw": f"(skip: {reason})"}
+
+
+def read_text(p: Path) -> str:
+    """Read a file as UTF-8 with replace-errors fallback. Returns "" on
+    any OSError (missing, permission, device error). Used by probes that
+    scan source/config files for markers where a read failure is "file
+    isn't relevant to this check" rather than a fatal error.
+
+    Extracted from data_pipeline_probe._read + docs_probe._read which
+    had identical implementations.
+    """
+    try:
+        return p.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def scan_markers(text: str, markers: tuple[str, ...]) -> list[str]:
+    """Return the subset of `markers` that appear as substrings of `text`.
+    Order-preserving. Used by probes that check for required/allowed
+    patterns in source files (framework imports, loop markers, save
+    markers, etc.).
+
+    Extracted from training_probe._scan_for_markers + data_pipeline_
+    probe._scan which had identical implementations.
+    """
+    return [m for m in markers if m in text]

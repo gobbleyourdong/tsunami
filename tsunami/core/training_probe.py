@@ -34,7 +34,7 @@ import json
 import re
 from pathlib import Path
 
-from ._probe_common import result
+from ._probe_common import result, scan_markers as _scan_for_markers
 
 
 _FRAMEWORK_IMPORTS = (
@@ -128,11 +128,6 @@ def _find_entry(project_dir: Path) -> Path | None:
             return p
 
     return None
-
-
-def _scan_for_markers(text: str, markers: tuple[str, ...]) -> list[str]:
-    hits = [m for m in markers if m in text]
-    return hits
 
 
 def _has_config_surface(project_dir: Path, entry_text: str) -> tuple[bool, str]:

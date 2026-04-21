@@ -34,18 +34,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ._probe_common import result
+from ._probe_common import result, read_text as _read
 
 
 _CONTENT_FRONTMATTER_RE = re.compile(r"^---\n.*?\n---\n", re.DOTALL)
 _MIN_CONTENT_CHARS = 400
-
-
-def _read(p: Path) -> str:
-    try:
-        return p.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
 
 
 def _strip_frontmatter(text: str) -> str:
