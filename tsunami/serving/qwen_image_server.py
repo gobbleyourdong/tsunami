@@ -240,24 +240,47 @@ def _load_pipe():
     if _args.fp8_path:
         from diffusers import QwenImageTransformer2DModel
         from tsunami.serving._zero_copy import patch_diffusers_load_state_dict
-        log.info(f"[fp8] loading transformer via from_single_file (zero-copy): {_args.fp8_path}")
+        from tsunami.serving._fp8_linear import patch_nn_linear_for_fp8
+        log.info(f"[fp8] loading transformer via from_single_file (fp8 + zero-copy): {_args.fp8_path}")
         ft0 = time.time()
-        # Monkey-patch diffusers' load_state_dict → fastsafetensors. This
-        # keeps all of from_single_file's quant-aware module construction
-        # (detecting weight_scale keys, swapping Linear→QuantLinear, wiring
-        # scale buffers) while cutting the file-read step from CPU double-
-        # copy to one-copy DMA. Patch is scoped to this load via a context
-        # manager so other loaders stay unaffected.
-        with patch_diffusers_load_state_dict(device=_args.device):
+        # Two patches, both scoped to this load:
+        #
+        # (1) patch_nn_linear_for_fp8 — replaces nn.Linear inside the qwen
+        #     transformer module's namespace with FP8ScaledLinear, a
+        #     subclass that has a weight_scale buffer and a load hook for
+        #     the checkpoint's .weight_scale keys. Without this patch,
+        #     fp8 weights silently upcast to bf16 during load.
+        #
+        # (2) patch_diffusers_load_state_dict — routes the safetensors
+        #     read through fastsafetensors for one-copy DMA to GPU.
+        #
+        # Omit torch_dtype kwarg so diffusers preserves native fp8 storage.
+        with patch_nn_linear_for_fp8(
+            "diffusers.models.transformers.transformer_qwenimage"
+        ), patch_diffusers_load_state_dict(device=_args.device):
             load_kwargs["transformer"] = QwenImageTransformer2DModel.from_single_file(
                 _args.fp8_path,
                 config=_args.model,
                 subfolder="transformer",
-                # Do NOT set torch_dtype here — that would upcast fp8_e4m3fn
-                # weights to bf16 during load. Let diffusers preserve the
-                # file's native dtype; the pipe casts activations at forward.
             )
         log.info(f"[fp8] transformer loaded in {time.time()-ft0:.1f}s")
+
+    # --fp8-text-encoder-path path deferred. The fp8 file only ships Linear
+    # weights + scales; norms, embeddings, and other non-Linear params
+    # aren't in the fp8 safetensors, so a pure meta-init + single-file
+    # load leaves them on meta → .to(cuda) crashes. Correct approach needs
+    # a two-phase load: (1) full bf16 state_dict from the hub for norms/
+    # embeds, (2) fp8 state_dict override for Linear weights + scales.
+    # That's ~80 more lines and needs its own careful testing. Skipping
+    # for now; text encoder stays on bf16 from_pretrained.
+    if _args.fp8_text_encoder_path:
+        log.warning(
+            "[fp8] --fp8-text-encoder-path is not yet supported; text "
+            "encoder will load as bf16 from the base repo. "
+            "(Reason: fp8 safetensors only contains Linear weights + "
+            "scales; norms/embeds must come from bf16 source, and the "
+            "two-phase merge isn't wired yet.)"
+        )
 
     _pipe = AutoPipelineForImage2Image.from_pretrained(_args.model, **load_kwargs)
     _pipe = _pipe.to(_args.device)
@@ -724,6 +747,13 @@ def main():
     ap.add_argument("--lora", default="none",
                     help="LoRA name to attach at startup (registry: "
                          "multiple_angles / lightning / none)")
+    ap.add_argument("--fp8-text-encoder-path", default=None,
+                    help="Path to a Comfy-Org fp8 text-encoder safetensors "
+                         "(e.g. qwen_2.5_vl_7b_fp8_scaled.safetensors). "
+                         "Loads via meta-init + fastsafetensors + "
+                         "FP8ScaledLinear, matching the transformer path. "
+                         "Comfy's `.scale_weight`/`.scale_input` keys are "
+                         "normalized to `.weight_scale` at load time.")
     ap.add_argument("--fp8-path", default=None,
                     help="Path to a Comfy-Org fp8 transformer safetensors "
                          "(e.g. qwen_image_edit_2511_fp8_e4m3fn_scaled_"
