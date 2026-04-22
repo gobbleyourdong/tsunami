@@ -265,21 +265,33 @@ def _load_pipe():
             )
         log.info(f"[fp8] transformer loaded in {time.time()-ft0:.1f}s")
 
-    # --fp8-text-encoder-path path deferred. The fp8 file only ships Linear
-    # weights + scales; norms, embeddings, and other non-Linear params
-    # aren't in the fp8 safetensors, so a pure meta-init + single-file
-    # load leaves them on meta → .to(cuda) crashes. Correct approach needs
-    # a two-phase load: (1) full bf16 state_dict from the hub for norms/
-    # embeds, (2) fp8 state_dict override for Linear weights + scales.
-    # That's ~80 more lines and needs its own careful testing. Skipping
-    # for now; text encoder stays on bf16 from_pretrained.
     if _args.fp8_text_encoder_path:
+        # BLOCKED on DGX Spark unified memory. On platforms with GPU
+        # Direct Storage + discrete VRAM, loading an 8.8 GB fp8 TE is
+        # a ~9 GB GPU allocation with small CPU overhead. On DGX Spark
+        # (aarch64 unified memory, no GDS), every attempted path still
+        # materializes multi-GB CPU intermediates — either via:
+        #   - fastsafetensors nogds=True (required here, has no GDS)
+        #     → CPU staging buffer held during load, peak 2x file size
+        #   - safetensors.torch.load_file device="cuda:0"
+        #     → mmap pages + unified-pool allocation both charged to RSS
+        #   - diffusers from_pretrained(torch_dtype=bf16) + state_dict
+        #     override → full bf16 materialization first (14 GB) then
+        #     assign=True swap doesn't free the original promptly
+        # Combined with the already-loaded fp8 transformer (~20 GB GPU
+        # shared pool), every variant pushed memory above 90 GB of the
+        # 128 GB unified pool.
+        #
+        # tsunami/serving/_fp8_linear.load_fp8_text_encoder still ships
+        # (code is correct, just not safe on THIS platform). On systems
+        # where fastsafetensors + GDS actually works, the meta-init +
+        # fp8 override path there is the right pattern.
         log.warning(
-            "[fp8] --fp8-text-encoder-path is not yet supported; text "
-            "encoder will load as bf16 from the base repo. "
-            "(Reason: fp8 safetensors only contains Linear weights + "
-            "scales; norms/embeds must come from bf16 source, and the "
-            "two-phase merge isn't wired yet.)"
+            "[fp8] --fp8-text-encoder-path disabled on this platform. "
+            "No viable no-bf16-scaffold load path that stays within "
+            "unified memory budget. Text encoder will load as bf16 "
+            "from the base repo. See qwen_image_server.py:_load_pipe "
+            "for context."
         )
 
     _pipe = AutoPipelineForImage2Image.from_pretrained(_args.model, **load_kwargs)

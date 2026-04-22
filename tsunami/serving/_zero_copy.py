@@ -81,29 +81,26 @@ def load_state_dict_zero_copy(
         sd = load_file(str(path))
         return {k: v.to(device) for k, v in sd.items()}
 
-    from fastsafetensors import fastsafe_open
-
     path = str(path)
     # fastsafetensors needs a device with explicit index. Normalize "cuda"
     # → "cuda:0"; leave "cuda:N" and "cpu" alone.
     device_norm = device
     if device == "cuda":
         device_norm = "cuda:0"
-    log.info(f"[zero-copy] loading {path} → {device_norm} via fastsafetensors")
-    device = device_norm
-    sd: dict[str, torch.Tensor] = {}
-    with fastsafe_open(
-        filenames=[path],
-        framework=framework,
-        device=device,
-        nogds=nogds,
-    ) as f:
-        for k in f.keys():
-            # clone().detach() so the returned tensor doesn't share the
-            # loader's internal buffer — once the `with` block exits, the
-            # loader frees its arena, so we need our own storage.
-            sd[k] = f.get_tensor(k).clone().detach()
-    log.info(f"[zero-copy] loaded {len(sd)} tensors to {device}")
+    log.info(f"[zero-copy] loading {path} → {device_norm}")
+
+    # Platform dispatch: on DGX Spark (aarch64 unified memory), GDS is
+    # NOT available (fastsafetensors' nogds=False emits a warning and
+    # falls back to the CPU-intermediate path, which causes 2x transient
+    # memory peak in unified memory). Use safetensors stdlib's native
+    # device= load_file instead — it does direct-to-CUDA via the
+    # safetensors C core with no Python-level CPU intermediate held.
+    #
+    # On discrete-VRAM systems where GDS works, fastsafetensors would
+    # be faster; on this hardware it's a memory hazard.
+    from safetensors.torch import load_file
+    sd = load_file(path, device=device_norm)
+    log.info(f"[zero-copy] loaded {len(sd)} tensors to {device_norm}")
     return sd
 
 

@@ -84,13 +84,24 @@ class FP8ScaledLinear(nn.Linear):
     def _load_from_state_dict(self, state_dict, prefix, local_metadata,
                               strict, missing_keys, unexpected_keys,
                               error_msgs):
-        # Intercept the weight_scale key (not in stock nn.Linear's
-        # expected param list) and plant it on our buffer before
-        # delegating the rest to nn.Module's default loader.
-        scale_key = prefix + "weight_scale"
-        if scale_key in state_dict:
-            v = state_dict.pop(scale_key)
-            self.weight_scale = v.to(dtype=torch.float32).detach()
+        # Intercept scale keys (not in stock nn.Linear's expected param
+        # list) and plant them on our buffer before delegating to
+        # nn.Module's default loader. Two naming conventions in the wild:
+        #   - Comfy-Org transformer fp8mixed / lightx2v lightning fp8:
+        #     `<prefix>weight_scale` (+ optional `weight_scale_2`)
+        #   - Comfy-Org Qwen2.5-VL text encoder fp8:
+        #     `<prefix>scale_weight` (+ `scale_input` which we discard)
+        for key_suffix in ("weight_scale", "scale_weight"):
+            k = prefix + key_suffix
+            if k in state_dict:
+                v = state_dict.pop(k)
+                self.weight_scale = v.to(dtype=torch.float32).detach()
+                break
+        # Some checkpoints also ship a per-Linear input_scale (activation
+        # calibration). We don't consume it in the dequant-on-forward
+        # path — silently drop to avoid unexpected-key warnings.
+        state_dict.pop(prefix + "scale_input", None)
+        state_dict.pop(prefix + "input_scale", None)
         super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs,
@@ -153,4 +164,104 @@ def patch_nn_linear_for_fp8(module_path: str):
             setattr(owner, name, original)
 
 
-__all__ = ["FP8ScaledLinear", "patch_nn_linear_for_fp8"]
+def load_fp8_text_encoder(
+    fp8_path: str,
+    config_repo: str = "Qwen/Qwen-Image-Edit-2511",
+    config_subfolder: str = "text_encoder",
+    device: str = "cuda:0",
+):
+    """Load a Comfy-Org fp8-quantized Qwen2_5_VL text encoder without
+    any bf16 scaffold materialization.
+
+    Pattern (mirrors ComfyUI's DGXSparkSafetensorsLoader):
+      1. Fetch config from hub (no weights).
+      2. init_empty_weights() → meta-init the model. Zero memory.
+      3. patch_nn_linear_for_fp8 so every Linear becomes FP8ScaledLinear.
+      4. fastsafetensors → fp8 state_dict on GPU (one DMA copy).
+      5. Normalize ComfyUI scale-key convention → our weight_scale.
+      6. load_state_dict(..., strict=False, assign=True) — replaces
+         every meta tensor with its fp8 file equivalent.
+
+    This works because the Comfy-Org fp8 safetensors contains ALL
+    params the model needs (embeds bf16, layernorms bf16, Linear
+    weights fp8, biases bf16, per-Linear scales fp32). The hub's
+    bf16 weights are never downloaded or instantiated.
+
+    Args:
+        fp8_path: path to qwen_2.5_vl_7b_fp8_scaled.safetensors.
+        config_repo: HF repo id for the text_encoder config.
+        config_subfolder: subfolder inside the repo containing config.json.
+        device: target device for the fp8 tensors + meta-init replacement.
+
+    Returns:
+        Qwen2_5_VLForConditionalGeneration with fp8 Linear weights +
+        bf16 embeds/norms, fully populated, on `device`.
+
+    Raises if any meta tensors remain after load (missing params in
+    the fp8 file that the model's forward would need).
+    """
+    import accelerate
+    from transformers import AutoConfig, Qwen2_5_VLForConditionalGeneration
+    from tsunami.serving._zero_copy import load_state_dict_zero_copy
+
+    log.info(f"[fp8-te] fetching config from {config_repo}/{config_subfolder}")
+    config = AutoConfig.from_pretrained(config_repo, subfolder=config_subfolder)
+
+    log.info(f"[fp8-te] meta-init model from config")
+    with accelerate.init_empty_weights(), patch_nn_linear_for_fp8(
+        "transformers.models.qwen2_5_vl.modeling_qwen2_5_vl"
+    ):
+        model = Qwen2_5_VLForConditionalGeneration(config)
+
+    log.info(f"[fp8-te] streaming fp8 state_dict → {device}")
+    fp8_sd = load_state_dict_zero_copy(fp8_path, device=device)
+
+    # Normalize ComfyUI's scale-key naming. Our FP8ScaledLinear's
+    # _load_from_state_dict already accepts both `weight_scale` and
+    # `scale_weight`; we still strip the sentinel + input scales here
+    # since they'd show up as unexpected keys.
+    normalized = {}
+    sentinels_dropped = 0
+    for k, v in fp8_sd.items():
+        if k == "scaled_fp8":
+            sentinels_dropped += 1
+            continue
+        if k.endswith(".scale_input"):
+            sentinels_dropped += 1  # activation-calibration, unused
+            continue
+        normalized[k] = v
+
+    log.info(
+        f"[fp8-te] state_dict: {len(normalized)} keys (dropped "
+        f"{sentinels_dropped} sentinel/input-scale keys)"
+    )
+
+    missing, unexpected = model.load_state_dict(
+        normalized, strict=False, assign=True
+    )
+
+    # Sanity: ensure no tensors remain on meta. If any do, the fp8 file
+    # didn't cover them — we can't `.to(cuda)` a partially-meta model.
+    still_meta = [
+        n for n, p in model.named_parameters() if p.is_meta
+    ] + [
+        n for n, b in model.named_buffers() if b.is_meta
+    ]
+    if still_meta:
+        raise RuntimeError(
+            f"[fp8-te] {len(still_meta)} params/buffers still on meta "
+            f"after fp8 load; model can't move to {device}. "
+            f"First 5: {still_meta[:5]}"
+        )
+
+    log.info(
+        f"[fp8-te] loaded (missing={len(missing)}, unexpected={len(unexpected)})"
+    )
+    return model
+
+
+__all__ = [
+    "FP8ScaledLinear",
+    "patch_nn_linear_for_fp8",
+    "load_fp8_text_encoder",
+]
