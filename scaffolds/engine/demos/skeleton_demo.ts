@@ -41,7 +41,7 @@ import {
   defaultCharacterParams,
 } from '../src/character3d/glb_loader'
 import { createOutlinePass } from '../src/character3d/outline'
-import { createRaymarchRenderer, type RaymarchPrimitive } from '../src/character3d/raymarch_renderer'
+import { createRaymarchRenderer, type RaymarchPrimitive, type FaceMark } from '../src/character3d/raymarch_renderer'
 import { VFXSystem } from '../src/character3d/vfx_system'
 
 // Canvas IS the sprite. Each mode sizes the pixel buffer to its target
@@ -736,6 +736,26 @@ async function main() {
       const c0 = cacheDimsFor(spriteMode)
       raymarch.resizeCache(c0.w, c0.h)
     }
+
+    // Face marks — surface-color strokes bolted to the Head bone. Eyes
+    // as circles, mouth as a rect. Because marks are tested in bone-
+    // local 3D space, they rotate with the head and naturally refuse
+    // to paint on the back side (tangent-plane test). Replaces the
+    // screen-space overlay's flicker-prone eye/mouth stamping.
+    if (headIdx >= 0) {
+      const pupilSlot = material.namedSlots.pupil ?? 7
+      const mouthSlot = material.namedSlots.mouth ?? 8
+      const faceFwd: [number, number, number] = [0, 0, 1]   // head-local +Z
+      const marks: FaceMark[] = [
+        { shape: 'circle', boneIdx: headIdx, paletteSlot: pupilSlot,
+          localCenter: [+0.055, 0.155, 0.195], localNormal: faceFwd, size: [0.012, 0] },
+        { shape: 'circle', boneIdx: headIdx, paletteSlot: pupilSlot,
+          localCenter: [-0.055, 0.155, 0.195], localNormal: faceFwd, size: [0.012, 0] },
+        { shape: 'rect',   boneIdx: headIdx, paletteSlot: mouthSlot,
+          localCenter: [0.0,    0.055, 0.195], localNormal: faceFwd, size: [0.022, 0.003] },
+      ]
+      raymarch.setFaceMarks(marks)
+    }
     // Cache version hoisted higher in the file — declared near top-of-main
     // so proportion-preset applies during init can fire invalidations
     // safely without TDZ.
@@ -1146,10 +1166,14 @@ async function main() {
         const fl = Math.hypot(fx, fy, fz) || 1
         outline.setViewForward(fx / fl, fy / fl, fz / fl)
 
+        // Overlay paint-on disabled — replaced by raymarch-side face marks
+        // (see raymarch.setFaceMarks above). Left outline API in place for
+        // later cleanup in a dedicated commit.
+        const OFF: [number, number, number, number] = [0, 0, 0, 0]
         outline.setFacePaint(
           leftEyePt, rightEyePt, mouthPt,
           pupilHalf, whiteHalf, mouthHalf,
-          PUPIL_COLOR, whiteCol, MOUTH_COLOR,
+          OFF, OFF, OFF,
         )
       }
 

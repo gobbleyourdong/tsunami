@@ -83,6 +83,26 @@
  * aligned, which is the common case — defaulted when omitted.
  */
 
+/** Face mark — a bone-attached surface-color stroke. Eyes, mouths, tears,
+ *  scars. NOT part of the SDF geometry; just a color override at hit time.
+ *  Each mark has a tangent plane in bone-local space and a 2D shape
+ *  evaluated on that plane.
+ *
+ *   shape        param interpretation
+ *   'circle'     size = [radius, _]
+ *   'rect'       size = [halfW, halfH]
+ *   'line'       size = [halfLen, halfThickness]   (same test as rect)
+ *   'triangle'   (planned)                         (future)
+ */
+export interface FaceMark {
+  shape: 'circle' | 'rect' | 'line'
+  boneIdx: number
+  paletteSlot: number
+  localCenter: [number, number, number]
+  localNormal: [number, number, number]
+  size: [number, number]
+}
+
 /** Color function enum — evaluated at raymarch hit time, picks between
  *  paletteSlot and paletteSlotB based on a per-function rule. All results
  *  palette-quantized so pixel-art consistency holds. */
@@ -155,7 +175,7 @@ struct Uniforms {
   maxSteps:    u32,
   time:        f32,            // seconds since engine start — drives VFX evolution
   pxPerM:      f32,            // pixels per world meter — snap grid for primitive centers
-  _pad1:       f32,
+  numFaceMarks: u32,           // count of active face marks (<=MAX_FACE_MARKS)
   _pad2:       f32,
 }
 
@@ -163,6 +183,17 @@ struct Uniforms {
 @group(0) @binding(1) var<storage, read> prims: array<vec4f>;     // PRIM_STRIDE_FLOATS per primitive
 @group(0) @binding(2) var<storage, read> vatMats: array<vec4f>;   // forward bone matrices
 @group(0) @binding(3) var<storage, read> palette: array<vec4f>;
+// Face marks — surface-color overrides bolted to bones. Same idea as the
+// accessory/primitive attachment system, but these don't participate in
+// the SDF geometry — they only decide per-pixel palette slot at hit time.
+// Each mark = 4 vec4f (64 bytes):
+//   [0] slots u32: shape, boneIdx, paletteSlot, enable
+//   [1] center.xyz, _pad         (position in bone-local space)
+//   [2] normal.xyz, _pad         (surface normal — tangent plane)
+//   [3] size.x, size.y, _, _     (half-extents: circle→.x=radius, rect→.xy)
+//
+// Shapes: 0=circle, 1=rect, 2=line, 3=triangle (future).
+@group(0) @binding(4) var<storage, read> faceMarks: array<vec4f>;
 
 struct VsOut {
   @builtin(position) clip: vec4f,
@@ -714,6 +745,59 @@ fn fs_main(in: VsOut) -> FsOut {
     let r = length(localP);
     if (r > colorExtent) { slot = slotB; }
   }
+
+  // Face marks — surface-color overrides that live on a bone. Iterate
+  // each mark; if it's attached to THIS primitive's bone, project the
+  // world hit into bone-local space, test the mark's shape, override
+  // the palette slot on an inside hit. Front-facing only (hit must be
+  // on the same side as the mark's normal).
+  let hitBoneIdx = slots.z;
+  for (var m = 0u; m < u.numFaceMarks; m = m + 1u) {
+    let mb = m * 4u;
+    let mSlots = bitcast<vec4u>(faceMarks[mb + 0u]);
+    let mShape  = mSlots.x;
+    let mBone   = mSlots.y;
+    let mPalette= mSlots.z;
+    let mEnable = mSlots.w;
+    if (mEnable == 0u) { continue; }
+    if (mBone != hitBoneIdx) { continue; }
+
+    let mCenter = faceMarks[mb + 1u].xyz;
+    let mNormal = normalize(faceMarks[mb + 2u].xyz);
+    let mSize   = faceMarks[mb + 3u].xy;
+
+    // Hit in mark's bone-local space.
+    let mBoneWorld = readMat4((u.frameIdx * u.numJoints + hitBoneIdx) * 4u);
+    let localHit   = worldToLocal(mBoneWorld, hitPos);
+    let d = localHit - mCenter;
+
+    // Reject back side of tangent plane (behind the face for a front-
+    // facing mark). Prevents eyes painting on the back of the head.
+    if (dot(d, mNormal) < 0.0) { continue; }
+
+    // Build a 2D tangent basis orthogonal to the mark's normal. Pick a
+    // reference up vector that isn't parallel to the normal.
+    let refUp = select(vec3f(0.0, 1.0, 0.0), vec3f(1.0, 0.0, 0.0), abs(mNormal.y) > 0.9);
+    let tX    = normalize(cross(refUp, mNormal));
+    let tY    = cross(mNormal, tX);
+    let uC    = dot(d, tX);
+    let vC    = dot(d, tY);
+
+    var inside = false;
+    if (mShape == 0u) {          // circle
+      inside = (uC * uC + vC * vC) < (mSize.x * mSize.x);
+    } else if (mShape == 1u) {   // rect
+      inside = abs(uC) < mSize.x && abs(vC) < mSize.y;
+    } else if (mShape == 2u) {   // line (thick horizontal: thickness = size.y)
+      inside = abs(uC) < mSize.x && abs(vC) < mSize.y;
+    }
+
+    if (inside) {
+      slot = mPalette;
+      break;
+    }
+  }
+
   let tint = palette[slot].rgb;
 
   // Depth to NDC [0, 1] (near=0, far=1). Project hit to clip space then
@@ -756,6 +840,11 @@ export interface RaymarchRenderer {
    *  evaluation — guarantees "pixels copy, not rasterize" as the
    *  character moves sub-pixel. Set to 0 to disable. */
   setPxPerM(pxPerM: number): void
+  /** Upload a set of face marks — bone-attached color strokes. Each mark
+   *  overrides the palette slot for any hit pixel whose primitive belongs
+   *  to the mark's bone AND whose in-plane offset lies within the mark's
+   *  shape. No SDF geometry change; pure color override. Max 16 marks. */
+  setFaceMarks(marks: FaceMark[]): void
 
   // --- Static cache (for pass-based compositing) ---
   // Typical usage pattern from the caller:
@@ -856,6 +945,20 @@ export function createRaymarchRenderer(
   })
   device.queue.writeBuffer(paletteBuffer, 0, palette)
 
+  // Face marks — small storage buffer of bone-attached color strokes
+  // (eyes, mouths, tears, scars). 16 slots × 4 vec4f = 1 KB. Upload
+  // once per character; not per frame.
+  const MAX_FACE_MARKS = 16
+  const faceMarksBuffer = device.createBuffer({
+    label: 'raymarch-face-marks',
+    size: MAX_FACE_MARKS * 16 * 4,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  })
+  // Upload a zeroed buffer so even with numFaceMarks=0 the storage
+  // binding is valid.
+  device.queue.writeBuffer(faceMarksBuffer, 0, new Float32Array(MAX_FACE_MARKS * 16))
+  let numFaceMarks = 0
+
   let currentVat = vat
   let numPrims = 0
   let bindGroup: GPUBindGroup | null = null
@@ -918,6 +1021,7 @@ export function createRaymarchRenderer(
         { binding: 1, resource: { buffer: primsBuffer } },
         { binding: 2, resource: { buffer: currentVat.buffer } },
         { binding: 3, resource: { buffer: paletteBuffer } },
+        { binding: 4, resource: { buffer: faceMarksBuffer } },
       ],
     })
   }
@@ -994,6 +1098,9 @@ export function createRaymarchRenderer(
     u32[3] = maxSteps
     uniformData[40] = currentTime
     uniformData[41] = currentPxPerM
+    const uNum = new Uint32Array(uniformData.buffer, 42 * 4, 2)
+    uNum[0] = numFaceMarks
+    uNum[1] = 0
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
   }
 
@@ -1152,6 +1259,35 @@ fn fs_main(in: VsOut) -> FsOut {
     },
     setTime(t) {
       currentTime = t
+    },
+    setFaceMarks(marks) {
+      const n = Math.min(marks.length, MAX_FACE_MARKS)
+      const data = new ArrayBuffer(MAX_FACE_MARKS * 16 * 4)
+      const f32 = new Float32Array(data)
+      const u32 = new Uint32Array(data)
+      for (let i = 0; i < n; i++) {
+        const m = marks[i]
+        const b = i * 16
+        const shapeId = m.shape === 'circle' ? 0 : m.shape === 'rect' ? 1 : 2
+        u32[b + 0] = shapeId
+        u32[b + 1] = m.boneIdx
+        u32[b + 2] = m.paletteSlot
+        u32[b + 3] = 1                              // enable
+        f32[b + 4] = m.localCenter[0]
+        f32[b + 5] = m.localCenter[1]
+        f32[b + 6] = m.localCenter[2]
+        f32[b + 7] = 0
+        f32[b + 8] = m.localNormal[0]
+        f32[b + 9] = m.localNormal[1]
+        f32[b + 10] = m.localNormal[2]
+        f32[b + 11] = 0
+        f32[b + 12] = m.size[0]
+        f32[b + 13] = m.size[1]
+        f32[b + 14] = 0
+        f32[b + 15] = 0
+      }
+      device.queue.writeBuffer(faceMarksBuffer, 0, data)
+      numFaceMarks = n
     },
     setPxPerM(v) {
       currentPxPerM = v
