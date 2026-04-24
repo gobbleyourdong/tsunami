@@ -1103,28 +1103,43 @@ async function main() {
         // in the middle of the pass-band tolerance. Face-front is on one
         // side of the head's depth extent so its depth uniquely identifies
         // "surface that is actually the face."
-        const headOff = [0, 0.12, 0.19]   // head-local face-front anchor
-        const wx = m[hBase + 0] * headOff[0] + m[hBase + 4] * headOff[1] + m[hBase + 8] * headOff[2] + m[hBase + 12]
-        const wy = m[hBase + 1] * headOff[0] + m[hBase + 5] * headOff[1] + m[hBase + 9] * headOff[2] + m[hBase + 13]
-        const wz = m[hBase + 2] * headOff[0] + m[hBase + 6] * headOff[1] + m[hBase + 10] * headOff[2] + m[hBase + 14]
-        // Project world → clip via view × projection.
         const v = camera.view, p = camera.projection
-        const cx = p[0]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[4]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[8]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[12]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
-        const cy = p[1]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[5]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[9]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[13]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
-        const cz = p[2]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[6]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[10]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[14]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
-        const cw = p[3]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[7]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[11]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[15]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
-        const ndcX = cx / cw, ndcY = cy / cw, ndcZ = cz / cw
         const cache = cacheDimsFor(spriteMode)
-        const cellPxX = (ndcX * 0.5 + 0.5) * cache.w
-        const cellPxY = (1 - (ndcY * 0.5 + 0.5)) * cache.h
         const centerX = (canvas.width  - cache.w) / 2
         const centerY = (canvas.height - cache.h) / 2
-        const w = EYE_WHITE[spriteMode]
+        // Project a head-LOCAL offset to (screenX, screenY, NDC depth).
+        // Each feature (left eye, right eye, mouth) projects its own world
+        // point so the paint tracks the face surface through any head
+        // orientation — including upside-down backflips.
+        function projHeadLocal(ox: number, oy: number, oz: number): [number, number, number] {
+          const wx = m[hBase + 0]*ox + m[hBase + 4]*oy + m[hBase + 8]*oz  + m[hBase + 12]
+          const wy = m[hBase + 1]*ox + m[hBase + 5]*oy + m[hBase + 9]*oz  + m[hBase + 13]
+          const wz = m[hBase + 2]*ox + m[hBase + 6]*oy + m[hBase + 10]*oz + m[hBase + 14]
+          const cx = p[0]*(v[0]*wx+v[4]*wy+v[8]*wz+v[12]) + p[4]*(v[1]*wx+v[5]*wy+v[9]*wz+v[13]) + p[8]*(v[2]*wx+v[6]*wy+v[10]*wz+v[14]) + p[12]*(v[3]*wx+v[7]*wy+v[11]*wz+v[15])
+          const cy = p[1]*(v[0]*wx+v[4]*wy+v[8]*wz+v[12]) + p[5]*(v[1]*wx+v[5]*wy+v[9]*wz+v[13]) + p[9]*(v[2]*wx+v[6]*wy+v[10]*wz+v[14]) + p[13]*(v[3]*wx+v[7]*wy+v[11]*wz+v[15])
+          const cz = p[2]*(v[0]*wx+v[4]*wy+v[8]*wz+v[12]) + p[6]*(v[1]*wx+v[5]*wy+v[9]*wz+v[13]) + p[10]*(v[2]*wx+v[6]*wy+v[10]*wz+v[14]) + p[14]*(v[3]*wx+v[7]*wy+v[11]*wz+v[15])
+          const cw = p[3]*(v[0]*wx+v[4]*wy+v[8]*wz+v[12]) + p[7]*(v[1]*wx+v[5]*wy+v[9]*wz+v[13]) + p[11]*(v[2]*wx+v[6]*wy+v[10]*wz+v[14]) + p[15]*(v[3]*wx+v[7]*wy+v[11]*wz+v[15])
+          const ndcX = cx / cw, ndcY = cy / cw, ndcZ = cz / cw
+          return [centerX + (ndcX * 0.5 + 0.5) * cache.w, centerY + (1 - (ndcY * 0.5 + 0.5)) * cache.h, ndcZ]
+        }
+
+        // Head-local feature points. +Y up, +Z face-forward.
+        // Chibi head: cube center at (0, 0.12, 0), extents ~(0.19, 0.21, 0.19).
+        // Face surface is at Z≈0.19; eyes slightly inside (0.17), upper face.
+        const leftEyePt  = projHeadLocal(+0.055, 0.155, 0.17)
+        const rightEyePt = projHeadLocal(-0.055, 0.155, 0.17)
+        const mouthPt    = projHeadLocal(0.0,    0.055, 0.19)
+
+        // Half-sizes per LOD.
+        const pupilHalf: [number, number] = [EYE_PUPIL[spriteMode][2], EYE_PUPIL[spriteMode][3]]
+        const ws = EYE_WHITE[spriteMode]
+        const whiteHalf: [number, number] = [ws[0], ws[1]]
+        const mouthHalf: [number, number] = [MOUTH_GLYPH[spriteMode][1], MOUTH_GLYPH[spriteMode][2]]
         const whiteCol: [number, number, number, number] = [
           WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2],
-          w[0] > 0 ? 1.0 : 0.0,
+          whiteHalf[0] > 0 ? 1.0 : 0.0,
         ]
-        // Camera forward in world space — for front-face gating on paint.
+
         const fx = camera.target[0] - camera.position[0]
         const fy = camera.target[1] - camera.position[1]
         const fz = camera.target[2] - camera.position[2]
@@ -1132,14 +1147,9 @@ async function main() {
         outline.setViewForward(fx / fl, fy / fl, fz / fl)
 
         outline.setFacePaint(
-          [centerX + cellPxX, centerY + cellPxY],
-          ndcZ,   // head NDC depth — face paint only where pixel depth matches
-          EYE_PUPIL[spriteMode],
-          w,
-          MOUTH_GLYPH[spriteMode],
-          PUPIL_COLOR,
-          whiteCol,
-          MOUTH_COLOR,
+          leftEyePt, rightEyePt, mouthPt,
+          pupilHalf, whiteHalf, mouthHalf,
+          PUPIL_COLOR, whiteCol, MOUTH_COLOR,
         )
       }
 

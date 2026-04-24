@@ -32,19 +32,16 @@ struct U {
   lighting:     f32,   // 0 off, 1 on — 2-tone cel via MRT normal
   ambient:      vec4f, // rgb = ambient color, a = intensity (reserved; unused in 2-tone path)
   lights:       array<DirLight, 2>,  // key + fill; only [0] used in 2-tone path
-  facePos:      vec4f, // (screenX, screenY, ndcDepth, _) — head position
-                       // in screen pixels + projected NDC depth for depth
-                       // occlusion (pixels closer than ndcDepth are in
-                       // front of the face → skip the eye/mouth paint)
-  faceGlyph:    vec4f, // (eyeGap, eyeYOff, pupilHalfW, pupilHalfH) in pixels
-  faceWhite:    vec4f, // (whiteHalfW, whiteHalfH, _, _) in pixels — skin→white rect
-  mouthGlyph:   vec4f, // (mouthYOff, mouthHalfW, mouthHalfH, _) in pixels
+  leftEye:      vec4f, // (screenX, screenY, ndcDepth, _) — per-point projected
+  rightEye:     vec4f, //   from world-space eye/mouth positions so rotation
+  mouth:        vec4f, //   (incl. upside-down) moves the paint with the head.
+  pupilHalf:    vec4f, // (halfW, halfH, _, _) in pixels
+  whiteHalf:    vec4f, // (halfW, halfH, _, _) in pixels
+  mouthHalf:    vec4f, // (halfW, halfH, _, _) in pixels
   eyeColor:     vec4f, // pupil color (rgb + enable in .a)
   whiteColor:   vec4f, // eye-white color (rgb + enable in .a)
   mouthColor:   vec4f, // mouth color (rgb + enable in .a)
-  viewForward:  vec4f, // normalized camera forward (world space) — used to
-                       // gate face paint-on to front-facing pixels only, so
-                       // eyes don't bleed through the back of the head
+  viewForward:  vec4f, // camera forward (world) — extra front-face gate
 }
 
 @group(0) @binding(0) var<uniform> u: U;
@@ -144,54 +141,48 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   if (me.a < 0.5) { return checker; }
 
-  // Face paint-on gate: two conditions must hold for the pixel to be
-  // eligible for eye/mouth color override:
-  //  1. Front-facing — normal points toward the camera (back-of-head
-  //     pixels fail).
-  //  2. Depth band — pixel depth matches the face's projected depth
-  //     (±tol). A back-of-head pixel may be BACK-FACING; but a side-of-
-  //     head pixel can be front-facing while its depth differs from
-  //     the face anchor's depth, so the normal check alone isn't
-  //     enough. The depth band pins the paint to the face surface.
+  // Face paint-on: per-point projected eyes + mouth. Each one has its
+  // own screen pixel position + NDC depth, so when the head rotates
+  // (including upside-down) the paint follows the actual 3D eye/mouth
+  // surface. Pass-band gate uses each point's own depth, tighter than
+  // a single shared face anchor — reduces flicker at marginal angles.
   let faceN = normalize(textureLoad(normalTex, pxClamp, 0).xyz * 2.0 - 1.0);
   let frontFacing = dot(faceN, u.viewForward.xyz) < 0.0;
   let pixelDepth = textureLoad(depthTex, pxClamp, 0).r;
-  let depthBandTol = 0.03;   // ~half the head's depth extent at near=2/far=8
-  let inFaceDepthBand = abs(pixelDepth - u.facePos.z) < depthBandTol;
-  let facePaintEligible = frontFacing && inFaceDepthBand;
+  let depthTol = 0.02;
+  let pxF = vec2f(f32(px.x), f32(px.y));
 
-  // Face paint-on: nested rects per eye — eye-white outer, pupil inner.
-  // At sprite-tier each eye is ~3×3 pixels; the white gives the eye
-  // outline against skin, the pupil provides the dark dot inside.
-  // Pupil test wins over white where they overlap. No extra draws —
-  // just a per-pixel color override inside the outline shader.
-  if (facePaintEligible && u.eyeColor.a > 0.5) {
-    let dx = f32(px.x) - u.facePos.x;
-    let dy = f32(px.y) - u.facePos.y;
-    let gap   = u.faceGlyph.x;
-    let yOff  = u.faceGlyph.y;
-    let pupilW = u.faceGlyph.z;
-    let pupilH = u.faceGlyph.w;
-    let whiteW = u.faceWhite.x;
-    let whiteH = u.faceWhite.y;
-    let onLeftX  = min(abs(dx + gap), abs(dx - gap));
-    let onRowY   = abs(dy - yOff);
-    // Pupil first — smallest rect, wins where overlapping the white.
-    if (onLeftX <= pupilW && onRowY <= pupilH) {
-      return vec4f(u.eyeColor.rgb, 1.0);
+  // Per-point test: pixel is inside a halfW×halfH rect centered at
+  // projPos.xy AND pixel depth matches projPos.z. Returns the paint
+  // color when a match happens, passes through otherwise.
+  if (frontFacing && u.eyeColor.a > 0.5) {
+    // LEFT eye: pupil first (inner), then white (outer, wider tolerance).
+    let lOff = pxF - u.leftEye.xy;
+    let lInDepth = abs(pixelDepth - u.leftEye.z) < depthTol;
+    if (lInDepth) {
+      if (abs(lOff.x) <= u.pupilHalf.x && abs(lOff.y) <= u.pupilHalf.y) {
+        return vec4f(u.eyeColor.rgb, 1.0);
+      }
+      if (u.whiteColor.a > 0.5 && abs(lOff.x) <= u.whiteHalf.x && abs(lOff.y) <= u.whiteHalf.y) {
+        return vec4f(u.whiteColor.rgb, 1.0);
+      }
     }
-    // Eye-white: bigger rect around each pupil, stamps over skin.
-    if (u.whiteColor.a > 0.5 && onLeftX <= whiteW && onRowY <= whiteH) {
-      return vec4f(u.whiteColor.rgb, 1.0);
+    // RIGHT eye: same test at the right-eye projected point.
+    let rOff = pxF - u.rightEye.xy;
+    let rInDepth = abs(pixelDepth - u.rightEye.z) < depthTol;
+    if (rInDepth) {
+      if (abs(rOff.x) <= u.pupilHalf.x && abs(rOff.y) <= u.pupilHalf.y) {
+        return vec4f(u.eyeColor.rgb, 1.0);
+      }
+      if (u.whiteColor.a > 0.5 && abs(rOff.x) <= u.whiteHalf.x && abs(rOff.y) <= u.whiteHalf.y) {
+        return vec4f(u.whiteColor.rgb, 1.0);
+      }
     }
   }
-  // Mouth: single horizontal rect centered below the eyes. Same gate
-  // as the eyes so it doesn't show through the back of the head or
-  // float over off-surface geometry.
-  if (facePaintEligible && u.mouthColor.a > 0.5) {
-    let mdx = abs(f32(px.x) - u.facePos.x);
-    let mdy = f32(px.y) - u.facePos.y - u.mouthGlyph.x;
-    if (mdx <= u.mouthGlyph.y && abs(mdy) <= u.mouthGlyph.z) {
+  if (frontFacing && u.mouthColor.a > 0.5) {
+    let mOff = pxF - u.mouth.xy;
+    let mInDepth = abs(pixelDepth - u.mouth.z) < depthTol;
+    if (mInDepth && abs(mOff.x) <= u.mouthHalf.x && abs(mOff.y) <= u.mouthHalf.y) {
       return vec4f(u.mouthColor.rgb, 1.0);
     }
   }
@@ -225,11 +216,12 @@ export interface OutlinePass {
    *     kills the whole overlay; white enable=0 skips just the white
    *     layer (pupil alone renders as bare dot on skin). */
   setFacePaint(
-    facePos: [number, number],
-    faceDepth: number,
-    glyph: [number, number, number, number],
-    white: [number, number, number, number],
-    mouth: [number, number, number, number],
+    leftEye: [number, number, number],
+    rightEye: [number, number, number],
+    mouth: [number, number, number],
+    pupilHalf: [number, number],
+    whiteHalf: [number, number],
+    mouthHalf: [number, number],
     pupilColor: [number, number, number, number],
     whiteColor: [number, number, number, number],
     mouthColor: [number, number, number, number],
@@ -268,10 +260,10 @@ export function createOutlinePass(
   //   [16..23] light[0] (dirI vec4 + color vec4)
   //   [24..31] light[1] (dirI vec4 + color vec4)
   const uniformBuffer = device.createBuffer({
-    size: 272,
+    size: 288,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  const uniformData = new Float32Array(68)  // +4 for viewForward vec4
+  const uniformData = new Float32Array(72)
   let currentViewMode: ViewMode = 'color'
   let currentDepthOutline = true    // single depth-based outline is THE outline now
   let currentDepthThresh = 0.025
@@ -289,15 +281,19 @@ export function createOutlinePass(
   // Face paint-on state: eye dots at screen-pixel offsets from the
   // (CPU-projected) head position. NOT geometry — a color override
   // inside the outline shader. Disabled when eyeEnable = 0.
-  let facePos: [number, number] = [0, 0]
-  let faceDepth = 0.5   // face's projected NDC depth; set per-frame from CPU
-  let faceGlyph: [number, number, number, number] = [1, -0.5, 0.4, 1.0]  // (gap, yOff, pupilHalfW, pupilHalfH)
-  let faceWhite: [number, number, number, number] = [1.4, 1.4, 0, 0]     // (whiteHalfW, whiteHalfH, _, _)
-  let mouthGlyph: [number, number, number, number] = [2, 1, 0.5, 0]  // (yOff, halfW, halfH, _)
-  let eyeColor:   [number, number, number, number] = [0.10, 0.08, 0.20, 0]  // pupil rgb + enable
-  let whiteColor: [number, number, number, number] = [0.95, 0.92, 0.88, 0] // eye-white rgb + enable
-  let mouthColor: [number, number, number, number] = [0.55, 0.20, 0.25, 0] // mouth rgb + enable
-  let viewForward: [number, number, number] = [0, 0, -1]  // default -Z world
+  // Per-point projected positions (screen X, screen Y, NDC depth, _).
+  // Demo fills them each frame from Head joint matrix + local offsets.
+  let leftEye:  [number, number, number, number] = [0, 0, 0.5, 0]
+  let rightEye: [number, number, number, number] = [0, 0, 0.5, 0]
+  let mouth:    [number, number, number, number] = [0, 0, 0.5, 0]
+  // Glyph half-extents in screen pixels (same per-eye).
+  let pupilHalf: [number, number] = [0.4, 1.0]
+  let whiteHalf: [number, number] = [0, 0]
+  let mouthHalf: [number, number] = [1, 0.5]
+  let eyeColor:   [number, number, number, number] = [0.10, 0.08, 0.20, 0]
+  let whiteColor: [number, number, number, number] = [0.95, 0.92, 0.88, 0]
+  let mouthColor: [number, number, number, number] = [0.55, 0.20, 0.25, 0]
+  let viewForward: [number, number, number] = [0, 0, -1]
 
   function writeUniform(texW: number, texH: number) {
     currentW = texW
@@ -328,46 +324,36 @@ export function createOutlinePass(
       uniformData[off + 6] = L.color[2]
       uniformData[off + 7] = 0
     }
-    // [32..35] facePos (screenX, screenY, ndcDepth, _)
-    uniformData[32] = facePos[0]
-    uniformData[33] = facePos[1]
-    uniformData[34] = faceDepth
-    uniformData[35] = 0
-    // [36..39] faceGlyph (eyeGap, eyeYOff, pupilHalfW, pupilHalfH)
-    uniformData[36] = faceGlyph[0]
-    uniformData[37] = faceGlyph[1]
-    uniformData[38] = faceGlyph[2]
-    uniformData[39] = faceGlyph[3]
-    // [40..43] faceWhite (whiteHalfW, whiteHalfH, _, _)
-    uniformData[40] = faceWhite[0]
-    uniformData[41] = faceWhite[1]
-    uniformData[42] = 0
-    uniformData[43] = 0
-    // [44..47] mouthGlyph (yOff, halfW, halfH, _)
-    uniformData[44] = mouthGlyph[0]
-    uniformData[45] = mouthGlyph[1]
-    uniformData[46] = mouthGlyph[2]
-    uniformData[47] = 0
-    // [48..51] eyeColor (pupil rgb + enable)
-    uniformData[48] = eyeColor[0]
-    uniformData[49] = eyeColor[1]
-    uniformData[50] = eyeColor[2]
-    uniformData[51] = eyeColor[3]
-    // [52..55] whiteColor (eye-white rgb + enable)
-    uniformData[52] = whiteColor[0]
-    uniformData[53] = whiteColor[1]
-    uniformData[54] = whiteColor[2]
-    uniformData[55] = whiteColor[3]
-    // [56..59] mouthColor (mouth rgb + enable)
-    uniformData[56] = mouthColor[0]
-    uniformData[57] = mouthColor[1]
-    uniformData[58] = mouthColor[2]
-    uniformData[59] = mouthColor[3]
-    // [60..63] viewForward (normalized world-space camera forward + pad)
-    uniformData[60] = viewForward[0]
-    uniformData[61] = viewForward[1]
-    uniformData[62] = viewForward[2]
-    uniformData[63] = 0
+    // [32..35] leftEye (screenX, screenY, ndcDepth, _)
+    uniformData[32] = leftEye[0];  uniformData[33] = leftEye[1]
+    uniformData[34] = leftEye[2];  uniformData[35] = 0
+    // [36..39] rightEye
+    uniformData[36] = rightEye[0]; uniformData[37] = rightEye[1]
+    uniformData[38] = rightEye[2]; uniformData[39] = 0
+    // [40..43] mouth
+    uniformData[40] = mouth[0];    uniformData[41] = mouth[1]
+    uniformData[42] = mouth[2];    uniformData[43] = 0
+    // [44..47] pupilHalf (halfW, halfH, _, _)
+    uniformData[44] = pupilHalf[0]; uniformData[45] = pupilHalf[1]
+    uniformData[46] = 0;            uniformData[47] = 0
+    // [48..51] whiteHalf
+    uniformData[48] = whiteHalf[0]; uniformData[49] = whiteHalf[1]
+    uniformData[50] = 0;            uniformData[51] = 0
+    // [52..55] mouthHalf
+    uniformData[52] = mouthHalf[0]; uniformData[53] = mouthHalf[1]
+    uniformData[54] = 0;            uniformData[55] = 0
+    // [56..59] eyeColor (pupil rgb + enable)
+    uniformData[56] = eyeColor[0]; uniformData[57] = eyeColor[1]
+    uniformData[58] = eyeColor[2]; uniformData[59] = eyeColor[3]
+    // [60..63] whiteColor
+    uniformData[60] = whiteColor[0]; uniformData[61] = whiteColor[1]
+    uniformData[62] = whiteColor[2]; uniformData[63] = whiteColor[3]
+    // [64..67] mouthColor
+    uniformData[64] = mouthColor[0]; uniformData[65] = mouthColor[1]
+    uniformData[66] = mouthColor[2]; uniformData[67] = mouthColor[3]
+    // [68..71] viewForward
+    uniformData[68] = viewForward[0]; uniformData[69] = viewForward[1]
+    uniformData[70] = viewForward[2]; uniformData[71] = 0
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
   }
   writeUniform(sceneW, sceneH)
@@ -437,21 +423,19 @@ export function createOutlinePass(
       viewForward[0] = vx; viewForward[1] = vy; viewForward[2] = vz
       writeUniform(currentW, currentH)
     },
-    setFacePaint(pos, depth, glyph, white, mouth, pupilCol, whiteCol, mouthCol) {
-      facePos[0] = pos[0];         facePos[1] = pos[1]
-      faceDepth = depth
-      faceGlyph[0] = glyph[0];     faceGlyph[1] = glyph[1]
-      faceGlyph[2] = glyph[2];     faceGlyph[3] = glyph[3]
-      faceWhite[0] = white[0];     faceWhite[1] = white[1]
-      faceWhite[2] = 0;            faceWhite[3] = 0
-      mouthGlyph[0] = mouth[0];    mouthGlyph[1] = mouth[1]
-      mouthGlyph[2] = mouth[2];    mouthGlyph[3] = 0
-      eyeColor[0] = pupilCol[0];   eyeColor[1] = pupilCol[1]
-      eyeColor[2] = pupilCol[2];   eyeColor[3] = pupilCol[3]
-      whiteColor[0] = whiteCol[0]; whiteColor[1] = whiteCol[1]
-      whiteColor[2] = whiteCol[2]; whiteColor[3] = whiteCol[3]
-      mouthColor[0] = mouthCol[0]; mouthColor[1] = mouthCol[1]
-      mouthColor[2] = mouthCol[2]; mouthColor[3] = mouthCol[3]
+    setFacePaint(lEye, rEye, mth, pHalf, wHalf, mHalf, pCol, wCol, mCol) {
+      leftEye[0] = lEye[0];  leftEye[1] = lEye[1];  leftEye[2] = lEye[2];  leftEye[3] = 0
+      rightEye[0] = rEye[0]; rightEye[1] = rEye[1]; rightEye[2] = rEye[2]; rightEye[3] = 0
+      mouth[0] = mth[0];     mouth[1] = mth[1];     mouth[2] = mth[2];     mouth[3] = 0
+      pupilHalf[0] = pHalf[0]; pupilHalf[1] = pHalf[1]
+      whiteHalf[0] = wHalf[0]; whiteHalf[1] = wHalf[1]
+      mouthHalf[0] = mHalf[0]; mouthHalf[1] = mHalf[1]
+      eyeColor[0] = pCol[0];   eyeColor[1] = pCol[1]
+      eyeColor[2] = pCol[2];   eyeColor[3] = pCol[3]
+      whiteColor[0] = wCol[0]; whiteColor[1] = wCol[1]
+      whiteColor[2] = wCol[2]; whiteColor[3] = wCol[3]
+      mouthColor[0] = mCol[0]; mouthColor[1] = mCol[1]
+      mouthColor[2] = mCol[2]; mouthColor[3] = mCol[3]
       writeUniform(currentW, currentH)
     },
   }
