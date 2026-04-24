@@ -602,11 +602,21 @@ fn sceneSDF(pWorld: vec3f, wantDetail: u32) -> SceneHit {
 // shades the FBM-displaced surface rather than the smooth base geometry.
 // This is the dual-map win: skin reads as porous, wood reads as grainy,
 // even though the silhouette the march resolved is the smooth hull.
+//
+// Tetrahedral 4-sample gradient (Inigo Quilez, "Normals for an SDF"):
+// 4 samples at the corners of a regular tetrahedron instead of 6 along
+// the axes. ~33% cheaper than central differences, visually identical
+// for the SDF surfaces we render. The k vector (1,-1) pattern ensures
+// each axis gets two +eps and two -eps samples across the 4 corners,
+// so the sum reconstructs the gradient correctly up to normalisation.
 fn sceneNormal(pWorld: vec3f, eps: f32) -> vec3f {
-  let dx = sceneSDF(pWorld + vec3f(eps, 0.0, 0.0), 1u).dist - sceneSDF(pWorld - vec3f(eps, 0.0, 0.0), 1u).dist;
-  let dy = sceneSDF(pWorld + vec3f(0.0, eps, 0.0), 1u).dist - sceneSDF(pWorld - vec3f(0.0, eps, 0.0), 1u).dist;
-  let dz = sceneSDF(pWorld + vec3f(0.0, 0.0, eps), 1u).dist - sceneSDF(pWorld - vec3f(0.0, 0.0, eps), 1u).dist;
-  return normalize(vec3f(dx, dy, dz));
+  let k = vec2f(1.0, -1.0);
+  return normalize(
+    k.xyy * sceneSDF(pWorld + k.xyy * eps, 1u).dist +
+    k.yyx * sceneSDF(pWorld + k.yyx * eps, 1u).dist +
+    k.yxy * sceneSDF(pWorld + k.yxy * eps, 1u).dist +
+    k.xxx * sceneSDF(pWorld + k.xxx * eps, 1u).dist
+  );
 }
 
 // Soft-shadow ray — starts just above the primary hit point, marches
@@ -614,12 +624,13 @@ fn sceneNormal(pWorld: vec3f, eps: f32) -> vec3f {
 // trick: track the min-ratio of (SDF distance / traveled distance), which
 // captures how close the ray gets to the surface in angular terms.
 // Output: 0 (fully occluded) → 1 (fully lit), quantized at the caller.
-// Cost: up to 16 SDF evals per primary hit at sprite resolution — still
-// cheaper than one 1080p pixel's worth of raymarch.
+// Cost: up to 6 SDF evals per primary hit. The caller quantises this into
+// 3 cel bands (0.45 / 0.75 / 1.00) — 16 steps of precision would be
+// completely wasted on that output, so 6 is plenty for sprite shading.
 fn shadowRay(origin: vec3f, dir: vec3f, minT: f32, maxT: f32) -> f32 {
   var res = 1.0;
   var t = minT;
-  for (var i = 0u; i < 16u; i = i + 1u) {
+  for (var i = 0u; i < 6u; i = i + 1u) {
     let h = sceneSDF(origin + dir * t, 0u).dist;
     if (h < 0.0005) { return 0.0; }
     // Penumbra softness: smaller constant → harder shadow.
