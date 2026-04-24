@@ -1,0 +1,593 @@
+{
+  "source": "/home/jb/mixamo/anims/walking_raw/Walking.dae",
+  "durationSec": 2.0333330631256104,
+  "fps": 30,
+  "numFrames": 61,
+  "joints": [
+    {
+      "name": "Hips",
+      "parent": -1,
+      "offset": [
+        0.03687647104263306,
+        1.0219027709960937,
+        0.020301671028137208
+      ]
+    },
+    {
+      "name": "Spine",
+      "parent": 0,
+      "offset": [
+        0,
+        0.10182399749755859,
+        0
+      ]
+    },
+    {
+      "name": "Spine1",
+      "parent": 1,
+      "offset": [
+        0,
+        0.10002699851989746,
+        0
+      ]
+    },
+    {
+      "name": "Spine2",
+      "parent": 2,
+      "offset": [
+        0,
+        0.09322099685668946,
+        0
+      ]
+    },
+    {
+      "name": "Neck",
+      "parent": 3,
+      "offset": [
+        0,
+        0.16865299224853517,
+        0
+      ]
+    },
+    {
+      "name": "Head",
+      "parent": 4,
+      "offset": [
+        0,
+        0.09341899871826172,
+        0.028410000801086428
+      ]
+    },
+    {
+      "name": "HeadTop_End",
+      "parent": 5,
+      "offset": [
+        0,
+        0.20962799072265625,
+        0.10122900009155274
+      ]
+    },
+    {
+      "name": "RightShoulder",
+      "parent": 3,
+      "offset": [
+        -0.04570000171661377,
+        0.11195799827575684,
+        -0.008065999746322631
+      ]
+    },
+    {
+      "name": "RightArm",
+      "parent": 7,
+      "offset": [
+        0,
+        0.10838199615478517,
+        0
+      ]
+    },
+    {
+      "name": "RightForeArm",
+      "parent": 8,
+      "offset": [
+        0,
+        0.27841499328613284,
+        0
+      ]
+    },
+    {
+      "name": "RightHand",
+      "parent": 9,
+      "offset": [
+        0,
+        0.28328800201416016,
+        0
+      ]
+    },
+    {
+      "name": "RightHandThumb1",
+      "parent": 10,
+      "offset": [
+        0.026819000244140627,
+        0.024647998809814452,
+        0.015740000009536743
+      ]
+    },
+    {
+      "name": "RightHandThumb2",
+      "parent": 11,
+      "offset": [
+        0,
+        0.04189000129699707,
+        0
+      ]
+    },
+    {
+      "name": "RightHandThumb3",
+      "parent": 12,
+      "offset": [
+        0,
+        0.034163000583648684,
+        0
+      ]
+    },
+    {
+      "name": "RightHandThumb4",
+      "parent": 13,
+      "offset": [
+        0,
+        0.02575000047683716,
+        0
+      ]
+    },
+    {
+      "name": "RightHandIndex1",
+      "parent": 10,
+      "offset": [
+        0.022597999572753907,
+        0.0910830020904541,
+        0.005178999900817871
+      ]
+    },
+    {
+      "name": "RightHandIndex2",
+      "parent": 15,
+      "offset": [
+        0,
+        0.03700000047683716,
+        0
+      ]
+    },
+    {
+      "name": "RightHandIndex3",
+      "parent": 16,
+      "offset": [
+        0,
+        0.028499999046325684,
+        0
+      ]
+    },
+    {
+      "name": "RightHandIndex4",
+      "parent": 17,
+      "offset": [
+        0,
+        0.02772200107574463,
+        0
+      ]
+    },
+    {
+      "name": "RightHandMiddle1",
+      "parent": 10,
+      "offset": [
+        0,
+        0.0953250026702881,
+        0
+      ]
+    },
+    {
+      "name": "RightHandMiddle2",
+      "parent": 19,
+      "offset": [
+        0,
+        0.03700000047683716,
+        0
+      ]
+    },
+    {
+      "name": "RightHandMiddle3",
+      "parent": 20,
+      "offset": [
+        0,
+        0.02950000047683716,
+        0
+      ]
+    },
+    {
+      "name": "RightHandMiddle4",
+      "parent": 21,
+      "offset": [
+        0,
+        0.029465999603271485,
+        0
+      ]
+    },
+    {
+      "name": "RightHandRing1",
+      "parent": 10,
+      "offset": [
+        -0.018651000261306762,
+        0.09103599548339844,
+        0.00043099999427795413
+      ]
+    },
+    {
+      "name": "RightHandRing2",
+      "parent": 23,
+      "offset": [
+        0,
+        0.03379300117492676,
+        0
+      ]
+    },
+    {
+      "name": "RightHandRing3",
+      "parent": 24,
+      "offset": [
+        0,
+        0.02889699935913086,
+        0
+      ]
+    },
+    {
+      "name": "RightHandRing4",
+      "parent": 25,
+      "offset": [
+        0,
+        0.026387999057769777,
+        0
+      ]
+    },
+    {
+      "name": "RightHandPinky1",
+      "parent": 10,
+      "offset": [
+        -0.03806299924850464,
+        0.08076700210571289,
+        0.004866999983787537
+      ]
+    },
+    {
+      "name": "RightHandPinky2",
+      "parent": 27,
+      "offset": [
+        0,
+        0.035999999046325684,
+        0
+      ]
+    },
+    {
+      "name": "RightHandPinky3",
+      "parent": 28,
+      "offset": [
+        0,
+        0.020999999046325685,
+        0
+      ]
+    },
+    {
+      "name": "RightHandPinky4",
+      "parent": 29,
+      "offset": [
+        0,
+        0.02115799903869629,
+        0
+      ]
+    },
+    {
+      "name": "LeftShoulder",
+      "parent": 3,
+      "offset": [
+        0.045704002380371096,
+        0.11195599555969238,
+        -0.008065999746322631
+      ]
+    },
+    {
+      "name": "LeftArm",
+      "parent": 31,
+      "offset": [
+        0,
+        0.10837699890136719,
+        0
+      ]
+    },
+    {
+      "name": "LeftForeArm",
+      "parent": 32,
+      "offset": [
+        0,
+        0.27841499328613284,
+        0
+      ]
+    },
+    {
+      "name": "LeftHand",
+      "parent": 33,
+      "offset": [
+        0,
+        0.28328800201416016,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandThumb1",
+      "parent": 34,
+      "offset": [
+        -0.026816999912261965,
+        0.02466099977493286,
+        0.01576200008392334
+      ]
+    },
+    {
+      "name": "LeftHandThumb2",
+      "parent": 35,
+      "offset": [
+        0,
+        0.04187099933624268,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandThumb3",
+      "parent": 36,
+      "offset": [
+        0,
+        0.034184000492095946,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandThumb4",
+      "parent": 37,
+      "offset": [
+        0,
+        0.025806000232696535,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandIndex1",
+      "parent": 34,
+      "offset": [
+        -0.022599000930786133,
+        0.09109299659729005,
+        0.005180000066757202
+      ]
+    },
+    {
+      "name": "LeftHandIndex2",
+      "parent": 39,
+      "offset": [
+        0,
+        0.03700000047683716,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandIndex3",
+      "parent": 40,
+      "offset": [
+        0,
+        0.028499999046325684,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandIndex4",
+      "parent": 41,
+      "offset": [
+        0,
+        0.02774899959564209,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandMiddle1",
+      "parent": 34,
+      "offset": [
+        0,
+        0.0953339958190918,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandMiddle2",
+      "parent": 43,
+      "offset": [
+        0,
+        0.03700000047683716,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandMiddle3",
+      "parent": 44,
+      "offset": [
+        0,
+        0.02950000047683716,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandMiddle4",
+      "parent": 45,
+      "offset": [
+        0,
+        0.029528999328613283,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandRing1",
+      "parent": 34,
+      "offset": [
+        0.018651000261306762,
+        0.09104499816894532,
+        0.00043000001460313797
+      ]
+    },
+    {
+      "name": "LeftHandRing2",
+      "parent": 47,
+      "offset": [
+        0,
+        0.03150000095367432,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandRing3",
+      "parent": 48,
+      "offset": [
+        0,
+        0.02950000047683716,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandRing4",
+      "parent": 49,
+      "offset": [
+        0,
+        0.026442999839782714,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandPinky1",
+      "parent": 34,
+      "offset": [
+        0.03806299924850464,
+        0.08077799797058105,
+        0.004869000017642975
+      ]
+    },
+    {
+      "name": "LeftHandPinky2",
+      "parent": 51,
+      "offset": [
+        0,
+        0.035999999046325684,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandPinky3",
+      "parent": 52,
+      "offset": [
+        0,
+        0.020999999046325685,
+        0
+      ]
+    },
+    {
+      "name": "LeftHandPinky4",
+      "parent": 53,
+      "offset": [
+        0,
+        0.02125499963760376,
+        0
+      ]
+    },
+    {
+      "name": "RightUpLeg",
+      "parent": 0,
+      "offset": [
+        -0.08207799911499024,
+        -0.0677180004119873,
+        -0.015121999979019165
+      ]
+    },
+    {
+      "name": "RightLeg",
+      "parent": 55,
+      "offset": [
+        0,
+        0.44371498107910157,
+        0
+      ]
+    },
+    {
+      "name": "RightFoot",
+      "parent": 56,
+      "offset": [
+        0,
+        0.4452780151367188,
+        0
+      ]
+    },
+    {
+      "name": "RightToeBase",
+      "parent": 57,
+      "offset": [
+        0,
+        0.138169002532959,
+        0
+      ]
+    },
+    {
+      "name": "RightToe_End",
+      "parent": 58,
+      "offset": [
+        0,
+        0.09278100013732911,
+        0
+      ]
+    },
+    {
+      "name": "LeftUpLeg",
+      "parent": 0,
+      "offset": [
+        0.08207799911499024,
+        -0.0677180004119873,
+        -0.015121999979019165
+      ]
+    },
+    {
+      "name": "LeftLeg",
+      "parent": 60,
+      "offset": [
+        0,
+        0.4437139892578125,
+        0
+      ]
+    },
+    {
+      "name": "LeftFoot",
+      "parent": 61,
+      "offset": [
+        0,
+        0.4452780151367188,
+        0
+      ]
+    },
+    {
+      "name": "LeftToeBase",
+      "parent": 62,
+      "offset": [
+        0,
+        0.138169002532959,
+        0
+      ]
+    },
+    {
+      "name": "LeftToe_End",
+      "parent": 63,
+      "offset": [
+        0,
+        0.09278100013732911,
+        0
+      ]
+    }
+  ]
+}
