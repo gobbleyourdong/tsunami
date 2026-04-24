@@ -1015,6 +1015,11 @@ async function main() {
       scenePass.end()
 
       // Pass 2: outline shader reads sceneTex → writes canvas with NAVY ring.
+      // Feed current view matrix so mode-2 (depth-reconstructed normal) can
+      // convert its camera-space gradient normal into world space before
+      // dotting world-space lights. Without this the recon shadow direction
+      // reads wrong.
+      outline.setView(camera.view)
       const canvasView = gpu.context.getCurrentTexture().createView()
       outline.run(encoder, canvasView)
 

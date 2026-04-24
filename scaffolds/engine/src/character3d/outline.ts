@@ -32,6 +32,10 @@ struct U {
   lighting:     f32,   // 0 off, 1 on — quantized cel shading
   ambient:      vec4f, // rgb = ambient color, a = intensity
   lights:       array<DirLight, 2>,  // key + fill
+  view:         mat4x4<f32>,         // world → camera; upper 3x3 is rotation.
+                                     // needed for mode-2 recon to convert
+                                     // camera-space gradient normals back to
+                                     // world space before dotting world lights
 }
 
 @group(0) @binding(0) var<uniform> u: U;
@@ -107,10 +111,19 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
       let dS = textureLoad(depthTex, pS, 0).r;
       // Depth increases with distance from camera. Gradient → surface
       // slope. Scale factor tuned for tight near/far (2..8m) at sprite
-      // resolution — gives ~40° normal tilt per 1/128 depth step, which
-      // is well-resolved by the 3-band cel (shadow/mid/light).
+      // resolution. Signs: +X-east gets larger depth if surface tilts away
+      // to the east → camera-space normal.x should point WEST (neg), so
+      // (d - dE) matches (negative when dE > d). Y flipped because screen
+      // Y increases downward. Z points toward camera (+1 in cam space).
       let k = 80.0;
-      n = normalize(vec3f((d - dE) * k, (d - dS) * k, 1.0));
+      let camN = normalize(vec3f((d - dE) * k, (dS - d) * k, 1.0));
+      // Camera-space → world space. The view matrix is world→camera; its
+      // upper 3x3 is orthonormal (pure rotation, no scale in our rig), so
+      // the inverse rotation is the transpose. This is the load-bearing
+      // fix: world lights were being dotted against a camera-space normal,
+      // giving a shadow edge that pointed in the wrong direction.
+      let viewRot = mat3x3<f32>(u.view[0].xyz, u.view[1].xyz, u.view[2].xyz);
+      n = normalize(transpose(viewRot) * camN);
     } else {
       let nSample = textureLoad(normalTex, pxClamp, 0);
       n = normalize(nSample.xyz * 2.0 - 1.0);
@@ -226,6 +239,11 @@ export interface OutlinePass {
   setDepthThreshold(t: number): void
   setLighting(mode: 0 | 1 | 2): void
   setLightDirection(idx: number, dir: [number, number, number]): void
+  /** Feed the current view matrix so mode-2 (depth-reconstructed normal)
+   *  can transform its camera-space normal back into world space before
+   *  dotting world-space lights. Without this the shadow edge on mode 2
+   *  points in the wrong direction. */
+  setView(view: Float32Array): void
 }
 
 export function createOutlinePass(
@@ -256,10 +274,10 @@ export function createOutlinePass(
   //   [16..23] light[0] (dirI vec4 + color vec4)
   //   [24..31] light[1] (dirI vec4 + color vec4)
   const uniformBuffer = device.createBuffer({
-    size: 128,
+    size: 192,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  const uniformData = new Float32Array(32)
+  const uniformData = new Float32Array(48)   // +16 for view matrix at [32..47]
   let currentViewMode: ViewMode = 'color'
   let currentDepthOutline = false
   let currentDepthThresh = 0.025
@@ -368,6 +386,13 @@ export function createOutlinePass(
         lights[idx].dir = normalize(dir)
         writeUniform(currentW, currentH)
       }
+    },
+    setView(view) {
+      // View matrix lives at uniformData[32..47]. Written per frame by the
+      // demo before outline.run(). Only mode-2 consumes it; the bytes are
+      // always present so the shader struct stays consistent.
+      for (let i = 0; i < 16; i++) uniformData[32 + i] = view[i]
+      device.queue.writeBuffer(uniformBuffer, 32 * 4, uniformData, 32, 16)
     },
   }
 }
