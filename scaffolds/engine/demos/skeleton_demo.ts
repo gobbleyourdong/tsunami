@@ -234,8 +234,11 @@ async function main() {
      *  of mass matters. Result: tight cell fit + no anim clipping.
      *  Returns relative bounds; camera.target is set to live Hips pos
      *  per frame in the render loop. */
-    function estimateBounds(): { minY: number; maxY: number; maxR: number; cx: number; cz: number } {
+    function estimateBounds(): { minY: number; maxY: number; maxR: number; cx: number; cy: number; cz: number } {
       let minY = Infinity, maxY = -Infinity, maxR = 0
+      // Rest Hips position (frame 0 of first anim) — camera target so the
+      // Hips-relative bounds are centered in the frame.
+      let restHx = 0, restHy = 0, restHz = 0
       const scaledLocal = new Float32Array(16)
       for (const anim of animations) {
         const lm = anim.vat.localMats
@@ -277,6 +280,9 @@ async function main() {
           // camera follows).
           const hipsW = worldMatsTmp[hipsIdx >= 0 ? hipsIdx : 0]
           const hx = hipsW[12], hy = hipsW[13], hz = hipsW[14]
+          if (anim === animations[0] && f === 0) {
+            restHx = hx; restHy = hy; restHz = hz
+          }
           for (let j = 0; j < nj; j++) {
             const w = worldMatsTmp[j]
             const dx = w[12] - hx, dy = w[13] - hy, dz = w[14] - hz
@@ -287,29 +293,27 @@ async function main() {
           }
         }
       }
-      if (minY === Infinity) return { minY: -0.9, maxY: 0.9, maxR: 0.4, cx: 0, cz: 0 }
-      return { minY, maxY, maxR, cx: 0, cz: 0 }   // cx/cz in local frame = 0 (camera targets live Hips)
+      if (minY === Infinity) return { minY: -0.9, maxY: 0.9, maxR: 0.4, cx: 0, cy: CHARACTER_HEIGHT_M / 2, cz: 0 }
+      return { minY, maxY, maxR, cx: restHx, cy: restHy, cz: restHz }
     }
 
     function fitCameraToCharacter() {
       const b = estimateBounds()
-      // Margins only need to cover primitive thickness (head cube ~0.1m
-      // half-size, limb radii ~0.05-0.07m) plus a 1-2 pixel outline ring.
-      // The BIG anim extremes are already in the envelope (estimateBounds
-      // walks every frame of every animation), so no anim-safety slack
-      // needed here. Result: sprite hugs the cell tightly.
+      // Envelope is Hips-relative (minY/maxY are offsets from Hips, not
+      // world positions). Margins cover primitive thickness + outline
+      // ring only — no anim-safety slack needed, the envelope walks
+      // every frame of every anim. Camera target = rest Hips (b.cx/cy/cz)
+      // so the relative envelope centers in the frame.
       const topMargin = 0.08
       const bottomMargin = 0.08
       const radialMargin = 0.10
       const halfH = ((b.maxY + topMargin) - (b.minY - bottomMargin)) / 2
-      const center = ((b.maxY + topMargin) + (b.minY - bottomMargin)) / 2
-      // Aspect based on sprite cell, not screen — camera is tuned for
-      // rendering into the LOD-sized cache, not the SCREEN_SIZE scene.
+      const relCenter = ((b.maxY + topMargin) + (b.minY - bottomMargin)) / 2  // offset from Hips
       const sprite = SPRITE_MODES[spriteMode]
       const aspect = sprite.w / sprite.h
       const halfFromRadius = (b.maxR + radialMargin) / aspect
       camera.orthoSize = Math.max(halfH, halfFromRadius)
-      camera.target = [b.cx, center, b.cz]
+      camera.target = [b.cx, b.cy + relCenter, b.cz]
     }
 
     const propGroups: (keyof typeof GROUP_PATTERNS)[] = ['head', 'torso', 'arms', 'legs', 'bust', 'hips']
@@ -968,17 +972,11 @@ async function main() {
         if (restPose) composer.applyRestPose(characterParams)
         else          composer.update(frameIdx, characterParams)
       }
-      // Per-frame camera tracking: camera.target follows the Hips joint
-      // so jump/dash translations slide the camera with the character
-      // instead of the character sliding out of the frame. Bounds from
-      // estimateBounds are Hips-relative, so Hips is the moving anchor.
-      if (composer && hipsIdx >= 0) {
-        const m = composer.worldMatrices
-        const b = hipsIdx * 16
-        camera.target = [m[b + 12], m[b + 13], m[b + 14]]
-      }
-      // Camera input + view matrix recompute AFTER the target was just
-      // updated — view reflects current target for THIS frame, no lag.
+      // Camera stays fixed — no per-frame Hips tracking. Scale is
+      // correct via the Hips-relative envelope; if a jump animation
+      // translates the character above the frame momentarily, that's
+      // acceptable since we're no longer baking atlas cells. Fit sets
+      // camera.target once to the rest Hips position.
       camera.update()
       camera.pixelSnapView(SPRITE_MODES[spriteMode].w, SPRITE_MODES[spriteMode].h)
       // When the composer is active, the shader reads slot 0 (composer
