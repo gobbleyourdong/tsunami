@@ -729,18 +729,53 @@ export function chibiRaymarchPrimitives(
         offsetInBone: [off[0], off[1], off[2]],
         ...headExtras,
       })
-      // Add the jaw/chin ellipsoid — a smaller ellipsoid offset down and
-      // forward. Smooth-unions with the head ellipsoid via blend group 1
-      // to give a subtle jawline without a crease. Pure RENDERING addition
-      // (no rig change); turn off by removing this block.
+      // Face build-out, Inigo-Girl style — everything smooth-unions with
+      // the head ellipsoid via blend group 1 to read as one skin surface.
+      // Jaw tapers the chin, cheeks bulge outward below the eyes, eye
+      // sockets subtract a recess so the eye spheres sit IN the head
+      // instead of protruding off its surface. Pure RENDERING addition
+      // — no rig changes, turn off by removing this block.
       if (name === 'Head') {
+        // Jaw: narrower X + shallower Y than before so the chin tapers
+        // rather than bulging round. The cheeks fill the width the jaw
+        // gives up, producing a visible jawline where the smin transition
+        // happens along the cheek→jaw crease.
         prims.push({
           type: 3, paletteSlot: slot, boneIdx: j,
-          params: [core[0] * 0.80, core[1] * 0.55, core[2] * 0.90, 0],
-          offsetInBone: [off[0], off[1] - core[1] * 0.55, off[2] + core[2] * 0.12],
-          blendGroup: 1, blendRadius: 0.03,
+          params: [core[0] * 0.65, core[1] * 0.50, core[2] * 0.85, 0],
+          offsetInBone: [off[0], off[1] - core[1] * 0.55, off[2] + core[2] * 0.10],
+          blendGroup: 1, blendRadius: 0.035,
           detailAmplitude: 0.002,
         })
+        // Cheeks: mirrored small spheres below-and-forward of the eyes.
+        // Wider blend (0.05) so they merge into the skull+jaw into one
+        // continuous surface. These are what make the side-profile read
+        // as "face" instead of "egg."
+        const cheekR = core[0] * 0.32
+        const cheekOff: [number, number, number] = [core[0] * 0.50, off[1] - core[1] * 0.22, off[2] + core[2] * 0.60]
+        for (const sx of [1, -1]) {
+          prims.push({
+            type: 0, paletteSlot: slot, boneIdx: j,
+            params: [cheekR, 0, 0, 0],
+            offsetInBone: [cheekOff[0] * sx, cheekOff[1], cheekOff[2]],
+            blendGroup: 1, blendRadius: 0.05,
+            detailAmplitude: 0.002,
+          })
+        }
+        // Eye sockets: ellipsoids subtracted from the skin group (negative
+        // blendRadius → smax in the accumulator). Creates a recess so the
+        // eye-sphere primitives (attached to LeftEye/RightEye bones) sit
+        // visually INSIDE the face rather than protruding as beads.
+        const socketSize: [number, number, number] = [core[0] * 0.26, core[1] * 0.20, core[2] * 0.22]
+        const socketOff: [number, number, number] = [core[0] * 0.30, off[1] + core[1] * 0.16, off[2] + core[2] * 0.82]
+        for (const sx of [1, -1]) {
+          prims.push({
+            type: 3, paletteSlot: slot, boneIdx: j,
+            params: [socketSize[0], socketSize[1], socketSize[2], 0],
+            offsetInBone: [socketOff[0] * sx, socketOff[1], socketOff[2]],
+            blendGroup: 1, blendRadius: -0.02,
+          })
+        }
       }
       continue
     }
