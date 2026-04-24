@@ -9,13 +9,9 @@
  */
 
 import { initGPU, Camera, FrameLoop, colorPass } from '../src'
-import { createSkeletonRenderer } from '../src/character3d/skeleton_renderer'
 import {
-  chibiBoneDisplayMats,
   chibiRaymarchPrimitives,
   chibiMaterial,
-  uniformBoneDisplayMats,
-  defaultRainbowMaterial,
   extendRigWithFace,
   extendLocalMatsWithFace,
   extendRigWithAccessories,
@@ -332,9 +328,7 @@ async function main() {
     }
     let elapsed = 0   // hoisted so switchAnimation can reset it
 
-    let displayMode: 'chibi' | 'skeleton' = 'chibi'
-    let boneDisplay = chibiBoneDisplayMats(rig)
-    let material = chibiMaterial(rig)
+    const material = chibiMaterial(rig)
 
     // MRT offscreen: color (flat palette), normal, depth. Recreated when
     // the sprite mode changes (canvas pixel buffer resizes per mode).
@@ -378,11 +372,8 @@ async function main() {
     }
     recreateTargets(canvas.width, canvas.height)
 
-    // MRT skeleton renderer: writes color, normal, depth in one pass.
-    const renderer = createSkeletonRenderer(device, SCENE_FORMAT, vatHandle, boneDisplay, material, { mrt: true })
-
     // --- Palette controls: one color picker per named slot. Edits hit
-    // renderer.setPaletteSlot() which writeBuffers the palette LUT — next
+    // raymarch.setPaletteSlot() which writeBuffers the palette LUT — next
     // rendered frame reflects the new color, no pipeline rebind needed.
     // This is the LUT-palette-indirection doctrine's payoff: recolor
     // every joint bound to a slot instantly. ---
@@ -421,7 +412,6 @@ async function main() {
           material.palette[slot * 4 + 0] = nr
           material.palette[slot * 4 + 1] = ng
           material.palette[slot * 4 + 2] = nb
-          renderer.setPaletteSlot(slot, nr, ng, nb, 1)
           raymarch.setPaletteSlot(slot, nr, ng, nb, 1)
           invalidateRaymarchCache()
         }
@@ -547,7 +537,6 @@ async function main() {
         material.palette[slotIdx * 4 + 0] = rgb[0]
         material.palette[slotIdx * 4 + 1] = rgb[1]
         material.palette[slotIdx * 4 + 2] = rgb[2]
-        renderer.setPaletteSlot(slotIdx, rgb[0], rgb[1], rgb[2], 1)
         raymarch.setPaletteSlot(slotIdx, rgb[0], rgb[1], rgb[2], 1)
       }
       invalidateRaymarchCache()
@@ -627,7 +616,6 @@ async function main() {
     let raymarchCacheVersion = 0
     let raymarchCacheApplied = -1
     function invalidateRaymarchCache() { raymarchCacheVersion++ }
-    let rendererMode: 'cube' | 'raymarch' = 'cube'
 
     // --- VFX lifetime manager. Spawnable primitives (swipes, trails,
     // bursts) layer on top of the persistent character + flame primitive
@@ -645,13 +633,6 @@ async function main() {
       return persistentPrims.concat(vfxSystem.getPrimitives(now))
     }
 
-    function refreshDisplay() {
-      boneDisplay = displayMode === 'chibi' ? chibiBoneDisplayMats(rig) : uniformBoneDisplayMats(rig.length, 0.06)
-      material = displayMode === 'chibi' ? chibiMaterial(rig) : defaultRainbowMaterial(rig.length)
-      renderer.rebind(vatHandle, boneDisplay, material)
-      buildPaletteUI()
-    }
-
     function switchAnimation(idx: number) {
       animIdx = ((idx % animations.length) + animations.length) % animations.length
       const entry = animations[animIdx]
@@ -662,12 +643,9 @@ async function main() {
         numInstances: loadedVAT.numJoints,
         numFrames: loadedVAT.numFrames,
       }
-      // Rig + proportion sliders are shared across Mixamo anims (same 65
-      // joints, same parent indices), so boneDisplay/material carry over.
-      renderer.rebind(vatHandle, boneDisplay, material)
-      // Raymarch renderer reads from the VAT buffer too — without this
-      // rebind, raymarch mode after an anim switch reads stale matrices
-      // from the previous animation's buffer (invisible character).
+      // Raymarch renderer reads from the VAT buffer; without this rebind
+      // an anim switch reads stale matrices from the previous animation's
+      // buffer (invisible character).
       raymarch.rebind(vatHandle)
       invalidateRaymarchCache()
       elapsed = 0
@@ -738,10 +716,6 @@ async function main() {
     }
 
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'c' || e.key === 'C') {
-        displayMode = displayMode === 'chibi' ? 'skeleton' : 'chibi'
-        refreshDisplay()
-      }
       if (e.key === '1') applySpriteMode('link')
       if (e.key === '2') applySpriteMode('chibi')
       if (e.key === '3') applySpriteMode('alucard')
@@ -761,10 +735,6 @@ async function main() {
       if (e.key === 'g' || e.key === 'G') toggleCameraMode()
       if (e.key === 'q' || e.key === 'Q' || e.key === '[') cycleGameYaw(-1)
       if (e.key === 'e' || e.key === 'E' || e.key === ']') cycleGameYaw(+1)
-      if (e.key === 'r' || e.key === 'R') {
-        rendererMode = rendererMode === 'cube' ? 'raymarch' : 'cube'
-        invalidateRaymarchCache()
-      }
       // VFX spawn keys — gameplay-like triggers to validate the lifetime
       // manager. All anchor at RightHand (where the flame sits) so the
       // effects read as "attack originating from the hand."
@@ -840,10 +810,17 @@ async function main() {
       const savedViewMode = viewMode
 
       async function renderFrame(f: number) {
-        // Retarget compose for the target frame (writes slot 0). Then shader
-        // reads slot 0 regardless of composer presence.
         if (composer) composer.update(f, characterParams)
         const encoder = device.createCommandEncoder()
+        // March straight into the cache for this specific frame, then
+        // blit. Bypasses the fingerprint logic — each exported frame is
+        // a deliberate re-march at its own animation phase.
+        const eyeR: [number, number, number] = [camera.position[0], camera.position[1], camera.position[2]]
+        const nowPrims = currentAllPrims(elapsed)
+        raymarch.setPrimitives(nowPrims)
+        raymarch.setTime(elapsed)
+        raymarch.setPxPerM(canvas.height / (2 * camera.orthoSize))
+        raymarch.marchIntoCache(encoder, camera.view, camera.projection, eyeR, composer ? 0 : f)
         const scenePass = encoder.beginRenderPass({
           colorAttachments: [
             { view: targets.sceneView!,    loadOp: 'clear', storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 0 } },
@@ -856,7 +833,7 @@ async function main() {
             stencilLoadOp: 'clear', stencilStoreOp: 'store', stencilClearValue: 0,
           },
         })
-        renderer.draw(scenePass, camera.view, camera.projection, composer ? 0 : f, 1.0)
+        raymarch.blitCacheToPass(scenePass)
         scenePass.end()
         const canvasView = gpu.context.getCurrentTexture().createView()
         outline.run(encoder, canvasView)
@@ -1035,29 +1012,25 @@ async function main() {
 
       // Raymarch cache refresh — happens BEFORE the scene pass. If the
       // cache fingerprint matches last frame, skip the march entirely
-      // and just blit inside the scene pass below. For an animating
-      // character this re-marches every frame (frameIdx bumps version);
-      // for a paused character at a fixed camera, zero march cost.
-      if (rendererMode === 'raymarch') {
+      // and blit inside the scene pass below. For an animating character
+      // this re-marches every frame (AABB diff catches motion); for a
+      // paused character at a fixed camera, zero march cost.
+      {
         // Update the ephemeral VFX list BEFORE the diff so any spawned/
         // expired primitive shows up in the array length comparison.
         vfxSystem.update(elapsed)
         const nowPrims = currentAllPrims(elapsed)
 
-        // AABB diff: "did anything visible actually move?" — the robust
-        // version of the previous frameIdx heuristic. Catches animation,
-        // proportion slider, primitive count changes, expression, anim
-        // switch, all in one signal. Camera motion + palette edits still
-        // bump the explicit cacheVersion counter separately.
+        // AABB diff: "did anything visible actually move?" catches anim,
+        // proportion slider, primitive count changes, expressions, anim
+        // switch. Camera motion + palette edits bump cacheVersion via
+        // explicit invalidate calls.
         if (raymarchSceneChanged(nowPrims)) invalidateRaymarchCache()
 
         if (raymarchCacheVersion !== raymarchCacheApplied) {
           const eyeR: [number, number, number] = [camera.position[0], camera.position[1], camera.position[2]]
-          // Front-to-back sort: the shader's per-primitive occlusion skips
-          // 'd_sphere >= best', so closer primitives evaluated first give
-          // subsequent far primitives a tight 'best' to beat — they skip
-          // cheaply. Only pays the sort on cache miss, not every frame.
-          // Sort a copy so the AABB-diff snapshot keeps its stable order.
+          // Front-to-back sort so the shader's per-primitive occlusion
+          // skip kicks in early. Only pays on cache miss.
           const sorted = nowPrims.slice()
           sorted.sort((a, b) => {
             const sa = primWorldSphere(a)
@@ -1094,23 +1067,19 @@ async function main() {
           stencilClearValue: 0,
         },
       })
-      if (rendererMode === 'raymarch') {
-        // Scene pass outputs = blit from the raymarch cache framebuffer.
-        // Pan offset: how many pixels the character's screen position has
-        // moved since the cache was filled. Camera translation changes
-        // view.[12..14]; pxPerM converts world delta to screen delta.
-        // Sign convention: camera +X pans right, character shifts LEFT on
-        // screen, cache sampled from +X (= blit offset is POSITIVE X).
-        // The pixel-snap camera makes deltas integer pixels — no sub-pixel
-        // interpolation needed.
+      // Scene pass outputs = blit from the raymarch cache framebuffer.
+      // Pan offset: how many pixels the character's screen position has
+      // moved since the cache was filled. Camera translation changes
+      // view.[12..14]; pxPerM converts world delta to screen delta.
+      // The pixel-snap camera makes deltas integer pixels — no sub-pixel
+      // interpolation needed.
+      {
         const pxPerM = canvas.height / (2 * camera.orthoSize)
         const dxM = camera.view[12] - lastAabbView[12]
         const dyM = camera.view[13] - lastAabbView[13]
         const panOffsetX = -Math.round(dxM * pxPerM)
         const panOffsetY =  Math.round(dyM * pxPerM)   // screen Y is down
         raymarch.blitCacheToPass(scenePass, [panOffsetX, panOffsetY])
-      } else {
-        renderer.draw(scenePass, camera.view, camera.projection, drawFrameIdx, 1.0)
       }
       scenePass.end()
 
@@ -1130,8 +1099,8 @@ async function main() {
         ``,
         `[1] Link 16×24   [2] SNES chibi 32×32`,
         `[3] Alucard 48×80   [4] SNES 256×224`,
-        `[V] view: ${viewMode}   [C] display: ${displayMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${['off','mrt','recon'][lightingMode]}`,
-        `[G] camera: ${cameraMode}${cameraMode === 'game' ? ` (${YAW_LABELS[gameYawIdx]})   [Q/E] rotate` : '   (orbit freely)'}   [R] renderer: ${rendererMode}`,
+        `[V] view: ${viewMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${lightingMode ? 'on' : 'off'}`,
+        `[G] camera: ${cameraMode}${cameraMode === 'game' ? ` (${YAW_LABELS[gameYawIdx]})   [Q/E] rotate` : '   (orbit freely)'}`,
         `[Space] swipe   [X] star   [Z] flash   [N] bolt   [B] beam   VFX: ${vfxSystem.count()}`,
         `[S] save frame   [A] save anim strip   drag = orbit`,
       ].join('\n')
