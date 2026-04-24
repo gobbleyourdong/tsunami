@@ -219,6 +219,8 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
   const PART_TO_SLOT: Record<string, number> = {
     Head:         CHIBI_SLOTS.skin,   // head reads as skin (face); hair layers later
     Neck:         CHIBI_SLOTS.skin,   // exposed neck reads as skin, not bg
+    LeftShoulder: CHIBI_SLOTS.shirt,  // shoulder ball under the shirt
+    RightShoulder:CHIBI_SLOTS.shirt,
     Spine1:       CHIBI_SLOTS.shirt,
     Hips:         CHIBI_SLOTS.pants,
     LeftArm:      CHIBI_SLOTS.skin,
@@ -818,6 +820,21 @@ export function chibiRaymarchPrimitives(
       continue
     }
 
+    // 5.5) Shoulder joints — small spheres filling the gap between torso
+    // box and arm chain start. Join the arm's blend group so they fuse
+    // smoothly into the arm. Without these the arm visually "detaches"
+    // from the body at the shoulder.
+    if (name === 'LeftShoulder' || name === 'RightShoulder') {
+      prims.push({
+        type: 0, paletteSlot: slot, boneIdx: j,
+        params: [0.065, 0, 0, 0],     // 6.5cm sphere — matches upper arm radius
+        offsetInBone: [0, 0, 0],
+        blendGroup: CHIBI_LIMB_BLEND_GROUP[name],
+        blendRadius: 0.05,
+      })
+      continue
+    }
+
     // 6) Limbs — capsule along bone +Y. Mixamo bones orient child at +Y in
     // parent-local frame so no primitive rotation is needed.
     //
@@ -841,14 +858,25 @@ export function chibiRaymarchPrimitives(
     // Capsule radius = average of the two thickness axes (they're symmetric
     // for arms/legs anyway). Center along bone by offsetting +Y halfLen.
     const radius = (thickness[0] + thickness[1]) * 0.5
-    // halfLength param is the STRAIGHT section (not including hemisphere caps),
-    // so subtract radius to hit the bone length exactly.
+    // Straight-section half-length. Classic exact-fit would be (halfLen -
+    // radius) so the hemisphere caps land precisely on the bone's two
+    // endpoints. But for blend-group chains we WANT adjacent segments to
+    // interpenetrate near the joint — two surfaces merely touching at a
+    // point give smin a narrow transition; overlapping surfaces give smin
+    // a real volume to smooth across. Dropping the radius subtraction (-0)
+    // puts the hemisphere cap centered at the bone endpoint, so the cap
+    // itself extends `radius` past the joint. Adjacent caps overlap by
+    // `2 * radius`, giving smin a healthy fusion zone.
+    const overlap = CHIBI_LIMB_BLEND_GROUP[name] ? 0 : radius
     prims.push({
       type: 5, paletteSlot: slot, boneIdx: j,
-      params: [radius, Math.max(0.001, halfLen - radius), 0, 0],
+      params: [radius, Math.max(0.001, halfLen - overlap), 0, 0],
       offsetInBone: [0, halfLen, 0],
       blendGroup: CHIBI_LIMB_BLEND_GROUP[name] ?? 0,
-      blendRadius: CHIBI_LIMB_BLEND_GROUP[name] ? 0.025 : 0,
+      // 0.05m blend — roughly one limb-radius of softness. Wider than
+      // head/jaw (0.03m) because limb joints see a sharper geometric
+      // change and need more softening to read continuous.
+      blendRadius: CHIBI_LIMB_BLEND_GROUP[name] ? 0.05 : 0,
     })
   }
   return prims
@@ -856,12 +884,14 @@ export function chibiRaymarchPrimitives(
 
 /** Each limb chain smooth-unions into one primitive group so joints
  *  read as continuous flesh, not three pipes taped together.
- *  Group 1 is reserved for Head+Jaw (see CENTERED_SIZE branch). */
+ *  Group 1 is reserved for Head+Jaw (see CENTERED_SIZE branch).
+ *  Shoulder joins the arm chain so the arm smoothly meets a ball at
+ *  the shoulder, closing the gap between torso box and arm start. */
 const CHIBI_LIMB_BLEND_GROUP: Record<string, number> = {
-  LeftArm: 2,      LeftForeArm: 2,
-  RightArm: 3,     RightForeArm: 3,
-  LeftUpLeg: 4,    LeftLeg: 4,     LeftFoot: 4,
-  RightUpLeg: 5,   RightLeg: 5,    RightFoot: 5,
+  LeftShoulder: 2, LeftArm: 2,    LeftForeArm: 2,
+  RightShoulder: 3, RightArm: 3,   RightForeArm: 3,
+  LeftUpLeg: 4,    LeftLeg: 4,    LeftFoot: 4,
+  RightUpLeg: 5,   RightLeg: 5,   RightFoot: 5,
 }
 
 /** Chibi character display: only a handful of Mixamo bones render as chunky
