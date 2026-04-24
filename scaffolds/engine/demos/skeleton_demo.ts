@@ -328,8 +328,18 @@ async function main() {
       sz48:  [0.5, 1.0, 0, 0],      // 2×3 white around 1×2 pupil (CT-tier)
       debug: [3.0, 2.0, 0, 0],      // 6×4 white around 3×2 pupil (SF-tier)
     }
+    /** Mouth glyphs per LOD — single horizontal rect below the eyes.
+     *  (yOff, halfW, halfH) all in screen pixels. yOff > 0 = below head
+     *  center. halfW controls mouth width; halfH ~ 0.4 gives 1 pixel. */
+    const MOUTH_GLYPH: Record<SpriteMode, [number, number, number, number]> = {
+      sz24:  [2,  0.4, 0.4, 0],   // 1-pixel dot mouth
+      sz32:  [2,  0.9, 0.4, 0],   // 2-pixel horizontal mouth
+      sz48:  [4,  1.4, 0.4, 0],   // 3-pixel horizontal mouth
+      debug: [14, 4,   0.6, 0],   // 8×1 wide mouth (SF-tier)
+    }
     const PUPIL_COLOR: [number, number, number, number] = [0.10, 0.08, 0.20, 1.0]
     const WHITE_COLOR: [number, number, number, number] = [0.95, 0.92, 0.88, 1.0]
+    const MOUTH_COLOR: [number, number, number, number] = [0.55, 0.20, 0.25, 1.0]
 
     /** Two canonical body archetypes. 'normal' is 1:1 Mixamo proportions
      *  (adult human, all sliders at 1, secondaries off). 'chibi' is the
@@ -1071,9 +1081,6 @@ async function main() {
         const cellPxY = (1 - (ndcY * 0.5 + 0.5)) * spriteCfg.h   // flip Y (NDC up → pixel down)
         const centerX = (canvas.width  - spriteCfg.w) / 2
         const centerY = (canvas.height - spriteCfg.h) / 2
-        // White enable=0 when the glyph has zero size → overlay falls
-        // back to bare pupil dot on skin. Tiers below 80² go without
-        // whites because they can't fit the extra pixels.
         const w = EYE_WHITE[spriteMode]
         const whiteCol: [number, number, number, number] = [
           WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2],
@@ -1083,8 +1090,10 @@ async function main() {
           [centerX + cellPxX, centerY + cellPxY],
           EYE_PUPIL[spriteMode],
           w,
+          MOUTH_GLYPH[spriteMode],
           PUPIL_COLOR,
           whiteCol,
+          MOUTH_COLOR,
         )
       }
 

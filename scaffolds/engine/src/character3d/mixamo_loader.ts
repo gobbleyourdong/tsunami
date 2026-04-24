@@ -421,20 +421,11 @@ export function extendLocalMatsWithBodyParts(
   return out
 }
 
-export const DEFAULT_HAIR: HairPart[] = [
-  // Broad dome sitting on top of the head cube. Head cube spans y ±0.21
-  // and z ±0.19 centered on the Head joint, so hair sits at y=+0.18 to
-  // read as "crown" without floating.
-  { name: 'HairTop',       parentName: 'Head', offset: [0, 0.18, -0.02], displaySize: [0.17, 0.08, 0.16] },
-  // Flat back-of-head hair — thin slab hugging the back of the skull.
-  { name: 'HairBack',      parentName: 'Head', offset: [0, 0.02, -0.19], displaySize: [0.16, 0.17, 0.04] },
-  // Side bangs extending the silhouette beyond the head cube's X extent.
-  { name: 'HairLeftSide',  parentName: 'Head', offset: [ 0.17, 0.05, 0.02], displaySize: [0.04, 0.11, 0.11] },
-  { name: 'HairRightSide', parentName: 'Head', offset: [-0.17, 0.05, 0.02], displaySize: [0.04, 0.11, 0.11] },
-  // Front fringe above the eyes — narrow slab just in front of the
-  // forehead. Thin Z so the eye whites (z=+0.195) sit slightly in front.
-  { name: 'HairFringe',    parentName: 'Head', offset: [0, 0.13, 0.185],  displaySize: [0.14, 0.05, 0.01] },
-]
+/** Hair removed for now — focused face treatment is just eyes + mouth
+ *  as pixel-paint-on overlays, skin underneath. Hair comes back as
+ *  either another overlay or a dedicated SDF primitive once the face
+ *  glyph library stabilizes. */
+export const DEFAULT_HAIR: HairPart[] = []
 
 export function extendRigWithHair(rig: Joint[], items: HairPart[] = DEFAULT_HAIR): Joint[] {
   const out: Joint[] = rig.map((j) => ({ ...j }))

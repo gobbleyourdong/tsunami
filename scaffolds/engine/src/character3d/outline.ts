@@ -35,8 +35,10 @@ struct U {
   facePos:      vec2f, // head position in screen pixels (CPU-projected)
   faceGlyph:    vec4f, // (eyeGap, eyeYOff, pupilHalfW, pupilHalfH) in pixels
   faceWhite:    vec4f, // (whiteHalfW, whiteHalfH, _, _) in pixels — skin→white rect
+  mouthGlyph:   vec4f, // (mouthYOff, mouthHalfW, mouthHalfH, _) in pixels
   eyeColor:     vec4f, // pupil color (rgb + enable in .a)
   whiteColor:   vec4f, // eye-white color (rgb + enable in .a)
+  mouthColor:   vec4f, // mouth color (rgb + enable in .a)
 }
 
 @group(0) @binding(0) var<uniform> u: U;
@@ -161,6 +163,15 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
       return vec4f(u.whiteColor.rgb, 1.0);
     }
   }
+  // Mouth: single horizontal rect centered below the eyes. No mirroring,
+  // it's one glyph at face center. mouthGlyph = (yOff, halfW, halfH, _).
+  if (u.mouthColor.a > 0.5) {
+    let mdx = abs(f32(px.x) - u.facePos.x);
+    let mdy = f32(px.y) - u.facePos.y - u.mouthGlyph.x;
+    if (mdx <= u.mouthGlyph.y && abs(mdy) <= u.mouthGlyph.z) {
+      return vec4f(u.mouthColor.rgb, 1.0);
+    }
+  }
 
   return vec4f(me.rgb * lit, 1.0);
 }
@@ -194,8 +205,10 @@ export interface OutlinePass {
     facePos: [number, number],
     glyph: [number, number, number, number],
     white: [number, number, number, number],
+    mouth: [number, number, number, number],
     pupilColor: [number, number, number, number],
     whiteColor: [number, number, number, number],
+    mouthColor: [number, number, number, number],
   ): void
 }
 
@@ -227,10 +240,10 @@ export function createOutlinePass(
   //   [16..23] light[0] (dirI vec4 + color vec4)
   //   [24..31] light[1] (dirI vec4 + color vec4)
   const uniformBuffer = device.createBuffer({
-    size: 224,
+    size: 256,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  const uniformData = new Float32Array(56)  // +24 for face paint: pos+glyph+white+eye+whiteColor
+  const uniformData = new Float32Array(64)  // +32 for face paint: pos+glyph+white+mouth glyph+3 colors
   let currentViewMode: ViewMode = 'color'
   let currentDepthOutline = true    // single depth-based outline is THE outline now
   let currentDepthThresh = 0.025
@@ -251,8 +264,10 @@ export function createOutlinePass(
   let facePos: [number, number] = [0, 0]
   let faceGlyph: [number, number, number, number] = [1, -0.5, 0.4, 1.0]  // (gap, yOff, pupilHalfW, pupilHalfH)
   let faceWhite: [number, number, number, number] = [1.4, 1.4, 0, 0]     // (whiteHalfW, whiteHalfH, _, _)
-  let eyeColor: [number, number, number, number]   = [0.10, 0.08, 0.20, 0]  // pupil rgb + enable
+  let mouthGlyph: [number, number, number, number] = [2, 1, 0.5, 0]  // (yOff, halfW, halfH, _)
+  let eyeColor:   [number, number, number, number] = [0.10, 0.08, 0.20, 0]  // pupil rgb + enable
   let whiteColor: [number, number, number, number] = [0.95, 0.92, 0.88, 0] // eye-white rgb + enable
+  let mouthColor: [number, number, number, number] = [0.55, 0.20, 0.25, 0] // mouth rgb + enable
 
   function writeUniform(texW: number, texH: number) {
     currentW = texW
@@ -298,16 +313,26 @@ export function createOutlinePass(
     uniformData[41] = faceWhite[1]
     uniformData[42] = 0
     uniformData[43] = 0
-    // [44..47] eyeColor (pupil rgb + enable)
-    uniformData[44] = eyeColor[0]
-    uniformData[45] = eyeColor[1]
-    uniformData[46] = eyeColor[2]
-    uniformData[47] = eyeColor[3]
-    // [48..51] whiteColor (eye-white rgb + enable)
-    uniformData[48] = whiteColor[0]
-    uniformData[49] = whiteColor[1]
-    uniformData[50] = whiteColor[2]
-    uniformData[51] = whiteColor[3]
+    // [44..47] mouthGlyph (yOff, halfW, halfH, _)
+    uniformData[44] = mouthGlyph[0]
+    uniformData[45] = mouthGlyph[1]
+    uniformData[46] = mouthGlyph[2]
+    uniformData[47] = 0
+    // [48..51] eyeColor (pupil rgb + enable)
+    uniformData[48] = eyeColor[0]
+    uniformData[49] = eyeColor[1]
+    uniformData[50] = eyeColor[2]
+    uniformData[51] = eyeColor[3]
+    // [52..55] whiteColor (eye-white rgb + enable)
+    uniformData[52] = whiteColor[0]
+    uniformData[53] = whiteColor[1]
+    uniformData[54] = whiteColor[2]
+    uniformData[55] = whiteColor[3]
+    // [56..59] mouthColor (mouth rgb + enable)
+    uniformData[56] = mouthColor[0]
+    uniformData[57] = mouthColor[1]
+    uniformData[58] = mouthColor[2]
+    uniformData[59] = mouthColor[3]
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
   }
   writeUniform(sceneW, sceneH)
@@ -373,16 +398,20 @@ export function createOutlinePass(
         writeUniform(currentW, currentH)
       }
     },
-    setFacePaint(pos, glyph, white, pupilCol, whiteCol) {
-      facePos[0] = pos[0];       facePos[1] = pos[1]
-      faceGlyph[0] = glyph[0];   faceGlyph[1] = glyph[1]
-      faceGlyph[2] = glyph[2];   faceGlyph[3] = glyph[3]
-      faceWhite[0] = white[0];   faceWhite[1] = white[1]
-      faceWhite[2] = 0;          faceWhite[3] = 0
-      eyeColor[0] = pupilCol[0]; eyeColor[1] = pupilCol[1]
-      eyeColor[2] = pupilCol[2]; eyeColor[3] = pupilCol[3]
+    setFacePaint(pos, glyph, white, mouth, pupilCol, whiteCol, mouthCol) {
+      facePos[0] = pos[0];         facePos[1] = pos[1]
+      faceGlyph[0] = glyph[0];     faceGlyph[1] = glyph[1]
+      faceGlyph[2] = glyph[2];     faceGlyph[3] = glyph[3]
+      faceWhite[0] = white[0];     faceWhite[1] = white[1]
+      faceWhite[2] = 0;            faceWhite[3] = 0
+      mouthGlyph[0] = mouth[0];    mouthGlyph[1] = mouth[1]
+      mouthGlyph[2] = mouth[2];    mouthGlyph[3] = 0
+      eyeColor[0] = pupilCol[0];   eyeColor[1] = pupilCol[1]
+      eyeColor[2] = pupilCol[2];   eyeColor[3] = pupilCol[3]
       whiteColor[0] = whiteCol[0]; whiteColor[1] = whiteCol[1]
       whiteColor[2] = whiteCol[2]; whiteColor[3] = whiteCol[3]
+      mouthColor[0] = mouthCol[0]; mouthColor[1] = mouthCol[1]
+      mouthColor[2] = mouthCol[2]; mouthColor[3] = mouthCol[3]
       writeUniform(currentW, currentH)
     },
   }
