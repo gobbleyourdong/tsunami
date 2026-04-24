@@ -982,7 +982,7 @@ async function main() {
         `[V] view: ${viewMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${lightingMode ? 'on' : 'off'}`,
         `[G] camera: ${cameraMode}${cameraMode === 'game' ? ` (${YAW_LABELS[gameYawIdx]})   [Q/E] rotate` : '   (orbit freely)'}`,
         `[Space] swipe   [X] star   [Z] flash   [N] bolt   [B] beam   VFX: ${vfxSystem.count()}`,
-        `[S] save frame   [A] save anim strip   drag = orbit`,
+        `drag = orbit   wheel = zoom`,
       ].join('\n')
     }
 
