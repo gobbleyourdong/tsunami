@@ -463,6 +463,12 @@ export interface RetargetComposer {
   buffer: GPUBuffer
   numInstances: number
   numFrames: number
+  /** CPU-side mirror of the per-frame world matrix array after the most
+   *  recent update(). 16 floats per joint, column-major. Mutating this
+   *  array is not supported — treat it as read-only view of what's on
+   *  the GPU. Exposed so the demo can compute CPU-side bounding volumes
+   *  (cache invalidation, BVH culling) without a GPU readback. */
+  worldMatrices: Float32Array
 }
 
 export function createRetargetComposer(
@@ -501,6 +507,7 @@ export function createRetargetComposer(
     buffer: vat.buffer,         // reuse the same GPU buffer — writeBuffer swaps contents
     numInstances: numJoints,
     numFrames,
+    worldMatrices: worldData,   // same array we upload; CPU readers get the latest
     update(frameIdx, params) {
       const base = (frameIdx % numFrames) * numJoints * 16
       for (let j = 0; j < numJoints; j++) {

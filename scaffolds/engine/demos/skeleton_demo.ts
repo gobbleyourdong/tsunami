@@ -925,24 +925,91 @@ async function main() {
       camera.pixelSnapView(canvas.width, canvas.height)
     }
 
-    // Track last-seen inputs to auto-invalidate the raymarch cache when
-    // anything that would change the pixel output changes. Simple quantized
-    // fingerprint avoids false negatives while keeping the comparison O(1).
-    let lastCacheFrameIdx = -1
-    const lastCacheView = new Float32Array(16)
-    let lastCacheOrtho = -1
-    function raymarchCacheFingerprintChanged(frameIdx: number): boolean {
-      if (frameIdx !== lastCacheFrameIdx) return true
-      if (camera.orthoSize !== lastCacheOrtho) return true
+    // Per-primitive world AABB tracking — the robust cache invalidation
+    // signal the user asked for. Each frame we compute each primitive's
+    // world-space bounding sphere (center + radius) from its bone matrix
+    // times its local offset + conservative param-sum radius. Any primitive
+    // that moved beyond epsilon invalidates the cache. This catches:
+    //
+    //   - Animation (bones moved)
+    //   - Proportion sliders (bone scale changed)
+    //   - Primitive add/remove (array size differs)
+    //   - Expression changes (face joints moved)
+    //   - Anim switch (whole rig pose changed)
+    //
+    // It does NOT catch: camera motion, palette edits, lighting changes —
+    // those feed separate fingerprints (camera view matrix + explicit
+    // invalidations on palette/lighting actions).
+    //
+    // Dual purpose: same AABB data is a natural seed for a future BVH
+    // spatial index. When the scene has hundreds of primitives, group
+    // AABBs feed culling queries. For now (~30 prims) the linear diff is
+    // fast enough to run every frame.
+    type WorldSphere = { cx: number; cy: number; cz: number; r: number }
+    const lastAabbs: WorldSphere[] = []
+    const lastAabbView = new Float32Array(16)
+    let lastAabbOrtho = -1
+    const AABB_EPSILON = 1e-4   // meters — ~0.1mm; below this, treat as unchanged
+
+    /** Compute world-space bounding sphere for a raymarch primitive using
+     *  the composer's CPU-side world matrix mirror. Mirrors the shader's
+     *  per-primitive occlusion bound (sum-of-abs-params + margin × max
+     *  bone scale) so the invalidation signal agrees with the cull test. */
+    function primWorldSphere(p: RaymarchPrimitive): WorldSphere {
+      // Fallback if we don't have the composer (VAT1 path): radius-only
+      // bound in bone-local space is fine; center just the offset. Rare
+      // path in practice.
+      if (!composer) {
+        const r = Math.abs(p.params[0]) + Math.abs(p.params[1]) + Math.abs(p.params[2]) + Math.abs(p.params[3]) + 0.05
+        return { cx: p.offsetInBone[0], cy: p.offsetInBone[1], cz: p.offsetInBone[2], r }
+      }
+      const base = p.boneIdx * 16
+      const m = composer.worldMatrices
+      const c0x = m[base + 0],  c0y = m[base + 1],  c0z = m[base + 2]
+      const c1x = m[base + 4],  c1y = m[base + 5],  c1z = m[base + 6]
+      const c2x = m[base + 8],  c2y = m[base + 9],  c2z = m[base + 10]
+      const tx  = m[base + 12], ty  = m[base + 13], tz  = m[base + 14]
+      const [ox, oy, oz] = p.offsetInBone
+      // world = bone * (offset, 1)
+      const cx = c0x * ox + c1x * oy + c2x * oz + tx
+      const cy = c0y * ox + c1y * oy + c2y * oz + ty
+      const cz = c0z * ox + c1z * oy + c2z * oz + tz
+      const s0 = Math.sqrt(c0x * c0x + c0y * c0y + c0z * c0z)
+      const s1 = Math.sqrt(c1x * c1x + c1y * c1y + c1z * c1z)
+      const s2 = Math.sqrt(c2x * c2x + c2y * c2y + c2z * c2z)
+      const maxScale = Math.max(s0, s1, s2)
+      const rLocal = Math.abs(p.params[0]) + Math.abs(p.params[1]) + Math.abs(p.params[2]) + Math.abs(p.params[3]) + 0.05
+      const r = rLocal * maxScale + Math.abs(p.blendRadius ?? 0)
+      return { cx, cy, cz, r }
+    }
+
+    /** Compare current primitive AABBs + camera to last frame's snapshot.
+     *  Returns true if anything visible has changed. */
+    function raymarchSceneChanged(prims: RaymarchPrimitive[]): boolean {
+      if (prims.length !== lastAabbs.length) return true
+      if (camera.orthoSize !== lastAabbOrtho) return true
       for (let i = 0; i < 16; i++) {
-        if (camera.view[i] !== lastCacheView[i]) return true
+        if (camera.view[i] !== lastAabbView[i]) return true
+      }
+      for (let i = 0; i < prims.length; i++) {
+        const s = primWorldSphere(prims[i])
+        const prev = lastAabbs[i]
+        if (Math.abs(s.cx - prev.cx) > AABB_EPSILON) return true
+        if (Math.abs(s.cy - prev.cy) > AABB_EPSILON) return true
+        if (Math.abs(s.cz - prev.cz) > AABB_EPSILON) return true
+        if (Math.abs(s.r  - prev.r ) > AABB_EPSILON) return true
       }
       return false
     }
-    function snapshotCacheFingerprint(frameIdx: number) {
-      lastCacheFrameIdx = frameIdx
-      lastCacheOrtho = camera.orthoSize
-      for (let i = 0; i < 16; i++) lastCacheView[i] = camera.view[i]
+
+    /** Capture current primitive AABBs + camera as the new snapshot. */
+    function snapshotRaymarchScene(prims: RaymarchPrimitive[]) {
+      lastAabbs.length = prims.length
+      for (let i = 0; i < prims.length; i++) {
+        lastAabbs[i] = primWorldSphere(prims[i])
+      }
+      lastAabbOrtho = camera.orthoSize
+      for (let i = 0; i < 16; i++) lastAabbView[i] = camera.view[i]
     }
 
     loop.onRender = (stats) => {
@@ -965,23 +1032,27 @@ async function main() {
       // character this re-marches every frame (frameIdx bumps version);
       // for a paused character at a fixed camera, zero march cost.
       if (rendererMode === 'raymarch') {
-        // Fingerprint uses RAW frameIdx (the animation clock), not
-        // drawFrameIdx. With the composer active we always pass 0 to the
-        // shader (composer writes world mats to slot 0 each frame), but
-        // the animation state is in `frameIdx` — that's what actually
-        // changes the rendered pixels. Using drawFrameIdx here was the
-        // "cache never updates during playback" bug.
-        if (raymarchCacheFingerprintChanged(frameIdx)) invalidateRaymarchCache()
+        // Update the ephemeral VFX list BEFORE the diff so any spawned/
+        // expired primitive shows up in the array length comparison.
+        vfxSystem.update(elapsed)
+        const nowPrims = currentAllPrims(elapsed)
+
+        // AABB diff: "did anything visible actually move?" — the robust
+        // version of the previous frameIdx heuristic. Catches animation,
+        // proportion slider, primitive count changes, expression, anim
+        // switch, all in one signal. Camera motion + palette edits still
+        // bump the explicit cacheVersion counter separately.
+        if (raymarchSceneChanged(nowPrims)) invalidateRaymarchCache()
+
         if (raymarchCacheVersion !== raymarchCacheApplied) {
           const eyeR: [number, number, number] = [camera.position[0], camera.position[1], camera.position[2]]
-          vfxSystem.update(elapsed)
-          raymarch.setPrimitives(currentAllPrims(elapsed))
+          raymarch.setPrimitives(nowPrims)
           raymarch.setTime(elapsed)
           const pxPerM = canvas.height / (2 * camera.orthoSize)
           raymarch.setPxPerM(pxPerM)
           raymarch.marchIntoCache(encoder, camera.view, camera.projection, eyeR, drawFrameIdx)
           raymarchCacheApplied = raymarchCacheVersion
-          snapshotCacheFingerprint(frameIdx)
+          snapshotRaymarchScene(nowPrims)
         }
       }
 
