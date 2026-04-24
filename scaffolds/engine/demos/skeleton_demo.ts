@@ -752,14 +752,15 @@ async function main() {
       // placing marks at Z=0.15 (just inside) lets face-surface hits at
       // Z=0.19 read as "+0.04 along normal" and pass the gate.
       const markZ = 0.15
-      // Sizes in world meters — pxPerM is ~25-30 at sz24, so 0.01m = 1
-      // pixel. Scaled up so eyes read clearly even at 24² cells.
+      // Eyes: vertical rectangles (Mario/Link pixel-art style — 1 wide,
+      // 2 tall). Mouth: horizontal rect. Sizes in world meters; at
+      // sz24/sz32 pxPerM ≈ 25-30 so 0.02m ≈ 1 px wide, 0.05m ≈ 2 px tall.
       const marks: FaceMark[] = [
-        { shape: 'circle', boneIdx: headIdx, paletteSlot: pupilSlot,
-          localCenter: [+0.055, 0.155, markZ], localNormal: faceFwd, size: [0.04, 0] },
-        { shape: 'circle', boneIdx: headIdx, paletteSlot: pupilSlot,
-          localCenter: [-0.055, 0.155, markZ], localNormal: faceFwd, size: [0.04, 0] },
-        { shape: 'rect',   boneIdx: headIdx, paletteSlot: mouthSlot,
+        { shape: 'rect', boneIdx: headIdx, paletteSlot: pupilSlot,
+          localCenter: [+0.055, 0.155, markZ], localNormal: faceFwd, size: [0.02, 0.05] },
+        { shape: 'rect', boneIdx: headIdx, paletteSlot: pupilSlot,
+          localCenter: [-0.055, 0.155, markZ], localNormal: faceFwd, size: [0.02, 0.05] },
+        { shape: 'rect', boneIdx: headIdx, paletteSlot: mouthSlot,
           localCenter: [0.0,    0.055, markZ], localNormal: faceFwd, size: [0.06, 0.012] },
       ]
       raymarch.setFaceMarks(marks)
