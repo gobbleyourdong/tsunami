@@ -265,61 +265,33 @@ async function main() {
     const propGroups: (keyof typeof GROUP_PATTERNS)[] = ['head', 'torso', 'arms', 'legs', 'bust', 'hips']
     const currentScales: Record<string, number> = { head: 1, torso: 1, arms: 1, legs: 1, bust: 0, hips: 0 }
 
-    function bindSlider(group: keyof typeof GROUP_PATTERNS) {
-      const slider = document.getElementById(`${group}-slider`) as HTMLInputElement
-      const valEl = document.getElementById(`${group}-val`)!
-      slider.oninput = () => {
-        const v = Number(slider.value)
-        currentScales[group] = v
-        valEl.textContent = v.toFixed(2)
-        applyGroupScale(group, v)
-        // Head group overwrites face joint scales with uniform headS,
-        // which would clobber an active expression. Re-apply the
-        // expression's per-axis modulation on top after the slider fire.
-        if (group === 'head' && currentExpression !== 'neutral') applyExpression(currentExpression)
-        fitCameraToCharacter()
-        invalidateRaymarchCache()   // proportion change → cache must re-march
-      }
-      applyGroupScale(group, Number(slider.value))
+    /** Two canonical body archetypes. 'normal' is 1:1 Mixamo proportions
+     *  (adult human, all sliders at 1, secondaries off). 'chibi' is the
+     *  big-head / short-limb silhouette. Sliders are gone — these two
+     *  presets ARE the proportion UI now; more archetypes land as more
+     *  buttons rather than continuous axes. */
+    const BODY_PRESETS: Record<string, Record<string, number>> = {
+      'preset-normal': { head: 1.0, torso: 1.0,  arms: 1.0, legs: 1.0,  bust: 0.0, hips: 0.0 },
+      'preset-chibi':  { head: 1.8, torso: 0.85, arms: 0.7, legs: 0.75, bust: 0.0, hips: 0.0 },
     }
-    propGroups.forEach(bindSlider)
-    fitCameraToCharacter()   // initial fit
-
-    const resetBtn = document.getElementById('reset-props') as HTMLButtonElement
-    resetBtn.onclick = () => {
+    function applyPreset(key: string) {
+      const p = BODY_PRESETS[key]
+      if (!p) return
       for (const g of propGroups) {
-        const s = document.getElementById(`${g}-slider`) as HTMLInputElement
-        // bust/hips default to 0 (off); other proportions default to 1.
-        s.value = (g === 'bust' || g === 'hips') ? '0.0' : '1.0'
-        s.dispatchEvent(new Event('input'))
+        currentScales[g] = p[g]
+        applyGroupScale(g, p[g])
       }
+      if (currentExpression !== 'neutral') applyExpression(currentExpression)
+      fitCameraToCharacter()
+      invalidateRaymarchCache()
     }
-    // Body-shape presets. First step on the 9-macro (MakeHuman) path —
-    // these drive only the 4 existing proportion axes, so they can't
-    // express shoulder-width / belly / neck independently yet. Adding
-    // those as continuous sliders needs more virtual joints (belly as
-    // a virtual joint on Spine1, shoulder-width as non-uniform Spine2
-    // X-scale). Presets give the silhouette variety now; keep the
-    // architectural room for the full MakeHuman 9-macro later.
-    const BODY_PRESETS: Record<string, Record<string, string>> = {
-      'preset-chibi':  { head: '1.8',  torso: '0.85', arms: '0.7',  legs: '0.75', bust: '0.0',  hips: '0.0'  },
-      'preset-male':   { head: '0.95', torso: '1.08', arms: '1.05', legs: '1.00', bust: '0.0',  hips: '0.0'  },
-      'preset-female': { head: '0.95', torso: '0.92', arms: '0.88', legs: '0.98', bust: '0.85', hips: '1.00' },
-      'preset-child':  { head: '1.40', torso: '0.75', arms: '0.75', legs: '0.70', bust: '0.0',  hips: '0.0'  },
-      'preset-tall':   { head: '0.90', torso: '1.00', arms: '1.05', legs: '1.30', bust: '0.0',  hips: '0.0'  },
-      'preset-stocky': { head: '1.00', torso: '1.15', arms: '1.00', legs: '0.82', bust: '0.0',  hips: '0.30' },
-    }
-    for (const [btnId, presets] of Object.entries(BODY_PRESETS)) {
+    for (const [btnId] of Object.entries(BODY_PRESETS)) {
       const btn = document.getElementById(btnId) as HTMLButtonElement | null
       if (!btn) continue
-      btn.onclick = () => {
-        for (const g of propGroups) {
-          const s = document.getElementById(`${g}-slider`) as HTMLInputElement
-          s.value = presets[g]
-          s.dispatchEvent(new Event('input'))
-        }
-      }
+      btn.onclick = () => applyPreset(btnId)
     }
+    applyPreset('preset-normal')   // initial default: 1:1 Mixamo proportions
+    fitCameraToCharacter()
 
     let vatHandle = {
       buffer: loadedVAT.buffer,
@@ -520,16 +492,16 @@ async function main() {
 
     function applyCharacterSpec(spec: CharacterSpecV2) {
       nameInput.value = spec.name ?? 'unnamed'
-      // Proportion sliders: apply each known group; fire input events so
-      // scales + camera fit recompute via the same path a slider drag uses.
+      // Proportions: write directly into currentScales + apply per group.
+      // Sliders are gone; these values live entirely in-memory now.
       for (const g of propGroups) {
         const v = spec.proportions?.[g]
         if (typeof v !== 'number') continue
-        const s = document.getElementById(`${g}-slider`) as HTMLInputElement | null
-        if (!s) continue
-        s.value = String(v)
-        s.dispatchEvent(new Event('input'))
+        currentScales[g] = v
+        applyGroupScale(g, v)
       }
+      if (currentExpression !== 'neutral') applyExpression(currentExpression)
+      fitCameraToCharacter()
       // Palette: set each known slot. Unknown slots ignored (forward-compat).
       for (const [slotName, slotIdx] of Object.entries(material.namedSlots)) {
         const rgb = spec.palette?.[slotName]

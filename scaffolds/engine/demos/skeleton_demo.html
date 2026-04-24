@@ -57,21 +57,10 @@
   <canvas id="canvas" width="256" height="224"></canvas>
   <div id="stats"></div>
   <div id="props">
-    <h3>Character proportions</h3>
-    <label><span class="lbl">head</span>  <input type="range" min="0.5" max="2.5" step="0.05" value="1.0" id="head-slider"><span class="val" id="head-val">1.00</span></label>
-    <label><span class="lbl">torso</span> <input type="range" min="0.6" max="1.8" step="0.05" value="1.0" id="torso-slider"><span class="val" id="torso-val">1.00</span></label>
-    <label><span class="lbl">arms</span>  <input type="range" min="0.5" max="1.8" step="0.05" value="1.0" id="arms-slider"><span class="val" id="arms-val">1.00</span></label>
-    <label><span class="lbl">legs</span>  <input type="range" min="0.5" max="1.8" step="0.05" value="1.0" id="legs-slider"><span class="val" id="legs-val">1.00</span></label>
-    <label><span class="lbl">bust</span>  <input type="range" min="0.0" max="1.5" step="0.05" value="0.0" id="bust-slider"><span class="val" id="bust-val">0.00</span></label>
-    <label><span class="lbl">hips</span>  <input type="range" min="0.0" max="1.5" step="0.05" value="0.0" id="hips-slider"><span class="val" id="hips-val">0.00</span></label>
-    <button id="reset-props">reset</button>
-    <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;">
+    <h3>Character</h3>
+    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+      <button id="preset-normal">normal</button>
       <button id="preset-chibi">chibi</button>
-      <button id="preset-male">male</button>
-      <button id="preset-female">female</button>
-      <button id="preset-child">child</button>
-      <button id="preset-tall">tall</button>
-      <button id="preset-stocky">stocky</button>
     </div>
     <hr>
     <div style="font-size: 11px; color: #9ab; margin-bottom: 4px;">expression</div>
