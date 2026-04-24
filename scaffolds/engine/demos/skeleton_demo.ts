@@ -75,13 +75,18 @@ async function main() {
     const { device, format } = gpu
 
     let spriteMode: SpriteMode = 'chibi'
-    // Canvas + scene MRT are always SCREEN_SIZE (full SNES-res viewport).
-    // The sprite renders at its LOD pixel size into the raymarch cache,
-    // then gets blitted CENTERED into this larger canvas — so you see the
-    // sprite at its actual pixel size against the full-screen context.
-    const SCREEN_SIZE = 256
-    canvas.width = SCREEN_SIZE
-    canvas.height = SCREEN_SIZE
+    // Preview framing: 'scene' canvases at SNES full-res (256²) and
+    // centers the sprite cell in it — you see the sprite at its pixel
+    // size against screen context. 'framed' canvases match the sprite
+    // cell size exactly so the sprite fills the canvas, zoomed by CSS.
+    type PreviewMode = 'scene' | 'framed'
+    let previewMode: PreviewMode = 'scene'
+    const SNES_SCREEN = 256
+    function canvasSizeForMode(): number {
+      return previewMode === 'scene' ? SNES_SCREEN : SPRITE_MODES[spriteMode].w
+    }
+    canvas.width = canvasSizeForMode()
+    canvas.height = canvasSizeForMode()
 
     // Camera distance from target: sqrt(3² + 2.5² + 3²) ≈ 4.9m.
     // Tight near/far around the character gives ~128 uint8 levels of depth
@@ -737,14 +742,26 @@ async function main() {
     function applySpriteMode(mode: SpriteMode) {
       spriteMode = mode
       const cfg = SPRITE_MODES[mode]
-      // Canvas + scene MRT stay at SCREEN_SIZE — sprite renders into the
-      // LOD-sized cache and gets blitted centered into the full screen.
-      // Only the cache + camera aspect change per mode.
+      // Canvas size tracks preview mode. In 'framed' mode the sprite
+      // fills the canvas; in 'scene' mode the sprite sits in a 256² SNES
+      // viewport. Camera + cache always bind to the sprite cell.
+      const canvasSize = canvasSizeForMode()
+      if (canvas.width !== canvasSize || canvas.height !== canvasSize) {
+        canvas.width = canvasSize
+        canvas.height = canvasSize
+        gpu.context.configure({ device, format, alphaMode: 'premultiplied' })
+        recreateTargets(canvasSize, canvasSize)
+        outline.rebindSources(targets.sceneView!, targets.normalView!, targets.depthVizView!, canvasSize, canvasSize)
+      }
       camera.setAspect(cfg.w, cfg.h)
       applyPreset(SPRITE_MODE_PRESET[mode])
       fitCameraToCharacter()
       raymarch.resizeCache(cfg.w, cfg.h)
       invalidateRaymarchCache()
+    }
+    function togglePreviewMode() {
+      previewMode = previewMode === 'scene' ? 'framed' : 'scene'
+      applySpriteMode(spriteMode)   // re-run to resize canvas + rebind sources
     }
 
     type ViewMode = 'color' | 'normal' | 'depth'
@@ -780,6 +797,7 @@ async function main() {
         restPose = !restPose
         invalidateRaymarchCache()
       }
+      if (e.key === 'f' || e.key === 'F') togglePreviewMode()
       // VFX spawn keys — gameplay-like triggers to validate the lifetime
       // manager. All anchor at RightHand (where the flame sits) so the
       // effects read as "attack originating from the hand."
@@ -1026,8 +1044,8 @@ async function main() {
         const dyM = camera.view[13] - lastAabbView[13]
         const panOffsetX = -Math.round(dxM * pxPerM)
         const panOffsetY =  Math.round(dyM * pxPerM)   // screen Y is down
-        const centerX = Math.round((SCREEN_SIZE - spriteCfg.w) / 2)
-        const centerY = Math.round((SCREEN_SIZE - spriteCfg.h) / 2)
+        const centerX = Math.round((canvas.width  - spriteCfg.w) / 2)
+        const centerY = Math.round((canvas.height - spriteCfg.h) / 2)
         raymarch.blitCacheToPass(scenePass, [centerX + panOffsetX, centerY + panOffsetY])
       }
       scenePass.end()
@@ -1055,8 +1073,8 @@ async function main() {
         const spriteCfg = SPRITE_MODES[spriteMode]
         const cellPxX = (ndcX * 0.5 + 0.5) * spriteCfg.w
         const cellPxY = (1 - (ndcY * 0.5 + 0.5)) * spriteCfg.h   // flip Y (NDC up → pixel down)
-        const centerX = (SCREEN_SIZE - spriteCfg.w) / 2
-        const centerY = (SCREEN_SIZE - spriteCfg.h) / 2
+        const centerX = (canvas.width  - spriteCfg.w) / 2
+        const centerY = (canvas.height - spriteCfg.h) / 2
         // White enable=0 when the glyph has zero size → overlay falls
         // back to bare pupil dot on skin. Tiers below 80² go without
         // whites because they can't fit the extra pixels.
@@ -1093,7 +1111,7 @@ async function main() {
         `[V] view: ${viewMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${lightingMode ? 'on' : 'off'}   [T] rest pose: ${restPose ? 'on' : 'off'}`,
         `drag = orbit   [T] rest pose`,
         `[Space] swipe   [X] star   [Z] flash   [N] bolt   [B] beam   VFX: ${vfxSystem.count()}`,
-        `drag = orbit   wheel = zoom`,
+        `drag = orbit   [F] preview: ${previewMode}`,
       ].join('\n')
     }
 
