@@ -122,9 +122,21 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     for (var i = 0u; i < 2u; i = i + 1u) {
       let L = u.lights[i];
       let d = max(dot(n, L.dirI.xyz), 0.0);
-      var band = 0.35;
-      if (d > 0.33) { band = 0.70; }
-      if (d > 0.66) { band = 1.00; }
+      var band: f32;
+      if (i == 0u) {
+        // Key light: 3-band cel quantize — the crisp shadow step is what
+        // makes the whole thing read as pixel-art cel shading. This is the
+        // light that carries the "look."
+        band = 0.35;
+        if (d > 0.33) { band = 0.70; }
+        if (d > 0.66) { band = 1.00; }
+      } else {
+        // Fill light: smooth linear rolloff. A fill is supposed to soften
+        // the opposite side; hard-banding it produces the stepping
+        // artefact the user saw as the fill swept across curved surfaces.
+        // Smooth fill + hard key = classic cel rig (Guilty Gear, Arc Sys).
+        band = d;
+      }
       acc = acc + L.color.rgb * (band * L.dirI.w);
     }
     // Screen-space AO — 4 depth samples in a ring around the pixel. Each
