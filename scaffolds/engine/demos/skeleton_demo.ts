@@ -177,10 +177,17 @@ async function main() {
       hips:  /^(LeftHipPad|RightHipPad)$/,
     }
 
-    function applyGroupScale(group: keyof typeof GROUP_PATTERNS, s: number) {
+    /** Apply a scale to every joint in a proportion group. Accepts a scalar
+     *  (uniform scale) or a per-axis vec3 [sx, sy, sz]. Per-axis is the
+     *  lever that produces chibi squash: legs with scale.y = 0.3 are
+     *  short but keep their width, so they read as "stubby" rather than
+     *  "tiny." Mixamo bone +Y is the bone's length direction, so
+     *  scale.y = bone length, scale.x/z = cross-section thickness. */
+    function applyGroupScale(group: keyof typeof GROUP_PATTERNS, s: number | [number, number, number]) {
       const pat = GROUP_PATTERNS[group]
+      const v: [number, number, number] = typeof s === 'number' ? [s, s, s] : s
       for (let j = 0; j < rig.length; j++) {
-        if (pat.test(rig[j].name)) characterParams.scales[j] = [s, s, s]
+        if (pat.test(rig[j].name)) characterParams.scales[j] = v
       }
     }
 
@@ -283,16 +290,37 @@ async function main() {
      *  big-head / short-limb silhouette. Sliders are gone — these two
      *  presets ARE the proportion UI now; more archetypes land as more
      *  buttons rather than continuous axes. */
-    const BODY_PRESETS: Record<string, Record<string, number>> = {
-      'preset-normal': { head: 1.0, torso: 1.0,  arms: 1.0, legs: 1.0,  bust: 0.0, hips: 0.0 },
-      'preset-chibi':  { head: 1.8, torso: 0.85, arms: 0.7, legs: 0.75, bust: 0.0, hips: 0.0 },
+    type Scale = number | [number, number, number]
+    const BODY_PRESETS: Record<string, Record<string, Scale>> = {
+      'preset-normal': { head: 1.0, torso: 1.0, arms: 1.0, legs: 1.0, bust: 0.0, hips: 0.0 },
+      // SNES anime-RPG stylized: head prominent but not dominant (~1/4 of
+      // height), limbs slightly shortened, width unchanged. Chrono Trigger
+      // / FF6 / Secret of Mana proportions — between chibi and realistic.
+      'preset-stylized': {
+        head:  [1.0, 1.35, 1.0],
+        torso: [1.0, 0.9,  1.0],
+        arms:  [1.0, 0.85, 1.0],
+        legs:  [1.0, 0.82, 1.0],
+        bust: 0.0, hips: 0.0,
+      },
+      // SNES-style chibi: width stays ≈ normal across the whole body; legs
+      // heavily squashed; head Y-stretched so it reads big without
+      // ballooning wider than the torso.
+      'preset-chibi':  {
+        head:  [1.0, 1.8,  1.0],
+        torso: [1.0, 0.75, 1.0],
+        arms:  [1.0, 0.7,  1.0],
+        legs:  [1.0, 0.4,  1.0],
+        bust: 0.0, hips: 0.0,
+      },
     }
     function applyPreset(key: string) {
       const p = BODY_PRESETS[key]
       if (!p) return
       for (const g of propGroups) {
-        currentScales[g] = p[g]
-        applyGroupScale(g, p[g])
+        const v = p[g]
+        currentScales[g] = typeof v === 'number' ? v : v[1]   // display-friendly scalar for HUD/spec serialize
+        applyGroupScale(g, v)
       }
       if (currentExpression !== 'neutral') applyExpression(currentExpression)
       fitCameraToCharacter()
