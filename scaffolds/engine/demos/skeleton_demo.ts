@@ -305,17 +305,28 @@ async function main() {
     let raymarchCacheApplied = -1
     function invalidateRaymarchCache() { raymarchCacheVersion++ }
 
-    /** Eye-dot glyphs per LOD, matching the NES/SNES→SotN pixel ladder.
-     *  All in screen-pixel units from the head's projected center:
-     *  (eyeGap, eyeYOff, halfW, halfH). halfW 0.4 = 1-column dot;
-     *  halfH 1.0 with half-integer yOff = 2-row vertical dot. */
-    const EYE_GLYPH: Record<SpriteMode, [number, number, number, number]> = {
-      link:    [1, -0.5, 0.4, 0.5],   // 24² — single vertical dot per eye
-      chibi:   [1, -0.5, 0.4, 1.0],   // 32² — 1×2 vertical dot (Mario/Link tier)
-      alucard: [3, -2.5, 0.4, 0.5],   // 80² — 1 px each (SotN minimum)
-      full:    [10, -8.0, 1.5, 1.0],  // 256² — 3×2 (SF-tier)
+    /** Eye glyphs per LOD — nested rects: pupil (inner dark), white
+     *  (outer light). All in screen-pixel units from the head center.
+     *  pupil = (eyeGap, eyeYOff, pupilHalfW, pupilHalfH)
+     *  white = (whiteHalfW, whiteHalfH, _, _)   — 0 halfW disables whites
+     *  Tuning the ladder matches the NES → SNES → CPS → SotN era spec:
+     *    24²/32²: single dot, no white (sprite too small to fit white+pupil)
+     *    80²:     1×1 dot with 1-pixel white ring (SotN)
+     *    256²:    3×2 pupil with 2-pixel white ring (SF-tier) */
+    const EYE_PUPIL: Record<SpriteMode, [number, number, number, number]> = {
+      link:    [1,  -0.5, 0.4, 0.5],
+      chibi:   [1,  -0.5, 0.4, 1.0],
+      alucard: [3,  -2.5, 0.4, 0.5],
+      full:    [10, -8.0, 1.5, 1.0],
     }
-    const EYE_COLOR: [number, number, number, number] = [0.10, 0.08, 0.20, 1.0]
+    const EYE_WHITE: Record<SpriteMode, [number, number, number, number]> = {
+      link:    [0,   0,   0, 0],      // too small — skip white
+      chibi:   [0,   0,   0, 0],      // 1 skin pixel between eyes, can't fit white too
+      alucard: [0.5, 0.5, 0, 0],      // 2x2 white around pupil
+      full:    [3.0, 2.0, 0, 0],      // 6x4 white around 3x2 pupil
+    }
+    const PUPIL_COLOR: [number, number, number, number] = [0.10, 0.08, 0.20, 1.0]
+    const WHITE_COLOR: [number, number, number, number] = [0.95, 0.92, 0.88, 1.0]
 
     /** Two canonical body archetypes. 'normal' is 1:1 Mixamo proportions
      *  (adult human, all sliders at 1, secondaries off). 'chibi' is the
@@ -1046,10 +1057,20 @@ async function main() {
         const cellPxY = (1 - (ndcY * 0.5 + 0.5)) * spriteCfg.h   // flip Y (NDC up → pixel down)
         const centerX = (SCREEN_SIZE - spriteCfg.w) / 2
         const centerY = (SCREEN_SIZE - spriteCfg.h) / 2
+        // White enable=0 when the glyph has zero size → overlay falls
+        // back to bare pupil dot on skin. Tiers below 80² go without
+        // whites because they can't fit the extra pixels.
+        const w = EYE_WHITE[spriteMode]
+        const whiteCol: [number, number, number, number] = [
+          WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2],
+          w[0] > 0 ? 1.0 : 0.0,
+        ]
         outline.setFacePaint(
           [centerX + cellPxX, centerY + cellPxY],
-          EYE_GLYPH[spriteMode],
-          EYE_COLOR,
+          EYE_PUPIL[spriteMode],
+          w,
+          PUPIL_COLOR,
+          whiteCol,
         )
       }
 

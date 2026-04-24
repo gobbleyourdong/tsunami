@@ -33,8 +33,10 @@ struct U {
   ambient:      vec4f, // rgb = ambient color, a = intensity (reserved; unused in 2-tone path)
   lights:       array<DirLight, 2>,  // key + fill; only [0] used in 2-tone path
   facePos:      vec2f, // head position in screen pixels (CPU-projected)
-  faceGlyph:    vec4f, // (eyeGap, eyeYOff, eyeHalfW, eyeHalfH) in pixels
-  eyeColor:     vec4f, // dot color (rgb + enable/disable in .a)
+  faceGlyph:    vec4f, // (eyeGap, eyeYOff, pupilHalfW, pupilHalfH) in pixels
+  faceWhite:    vec4f, // (whiteHalfW, whiteHalfH, _, _) in pixels — skin→white rect
+  eyeColor:     vec4f, // pupil color (rgb + enable in .a)
+  whiteColor:   vec4f, // eye-white color (rgb + enable in .a)
 }
 
 @group(0) @binding(0) var<uniform> u: U;
@@ -134,23 +136,29 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   if (me.a < 0.5) { return checker; }
 
-  // Face paint-on: pupil dots at screen-pixel offsets from the
-  // CPU-projected head position. Not geometry — a color override at
-  // specific screen pixels, baked into the outline shader's color
-  // decision. Two rects per face (left + right eye), skipped when
-  // u.eyeColor.a <= 0.5 (disabled). No extra draw; 4 ops per pixel.
+  // Face paint-on: nested rects per eye — eye-white outer, pupil inner.
+  // At sprite-tier each eye is ~3×3 pixels; the white gives the eye
+  // outline against skin, the pupil provides the dark dot inside.
+  // Pupil test wins over white where they overlap. No extra draws —
+  // just a per-pixel color override inside the outline shader.
   if (u.eyeColor.a > 0.5) {
     let dx = f32(px.x) - u.facePos.x;
     let dy = f32(px.y) - u.facePos.y;
     let gap   = u.faceGlyph.x;
     let yOff  = u.faceGlyph.y;
-    let halfW = u.faceGlyph.z;
-    let halfH = u.faceGlyph.w;
-    let onLeft  = abs(dx + gap) <= halfW;
-    let onRight = abs(dx - gap) <= halfW;
-    let onRow   = abs(dy - yOff) <= halfH;
-    if ((onLeft || onRight) && onRow) {
-      return vec4f(u.eyeColor.rgb, 1.0);   // flat-colored, no cel quantize on the eye
+    let pupilW = u.faceGlyph.z;
+    let pupilH = u.faceGlyph.w;
+    let whiteW = u.faceWhite.x;
+    let whiteH = u.faceWhite.y;
+    let onLeftX  = min(abs(dx + gap), abs(dx - gap));
+    let onRowY   = abs(dy - yOff);
+    // Pupil first — smallest rect, wins where overlapping the white.
+    if (onLeftX <= pupilW && onRowY <= pupilH) {
+      return vec4f(u.eyeColor.rgb, 1.0);
+    }
+    // Eye-white: bigger rect around each pupil, stamps over skin.
+    if (u.whiteColor.a > 0.5 && onLeftX <= whiteW && onRowY <= whiteH) {
+      return vec4f(u.whiteColor.rgb, 1.0);
     }
   }
 
@@ -174,16 +182,20 @@ export interface OutlinePass {
   setDepthThreshold(t: number): void
   setLighting(mode: 0 | 1): void
   setLightDirection(idx: number, dir: [number, number, number]): void
-  /** Stamp pupil dots onto the rendered sprite. facePos is the head's
-   *  CPU-projected screen pixel position (from composer worldMatrices
-   *  × camera.viewProj). glyph is (eyeGap, eyeYOff, pupilHalfW,
-   *  pupilHalfH) all in pixels. color.a acts as on/off — 0 disables.
-   *  No extra draw: the outline shader just overrides color on pixels
-   *  that fall inside the eye rect. */
+  /** Stamp nested-rect eye pixels onto the rendered sprite. Inner rect
+   *  is the pupil, outer is the eye-white. All coords in screen pixels
+   *  from the CPU-projected head position.
+   *   - glyph: (eyeGap, eyeYOff, pupilHalfW, pupilHalfH)
+   *   - white: (whiteHalfW, whiteHalfH, _, _)  — must be >= pupil
+   *   - pupil / white color: rgb + enable(.a > 0.5). Pupil enable=0
+   *     kills the whole overlay; white enable=0 skips just the white
+   *     layer (pupil alone renders as bare dot on skin). */
   setFacePaint(
     facePos: [number, number],
     glyph: [number, number, number, number],
-    color: [number, number, number, number],
+    white: [number, number, number, number],
+    pupilColor: [number, number, number, number],
+    whiteColor: [number, number, number, number],
   ): void
 }
 
@@ -215,10 +227,10 @@ export function createOutlinePass(
   //   [16..23] light[0] (dirI vec4 + color vec4)
   //   [24..31] light[1] (dirI vec4 + color vec4)
   const uniformBuffer = device.createBuffer({
-    size: 192,
+    size: 224,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  const uniformData = new Float32Array(48)  // +16 for facePos/faceGlyph/eyeColor
+  const uniformData = new Float32Array(56)  // +24 for face paint: pos+glyph+white+eye+whiteColor
   let currentViewMode: ViewMode = 'color'
   let currentDepthOutline = true    // single depth-based outline is THE outline now
   let currentDepthThresh = 0.025
@@ -237,8 +249,10 @@ export function createOutlinePass(
   // (CPU-projected) head position. NOT geometry — a color override
   // inside the outline shader. Disabled when eyeEnable = 0.
   let facePos: [number, number] = [0, 0]
-  let faceGlyph: [number, number, number, number] = [3, -2, 0.5, 1]  // (gap, yOff, halfW, halfH)
-  let eyeColor: [number, number, number, number] = [0.10, 0.08, 0.20, 0]  // rgb + enable
+  let faceGlyph: [number, number, number, number] = [1, -0.5, 0.4, 1.0]  // (gap, yOff, pupilHalfW, pupilHalfH)
+  let faceWhite: [number, number, number, number] = [1.4, 1.4, 0, 0]     // (whiteHalfW, whiteHalfH, _, _)
+  let eyeColor: [number, number, number, number]   = [0.10, 0.08, 0.20, 0]  // pupil rgb + enable
+  let whiteColor: [number, number, number, number] = [0.95, 0.92, 0.88, 0] // eye-white rgb + enable
 
   function writeUniform(texW: number, texH: number) {
     currentW = texW
@@ -274,16 +288,26 @@ export function createOutlinePass(
     uniformData[33] = facePos[1]
     uniformData[34] = 0
     uniformData[35] = 0
-    // [36..39] faceGlyph (eyeGap, eyeYOff, eyeHalfW, eyeHalfH)
+    // [36..39] faceGlyph (eyeGap, eyeYOff, pupilHalfW, pupilHalfH)
     uniformData[36] = faceGlyph[0]
     uniformData[37] = faceGlyph[1]
     uniformData[38] = faceGlyph[2]
     uniformData[39] = faceGlyph[3]
-    // [40..43] eyeColor (rgb + enable)
-    uniformData[40] = eyeColor[0]
-    uniformData[41] = eyeColor[1]
-    uniformData[42] = eyeColor[2]
-    uniformData[43] = eyeColor[3]
+    // [40..43] faceWhite (whiteHalfW, whiteHalfH, _, _)
+    uniformData[40] = faceWhite[0]
+    uniformData[41] = faceWhite[1]
+    uniformData[42] = 0
+    uniformData[43] = 0
+    // [44..47] eyeColor (pupil rgb + enable)
+    uniformData[44] = eyeColor[0]
+    uniformData[45] = eyeColor[1]
+    uniformData[46] = eyeColor[2]
+    uniformData[47] = eyeColor[3]
+    // [48..51] whiteColor (eye-white rgb + enable)
+    uniformData[48] = whiteColor[0]
+    uniformData[49] = whiteColor[1]
+    uniformData[50] = whiteColor[2]
+    uniformData[51] = whiteColor[3]
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
   }
   writeUniform(sceneW, sceneH)
@@ -349,12 +373,16 @@ export function createOutlinePass(
         writeUniform(currentW, currentH)
       }
     },
-    setFacePaint(pos, glyph, color) {
-      facePos[0] = pos[0];    facePos[1] = pos[1]
-      faceGlyph[0] = glyph[0]; faceGlyph[1] = glyph[1]
-      faceGlyph[2] = glyph[2]; faceGlyph[3] = glyph[3]
-      eyeColor[0] = color[0]; eyeColor[1] = color[1]
-      eyeColor[2] = color[2]; eyeColor[3] = color[3]
+    setFacePaint(pos, glyph, white, pupilCol, whiteCol) {
+      facePos[0] = pos[0];       facePos[1] = pos[1]
+      faceGlyph[0] = glyph[0];   faceGlyph[1] = glyph[1]
+      faceGlyph[2] = glyph[2];   faceGlyph[3] = glyph[3]
+      faceWhite[0] = white[0];   faceWhite[1] = white[1]
+      faceWhite[2] = 0;          faceWhite[3] = 0
+      eyeColor[0] = pupilCol[0]; eyeColor[1] = pupilCol[1]
+      eyeColor[2] = pupilCol[2]; eyeColor[3] = pupilCol[3]
+      whiteColor[0] = whiteCol[0]; whiteColor[1] = whiteCol[1]
+      whiteColor[2] = whiteCol[2]; whiteColor[3] = whiteCol[3]
       writeUniform(currentW, currentH)
     },
   }
