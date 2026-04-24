@@ -39,6 +39,9 @@ struct U {
   eyeColor:     vec4f, // pupil color (rgb + enable in .a)
   whiteColor:   vec4f, // eye-white color (rgb + enable in .a)
   mouthColor:   vec4f, // mouth color (rgb + enable in .a)
+  viewForward:  vec4f, // normalized camera forward (world space) — used to
+                       // gate face paint-on to front-facing pixels only, so
+                       // eyes don't bleed through the back of the head
 }
 
 @group(0) @binding(0) var<uniform> u: U;
@@ -138,12 +141,19 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   if (me.a < 0.5) { return checker; }
 
+  // Face paint-on — only on front-facing pixels. Read the MRT normal,
+  // dot with camera forward; surfaces with normal pointing AWAY from
+  // camera are back-of-head and shouldn't receive eye/mouth paint.
+  // Threshold 0.0 means >90° from camera forward = back-facing.
+  let faceN = normalize(textureLoad(normalTex, pxClamp, 0).xyz * 2.0 - 1.0);
+  let frontFacing = dot(faceN, u.viewForward.xyz) < 0.0;
+
   // Face paint-on: nested rects per eye — eye-white outer, pupil inner.
   // At sprite-tier each eye is ~3×3 pixels; the white gives the eye
   // outline against skin, the pupil provides the dark dot inside.
   // Pupil test wins over white where they overlap. No extra draws —
   // just a per-pixel color override inside the outline shader.
-  if (u.eyeColor.a > 0.5) {
+  if (frontFacing && u.eyeColor.a > 0.5) {
     let dx = f32(px.x) - u.facePos.x;
     let dy = f32(px.y) - u.facePos.y;
     let gap   = u.faceGlyph.x;
@@ -163,9 +173,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
       return vec4f(u.whiteColor.rgb, 1.0);
     }
   }
-  // Mouth: single horizontal rect centered below the eyes. No mirroring,
-  // it's one glyph at face center. mouthGlyph = (yOff, halfW, halfH, _).
-  if (u.mouthColor.a > 0.5) {
+  // Mouth: single horizontal rect centered below the eyes. Same
+  // front-facing gate so it doesn't show through the back of the head.
+  if (frontFacing && u.mouthColor.a > 0.5) {
     let mdx = abs(f32(px.x) - u.facePos.x);
     let mdy = f32(px.y) - u.facePos.y - u.mouthGlyph.x;
     if (mdx <= u.mouthGlyph.y && abs(mdy) <= u.mouthGlyph.z) {
@@ -210,6 +220,10 @@ export interface OutlinePass {
     whiteColor: [number, number, number, number],
     mouthColor: [number, number, number, number],
   ): void
+  /** World-space normalized camera forward vector. Used to front-face-
+   *  gate the eye/mouth paint so overlay pixels don't show through
+   *  the back of the head. */
+  setViewForward(vx: number, vy: number, vz: number): void
 }
 
 export function createOutlinePass(
@@ -240,10 +254,10 @@ export function createOutlinePass(
   //   [16..23] light[0] (dirI vec4 + color vec4)
   //   [24..31] light[1] (dirI vec4 + color vec4)
   const uniformBuffer = device.createBuffer({
-    size: 256,
+    size: 272,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  const uniformData = new Float32Array(64)  // +32 for face paint: pos+glyph+white+mouth glyph+3 colors
+  const uniformData = new Float32Array(68)  // +4 for viewForward vec4
   let currentViewMode: ViewMode = 'color'
   let currentDepthOutline = true    // single depth-based outline is THE outline now
   let currentDepthThresh = 0.025
@@ -268,6 +282,7 @@ export function createOutlinePass(
   let eyeColor:   [number, number, number, number] = [0.10, 0.08, 0.20, 0]  // pupil rgb + enable
   let whiteColor: [number, number, number, number] = [0.95, 0.92, 0.88, 0] // eye-white rgb + enable
   let mouthColor: [number, number, number, number] = [0.55, 0.20, 0.25, 0] // mouth rgb + enable
+  let viewForward: [number, number, number] = [0, 0, -1]  // default -Z world
 
   function writeUniform(texW: number, texH: number) {
     currentW = texW
@@ -333,6 +348,11 @@ export function createOutlinePass(
     uniformData[57] = mouthColor[1]
     uniformData[58] = mouthColor[2]
     uniformData[59] = mouthColor[3]
+    // [60..63] viewForward (normalized world-space camera forward + pad)
+    uniformData[60] = viewForward[0]
+    uniformData[61] = viewForward[1]
+    uniformData[62] = viewForward[2]
+    uniformData[63] = 0
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
   }
   writeUniform(sceneW, sceneH)
@@ -397,6 +417,10 @@ export function createOutlinePass(
         lights[idx].dir = normalize(dir)
         writeUniform(currentW, currentH)
       }
+    },
+    setViewForward(vx, vy, vz) {
+      viewForward[0] = vx; viewForward[1] = vy; viewForward[2] = vz
+      writeUniform(currentW, currentH)
     },
     setFacePaint(pos, glyph, white, mouth, pupilCol, whiteCol, mouthCol) {
       facePos[0] = pos[0];         facePos[1] = pos[1]

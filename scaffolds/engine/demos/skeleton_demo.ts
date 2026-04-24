@@ -1091,6 +1091,13 @@ async function main() {
           WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2],
           w[0] > 0 ? 1.0 : 0.0,
         ]
+        // Camera forward in world space — for front-face gating on paint.
+        const fx = camera.target[0] - camera.position[0]
+        const fy = camera.target[1] - camera.position[1]
+        const fz = camera.target[2] - camera.position[2]
+        const fl = Math.hypot(fx, fy, fz) || 1
+        outline.setViewForward(fx / fl, fy / fl, fz / fl)
+
         outline.setFacePaint(
           [centerX + cellPxX, centerY + cellPxY],
           EYE_PUPIL[spriteMode],
