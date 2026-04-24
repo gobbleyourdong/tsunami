@@ -736,29 +736,29 @@ export function chibiRaymarchPrimitives(
       // instead of protruding off its surface. Pure RENDERING addition
       // — no rig changes, turn off by removing this block.
       if (name === 'Head') {
-        // Jaw: narrower X + shallower Y than before so the chin tapers
-        // rather than bulging round. The cheeks fill the width the jaw
-        // gives up, producing a visible jawline where the smin transition
-        // happens along the cheek→jaw crease.
+        // Jaw: real taper — narrower X so the chin actually narrows
+        // relative to the skull + cheek line. Tight blend so the
+        // silhouette transition from skull to chin is crisp enough to
+        // read as a jawline at sprite resolution.
         prims.push({
           type: 3, paletteSlot: slot, boneIdx: j,
-          params: [core[0] * 0.65, core[1] * 0.50, core[2] * 0.85, 0],
+          params: [core[0] * 0.55, core[1] * 0.50, core[2] * 0.80, 0],
           offsetInBone: [off[0], off[1] - core[1] * 0.55, off[2] + core[2] * 0.10],
-          blendGroup: 1, blendRadius: 0.035,
+          blendGroup: 1, blendRadius: 0.02,
           detailAmplitude: 0.002,
         })
-        // Cheeks: mirrored small spheres below-and-forward of the eyes.
-        // Wider blend (0.05) so they merge into the skull+jaw into one
-        // continuous surface. These are what make the side-profile read
-        // as "face" instead of "egg."
-        const cheekR = core[0] * 0.32
-        const cheekOff: [number, number, number] = [core[0] * 0.50, off[1] - core[1] * 0.22, off[2] + core[2] * 0.60]
+        // Cheeks: mirrored spheres at cheekbone height (up from where
+        // they were, closer to the eye line) and pushed slightly wider
+        // than the jaw. Tight blend so the cheek→jaw crease reads as a
+        // visible anatomical edge instead of a smooth melt.
+        const cheekR = core[0] * 0.28
+        const cheekOff: [number, number, number] = [core[0] * 0.55, off[1] - core[1] * 0.12, off[2] + core[2] * 0.65]
         for (const sx of [1, -1]) {
           prims.push({
             type: 0, paletteSlot: slot, boneIdx: j,
             params: [cheekR, 0, 0, 0],
             offsetInBone: [cheekOff[0] * sx, cheekOff[1], cheekOff[2]],
-            blendGroup: 1, blendRadius: 0.05,
+            blendGroup: 1, blendRadius: 0.022,
             detailAmplitude: 0.002,
           })
         }
