@@ -323,10 +323,15 @@ async function main() {
       debug: [10, -8.0, 1.5, 1.0],
     }
     const EYE_WHITE: Record<SpriteMode, [number, number, number, number]> = {
-      sz24:  [0,   0,   0, 0],      // too small — skip white
-      sz32:  [0,   0,   0, 0],      // 1 skin px between eyes, can't fit white
-      sz48:  [0.5, 1.0, 0, 0],      // 2×3 white around 1×2 pupil (CT-tier)
-      debug: [3.0, 2.0, 0, 0],      // 6×4 white around 3×2 pupil (SF-tier)
+      // Whites off across all LODs for now — pupil dots alone read cleaner
+      // than a white ring that needs careful positioning to not break the
+      // silhouette. Re-enable when we have the glyph-library work to
+      // stamp the proper Mario-tier white+pupil+eyebrow stack at the
+      // right positions per tier.
+      sz24:  [0, 0, 0, 0],
+      sz32:  [0, 0, 0, 0],
+      sz48:  [0, 0, 0, 0],
+      debug: [0, 0, 0, 0],
     }
     /** Mouth glyphs per LOD — single horizontal rect below the eyes.
      *  (yOff, halfW, halfH) all in screen pixels. yOff > 0 = below head
