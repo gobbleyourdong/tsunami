@@ -820,6 +820,11 @@ export function chibiRaymarchPrimitives(
 
     // 6) Limbs — capsule along bone +Y. Mixamo bones orient child at +Y in
     // parent-local frame so no primitive rotation is needed.
+    //
+    // Limbs within the same arm/leg chain share a blend group so the three
+    // capsules (up/mid/foot or arm/fore) smooth-union into ONE flowing
+    // surface. 2.5cm blend radius melts the joint without losing the
+    // segment shape (limb radius ~5-7cm, so blend is ~half radius).
     const thickness = CHIBI_LIMB_THICKNESS[name]
     if (!thickness) continue
 
@@ -842,9 +847,21 @@ export function chibiRaymarchPrimitives(
       type: 5, paletteSlot: slot, boneIdx: j,
       params: [radius, Math.max(0.001, halfLen - radius), 0, 0],
       offsetInBone: [0, halfLen, 0],
+      blendGroup: CHIBI_LIMB_BLEND_GROUP[name] ?? 0,
+      blendRadius: CHIBI_LIMB_BLEND_GROUP[name] ? 0.025 : 0,
     })
   }
   return prims
+}
+
+/** Each limb chain smooth-unions into one primitive group so joints
+ *  read as continuous flesh, not three pipes taped together.
+ *  Group 1 is reserved for Head+Jaw (see CENTERED_SIZE branch). */
+const CHIBI_LIMB_BLEND_GROUP: Record<string, number> = {
+  LeftArm: 2,      LeftForeArm: 2,
+  RightArm: 3,     RightForeArm: 3,
+  LeftUpLeg: 4,    LeftLeg: 4,     LeftFoot: 4,
+  RightUpLeg: 5,   RightLeg: 5,    RightFoot: 5,
 }
 
 /** Chibi character display: only a handful of Mixamo bones render as chunky
