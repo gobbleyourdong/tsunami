@@ -264,6 +264,10 @@ async function main() {
 
     const propGroups: (keyof typeof GROUP_PATTERNS)[] = ['head', 'torso', 'arms', 'legs', 'bust', 'hips']
     const currentScales: Record<string, number> = { head: 1, torso: 1, arms: 1, legs: 1, bust: 0, hips: 0 }
+    // Hoisted: applyPreset (defined just below) reads currentExpression,
+    // and the preset-driven initial apply would hit TDZ otherwise. The
+    // full applyExpression() function lives later next to its UI wiring.
+    let currentExpression = 'neutral'
 
     /** Two canonical body archetypes. 'normal' is 1:1 Mixamo proportions
      *  (adult human, all sliders at 1, secondaries off). 'chibi' is the
@@ -427,7 +431,8 @@ async function main() {
         RightPupil: [1,    0.45, 1],
       },
     }
-    let currentExpression = 'neutral'
+    // currentExpression declared near the top of main() (hoisted so the
+    // preset init call can read it). Defined here is the mutator + UI.
     function applyExpression(name: string) {
       currentExpression = name
       const mods = EXPRESSIONS[name] ?? {}
