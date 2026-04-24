@@ -669,6 +669,10 @@ async function main() {
     let viewMode: ViewMode = 'color'
     let depthOutlineOn = false
     let lightingMode: 0 | 1 = 0   // off / on (2-tone cel from MRT normal)
+    // Rest pose: freezes animation and poses the rig at identity local
+    // rotations — a stable reference for iterating on proportion sliders.
+    // Toggle with T.
+    let restPose = false
 
     // --- Camera mode: editor (free orbit, sub-pixel OK) vs game (8-angle
     // cardinal preset, discrete yaw per pose-cache contract). Same
@@ -731,6 +735,10 @@ async function main() {
         outline.setLighting(lightingMode)
       }
       if (e.key === 'g' || e.key === 'G') toggleCameraMode()
+      if (e.key === 't' || e.key === 'T') {
+        restPose = !restPose
+        invalidateRaymarchCache()
+      }
       if (e.key === 'q' || e.key === 'Q' || e.key === '[') cycleGameYaw(-1)
       if (e.key === 'e' || e.key === 'E' || e.key === ']') cycleGameYaw(+1)
       // VFX spawn keys — gameplay-like triggers to validate the lifetime
@@ -882,7 +890,13 @@ async function main() {
       // Retargeting compose: overwrite vat.buffer's FIRST frame slot with
       // the current frame's composed world matrices (local × scale →
       // parent-chained world). Renderer then reads from slot 0.
-      if (composer) composer.update(frameIdx, characterParams)
+      // Rest-pose mode (T key) bypasses the animation and writes the
+      // rig's structural pose instead — stable reference for tuning
+      // proportions across the body.
+      if (composer) {
+        if (restPose) composer.applyRestPose(characterParams)
+        else          composer.update(frameIdx, characterParams)
+      }
       // When the composer is active, the shader reads slot 0 (composer
       // writes current frame there each tick). Without composer (VAT1),
       // use frameIdx directly against the pre-baked world-matrix table.
@@ -979,7 +993,7 @@ async function main() {
         ``,
         `[1] Link 16×24   [2] SNES chibi 32×32`,
         `[3] Alucard 48×80   [4] SNES 256×224`,
-        `[V] view: ${viewMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${lightingMode ? 'on' : 'off'}`,
+        `[V] view: ${viewMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${lightingMode ? 'on' : 'off'}   [T] rest pose: ${restPose ? 'on' : 'off'}`,
         `[G] camera: ${cameraMode}${cameraMode === 'game' ? ` (${YAW_LABELS[gameYawIdx]})   [Q/E] rotate` : '   (orbit freely)'}`,
         `[Space] swipe   [X] star   [Z] flash   [N] bolt   [B] beam   VFX: ${vfxSystem.count()}`,
         `drag = orbit   wheel = zoom`,

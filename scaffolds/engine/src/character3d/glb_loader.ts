@@ -460,6 +460,14 @@ export function defaultCharacterParams(numJoints: number): CharacterParams {
  *  ops/frame on CPU — trivial. Runs once per character per frame. */
 export interface RetargetComposer {
   update(frameIdx: number, params: CharacterParams): void
+  /** Write the REST POSE (identity local rotations + bone offsets from
+   *  the rig) into slot 0. Ignores the animation's localMats entirely —
+   *  uses only the rig's structural bone offsets. For Mixamo's Y-Bot
+   *  that's arms-down (A/rest pose), suitable as a stable reference
+   *  for proportion authoring.
+   *  Proportion scales still apply via the same scaled-col3 +
+   *  diagonal-scale path as update(). */
+  applyRestPose(params: CharacterParams): void
   buffer: GPUBuffer
   numInstances: number
   numFrames: number
@@ -552,6 +560,49 @@ export function createRetargetComposer(
         // Only the joint's OWN scale affects its rendered cube size; since
         // this is a post-multiply against the already-composed world
         // matrix, child display matrices don't see parent scale twice.
+        displayMat[0]  = comp[0]  * s[0]
+        displayMat[1]  = comp[1]  * s[0]
+        displayMat[2]  = comp[2]  * s[0]
+        displayMat[3]  = comp[3]  * s[0]
+        displayMat[4]  = comp[4]  * s[1]
+        displayMat[5]  = comp[5]  * s[1]
+        displayMat[6]  = comp[6]  * s[1]
+        displayMat[7]  = comp[7]  * s[1]
+        displayMat[8]  = comp[8]  * s[2]
+        displayMat[9]  = comp[9]  * s[2]
+        displayMat[10] = comp[10] * s[2]
+        displayMat[11] = comp[11] * s[2]
+        displayMat[12] = comp[12]
+        displayMat[13] = comp[13]
+        displayMat[14] = comp[14]
+        displayMat[15] = comp[15]
+        worldData.set(displayMat, j * 16)
+      }
+      device.queue.writeBuffer(vat.buffer, 0, worldData)
+    },
+    applyRestPose(params) {
+      // Identity local rotations + rig bone offsets. Composes the same
+      // hierarchy as update() but with animation rotations zeroed out,
+      // producing the rig's structural rest pose (Mixamo Y-Bot is
+      // arms-down). Proportion scales still drive col3 + display diag.
+      for (let j = 0; j < numJoints; j++) {
+        const s = params.scales[j] ?? [1, 1, 1]
+        const parent = rig[j].parent
+        const isRoot = parent < 0
+        const off = rig[j].offset
+        // Identity rotation columns + bone offset as translation.
+        scaledLocal[0]  = 1; scaledLocal[1]  = 0; scaledLocal[2]  = 0; scaledLocal[3]  = 0
+        scaledLocal[4]  = 0; scaledLocal[5]  = 1; scaledLocal[6]  = 0; scaledLocal[7]  = 0
+        scaledLocal[8]  = 0; scaledLocal[9]  = 0; scaledLocal[10] = 1; scaledLocal[11] = 0
+        scaledLocal[12] = isRoot ? off[0] : off[0] * s[0]
+        scaledLocal[13] = isRoot ? off[1] : off[1] * s[1]
+        scaledLocal[14] = isRoot ? off[2] : off[2] * s[2]
+        scaledLocal[15] = 1
+
+        const comp = compositionMats[j]
+        if (isRoot) comp.set(scaledLocal)
+        else mul(comp, compositionMats[parent], scaledLocal)
+
         displayMat[0]  = comp[0]  * s[0]
         displayMat[1]  = comp[1]  * s[0]
         displayMat[2]  = comp[2]  * s[0]
