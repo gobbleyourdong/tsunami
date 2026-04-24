@@ -225,66 +225,71 @@ async function main() {
     // the full local 4×4s (frame 0 of VAT) exactly like the composer so
     // bounds match what renders.
     const worldMatsTmp: Float32Array[] = Array.from({ length: rig.length }, () => new Float32Array(16))
+    /** Compute the animation ENVELOPE — union of joint-position bounds
+     *  across every frame of every loaded animation. That's the true max
+     *  extent the character will ever take; fitting to it lets the sprite
+     *  hug the cell tightly without animation extrema (jump, swing)
+     *  clipping outside. Sub-ms cost: ~20 anims × ~100 frames × ~80
+     *  joints × one 4×4 mat-mul. Runs once per preset/mode change. */
     function estimateBounds(): { minY: number; maxY: number; maxR: number; cx: number; cz: number } {
-      const lm = loadedVAT.localMats
-      if (!lm) {
-        // VAT1 legacy: fall back to rest offsets (ignores rotations — imprecise
-        // but this path isn't exercised once we commit to VAT2).
-        return { minY: 0, maxY: 1.8, maxR: 0.4, cx: 0, cz: 0 }
-      }
+      let minY = Infinity, maxY = -Infinity, maxR = 0, cxSum = 0, czSum = 0, cCount = 0
       const scaledLocal = new Float32Array(16)
-      for (let j = 0; j < rig.length; j++) {
-        const s = characterParams.scales[j]
-        const src = j * 16
-        const parent = rig[j].parent
-        const isRoot = parent < 0
-        for (let i = 0; i < 16; i++) scaledLocal[i] = lm[src + i]
-        if (!isRoot) {
-          scaledLocal[12] *= s[0]
-          scaledLocal[13] *= s[1]
-          scaledLocal[14] *= s[2]
-        }
-        const w = worldMatsTmp[j]
-        if (isRoot) {
-          w.set(scaledLocal)
-        } else {
-          const a = worldMatsTmp[parent], b = scaledLocal
-          for (let col = 0; col < 4; col++) {
-            for (let row = 0; row < 4; row++) {
-              w[col * 4 + row] =
-                a[row]      * b[col * 4]     +
-                a[row + 4]  * b[col * 4 + 1] +
-                a[row + 8]  * b[col * 4 + 2] +
-                a[row + 12] * b[col * 4 + 3]
+      for (const anim of animations) {
+        const lm = anim.vat.localMats
+        if (!lm) continue
+        const nf = anim.vat.numFrames
+        const nj = rig.length
+        for (let f = 0; f < nf; f++) {
+          const base = f * nj * 16
+          for (let j = 0; j < nj; j++) {
+            const s = characterParams.scales[j]
+            const src = base + j * 16
+            const parent = rig[j].parent
+            const isRoot = parent < 0
+            for (let i = 0; i < 16; i++) scaledLocal[i] = lm[src + i]
+            if (!isRoot) {
+              scaledLocal[12] *= s[0]
+              scaledLocal[13] *= s[1]
+              scaledLocal[14] *= s[2]
             }
+            const w = worldMatsTmp[j]
+            if (isRoot) {
+              w.set(scaledLocal)
+            } else {
+              const a = worldMatsTmp[parent], b = scaledLocal
+              for (let col = 0; col < 4; col++) {
+                for (let row = 0; row < 4; row++) {
+                  w[col * 4 + row] =
+                    a[row]      * b[col * 4]     +
+                    a[row + 4]  * b[col * 4 + 1] +
+                    a[row + 8]  * b[col * 4 + 2] +
+                    a[row + 12] * b[col * 4 + 3]
+                }
+              }
+            }
+            const x = w[12], y = w[13], z = w[14]
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+            const r = Math.hypot(x, z)
+            if (r > maxR) maxR = r
+            cxSum += x; czSum += z; cCount++
           }
         }
       }
-      let minY = Infinity, maxY = -Infinity, maxR = 0, cx = 0, cz = 0
-      for (let j = 0; j < rig.length; j++) {
-        const w = worldMatsTmp[j]
-        const x = w[12], y = w[13], z = w[14]
-        if (y < minY) minY = y
-        if (y > maxY) maxY = y
-        const r = Math.hypot(x, z)
-        if (r > maxR) maxR = r
-        cx += x; cz += z
-      }
-      cx /= rig.length; cz /= rig.length
-      return { minY, maxY, maxR, cx, cz }
+      if (cCount === 0) return { minY: 0, maxY: 1.8, maxR: 0.4, cx: 0, cz: 0 }
+      return { minY, maxY, maxR, cx: cxSum / cCount, cz: czSum / cCount }
     }
 
     function fitCameraToCharacter() {
       const b = estimateBounds()
-      // Generous margins — we're NOT baking to a fixed-cell sprite atlas
-      // anymore ("our bake is the raymarch cache"), so the cell doesn't
-      // have to hug the rest-pose bounds tightly. Animation-extent safety
-      // room for jumps, swings, attacks, etc. — character stays inside
-      // the frame even in its wildest frame. Rule of thumb, not a strict
-      // algorithmic fit. If something still clips, bump the margins.
-      const topMargin = 0.45      // jump clearance
-      const bottomMargin = 0.25   // foot lift / leg extension
-      const radialMargin = 0.35   // arm reach / swipe / weapon extension
+      // Margins only need to cover primitive thickness (head cube ~0.1m
+      // half-size, limb radii ~0.05-0.07m) plus a 1-2 pixel outline ring.
+      // The BIG anim extremes are already in the envelope (estimateBounds
+      // walks every frame of every animation), so no anim-safety slack
+      // needed here. Result: sprite hugs the cell tightly.
+      const topMargin = 0.08
+      const bottomMargin = 0.08
+      const radialMargin = 0.10
       const halfH = ((b.maxY + topMargin) - (b.minY - bottomMargin)) / 2
       const center = ((b.maxY + topMargin) + (b.minY - bottomMargin)) / 2
       // Aspect based on sprite cell, not screen — camera is tuned for
