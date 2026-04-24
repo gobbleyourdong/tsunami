@@ -746,13 +746,19 @@ async function main() {
       const pupilSlot = material.namedSlots.pupil ?? 7
       const mouthSlot = material.namedSlots.mouth ?? 8
       const faceFwd: [number, number, number] = [0, 0, 1]   // head-local +Z
+      // Mark center Z must be AT or BEHIND the face surface — the tangent
+      // plane gate rejects hits whose offset-from-center-along-normal is
+      // negative (behind the mark). Face surface in head local ≈ Z=0.19;
+      // placing marks at Z=0.15 (just inside) lets face-surface hits at
+      // Z=0.19 read as "+0.04 along normal" and pass the gate.
+      const markZ = 0.15
       const marks: FaceMark[] = [
         { shape: 'circle', boneIdx: headIdx, paletteSlot: pupilSlot,
-          localCenter: [+0.055, 0.155, 0.195], localNormal: faceFwd, size: [0.012, 0] },
+          localCenter: [+0.055, 0.155, markZ], localNormal: faceFwd, size: [0.012, 0] },
         { shape: 'circle', boneIdx: headIdx, paletteSlot: pupilSlot,
-          localCenter: [-0.055, 0.155, 0.195], localNormal: faceFwd, size: [0.012, 0] },
+          localCenter: [-0.055, 0.155, markZ], localNormal: faceFwd, size: [0.012, 0] },
         { shape: 'rect',   boneIdx: headIdx, paletteSlot: mouthSlot,
-          localCenter: [0.0,    0.055, 0.195], localNormal: faceFwd, size: [0.022, 0.003] },
+          localCenter: [0.0,    0.055, markZ], localNormal: faceFwd, size: [0.022, 0.003] },
       ]
       raymarch.setFaceMarks(marks)
     }
