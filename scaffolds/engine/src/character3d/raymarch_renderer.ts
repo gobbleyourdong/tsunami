@@ -739,6 +739,40 @@ export interface RaymarchRenderer {
    *  evaluation — guarantees "pixels copy, not rasterize" as the
    *  character moves sub-pixel. Set to 0 to disable. */
   setPxPerM(pxPerM: number): void
+
+  // --- Static cache (for pass-based compositing) ---
+  // Typical usage pattern from the caller:
+  //
+  //   if (cacheKeyChanged) {
+  //     raymarch.marchIntoCache(encoder, view, proj, eye, frameIdx)
+  //   }
+  //   // ... inside the scene render pass ...
+  //   raymarch.blitCacheToPass(scenePass)
+  //
+  // When the cache key is stable (camera parked, character in an idle
+  // pose, palette unchanged), `marchIntoCache` is skipped and the frame
+  // cost collapses to one fullscreen blit. For a truly static scene, the
+  // raymarch runs once per camera change, not once per frame.
+
+  /** Allocate or resize the cache framebuffer (color + normal + depth +
+   *  depth-stencil) to match a render target resolution. Must be called
+   *  before marchIntoCache / blitCacheToPass; safe to call repeatedly —
+   *  no-op when already sized. */
+  resizeCache(width: number, height: number): void
+  /** Execute a full raymarch pass into the cache's own framebuffer.
+   *  Creates its own render pass on the encoder. Call only when the
+   *  cache-key fingerprint has changed. */
+  marchIntoCache(
+    encoder: GPUCommandEncoder,
+    view: Float32Array,
+    proj: Float32Array,
+    eye: [number, number, number],
+    frameIdx: number,
+  ): void
+  /** Fullscreen-blit the cache's color/normal/depth textures into the
+   *  3 MRT outputs of the currently-active render pass. Cheap — one
+   *  fullscreen triangle with three texture loads per pixel. */
+  blitCacheToPass(pass: GPURenderPassEncoder): void
 }
 
 export function createRaymarchRenderer(
@@ -943,6 +977,112 @@ export function createRaymarchRenderer(
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
   }
 
+  // --- Static cache infrastructure ----------------------------------------
+  // The cache owns its own framebuffer (color + normal + depth + depth-stencil)
+  // at the target render resolution. When the caller's "cache key" (camera,
+  // pose, palette) is stable across frames, `marchIntoCache` is skipped and
+  // the frame reduces to one fullscreen blit from cache into the scene pass.
+  // That's the win: a parked camera on a static scene costs one blit per
+  // frame, not N march iterations × M primitives.
+
+  const BLIT_SHADER = /* wgsl */ `
+@group(0) @binding(0) var colorTex:  texture_2d<f32>;
+@group(0) @binding(1) var normalTex: texture_2d<f32>;
+@group(0) @binding(2) var depthTex:  texture_2d<f32>;
+
+struct VsOut { @builtin(position) clip: vec4f }
+
+@vertex
+fn vs_main(@builtin(vertex_index) vid: u32) -> VsOut {
+  let corners = array<vec2f, 3>(
+    vec2f(-1.0, -1.0),
+    vec2f( 3.0, -1.0),
+    vec2f(-1.0,  3.0),
+  );
+  var out: VsOut;
+  out.clip = vec4f(corners[vid], 0.0, 1.0);
+  return out;
+}
+
+struct FsOut {
+  @location(0) color:  vec4f,
+  @location(1) normal: vec4f,
+  @location(2) depth:  vec4f,
+}
+
+@fragment
+fn fs_main(in: VsOut) -> FsOut {
+  let px = vec2i(in.clip.xy);
+  var out: FsOut;
+  out.color  = textureLoad(colorTex,  px, 0);
+  out.normal = textureLoad(normalTex, px, 0);
+  out.depth  = textureLoad(depthTex,  px, 0);
+  return out;
+}
+`
+
+  const blitShader = device.createShaderModule({ code: BLIT_SHADER, label: 'raymarch-cache-blit' })
+  const blitPipeline = device.createRenderPipeline({
+    label: 'raymarch-cache-blit-pipeline',
+    layout: 'auto',
+    vertex: { module: blitShader, entryPoint: 'vs_main' },
+    fragment: {
+      module: blitShader,
+      entryPoint: 'fs_main',
+      targets: [{ format }, { format }, { format }],
+    },
+    primitive: { topology: 'triangle-list' },
+    depthStencil: {
+      format: 'depth24plus-stencil8',
+      depthWriteEnabled: false,
+      depthCompare: 'always',
+    },
+  })
+
+  let cacheW = 0
+  let cacheH = 0
+  let cacheColor:  GPUTexture | null = null
+  let cacheNormal: GPUTexture | null = null
+  let cacheDepth:  GPUTexture | null = null
+  let cacheDepthStencil: GPUTexture | null = null
+  let cacheColorView:  GPUTextureView | null = null
+  let cacheNormalView: GPUTextureView | null = null
+  let cacheDepthView:  GPUTextureView | null = null
+  let cacheDepthStencilView: GPUTextureView | null = null
+  let cacheBlitBindGroup: GPUBindGroup | null = null
+
+  function resizeCache(w: number, h: number) {
+    if (cacheW === w && cacheH === h && cacheColor) return
+    cacheColor?.destroy()
+    cacheNormal?.destroy()
+    cacheDepth?.destroy()
+    cacheDepthStencil?.destroy()
+    const usage = GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+    cacheColor  = device.createTexture({ label: 'raymarch-cache-color',  size: [w, h], format, usage })
+    cacheNormal = device.createTexture({ label: 'raymarch-cache-normal', size: [w, h], format, usage })
+    cacheDepth  = device.createTexture({ label: 'raymarch-cache-depth',  size: [w, h], format, usage })
+    cacheDepthStencil = device.createTexture({
+      label: 'raymarch-cache-depthstencil',
+      size: [w, h],
+      format: 'depth24plus-stencil8',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    })
+    cacheColorView  = cacheColor.createView()
+    cacheNormalView = cacheNormal.createView()
+    cacheDepthView  = cacheDepth.createView()
+    cacheDepthStencilView = cacheDepthStencil.createView()
+    cacheBlitBindGroup = device.createBindGroup({
+      layout: blitPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: cacheColorView },
+        { binding: 1, resource: cacheNormalView },
+        { binding: 2, resource: cacheDepthView },
+      ],
+    })
+    cacheW = w
+    cacheH = h
+  }
+
   return {
     draw(pass, view, proj, eye, frameIdx) {
       if (!bindGroup) return
@@ -967,6 +1107,40 @@ export function createRaymarchRenderer(
     },
     setPxPerM(v) {
       currentPxPerM = v
+    },
+    resizeCache(w, h) {
+      resizeCache(w, h)
+    },
+    marchIntoCache(encoder, view, proj, eye, frameIdx) {
+      if (!bindGroup || !cacheColorView || !cacheNormalView || !cacheDepthView || !cacheDepthStencilView) return
+      writeUniforms(view, proj, eye, frameIdx)
+      const pass = encoder.beginRenderPass({
+        label: 'raymarch-cache-march',
+        colorAttachments: [
+          { view: cacheColorView,  loadOp: 'clear', storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 0 } },
+          { view: cacheNormalView, loadOp: 'clear', storeOp: 'store', clearValue: { r: 0.5, g: 0.5, b: 1, a: 0 } },
+          { view: cacheDepthView,  loadOp: 'clear', storeOp: 'store', clearValue: { r: 1, g: 0, b: 0, a: 0 } },
+        ],
+        depthStencilAttachment: {
+          view: cacheDepthStencilView,
+          depthLoadOp: 'clear',
+          depthStoreOp: 'store',
+          depthClearValue: 1.0,
+          stencilLoadOp: 'clear',
+          stencilStoreOp: 'store',
+          stencilClearValue: 0,
+        },
+      })
+      pass.setPipeline(pipeline)
+      pass.setBindGroup(0, bindGroup)
+      pass.draw(3)
+      pass.end()
+    },
+    blitCacheToPass(pass) {
+      if (!cacheBlitBindGroup) return
+      pass.setPipeline(blitPipeline)
+      pass.setBindGroup(0, cacheBlitBindGroup)
+      pass.draw(3)
     },
   }
 }
