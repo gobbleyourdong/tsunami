@@ -93,6 +93,16 @@ async function main() {
     })
     const cleanup = camera.bindToCanvas(canvas)
     camera.setAspect(canvas.width, canvas.height)
+    // Kill wheel zoom — orthoSize is pinned per LOD by applySpriteMode /
+    // applyPreset / fitCameraToCharacter. Sprite size on screen is a
+    // function of the LOD, not user interaction. Capture the event before
+    // the camera's own handler runs. CSS (image-rendering: pixelated)
+    // still upscales the canvas to fill the viewport, so the rendered
+    // sprite reads at whatever display size the browser gives it.
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+    }, { capture: true, passive: false })
 
     // Animation manifest is generated at bake time (scripts/bake_dae_vat.mjs
      // produces mixamo_<tag>.vat + .meta.json per animation; the manifest
