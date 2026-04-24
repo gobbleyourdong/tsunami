@@ -965,7 +965,13 @@ async function main() {
       // character this re-marches every frame (frameIdx bumps version);
       // for a paused character at a fixed camera, zero march cost.
       if (rendererMode === 'raymarch') {
-        if (raymarchCacheFingerprintChanged(drawFrameIdx)) invalidateRaymarchCache()
+        // Fingerprint uses RAW frameIdx (the animation clock), not
+        // drawFrameIdx. With the composer active we always pass 0 to the
+        // shader (composer writes world mats to slot 0 each frame), but
+        // the animation state is in `frameIdx` — that's what actually
+        // changes the rendered pixels. Using drawFrameIdx here was the
+        // "cache never updates during playback" bug.
+        if (raymarchCacheFingerprintChanged(frameIdx)) invalidateRaymarchCache()
         if (raymarchCacheVersion !== raymarchCacheApplied) {
           const eyeR: [number, number, number] = [camera.position[0], camera.position[1], camera.position[2]]
           vfxSystem.update(elapsed)
@@ -975,7 +981,7 @@ async function main() {
           raymarch.setPxPerM(pxPerM)
           raymarch.marchIntoCache(encoder, camera.view, camera.projection, eyeR, drawFrameIdx)
           raymarchCacheApplied = raymarchCacheVersion
-          snapshotCacheFingerprint(drawFrameIdx)
+          snapshotCacheFingerprint(frameIdx)
         }
       }
 
