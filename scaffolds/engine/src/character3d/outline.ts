@@ -131,53 +131,17 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
       // Cube + chunk renderers write 1.0 there so their output is unchanged.
       shadowFactor = nSample.a;
     }
-    var acc = u.ambient.rgb * u.ambient.a;
-    for (var i = 0u; i < 2u; i = i + 1u) {
-      let L = u.lights[i];
-      let d = max(dot(n, L.dirI.xyz), 0.0);
-      var band: f32;
-      if (i == 0u) {
-        // Key light: 3-band cel quantize — the crisp shadow step is what
-        // makes the whole thing read as pixel-art cel shading. This is the
-        // light that carries the "look."
-        band = 0.35;
-        if (d > 0.33) { band = 0.70; }
-        if (d > 0.66) { band = 1.00; }
-      } else {
-        // Fill light: smooth linear rolloff. A fill is supposed to soften
-        // the opposite side; hard-banding it produces the stepping
-        // artefact the user saw as the fill swept across curved surfaces.
-        // Smooth fill + hard key = classic cel rig (Guilty Gear, Arc Sys).
-        band = d;
-      }
-      acc = acc + L.color.rgb * (band * L.dirI.w);
-    }
-    // Screen-space AO — 4 depth samples in a ring around the pixel. Each
-    // neighbor that's measurably CLOSER than us is an occluder. Count
-    // them to produce a cel-quantized darkening factor. Cheap (4 texture
-    // fetches) and tier-appropriate: at sprite resolution the 4-sample
-    // ring matches our outline kernel's spatial grain, so AO lands on
-    // the same pixels the outline would and reads as a coherent shadow.
-    let dSelf = textureLoad(depthTex, pxClamp, 0).r;
-    var occ = 0u;
-    let aoR = 2;
-    let pAR = clamp(px + vec2i( aoR,  0),    vec2i(0), dim - vec2i(1));
-    let pAL = clamp(px + vec2i(-aoR,  0),    vec2i(0), dim - vec2i(1));
-    let pAD = clamp(px + vec2i( 0,    aoR),  vec2i(0), dim - vec2i(1));
-    let pAU = clamp(px + vec2i( 0,   -aoR),  vec2i(0), dim - vec2i(1));
-    let aoThresh = 0.01;   // depth delta required to count as occluder
-    if (textureLoad(depthTex, pAR, 0).r < dSelf - aoThresh) { occ = occ + 1u; }
-    if (textureLoad(depthTex, pAL, 0).r < dSelf - aoThresh) { occ = occ + 1u; }
-    if (textureLoad(depthTex, pAD, 0).r < dSelf - aoThresh) { occ = occ + 1u; }
-    if (textureLoad(depthTex, pAU, 0).r < dSelf - aoThresh) { occ = occ + 1u; }
-    // Quantize to cel bands: 0 occluders = full bright; 1-2 = 0.85×; 3-4 = 0.7×.
-    var aoFactor = 1.0;
-    if (occ >= 3u) { aoFactor = 0.70; }
-    else if (occ >= 1u) { aoFactor = 0.85; }
-    lit = min(acc * aoFactor * shadowFactor, vec3f(1.0));
-    // Lift the ambient up a bit where the shadow is deep — prevents the
-    // shadowed areas from going fully black and losing the character.
-    lit = max(lit, u.ambient.rgb * u.ambient.a * 0.6);
+    // Minimal 2-tone cel: color × (lit or shadow) based on the key light
+    // dotted against the surface normal. No fill, no ambient gradient,
+    // no AO, no softening. The shader only needs hit color + normal;
+    // everything else went away with the user's "keep it simple" call.
+    // Classic SNES pixel-art look — two brightness states per palette
+    // colour, hard transition at the shadow line.
+    let keyDir = u.lights[0].dirI.xyz;
+    let d = dot(n, keyDir);
+    let shadowTone = 0.55;                // shadow-side brightness multiplier
+    let brightness = select(shadowTone, 1.0, d > 0.0);
+    lit = vec3f(brightness);
   }
 
   // Interior depth outline: opaque pixels only, compared against OPAQUE

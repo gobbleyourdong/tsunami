@@ -619,27 +619,13 @@ fn sceneNormal(pWorld: vec3f, eps: f32) -> vec3f {
   );
 }
 
-// Soft-shadow ray — starts just above the primary hit point, marches
-// toward the light. Penumbra estimator from Inigo Quilez's softshadow
-// trick: track the min-ratio of (SDF distance / traveled distance), which
-// captures how close the ray gets to the surface in angular terms.
-// Output: 0 (fully occluded) → 1 (fully lit), quantized at the caller.
-// Cost: up to 6 SDF evals per primary hit. The caller quantises this into
-// 3 cel bands (0.45 / 0.75 / 1.00) — 16 steps of precision would be
-// completely wasted on that output, so 6 is plenty for sprite shading.
-fn shadowRay(origin: vec3f, dir: vec3f, minT: f32, maxT: f32) -> f32 {
-  var res = 1.0;
-  var t = minT;
-  for (var i = 0u; i < 6u; i = i + 1u) {
-    let h = sceneSDF(origin + dir * t, 0u).dist;
-    if (h < 0.0005) { return 0.0; }
-    // Penumbra softness: smaller constant → harder shadow.
-    res = min(res, 6.0 * h / t);
-    t = t + clamp(h, 0.005, 0.1);
-    if (t > maxT) { break; }
-  }
-  return clamp(res, 0.0, 1.0);
-}
+// Self-shadow was previously baked here via a 6-step softshadow march
+// and packed into normal.a. That made lighting non-deferred (raymarch
+// shading didn't respect the outline pass's configured light rig) and
+// layered quantised shadow artefacts on top of clean cel lighting.
+// Lighting is fully deferred now (see deferred_lighting_doctrine memory
+// entry). If self-shadow returns, it goes in the post pass with the
+// actual light directions, not here.
 
 struct FsOut {
   @location(0) color:  vec4f,
