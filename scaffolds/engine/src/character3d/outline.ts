@@ -152,29 +152,43 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let depthTol = 0.02;
   let pxF = vec2f(f32(px.x), f32(px.y));
 
-  // Per-point test: pixel is inside a halfW×halfH rect centered at
-  // projPos.xy AND pixel depth matches projPos.z. Returns the paint
-  // color when a match happens, passes through otherwise.
+  // Mario eye stamp. Each eye = 2 px wide × 3 px tall pattern.
+  // The demo places each anchor exactly 1 px from face-center along the
+  // head-right screen axis, so leftEye anchor sits on the INNER column of
+  // the left eye block and rightEye anchor sits on the INNER column of
+  // the right eye block. Blocks extend outward from their anchors; a
+  // single unpainted column between them falls out automatically.
+  //
+  //   LEFT eye block (dxL in {0, +1}):    RIGHT eye block (dxR in {-1, 0}):
+  //     [inner] [outer]                     [outer] [inner]
+  //       W       W                           W       W
+  //       B       W                           W       B
+  //       B       W                           W       B
+  //   pupil pillar (W top + B bottom pair) at dx=0 for both eyes.
+  //
+  // pupilHalf / whiteHalf are ignored on this path — pattern is fixed.
   if (frontFacing && u.eyeColor.a > 0.5) {
-    // LEFT eye: pupil first (inner), then white (outer, wider tolerance).
-    let lOff = pxF - u.leftEye.xy;
-    let lInDepth = abs(pixelDepth - u.leftEye.z) < depthTol;
-    if (lInDepth) {
-      if (abs(lOff.x) <= u.pupilHalf.x && abs(lOff.y) <= u.pupilHalf.y) {
-        return vec4f(u.eyeColor.rgb, 1.0);
-      }
-      if (u.whiteColor.a > 0.5 && abs(lOff.x) <= u.whiteHalf.x && abs(lOff.y) <= u.whiteHalf.y) {
+    // LEFT eye (character's left = projects to screen-right). Block
+    // extends to the right of the anchor; inner column is the anchor.
+    let lAx = i32(round(u.leftEye.x));
+    let lAy = i32(round(u.leftEye.y));
+    if (abs(pixelDepth - u.leftEye.z) < depthTol) {
+      let dxL = px.x - lAx;
+      let dyL = px.y - lAy;
+      if (dyL >= -1 && dyL <= 1 && dxL >= 0 && dxL <= 1) {
+        if (dxL == 0 && dyL >= 0) { return vec4f(u.eyeColor.rgb, 1.0); }
         return vec4f(u.whiteColor.rgb, 1.0);
       }
     }
-    // RIGHT eye: same test at the right-eye projected point.
-    let rOff = pxF - u.rightEye.xy;
-    let rInDepth = abs(pixelDepth - u.rightEye.z) < depthTol;
-    if (rInDepth) {
-      if (abs(rOff.x) <= u.pupilHalf.x && abs(rOff.y) <= u.pupilHalf.y) {
-        return vec4f(u.eyeColor.rgb, 1.0);
-      }
-      if (u.whiteColor.a > 0.5 && abs(rOff.x) <= u.whiteHalf.x && abs(rOff.y) <= u.whiteHalf.y) {
+    // RIGHT eye (character's right = projects to screen-left). Block
+    // extends to the left of the anchor; inner column is the anchor.
+    let rAx = i32(round(u.rightEye.x));
+    let rAy = i32(round(u.rightEye.y));
+    if (abs(pixelDepth - u.rightEye.z) < depthTol) {
+      let dxR = px.x - rAx;
+      let dyR = px.y - rAy;
+      if (dyR >= -1 && dyR <= 1 && dxR >= -1 && dxR <= 0) {
+        if (dxR == 0 && dyR >= 0) { return vec4f(u.eyeColor.rgb, 1.0); }
         return vec4f(u.whiteColor.rgb, 1.0);
       }
     }

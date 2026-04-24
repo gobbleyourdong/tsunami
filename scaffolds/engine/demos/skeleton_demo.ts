@@ -41,7 +41,7 @@ import {
   defaultCharacterParams,
 } from '../src/character3d/glb_loader'
 import { createOutlinePass } from '../src/character3d/outline'
-import { createRaymarchRenderer, type RaymarchPrimitive, type FaceMark } from '../src/character3d/raymarch_renderer'
+import { createRaymarchRenderer, type RaymarchPrimitive } from '../src/character3d/raymarch_renderer'
 import { VFXSystem } from '../src/character3d/vfx_system'
 
 // Canvas IS the sprite. Each mode sizes the pixel buffer to its target
@@ -737,34 +737,12 @@ async function main() {
       raymarch.resizeCache(c0.w, c0.h)
     }
 
-    // Face marks — surface-color strokes bolted to the Head bone. Eyes
-    // as circles, mouth as a rect. Because marks are tested in bone-
-    // local 3D space, they rotate with the head and naturally refuse
-    // to paint on the back side (tangent-plane test). Replaces the
-    // screen-space overlay's flicker-prone eye/mouth stamping.
-    if (headIdx >= 0) {
-      const pupilSlot = material.namedSlots.pupil ?? 7
-      const mouthSlot = material.namedSlots.mouth ?? 8
-      const faceFwd: [number, number, number] = [0, 0, 1]   // head-local +Z
-      // Mark center Z must be AT or BEHIND the face surface — the tangent
-      // plane gate rejects hits whose offset-from-center-along-normal is
-      // negative (behind the mark). Face surface in head local ≈ Z=0.19;
-      // placing marks at Z=0.15 (just inside) lets face-surface hits at
-      // Z=0.19 read as "+0.04 along normal" and pass the gate.
-      const markZ = 0.15
-      // Eyes: vertical rectangles (Mario/Link pixel-art style — 1 wide,
-      // 2 tall). Mouth: horizontal rect. Sizes in world meters; at
-      // sz24/sz32 pxPerM ≈ 25-30 so 0.02m ≈ 1 px wide, 0.05m ≈ 2 px tall.
-      const marks: FaceMark[] = [
-        { shape: 'rect', boneIdx: headIdx, paletteSlot: pupilSlot,
-          localCenter: [+0.055, 0.155, markZ], localNormal: faceFwd, size: [0.02, 0.05] },
-        { shape: 'rect', boneIdx: headIdx, paletteSlot: pupilSlot,
-          localCenter: [-0.055, 0.155, markZ], localNormal: faceFwd, size: [0.02, 0.05] },
-        { shape: 'rect', boneIdx: headIdx, paletteSlot: mouthSlot,
-          localCenter: [0.0,    0.055, markZ], localNormal: faceFwd, size: [0.06, 0.012] },
-      ]
-      raymarch.setFaceMarks(marks)
-    }
+    // Face paint-on lives entirely in the outline shader (screen-space
+    // sprite stamp). Eyes = Mario 2×3 pattern at CPU-projected anchors;
+    // mouth = rect stamp. Bone-local face-mark buffer was tried and
+    // abandoned: pixel-exact eye placement is the goal, so we work in
+    // screen space where the grid is authoritative.
+
     // Cache version hoisted higher in the file — declared near top-of-main
     // so proportion-preset applies during init can fire invalidations
     // safely without TDZ.
@@ -1155,9 +1133,25 @@ async function main() {
         // Head-local feature points. +Y up, +Z face-forward.
         // Chibi head: cube center at (0, 0.12, 0), extents ~(0.19, 0.21, 0.19).
         // Face surface is at Z≈0.19; eyes slightly inside (0.17), upper face.
-        const leftEyePt  = projHeadLocal(+0.055, 0.155, 0.17)
-        const rightEyePt = projHeadLocal(-0.055, 0.155, 0.17)
-        const mouthPt    = projHeadLocal(0.0,    0.055, 0.19)
+        //
+        // Mario-eye spacing is LOD-invariant: we want 1 px of skin between
+        // the pupil pillars (→ anchor separation = 2 px) regardless of
+        // sprite resolution. Approach: project the face center + one eye
+        // to get a screen-space "head right" direction, normalize it, then
+        // place both anchors ±1 px from the rounded face center along that
+        // direction. Rotation of the head carries the eyes with it.
+        const faceCenterPt = projHeadLocal(0.000, 0.155, 0.17)
+        const leftRaw      = projHeadLocal(0.055, 0.155, 0.17)
+        const dxAxis = leftRaw[0] - faceCenterPt[0]
+        const dyAxis = leftRaw[1] - faceCenterPt[1]
+        const axisLen = Math.hypot(dxAxis, dyAxis) || 1
+        const ux = dxAxis / axisLen
+        const uy = dyAxis / axisLen
+        const fcRx = Math.round(faceCenterPt[0])
+        const fcRy = Math.round(faceCenterPt[1])
+        const leftEyePt:  [number, number, number] = [fcRx + ux, fcRy + uy, faceCenterPt[2]]
+        const rightEyePt: [number, number, number] = [fcRx - ux, fcRy - uy, faceCenterPt[2]]
+        const mouthPt = projHeadLocal(0.0, 0.055, 0.19)
 
         // Half-sizes per LOD.
         const pupilHalf: [number, number] = [EYE_PUPIL[spriteMode][2], EYE_PUPIL[spriteMode][3]]
@@ -1175,14 +1169,16 @@ async function main() {
         const fl = Math.hypot(fx, fy, fz) || 1
         outline.setViewForward(fx / fl, fy / fl, fz / fl)
 
-        // Overlay paint-on disabled — replaced by raymarch-side face marks
-        // (see raymarch.setFaceMarks above). Left outline API in place for
-        // later cleanup in a dedicated commit.
-        const OFF: [number, number, number, number] = [0, 0, 0, 0]
+        // Mario-eye screen-space stamp. Shader paints a fixed 2×3 pattern
+        // at each projected anchor — pupilHalf/whiteHalf unused by the
+        // Mario path but still wired for the mouth rect stamp below.
+        const marioPupil: [number, number, number, number] = [0.06, 0.05, 0.10, 1]
+        const marioWhite: [number, number, number, number] = [0.96, 0.94, 0.90, 1]
+        const mouthOff:   [number, number, number, number] = [0, 0, 0, 0]
         outline.setFacePaint(
           leftEyePt, rightEyePt, mouthPt,
           pupilHalf, whiteHalf, mouthHalf,
-          OFF, OFF, OFF,
+          marioPupil, marioWhite, mouthOff,
         )
       }
 
