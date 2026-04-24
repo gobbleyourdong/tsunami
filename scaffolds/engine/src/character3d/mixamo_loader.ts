@@ -681,6 +681,8 @@ export interface RaymarchPrimDesc {
   colorFunc?: number
   paletteSlotB?: number
   colorExtent?: number
+  blendGroup?: number
+  blendRadius?: number
 }
 
 export function chibiRaymarchPrimitives(
@@ -706,11 +708,29 @@ export function chibiRaymarchPrimitives(
     if (core) {
       const off = CHIBI_CENTERED_OFFSET[name] ?? [0, 0, 0]
       const type = name === 'Head' ? 3 : 1   // 3=ellipsoid, 1=box
+      // Head gets a blend group so the jaw/chin ellipsoid (below) melds into
+      // it as a single skin surface rather than showing a crease at the seam.
+      // 0.03m blend radius → soft under-chin transition, hard enough that
+      // the overall silhouette still reads as the chibi round head.
+      const headBlend = name === 'Head' ? { blendGroup: 1, blendRadius: 0.03 } : {}
       prims.push({
         type, paletteSlot: slot, boneIdx: j,
         params: [core[0], core[1], core[2], 0],
         offsetInBone: [off[0], off[1], off[2]],
+        ...headBlend,
       })
+      // Add the jaw/chin ellipsoid — a smaller ellipsoid offset down and
+      // forward. Smooth-unions with the head ellipsoid via blend group 1
+      // to give a subtle jawline without a crease. Pure RENDERING addition
+      // (no rig change); turn off by removing this block.
+      if (name === 'Head') {
+        prims.push({
+          type: 3, paletteSlot: slot, boneIdx: j,
+          params: [core[0] * 0.80, core[1] * 0.55, core[2] * 0.90, 0],
+          offsetInBone: [off[0], off[1] - core[1] * 0.55, off[2] + core[2] * 0.12],
+          blendGroup: 1, blendRadius: 0.03,
+        })
+      }
       continue
     }
 
@@ -726,8 +746,16 @@ export function chibiRaymarchPrimitives(
         type = 6                               // torus
         params = [ff.displaySize[0], ff.displaySize[2], 0, 0]
       } else if (name === 'Nose') {
-        type = 2                               // roundedBox
-        params = [ff.displaySize[0], ff.displaySize[1], ff.displaySize[2], ff.displaySize[0] * 0.4]
+        // Cone — tip at +Z (face-forward), opens back into the face. Y-axis
+        // aligned at the bone, so we build a cone in XZ but orient it facing
+        // the camera by swapping: cone body along -Y in primitive space; we
+        // put the TIP forward by setting the primitive's own offsetInBone
+        // a touch more forward than the base. The cone SDF (type 12) sweeps
+        // its 2D profile around the Y axis; (sin,cos) = (0.30, 0.954) gives
+        // a ~17° half-angle nose profile. Height = feature Y-extent × 2.
+        type = 12
+        const halfAngle = 0.30                  // radians; ~17° sharp nose
+        params = [Math.sin(halfAngle), Math.cos(halfAngle), ff.displaySize[1] * 2.0, 0]
       }
       prims.push({ type, paletteSlot: slot, boneIdx: j, params, offsetInBone: [0, 0, 0] })
       continue

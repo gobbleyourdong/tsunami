@@ -53,6 +53,27 @@
  *                    3D value-noise field clipped to a bbox. Surface is
  *                    where noise > threshold. Advects slowly via time
  *                    for drifting smoke / fog / dust.
+ *  12 cone          params = [sinHalfAngle, cosHalfAngle, height, _]
+ *                    Standard IQ 2D cone SDF swept around Y. Tip at origin,
+ *                    opens downward to base at y = -height. Nose/muzzle/
+ *                    arrow-head/funnel primitive. Encoded as (sin, cos) of
+ *                    half-angle so the shader avoids a trig call per eval.
+ *
+ * BLEND GROUPS
+ * ------------
+ * Each primitive names a `blendGroup` (0 = standalone). Primitives that
+ * share a non-zero group ID smooth-blend with each other via `blendRadius`:
+ *   radius > 0   → smooth-union (smin) — blends two surfaces into a single
+ *                  tangent-continuous surface. This is how a face reads as
+ *                  "skin stretched over bone" rather than "ellipsoids taped
+ *                  together" — Inigo Quilez Girl (WsSBzh) pattern.
+ *   radius < 0   → smooth-subtract (smax with negated d). Carves a hollow
+ *                  into the group surface. Used for eye sockets, mouth.
+ *   radius = 0   → hard union. Same as standalone but accumulated into
+ *                  the group (useful for adding a small crisp detail like
+ *                  a nose-tip sphere on top of a smooth-blended face).
+ * Cross-group and cross-standalone combine with plain min(). Hard cap of
+ * 16 groups per scene — enforced in shader; expand if a character needs more.
  *
  * Primitive's own offset from its parent bone origin is stored on the
  * primitive record. Rotation is axis-aligned in bone frame for v1 — add
@@ -83,6 +104,15 @@ export interface RaymarchPrimitive {
    *  within which the ramp plays out. For pulsate: frequency in Hz.
    *  For radialFade: the radius at which we transition to slotB. */
   colorExtent?: number
+  /** Blend-group membership. 0 (default) = standalone primitive, contributes
+   *  to the scene via hard-union min(). 1..15 = group index; primitives in
+   *  the same group smooth-combine (see `blendRadius`). Groups beyond MAX_GROUPS
+   *  silently fall back to standalone. */
+  blendGroup?: number
+  /** Signed blend radius in world meters. Only meaningful when blendGroup > 0.
+   *  Positive = smooth-union (smin k = radius). Negative = smooth-subtract
+   *  (smax(-d, group, k=|radius|)). Zero = hard-union into the group. */
+  blendRadius?: number
 }
 
 /** Same VATData interface used by skeleton_renderer + chunk_renderer. */
@@ -96,7 +126,7 @@ export interface VATData {
 //   [0..3]   typeAndSlots as u32 cast: type, paletteSlot, boneIdx, colorFunc
 //   [4..7]   params x/y/z/w
 //   [8..11]  offsetInBone x/y/z/_pad
-//   [12..15] colorConfig as mixed: paletteSlotB (as u32), colorExtent (f32), _pad, _pad
+//   [12..15] slotB (u32) | colorExtent (f32) | blendGroup (u32) | blendRadius (f32, signed)
 const PRIM_STRIDE_FLOATS = 16
 
 const RAYMARCH_SHADER = /* wgsl */ `
@@ -294,6 +324,34 @@ fn sdLightning(p: vec3f, halfLen: f32, amplitude: f32, thickness: f32, t: f32) -
   return length(vec2f(p.x - hx, p.z - hz)) - thickness;
 }
 
+// Cone SDF — Inigo Quilez's 2D cone, tip at origin, base at y=-h. The
+// cross-section is a disc; sweeps the 2D SDF around the Y axis via
+// (length(xz), y) projection. Pass (sin, cos) of the half-angle already
+// computed on CPU so the shader skips a trig call per eval.
+fn sdCone(p: vec3f, sc: vec2f, h: f32) -> f32 {
+  let q = vec2f(length(vec2f(p.x, p.z)), -p.y);
+  let d1 = -q.y - h;
+  let d2 = max(dot(q, sc), q.y);
+  return length(max(vec2f(d1, d2), vec2f(0.0))) + min(max(d1, d2), 0.0);
+}
+
+// NoiseCloud SDF — 3D value-noise field thresholded into a surface, clipped
+// to a bounding box. Advected slowly with time so it drifts. Not a true SDF
+// (the noise doesn't have a Lipschitz bound) but at sprite resolution with
+// small step sizes the artifacts are invisible. Good for fog/smoke/dust.
+fn sdNoiseCloud(p: vec3f, hx: f32, hy: f32, hz: f32, threshold: f32, t: f32) -> f32 {
+  // Box distance (clipping volume).
+  let boxD = sdBox(p, vec3f(hx, hy, hz));
+  // Noise sampled with time-based drift. Negate & offset so "inside" the
+  // threshold is negative and the surface is at noise = threshold.
+  let nP = vec3f(p.x + t * 0.15, p.y - t * 0.08, p.z) * 2.0;
+  let n = noise3(nP) + 0.5 * noise3(nP * 2.13);
+  let cloudD = threshold - n * 0.67;       // normalize second-octave scale
+  // Box-clamped intersection. Treat cloud as a soft field; scale down so
+  // it doesn't over-dominate the march-step size.
+  return max(boxD, cloudD * 0.35);
+}
+
 // Flame SDF: capsule core whose radius is modulated by advecting 3D noise.
 // Noise scrolls upward with time — gives the "licking flames" animation
 // for free. Narrows toward the top via the 'taper' factor so the plume
@@ -356,6 +414,8 @@ fn evalPrim(primIdx: u32, pWorld: vec3f) -> f32 {
     case 8u: { return sdSwipeArc(pPrim, params.x, params.y, params.z, params.w); }
     case 9u: { return sdLogPolarSineTrail(pPrim, params.x, params.y, params.z, params.w); }
     case 10u: { return sdLightning(pPrim, params.x, params.y, params.z, u.time); }
+    case 11u: { return sdNoiseCloud(pPrim, params.x, params.y, params.z, params.w, u.time); }
+    case 12u: { return sdCone(pPrim, vec2f(params.x, params.y), params.z); }
     default: { return 1e9; }
   }
 }
@@ -365,12 +425,69 @@ struct SceneHit {
   primIdx: u32,
 }
 
+// Polynomial smooth-min from Inigo Quilez — C1 continuous, zero-cost on
+// modern GPUs. k is the blend-band width; k=0.05 gives a ~5cm soft crease.
+fn smin_k(a: f32, b: f32, k: f32) -> f32 {
+  let kk = max(k, 1e-6);
+  let h = clamp(0.5 + 0.5 * (b - a) / kk, 0.0, 1.0);
+  return mix(b, a, h) - kk * h * (1.0 - h);
+}
+fn smax_k(a: f32, b: f32, k: f32) -> f32 {
+  let kk = max(k, 1e-6);
+  let h = clamp(0.5 - 0.5 * (b - a) / kk, 0.0, 1.0);
+  return mix(b, a, h) + kk * h * (1.0 - h);
+}
+
+const MAX_GROUPS: u32 = 16u;
+
 fn sceneSDF(pWorld: vec3f) -> SceneHit {
   var best = 1e9;
   var bestIdx = 0u;
+  // Per-group accumulators. Groups are 1-indexed in the primitive record;
+  // we store 0-indexed here. Attribution (groupIdx) picks argmin of the
+  // RAW (pre-blend) distance among positive-contributing primitives in the
+  // group — so the winning palette belongs to the closest member, which
+  // is how "cheek-red near the cheek, skin elsewhere" falls out for free.
+  var groupDist:    array<f32, 16>;
+  var groupArgmin:  array<f32, 16>;
+  var groupIdx:     array<u32, 16>;
+  for (var g = 0u; g < MAX_GROUPS; g = g + 1u) {
+    groupDist[g]   = 1e9;
+    groupArgmin[g] = 1e9;
+    groupIdx[g]    = 0u;
+  }
   for (var i = 0u; i < u.numPrims; i = i + 1u) {
+    let base = i * 4u;
+    let cfg  = prims[base + 3u];
+    let groupPacked = bitcast<u32>(cfg.z);
+    let blendR = cfg.w;
     let d = evalPrim(i, pWorld);
-    if (d < best) { best = d; bestIdx = i; }
+    if (groupPacked == 0u || groupPacked > MAX_GROUPS) {
+      // Standalone — hard union into scene.
+      if (d < best) { best = d; bestIdx = i; }
+    } else {
+      let g = groupPacked - 1u;
+      // Additive primitives own the attribution; subtractors carve and
+      // leave attribution to whoever was already there.
+      if (blendR >= 0.0 && d < groupArgmin[g]) {
+        groupArgmin[g] = d;
+        groupIdx[g]    = i;
+      }
+      if (blendR > 0.0) {
+        groupDist[g] = smin_k(groupDist[g], d, blendR);
+      } else if (blendR < 0.0) {
+        groupDist[g] = smax_k(groupDist[g], -d, -blendR);
+      } else {
+        groupDist[g] = min(groupDist[g], d);
+      }
+    }
+  }
+  // Fold groups — each group contributes one blended surface.
+  for (var g = 0u; g < MAX_GROUPS; g = g + 1u) {
+    if (groupDist[g] < best) {
+      best    = groupDist[g];
+      bestIdx = groupIdx[g];
+    }
   }
   return SceneHit(best, bestIdx);
 }
@@ -640,11 +757,11 @@ export function createRaymarchRenderer(
       f32[base + 9] = p.offsetInBone[1]
       f32[base + 10] = p.offsetInBone[2]
       f32[base + 11] = 0
-      // vec4 in slot 3: slotB (u32), colorExtent (f32), _pad, _pad
+      // vec4 in slot 3: slotB (u32), colorExtent (f32), blendGroup (u32), blendRadius (f32 signed)
       u32[base + 12] = p.paletteSlotB ?? p.paletteSlot
       f32[base + 13] = p.colorExtent ?? 0.1
-      f32[base + 14] = 0
-      f32[base + 15] = 0
+      u32[base + 14] = p.blendGroup ?? 0
+      f32[base + 15] = p.blendRadius ?? 0
     }
     device.queue.writeBuffer(primsBuffer!, 0, data)
     rebuildBindGroup()
