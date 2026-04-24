@@ -394,6 +394,14 @@ async function main() {
     }
     function applyPreset(key: PresetKey) {
       currentProportion = key
+      // Reset EVERY joint to identity first. applyGroupScale only writes
+      // joints matching a group regex — ungrouped joints (accessories,
+      // weapon sockets, etc.) would otherwise keep whatever scale the
+      // previous preset's normalizer left on them, causing each click
+      // to compound more vertical stretch. Fresh canvas every apply.
+      for (let j = 0; j < rig.length; j++) {
+        characterParams.scales[j] = [1, 1, 1]
+      }
       const p = BODY_PRESETS[key]
       for (const g of propGroups) {
         const v = p[g]
