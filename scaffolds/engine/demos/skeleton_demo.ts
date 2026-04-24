@@ -616,7 +616,7 @@ async function main() {
       faceRaymarchPrims,
       material.palette,
       vatHandle,
-      { maxSteps: 48 },
+      { maxSteps: 32 },   // tuned: per-primitive occlusion closes hits fast
     )
     raymarch.resizeCache(canvas.width, canvas.height)
     // Cache invalidation: bump whenever any raymarch input changes so next
@@ -1046,7 +1046,20 @@ async function main() {
 
         if (raymarchCacheVersion !== raymarchCacheApplied) {
           const eyeR: [number, number, number] = [camera.position[0], camera.position[1], camera.position[2]]
-          raymarch.setPrimitives(nowPrims)
+          // Front-to-back sort: the shader's per-primitive occlusion skips
+          // 'd_sphere >= best', so closer primitives evaluated first give
+          // subsequent far primitives a tight 'best' to beat — they skip
+          // cheaply. Only pays the sort on cache miss, not every frame.
+          // Sort a copy so the AABB-diff snapshot keeps its stable order.
+          const sorted = nowPrims.slice()
+          sorted.sort((a, b) => {
+            const sa = primWorldSphere(a)
+            const sb = primWorldSphere(b)
+            const dax = sa.cx - eyeR[0], day = sa.cy - eyeR[1], daz = sa.cz - eyeR[2]
+            const dbx = sb.cx - eyeR[0], dby = sb.cy - eyeR[1], dbz = sb.cz - eyeR[2]
+            return (dax*dax + day*day + daz*daz) - (dbx*dbx + dby*dby + dbz*dbz)
+          })
+          raymarch.setPrimitives(sorted)
           raymarch.setTime(elapsed)
           const pxPerM = canvas.height / (2 * camera.orthoSize)
           raymarch.setPxPerM(pxPerM)
