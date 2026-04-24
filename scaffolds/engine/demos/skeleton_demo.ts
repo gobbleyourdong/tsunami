@@ -276,13 +276,15 @@ async function main() {
 
     function fitCameraToCharacter() {
       const b = estimateBounds()
-      // Joint cubes extend ~0.1m around their pivot (head 0.21 half-Y,
-      // foot 0.09 half-Z, limbs 0.05-0.075). Add that plus animation swing
-      // + outline ring. Feet get extra bottom margin because the foot cube
-      // orients forward and its vertical extent is harder to predict.
-      const topMargin = 0.14
-      const bottomMargin = 0.18
-      const radialMargin = 0.18
+      // Generous margins — we're NOT baking to a fixed-cell sprite atlas
+      // anymore ("our bake is the raymarch cache"), so the cell doesn't
+      // have to hug the rest-pose bounds tightly. Animation-extent safety
+      // room for jumps, swings, attacks, etc. — character stays inside
+      // the frame even in its wildest frame. Rule of thumb, not a strict
+      // algorithmic fit. If something still clips, bump the margins.
+      const topMargin = 0.45      // jump clearance
+      const bottomMargin = 0.25   // foot lift / leg extension
+      const radialMargin = 0.35   // arm reach / swipe / weapon extension
       const halfH = ((b.maxY + topMargin) - (b.minY - bottomMargin)) / 2
       const center = ((b.maxY + topMargin) + (b.minY - bottomMargin)) / 2
       // Aspect based on sprite cell, not screen — camera is tuned for
