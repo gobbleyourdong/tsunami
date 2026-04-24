@@ -344,6 +344,17 @@ async function main() {
       alucard: 'realistic',  // 80² — Alucard's native res, lean adult silhouette
       full:    'realistic',  // 256² — same proportions, more detail per pixel
     }
+    /** Animation frame rate per LOD tier. SNES sprites animated at 8-15
+     *  fps regardless of display refresh; holding each pose for multiple
+     *  render frames is both authentic pixel-art feel AND a cache win
+     *  (AABBs don't change between ticks → raymarch holds, blit wins).
+     *  Lower tier = slower anim, lower res, fewer unique poses.  */
+    const SPRITE_MODE_ANIM_FPS: Record<SpriteMode, number> = {
+      link:    8,      // classic NES/early-SNES sprite tick
+      chibi:   10,     // SNES overworld feel (Chrono, Zelda)
+      alucard: 15,     // mid-tier, SotN-ish
+      full:    24,     // near-film-rate, still sprite-discrete
+    }
     // Apply the starting preset matching the initial sprite mode. The full
     // applySpriteMode path (called on key 1-4) can't run yet — renderer,
     // outline, cache aren't created. Applying just the proportions here
@@ -915,7 +926,17 @@ async function main() {
     }
 
     loop.onRender = (stats) => {
-      const frameIdx = Math.floor((elapsed / loadedVAT.durationSec) * loadedVAT.numFrames) % loadedVAT.numFrames
+      // Quantize elapsed time to the LOD tier's animation fps BEFORE mapping
+      // to a VAT frame. Between pose ticks the derived frameIdx stays the
+      // same → AABBs don't shift → raymarch cache holds → blit. The
+      // animation still plays at its authored duration (elapsed progresses
+      // normally); we just sample it at a lower rate. Gives both the
+      // pixel-art-authentic held-pose feel AND an N× cache-hit multiplier
+      // where N = renderFps / animFps.
+      const animFps = SPRITE_MODE_ANIM_FPS[spriteMode]
+      const tickSec = 1 / animFps
+      const quantElapsed = Math.floor(elapsed / tickSec) * tickSec
+      const frameIdx = Math.floor((quantElapsed / loadedVAT.durationSec) * loadedVAT.numFrames) % loadedVAT.numFrames
 
       // Retargeting compose: overwrite vat.buffer's FIRST frame slot with
       // the current frame's composed world matrices (local × scale →
