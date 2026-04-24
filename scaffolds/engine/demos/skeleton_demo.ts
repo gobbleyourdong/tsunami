@@ -400,9 +400,73 @@ async function main() {
         currentScales[g] = typeof v === 'number' ? v : v[1]
         applyGroupScale(g, v)
       }
+      // Normalize total height so every preset produces the same rendered
+      // character size. Chibi with squashed legs would otherwise render
+      // ~55% the size of realistic. We measure the rest-pose Y extent at
+      // the current scales, compute the factor that would restore it to
+      // the canonical (all-1.0) height, and multiply scale.y on every
+      // joint. Width/Z unchanged — only vertical size normalizes. Result:
+      // proportions change shape, NOT character size. Cell size decides
+      // character size; the proportion sliders only reshuffle the
+      // silhouette within that size.
+      normalizeRestHeight()
       if (currentExpression !== 'neutral') applyExpression(currentExpression)
       fitCameraToCharacter()
       invalidateRaymarchCache()
+    }
+
+    /** Compute rest Y extent at current scales vs canonical (all-1.0)
+     *  and apply a uniform Y-scale factor to every joint so the total
+     *  matches. Leaves per-group ratios intact (big head / short legs
+     *  chibi shape preserved) — only the TOTAL height collapses back
+     *  to the Mixamo Y-Bot baseline. */
+    function normalizeRestHeight() {
+      // Canonical = Mixamo Y-Bot at all scale=1. Known from the rest
+      // offsets after hierarchy compose. We compute it once-ever as a
+      // constant (could cache on first call; fast enough to re-measure).
+      const currentY = measureRestYExtent(characterParams.scales)
+      const canonY   = measureRestYExtent(null)   // null = identity scales
+      if (currentY < 1e-6) return
+      const factor = canonY / currentY
+      for (let j = 0; j < rig.length; j++) {
+        const s = characterParams.scales[j]
+        characterParams.scales[j] = [s[0], s[1] * factor, s[2]]
+      }
+    }
+
+    /** Walk the rig at frame 0 with the given scales (null = all 1.0),
+     *  return maxY - minY. Used by the height normalizer. */
+    function measureRestYExtent(scales: Vec3[] | null): number {
+      const lm = loadedVAT.localMats
+      if (!lm) return 1.8
+      const sl = new Float32Array(16)
+      let minY = Infinity, maxY = -Infinity
+      for (let j = 0; j < rig.length; j++) {
+        const src = j * 16
+        const parent = rig[j].parent
+        const isRoot = parent < 0
+        const s = scales ? scales[j] : [1, 1, 1]
+        for (let i = 0; i < 16; i++) sl[i] = lm[src + i]
+        if (!isRoot) { sl[12] *= s[0]; sl[13] *= s[1]; sl[14] *= s[2] }
+        const w = worldMatsTmp[j]
+        if (isRoot) w.set(sl)
+        else {
+          const a = worldMatsTmp[parent]
+          for (let col = 0; col < 4; col++) {
+            for (let row = 0; row < 4; row++) {
+              w[col * 4 + row] =
+                a[row]      * sl[col * 4]     +
+                a[row + 4]  * sl[col * 4 + 1] +
+                a[row + 8]  * sl[col * 4 + 2] +
+                a[row + 12] * sl[col * 4 + 3]
+            }
+          }
+        }
+        const y = w[13]
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+      return maxY - minY
     }
 
     /** Proportion and resolution are independent axes. Same CT-class cell
