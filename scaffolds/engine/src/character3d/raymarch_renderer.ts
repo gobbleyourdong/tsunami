@@ -788,8 +788,11 @@ export interface RaymarchRenderer {
   ): void
   /** Fullscreen-blit the cache's color/normal/depth textures into the
    *  3 MRT outputs of the currently-active render pass. Cheap — one
-   *  fullscreen triangle with three texture loads per pixel. */
-  blitCacheToPass(pass: GPURenderPassEncoder): void
+   *  fullscreen triangle with three texture loads per pixel.
+   *  `offsetPx` shifts where the cached content lands on screen — use
+   *  this to let camera pan reuse cached pixels without re-marching.
+   *  Out-of-range samples read as alpha=0 (background). */
+  blitCacheToPass(pass: GPURenderPassEncoder, offsetPx?: [number, number]): void
 }
 
 export function createRaymarchRenderer(
@@ -1003,9 +1006,14 @@ export function createRaymarchRenderer(
   // frame, not N march iterations × M primitives.
 
   const BLIT_SHADER = /* wgsl */ `
+struct BlitU {
+  offsetPx: vec2i,    // pixel shift: output (X,Y) samples cache at (X-offsetPx.x, Y-offsetPx.y)
+  _pad:     vec2i,
+}
 @group(0) @binding(0) var colorTex:  texture_2d<f32>;
 @group(0) @binding(1) var normalTex: texture_2d<f32>;
 @group(0) @binding(2) var depthTex:  texture_2d<f32>;
+@group(0) @binding(3) var<uniform> u: BlitU;
 
 struct VsOut { @builtin(position) clip: vec4f }
 
@@ -1029,11 +1037,23 @@ struct FsOut {
 
 @fragment
 fn fs_main(in: VsOut) -> FsOut {
-  let px = vec2i(in.clip.xy);
+  let outPx = vec2i(in.clip.xy);
+  let srcPx = outPx - u.offsetPx;
+  let dim = vec2i(textureDimensions(colorTex, 0));
   var out: FsOut;
-  out.color  = textureLoad(colorTex,  px, 0);
-  out.normal = textureLoad(normalTex, px, 0);
-  out.depth  = textureLoad(depthTex,  px, 0);
+  // Out-of-range sample → background (alpha=0). WGSL textureLoad at
+  // OOB coords returns zero, so the default color/normal/depth get
+  // interpreted as "miss" downstream. This is how camera pan reveals
+  // fresh background on one edge and hides pixels on the other.
+  if (srcPx.x < 0 || srcPx.y < 0 || srcPx.x >= dim.x || srcPx.y >= dim.y) {
+    out.color  = vec4f(0.0, 0.0, 0.0, 0.0);
+    out.normal = vec4f(0.5, 0.5, 1.0, 0.0);
+    out.depth  = vec4f(1.0, 0.0, 0.0, 0.0);
+    return out;
+  }
+  out.color  = textureLoad(colorTex,  srcPx, 0);
+  out.normal = textureLoad(normalTex, srcPx, 0);
+  out.depth  = textureLoad(depthTex,  srcPx, 0);
   return out;
 }
 `
@@ -1068,6 +1088,16 @@ fn fs_main(in: VsOut) -> FsOut {
   let cacheDepthStencilView: GPUTextureView | null = null
   let cacheBlitBindGroup: GPUBindGroup | null = null
 
+  // Blit offset uniform — 2 i32 (pixel dx, dy) + 2 i32 pad = 16 bytes.
+  // Updated on every blit via writeBuffer. Enables camera-pan reuse of
+  // cached pixels without re-marching.
+  const blitOffsetBuffer = device.createBuffer({
+    label: 'raymarch-cache-blit-offset',
+    size: 16,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  })
+  const blitOffsetData = new Int32Array(4)
+
   function resizeCache(w: number, h: number) {
     if (cacheW === w && cacheH === h && cacheColor) return
     cacheColor?.destroy()
@@ -1094,6 +1124,7 @@ fn fs_main(in: VsOut) -> FsOut {
         { binding: 0, resource: cacheColorView },
         { binding: 1, resource: cacheNormalView },
         { binding: 2, resource: cacheDepthView },
+        { binding: 3, resource: { buffer: blitOffsetBuffer } },
       ],
     })
     cacheW = w
@@ -1153,8 +1184,13 @@ fn fs_main(in: VsOut) -> FsOut {
       pass.draw(3)
       pass.end()
     },
-    blitCacheToPass(pass) {
+    blitCacheToPass(pass, offsetPx) {
       if (!cacheBlitBindGroup) return
+      const dx = Math.round(offsetPx?.[0] ?? 0)
+      const dy = Math.round(offsetPx?.[1] ?? 0)
+      blitOffsetData[0] = dx
+      blitOffsetData[1] = dy
+      device.queue.writeBuffer(blitOffsetBuffer, 0, blitOffsetData)
       pass.setPipeline(blitPipeline)
       pass.setBindGroup(0, cacheBlitBindGroup)
       pass.draw(3)

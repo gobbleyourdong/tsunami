@@ -983,12 +983,17 @@ async function main() {
       return { cx, cy, cz, r }
     }
 
-    /** Compare current primitive AABBs + camera to last frame's snapshot.
-     *  Returns true if anything visible has changed. */
+    /** Compare current primitive AABBs + camera ROTATION to last frame's
+     *  snapshot. Camera TRANSLATION is intentionally excluded — pan shifts
+     *  the blit offset, not the cached pixels. Pixel-copy invariant means
+     *  the silhouette is byte-identical for any camera translation as
+     *  long as rotation/zoom/pose don't change. */
     function raymarchSceneChanged(prims: RaymarchPrimitive[]): boolean {
       if (prims.length !== lastAabbs.length) return true
       if (camera.orthoSize !== lastAabbOrtho) return true
-      for (let i = 0; i < 16; i++) {
+      // Rotation columns only — indices 0..2, 4..6, 8..10. Skip 12..14
+      // (translation) — that's the pan-invariant axis.
+      for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) {
         if (camera.view[i] !== lastAabbView[i]) return true
       }
       for (let i = 0; i < prims.length; i++) {
@@ -1002,7 +1007,9 @@ async function main() {
       return false
     }
 
-    /** Capture current primitive AABBs + camera as the new snapshot. */
+    /** Capture current primitive AABBs + camera as the new snapshot. Copies
+     *  ALL of camera.view so we can compute pan deltas against it each
+     *  frame even while rotation comparisons use only the rotation cols. */
     function snapshotRaymarchScene(prims: RaymarchPrimitive[]) {
       lastAabbs.length = prims.length
       for (let i = 0; i < prims.length; i++) {
@@ -1089,10 +1096,19 @@ async function main() {
       })
       if (rendererMode === 'raymarch') {
         // Scene pass outputs = blit from the raymarch cache framebuffer.
-        // All the expensive march work happened above (either this frame
-        // on cache miss, or a past frame the cache is replaying). Outline
-        // pass downstream can't tell the difference from direct rendering.
-        raymarch.blitCacheToPass(scenePass)
+        // Pan offset: how many pixels the character's screen position has
+        // moved since the cache was filled. Camera translation changes
+        // view.[12..14]; pxPerM converts world delta to screen delta.
+        // Sign convention: camera +X pans right, character shifts LEFT on
+        // screen, cache sampled from +X (= blit offset is POSITIVE X).
+        // The pixel-snap camera makes deltas integer pixels — no sub-pixel
+        // interpolation needed.
+        const pxPerM = canvas.height / (2 * camera.orthoSize)
+        const dxM = camera.view[12] - lastAabbView[12]
+        const dyM = camera.view[13] - lastAabbView[13]
+        const panOffsetX = -Math.round(dxM * pxPerM)
+        const panOffsetY =  Math.round(dyM * pxPerM)   // screen Y is down
+        raymarch.blitCacheToPass(scenePass, [panOffsetX, panOffsetY])
       } else {
         renderer.draw(scenePass, camera.view, camera.projection, drawFrameIdx, 1.0)
       }
