@@ -590,16 +590,9 @@ async function main() {
     )
 
     // --- Raymarch renderer: full chibi character as SDF primitives.
-    // chibiRaymarchPrimitives enumerates the rig (body + face + hair +
-    // body parts + accessories) into a RaymarchPrimitive[] mirroring the
-    // cube renderer's display. Each primitive inherits the pixel-copy
-    // snap from evalPrim — character moves in pixel-snapped steps even
-    // though bones animate continuously.
     const rightHandIdx = rig.findIndex((j) => j.name === 'RightHand')
     const faceRaymarchPrims: RaymarchPrimitive[] =
       chibiRaymarchPrimitives(rig, material) as RaymarchPrimitive[]
-    // Flame at the right hand — validates time-driven primitive alongside
-    // the static character primitives.
     if (rightHandIdx >= 0) {
       const baseSlot = material.namedSlots.fire_base ?? 12
       const tipSlot  = material.namedSlots.fire_tip  ?? 14

@@ -192,25 +192,36 @@ fn readMat4(base: u32) -> mat4x4<f32> {
   );
 }
 
-// WebGPU affine-only inverse. Our bone matrices are rotation × translation
-// (with uniform-ish scale from proportions); handles that class exactly
-// and is ~10× cheaper than a generic mat4 inverse.
-fn invertAffine(m: mat4x4<f32>) -> mat4x4<f32> {
-  let R = mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
-  // Transpose rotation part (works exactly for orthonormal; close enough
-  // for uniform scale since the scale factor becomes 1/s after normalize
-  // — our proportion sliders apply uniform scale per joint so Rᵀ is correct
-  // up to a reciprocal scale factor. Good enough for the reference baseline;
-  // tighten if we ever see visible deformation artifacts.)
-  let Rt = transpose(R);
-  let t = m[3].xyz;
-  let inv_t = -(Rt * t);    // WGSL requires the negate on the vec3 result, not the mat3x3
-  return mat4x4<f32>(
-    vec4f(Rt[0], 0.0),
-    vec4f(Rt[1], 0.0),
-    vec4f(Rt[2], 0.0),
-    vec4f(inv_t, 1.0),
-  );
+// Transform a world-space point into a bone's local frame, correctly
+// handling per-axis scale baked into the bone's display matrix.
+//
+// Display matrix layout (from glb_loader.ts::createRetargetComposer):
+//   col 0 = R_x * sx
+//   col 1 = R_y * sy
+//   col 2 = R_z * sz
+//   col 3 = (translation, 1)
+// where R_* are unit rotation basis vectors and s* come from the per-joint
+// proportion scale. Inverse is: diag(1/s²) · M^T · (p - t)
+// = (dot(col0, d)/|col0|², dot(col1, d)/|col1|², dot(col2, d)/|col2|²).
+//
+// If ANY axis scale collapses to zero (body-part sliders default to 0),
+// the local-space projection is undefined — we substitute a far-field
+// point so the primitive contributes nothing to the scene SDF. The old
+// transpose-only inverse collapsed all world points to the origin in that
+// case, which made zero-scale primitives register as "always inside" and
+// hit every ray. This is the fix for that.
+fn worldToLocal(m: mat4x4<f32>, pWorld: vec3f) -> vec3f {
+  let c0 = m[0].xyz;
+  let c1 = m[1].xyz;
+  let c2 = m[2].xyz;
+  let s0sq = dot(c0, c0);
+  let s1sq = dot(c1, c1);
+  let s2sq = dot(c2, c2);
+  if (min(min(s0sq, s1sq), s2sq) < 1e-10) {
+    return vec3f(1e6);   // degenerate bone → primitive effectively invisible
+  }
+  let d = pWorld - m[3].xyz;
+  return vec3f(dot(c0, d) / s0sq, dot(c1, d) / s1sq, dot(c2, d) / s2sq);
 }
 
 // Rotate a vec3 by a quat (x,y,z,w). Standard v' = v + 2*cross(q.xyz, cross(q.xyz, v) + q.w*v).
@@ -368,15 +379,19 @@ fn sdLightning(p: vec3f, halfLen: f32, amplitude: f32, thickness: f32, t: f32) -
   return length(vec2f(p.x - hx, p.z - hz)) - thickness;
 }
 
-// Cone SDF — Inigo Quilez's 2D cone, tip at origin, base at y=-h. The
-// cross-section is a disc; sweeps the 2D SDF around the Y axis via
-// (length(xz), y) projection. Pass (sin, cos) of the half-angle already
-// computed on CPU so the shader skips a trig call per eval.
+// Cone SDF — Inigo Quilez's capped cone. Tip at origin, base at y=-h.
+// 'sc' is (sin, cos) of the half-angle (precomputed on CPU to skip trig).
+// Reference: iquilezles.org/articles/distfunctions.
 fn sdCone(p: vec3f, sc: vec2f, h: f32) -> f32 {
-  let q = vec2f(length(vec2f(p.x, p.z)), -p.y);
-  let d1 = -q.y - h;
-  let d2 = max(dot(q, sc), q.y);
-  return length(max(vec2f(d1, d2), vec2f(0.0))) + min(max(d1, d2), 0.0);
+  // Parameterize as the 2D base-point in (radial, y) space.
+  let q = vec2f(h * sc.x / sc.y, -h);
+  let w = vec2f(length(vec2f(p.x, p.z)), p.y);
+  let a = w - q * clamp(dot(w, q) / dot(q, q), 0.0, 1.0);
+  let b = w - q * vec2f(clamp(w.x / q.x, 0.0, 1.0), 1.0);
+  let k = sign(q.y);
+  let d = min(dot(a, a), dot(b, b));
+  let s = max(k * (w.x * q.y - w.y * q.x), k * (w.y - q.y));
+  return sqrt(d) * sign(s);
 }
 
 // NoiseCloud SDF — 3D value-noise field thresholded into a surface, clipped
@@ -442,18 +457,11 @@ fn evalPrim(primIdx: u32, pWorld: vec3f) -> f32 {
     let deltaW = transpose(viewRot) * deltaV;
     boneWorld[3] = boneWorld[3] + vec4f(deltaW, 0.0);
   }
-  let boneInv = invertAffine(boneWorld);
-  let pBone = (boneInv * vec4f(pWorld, 1.0)).xyz;
+  let pBone = worldToLocal(boneWorld, pWorld);
   // Primitive-local orientation: read quat from slot 4 and apply its inverse
-  // to the march point. Identity (0,0,0,1) is a no-op (the default), so most
-  // primitives pay zero cost beyond the load. A zero quat from zero-init
-  // storage would divide-by-zero implicitly via cross products of zeros —
-  // so we substitute identity when w==0 (the caller should set (0,0,0,1)
-  // but we're defensive).
+  // to the march point. Identity (0,0,0,1) is a no-op (the default).
+  // Defensive: a zero-init record (w=0, xyz=0) gets swapped to identity.
   let q0 = prims[base + 4u];
-  // Swap to identity if the record is zero-initialised (w=0, xyz=0). Callers
-  // should set (0,0,0,1) but defaulting to identity keeps legacy records
-  // rendering unrotated instead of collapsing to a zero-length quat.
   let qIsZero = q0.w == 0.0 && all(q0.xyz == vec3f(0.0));
   let q  = select(q0, vec4f(0.0, 0.0, 0.0, 1.0), qIsZero);
   let qInv = vec4f(-q.x, -q.y, -q.z, q.w);
@@ -528,8 +536,6 @@ fn sceneSDF(pWorld: vec3f, wantDetail: u32) -> SceneHit {
     var d = evalPrim(i, pWorld);
     // Dual-map detail displacement — per-primitive FBM, only active on
     // the normal pass. detailAmp lives in the offsetInBone.w pad slot.
-    // Frequency 28 m⁻¹ → ~3.6cm features, tuned for our sprite range
-    // (visible at 80²+ but subtle at 32²).
     if (wantDetail == 1u) {
       let detailAmp = prims[base + 2u].w;
       if (detailAmp > 0.0) {
@@ -664,9 +670,8 @@ fn fs_main(in: VsOut) -> FsOut {
     // space — reuse the bone inverse for the primitive's bone.
     let boneIdx = slots.z;
     let boneWorld = readMat4((u.frameIdx * u.numJoints + boneIdx) * 4u);
-    let boneInv = invertAffine(boneWorld);
     let offset = prims[base + 2u].xyz;
-    let localY = (boneInv * vec4f(hitPos, 1.0)).y - offset.y;
+    let localY = worldToLocal(boneWorld, hitPos).y - offset.y;
     let normY = clamp((localY + colorExtent) / (2.0 * colorExtent), 0.0, 1.0);
     // 3 bands, crisp: [0, 0.33] → slotA, [0.33, 0.66] → midBand (slotA+1),
     // [0.66, 1] → slotB. This assumes slotA and slotB bracket a 3-slot
@@ -681,9 +686,8 @@ fn fs_main(in: VsOut) -> FsOut {
     // radialFade: slot depends on radial distance from primitive origin.
     let boneIdx = slots.z;
     let boneWorld = readMat4((u.frameIdx * u.numJoints + boneIdx) * 4u);
-    let boneInv = invertAffine(boneWorld);
     let offset = prims[base + 2u].xyz;
-    let localP = (boneInv * vec4f(hitPos, 1.0)).xyz - offset;
+    let localP = worldToLocal(boneWorld, hitPos) - offset;
     let r = length(localP);
     if (r > colorExtent) { slot = slotB; }
   }
