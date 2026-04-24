@@ -720,8 +720,6 @@ async function main() {
       if (e.key === '2') applySpriteMode('chibi')
       if (e.key === '3') applySpriteMode('alucard')
       if (e.key === '4') applySpriteMode('full')
-      if (e.key === 's' || e.key === 'S') saveCurrentFrame()
-      if (e.key === 'a' || e.key === 'A') saveAnimationStrip()
       if (e.key === 'v' || e.key === 'V') cycleViewMode()
       if (e.key === 'm' || e.key === 'M') switchAnimation(animIdx + 1)
       if (e.key === 'd' || e.key === 'D') {
@@ -765,124 +763,6 @@ async function main() {
         }
       }
     })
-
-    // --- Save helpers ---
-    function saveBlob(blob: Blob, filename: string) {
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(url)
-    }
-
-    function saveCurrentFrame() {
-      canvas.toBlob((blob) => {
-        if (!blob) return
-        saveBlob(blob, `chibi_${spriteMode}_frame.png`)
-      }, 'image/png')
-    }
-
-    /** Bake every frame into THREE horizontal-strip PNGs: color, normal, depth.
-     *  The full G-buffer atlas set — what the game engine consumes at runtime
-     *  for lighting + depth compositing + palette-swap recolor. Each frame
-     *  rendered once; the three MRT targets copied via separate viewMode
-     *  passes to the same canvas, drawImage'd into three separate strips. */
-    async function saveAnimationStrip() {
-      const W = canvas.width
-      const H = canvas.height
-      const N = loadedVAT!.numFrames
-
-      function makeStripCanvas() {
-        const c = document.createElement('canvas')
-        c.width = W * N
-        c.height = H
-        const ctx = c.getContext('2d')!
-        ctx.imageSmoothingEnabled = false
-        return { canvas: c, ctx }
-      }
-      const colorStrip  = makeStripCanvas()
-      const normalStrip = makeStripCanvas()
-      const depthStrip  = makeStripCanvas()
-
-      const wasRunning = (loop as unknown as { running: boolean }).running
-      loop.stop()
-      const savedViewMode = viewMode
-
-      async function renderFrame(f: number) {
-        if (composer) composer.update(f, characterParams)
-        const encoder = device.createCommandEncoder()
-        // March straight into the cache for this specific frame, then
-        // blit. Bypasses the fingerprint logic — each exported frame is
-        // a deliberate re-march at its own animation phase.
-        const eyeR: [number, number, number] = [camera.position[0], camera.position[1], camera.position[2]]
-        const nowPrims = currentAllPrims(elapsed)
-        raymarch.setPrimitives(nowPrims)
-        raymarch.setTime(elapsed)
-        raymarch.setPxPerM(canvas.height / (2 * camera.orthoSize))
-        raymarch.marchIntoCache(encoder, camera.view, camera.projection, eyeR, composer ? 0 : f)
-        const scenePass = encoder.beginRenderPass({
-          colorAttachments: [
-            { view: targets.sceneView!,    loadOp: 'clear', storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 0 } },
-            { view: targets.normalView!,   loadOp: 'clear', storeOp: 'store', clearValue: { r: 0.5, g: 0.5, b: 1.0, a: 0 } },
-            { view: targets.depthVizView!, loadOp: 'clear', storeOp: 'store', clearValue: { r: 1, g: 0, b: 0, a: 0 } },
-          ],
-          depthStencilAttachment: {
-            view: targets.sceneDepthView!,
-            depthLoadOp: 'clear', depthStoreOp: 'store', depthClearValue: 1.0,
-            stencilLoadOp: 'clear', stencilStoreOp: 'store', stencilClearValue: 0,
-          },
-        })
-        raymarch.blitCacheToPass(scenePass)
-        scenePass.end()
-        const canvasView = gpu.context.getCurrentTexture().createView()
-        outline.run(encoder, canvasView)
-        device.queue.submit([encoder.finish()])
-        await new Promise((r) => requestAnimationFrame(r))
-      }
-
-      for (let f = 0; f < N; f++) {
-        // Color + outline pass
-        outline.setViewMode('color')
-        await renderFrame(f)
-        colorStrip.ctx.drawImage(canvas, f * W, 0)
-
-        // Normal pass (re-run outline with normal view mode — same scene data
-        // already in MRT textures, just different display).
-        outline.setViewMode('normal')
-        const encN = device.createCommandEncoder()
-        outline.run(encN, gpu.context.getCurrentTexture().createView())
-        device.queue.submit([encN.finish()])
-        await new Promise((r) => requestAnimationFrame(r))
-        normalStrip.ctx.drawImage(canvas, f * W, 0)
-
-        // Depth pass
-        outline.setViewMode('depth')
-        const encD = device.createCommandEncoder()
-        outline.run(encD, gpu.context.getCurrentTexture().createView())
-        device.queue.submit([encD.finish()])
-        await new Promise((r) => requestAnimationFrame(r))
-        depthStrip.ctx.drawImage(canvas, f * W, 0)
-      }
-
-      // Restore view mode
-      outline.setViewMode(savedViewMode)
-
-      async function downloadStrip(c: HTMLCanvasElement, kind: string) {
-        await new Promise<void>((resolve) => {
-          c.toBlob((blob) => {
-            if (!blob) { resolve(); return }
-            saveBlob(blob, `chibi_${spriteMode}_${kind}_${N}frames.png`)
-            resolve()
-          }, 'image/png')
-        })
-      }
-      await downloadStrip(colorStrip.canvas,  'color')
-      await downloadStrip(normalStrip.canvas, 'normal')
-      await downloadStrip(depthStrip.canvas,  'depth')
-
-      if (wasRunning) loop.start()
-    }
 
     const loop = new FrameLoop()
 
