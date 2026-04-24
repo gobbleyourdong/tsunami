@@ -640,7 +640,7 @@ export function extendLocalMatsWithFace(
 // mats (chibiBoneDisplayMats) and the raymarch-primitive enumeration
 // (chibiRaymarchPrimitives). Keeping them module-level so tuning is a
 // one-place edit.
-const CHIBI_LIMB_THICKNESS: Record<string, [number, number]> = {
+export const CHIBI_LIMB_THICKNESS: Record<string, [number, number]> = {
   LeftArm:      [0.055, 0.055],
   LeftForeArm:  [0.05,  0.05 ],
   RightArm:     [0.055, 0.055],
@@ -652,13 +652,13 @@ const CHIBI_LIMB_THICKNESS: Record<string, [number, number]> = {
   RightLeg:     [0.065, 0.065],
   RightFoot:    [0.065, 0.09],
 }
-const CHIBI_CENTERED_SIZE: Record<string, [number, number, number]> = {
+export const CHIBI_CENTERED_SIZE: Record<string, [number, number, number]> = {
   Head:    [0.19, 0.21, 0.19],
   Neck:    [0.045, 0.06, 0.045],
   Spine1:  [0.17, 0.15, 0.12],
   Hips:    [0.15, 0.07, 0.12],
 }
-const CHIBI_CENTERED_OFFSET: Record<string, [number, number, number]> = {
+export const CHIBI_CENTERED_OFFSET: Record<string, [number, number, number]> = {
   Head: [0, 0.12, 0],
 }
 

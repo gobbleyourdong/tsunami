@@ -24,7 +24,21 @@ import {
   extendLocalMatsWithHair,
   extendRigWithBodyParts,
   extendLocalMatsWithBodyParts,
+  DEFAULT_FACE,
+  DEFAULT_HAIR,
+  DEFAULT_BODY_PARTS,
+  DEFAULT_ACCESSORIES,
+  CHIBI_CENTERED_SIZE,
+  CHIBI_CENTERED_OFFSET,
+  CHIBI_LIMB_THICKNESS,
 } from '../src/character3d/mixamo_loader'
+import {
+  serializeCharacterSpec,
+  parseCharacterSpec,
+  stringifyCharacterSpec,
+  type CharacterSpecV2,
+  type CharacterArchetype,
+} from '../src/character3d/character_spec'
 import {
   loadVATBinary,
   createRetargetComposer,
@@ -469,25 +483,22 @@ async function main() {
       expressionRowEl.appendChild(btn)
     }
 
-    // --- Character save/load: portable params JSON. Research dict (§12.7)
-    // calls out user-owned character files as THE defense against vendor
-    // shutdown (RPM/Fuse pattern). Our analog to VRM is params-not-mesh:
-    // the baked VAT + rig are the "shared mesh", and character identity
-    // lives in proportions + palette + face tuning. Schema versioned so
-    // we can extend (hair/accessories/expressions) without breaking old
-    // files. ---
-    interface CharacterDoc {
-      version: 1
-      name: string
-      proportions: Record<string, number>   // head/torso/arms/legs etc
-      palette: Record<string, [number, number, number]>   // slot name → RGB
-      // license: reserved stub; fills in as we grow marketplace concerns
-      license?: { commercial?: boolean; redistribution?: boolean; author?: string }
+    // --- Character save/load: V2 CharacterSpec (see character_spec.ts).
+    // Portable JSON capturing proportions, palette, AND the character's
+    // face/hair/body/accessories + archetype base sizes. V1 files still
+    // load (missing fields fall back to engine defaults). The baked VAT
+    // + rig stay shared across characters; identity lives in this spec.
+    // User-owned character files are the defense against vendor shutdown
+    // (the RPM/Fuse pattern — research dict §12.7).
+    const ARCHETYPE_CHIBI: CharacterArchetype = {
+      centeredSizes:   CHIBI_CENTERED_SIZE,
+      centeredOffsets: CHIBI_CENTERED_OFFSET,
+      limbThickness:   CHIBI_LIMB_THICKNESS,
     }
 
     const nameInput = document.getElementById('char-name') as HTMLInputElement
 
-    function serializeCharacter(): CharacterDoc {
+    function serializeCharacter(): CharacterSpecV2 {
       const paletteEntries: Record<string, [number, number, number]> = {}
       for (const [slotName, slotIdx] of Object.entries(material.namedSlots)) {
         if (slotName === 'bg') continue
@@ -497,23 +508,28 @@ async function main() {
           material.palette[slotIdx * 4 + 2],
         ]
       }
-      return {
-        version: 1,
-        name: nameInput.value || 'unnamed',
+      return serializeCharacterSpec({
+        name:        nameInput.value || 'unnamed',
+        archetype:   ARCHETYPE_CHIBI,
         proportions: { ...currentScales },
-        palette: paletteEntries,
-      }
+        palette:     paletteEntries,
+        // Face/hair/body/accessories are module-constant defaults today;
+        // dump them so the spec round-trips. Runtime-mutable arrays would
+        // slot in here once the rig-extend path accepts per-character
+        // overrides.
+        face:        DEFAULT_FACE,
+        hair:        DEFAULT_HAIR,
+        bodyParts:   DEFAULT_BODY_PARTS,
+        accessories: DEFAULT_ACCESSORIES,
+      })
     }
 
-    function applyCharacterDoc(doc: CharacterDoc) {
-      if (doc.version !== 1) {
-        console.warn(`character doc version ${doc.version} unknown; attempting best-effort load`)
-      }
-      nameInput.value = doc.name ?? 'unnamed'
+    function applyCharacterSpec(spec: CharacterSpecV2) {
+      nameInput.value = spec.name ?? 'unnamed'
       // Proportion sliders: apply each known group; fire input events so
       // scales + camera fit recompute via the same path a slider drag uses.
       for (const g of propGroups) {
-        const v = doc.proportions?.[g]
+        const v = spec.proportions?.[g]
         if (typeof v !== 'number') continue
         const s = document.getElementById(`${g}-slider`) as HTMLInputElement | null
         if (!s) continue
@@ -522,7 +538,7 @@ async function main() {
       }
       // Palette: set each known slot. Unknown slots ignored (forward-compat).
       for (const [slotName, slotIdx] of Object.entries(material.namedSlots)) {
-        const rgb = doc.palette?.[slotName]
+        const rgb = spec.palette?.[slotName]
         if (!rgb) continue
         material.palette[slotIdx * 4 + 0] = rgb[0]
         material.palette[slotIdx * 4 + 1] = rgb[1]
@@ -530,16 +546,23 @@ async function main() {
         renderer.setPaletteSlot(slotIdx, rgb[0], rgb[1], rgb[2], 1)
       }
       buildPaletteUI()   // refresh color-picker swatches
+      // V2 also carries face/hair/body/accessories arrays. Runtime rig-
+      // extend hasn't been re-pluggable to consume them yet (next tick) —
+      // log a note so the user knows the data parsed but is inert.
+      const nonEmpty = spec.face.length + spec.hair.length + spec.bodyParts.length + spec.accessories.length
+      if (nonEmpty > 0) {
+        console.info(`[spec] ${spec.name}: ${spec.face.length} face / ${spec.hair.length} hair / ${spec.bodyParts.length} body / ${spec.accessories.length} accessories parsed (runtime override pending)`)
+      }
     }
 
     const saveBtn = document.getElementById('save-char') as HTMLButtonElement
     saveBtn.onclick = () => {
-      const doc = serializeCharacter()
-      const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
+      const spec = serializeCharacter()
+      const blob = new Blob([stringifyCharacterSpec(spec)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${doc.name.replace(/[^\w]+/g, '_')}.character.json`
+      a.download = `${spec.name.replace(/[^\w]+/g, '_')}.character.json`
       a.click()
       URL.revokeObjectURL(url)
     }
@@ -552,8 +575,8 @@ async function main() {
       if (!f) return
       try {
         const text = await f.text()
-        const doc = JSON.parse(text) as CharacterDoc
-        applyCharacterDoc(doc)
+        const spec = parseCharacterSpec(text, ARCHETYPE_CHIBI)
+        applyCharacterSpec(spec)
       } catch (err) {
         console.error('character load failed:', err)
       }
