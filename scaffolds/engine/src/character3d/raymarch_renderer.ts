@@ -735,21 +735,15 @@ fn fs_main(in: VsOut) -> FsOut {
   // we already have totalDist (near→far world distance).
   let dNdc = clamp(t / totalDist, 0.0, 1.0);
 
-  // Soft shadow toward the first key light (tunable later via uniform).
-  // Quantize to 3 bands so the shadow edge reads like a crisp cel step
-  // rather than a smooth gradient — matches the rest of the polish.
-  let lightDir = normalize(vec3f(0.6, 0.7, 0.3));
-  let shadowRaw = shadowRay(hitPos + n * 0.01, lightDir, 0.01, 2.5);
-  var shadowFactor = 0.45;
-  if (shadowRaw > 0.66) { shadowFactor = 1.00; }
-  else if (shadowRaw > 0.30) { shadowFactor = 0.75; }
-
+  // Lighting is fully deferred — raymarch outputs pure geometry (tint +
+  // normal + depth) and the outline pass does all shading (key cel bands,
+  // fill linear rolloff, ambient, screen-space AO). An earlier version
+  // baked a single-light shadow ray into normal.a, which (1) ignored the
+  // actual configured light directions and (2) layered shadow artefacts
+  // on top of otherwise clean cel lighting. Deferred = one shading rule,
+  // one place to tune.
   out.color  = vec4f(tint, 1.0);
-  // Pack the shadow factor into normal.a so the deferred cel pass can
-  // read it alongside the normal and dim the light contribution where
-  // occluded. Cube/chunk renderers write normal.a = 1.0 which means
-  // "no shadow" — their output passes through unaffected.
-  out.normal = vec4f(n * 0.5 + 0.5, shadowFactor);
+  out.normal = vec4f(n * 0.5 + 0.5, 1.0);  // alpha=1 → "no pre-baked shadow"
   out.depth  = vec4f(dNdc, 0.0, 0.0, 1.0);
   return out;
 }
