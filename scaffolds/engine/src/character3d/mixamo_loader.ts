@@ -683,6 +683,7 @@ export interface RaymarchPrimDesc {
   colorExtent?: number
   blendGroup?: number
   blendRadius?: number
+  rotation?: [number, number, number, number]
 }
 
 export function chibiRaymarchPrimitives(
@@ -746,16 +747,23 @@ export function chibiRaymarchPrimitives(
         type = 6                               // torus
         params = [ff.displaySize[0], ff.displaySize[2], 0, 0]
       } else if (name === 'Nose') {
-        // Cone — tip at +Z (face-forward), opens back into the face. Y-axis
-        // aligned at the bone, so we build a cone in XZ but orient it facing
-        // the camera by swapping: cone body along -Y in primitive space; we
-        // put the TIP forward by setting the primitive's own offsetInBone
-        // a touch more forward than the base. The cone SDF (type 12) sweeps
-        // its 2D profile around the Y axis; (sin,cos) = (0.30, 0.954) gives
-        // a ~17° half-angle nose profile. Height = feature Y-extent × 2.
+        // Cone (type 12) — native orientation is tip at origin, base at -Y,
+        // which reads as a chin spike. Rotate +90° about +X so local +Y
+        // maps to world +Z (face-forward), and offset the primitive forward
+        // by the cone height so the base sits at the face surface while
+        // the tip extends out. (sin, cos) = (0.30, 0.954) ≈ 17° half-angle.
         type = 12
-        const halfAngle = 0.30                  // radians; ~17° sharp nose
-        params = [Math.sin(halfAngle), Math.cos(halfAngle), ff.displaySize[1] * 2.0, 0]
+        const halfAngle = 0.30
+        const height = ff.displaySize[1] * 2.0
+        params = [Math.sin(halfAngle), Math.cos(halfAngle), height, 0]
+        // quat for +90° about +X → takes local +Y to +Z
+        const s = Math.SQRT1_2   // sin(π/4) = cos(π/4) = 0.7071...
+        prims.push({
+          type, paletteSlot: slot, boneIdx: j, params,
+          offsetInBone: [0, 0, height],
+          rotation: [s, 0, 0, s],
+        })
+        continue
       }
       prims.push({ type, paletteSlot: slot, boneIdx: j, params, offsetInBone: [0, 0, 0] })
       continue

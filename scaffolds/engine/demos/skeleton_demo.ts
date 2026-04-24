@@ -566,25 +566,29 @@ async function main() {
       canvas.width, canvas.height,
     )
 
-    // --- Raymarch DEBUG: single sphere attached to the Hips joint. If we
-    // see a coloured circle, the whole raymarch pipeline (shader compile,
-    // primitive upload, VAT binding, bone transform, palette lookup, MRT
-    // output, outline pass) is working end-to-end. If not, the issue is
-    // isolated to the raymarch path, and we can add primitives back one
-    // at a time once the single-sphere case validates.
+    // --- Raymarch renderer: full chibi character as SDF primitives.
+    // chibiRaymarchPrimitives enumerates the rig (body + face + hair +
+    // body parts + accessories) into a RaymarchPrimitive[] mirroring the
+    // cube renderer's display. Each primitive inherits the pixel-copy
+    // snap from evalPrim — character moves in pixel-snapped steps even
+    // though bones animate continuously.
     const rightHandIdx = rig.findIndex((j) => j.name === 'RightHand')
-    const hipsIdx = rig.findIndex((j) => j.name === 'Hips')
-    const faceRaymarchPrims: RaymarchPrimitive[] = []
-    if (hipsIdx >= 0) {
+    const faceRaymarchPrims: RaymarchPrimitive[] =
+      chibiRaymarchPrimitives(rig, material) as RaymarchPrimitive[]
+    // Flame at the right hand — validates time-driven primitive alongside
+    // the static character primitives.
+    if (rightHandIdx >= 0) {
+      const baseSlot = material.namedSlots.fire_base ?? 12
+      const tipSlot  = material.namedSlots.fire_tip  ?? 14
       faceRaymarchPrims.push({
-        type: 0,                                  // sphere
-        paletteSlot: material.namedSlots.shirt ?? 3,
-        boneIdx: hipsIdx,
-        params: [0.35, 0, 0, 0],                  // radius 35cm — big + hard to miss
-        offsetInBone: [0, 0.3, 0],                // centered above hips for torso-height
+        type: 7, paletteSlot: baseSlot, boneIdx: rightHandIdx,
+        params: [0.05, 0.14, 0.03, 12.0],
+        offsetInBone: [0, 0.18, 0],
+        colorFunc: 1,
+        paletteSlotB: tipSlot,
+        colorExtent: 0.14,
       })
     }
-    void rightHandIdx
     const raymarch = createRaymarchRenderer(
       device, SCENE_FORMAT,
       faceRaymarchPrims,

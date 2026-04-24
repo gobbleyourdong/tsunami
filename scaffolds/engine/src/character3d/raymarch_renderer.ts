@@ -76,9 +76,11 @@
  * 16 groups per scene — enforced in shader; expand if a character needs more.
  *
  * Primitive's own offset from its parent bone origin is stored on the
- * primitive record. Rotation is axis-aligned in bone frame for v1 — add
- * a 3x3 rotation to the primitive record if an oriented primitive is
- * needed (e.g. a sword at an angle relative to hand-bone Y).
+ * primitive record, along with an optional rotation quaternion (x, y, z, w).
+ * The quat lives in the primitive's local frame — i.e. it orients the
+ * primitive RELATIVE to the bone, so a sword at 30° off the hand's +Y axis
+ * is a quat with no per-frame rig change. Identity quat (0,0,0,1) = axis-
+ * aligned, which is the common case — defaulted when omitted.
  */
 
 /** Color function enum — evaluated at raymarch hit time, picks between
@@ -113,6 +115,12 @@ export interface RaymarchPrimitive {
    *  Positive = smooth-union (smin k = radius). Negative = smooth-subtract
    *  (smax(-d, group, k=|radius|)). Zero = hard-union into the group. */
   blendRadius?: number
+  /** Optional rotation quaternion (x, y, z, w) applied in the primitive's
+   *  local frame. Omit (or pass identity) for axis-aligned primitives.
+   *  Useful for: angled weapons, tilted face features, oriented cones.
+   *  Runtime inverts the quat and rotates the march point, not the
+   *  primitive, so the SDF eval stays cheap and exact. */
+  rotation?: [number, number, number, number]
 }
 
 /** Same VATData interface used by skeleton_renderer + chunk_renderer. */
@@ -122,12 +130,13 @@ export interface VATData {
   numFrames: number
 }
 
-// Storage-buffer layout per primitive (16 floats = 64 bytes):
-//   [0..3]   typeAndSlots as u32 cast: type, paletteSlot, boneIdx, colorFunc
-//   [4..7]   params x/y/z/w
-//   [8..11]  offsetInBone x/y/z/_pad
-//   [12..15] slotB (u32) | colorExtent (f32) | blendGroup (u32) | blendRadius (f32, signed)
-const PRIM_STRIDE_FLOATS = 16
+// Storage-buffer layout per primitive (20 floats = 80 bytes):
+//   [0..3]    typeAndSlots as u32 cast: type, paletteSlot, boneIdx, colorFunc
+//   [4..7]    params x/y/z/w
+//   [8..11]   offsetInBone x/y/z/_pad
+//   [12..15]  slotB (u32) | colorExtent (f32) | blendGroup (u32) | blendRadius (f32, signed)
+//   [16..19]  rotation quat (x, y, z, w) — identity (0,0,0,1) if axis-aligned
+const PRIM_STRIDE_FLOATS = 20
 
 const RAYMARCH_SHADER = /* wgsl */ `
 struct Uniforms {
@@ -196,6 +205,17 @@ fn invertAffine(m: mat4x4<f32>) -> mat4x4<f32> {
     vec4f(Rt[2], 0.0),
     vec4f(inv_t, 1.0),
   );
+}
+
+// Rotate a vec3 by a quat (x,y,z,w). Standard v' = v + 2*cross(q.xyz, cross(q.xyz, v) + q.w*v).
+// Used to transform the march point into a primitive's oriented local frame.
+// We apply the INVERSE quat (negate xyz, keep w) in the caller so primitive
+// SDFs stay axis-aligned in their own eval space — cheaper than rotating
+// the primitive surface per sample.
+fn rotateByQuat(v: vec3f, q: vec4f) -> vec3f {
+  let u = q.xyz;
+  let s = q.w;
+  return v + 2.0 * cross(u, cross(u, v) + s * v);
 }
 
 // SDF primitive evaluators — point is already in primitive-local space.
@@ -371,7 +391,7 @@ fn sdFlame(p: vec3f, r: f32, h: f32, noiseAmp: f32, noiseFreq: f32, t: f32) -> f
 }
 
 fn evalPrim(primIdx: u32, pWorld: vec3f) -> f32 {
-  let base = primIdx * 4u;      // 4 vec4s per primitive (see PRIM_STRIDE_FLOATS)
+  let base = primIdx * 5u;      // 5 vec4s per primitive (see PRIM_STRIDE_FLOATS)
   let slots = bitcast<vec4u>(prims[base + 0u]);
   let primType    = slots.x;    // 'type' is a WGSL reserved keyword
   let boneIdx     = slots.z;
@@ -400,7 +420,20 @@ fn evalPrim(primIdx: u32, pWorld: vec3f) -> f32 {
   }
   let boneInv = invertAffine(boneWorld);
   let pBone = (boneInv * vec4f(pWorld, 1.0)).xyz;
-  let pPrim = pBone - offset;
+  // Primitive-local orientation: read quat from slot 4 and apply its inverse
+  // to the march point. Identity (0,0,0,1) is a no-op (the default), so most
+  // primitives pay zero cost beyond the load. A zero quat from zero-init
+  // storage would divide-by-zero implicitly via cross products of zeros —
+  // so we substitute identity when w==0 (the caller should set (0,0,0,1)
+  // but we're defensive).
+  let q0 = prims[base + 4u];
+  // Swap to identity if the record is zero-initialised (w=0, xyz=0). Callers
+  // should set (0,0,0,1) but defaulting to identity keeps legacy records
+  // rendering unrotated instead of collapsing to a zero-length quat.
+  let qIsZero = q0.w == 0.0 && all(q0.xyz == vec3f(0.0));
+  let q  = select(q0, vec4f(0.0, 0.0, 0.0, 1.0), qIsZero);
+  let qInv = vec4f(-q.x, -q.y, -q.z, q.w);
+  let pPrim = rotateByQuat(pBone - offset, qInv);
 
   switch (primType) {
     case 0u: { return sdSphere(pPrim, params.x); }
@@ -457,7 +490,7 @@ fn sceneSDF(pWorld: vec3f) -> SceneHit {
     groupIdx[g]    = 0u;
   }
   for (var i = 0u; i < u.numPrims; i = i + 1u) {
-    let base = i * 4u;
+    let base = i * 5u;
     let cfg  = prims[base + 3u];
     let groupPacked = bitcast<u32>(cfg.z);
     let blendR = cfg.w;
@@ -571,7 +604,7 @@ fn fs_main(in: VsOut) -> FsOut {
   // Procedural color: pick between slotA and slotB based on colorFunc.
   // Crisp 2-3 band palette selection — no interpolated RGB, stays on
   // the discrete palette so the pixel-art contract holds.
-  let base = hitPrim * 4u;   // 4 vec4s per primitive
+  let base = hitPrim * 5u;   // 5 vec4s per primitive
   let slots = bitcast<vec4u>(prims[base + 0u]);
   let colorCfg = prims[base + 3u];
   let slotsB = bitcast<vec4u>(prims[base + 3u]);
@@ -762,6 +795,12 @@ export function createRaymarchRenderer(
       f32[base + 13] = p.colorExtent ?? 0.1
       u32[base + 14] = p.blendGroup ?? 0
       f32[base + 15] = p.blendRadius ?? 0
+      // vec4 in slot 4: rotation quaternion (x, y, z, w). Identity if absent.
+      const rot = p.rotation ?? [0, 0, 0, 1]
+      f32[base + 16] = rot[0]
+      f32[base + 17] = rot[1]
+      f32[base + 18] = rot[2]
+      f32[base + 19] = rot[3]
     }
     device.queue.writeBuffer(primsBuffer!, 0, data)
     rebuildBindGroup()
