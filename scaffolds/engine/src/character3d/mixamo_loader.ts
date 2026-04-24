@@ -507,17 +507,17 @@ export const DEFAULT_ACCESSORIES: Accessory[] = [
   },
 ]
 
-export const DEFAULT_FACE: FaceFeature[] = [
-  { name: 'LeftEye',    parentName: 'Head',     offset: [ 0.055, 0.035, 0.195], displaySize: [0.028, 0.022, 0.008] },
-  { name: 'RightEye',   parentName: 'Head',     offset: [-0.055, 0.035, 0.195], displaySize: [0.028, 0.022, 0.008] },
-  // Pupils parented to eyes so eye scale + eye-direction changes bring
-  // pupils along for free. Offsets are in the eye's local frame (just a
-  // small +Z pushes the pupil onto the eye's front surface).
-  { name: 'LeftPupil',  parentName: 'LeftEye',  offset: [0, 0, 0.006], displaySize: [0.012, 0.014, 0.004] },
-  { name: 'RightPupil', parentName: 'RightEye', offset: [0, 0, 0.006], displaySize: [0.012, 0.014, 0.004] },
-  { name: 'Mouth',      parentName: 'Head',     offset: [0,    -0.065, 0.195], displaySize: [0.030, 0.012, 0.008] },
-  { name: 'Nose',       parentName: 'Head',     offset: [0,    -0.015, 0.205], displaySize: [0.013, 0.020, 0.018] },
-]
+/** Face features are PASTE-ON overlays now, not SDF primitives. Eyes,
+ *  mouth, nose, etc. get stamped onto the rendered sprite in a post
+ *  pass, indexed by expression — classic pixel-art face treatment.
+ *  The face SDF is just the skin surface (skull + jaw + cheeks, all
+ *  bound to the Head joint) so there's nothing muddy to fight with
+ *  at sprite-tier resolution.
+ *
+ *  Kept as an empty export so the extendRigWithFace plumbing doesn't
+ *  need to change; the overlay pass reads the Head joint's screen
+ *  position directly. */
+export const DEFAULT_FACE: FaceFeature[] = []
 
 /** Append face features to a rig. Returns a new rig array; does not
  *  mutate the input. The order in `face` matters — parents must precede

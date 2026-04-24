@@ -305,6 +305,18 @@ async function main() {
     let raymarchCacheApplied = -1
     function invalidateRaymarchCache() { raymarchCacheVersion++ }
 
+    /** Eye-dot glyphs per LOD, matching the NES/SNES→SotN pixel ladder.
+     *  All in screen-pixel units from the head's projected center:
+     *  (eyeGap, eyeYOff, halfW, halfH). halfW 0.4 = 1-column dot;
+     *  halfH 1.0 with half-integer yOff = 2-row vertical dot. */
+    const EYE_GLYPH: Record<SpriteMode, [number, number, number, number]> = {
+      link:    [1, -0.5, 0.4, 0.5],   // 24² — single vertical dot per eye
+      chibi:   [1, -0.5, 0.4, 1.0],   // 32² — 1×2 vertical dot (Mario/Link tier)
+      alucard: [3, -2.5, 0.4, 0.5],   // 80² — 1 px each (SotN minimum)
+      full:    [10, -8.0, 1.5, 1.0],  // 256² — 3×2 (SF-tier)
+    }
+    const EYE_COLOR: [number, number, number, number] = [0.10, 0.08, 0.20, 1.0]
+
     /** Two canonical body archetypes. 'normal' is 1:1 Mixamo proportions
      *  (adult human, all sliders at 1, secondaries off). 'chibi' is the
      *  big-head / short-limb silhouette. Sliders are gone — these two
@@ -648,6 +660,7 @@ async function main() {
 
     // --- Raymarch renderer: full chibi character as SDF primitives.
     const rightHandIdx = rig.findIndex((j) => j.name === 'RightHand')
+    const headIdx = rig.findIndex((j) => j.name === 'Head')
     const faceRaymarchPrims: RaymarchPrimitive[] =
       chibiRaymarchPrimitives(rig, material) as RaymarchPrimitive[]
     if (rightHandIdx >= 0) {
@@ -1007,6 +1020,38 @@ async function main() {
         raymarch.blitCacheToPass(scenePass, [centerX + panOffsetX, centerY + panOffsetY])
       }
       scenePass.end()
+
+      // Face paint-on: project the head joint to screen pixels so the
+      // outline shader knows where to stamp pupil dots. Camera is tuned
+      // for the LOD sprite cell, so NDC maps to cell pixels; blit centers
+      // the cell in the SCREEN_SIZE canvas.
+      if (headIdx >= 0 && composer) {
+        const m = composer.worldMatrices
+        const hBase = headIdx * 16
+        // Head joint position — bone's col3 (with the +Y tweak the chibi
+        // rig uses to lift the head above shoulders). We want the visible
+        // face anchor, so use col3 + CHIBI_CENTERED_OFFSET if present.
+        const headOff = [0, 0, 0]   // head model origin is bone origin
+        const wx = m[hBase + 0] * headOff[0] + m[hBase + 4] * headOff[1] + m[hBase + 8] * headOff[2] + m[hBase + 12]
+        const wy = m[hBase + 1] * headOff[0] + m[hBase + 5] * headOff[1] + m[hBase + 9] * headOff[2] + m[hBase + 13]
+        const wz = m[hBase + 2] * headOff[0] + m[hBase + 6] * headOff[1] + m[hBase + 10] * headOff[2] + m[hBase + 14]
+        // Project world → clip via view × projection.
+        const v = camera.view, p = camera.projection
+        const cx = p[0]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[4]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[8]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[12]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
+        const cy = p[1]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[5]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[9]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[13]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
+        const cw = p[3]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[7]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[11]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[15]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
+        const ndcX = cx / cw, ndcY = cy / cw
+        const spriteCfg = SPRITE_MODES[spriteMode]
+        const cellPxX = (ndcX * 0.5 + 0.5) * spriteCfg.w
+        const cellPxY = (1 - (ndcY * 0.5 + 0.5)) * spriteCfg.h   // flip Y (NDC up → pixel down)
+        const centerX = (SCREEN_SIZE - spriteCfg.w) / 2
+        const centerY = (SCREEN_SIZE - spriteCfg.h) / 2
+        outline.setFacePaint(
+          [centerX + cellPxX, centerY + cellPxY],
+          EYE_GLYPH[spriteMode],
+          EYE_COLOR,
+        )
+      }
 
       // Pass 2: outline shader reads sceneTex → writes canvas with NAVY ring.
       const canvasView = gpu.context.getCurrentTexture().createView()
