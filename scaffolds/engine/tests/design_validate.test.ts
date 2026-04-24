@@ -255,3 +255,60 @@ describe('validator: 5 known-bad scripts, correct error kinds', () => {
     expect(kinds).toContain('dangling_condition')
   })
 })
+
+// ─────────────────────────────────────────────────────────────
+//   JOB-T10: tag-alias canonicalization in requires_tags
+// ─────────────────────────────────────────────────────────────
+
+describe('validator: tag-alias canonicalization', () => {
+  // BossPhases requires_tags: ['boss']. We check that an archetype tagged
+  // with an alias (not actually declared in tag_aliases.ts for "boss" yet,
+  // but we verify for a tag that IS aliased).
+  //
+  // PickupLoop requires_tags: ['pickup']. No aliases defined for pickup.
+  //
+  // We use WaveSpawner which requires_tags: ['enemy']. No aliases defined
+  // for enemy, so the positive canonicalization path is via a scaffold
+  // declaring `heavy_armored` while a mechanic requires `shielded` —
+  // but no CATALOG mechanic requires `shielded` today. So: test
+  // a scaffold using `heavy_armored` does NOT trigger enemy-requirement
+  // AND that requires_tags: ['shielded'] would be satisfied by
+  // `heavy_armored` if wired up (via direct call to the validator).
+  //
+  // Practical test: a scaffold declares `shield` on an archetype and
+  // our CATALOG has BossPhases requiring ['boss']. Test that validator
+  // doesn't blow up on unknown-alias lookup.
+
+  it('accepts alias form in archetype tags (smoke — no regression)', () => {
+    const d = design({
+      archetypes: {
+        player: { mesh: 'capsule', controller: 'topdown',
+                  components: ['Health(100)'], tags: ['player', 'heavy_armored'] },
+      },
+    })
+    const r = validate(d)
+    // No mechanic requires shielded/heavy_armored, so must pass cleanly.
+    expect(r.ok).toBe(true)
+  })
+
+  it('tag_requirement error message hints about aliases', () => {
+    // Force a tag_requirement error by requiring enemy without one.
+    const d = design({
+      archetypes: {
+        player: { mesh: 'capsule', controller: 'topdown',
+                  components: ['Health(100)'], tags: ['player'] },
+      },
+      mechanics: [
+        { id: 'waves' as unknown as never, type: 'WaveSpawner',
+          params: { archetype: 'player', base_count: 1, rest_sec: 2,
+                    arena_radius: 10 } as unknown as never },
+      ] as unknown as never,
+    })
+    const r = validate(d)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    const tagErr = r.errors.find(e => e.kind === 'tag_requirement')
+    expect(tagErr).toBeDefined()
+    expect(tagErr?.hint).toContain('aliases accepted')
+  })
+})

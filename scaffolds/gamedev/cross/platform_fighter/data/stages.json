@@ -1,0 +1,91 @@
+{
+  "stages": {
+    "battlefield_roa": {
+      "source_essence": "2001_super_smash_bros_melee",
+      "display_name": "Battlefield (RoA variant)",
+      "layout": "3_soft_platforms_plus_1_solid_ground",
+      "bg_sprite": "sprites/stages/battlefield_roa",
+      "bgm_ref": "roa_menu_battlefield",
+      "bounds": { "width": 20, "height": 12 },
+      "platforms": [
+        { "kind": "main_ground", "at": [0, 0], "width": 20, "height": 1, "tags": ["platform_solid", "stage", "ground"] },
+        { "kind": "soft_platform", "at": [4, 4], "width": 5, "tags": ["platform_soft", "stage"] },
+        { "kind": "soft_platform", "at": [11, 4], "width": 5, "tags": ["platform_soft", "stage"] },
+        { "kind": "soft_platform", "at": [7.5, 7], "width": 5, "tags": ["platform_soft", "stage"] }
+      ],
+      "blast_zones": {
+        "left": -6, "right": 26, "top": 20, "bottom": -10,
+        "tags": ["blast_zone", "stage"]
+      },
+      "ledges": [
+        { "side": "left",  "at": [0, 1],  "tags": ["ledge", "ledge_grabable", "stage"] },
+        { "side": "right", "at": [20, 1], "tags": ["ledge", "ledge_grabable", "stage"] }
+      ],
+      "tags": ["stage", "platform_solid", "competitive_legal"]
+    },
+    "final_destination_roa": {
+      "source_essence": "2001_super_smash_bros_melee",
+      "display_name": "Final Destination (RoA variant)",
+      "layout": "1_solid_walk_off_free",
+      "bg_sprite": "sprites/stages/final_destination_roa",
+      "bgm_ref": "roa_menu_final_destination",
+      "bounds": { "width": 22, "height": 10 },
+      "platforms": [
+        { "kind": "main_ground", "at": [0, 0], "width": 22, "height": 1, "tags": ["platform_solid", "stage", "ground"] }
+      ],
+      "blast_zones": {
+        "left": -6, "right": 28, "top": 18, "bottom": -10,
+        "tags": ["blast_zone", "stage"]
+      },
+      "ledges": [
+        { "side": "left",  "at": [0, 1],  "tags": ["ledge", "ledge_grabable", "stage"] },
+        { "side": "right", "at": [22, 1], "tags": ["ledge", "ledge_grabable", "stage"] }
+      ],
+      "tags": ["stage", "platform_solid", "competitive_legal", "no_soft_platforms"]
+    },
+    "aethereal_gates": {
+      "source_essence": "2014_rivals_of_aether",
+      "display_name": "Aethereal Gates",
+      "layout": "2_soft_platforms_asymmetric_plus_1_solid",
+      "bg_sprite": "sprites/stages/aethereal_gates",
+      "bgm_ref": "roa_aethereal_gates",
+      "bounds": { "width": 22, "height": 14 },
+      "platforms": [
+        { "kind": "main_ground", "at": [0, 0], "width": 22, "height": 1, "tags": ["platform_solid", "stage", "ground"] },
+        { "kind": "soft_platform", "at": [4, 5], "width": 6, "tags": ["platform_soft", "stage"] },
+        { "kind": "soft_platform", "at": [13, 6], "width": 5, "tags": ["platform_soft", "stage"] }
+      ],
+      "blast_zones": {
+        "left": -6, "right": 28, "top": 20, "bottom": -10,
+        "tags": ["blast_zone", "stage"]
+      },
+      "ledges": [
+        { "side": "left",  "at": [0, 1],  "tags": ["ledge", "ledge_grabable", "stage"] },
+        { "side": "right", "at": [22, 1], "tags": ["ledge", "ledge_grabable", "stage"] }
+      ],
+      "tags": ["stage", "platform_solid", "competitive_legal", "roa_original"]
+    },
+    "mute_city_scrolling": {
+      "source_essence": "2001_super_smash_bros_melee",
+      "display_name": "Mute City (scrolling, cosmetic)",
+      "layout": "moving_stage_on_race_track",
+      "bg_sprite": "sprites/stages/mute_city",
+      "bgm_ref": "melee_mute_city",
+      "bounds": { "width": 24, "height": 14 },
+      "platforms": [
+        { "kind": "main_ground", "at": [0, 0], "width": 12, "height": 1, "tags": ["platform_solid", "stage", "ground", "moving_platform"] }
+      ],
+      "blast_zones": {
+        "left": -4, "right": 30, "top": 22, "bottom": -8,
+        "tags": ["blast_zone", "stage"]
+      },
+      "hazards": [
+        { "kind": "race_car", "damage": 18, "tags": ["hazard", "stage", "damage_source"] }
+      ],
+      "ledges": [
+        { "side": "left",  "at": [0, 1],  "tags": ["ledge", "ledge_grabable", "stage"] }
+      ],
+      "tags": ["stage", "platform_solid", "scrolling_stage", "walk_off", "casual_legal"]
+    }
+  }
+}

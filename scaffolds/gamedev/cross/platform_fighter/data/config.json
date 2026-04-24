@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "title": "Platform Fighter — Rivals-of-Aether cross-genre canary",
+    "shape": "platform_fighter",
+    "vibe": ["ssbm_melee_speed", "roa_parry_defense", "4_stock_free_for_all", "percentage_knockback"],
+    "target_session_sec": 480,
+    "cross_genre_blend": ["fighting", "platformer"],
+    "anchor_essences": ["2001_super_smash_bros_melee", "1991_street_fighter_ii", "2014_rivals_of_aether"]
+  },
+  "config": {
+    "mode": "2d",
+    "camera": "parallax_follow_centroid",
+    "playfield": { "kind": "stage", "stage_bounds": { "width": 32, "height": 18 } }
+  },
+  "match_rules": {
+    "mode": "stock",
+    "stocks_per_player": 4,
+    "match_timer_sec": 480,
+    "players_min": 2,
+    "players_max": 4,
+    "team_mode_allowed": true,
+    "friendly_fire_default": true
+  },
+  "starting_roster": ["zetterburn", "orcane", "clairen", "ranno"],
+  "starting_stage": "battlefield_roa",
+  "player_ref":     "player.json",
+  "characters_ref": "characters.json",
+  "stages_ref":     "stages.json",
+  "rules_ref":      "rules.json",
+  "mechanics_ref":  "mechanics.json",
+  "_comment": "Cross-genre canary for platform_fighter — the Smash/RoA lineage. Tests PercentKnockback (new mech, 1st cite SSBM) × PlatformFighterStage × StockElimination. TAG_ESSENCE_MAP.md projected ~86 tag-mentions; this scaffold delivers the seed. ninja_garden was built first as a metroidvania density-baseline; this is the low-key next move toward platform-fighter canon."
+}

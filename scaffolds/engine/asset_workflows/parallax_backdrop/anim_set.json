@@ -1,0 +1,72 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "parallax_backdrop",
+  "covers_plan_categories": [12],
+  "projection": "parallax_multi_layer",
+  "canvas": {"w": 1024, "h": 1024},
+  "note": "ERNIE native canvas is 1024²; multi-layer variants tile horizontally at runtime. Target resolutions (per INT-18 spec): NES-era 3200×224 single-layer · SNES/Genesis 3-layer 3200×224-per-layer · Mode-7 1024² tileable source.",
+
+  "layer_modes": {
+    "parallax_single": {
+      "layer_count": 1,
+      "scroll_speed_ratio": 1.0,
+      "ernie_calls_per_backdrop": 1,
+      "note": "NES-era single-scroll-register hardware. One image, scrolled at foreground rate (or slowed ratio, scene-defined)."
+    },
+    "parallax_3layer": {
+      "layer_count": 3,
+      "layers": [
+        {"name": "parallax_far", "scroll_speed_ratio": 0.25, "detail_density": "low", "ernie_call": 1},
+        {"name": "parallax_mid", "scroll_speed_ratio": 0.50, "detail_density": "medium", "ernie_call": 2},
+        {"name": "parallax_near", "scroll_speed_ratio": 0.75, "detail_density": "high", "ernie_call": 3}
+      ],
+      "ernie_calls_per_backdrop": 3,
+      "note": "SNES/Genesis/arcade era. Same biome + time_of_day across layers; detail + scroll-ratio differ. SEED SHARING: pin the same seed across far/mid/near calls → preserves biome-identity across layers."
+    },
+    "mode7": {
+      "layer_count": 2,
+      "layers": [
+        {"name": "mode7_horizon", "scroll_speed_ratio": 0.0, "note": "static upper band — sky + distant horizon"},
+        {"name": "mode7_floor", "scroll_speed_ratio": 1.0, "note": "tileable 1024² source; runtime does rotation + perspective warp"}
+      ],
+      "ernie_calls_per_backdrop": 2,
+      "note": "SMK / F-Zero / shmup-over-planet. The floor tile is the expensive output; horizon is static overlay."
+    },
+    "skybox_static": {
+      "layer_count": 1,
+      "scroll_speed_ratio": 0.0,
+      "ernie_calls_per_backdrop": 1,
+      "note": "Non-scrolling backdrop. Used by boss-arena-lock scenes or fixed screens (JRPG battle-screen backdrop)."
+    }
+  },
+
+  "frame_out_sizes": [256, 512, 1024, 3200],
+  "output_strategy": {
+    "parallax_single": "single 3200×224 horizontal PNG per backdrop",
+    "parallax_3layer": "three 3200×224 PNGs named backdrop_<name>_far.png / _mid.png / _near.png",
+    "mode7": "one 1024² tileable PNG + one 3200×112 horizon strip",
+    "skybox_static": "single 256×224 static PNG"
+  },
+
+  "biome_axis": {
+    "count_canonical": 20,
+    "examples": ["green_hill", "desert_dunes", "snow_peak", "urban_night", "cyberspace_grid", "space_starfield", "underwater_reef", "haunted_forest", "volcanic_caves", "sky_clouds", "rain_city", "castle_interior", "futuristic_city", "ancient_ruins", "lush_jungle", "arctic_tundra", "alien_landscape", "industrial_machinery", "meadow_pasture", "moonbase"]
+  },
+  "time_of_day_axis": {
+    "count": 5,
+    "values": ["dawn", "day", "dusk", "night", "abstract"]
+  },
+  "palette_mood_axis": {
+    "count_canonical": 10,
+    "examples": ["vibrant", "muted", "monochrome", "high_contrast", "pastel", "grunge", "neon", "warm_amber", "cool_cyan", "sepia_retro"]
+  },
+
+  "seam_blend_px": 16,
+  "tileable_width_target_px": 3200,
+
+  "implementation_notes": [
+    "Workflow is sister-spec'd (INT-18) → main-implemented 2026-04-22 after Shoal went dead. Same shape as tileable_terrain (ERNIE doesn't know about tileability — postprocess handles seamlessness).",
+    "Canary-phase ships 3 backdrops proving the 3 axes: single (Raiden vertical military), 3-layer (Sonic green-hill-zone), mode7 (Super Mario Kart track-side).",
+    "Future sub-workflow `parallax_animated` could replace static fog/aurora/waterfall layers with short N-frame cycles. Not in v1."
+  ]
+}

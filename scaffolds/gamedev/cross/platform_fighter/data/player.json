@@ -1,0 +1,46 @@
+{
+  "player": {
+    "archetype": "platform_fighter_slot",
+    "controller": "platformer",
+    "display_name": "P1 Fighter",
+    "components": [
+      "Health(0)",
+      "Resource('percentage', 0)",
+      "Resource('stocks', 4)",
+      "Resource('shield_hp', 60)",
+      "Resource('jumps_remaining', 2)",
+      "Resource('hitstun_frames', 0)"
+    ],
+    "tags": ["player", "controllable", "damageable", "has_percentage", "airborne", "grounded"],
+    "sprite_ref": "sprites/fighters/player_slot_p1",
+    "initial_state": "grounded_idle",
+    "movement": {
+      "walk_speed": 1.2,
+      "dash_speed": 2.2,
+      "run_speed": 2.4,
+      "jump_height": 3.4,
+      "double_jump_height": 2.6,
+      "fast_fall_multiplier": 1.4,
+      "air_friction": 0.02,
+      "gravity": -0.09,
+      "wavedash_enabled": true,
+      "l_cancel_enabled": false,
+      "auto_l_cancel": true,
+      "max_air_jumps": 1
+    },
+    "combat": {
+      "percentage_max": 999.0,
+      "knockback_formula": "sakurai_ssbm",
+      "hitstun_decay_frames": 40,
+      "shield_regen_per_frame": 0.08,
+      "shield_break_stun_frames": 180,
+      "parry_window_frames": 6,
+      "grab_active_frames": 4
+    },
+    "hud": {
+      "show_percentage": true,
+      "show_stocks": true,
+      "show_shield_hp": false
+    }
+  }
+}

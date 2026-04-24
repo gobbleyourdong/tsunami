@@ -703,6 +703,39 @@ export const CATALOG: Record<MechanicType, CatalogEntry> = {
     common_patches: ['tune gravity_scale for jump-feel', 'set time_scale < 1 for slow-mo', 'invert gravity for VVVVVV flip'],
   },
 
+  // v1.2 parallax extension — pairs with background_layer sprite kind
+  // (promoted 2026-04-22) + parallax_backdrop asset_workflow.
+  ParallaxScroll: {
+    type: 'ParallaxScroll',
+    description:
+      'Multi-layer backdrop scroll positioning. Reads follow_archetype ' +
+      'world-position each frame, applies per-layer scroll_speed_ratio ' +
+      '(0=static skybox, 1=foreground-pinned, 0.25=far depth), exposes ' +
+      'per-layer {offset_x, offset_y, layer_z} for the renderer to blit ' +
+      'background_layer sprites. Pairs with kind=background_layer and ' +
+      'asset_workflows/parallax_backdrop/ output PNGs.',
+    example_params: {
+      follow_archetype: 'player',
+      axes: 'horizontal',
+      layers: [
+        { sprite_id: 'sonic_green_hill_far', scroll_speed_ratio: 0.25, layer_z: -10 },
+        { sprite_id: 'sonic_green_hill_mid', scroll_speed_ratio: 0.5, layer_z: -5 },
+        { sprite_id: 'sonic_green_hill_near', scroll_speed_ratio: 0.75, layer_z: 0 },
+      ],
+    },
+    requires_components: [],  // reads Position off follow_archetype via scene.entities walk
+    emits_fields: ['layer_offsets', 'follow_pos'],
+    tier: 'v1_ext',
+    priority_class: 'default',
+    composability_score: 'high',
+    common_patches: [
+      'swap sprite_id per layer when loading a new biome',
+      'add 4th layer for skybox (scroll_speed_ratio: 0)',
+      'enable axes="both" for vertical parallax shmups',
+      'set bounds to halt scroll at level edges',
+    ],
+  },
+
   // v2 anthology pattern — per numerics note_011
   MinigamePool: {
     type: 'MinigamePool',

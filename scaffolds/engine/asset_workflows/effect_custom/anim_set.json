@@ -1,0 +1,90 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "effect_custom",
+  "covers_plan_categories": [14],
+  "projection": "flat_2d_short_animation",
+  "canvas": {"w": 1024, "h": 1024},
+  "note": "Per-game custom VFX generation. Complements vfx_library (20 pre-rendered canonical effects) — effect_custom lets a scaffold produce title-specific variants that match the game's palette + pixel-art era. 5 sub_kinds per sister's extraction taxonomy.",
+
+  "_data_driven_design": "Based on corpus analysis (99 effect_layer animations, 25 essences): sub_kinds distribute as explosion_vfx (22), spell_vfx (14), aura_vfx (12), atmospheric_vfx (4), summon_vfx (1). Bimodal canvas sizes: 16×16 hit-sparks vs 128×128 explosions. Most are 4-frame horizontal strips; aura_vfx tend to be 8-frame loops.",
+
+  "sub_kinds": {
+    "explosion_vfx": {
+      "description": "Destruction burst — death, bomb, crash, boss-destruction. High-contrast, short-lived.",
+      "canonical_size_px": [16, 16],
+      "alt_sizes": [[64, 64], [128, 128]],
+      "frame_count": 4,
+      "duration_ms": 250,
+      "blend_mode": "alpha_over",
+      "notes": "Small-variant is 16×16 impact-spark; large-variant is 128×128 death-explosion. Scaffolds pick per-use-case."
+    },
+    "spell_vfx": {
+      "description": "Magic cast animation — fire / ice / heal / thunder / summon. Multi-frame arc or sustained glow.",
+      "canonical_size_px": [32, 32],
+      "alt_sizes": [[64, 64], [128, 128]],
+      "frame_count": 8,
+      "duration_ms": 1000,
+      "blend_mode": "alpha_over",
+      "notes": "JRPG spell canonical. 8 frames covers a full cast arc (gather → peak → dissipate). Dragon Quest is the dominant reference essence."
+    },
+    "aura_vfx": {
+      "description": "Persistent glow / shimmer / charge — buff / invulnerability / power-up-active.",
+      "canonical_size_px": [32, 32],
+      "alt_sizes": [[16, 16], [64, 64]],
+      "frame_count": 8,
+      "duration_ms": "sustained",
+      "loop": true,
+      "blend_mode": "screen",
+      "notes": "Unlike explosion/spell (fire-and-forget), aura loops while the status is active. Screen-blend is more common here than alpha-over."
+    },
+    "atmospheric_vfx": {
+      "description": "Ambient scene-level effect — rain / fog / sparks / ember-drift / dust-motes.",
+      "canonical_size_px": [64, 64],
+      "alt_sizes": [[128, 128], [256, 256]],
+      "frame_count": 6,
+      "duration_ms": "sustained",
+      "loop": true,
+      "blend_mode": "alpha_over",
+      "notes": "Scene-attached, not entity-attached. Tiled + alpha-feathered at scene edges for seamless multi-region coverage."
+    },
+    "summon_vfx": {
+      "description": "Summon/teleport/warp portal — enemy spawn, boss-appear, warp-in, summon-creature.",
+      "canonical_size_px": [64, 64],
+      "alt_sizes": [[32, 32], [128, 128]],
+      "frame_count": 10,
+      "duration_ms": 1500,
+      "blend_mode": "alpha_over",
+      "notes": "Longer than explosion (gather-phase + emergence). Final Fantasy summon-in canonical. One essence currently (`1991_final_fantasy_iv`); backfill targets listed in SPRITE_SUBKIND_ESSENCE_MAP.md sole-contributor warnings."
+    }
+  },
+
+  "ernie_calls_per_effect": 1,
+  "ernie_ballpark_time_s": 25,
+
+  "frame_out_sizes": [16, 32, 64, 128, 256],
+
+  "palette_presets": {
+    "fire_orange": "orange-red flames with yellow core — classic explosion palette",
+    "ice_cyan": "cyan-white crystalline shards — ice magic / freeze effects",
+    "electric_yellow": "bright yellow zig-zag with white core — thunder / lightning magic",
+    "holy_white": "pure white with gold highlights + radial rays — heal / divine magic",
+    "dark_purple": "deep purple with black core — necromancy / summon / curse",
+    "green_plasma": "translucent green particle glow — poison / alien / nature magic",
+    "rainbow_glitter": "multi-color sparkles — power-up-active / item-collect aura",
+    "blood_red": "dark red with sharp edges — gore / critical-hit / death",
+    "smoke_grey": "grey puff cloud, wispy — teleport / smoke-bomb / atmospheric haze",
+    "water_blue": "blue translucent ripple — water magic / splash",
+    "rain_streaks": "diagonal grey streaks — rain atmospheric",
+    "ember_float": "small orange points drifting upward — ember-drift atmospheric",
+    "spark_flash": "white radial burst — hit-spark impact"
+  },
+
+  "implementation_notes": [
+    "Identity preservation is NOT required — each effect call is standalone. Seed is for reproducibility.",
+    "Mode='icon' (magenta chromakey → transparent RGBA) for all effect sub_kinds. Effects need alpha for compositing.",
+    "Explosion bimodal sizes: 16×16 hit-spark (small) vs 128×128 death-explosion (large). Scaffolds pick via `cell_size_px` param at call-time.",
+    "Aura_vfx is the one sub_kind that NEEDS to loop seamlessly — end-frame should match start-frame. Prompt the template with 'loops back to frame 1' instruction; postprocess verifies via pixel-diff between frame[0] and frame[-1].",
+    "Atmospheric tiled effects (rain/fog) need horizontal tileability — same feather-edge pass as parallax_backdrop workflow.",
+    "Runtime handles rotation for atmospheric direction variance (rain angle, dust drift). Single-direction generation + runtime-transform saves ERNIE calls."
+  ]
+}

@@ -18,7 +18,7 @@
       "time_signature": [4, 4],
       "boundary": { "kind": "rect", "width": 14 },
       "on_beat_fx": "stage_pulse_on_beat",
-      "tags": ["stage", "rhythm_themed"]
+      "tags": ["stage"]
     },
     "metal_coliseum": {
       "display_name": "Metal Coliseum",

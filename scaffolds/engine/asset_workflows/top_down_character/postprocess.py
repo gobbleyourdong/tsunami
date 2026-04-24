@@ -152,6 +152,58 @@ def _tight_crop(src: Path, out_side: int = 256, pad_px: int = 24) -> Image.Image
     return canvas.resize((out_side, out_side), Image.LANCZOS)
 
 
+def assemble_from_corpus(
+    essence: str, animation_name: str,
+    direction_to_frame: dict[str, Path],
+    out_dir: Path, cell_px: int = 256,
+) -> dict[str, Path] | None:
+    """Assemble a blockout driven by a harvested corpus spec.
+
+    Loads `scaffolds/.claude/blockouts/<essence>/<animation_name>.json`
+    (emitted by `.claude/tools/character_blockout_extractor.py`) and
+    uses its directions + anim_frame_targets instead of the hardcoded
+    defaults in `assemble_movement_loop_blockout`. Identity in the
+    output sheet's `.spec.json` carries back to the canonical source
+    game — future animation passes can reference it for identity lock.
+
+    Returns None if no corpus spec exists for (essence, animation_name).
+    """
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).parent.parent / "_common"))
+    from blockout_loader import load_blockout, to_blockout_spec  # noqa: E402
+    from character_blockout import assemble_movement_blockout  # noqa: E402
+
+    raw = load_blockout(essence, animation_name)
+    if raw is None:
+        return None
+    spec = to_blockout_spec(raw)
+
+    staging = out_dir / "_staging_blockout"
+    staging.mkdir(parents=True, exist_ok=True)
+    cropped_map: dict[str, Path] = {}
+    for d, src in direction_to_frame.items():
+        if not src.exists():
+            continue
+        cropped = _tight_crop(src, out_side=cell_px)
+        p = staging / f"{essence}_{animation_name}_{d}.png"
+        cropped.save(p, format="PNG", optimize=True)
+        cropped_map[d] = p
+
+    character_id = f"{essence}_{animation_name}"
+    sheet_p, manifest_p, spec_p = assemble_movement_blockout(
+        cropped_map, spec,
+        out_sheet=out_dir / f"{character_id}_movement_blockout.png",
+        out_manifest=out_dir / f"{character_id}_movement_blockout.manifest.json",
+        labeled_preview=out_dir / f"{character_id}_movement_blockout_preview.png",
+    )
+    return {
+        "sheet": sheet_p, "manifest": manifest_p, "spec": spec_p,
+        "labeled": out_dir / f"{character_id}_movement_blockout_preview.png",
+        "source_essence": essence,
+        "source_animation": animation_name,
+    }
+
+
 def assemble_movement_loop_blockout(
     direction_to_frame: dict[str, Path],
     out_dir: Path,

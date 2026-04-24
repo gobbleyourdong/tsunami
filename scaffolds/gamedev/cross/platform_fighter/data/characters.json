@@ -1,0 +1,100 @@
+{
+  "characters": {
+    "zetterburn": {
+      "source_essence": "2014_rivals_of_aether",
+      "display_name": "Zetterburn",
+      "components": ["Health(0)", "Resource('percentage',0)", "Resource('stocks',4)"],
+      "tags": ["fighter", "shoto", "rushdown", "has_percentage", "grounded"],
+      "weight": 92,
+      "fall_speed": 1.2,
+      "archetype_summary": "fire-lion shoto-rushdown; burn-status DOT pressure; fast medium-range",
+      "sprite_ref": "sprites/fighters/zetterburn",
+      "move_list_ref": "zetterburn_moveset",
+      "canonical_alias": ["roa_zetterburn", "fire_lion"]
+    },
+    "orcane": {
+      "source_essence": "2014_rivals_of_aether",
+      "display_name": "Orcane",
+      "components": ["Health(0)", "Resource('percentage',0)", "Resource('stocks',4)"],
+      "tags": ["fighter", "zoner", "has_percentage", "airborne", "fast_faller"],
+      "weight": 75,
+      "fall_speed": 1.5,
+      "archetype_summary": "puddle-teleport zoner; bubble-puddle edgeguard traps; pressure via puddle-dash",
+      "sprite_ref": "sprites/fighters/orcane",
+      "move_list_ref": "orcane_moveset",
+      "canonical_alias": ["roa_orcane"]
+    },
+    "clairen": {
+      "source_essence": "2014_rivals_of_aether",
+      "display_name": "Clairen",
+      "components": ["Health(0)", "Resource('percentage',0)", "Resource('stocks',4)"],
+      "tags": ["fighter", "shoto", "has_percentage", "tipper_reward"],
+      "weight": 80,
+      "fall_speed": 1.1,
+      "archetype_summary": "plasma-sword tipper-reward; disjoint-hitbox range; Marth-lineage",
+      "sprite_ref": "sprites/fighters/clairen",
+      "move_list_ref": "clairen_moveset",
+      "canonical_alias": ["roa_clairen"]
+    },
+    "ranno": {
+      "source_essence": "2014_rivals_of_aether",
+      "display_name": "Ranno",
+      "components": ["Health(0)", "Resource('percentage',0)", "Resource('stocks',4)"],
+      "tags": ["fighter", "zoner", "has_percentage", "poison_dot_inflictor"],
+      "weight": 78,
+      "fall_speed": 1.25,
+      "archetype_summary": "frog-ninja zoner; darts + bubbles + dash-parry; poison-DOT finisher",
+      "sprite_ref": "sprites/fighters/ranno",
+      "move_list_ref": "ranno_moveset",
+      "canonical_alias": ["roa_ranno"]
+    },
+    "kragg": {
+      "source_essence": "2014_rivals_of_aether",
+      "display_name": "Kragg",
+      "components": ["Health(0)", "Resource('percentage',0)", "Resource('stocks',4)"],
+      "tags": ["fighter", "heavy", "grappler", "has_percentage", "grounded", "armored_pack"],
+      "weight": 115,
+      "fall_speed": 1.6,
+      "archetype_summary": "stone-armadillo heavy-grappler; rock-spawn stage-control; pillar-up recovery",
+      "sprite_ref": "sprites/fighters/kragg",
+      "move_list_ref": "kragg_moveset",
+      "canonical_alias": ["roa_kragg"]
+    },
+    "wrastor": {
+      "source_essence": "2014_rivals_of_aether",
+      "display_name": "Wrastor",
+      "components": ["Health(0)", "Resource('percentage',0)", "Resource('stocks',4)"],
+      "tags": ["fighter", "rushdown", "has_percentage", "airborne", "multi_jump"],
+      "weight": 68,
+      "fall_speed": 0.85,
+      "archetype_summary": "bird-wrestler aerial-rushdown; multi-jump; low-to-ground fighting awkward by design",
+      "sprite_ref": "sprites/fighters/wrastor",
+      "move_list_ref": "wrastor_moveset",
+      "canonical_alias": ["roa_wrastor"]
+    },
+    "absa": {
+      "source_essence": "2014_rivals_of_aether",
+      "display_name": "Absa",
+      "components": ["Health(0)", "Resource('percentage',0)", "Resource('stocks',4)"],
+      "tags": ["fighter", "zoner", "has_percentage", "float", "cloud_placer"],
+      "weight": 72,
+      "fall_speed": 0.9,
+      "archetype_summary": "goat-priestess cloud-placer-zoner; electrify-cloud-zone traps; Peach-float-lineage",
+      "sprite_ref": "sprites/fighters/absa",
+      "move_list_ref": "absa_moveset",
+      "canonical_alias": ["roa_absa"]
+    },
+    "maypul": {
+      "source_essence": "2014_rivals_of_aether",
+      "display_name": "Maypul",
+      "components": ["Health(0)", "Resource('percentage',0)", "Resource('stocks',4)"],
+      "tags": ["fighter", "rushdown", "has_percentage", "tether_recoverable", "combo-heavy"],
+      "weight": 72,
+      "fall_speed": 1.1,
+      "archetype_summary": "lizard-huntress combo-rushdown; seed-marker zoning-into-combos; tether recovery",
+      "sprite_ref": "sprites/fighters/maypul",
+      "move_list_ref": "maypul_moveset",
+      "canonical_alias": ["roa_maypul"]
+    }
+  }
+}

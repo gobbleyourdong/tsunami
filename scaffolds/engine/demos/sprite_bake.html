@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tsunami Engine — Sprite Atlas Bake</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: #0a0a0f; color: #ccc;
+      font-family: monospace; overflow: hidden;
+    }
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    canvas {
+      width: 1024px;
+      max-width: 100vw;
+      height: auto;
+      aspect-ratio: 8 / 1;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      display: block;
+      background: #111;
+      outline: 1px solid #222;
+    }
+    #controls {
+      display: flex; gap: 12px; align-items: center;
+      font-size: 14px;
+    }
+    button {
+      background: #1a2b4a; color: #cde; border: 1px solid #345;
+      padding: 8px 16px; font-family: inherit; font-size: 13px;
+      cursor: pointer; border-radius: 3px;
+    }
+    button:hover { background: #263a5c; }
+    #stats {
+      position: fixed; top: 12px; left: 12px;
+      background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 4px;
+      font-size: 12px; line-height: 1.6; white-space: pre;
+    }
+    #error {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #1a0000; border: 1px solid #660000; padding: 24px; border-radius: 8px;
+      max-width: 500px; display: none; text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="1024" height="128"></canvas>
+  <div id="controls">
+    <span>Frame: <span id="frameIdx">0</span> / <span id="frameTotal">0</span></span>
+    <button id="prev">◀ Prev</button>
+    <button id="next">Next ▶</button>
+    <button id="playpause">Pause</button>
+    <button id="save">Save PNG</button>
+    <button id="bakeAll">Bake Display Atlas (RGB preview)</button>
+    <button id="bakeGBuffer">Bake G-Buffer Atlas (idx+normals+depth)</button>
+  </div>
+  <div id="stats"></div>
+  <div id="error"></div>
+  <script type="module" src="./sprite_bake.ts"></script>
+</body>
+</html>

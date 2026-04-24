@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tsunami Engine — Atlas Runtime Consumer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: #0a0a0f; color: #ccc;
+      font-family: monospace; overflow: hidden;
+    }
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 20px; }
+    canvas {
+      width: 512px; height: 448px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      background: #111;
+      outline: 1px solid #222;
+    }
+    #controls {
+      display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+      font-size: 12px;
+      max-width: 800px;
+    }
+    .swatch-row { display: flex; gap: 6px; align-items: center; }
+    .swatch { width: 28px; height: 28px; border: 1px solid #333; cursor: pointer; border-radius: 2px; }
+    .swatch.active { outline: 2px solid #fc4; }
+    label { display: flex; align-items: center; gap: 6px; }
+    input[type="range"] { width: 100px; }
+    #stats {
+      position: fixed; top: 12px; left: 12px;
+      background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 4px;
+      font-size: 11px; line-height: 1.5; white-space: pre;
+    }
+    #error {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #1a0000; border: 1px solid #660000; padding: 24px; border-radius: 8px;
+      max-width: 500px; display: none; text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="256" height="224"></canvas>
+  <div id="controls">
+    <div class="swatch-row">
+      <span>View:</span>
+      <button data-view="0">N</button>
+      <button data-view="1">NE</button>
+      <button data-view="2">E</button>
+      <button data-view="3">SE</button>
+      <button data-view="4">S</button>
+      <button data-view="5">SW</button>
+      <button data-view="6">W</button>
+      <button data-view="7">NW</button>
+    </div>
+    <label>Light θ: <input id="lightTheta" type="range" min="0" max="360" value="45"></label>
+    <label>Light φ: <input id="lightPhi"   type="range" min="0" max="90"  value="50"></label>
+    <div class="swatch-row" id="palette"></div>
+  </div>
+  <div id="stats"></div>
+  <div id="error"></div>
+  <script type="module" src="./atlas_runtime.ts"></script>
+</body>
+</html>

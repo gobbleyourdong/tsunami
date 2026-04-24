@@ -58,6 +58,8 @@ import './route_map'
 // Phase 5 — audio v1.1 (2 mechanics).
 import './chip_music'
 import './sfx_library'
+// Phase 5b — parallax v1.2 (1 mechanic; pairs with background_layer kind).
+import './parallax_scroll'
 // Phase 6 — JRPG v1.2 cluster. Implementations land incrementally per cycle.
 import './level_up_progression'
 import './turn_based_combat'

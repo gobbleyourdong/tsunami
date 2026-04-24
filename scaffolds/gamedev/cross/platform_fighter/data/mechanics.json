@@ -1,0 +1,116 @@
+{
+  "mechanics": [
+    {
+      "id": "platform_fighter_stage",
+      "type": "PlatformFighterStage",
+      "comment": "NEW 1st-cite (SSBM). Multi-platform 2.5D stage with blast-zone KO boundaries, ledges, walk-off toggles. Replaces conventional arena playfield for this genre.",
+      "params": {
+        "stages_ref": "stages.json",
+        "blast_zone_ko_threshold": { "field": "percentage", "compare": "launched_across_boundary" },
+        "ledge_grab_window_frames": 6,
+        "edge_teeter_allowed": true,
+        "walk_off_default": false
+      },
+      "requires_tags": ["stage", "blast_zone"]
+    },
+    {
+      "id": "percent_knockback",
+      "type": "PercentKnockback",
+      "comment": "NEW 1st-cite (SSBM). Damage tracker per-fighter: HIGHER damage = MORE launch distance. No HP depletion; KO via blast-zone.",
+      "params": {
+        "percentage_field": "percentage",
+        "knockback_formula": "sakurai_ssbm",
+        "base_knockback_growth_ratio": 1.4,
+        "max_launch_velocity": 40.0,
+        "weight_influence": true,
+        "weight_field": "weight"
+      },
+      "requires_tags": ["has_percentage"]
+    },
+    {
+      "id": "stock_elimination",
+      "type": "StockElimination",
+      "comment": "NEW 1st-cite (SSB64). Lives-as-stocks, distinct from LoseOnZero's HP-reset. Stocks persist across a match.",
+      "params": {
+        "stocks_field": "stocks",
+        "on_blast_zone_cross": "decrement_stocks_and_respawn",
+        "respawn_invulnerability_frames": 120,
+        "match_end_when_one_player_remains": true
+      },
+      "requires_tags": ["has_percentage", "player"]
+    },
+    {
+      "id": "shielding_and_parry",
+      "type": "DefensiveWindow",
+      "comment": "Shield-button spawns breakable shield bubble; parry-window (6f) reflects attacks (RoA signature divergence from Smash shield-grab).",
+      "params": {
+        "shield_hp_field": "shield_hp",
+        "shield_regen_per_frame_field": "shield_regen_per_frame",
+        "parry_window_frames": 6,
+        "shield_break_stun_frames": 180
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "hit_launch_dispatcher",
+      "type": "AttackFrames",
+      "comment": "Standard attack-startup/active/recovery frame windows, with aerial / grounded attack variant dispatch based on airborne/grounded tag flag on owner.",
+      "params": {
+        "owner_tag": "player",
+        "character_ref": "characters.json",
+        "air_attack_variants": ["nair", "fair", "bair", "uair", "dair"],
+        "ground_attack_variants": ["jab", "ftilt", "utilt", "dtilt", "fsmash", "usmash", "dsmash", "dash_attack"],
+        "special_variants": ["neutral_b", "side_b", "up_b", "down_b"],
+        "air_landed_lag_frames": 8
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "ledge_recovery",
+      "type": "LedgeGrab",
+      "comment": "Edge-grab + ledge-getup options (get-up, roll, jump, attack). Key recovery-edgeguard subgame.",
+      "params": {
+        "owner_tag": "player",
+        "ledge_grab_range": 1.5,
+        "ledge_intangibility_frames": 24,
+        "getup_options": ["neutral", "roll", "jump", "attack"]
+      },
+      "requires_tags": ["player", "ledge"]
+    },
+    {
+      "id": "advanced_tech_wavedash",
+      "type": "AirDodgeToGround",
+      "comment": "Melee-era emergent-tech preserved in RoA. Air-dodge into ground within 3 frames converts to horizontal slide. Removed from Smash 4/Ultimate; kept in RoA by design intent.",
+      "params": {
+        "owner_tag": "player",
+        "wavedash_window_frames": 3,
+        "wavedash_angle_deg": 20,
+        "preserve_forward_momentum": true
+      },
+      "requires_tags": ["player"]
+    },
+    {
+      "id": "platform_fighter_camera",
+      "type": "CameraFollow",
+      "params": {
+        "target_mode": "centroid_of_alive_fighters",
+        "zoom_mode": "fit_all_fighters_plus_margin",
+        "margin_pct": 0.15,
+        "lerp": 0.12
+      }
+    },
+    {
+      "id": "platform_fighter_hud",
+      "type": "HUD",
+      "params": {
+        "fields": [
+          { "archetype": "player", "component": "percentage", "label": "%" },
+          { "archetype": "player", "component": "stocks",     "label": "Stocks" }
+        ],
+        "layout": "bottom_row_per_player",
+        "show_percentage_color_escalation": true
+      },
+      "requires_tags": ["player"]
+    }
+  ]
+}

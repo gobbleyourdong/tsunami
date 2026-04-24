@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tsunami Engine — VAT Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: #0a0a0f; color: #ccc;
+      font-family: monospace; overflow: hidden;
+    }
+    body {
+      display: flex; align-items: center; justify-content: center;
+    }
+    /* Canvas pixel buffer is fixed at width/height attributes (256x224 = SNES).
+       Display scales to fit the window while LOCKING aspect ratio (8:7) —
+       never stretches. image-rendering: pixelated keeps the upscale crisp. */
+    canvas {
+      width: min(100vw, calc(100vh * 8 / 7));
+      height: min(100vh, calc(100vw * 7 / 8));
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      display: block;
+    }
+    #stats {
+      position: fixed; top: 12px; left: 12px;
+      background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 4px;
+      font-size: 13px; line-height: 1.6; z-index: 10; white-space: pre;
+    }
+    #error {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #1a0000; border: 1px solid #660000; padding: 24px; border-radius: 8px;
+      max-width: 500px; display: none; text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="256" height="224"></canvas>
+  <div id="stats"></div>
+  <div id="error"></div>
+  <script type="module" src="./vat_demo.ts"></script>
+</body>
+</html>

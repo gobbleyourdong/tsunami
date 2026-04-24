@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "match": {
+      "mode": "stock",
+      "stocks_per_player": 4,
+      "match_timer_sec": 480,
+      "sudden_death_percentage": 300,
+      "handicaps_allowed": false,
+      "item_frequency": "none"
+    },
+    "ko_resolution": {
+      "blast_zone_ko_threshold": "launched_past_boundary",
+      "respawn_height": 6.0,
+      "respawn_invulnerability_frames": 120,
+      "self_destruct_counts_as_stock_loss": true
+    },
+    "tags_consumed": ["player", "stage", "blast_zone", "ledge", "has_percentage"]
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "../_schema/anim_set.schema.json",
+  "workflow": "projectile_sprites",
+  "covers_plan_categories": [13],
+  "projection": "flat_2d_short_animation",
+  "canvas": {"w": 1024, "h": 1024},
+  "note": "Projectile sprites are small (canonical 8×8 or 16×16), short animations (1-4 frames), and don't need identity preservation across variants. ERNIE canvas 1024² is WAY oversized — output is cropped to the target cell size. Lowest-risk ERNIE workflow in the library.",
+
+  "_data_driven_design": "Based on corpus analysis (49 projectile animations, 14 essences): canonical sizes are 16×16 (37%), 8×8 (33%), 16×8 (12%), 48×8 (8%). Dominant sub_kinds: special_attack_proj (17), melee_thrown (4), gun_proj (4), missile (2), explosive (1). 21 entries are untagged — JOB-INT-15 backfill candidate.",
+
+  "sub_kinds": {
+    "gun_proj": {
+      "description": "Firearm pellet / beam — generic small shot. Player or enemy.",
+      "canonical_size_px": [8, 8],
+      "frame_count": 1,
+      "alt_sizes": [[16, 8], [16, 16]],
+      "notes": "Typically single-frame with motion blur optional. Directional variants achievable via runtime rotation rather than sprite-per-direction."
+    },
+    "special_attack_proj": {
+      "description": "Character-unique projectile (hadoken / charge-shot / wave-beam). Identity-tied to a specific character, larger + more detailed.",
+      "canonical_size_px": [16, 16],
+      "frame_count": 4,
+      "alt_sizes": [[32, 16], [24, 24]],
+      "notes": "Frame-count 4 covers the typical travel animation (pulsing or energy-trail). Character-specific → seed per character, not per projectile."
+    },
+    "missile": {
+      "description": "Homing / long-range projectile with distinct head + trail.",
+      "canonical_size_px": [16, 16],
+      "frame_count": 4,
+      "alt_sizes": [[16, 8]],
+      "notes": "Often has a visible trail that needs to read during scrolling. Frame-count 4 for the thrust-pulse animation."
+    },
+    "melee_thrown": {
+      "description": "Thrown melee weapon (dagger / axe / cross / shuriken). Ballistic arc or straight-line.",
+      "canonical_size_px": [16, 16],
+      "frame_count": 4,
+      "alt_sizes": [[24, 24]],
+      "notes": "Usually has a rotation animation — 4 frames covers a 90° or full rotation. Pre-rotated variants beat runtime-rotate for 8-bit feel."
+    },
+    "explosive": {
+      "description": "Area-damage projectile (grenade / bomb / explosive arrow). Terminates in explosion_vfx spawn.",
+      "canonical_size_px": [16, 16],
+      "frame_count": 4,
+      "alt_sizes": [[24, 24]],
+      "notes": "Frame-count 4 covers the fuse-pulse travel animation (bright-dim alternation). Impact spawns an explosion_vfx from the vfx_library."
+    }
+  },
+
+  "ernie_calls_per_projectile": 1,
+  "ernie_ballpark_time_s": 20,
+
+  "frame_out_sizes": [8, 16, 24, 32, 48],
+
+  "palette_presets": {
+    "yellow_pellet": "bright yellow with white center core — classic 8-bit blaster shot",
+    "red_energy": "red-orange energy ball — often enemy shot",
+    "blue_beam": "blue-cyan beam — samus wave-beam canonical",
+    "green_plasma": "green plasma / alien weapon",
+    "white_missile": "white metallic missile with orange exhaust trail",
+    "brown_dagger": "brown-silver thrown dagger with blade highlight",
+    "grey_bomb": "dark grey metal bomb with red fuse light",
+    "purple_magic": "purple magical spell projectile with sparkle",
+    "rainbow_powerup": "multi-color power shot (rare, signature projectile)"
+  },
+
+  "implementation_notes": [
+    "Identity preservation is NOT required per-projectile (unlike character workflow). Seed is just for reproducibility.",
+    "The ERNIE 1024² → crop to 8×8 means most of the canvas is discarded — that's fine. Prompt the projectile centered on a magenta-chromakey background + use mode='icon' for transparent cutout.",
+    "Single-frame projectiles (gun_proj) skip the strip-assembly step.",
+    "Multi-frame projectiles (4-frame travel anims) get assembled into a 4x1_horizontal_strip via sprite_sheet_asm.assemble_strip().",
+    "Runtime handles direction: sprites are always produced facing E (right); flip_horizontal handles W, rotation handles N/S/diagonals. Avoids a 4× or 8× sprite-gen multiplier."
+  ]
+}

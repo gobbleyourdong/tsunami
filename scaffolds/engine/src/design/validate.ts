@@ -24,6 +24,7 @@ import type {
   ValidationResult,
 } from './schema'
 import { CATALOG } from './catalog'
+import { canonicalize } from './tag_aliases'
 
 // All MechanicType values accepted by the typed catalog.
 const KNOWN_MECHANIC_TYPES: Set<string> = new Set(Object.keys(CATALOG))
@@ -140,7 +141,7 @@ export function validate(raw: DesignScript): ValidationResult {
     : new Set()
   for (const [aid, arch] of Object.entries(raw.archetypes ?? {})) {
     const p = `archetypes[${JSON.stringify(aid)}]`
-    ;(arch.tags ?? []).forEach(t => tagUnion.add(t))
+    ;(arch.tags ?? []).forEach(t => tagUnion.add(canonicalize(t)))
     for (let ci = 0; ci < (arch.components ?? []).length; ci++) {
       const c = arch.components[ci]
       if (parseComponent(c) === null) {
@@ -183,11 +184,11 @@ export function validate(raw: DesignScript): ValidationResult {
     })
     const entry = CATALOG[m.type as MechanicType]
     if (entry?.requires_tags) {
-      const missing = entry.requires_tags.filter(t => !tagUnion.has(t))
+      const missing = entry.requires_tags.filter(t => !tagUnion.has(canonicalize(t)))
       if (missing.length > 0) {
         errors.push(err('tag_requirement', `${p}.type`,
           `${m.type} requires tags ${missing.join(', ')} on some archetype, none found`,
-          { hint: 'add these tags to an archetype in design.archetypes' }))
+          { hint: 'add these tags to an archetype in design.archetypes (aliases accepted — see tag_aliases.ts)' }))
       }
     }
   }

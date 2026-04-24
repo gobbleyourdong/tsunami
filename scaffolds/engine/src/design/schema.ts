@@ -153,6 +153,8 @@ export type MechanicType =
   | 'ProceduralRoomChain' | 'BulletPattern' | 'RouteMap'
   // v1.1 (audio extension — attempt_004 / audio_handoff.md)
   | 'ChipMusic' | 'SfxLibrary'
+  // v1.2 (parallax extension — background_layer kind promotion 2026-04-22)
+  | 'ParallaxScroll'
   // v2 placeholders (named but not implemented; compiler declines)
   | 'RoleAssignment' | 'CrowdSimulation'
   | 'TimeReverseMechanic' | 'PhysicsModifier'
@@ -197,6 +199,7 @@ export type MechanicParams =
   | ProceduralRoomChainParams | BulletPatternParams | RouteMapParams
   // v1.1 audio extension (defined below, after the existing param shapes)
   | ChipMusicParams | SfxLibraryParams
+  | ParallaxScrollParams
   // v1.2 JRPG cluster (added 2026-04-20 per GAMEDEV_FRAMEWORK_PLAN.md Phase 3)
   | ATBCombatParams | TurnBasedCombatParams | PartyCompositionParams
   | LevelUpProgressionParams | WorldMapTravelParams | EquipmentLoadoutParams
@@ -764,6 +767,40 @@ export interface SfxrParams {
 
 export interface SfxLibraryParams {
   sfx: Record<string, SfxrParams>
+}
+
+// ───────── v1.2 parallax extension ─────────
+//
+// ParallaxScroll — positions background_layer sprites relative to the
+// foreground camera scroll. Each layer has a scroll_speed_ratio (0 =
+// static skybox, 1 = moves with foreground). Pairs with the
+// background_layer kind promoted 2026-04-22 + the parallax_backdrop
+// asset_workflow.
+
+export interface ParallaxScrollLayer {
+  /** Sprite id (points at a background_layer kind in the sprite manifest). */
+  sprite_id: string
+  /** Scroll speed relative to foreground camera: 0.0 = static, 1.0 = 1-to-1. */
+  scroll_speed_ratio: number
+  /** Layer Z depth — lower = further back, higher = closer. Default assigns
+   *  by array order (far = -10, mid = -5, near = 0). */
+  layer_z?: number
+  /** Whether the layer tiles horizontally. Default true for ≥3200-wide assets. */
+  loops_horizontally?: boolean
+  /** Optional vertical pin (for mode7-horizon layers that don't y-scroll). */
+  lock_y?: boolean
+}
+
+export interface ParallaxScrollParams {
+  /** Archetype whose position drives the scroll (usually the player). */
+  follow_archetype: ArchetypeId
+  /** Ordered list of layers (far to near). */
+  layers: ParallaxScrollLayer[]
+  /** Scroll axes — horizontal only, vertical only, or both. */
+  axes: 'horizontal' | 'vertical' | 'both'
+  /** Optional world-bounds clamp — halts scroll when follow_archetype
+   *  reaches edges. */
+  bounds?: { min_x?: number; max_x?: number; min_y?: number; max_y?: number }
 }
 
 // ───────── v1.2 JRPG extension ─────────

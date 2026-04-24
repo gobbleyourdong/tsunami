@@ -22,7 +22,7 @@
       "display_name": "P-Beat",
       "health": 85,
       "components": ["Health(85)", "Resource('super_meter',0)", "Resource('rhythm_bonus',0)", "Resource('mic_charge',0)"],
-      "tags": ["fighter", "rhythmic", "zoner"],
+      "tags": ["fighter", "zoner"],
       "sprite_ref": "sprites/fighters/parappa_beat",
       "stage_affinity": "rap_stage",
       "move_list_ref": "parappa_beat_moveset"
