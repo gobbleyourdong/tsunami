@@ -1079,8 +1079,9 @@ async function main() {
         const v = camera.view, p = camera.projection
         const cx = p[0]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[4]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[8]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[12]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
         const cy = p[1]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[5]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[9]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[13]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
+        const cz = p[2]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[6]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[10]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[14]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
         const cw = p[3]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[7]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[11]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[15]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
-        const ndcX = cx / cw, ndcY = cy / cw
+        const ndcX = cx / cw, ndcY = cy / cw, ndcZ = cz / cw
         const spriteCfg = SPRITE_MODES[spriteMode]
         const cellPxX = (ndcX * 0.5 + 0.5) * spriteCfg.w
         const cellPxY = (1 - (ndcY * 0.5 + 0.5)) * spriteCfg.h   // flip Y (NDC up → pixel down)
@@ -1100,6 +1101,7 @@ async function main() {
 
         outline.setFacePaint(
           [centerX + cellPxX, centerY + cellPxY],
+          ndcZ,   // head NDC depth — face paint only where pixel depth matches
           EYE_PUPIL[spriteMode],
           w,
           MOUTH_GLYPH[spriteMode],

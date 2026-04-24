@@ -32,7 +32,10 @@ struct U {
   lighting:     f32,   // 0 off, 1 on — 2-tone cel via MRT normal
   ambient:      vec4f, // rgb = ambient color, a = intensity (reserved; unused in 2-tone path)
   lights:       array<DirLight, 2>,  // key + fill; only [0] used in 2-tone path
-  facePos:      vec2f, // head position in screen pixels (CPU-projected)
+  facePos:      vec4f, // (screenX, screenY, ndcDepth, _) — head position
+                       // in screen pixels + projected NDC depth for depth
+                       // occlusion (pixels closer than ndcDepth are in
+                       // front of the face → skip the eye/mouth paint)
   faceGlyph:    vec4f, // (eyeGap, eyeYOff, pupilHalfW, pupilHalfH) in pixels
   faceWhite:    vec4f, // (whiteHalfW, whiteHalfH, _, _) in pixels — skin→white rect
   mouthGlyph:   vec4f, // (mouthYOff, mouthHalfW, mouthHalfH, _) in pixels
@@ -141,19 +144,28 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   if (me.a < 0.5) { return checker; }
 
-  // Face paint-on — only on front-facing pixels. Read the MRT normal,
-  // dot with camera forward; surfaces with normal pointing AWAY from
-  // camera are back-of-head and shouldn't receive eye/mouth paint.
-  // Threshold 0.0 means >90° from camera forward = back-facing.
+  // Face paint-on gate: two conditions must hold for the pixel to be
+  // eligible for eye/mouth color override:
+  //  1. Front-facing — normal points toward the camera (back-of-head
+  //     pixels fail).
+  //  2. Depth band — pixel depth matches the face's projected depth
+  //     (±tol). A back-of-head pixel may be BACK-FACING; but a side-of-
+  //     head pixel can be front-facing while its depth differs from
+  //     the face anchor's depth, so the normal check alone isn't
+  //     enough. The depth band pins the paint to the face surface.
   let faceN = normalize(textureLoad(normalTex, pxClamp, 0).xyz * 2.0 - 1.0);
   let frontFacing = dot(faceN, u.viewForward.xyz) < 0.0;
+  let pixelDepth = textureLoad(depthTex, pxClamp, 0).r;
+  let depthBandTol = 0.03;   // ~half the head's depth extent at near=2/far=8
+  let inFaceDepthBand = abs(pixelDepth - u.facePos.z) < depthBandTol;
+  let facePaintEligible = frontFacing && inFaceDepthBand;
 
   // Face paint-on: nested rects per eye — eye-white outer, pupil inner.
   // At sprite-tier each eye is ~3×3 pixels; the white gives the eye
   // outline against skin, the pupil provides the dark dot inside.
   // Pupil test wins over white where they overlap. No extra draws —
   // just a per-pixel color override inside the outline shader.
-  if (frontFacing && u.eyeColor.a > 0.5) {
+  if (facePaintEligible && u.eyeColor.a > 0.5) {
     let dx = f32(px.x) - u.facePos.x;
     let dy = f32(px.y) - u.facePos.y;
     let gap   = u.faceGlyph.x;
@@ -173,9 +185,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
       return vec4f(u.whiteColor.rgb, 1.0);
     }
   }
-  // Mouth: single horizontal rect centered below the eyes. Same
-  // front-facing gate so it doesn't show through the back of the head.
-  if (frontFacing && u.mouthColor.a > 0.5) {
+  // Mouth: single horizontal rect centered below the eyes. Same gate
+  // as the eyes so it doesn't show through the back of the head or
+  // float over off-surface geometry.
+  if (facePaintEligible && u.mouthColor.a > 0.5) {
     let mdx = abs(f32(px.x) - u.facePos.x);
     let mdy = f32(px.y) - u.facePos.y - u.mouthGlyph.x;
     if (mdx <= u.mouthGlyph.y && abs(mdy) <= u.mouthGlyph.z) {
@@ -213,6 +226,7 @@ export interface OutlinePass {
    *     layer (pupil alone renders as bare dot on skin). */
   setFacePaint(
     facePos: [number, number],
+    faceDepth: number,
     glyph: [number, number, number, number],
     white: [number, number, number, number],
     mouth: [number, number, number, number],
@@ -276,6 +290,7 @@ export function createOutlinePass(
   // (CPU-projected) head position. NOT geometry — a color override
   // inside the outline shader. Disabled when eyeEnable = 0.
   let facePos: [number, number] = [0, 0]
+  let faceDepth = 0.5   // face's projected NDC depth; set per-frame from CPU
   let faceGlyph: [number, number, number, number] = [1, -0.5, 0.4, 1.0]  // (gap, yOff, pupilHalfW, pupilHalfH)
   let faceWhite: [number, number, number, number] = [1.4, 1.4, 0, 0]     // (whiteHalfW, whiteHalfH, _, _)
   let mouthGlyph: [number, number, number, number] = [2, 1, 0.5, 0]  // (yOff, halfW, halfH, _)
@@ -313,10 +328,10 @@ export function createOutlinePass(
       uniformData[off + 6] = L.color[2]
       uniformData[off + 7] = 0
     }
-    // [32..35] facePos + pad
+    // [32..35] facePos (screenX, screenY, ndcDepth, _)
     uniformData[32] = facePos[0]
     uniformData[33] = facePos[1]
-    uniformData[34] = 0
+    uniformData[34] = faceDepth
     uniformData[35] = 0
     // [36..39] faceGlyph (eyeGap, eyeYOff, pupilHalfW, pupilHalfH)
     uniformData[36] = faceGlyph[0]
@@ -422,8 +437,9 @@ export function createOutlinePass(
       viewForward[0] = vx; viewForward[1] = vy; viewForward[2] = vz
       writeUniform(currentW, currentH)
     },
-    setFacePaint(pos, glyph, white, mouth, pupilCol, whiteCol, mouthCol) {
+    setFacePaint(pos, depth, glyph, white, mouth, pupilCol, whiteCol, mouthCol) {
       facePos[0] = pos[0];         facePos[1] = pos[1]
+      faceDepth = depth
       faceGlyph[0] = glyph[0];     faceGlyph[1] = glyph[1]
       faceGlyph[2] = glyph[2];     faceGlyph[3] = glyph[3]
       faceWhite[0] = white[0];     faceWhite[1] = white[1]
