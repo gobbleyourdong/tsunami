@@ -533,6 +533,32 @@ fn sceneSDF(pWorld: vec3f, wantDetail: u32) -> SceneHit {
     let cfg  = prims[base + 3u];
     let groupPacked = bitcast<u32>(cfg.z);
     let blendR = cfg.w;
+
+    // Per-primitive occlusion — skip if the primitive's world bounding
+    // sphere is farther than the current best. Each primitive self-declares
+    // its "can I possibly win" range; evalPrim is expensive, this test is
+    // a vec sub + dot + sqrt + compare. On march steps outside the
+    // character region 'best' collapses fast once one prim lands, and all
+    // far prims short-circuit. "Layer was dumb, occlusion is smart."
+    let slots0     = bitcast<vec4u>(prims[base + 0u]);
+    let params0    = prims[base + 1u];
+    let offset0    = prims[base + 2u].xyz;
+    let bone0      = readMat4((u.frameIdx * u.numJoints + slots0.z) * 4u);
+    let c00 = bone0[0].xyz;
+    let c10 = bone0[1].xyz;
+    let c20 = bone0[2].xyz;
+    let maxScaleSq = max(max(dot(c00, c00), dot(c10, c10)), dot(c20, c20));
+    let worldCtr   = (bone0 * vec4f(offset0, 1.0)).xyz;
+    // Conservative upper bound on primitive extent in local space. Sum of
+    // absolute params catches sphere radius, capsule r+h, torus R+r, cone
+    // tip→base, etc. in one formula — never under-estimates. The 0.05m
+    // margin covers smin blend softening, rotation re-orientation, and
+    // VFX noise displacement.
+    let radiusLocal = abs(params0.x) + abs(params0.y) + abs(params0.z) + abs(params0.w) + 0.05;
+    let radiusWorld = radiusLocal * sqrt(maxScaleSq) + abs(blendR);
+    let sphereDist  = distance(pWorld, worldCtr) - radiusWorld;
+    if (sphereDist >= best) { continue; }
+
     var d = evalPrim(i, pWorld);
     // Dual-map detail displacement — per-primitive FBM, only active on
     // the normal pass. detailAmp lives in the offsetInBone.w pad slot.

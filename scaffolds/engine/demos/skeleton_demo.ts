@@ -282,6 +282,7 @@ async function main() {
         // expression's per-axis modulation on top after the slider fire.
         if (group === 'head' && currentExpression !== 'neutral') applyExpression(currentExpression)
         fitCameraToCharacter()
+        invalidateRaymarchCache()   // proportion change → cache must re-march
       }
       applyGroupScale(group, Number(slider.value))
     }
@@ -421,6 +422,8 @@ async function main() {
           material.palette[slot * 4 + 1] = ng
           material.palette[slot * 4 + 2] = nb
           renderer.setPaletteSlot(slot, nr, ng, nb, 1)
+          raymarch.setPaletteSlot(slot, nr, ng, nb, 1)
+          invalidateRaymarchCache()
         }
         row.appendChild(picker)
         paletteListEl.appendChild(row)
@@ -474,6 +477,7 @@ async function main() {
         characterParams.scales[j] = [headS * mod[0], headS * mod[1], headS * mod[2]]
       }
       fitCameraToCharacter()
+      invalidateRaymarchCache()
     }
     const expressionRowEl = document.getElementById('expression-row')!
     for (const name of Object.keys(EXPRESSIONS)) {
@@ -544,7 +548,9 @@ async function main() {
         material.palette[slotIdx * 4 + 1] = rgb[1]
         material.palette[slotIdx * 4 + 2] = rgb[2]
         renderer.setPaletteSlot(slotIdx, rgb[0], rgb[1], rgb[2], 1)
+        raymarch.setPaletteSlot(slotIdx, rgb[0], rgb[1], rgb[2], 1)
       }
+      invalidateRaymarchCache()
       buildPaletteUI()   // refresh color-picker swatches
       // V2 also carries face/hair/body/accessories arrays. Runtime rig-
       // extend hasn't been re-pluggable to consume them yet (next tick) —
@@ -612,6 +618,15 @@ async function main() {
       vatHandle,
       { maxSteps: 48 },
     )
+    raymarch.resizeCache(canvas.width, canvas.height)
+    // Cache invalidation: bump whenever any raymarch input changes so next
+    // frame re-marches into the cache; otherwise we skip the march and blit.
+    // Bumped by: sprite mode, animation frame, proportion sliders, palette
+    // edits, camera moves, primitive list changes. For a static pose at a
+    // parked camera, the cache holds and the frame becomes one blit.
+    let raymarchCacheVersion = 0
+    let raymarchCacheApplied = -1
+    function invalidateRaymarchCache() { raymarchCacheVersion++ }
     let rendererMode: 'cube' | 'raymarch' = 'cube'
 
     // --- VFX lifetime manager. Spawnable primitives (swipes, trails,
@@ -654,6 +669,7 @@ async function main() {
       // rebind, raymarch mode after an anim switch reads stale matrices
       // from the previous animation's buffer (invisible character).
       raymarch.rebind(vatHandle)
+      invalidateRaymarchCache()
       elapsed = 0
     }
 
@@ -667,6 +683,8 @@ async function main() {
       outline.rebindSources(targets.sceneView!, targets.normalView!, targets.depthVizView!, cfg.w, cfg.h)
       camera.setAspect(cfg.w, cfg.h)
       fitCameraToCharacter()   // aspect changed → refit
+      raymarch.resizeCache(cfg.w, cfg.h)
+      invalidateRaymarchCache()
     }
 
     type ViewMode = 'color' | 'normal' | 'depth'
@@ -745,6 +763,7 @@ async function main() {
       if (e.key === 'e' || e.key === 'E' || e.key === ']') cycleGameYaw(+1)
       if (e.key === 'r' || e.key === 'R') {
         rendererMode = rendererMode === 'cube' ? 'raymarch' : 'cube'
+        invalidateRaymarchCache()
       }
       // VFX spawn keys — gameplay-like triggers to validate the lifetime
       // manager. All anchor at RightHand (where the flame sits) so the
@@ -906,6 +925,26 @@ async function main() {
       camera.pixelSnapView(canvas.width, canvas.height)
     }
 
+    // Track last-seen inputs to auto-invalidate the raymarch cache when
+    // anything that would change the pixel output changes. Simple quantized
+    // fingerprint avoids false negatives while keeping the comparison O(1).
+    let lastCacheFrameIdx = -1
+    const lastCacheView = new Float32Array(16)
+    let lastCacheOrtho = -1
+    function raymarchCacheFingerprintChanged(frameIdx: number): boolean {
+      if (frameIdx !== lastCacheFrameIdx) return true
+      if (camera.orthoSize !== lastCacheOrtho) return true
+      for (let i = 0; i < 16; i++) {
+        if (camera.view[i] !== lastCacheView[i]) return true
+      }
+      return false
+    }
+    function snapshotCacheFingerprint(frameIdx: number) {
+      lastCacheFrameIdx = frameIdx
+      lastCacheOrtho = camera.orthoSize
+      for (let i = 0; i < 16; i++) lastCacheView[i] = camera.view[i]
+    }
+
     loop.onRender = (stats) => {
       const frameIdx = Math.floor((elapsed / loadedVAT.durationSec) * loadedVAT.numFrames) % loadedVAT.numFrames
 
@@ -919,6 +958,26 @@ async function main() {
       const drawFrameIdx = composer ? 0 : frameIdx
 
       const encoder = device.createCommandEncoder()
+
+      // Raymarch cache refresh — happens BEFORE the scene pass. If the
+      // cache fingerprint matches last frame, skip the march entirely
+      // and just blit inside the scene pass below. For an animating
+      // character this re-marches every frame (frameIdx bumps version);
+      // for a paused character at a fixed camera, zero march cost.
+      if (rendererMode === 'raymarch') {
+        if (raymarchCacheFingerprintChanged(drawFrameIdx)) invalidateRaymarchCache()
+        if (raymarchCacheVersion !== raymarchCacheApplied) {
+          const eyeR: [number, number, number] = [camera.position[0], camera.position[1], camera.position[2]]
+          vfxSystem.update(elapsed)
+          raymarch.setPrimitives(currentAllPrims(elapsed))
+          raymarch.setTime(elapsed)
+          const pxPerM = canvas.height / (2 * camera.orthoSize)
+          raymarch.setPxPerM(pxPerM)
+          raymarch.marchIntoCache(encoder, camera.view, camera.projection, eyeR, drawFrameIdx)
+          raymarchCacheApplied = raymarchCacheVersion
+          snapshotCacheFingerprint(drawFrameIdx)
+        }
+      }
 
       // Pass 1: skeleton → MRT (color, normal, depth). Clear alpha=0 on
       // color so outline pass can detect background via alpha threshold.
@@ -939,20 +998,11 @@ async function main() {
         },
       })
       if (rendererMode === 'raymarch') {
-        // Raymarch path writes directly into the same MRT targets the
-        // cube path uses. Outline/cel downstream can't tell the
-        // difference. bf16 reference in action.
-        const eye: [number, number, number] = [camera.position[0], camera.position[1], camera.position[2]]
-        vfxSystem.update(elapsed)                           // despawn expired
-        raymarch.setPrimitives(currentAllPrims(elapsed))    // persistent + ephemeral
-        raymarch.setTime(elapsed)                           // flame noise advection
-        // Per-primitive pixel snap. pxPerMeter derived from the current
-        // sprite mode's ortho frustum; passes "pixels copy, don't
-        // rasterize" invariant to the shader so sub-pixel character
-        // motion doesn't jitter the silhouette edges.
-        const pxPerM = canvas.height / (2 * camera.orthoSize)
-        raymarch.setPxPerM(pxPerM)
-        raymarch.draw(scenePass, camera.view, camera.projection, eye, drawFrameIdx)
+        // Scene pass outputs = blit from the raymarch cache framebuffer.
+        // All the expensive march work happened above (either this frame
+        // on cache miss, or a past frame the cache is replaying). Outline
+        // pass downstream can't tell the difference from direct rendering.
+        raymarch.blitCacheToPass(scenePass)
       } else {
         renderer.draw(scenePass, camera.view, camera.projection, drawFrameIdx, 1.0)
       }
