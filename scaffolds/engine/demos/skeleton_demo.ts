@@ -291,22 +291,29 @@ async function main() {
      *  presets ARE the proportion UI now; more archetypes land as more
      *  buttons rather than continuous axes. */
     type Scale = number | [number, number, number]
-    const BODY_PRESETS: Record<string, Record<string, Scale>> = {
-      'preset-normal': { head: 1.0, torso: 1.0, arms: 1.0, legs: 1.0, bust: 0.0, hips: 0.0 },
-      // SNES anime-RPG stylized: head prominent but not dominant (~1/4 of
-      // height), limbs slightly shortened, width unchanged. Chrono Trigger
-      // / FF6 / Secret of Mana proportions — between chibi and realistic.
-      'preset-stylized': {
+    type PresetKey = 'realistic' | 'stylized' | 'chibi'
+    const BODY_PRESETS: Record<PresetKey, Record<string, Scale>> = {
+      // Alucard-tier SotN realistic: adult proportions, head small, legs
+      // long. 1:1 Mixamo with mild anime-lengthening of the legs.
+      realistic: {
+        head:  [1.0, 0.95, 1.0],
+        torso: [1.0, 1.0,  1.0],
+        arms:  [1.0, 1.05, 1.0],
+        legs:  [1.0, 1.10, 1.0],
+        bust: 0.0, hips: 0.0,
+      },
+      // SNES anime-RPG (Chrono / FF6 / Secret of Mana): head prominent but
+      // not dominant, limbs slightly shortened, width unchanged.
+      stylized: {
         head:  [1.0, 1.35, 1.0],
         torso: [1.0, 0.9,  1.0],
         arms:  [1.0, 0.85, 1.0],
         legs:  [1.0, 0.82, 1.0],
         bust: 0.0, hips: 0.0,
       },
-      // SNES-style chibi: width stays ≈ normal across the whole body; legs
-      // heavily squashed; head Y-stretched so it reads big without
-      // ballooning wider than the torso.
-      'preset-chibi':  {
+      // SNES-chibi: width stays ≈ normal across the whole body; legs heavily
+      // squashed; head Y-stretched so it reads big without widening the body.
+      chibi: {
         head:  [1.0, 1.8,  1.0],
         torso: [1.0, 0.75, 1.0],
         arms:  [1.0, 0.7,  1.0],
@@ -314,25 +321,34 @@ async function main() {
         bust: 0.0, hips: 0.0,
       },
     }
-    function applyPreset(key: string) {
+    function applyPreset(key: PresetKey) {
       const p = BODY_PRESETS[key]
-      if (!p) return
       for (const g of propGroups) {
         const v = p[g]
-        currentScales[g] = typeof v === 'number' ? v : v[1]   // display-friendly scalar for HUD/spec serialize
+        currentScales[g] = typeof v === 'number' ? v : v[1]
         applyGroupScale(g, v)
       }
       if (currentExpression !== 'neutral') applyExpression(currentExpression)
       fitCameraToCharacter()
       invalidateRaymarchCache()
     }
-    for (const [btnId] of Object.entries(BODY_PRESETS)) {
-      const btn = document.getElementById(btnId) as HTMLButtonElement | null
-      if (!btn) continue
-      btn.onclick = () => applyPreset(btnId)
+
+    /** Each sprite mode pins a proportion archetype. Proportion and
+     *  render resolution are coupled: chibi silhouette at 256² looks
+     *  wrong, realistic at 24² can't fit adult proportions. Mapping
+     *  cell-size → archetype keeps them matched. */
+    const SPRITE_MODE_PRESET: Record<SpriteMode, PresetKey> = {
+      link:    'chibi',      // 24² — smallest cell, chibi silhouette
+      chibi:   'chibi',      // 32² — canonical chibi
+      alucard: 'stylized',   // 80² — SNES-tier, anime proportions
+      full:    'realistic',  // 256² — adult, near-1:1
     }
-    applyPreset('preset-normal')   // initial default: 1:1 Mixamo proportions
-    fitCameraToCharacter()
+    // Apply the starting preset matching the initial sprite mode. The full
+    // applySpriteMode path (called on key 1-4) can't run yet — renderer,
+    // outline, cache aren't created. Applying just the proportions here
+    // is enough: they feed characterParams.scales, which the composer
+    // reads later on every frame.
+    applyPreset(SPRITE_MODE_PRESET[spriteMode])
 
     let vatHandle = {
       buffer: loadedVAT.buffer,
@@ -669,7 +685,11 @@ async function main() {
       recreateTargets(cfg.w, cfg.h)
       outline.rebindSources(targets.sceneView!, targets.normalView!, targets.depthVizView!, cfg.w, cfg.h)
       camera.setAspect(cfg.w, cfg.h)
-      fitCameraToCharacter()   // aspect changed → refit
+      // Auto-apply the archetype that fits this cell size. Swapping to a
+      // new sprite mode re-tunes the character's proportions along with
+      // the resolution — they're coupled by design.
+      applyPreset(SPRITE_MODE_PRESET[mode])
+      fitCameraToCharacter()   // aspect changed → refit (applyPreset also fits, but mode w/h changed after)
       raymarch.resizeCache(cfg.w, cfg.h)
       invalidateRaymarchCache()
     }
