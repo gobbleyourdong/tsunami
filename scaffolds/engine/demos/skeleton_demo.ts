@@ -75,8 +75,13 @@ async function main() {
     const { device, format } = gpu
 
     let spriteMode: SpriteMode = 'chibi'
-    canvas.width = SPRITE_MODES[spriteMode].w
-    canvas.height = SPRITE_MODES[spriteMode].h
+    // Canvas + scene MRT are always SCREEN_SIZE (full SNES-res viewport).
+    // The sprite renders at its LOD pixel size into the raymarch cache,
+    // then gets blitted CENTERED into this larger canvas — so you see the
+    // sprite at its actual pixel size against the full-screen context.
+    const SCREEN_SIZE = 256
+    canvas.width = SCREEN_SIZE
+    canvas.height = SCREEN_SIZE
 
     // Camera distance from target: sqrt(3² + 2.5² + 3²) ≈ 4.9m.
     // Tight near/far around the character gives ~128 uint8 levels of depth
@@ -92,7 +97,9 @@ async function main() {
       controls: 'orbit',
     })
     const cleanup = camera.bindToCanvas(canvas)
-    camera.setAspect(canvas.width, canvas.height)
+    // Aspect is based on the SPRITE size (what the raymarch renders into),
+    // not the screen. The cache is sprite-sized; cameras project into it.
+    camera.setAspect(SPRITE_MODES[spriteMode].w, SPRITE_MODES[spriteMode].h)
     // Kill wheel zoom — orthoSize is pinned per LOD by applySpriteMode /
     // applyPreset / fitCameraToCharacter. Sprite size on screen is a
     // function of the LOD, not user interaction. Capture the event before
@@ -273,7 +280,10 @@ async function main() {
       const radialMargin = 0.18
       const halfH = ((b.maxY + topMargin) - (b.minY - bottomMargin)) / 2
       const center = ((b.maxY + topMargin) + (b.minY - bottomMargin)) / 2
-      const aspect = canvas.width / canvas.height
+      // Aspect based on sprite cell, not screen — camera is tuned for
+      // rendering into the LOD-sized cache, not the SCREEN_SIZE scene.
+      const sprite = SPRITE_MODES[spriteMode]
+      const aspect = sprite.w / sprite.h
       const halfFromRadius = (b.maxR + radialMargin) / aspect
       camera.orthoSize = Math.max(halfH, halfFromRadius)
       camera.target = [b.cx, center, b.cz]
@@ -659,7 +669,9 @@ async function main() {
       vatHandle,
       { maxSteps: 32 },   // tuned: per-primitive occlusion closes hits fast
     )
-    raymarch.resizeCache(canvas.width, canvas.height)
+    // Cache is sprite-sized, not screen-sized — the raymarch writes to the
+    // LOD cell and we blit it centered into the bigger scene target.
+    raymarch.resizeCache(SPRITE_MODES[spriteMode].w, SPRITE_MODES[spriteMode].h)
     // Cache version hoisted higher in the file — declared near top-of-main
     // so proportion-preset applies during init can fire invalidations
     // safely without TDZ.
@@ -701,17 +713,12 @@ async function main() {
     function applySpriteMode(mode: SpriteMode) {
       spriteMode = mode
       const cfg = SPRITE_MODES[mode]
-      canvas.width = cfg.w
-      canvas.height = cfg.h
-      gpu.context.configure({ device, format, alphaMode: 'premultiplied' })
-      recreateTargets(cfg.w, cfg.h)
-      outline.rebindSources(targets.sceneView!, targets.normalView!, targets.depthVizView!, cfg.w, cfg.h)
+      // Canvas + scene MRT stay at SCREEN_SIZE — sprite renders into the
+      // LOD-sized cache and gets blitted centered into the full screen.
+      // Only the cache + camera aspect change per mode.
       camera.setAspect(cfg.w, cfg.h)
-      // Auto-apply the archetype that fits this cell size. Swapping to a
-      // new sprite mode re-tunes the character's proportions along with
-      // the resolution — they're coupled by design.
       applyPreset(SPRITE_MODE_PRESET[mode])
-      fitCameraToCharacter()   // aspect changed → refit (applyPreset also fits, but mode w/h changed after)
+      fitCameraToCharacter()
       raymarch.resizeCache(cfg.w, cfg.h)
       invalidateRaymarchCache()
     }
@@ -725,46 +732,6 @@ async function main() {
     // Toggle with T.
     let restPose = false
 
-    // --- Camera mode: editor (free orbit, sub-pixel OK) vs game (8-angle
-    // cardinal preset, discrete yaw per pose-cache contract). Same
-    // renderer; mode just discretizes the camera inputs so (pose, yaw)
-    // becomes a finite state space that cacheable/atlasable. Pitch is
-    // locked to an iso-ish angle in game mode. ---
-    type CameraMode = 'editor' | 'game'
-    let cameraMode: CameraMode = 'editor'
-    // 8 cardinal yaws, N/NE/E/SE/S/SW/W/NW. Yaw=0 looks down -Z (toward
-    // character's back); rotating CCW when viewed from above. This
-    // matches the convention the orbit controller was already using.
-    const GAME_YAWS = [0, 45, 90, 135, 180, 225, 270, 315].map((d) => d * Math.PI / 180)
-    const GAME_PITCH = 30 * Math.PI / 180   // classic iso-ish pitch
-    let gameYawIdx = 0
-    function applyGameCamera() {
-      camera.setOrbitAngles(GAME_YAWS[gameYawIdx], GAME_PITCH)
-    }
-    function toggleCameraMode() {
-      if (cameraMode === 'editor') {
-        // Snap to the nearest preset yaw so the switch isn't jarring.
-        const { yaw } = camera.getOrbitAngles()
-        const norm = ((yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)
-        let best = 0, bestDist = Infinity
-        for (let i = 0; i < GAME_YAWS.length; i++) {
-          const d = Math.abs(norm - GAME_YAWS[i])
-          const dWrap = Math.min(d, Math.PI * 2 - d)
-          if (dWrap < bestDist) { bestDist = dWrap; best = i }
-        }
-        gameYawIdx = best
-        cameraMode = 'game'
-        applyGameCamera()
-      } else {
-        cameraMode = 'editor'
-      }
-    }
-    function cycleGameYaw(delta: number) {
-      if (cameraMode !== 'game') return
-      gameYawIdx = ((gameYawIdx + delta) % GAME_YAWS.length + GAME_YAWS.length) % GAME_YAWS.length
-      applyGameCamera()
-    }
-    const YAW_LABELS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
     function cycleViewMode() {
       viewMode = viewMode === 'color' ? 'normal' : viewMode === 'normal' ? 'depth' : 'color'
       outline.setViewMode(viewMode)
@@ -785,13 +752,10 @@ async function main() {
         lightingMode = (lightingMode === 0 ? 1 : 0) as 0 | 1
         outline.setLighting(lightingMode)
       }
-      if (e.key === 'g' || e.key === 'G') toggleCameraMode()
       if (e.key === 't' || e.key === 'T') {
         restPose = !restPose
         invalidateRaymarchCache()
       }
-      if (e.key === 'q' || e.key === 'Q' || e.key === '[') cycleGameYaw(-1)
-      if (e.key === 'e' || e.key === 'E' || e.key === ']') cycleGameYaw(+1)
       // VFX spawn keys — gameplay-like triggers to validate the lifetime
       // manager. All anchor at RightHand (where the flame sits) so the
       // effects read as "attack originating from the hand."
@@ -827,18 +791,16 @@ async function main() {
 
     loop.onUpdate = (stats) => {
       elapsed += stats.dt
-      // In game mode, force-reapply the preset yaw/pitch each frame so
-      // mouse-orbit drags don't leak discrete states. This is what
-      // makes the pose key finite: game camera can only ever be one of
-      // GAME_YAWS[0..7] × GAME_PITCH.
-      if (cameraMode === 'game') applyGameCamera()
       camera.update()
       // Pixel-snap the view translation. Camera angles are allowed to
       // change rasterization (that's the pose-cache discretization); camera
       // translations must NOT. Snapping view.x/y to the pixel grid keeps
       // the character rasterizing the same bytes regardless of where the
       // camera has panned — "sprites copy, don't swim."
-      camera.pixelSnapView(canvas.width, canvas.height)
+      // Snap against sprite-cell dimensions — that's the pixel grid the
+      // raymarch rasterizes against. Canvas is larger (SCREEN_SIZE) but
+      // the sprite IS the LOD cell.
+      camera.pixelSnapView(SPRITE_MODES[spriteMode].w, SPRITE_MODES[spriteMode].h)
     }
 
     // Per-primitive world AABB tracking — the robust cache invalidation
@@ -996,7 +958,10 @@ async function main() {
           })
           raymarch.setPrimitives(sorted)
           raymarch.setTime(elapsed)
-          const pxPerM = canvas.height / (2 * camera.orthoSize)
+          // pxPerM uses the SPRITE-cell height (cache dim), not canvas —
+          // the raymarch writes into the cache texture which is sprite-sized.
+          const spriteH = SPRITE_MODES[spriteMode].h
+          const pxPerM = spriteH / (2 * camera.orthoSize)
           raymarch.setPxPerM(pxPerM)
           raymarch.marchIntoCache(encoder, camera.view, camera.projection, eyeR, drawFrameIdx)
           raymarchCacheApplied = raymarchCacheVersion
@@ -1023,18 +988,23 @@ async function main() {
         },
       })
       // Scene pass outputs = blit from the raymarch cache framebuffer.
-      // Pan offset: how many pixels the character's screen position has
-      // moved since the cache was filled. Camera translation changes
-      // view.[12..14]; pxPerM converts world delta to screen delta.
-      // The pixel-snap camera makes deltas integer pixels — no sub-pixel
-      // interpolation needed.
+      // Two offsets stack here:
+      //   (1) CENTER the sprite-sized cache in the full SCREEN_SIZE viewport
+      //       so the sprite appears at its actual pixel size surrounded by
+      //       SNES-screen context.
+      //   (2) PAN offset — how many pixels the character has moved since
+      //       the cache was filled (camera translation delta in pixels).
+      // Pixel-copy invariant means the blit is always integer-pixel aligned.
       {
-        const pxPerM = canvas.height / (2 * camera.orthoSize)
+        const spriteCfg = SPRITE_MODES[spriteMode]
+        const pxPerM = spriteCfg.h / (2 * camera.orthoSize)
         const dxM = camera.view[12] - lastAabbView[12]
         const dyM = camera.view[13] - lastAabbView[13]
         const panOffsetX = -Math.round(dxM * pxPerM)
         const panOffsetY =  Math.round(dyM * pxPerM)   // screen Y is down
-        raymarch.blitCacheToPass(scenePass, [panOffsetX, panOffsetY])
+        const centerX = Math.round((SCREEN_SIZE - spriteCfg.w) / 2)
+        const centerY = Math.round((SCREEN_SIZE - spriteCfg.h) / 2)
+        raymarch.blitCacheToPass(scenePass, [centerX + panOffsetX, centerY + panOffsetY])
       }
       scenePass.end()
 
@@ -1055,7 +1025,7 @@ async function main() {
         `[1] Link 16×24   [2] SNES chibi 32×32`,
         `[3] Alucard 48×80   [4] SNES 256×224`,
         `[V] view: ${viewMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${lightingMode ? 'on' : 'off'}   [T] rest pose: ${restPose ? 'on' : 'off'}`,
-        `[G] camera: ${cameraMode}${cameraMode === 'game' ? ` (${YAW_LABELS[gameYawIdx]})   [Q/E] rotate` : '   (orbit freely)'}`,
+        `drag = orbit   [T] rest pose`,
         `[Space] swipe   [X] star   [Z] flash   [N] bolt   [B] beam   VFX: ${vfxSystem.count()}`,
         `drag = orbit   wheel = zoom`,
       ].join('\n')
