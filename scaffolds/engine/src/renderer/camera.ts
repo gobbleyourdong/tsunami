@@ -119,6 +119,37 @@ export class Camera {
     this.orbitPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.orbitPitch + deltaPitch))
   }
 
+  /** Absolute orbit-angle setter. Used by game mode to lock onto one of
+   *  N fixed cardinal yaw presets (per pose-cache discretization). */
+  setOrbitAngles(yaw: number, pitch: number): void {
+    this.orbitYaw = yaw
+    this.orbitPitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch))
+  }
+
+  getOrbitAngles(): { yaw: number; pitch: number; distance: number } {
+    return { yaw: this.orbitYaw, pitch: this.orbitPitch, distance: this.orbitDistance }
+  }
+
+  /** Snap the view matrix's translation component to pixel centers for
+   *  the given ortho projection. Call this AFTER update() each frame —
+   *  it adjusts view[12..14] so the camera target projects to an integer
+   *  pixel coordinate. Equivalent to snapping the camera translation in
+   *  world space to 1/pxPerM granularity. Only meaningful in game mode;
+   *  editor-mode orbit intentionally sub-pixels. */
+  pixelSnapView(canvasW: number, canvasH: number): void {
+    if (this.mode !== 'orthographic') return
+    const halfH = this.orthoSize
+    const halfW = halfH * this.aspect
+    const pxPerM_h = canvasW / (2 * halfW)
+    const pxPerM_v = canvasH / (2 * halfH)
+    // view matrix translation column is in camera-space. After lookAt,
+    // view[12..14] = -R × eye. Snapping view.x and view.y to pixel grid
+    // ensures every world position's projection lands on a pixel center.
+    this.view[12] = Math.round(this.view[12] * pxPerM_h) / pxPerM_h
+    this.view[13] = Math.round(this.view[13] * pxPerM_v) / pxPerM_v
+    // Z (depth) doesn't need snapping for rasterization stability.
+  }
+
   orbitZoom(delta: number): void {
     this.orbitDistance = Math.max(0.5, this.orbitDistance * (1 + delta))
   }
@@ -224,7 +255,17 @@ export class Camera {
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      if (this.controls === 'orbit') this.orbitZoom(e.deltaY * 0.001)
+      if (this.controls !== 'orbit') return
+      if (this.mode === 'orthographic') {
+        // Ortho has no perspective foreshortening — zooming by moving the
+        // camera closer/farther just clips it against tight near/far.
+        // Wheel instead resizes the frustum (shrinks/grows orthoSize) so
+        // the effect reads as "zoom" without breaking depth precision.
+        const k = 1 + e.deltaY * 0.001
+        this.orthoSize = Math.max(0.05, this.orthoSize * k)
+      } else {
+        this.orbitZoom(e.deltaY * 0.001)
+      }
     }
 
     const onKeyDown = (e: KeyboardEvent) => { keys.add(e.code) }

@@ -40,8 +40,12 @@
     #props .lbl { display: inline-block; width: 54px; }
     #props .val { display: inline-block; width: 36px; text-align: right; color: #9cf; }
     #props input[type="range"] { flex: 1; }
+    #props input[type="color"] { width: 36px; height: 18px; border: 1px solid #334; background: transparent; padding: 0; cursor: pointer; }
     #props button { margin-top: 8px; background: #1a2b4a; color: #cde; border: 1px solid #345; padding: 4px 10px; font-size: 11px; cursor: pointer; border-radius: 3px; }
     #props button:hover { background: #263a5c; }
+    #props hr { border: 0; border-top: 1px solid #233; margin: 10px 0 6px; }
+    #props .palette-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-family: monospace; font-size: 11px; }
+    #props .palette-row .slot-lbl { width: 70px; color: #9ab; }
     #error {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
       background: #1a0000; border: 1px solid #660000; padding: 24px; border-radius: 8px;
@@ -58,8 +62,29 @@
     <label><span class="lbl">torso</span> <input type="range" min="0.6" max="1.8" step="0.05" value="1.0" id="torso-slider"><span class="val" id="torso-val">1.00</span></label>
     <label><span class="lbl">arms</span>  <input type="range" min="0.5" max="1.8" step="0.05" value="1.0" id="arms-slider"><span class="val" id="arms-val">1.00</span></label>
     <label><span class="lbl">legs</span>  <input type="range" min="0.5" max="1.8" step="0.05" value="1.0" id="legs-slider"><span class="val" id="legs-val">1.00</span></label>
+    <label><span class="lbl">bust</span>  <input type="range" min="0.0" max="1.5" step="0.05" value="0.0" id="bust-slider"><span class="val" id="bust-val">0.00</span></label>
+    <label><span class="lbl">hips</span>  <input type="range" min="0.0" max="1.5" step="0.05" value="0.0" id="hips-slider"><span class="val" id="hips-val">0.00</span></label>
     <button id="reset-props">reset</button>
-    <button id="preset-chibi">chibi preset</button>
+    <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;">
+      <button id="preset-chibi">chibi</button>
+      <button id="preset-male">male</button>
+      <button id="preset-female">female</button>
+      <button id="preset-child">child</button>
+      <button id="preset-tall">tall</button>
+      <button id="preset-stocky">stocky</button>
+    </div>
+    <hr>
+    <div style="font-size: 11px; color: #9ab; margin-bottom: 4px;">expression</div>
+    <div id="expression-row" style="display: flex; gap: 4px; flex-wrap: wrap;"></div>
+    <hr>
+    <div id="palette-list"></div>
+    <hr>
+    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+      <button id="save-char">save character</button>
+      <button id="load-char">load character</button>
+      <input type="file" id="load-char-file" accept=".json" style="display:none">
+    </div>
+    <input id="char-name" type="text" value="unnamed" placeholder="character name" style="width:100%; margin-top:6px; background:#111; color:#cde; border:1px solid #334; padding:3px 6px; font-family:monospace; font-size:11px;">
   </div>
   <div id="error"></div>
   <script type="module" src="./skeleton_demo.ts"></script>

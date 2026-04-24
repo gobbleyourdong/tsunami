@@ -478,8 +478,12 @@ export function createRetargetComposer(
   const numFrames = vat.numFrames
 
   const worldData = new Float32Array(numJoints * 16)
-  const worldMats: Float32Array[] = Array.from({ length: numJoints }, () => new Float32Array(16))
+  // compositionMats: per-joint parent-chained world matrices using PURE
+  // rotation columns + scaled col3. These are the matrices we propagate
+  // down the hierarchy so scale never compounds.
+  const compositionMats: Float32Array[] = Array.from({ length: numJoints }, () => new Float32Array(16))
   const scaledLocal = new Float32Array(16)
+  const displayMat = new Float32Array(16)
 
   function mul(out: Float32Array, a: Float32Array, b: Float32Array) {
     for (let col = 0; col < 4; col++) {
@@ -502,36 +506,62 @@ export function createRetargetComposer(
       for (let j = 0; j < numJoints; j++) {
         const s = params.scales[j] ?? [1, 1, 1]
         const src = base + j * 16
-        // Correct form of M' = M × scale(S): rotation columns scaled, but
-        // translation column (col3) UNCHANGED. The scale propagates to
-        // children through the hierarchy composition — child's local col3
-        // gets transformed by parent's scaled rotation columns, so the
-        // child sits at scaled distance. Joint's OWN position in parent
-        // is unaffected (head still attached to neck).
-        scaledLocal[0]  = localMats[src + 0]  * s[0]
-        scaledLocal[1]  = localMats[src + 1]  * s[0]
-        scaledLocal[2]  = localMats[src + 2]  * s[0]
-        scaledLocal[3]  = localMats[src + 3]  * s[0]
-        scaledLocal[4]  = localMats[src + 4]  * s[1]
-        scaledLocal[5]  = localMats[src + 5]  * s[1]
-        scaledLocal[6]  = localMats[src + 6]  * s[1]
-        scaledLocal[7]  = localMats[src + 7]  * s[1]
-        scaledLocal[8]  = localMats[src + 8]  * s[2]
-        scaledLocal[9]  = localMats[src + 9]  * s[2]
-        scaledLocal[10] = localMats[src + 10] * s[2]
-        scaledLocal[11] = localMats[src + 11] * s[2]
-        scaledLocal[12] = localMats[src + 12]
-        scaledLocal[13] = localMats[src + 13]
-        scaledLocal[14] = localMats[src + 14]
+        const parent = rig[j].parent
+        const isRoot = parent < 0
+
+        // Composition path (feeds children, prevents scale cascade):
+        //   rotation columns UNCHANGED, col3 (translation) × s_j.
+        // Scaling own col3 means "this bone's distance from parent is
+        // s_j longer" — head moves up when head is scaled 2×. Leaving
+        // rotation columns pure means children do not inherit any scale
+        // amplification through the hierarchy (no double-scale).
+        //
+        // ROOT EXCEPTION: the root joint's col3 is the rig's WORLD
+        // position (e.g. Hips at ~1m off the ground), not a bone-length
+        // offset from a parent. Scaling it translates the whole rig.
+        // Leave the root's col3 alone.
+        scaledLocal[0]  = localMats[src + 0]
+        scaledLocal[1]  = localMats[src + 1]
+        scaledLocal[2]  = localMats[src + 2]
+        scaledLocal[3]  = localMats[src + 3]
+        scaledLocal[4]  = localMats[src + 4]
+        scaledLocal[5]  = localMats[src + 5]
+        scaledLocal[6]  = localMats[src + 6]
+        scaledLocal[7]  = localMats[src + 7]
+        scaledLocal[8]  = localMats[src + 8]
+        scaledLocal[9]  = localMats[src + 9]
+        scaledLocal[10] = localMats[src + 10]
+        scaledLocal[11] = localMats[src + 11]
+        scaledLocal[12] = isRoot ? localMats[src + 12] : localMats[src + 12] * s[0]
+        scaledLocal[13] = isRoot ? localMats[src + 13] : localMats[src + 13] * s[1]
+        scaledLocal[14] = isRoot ? localMats[src + 14] : localMats[src + 14] * s[2]
         scaledLocal[15] = localMats[src + 15]
 
-        const parent = rig[j].parent
-        if (parent < 0) {
-          worldMats[j].set(scaledLocal)
-        } else {
-          mul(worldMats[j], worldMats[parent], scaledLocal)
-        }
-        worldData.set(worldMats[j], j * 16)
+        const comp = compositionMats[j]
+        if (isRoot) comp.set(scaledLocal)
+        else mul(comp, compositionMats[parent], scaledLocal)
+
+        // Display path (what the renderer reads): composition × diag(s).
+        // Only the joint's OWN scale affects its rendered cube size; since
+        // this is a post-multiply against the already-composed world
+        // matrix, child display matrices don't see parent scale twice.
+        displayMat[0]  = comp[0]  * s[0]
+        displayMat[1]  = comp[1]  * s[0]
+        displayMat[2]  = comp[2]  * s[0]
+        displayMat[3]  = comp[3]  * s[0]
+        displayMat[4]  = comp[4]  * s[1]
+        displayMat[5]  = comp[5]  * s[1]
+        displayMat[6]  = comp[6]  * s[1]
+        displayMat[7]  = comp[7]  * s[1]
+        displayMat[8]  = comp[8]  * s[2]
+        displayMat[9]  = comp[9]  * s[2]
+        displayMat[10] = comp[10] * s[2]
+        displayMat[11] = comp[11] * s[2]
+        displayMat[12] = comp[12]
+        displayMat[13] = comp[13]
+        displayMat[14] = comp[14]
+        displayMat[15] = comp[15]
+        worldData.set(displayMat, j * 16)
       }
       device.queue.writeBuffer(vat.buffer, 0, worldData)
     },

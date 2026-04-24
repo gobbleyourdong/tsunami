@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "anims": [
+    {
+      "tag": "backflip",
+      "url": "/mixamo_backflip.vat",
+      "numFrames": 65,
+      "durationSec": 2.166666666666667,
+      "fps": 30
+    },
+    {
+      "tag": "big_hit_to_head",
+      "url": "/mixamo_big_hit_to_head.vat",
+      "numFrames": 47,
+      "durationSec": 1.5666669607162476,
+      "fps": 30
+    },
+    {
+      "tag": "big_stomach_hit",
+      "url": "/mixamo_big_stomach_hit.vat",
+      "numFrames": 42,
+      "durationSec": 1.399999976158142,
+      "fps": 30
+    },
+    {
+      "tag": "defeated",
+      "url": "/mixamo_defeated.vat",
+      "numFrames": 202,
+      "durationSec": 6.733333333333333,
+      "fps": 30
+    },
+    {
+      "tag": "great_sword_idle",
+      "url": "/mixamo_great_sword_idle.vat",
+      "numFrames": 111,
+      "durationSec": 3.700000047683716,
+      "fps": 30
+    },
+    {
+      "tag": "gunplay",
+      "url": "/mixamo_gunplay.vat",
+      "numFrames": 17,
+      "durationSec": 0.5666670203208923,
+      "fps": 30
+    },
+    {
+      "tag": "idle",
+      "url": "/mixamo_idle.vat",
+      "numFrames": 300,
+      "durationSec": 10,
+      "fps": 30
+    },
+    {
+      "tag": "jumping",
+      "url": "/mixamo_jumping.vat",
+      "numFrames": 57,
+      "durationSec": 1.899999976158142,
+      "fps": 30
+    },
+    {
+      "tag": "mutant_swiping",
+      "url": "/mixamo_mutant_swiping.vat",
+      "numFrames": 80,
+      "durationSec": 2.6666669845581055,
+      "fps": 30
+    },
+    {
+      "tag": "ninja_idle",
+      "url": "/mixamo_ninja_idle.vat",
+      "numFrames": 100,
+      "durationSec": 3.3333330154418945,
+      "fps": 30
+    },
+    {
+      "tag": "rifle_idle",
+      "url": "/mixamo_rifle_idle.vat",
+      "numFrames": 85,
+      "durationSec": 2.8333330154418945,
+      "fps": 30
+    },
+    {
+      "tag": "rifle_run",
+      "url": "/mixamo_rifle_run.vat",
+      "numFrames": 22,
+      "durationSec": 0.7333329916000366,
+      "fps": 30
+    },
+    {
+      "tag": "running",
+      "url": "/mixamo_running.vat",
+      "numFrames": 19,
+      "durationSec": 0.6333330273628235,
+      "fps": 30
+    },
+    {
+      "tag": "spell_cast",
+      "url": "/mixamo_spell_cast.vat",
+      "numFrames": 34,
+      "durationSec": 1.1333329677581787,
+      "fps": 30
+    },
+    {
+      "tag": "standing_torch_idle_01",
+      "url": "/mixamo_standing_torch_idle_01.vat",
+      "numFrames": 190,
+      "durationSec": 6.3333330154418945,
+      "fps": 30
+    },
+    {
+      "tag": "standing_torch_walk_forward",
+      "url": "/mixamo_standing_torch_walk_forward.vat",
+      "numFrames": 33,
+      "durationSec": 1.100000023841858,
+      "fps": 30
+    },
+    {
+      "tag": "stunned",
+      "url": "/mixamo_stunned.vat",
+      "numFrames": 64,
+      "durationSec": 2.1333329677581787,
+      "fps": 30
+    },
+    {
+      "tag": "uppercut",
+      "url": "/mixamo_uppercut.vat",
+      "numFrames": 40,
+      "durationSec": 1.3333330154418945,
+      "fps": 30
+    },
+    {
+      "tag": "walking",
+      "url": "/mixamo_walking.vat",
+      "numFrames": 61,
+      "durationSec": 2.0333330631256104,
+      "fps": 30
+    },
+    {
+      "tag": "zombie_walk",
+      "url": "/mixamo_zombie_walk.vat",
+      "numFrames": 121,
+      "durationSec": 4.033332824707031,
+      "fps": 30
+    }
+  ]
+}
