@@ -121,6 +121,12 @@ export interface RaymarchPrimitive {
    *  Runtime inverts the quat and rotates the march point, not the
    *  primitive, so the SDF eval stays cheap and exact. */
   rotation?: [number, number, number, number]
+  /** FBM micro-displacement amplitude in world meters — read ONLY by the
+   *  normal pass (dual-map pattern). Zero (default) = smooth surface.
+   *  Values around 0.002–0.005 give subtle skin/wood-grain detail at
+   *  sprite resolution. Does not affect silhouette or shadows; only
+   *  shading via the 3-band cel normal. */
+  detailAmplitude?: number
 }
 
 /** Same VATData interface used by skeleton_renderer + chunk_renderer. */
@@ -133,7 +139,7 @@ export interface VATData {
 // Storage-buffer layout per primitive (20 floats = 80 bytes):
 //   [0..3]    typeAndSlots as u32 cast: type, paletteSlot, boneIdx, colorFunc
 //   [4..7]    params x/y/z/w
-//   [8..11]   offsetInBone x/y/z/_pad
+//   [8..11]   offsetInBone x/y/z/detailAmplitude (normal-pass FBM, 0 = off)
 //   [12..15]  slotB (u32) | colorExtent (f32) | blendGroup (u32) | blendRadius (f32, signed)
 //   [16..19]  rotation quat (x, y, z, w) — identity (0,0,0,1) if axis-aligned
 const PRIM_STRIDE_FLOATS = 20
@@ -280,6 +286,24 @@ fn noise3(p: vec3f) -> f32 {
   let y0 = mix(x00, x10, u.y);
   let y1 = mix(x01, x11, u.y);
   return mix(y0, y1, u.z);
+}
+
+// 3-octave FBM — centered roughly on zero, bounded roughly in [-0.5, 0.5].
+// Used by the dual-map pattern (sceneSDF_detail) for per-surface micro
+// displacement that drives correct 3D normal shading. Frequencies chosen
+// non-harmonic so the pattern doesn't feel grid-locked.
+fn fbm3(p: vec3f) -> f32 {
+  var acc = 0.0;
+  var amp = 0.5;
+  var q = p;
+  acc = acc + amp * (noise3(q) - 0.5);
+  amp = amp * 0.5;
+  q = q * 2.07;
+  acc = acc + amp * (noise3(q) - 0.5);
+  amp = amp * 0.5;
+  q = q * 2.11;
+  acc = acc + amp * (noise3(q) - 0.5);
+  return acc;
 }
 
 // Sword swipe arc — intersecting oblate spheroids clipped to an angular
@@ -473,7 +497,14 @@ fn smax_k(a: f32, b: f32, k: f32) -> f32 {
 
 const MAX_GROUPS: u32 = 16u;
 
-fn sceneSDF(pWorld: vec3f) -> SceneHit {
+// Dual-map pattern (Inigo Quilez, WsSBzh):
+//   wantDetail = 0  → smooth SDF for raymarch + shadow. No FBM displacement,
+//                     no step-size collapse. Cheap steps, clean convergence.
+//   wantDetail = 1  → same SDF plus per-primitive FBM displacement at the
+//                     hit point. Called ONLY from sceneNormal so the 3-band
+//                     cel lighting shades the detail surface (pores, grain,
+//                     wood). Real 3D normal mapping — not a 2D texture.
+fn sceneSDF(pWorld: vec3f, wantDetail: u32) -> SceneHit {
   var best = 1e9;
   var bestIdx = 0u;
   // Per-group accumulators. Groups are 1-indexed in the primitive record;
@@ -494,7 +525,17 @@ fn sceneSDF(pWorld: vec3f) -> SceneHit {
     let cfg  = prims[base + 3u];
     let groupPacked = bitcast<u32>(cfg.z);
     let blendR = cfg.w;
-    let d = evalPrim(i, pWorld);
+    var d = evalPrim(i, pWorld);
+    // Dual-map detail displacement — per-primitive FBM, only active on
+    // the normal pass. detailAmp lives in the offsetInBone.w pad slot.
+    // Frequency 28 m⁻¹ → ~3.6cm features, tuned for our sprite range
+    // (visible at 80²+ but subtle at 32²).
+    if (wantDetail == 1u) {
+      let detailAmp = prims[base + 2u].w;
+      if (detailAmp > 0.0) {
+        d = d - detailAmp * fbm3(pWorld * 28.0);
+      }
+    }
     if (groupPacked == 0u || groupPacked > MAX_GROUPS) {
       // Standalone — hard union into scene.
       if (d < best) { best = d; bestIdx = i; }
@@ -525,10 +566,14 @@ fn sceneSDF(pWorld: vec3f) -> SceneHit {
   return SceneHit(best, bestIdx);
 }
 
+// Normals sample the DETAIL SDF (wantDetail=1), so the 3-band cel lighting
+// shades the FBM-displaced surface rather than the smooth base geometry.
+// This is the dual-map win: skin reads as porous, wood reads as grainy,
+// even though the silhouette the march resolved is the smooth hull.
 fn sceneNormal(pWorld: vec3f, eps: f32) -> vec3f {
-  let dx = sceneSDF(pWorld + vec3f(eps, 0.0, 0.0)).dist - sceneSDF(pWorld - vec3f(eps, 0.0, 0.0)).dist;
-  let dy = sceneSDF(pWorld + vec3f(0.0, eps, 0.0)).dist - sceneSDF(pWorld - vec3f(0.0, eps, 0.0)).dist;
-  let dz = sceneSDF(pWorld + vec3f(0.0, 0.0, eps)).dist - sceneSDF(pWorld - vec3f(0.0, 0.0, eps)).dist;
+  let dx = sceneSDF(pWorld + vec3f(eps, 0.0, 0.0), 1u).dist - sceneSDF(pWorld - vec3f(eps, 0.0, 0.0), 1u).dist;
+  let dy = sceneSDF(pWorld + vec3f(0.0, eps, 0.0), 1u).dist - sceneSDF(pWorld - vec3f(0.0, eps, 0.0), 1u).dist;
+  let dz = sceneSDF(pWorld + vec3f(0.0, 0.0, eps), 1u).dist - sceneSDF(pWorld - vec3f(0.0, 0.0, eps), 1u).dist;
   return normalize(vec3f(dx, dy, dz));
 }
 
@@ -543,7 +588,7 @@ fn shadowRay(origin: vec3f, dir: vec3f, minT: f32, maxT: f32) -> f32 {
   var res = 1.0;
   var t = minT;
   for (var i = 0u; i < 16u; i = i + 1u) {
-    let h = sceneSDF(origin + dir * t).dist;
+    let h = sceneSDF(origin + dir * t, 0u).dist;
     if (h < 0.0005) { return 0.0; }
     // Penumbra softness: smaller constant → harder shadow.
     res = min(res, 6.0 * h / t);
@@ -585,7 +630,7 @@ fn fs_main(in: VsOut) -> FsOut {
   var hit = false;
   for (var step = 0u; step < u.maxSteps; step = step + 1u) {
     let p = ro + rd * t;
-    let s = sceneSDF(p);
+    let s = sceneSDF(p, 0u);
     if (s.dist < 0.001) { hitPrim = s.primIdx; hit = true; break; }
     t = t + s.dist;
     if (t > totalDist) { break; }
@@ -785,11 +830,11 @@ export function createRaymarchRenderer(
       f32[base + 5] = p.params[1]
       f32[base + 6] = p.params[2]
       f32[base + 7] = p.params[3]
-      // vec4<f32> in slot 2: offset in bone
+      // vec4<f32> in slot 2: offset in bone (xyz) + detailAmplitude (w)
       f32[base + 8] = p.offsetInBone[0]
       f32[base + 9] = p.offsetInBone[1]
       f32[base + 10] = p.offsetInBone[2]
-      f32[base + 11] = 0
+      f32[base + 11] = p.detailAmplitude ?? 0
       // vec4 in slot 3: slotB (u32), colorExtent (f32), blendGroup (u32), blendRadius (f32 signed)
       u32[base + 12] = p.paletteSlotB ?? p.paletteSlot
       f32[base + 13] = p.colorExtent ?? 0.1

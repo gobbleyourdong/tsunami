@@ -684,6 +684,7 @@ export interface RaymarchPrimDesc {
   blendGroup?: number
   blendRadius?: number
   rotation?: [number, number, number, number]
+  detailAmplitude?: number
 }
 
 export function chibiRaymarchPrimitives(
@@ -713,12 +714,17 @@ export function chibiRaymarchPrimitives(
       // it as a single skin surface rather than showing a crease at the seam.
       // 0.03m blend radius → soft under-chin transition, hard enough that
       // the overall silhouette still reads as the chibi round head.
-      const headBlend = name === 'Head' ? { blendGroup: 1, blendRadius: 0.03 } : {}
+      // Skin detail: 2mm FBM displacement read only by the normal pass.
+      // Too small to shift the silhouette; big enough to break up the
+      // flat ellipsoid lighting into organic 3-band cel shading.
+      const headExtras = name === 'Head'
+        ? { blendGroup: 1, blendRadius: 0.03, detailAmplitude: 0.002 }
+        : {}
       prims.push({
         type, paletteSlot: slot, boneIdx: j,
         params: [core[0], core[1], core[2], 0],
         offsetInBone: [off[0], off[1], off[2]],
-        ...headBlend,
+        ...headExtras,
       })
       // Add the jaw/chin ellipsoid — a smaller ellipsoid offset down and
       // forward. Smooth-unions with the head ellipsoid via blend group 1
@@ -730,6 +736,7 @@ export function chibiRaymarchPrimitives(
           params: [core[0] * 0.80, core[1] * 0.55, core[2] * 0.90, 0],
           offsetInBone: [off[0], off[1] - core[1] * 0.55, off[2] + core[2] * 0.12],
           blendGroup: 1, blendRadius: 0.03,
+          detailAmplitude: 0.002,
         })
       }
       continue
