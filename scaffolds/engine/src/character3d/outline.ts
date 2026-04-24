@@ -105,46 +105,32 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     lit = vec3f(select(shadowTone, 1.0, d > 0.0));
   }
 
-  // Interior depth outline: opaque pixels only, compared against OPAQUE
-  // neighbors only. Skipping transparent neighbors prevents the depth
-  // test from re-firing on the silhouette (where character depth ~0.5
-  // vs. background clear depth 1.0 is a huge step that would paint a
-  // second outline inside the exterior ring). Result: D draws outlines
-  // only at interior depth discontinuities — arm over body, weapon in
-  // front of torso, elbow crook — leaving the silhouette to the 4-conn
-  // alpha dilation below.
-  if (me.a > 0.5) {
-    if (u.depthOutline > 0.5) {
-      let d  = textureLoad(depthTex, pxClamp, 0).r;
-      let pN = clamp(px + vec2i( 0, -1), vec2i(0), dim - vec2i(1));
-      let pS = clamp(px + vec2i( 0,  1), vec2i(0), dim - vec2i(1));
-      let pE = clamp(px + vec2i( 1,  0), vec2i(0), dim - vec2i(1));
-      let pW = clamp(px + vec2i(-1,  0), vec2i(0), dim - vec2i(1));
-      let aN = textureLoad(sceneTex, pN, 0).a;
-      let aS = textureLoad(sceneTex, pS, 0).a;
-      let aE = textureLoad(sceneTex, pE, 0).a;
-      let aW = textureLoad(sceneTex, pW, 0).a;
-      let dn = select(d, textureLoad(depthTex, pN, 0).r, aN > 0.5);
-      let ds = select(d, textureLoad(depthTex, pS, 0).r, aS > 0.5);
-      let de = select(d, textureLoad(depthTex, pE, 0).r, aE > 0.5);
-      let dw = select(d, textureLoad(depthTex, pW, 0).r, aW > 0.5);
-      let gap = max(max(abs(d - dn), abs(d - ds)), max(abs(d - de), abs(d - dw)));
-      if (gap > u.depthThresh) { return NAVY; }
-    }
-    return vec4f(me.rgb * lit, 1.0);
+  // SINGLE depth-based outline — catches both silhouette and interior
+  // creases in one test. Rule: a pixel is NAVY if any 4-conn neighbor
+  // is SIGNIFICANTLY CLOSER (smaller depth). That covers:
+  //
+  //   silhouette: bg pixel (depth=1.0) beside character pixel (~0.5)
+  //               → neighbor is much closer → NAVY on the bg side, one
+  //               pixel ring around the character.
+  //   interior:   far-limb pixel (0.55) beside near-limb (0.45) →
+  //               neighbor closer by 0.10 → NAVY on the far side of
+  //               the arm/body seam.
+  //
+  // A pixel whose neighbors are all farther or equal is NOT an outline
+  // (character's near edge paints colour, not NAVY). One sidedness
+  // keeps the line 1-pixel wide instead of doubling up on both sides.
+  if (u.depthOutline > 0.5) {
+    let d  = textureLoad(depthTex, pxClamp, 0).r;
+    let dN = textureLoad(depthTex, clamp(px + vec2i( 0, -1), vec2i(0), dim - vec2i(1)), 0).r;
+    let dS = textureLoad(depthTex, clamp(px + vec2i( 0,  1), vec2i(0), dim - vec2i(1)), 0).r;
+    let dE = textureLoad(depthTex, clamp(px + vec2i( 1,  0), vec2i(0), dim - vec2i(1)), 0).r;
+    let dW = textureLoad(depthTex, clamp(px + vec2i(-1,  0), vec2i(0), dim - vec2i(1)), 0).r;
+    let closestDelta = max(max(d - dN, d - dS), max(d - dE, d - dW));
+    if (closestDelta > u.depthThresh) { return NAVY; }
   }
 
-  // Silhouette outline: transparent pixel with any opaque 4-conn neighbor.
-  let nA = textureLoad(sceneTex, clamp(px + vec2i( 0, -1), vec2i(0), dim - vec2i(1)), 0).a;
-  let sA = textureLoad(sceneTex, clamp(px + vec2i( 0,  1), vec2i(0), dim - vec2i(1)), 0).a;
-  let eA = textureLoad(sceneTex, clamp(px + vec2i( 1,  0), vec2i(0), dim - vec2i(1)), 0).a;
-  let wA = textureLoad(sceneTex, clamp(px + vec2i(-1,  0), vec2i(0), dim - vec2i(1)), 0).a;
-  if (nA > 0.5 || sA > 0.5 || eA > 0.5 || wA > 0.5) {
-    return NAVY;
-  }
-  // Checkerboard alpha background (see 'checker' computed at top of
-  // fs_main). 2×2 integer-pixel cells → pixel-perfect at every tier.
-  return checker;
+  if (me.a < 0.5) { return checker; }
+  return vec4f(me.rgb * lit, 1.0);
 }
 `
 
@@ -199,7 +185,7 @@ export function createOutlinePass(
   })
   const uniformData = new Float32Array(32)
   let currentViewMode: ViewMode = 'color'
-  let currentDepthOutline = false
+  let currentDepthOutline = true    // single depth-based outline is THE outline now
   let currentDepthThresh = 0.025
   // 0 = off, 1 = MRT normal (authoritative), 2 = reconstructed from depth
   let currentLightingMode: 0 | 1 | 2 = 0
