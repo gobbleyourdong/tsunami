@@ -77,13 +77,26 @@ async function main() {
     let spriteMode: SpriteMode = 'sz32'
     // Preview framing: 'scene' canvases at SNES full-res (256²) and
     // centers the sprite cell in it — you see the sprite at its pixel
-    // size against screen context. 'framed' canvases match the sprite
-    // cell size exactly so the sprite fills the canvas, zoomed by CSS.
+    // size against screen context. 'framed' canvases match the cache
+    // size so all render pixels are visible.
     type PreviewMode = 'scene' | 'framed'
     let previewMode: PreviewMode = 'scene'
     const SNES_SCREEN = 256
+    // Animation overflow pad: raymarch cache is CELL + 2×PAD_PX per dim
+    // so jump/crouch/reach animations can extend beyond the logical
+    // sprite cell boundary without clipping. Character's relative render
+    // size stays pinned to the cell; the pad is just extra room around.
+    // User call: "keep same relative sprite size transforms, let it
+    // escape the sprite boundary constraint."
+    const PAD_PX = 8
+    function cacheDimsFor(mode: SpriteMode): { w: number; h: number } {
+      const cfg = SPRITE_MODES[mode]
+      return { w: cfg.w + 2 * PAD_PX, h: cfg.h + 2 * PAD_PX }
+    }
     function canvasSizeForMode(): number {
-      return previewMode === 'scene' ? SNES_SCREEN : SPRITE_MODES[spriteMode].w
+      if (previewMode === 'scene') return SNES_SCREEN
+      const c = cacheDimsFor(spriteMode)
+      return c.w   // framed = cache size (sprite fills canvas, pad included)
     }
     canvas.width = canvasSizeForMode()
     canvas.height = canvasSizeForMode()
@@ -102,9 +115,13 @@ async function main() {
       controls: 'orbit',
     })
     const cleanup = camera.bindToCanvas(canvas)
-    // Aspect is based on the SPRITE size (what the raymarch renders into),
-    // not the screen. The cache is sprite-sized; cameras project into it.
-    camera.setAspect(SPRITE_MODES[spriteMode].w, SPRITE_MODES[spriteMode].h)
+    // Aspect is based on the CACHE size (what the raymarch renders into),
+    // which is cell + pad per side. Camera's projection maps to cache
+    // pixels; blit centers cache in the scene canvas.
+    {
+      const c0 = cacheDimsFor(spriteMode)
+      camera.setAspect(c0.w, c0.h)
+    }
     // Kill wheel zoom — orthoSize is pinned per LOD by applySpriteMode /
     // applyPreset / fitCameraToCharacter. Sprite size on screen is a
     // function of the LOD, not user interaction. Capture the event before
@@ -284,11 +301,17 @@ async function main() {
       const bottomMargin = 0.08
       const radialMargin = 0.10
       const halfH = ((b.maxY + topMargin) - (b.minY - bottomMargin)) / 2
-      const relCenter = ((b.maxY + topMargin) + (b.minY - bottomMargin)) / 2  // offset from Hips
+      const relCenter = ((b.maxY + topMargin) + (b.minY - bottomMargin)) / 2
       const sprite = SPRITE_MODES[spriteMode]
-      const aspect = sprite.w / sprite.h
+      const cache  = cacheDimsFor(spriteMode)
+      const aspect = cache.w / cache.h
       const halfFromRadius = (b.maxR + radialMargin) / aspect
-      camera.orthoSize = Math.max(halfH, halfFromRadius)
+      // Cell-relative orthoSize first — character fills one cell tightly.
+      const orthoSizeForCell = Math.max(halfH, halfFromRadius)
+      // Scale up so the render target (cache) has pad around the cell-
+      // worth of character. pxPerM stays constant (character keeps its
+      // cell-sized render), extra cache pixels are animation overflow.
+      camera.orthoSize = orthoSizeForCell * (cache.h / sprite.h)
       camera.target = [b.cx, b.cy + relCenter, b.cz]
     }
 
@@ -708,9 +731,11 @@ async function main() {
       vatHandle,
       { maxSteps: 32 },   // tuned: per-primitive occlusion closes hits fast
     )
-    // Cache is sprite-sized, not screen-sized — the raymarch writes to the
-    // LOD cell and we blit it centered into the bigger scene target.
-    raymarch.resizeCache(SPRITE_MODES[spriteMode].w, SPRITE_MODES[spriteMode].h)
+    // Cache is cell + pad × 2 per dimension — gives animation room.
+    {
+      const c0 = cacheDimsFor(spriteMode)
+      raymarch.resizeCache(c0.w, c0.h)
+    }
     // Cache version hoisted higher in the file — declared near top-of-main
     // so proportion-preset applies during init can fire invalidations
     // safely without TDZ.
@@ -763,11 +788,10 @@ async function main() {
         recreateTargets(canvasSize, canvasSize)
         outline.rebindSources(targets.sceneView!, targets.normalView!, targets.depthVizView!, canvasSize, canvasSize)
       }
-      camera.setAspect(cfg.w, cfg.h)
-      // Proportion is independent — do NOT reset on resolution change.
-      // Whatever proportion the user picked stays.
+      const c = cacheDimsFor(mode)
+      camera.setAspect(c.w, c.h)
       fitCameraToCharacter()
-      raymarch.resizeCache(cfg.w, cfg.h)
+      raymarch.resizeCache(c.w, c.h)
       invalidateRaymarchCache()
     }
     function togglePreviewMode() {
@@ -972,7 +996,10 @@ async function main() {
       // acceptable since we're no longer baking atlas cells. Fit sets
       // camera.target once to the rest Hips position.
       camera.update()
-      camera.pixelSnapView(SPRITE_MODES[spriteMode].w, SPRITE_MODES[spriteMode].h)
+      {
+        const c = cacheDimsFor(spriteMode)
+        camera.pixelSnapView(c.w, c.h)
+      }
       // When the composer is active, the shader reads slot 0 (composer
       // writes current frame there each tick). Without composer (VAT1),
       // use frameIdx directly against the pre-baked world-matrix table.
@@ -1013,8 +1040,8 @@ async function main() {
           raymarch.setTime(elapsed)
           // pxPerM uses the SPRITE-cell height (cache dim), not canvas —
           // the raymarch writes into the cache texture which is sprite-sized.
-          const spriteH = SPRITE_MODES[spriteMode].h
-          const pxPerM = spriteH / (2 * camera.orthoSize)
+          const cacheH = cacheDimsFor(spriteMode).h
+          const pxPerM = cacheH / (2 * camera.orthoSize)
           raymarch.setPxPerM(pxPerM)
           raymarch.marchIntoCache(encoder, camera.view, camera.projection, eyeR, drawFrameIdx)
           raymarchCacheApplied = raymarchCacheVersion
@@ -1049,14 +1076,14 @@ async function main() {
       //       the cache was filled (camera translation delta in pixels).
       // Pixel-copy invariant means the blit is always integer-pixel aligned.
       {
-        const spriteCfg = SPRITE_MODES[spriteMode]
-        const pxPerM = spriteCfg.h / (2 * camera.orthoSize)
+        const cache = cacheDimsFor(spriteMode)
+        const pxPerM = cache.h / (2 * camera.orthoSize)
         const dxM = camera.view[12] - lastAabbView[12]
         const dyM = camera.view[13] - lastAabbView[13]
         const panOffsetX = -Math.round(dxM * pxPerM)
-        const panOffsetY =  Math.round(dyM * pxPerM)   // screen Y is down
-        const centerX = Math.round((canvas.width  - spriteCfg.w) / 2)
-        const centerY = Math.round((canvas.height - spriteCfg.h) / 2)
+        const panOffsetY =  Math.round(dyM * pxPerM)
+        const centerX = Math.round((canvas.width  - cache.w) / 2)
+        const centerY = Math.round((canvas.height - cache.h) / 2)
         raymarch.blitCacheToPass(scenePass, [centerX + panOffsetX, centerY + panOffsetY])
       }
       scenePass.end()
@@ -1068,10 +1095,15 @@ async function main() {
       if (headIdx >= 0 && composer) {
         const m = composer.worldMatrices
         const hBase = headIdx * 16
-        // Head joint position — bone's col3 (with the +Y tweak the chibi
-        // rig uses to lift the head above shoulders). We want the visible
-        // face anchor, so use col3 + CHIBI_CENTERED_OFFSET if present.
-        const headOff = [0, 0, 0]   // head model origin is bone origin
+        // Anchor at the FRONT of the head, not the head joint center.
+        // Head's head-local frame: origin at joint, +Y up, +Z face-forward.
+        // Offset (0, headYOff, headZHalf) lands on the visible face.
+        // Using the center depth (0,0,0) caused eyes to paint through the
+        // back of the head when orbited, because head center depth sits
+        // in the middle of the pass-band tolerance. Face-front is on one
+        // side of the head's depth extent so its depth uniquely identifies
+        // "surface that is actually the face."
+        const headOff = [0, 0.12, 0.19]   // head-local face-front anchor
         const wx = m[hBase + 0] * headOff[0] + m[hBase + 4] * headOff[1] + m[hBase + 8] * headOff[2] + m[hBase + 12]
         const wy = m[hBase + 1] * headOff[0] + m[hBase + 5] * headOff[1] + m[hBase + 9] * headOff[2] + m[hBase + 13]
         const wz = m[hBase + 2] * headOff[0] + m[hBase + 6] * headOff[1] + m[hBase + 10] * headOff[2] + m[hBase + 14]
@@ -1082,11 +1114,11 @@ async function main() {
         const cz = p[2]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[6]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[10]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[14]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
         const cw = p[3]*(v[0]*wx + v[4]*wy + v[8]*wz + v[12]) + p[7]*(v[1]*wx + v[5]*wy + v[9]*wz + v[13]) + p[11]*(v[2]*wx + v[6]*wy + v[10]*wz + v[14]) + p[15]*(v[3]*wx + v[7]*wy + v[11]*wz + v[15])
         const ndcX = cx / cw, ndcY = cy / cw, ndcZ = cz / cw
-        const spriteCfg = SPRITE_MODES[spriteMode]
-        const cellPxX = (ndcX * 0.5 + 0.5) * spriteCfg.w
-        const cellPxY = (1 - (ndcY * 0.5 + 0.5)) * spriteCfg.h   // flip Y (NDC up → pixel down)
-        const centerX = (canvas.width  - spriteCfg.w) / 2
-        const centerY = (canvas.height - spriteCfg.h) / 2
+        const cache = cacheDimsFor(spriteMode)
+        const cellPxX = (ndcX * 0.5 + 0.5) * cache.w
+        const cellPxY = (1 - (ndcY * 0.5 + 0.5)) * cache.h
+        const centerX = (canvas.width  - cache.w) / 2
+        const centerY = (canvas.height - cache.h) / 2
         const w = EYE_WHITE[spriteMode]
         const whiteCol: [number, number, number, number] = [
           WHITE_COLOR[0], WHITE_COLOR[1], WHITE_COLOR[2],
