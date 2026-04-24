@@ -177,6 +177,7 @@ async function main() {
     let loadedVAT = animations[animIdx].vat
     let composer = animations[animIdx].composer
     const rig = loadedVAT.rig!   // rig is shared across all Mixamo anims — take from first
+    const hipsIdx = rig.findIndex((j) => j.name === 'Hips')
     const characterParams = defaultCharacterParams(loadedVAT.numJoints)
 
     // --- Proportion system: group joints by body part, apply scale per group. ---
@@ -225,14 +226,16 @@ async function main() {
     // the full local 4×4s (frame 0 of VAT) exactly like the composer so
     // bounds match what renders.
     const worldMatsTmp: Float32Array[] = Array.from({ length: rig.length }, () => new Float32Array(16))
-    /** Compute the animation ENVELOPE — union of joint-position bounds
-     *  across every frame of every loaded animation. That's the true max
-     *  extent the character will ever take; fitting to it lets the sprite
-     *  hug the cell tightly without animation extrema (jump, swing)
-     *  clipping outside. Sub-ms cost: ~20 anims × ~100 frames × ~80
-     *  joints × one 4×4 mat-mul. Runs once per preset/mode change. */
+    /** Animation envelope RELATIVE to the Hips joint. Walks every frame
+     *  of every loaded animation, subtracts the Hips position at that
+     *  frame from every joint, unions the resulting offsets. The camera
+     *  tracks Hips per-frame, so jump/dash translations don't bloat the
+     *  envelope — only limb extension relative to the character's center
+     *  of mass matters. Result: tight cell fit + no anim clipping.
+     *  Returns relative bounds; camera.target is set to live Hips pos
+     *  per frame in the render loop. */
     function estimateBounds(): { minY: number; maxY: number; maxR: number; cx: number; cz: number } {
-      let minY = Infinity, maxY = -Infinity, maxR = 0, cxSum = 0, czSum = 0, cCount = 0
+      let minY = Infinity, maxY = -Infinity, maxR = 0
       const scaledLocal = new Float32Array(16)
       for (const anim of animations) {
         const lm = anim.vat.localMats
@@ -267,17 +270,25 @@ async function main() {
                 }
               }
             }
-            const x = w[12], y = w[13], z = w[14]
-            if (y < minY) minY = y
-            if (y > maxY) maxY = y
-            const r = Math.hypot(x, z)
+          }
+          // Subtract this frame's Hips position from every joint so the
+          // bounds are relative to the character's center (jumps don't
+          // grow the envelope — they just translate Hips, which the
+          // camera follows).
+          const hipsW = worldMatsTmp[hipsIdx >= 0 ? hipsIdx : 0]
+          const hx = hipsW[12], hy = hipsW[13], hz = hipsW[14]
+          for (let j = 0; j < nj; j++) {
+            const w = worldMatsTmp[j]
+            const dx = w[12] - hx, dy = w[13] - hy, dz = w[14] - hz
+            if (dy < minY) minY = dy
+            if (dy > maxY) maxY = dy
+            const r = Math.hypot(dx, dz)
             if (r > maxR) maxR = r
-            cxSum += x; czSum += z; cCount++
           }
         }
       }
-      if (cCount === 0) return { minY: 0, maxY: 1.8, maxR: 0.4, cx: 0, cz: 0 }
-      return { minY, maxY, maxR, cx: cxSum / cCount, cz: czSum / cCount }
+      if (minY === Infinity) return { minY: -0.9, maxY: 0.9, maxR: 0.4, cx: 0, cz: 0 }
+      return { minY, maxY, maxR, cx: 0, cz: 0 }   // cx/cz in local frame = 0 (camera targets live Hips)
     }
 
     function fitCameraToCharacter() {
@@ -835,16 +846,9 @@ async function main() {
 
     loop.onUpdate = (stats) => {
       elapsed += stats.dt
-      camera.update()
-      // Pixel-snap the view translation. Camera angles are allowed to
-      // change rasterization (that's the pose-cache discretization); camera
-      // translations must NOT. Snapping view.x/y to the pixel grid keeps
-      // the character rasterizing the same bytes regardless of where the
-      // camera has panned — "sprites copy, don't swim."
-      // Snap against sprite-cell dimensions — that's the pixel grid the
-      // raymarch rasterizes against. Canvas is larger (SCREEN_SIZE) but
-      // the sprite IS the LOD cell.
-      camera.pixelSnapView(SPRITE_MODES[spriteMode].w, SPRITE_MODES[spriteMode].h)
+      // camera.update() + pixel-snap moved into onRender so they see the
+      // live Hips target set after composer.update — otherwise the
+      // character-tracking lagged by one frame.
     }
 
     // Per-primitive world AABB tracking — the robust cache invalidation
@@ -964,6 +968,19 @@ async function main() {
         if (restPose) composer.applyRestPose(characterParams)
         else          composer.update(frameIdx, characterParams)
       }
+      // Per-frame camera tracking: camera.target follows the Hips joint
+      // so jump/dash translations slide the camera with the character
+      // instead of the character sliding out of the frame. Bounds from
+      // estimateBounds are Hips-relative, so Hips is the moving anchor.
+      if (composer && hipsIdx >= 0) {
+        const m = composer.worldMatrices
+        const b = hipsIdx * 16
+        camera.target = [m[b + 12], m[b + 13], m[b + 14]]
+      }
+      // Camera input + view matrix recompute AFTER the target was just
+      // updated — view reflects current target for THIS frame, no lag.
+      camera.update()
+      camera.pixelSnapView(SPRITE_MODES[spriteMode].w, SPRITE_MODES[spriteMode].h)
       // When the composer is active, the shader reads slot 0 (composer
       // writes current frame there each tick). Without composer (VAT1),
       // use frameIdx directly against the pre-baked world-matrix table.
