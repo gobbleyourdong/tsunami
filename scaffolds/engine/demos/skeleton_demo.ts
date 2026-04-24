@@ -55,10 +55,10 @@ import { VFXSystem } from '../src/character3d/vfx_system'
 // of its canonical non-square reference (Link 24, chibi 32, Alucard 80,
 // full 256).
 const SPRITE_MODES = {
-  link:    { label: 'Link LTTP 24²',    w: 24,  h: 24  },
-  chibi:   { label: 'SNES chibi 32²',   w: 32,  h: 32  },
-  alucard: { label: 'Alucard SotN 80²', w: 80,  h: 80  },
-  full:    { label: 'SNES 256²',        w: 256, h: 256 },
+  sz24:  { label: '24² Zelda LTTP / small Mario',    w: 24,  h: 24  },
+  sz32:  { label: '32² large Mario',                  w: 32,  h: 32  },
+  sz48:  { label: '48² Chrono Trigger / Alucard',     w: 48,  h: 48  },
+  debug: { label: '256² debug / SNES full',           w: 256, h: 256 },
 } as const
 type SpriteMode = keyof typeof SPRITE_MODES
 
@@ -74,7 +74,7 @@ async function main() {
     const gpu = await initGPU(canvas)
     const { device, format } = gpu
 
-    let spriteMode: SpriteMode = 'chibi'
+    let spriteMode: SpriteMode = 'sz32'
     // Preview framing: 'scene' canvases at SNES full-res (256²) and
     // centers the sprite cell in it — you see the sprite at its pixel
     // size against screen context. 'framed' canvases match the sprite
@@ -319,16 +319,16 @@ async function main() {
      *    80²:     1×1 dot with 1-pixel white ring (SotN)
      *    256²:    3×2 pupil with 2-pixel white ring (SF-tier) */
     const EYE_PUPIL: Record<SpriteMode, [number, number, number, number]> = {
-      link:    [1,  -0.5, 0.4, 0.5],
-      chibi:   [1,  -0.5, 0.4, 1.0],
-      alucard: [3,  -2.5, 0.4, 0.5],
-      full:    [10, -8.0, 1.5, 1.0],
+      sz24:  [1,  -0.5, 0.4, 0.5],
+      sz32:  [1,  -0.5, 0.4, 1.0],
+      sz48:  [2,  -1.5, 0.4, 1.0],
+      debug: [10, -8.0, 1.5, 1.0],
     }
     const EYE_WHITE: Record<SpriteMode, [number, number, number, number]> = {
-      link:    [0,   0,   0, 0],      // too small — skip white
-      chibi:   [0,   0,   0, 0],      // 1 skin pixel between eyes, can't fit white too
-      alucard: [0.5, 0.5, 0, 0],      // 2x2 white around pupil
-      full:    [3.0, 2.0, 0, 0],      // 6x4 white around 3x2 pupil
+      sz24:  [0,   0,   0, 0],      // too small — skip white
+      sz32:  [0,   0,   0, 0],      // 1 skin px between eyes, can't fit white
+      sz48:  [0.5, 1.0, 0, 0],      // 2×3 white around 1×2 pupil (CT-tier)
+      debug: [3.0, 2.0, 0, 0],      // 6×4 white around 3×2 pupil (SF-tier)
     }
     const PUPIL_COLOR: [number, number, number, number] = [0.10, 0.08, 0.20, 1.0]
     const WHITE_COLOR: [number, number, number, number] = [0.95, 0.92, 0.88, 1.0]
@@ -371,6 +371,7 @@ async function main() {
       },
     }
     function applyPreset(key: PresetKey) {
+      currentProportion = key
       const p = BODY_PRESETS[key]
       for (const g of propGroups) {
         const v = p[g]
@@ -382,33 +383,26 @@ async function main() {
       invalidateRaymarchCache()
     }
 
-    /** Each sprite mode pins a proportion archetype. Proportion and
-     *  render resolution are coupled: chibi silhouette at 256² looks
-     *  wrong, realistic at 24² can't fit adult proportions. Mapping
-     *  cell-size → archetype keeps them matched. */
-    const SPRITE_MODE_PRESET: Record<SpriteMode, PresetKey> = {
-      link:    'chibi',      // 24² — only tier that can't fit adult proportions
-      chibi:   'stylized',   // 32² — FF6/Chrono overworld: anime kid proportions
-      alucard: 'realistic',  // 80² — Alucard's native res, lean adult silhouette
-      full:    'realistic',  // 256² — same proportions, more detail per pixel
-    }
+    /** Proportion and resolution are independent axes. Same CT-class cell
+     *  (48px) can hold a chibi child (Chrono Trigger) or a lean adult
+     *  (Alucard) — historically both existed at 48. User picks. */
+    let currentProportion: PresetKey = 'stylized'
     /** Animation frame rate per LOD tier. SNES sprites animated at 8-15
      *  fps regardless of display refresh; holding each pose for multiple
      *  render frames is both authentic pixel-art feel AND a cache win
-     *  (AABBs don't change between ticks → raymarch holds, blit wins).
-     *  Lower tier = slower anim, lower res, fewer unique poses.  */
+     *  (AABBs don't change between ticks → raymarch holds, blit wins). */
     const SPRITE_MODE_ANIM_FPS: Record<SpriteMode, number> = {
-      link:    8,      // classic NES/early-SNES sprite tick
-      chibi:   10,     // SNES overworld feel (Chrono, Zelda)
-      alucard: 15,     // mid-tier, SotN-ish
-      full:    24,     // near-film-rate, still sprite-discrete
+      sz24:  8,    // NES/early-SNES sprite tick
+      sz32:  10,   // SNES overworld feel (Chrono, Zelda)
+      sz48:  12,   // mid-tier (CT battle, Alucard)
+      debug: 24,   // near-film, for debug readability
     }
-    // Apply the starting preset matching the initial sprite mode. The full
-    // applySpriteMode path (called on key 1-4) can't run yet — renderer,
-    // outline, cache aren't created. Applying just the proportions here
-    // is enough: they feed characterParams.scales, which the composer
-    // reads later on every frame.
-    applyPreset(SPRITE_MODE_PRESET[spriteMode])
+    applyPreset(currentProportion)
+    // Proportion preset buttons — independent of resolution.
+    for (const key of ['chibi', 'stylized', 'realistic'] as const) {
+      const btn = document.getElementById(`preset-${key}`) as HTMLButtonElement | null
+      if (btn) btn.onclick = () => applyPreset(key)
+    }
 
     let vatHandle = {
       buffer: loadedVAT.buffer,
@@ -754,7 +748,8 @@ async function main() {
         outline.rebindSources(targets.sceneView!, targets.normalView!, targets.depthVizView!, canvasSize, canvasSize)
       }
       camera.setAspect(cfg.w, cfg.h)
-      applyPreset(SPRITE_MODE_PRESET[mode])
+      // Proportion is independent — do NOT reset on resolution change.
+      // Whatever proportion the user picked stays.
       fitCameraToCharacter()
       raymarch.resizeCache(cfg.w, cfg.h)
       invalidateRaymarchCache()
@@ -779,10 +774,10 @@ async function main() {
     }
 
     window.addEventListener('keydown', (e) => {
-      if (e.key === '1') applySpriteMode('link')
-      if (e.key === '2') applySpriteMode('chibi')
-      if (e.key === '3') applySpriteMode('alucard')
-      if (e.key === '4') applySpriteMode('full')
+      if (e.key === '1') applySpriteMode('sz24')
+      if (e.key === '2') applySpriteMode('sz32')
+      if (e.key === '3') applySpriteMode('sz48')
+      if (e.key === '4') applySpriteMode('debug')
       if (e.key === 'v' || e.key === 'V') cycleViewMode()
       if (e.key === 'm' || e.key === 'M') switchAnimation(animIdx + 1)
       if (e.key === 'd' || e.key === 'D') {
@@ -1106,8 +1101,7 @@ async function main() {
         `Sprite size: ${mode.label}`,
         `  canvas buffer: ${canvas.width}×${canvas.height} (CSS upscaled to window)`,
         ``,
-        `[1] Link 16×24   [2] SNES chibi 32×32`,
-        `[3] Alucard 48×80   [4] SNES 256×224`,
+        `[1] 24²   [2] 32²   [3] 48²   [4] debug 256²   proportion: ${currentProportion}`,
         `[V] view: ${viewMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${lightingMode ? 'on' : 'off'}   [T] rest pose: ${restPose ? 'on' : 'off'}`,
         `drag = orbit   [T] rest pose`,
         `[Space] swipe   [X] star   [Z] flash   [N] bolt   [B] beam   VFX: ${vfxSystem.count()}`,
