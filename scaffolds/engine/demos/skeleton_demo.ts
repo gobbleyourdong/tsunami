@@ -311,13 +311,14 @@ async function main() {
         legs:  [1.0, 0.82, 1.0],
         bust: 0.0, hips: 0.0,
       },
-      // SNES-chibi: width stays ≈ normal across the whole body; legs heavily
-      // squashed; head Y-stretched so it reads big without widening the body.
+      // SNES-chibi: head stays ROUND (uniform 1.0, no Y-stretch → no
+      // cone-head); the body is squashed HARD so the head dominates by
+      // ratio, not by stretching. Width unchanged across the character.
       chibi: {
-        head:  [1.0, 1.8,  1.0],
-        torso: [1.0, 0.75, 1.0],
-        arms:  [1.0, 0.7,  1.0],
-        legs:  [1.0, 0.4,  1.0],
+        head:  [1.0, 1.0, 1.0],
+        torso: [1.0, 0.55, 1.0],
+        arms:  [1.0, 0.5,  1.0],
+        legs:  [1.0, 0.3,  1.0],
         bust: 0.0, hips: 0.0,
       },
     }
@@ -338,10 +339,10 @@ async function main() {
      *  wrong, realistic at 24² can't fit adult proportions. Mapping
      *  cell-size → archetype keeps them matched. */
     const SPRITE_MODE_PRESET: Record<SpriteMode, PresetKey> = {
-      link:    'chibi',      // 24² — smallest cell, chibi silhouette
-      chibi:   'chibi',      // 32² — canonical chibi
-      alucard: 'stylized',   // 80² — SNES-tier, anime proportions
-      full:    'realistic',  // 256² — adult, near-1:1
+      link:    'chibi',      // 24² — only tier that can't fit adult proportions
+      chibi:   'stylized',   // 32² — FF6/Chrono overworld: anime kid proportions
+      alucard: 'realistic',  // 80² — Alucard's native res, lean adult silhouette
+      full:    'realistic',  // 256² — same proportions, more detail per pixel
     }
     // Apply the starting preset matching the initial sprite mode. The full
     // applySpriteMode path (called on key 1-4) can't run yet — renderer,
