@@ -268,6 +268,15 @@ async function main() {
     // and the preset-driven initial apply would hit TDZ otherwise. The
     // full applyExpression() function lives later next to its UI wiring.
     let currentExpression = 'neutral'
+    // Same reason: invalidateRaymarchCache() is called from applyPreset
+    // during init. The cache framebuffer itself is created much later
+    // (needs device, format, vatHandle), but the version counter can
+    // live up here so invalidations accumulate safely. The check against
+    // raymarchCacheApplied in the render loop treats any version>0 as
+    // "needs to march," which is correct on first render anyway.
+    let raymarchCacheVersion = 0
+    let raymarchCacheApplied = -1
+    function invalidateRaymarchCache() { raymarchCacheVersion++ }
 
     /** Two canonical body archetypes. 'normal' is 1:1 Mixamo proportions
      *  (adult human, all sliders at 1, secondaries off). 'chibi' is the
@@ -585,14 +594,9 @@ async function main() {
       { maxSteps: 32 },   // tuned: per-primitive occlusion closes hits fast
     )
     raymarch.resizeCache(canvas.width, canvas.height)
-    // Cache invalidation: bump whenever any raymarch input changes so next
-    // frame re-marches into the cache; otherwise we skip the march and blit.
-    // Bumped by: sprite mode, animation frame, proportion sliders, palette
-    // edits, camera moves, primitive list changes. For a static pose at a
-    // parked camera, the cache holds and the frame becomes one blit.
-    let raymarchCacheVersion = 0
-    let raymarchCacheApplied = -1
-    function invalidateRaymarchCache() { raymarchCacheVersion++ }
+    // Cache version hoisted higher in the file — declared near top-of-main
+    // so proportion-preset applies during init can fire invalidations
+    // safely without TDZ.
 
     // --- VFX lifetime manager. Spawnable primitives (swipes, trails,
     // bursts) layer on top of the persistent character + flame primitive
