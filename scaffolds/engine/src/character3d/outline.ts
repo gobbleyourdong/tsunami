@@ -29,13 +29,9 @@ struct U {
   viewMode:     f32,   // 0 = color+outline, 1 = normal, 2 = depth
   depthOutline: f32,   // 0 off, 1 on — adds interior depth-step outlines
   depthThresh:  f32,   // depth-delta threshold for edge detection
-  lighting:     f32,   // 0 off, 1 on — quantized cel shading
-  ambient:      vec4f, // rgb = ambient color, a = intensity
-  lights:       array<DirLight, 2>,  // key + fill
-  view:         mat4x4<f32>,         // world → camera; upper 3x3 is rotation.
-                                     // needed for mode-2 recon to convert
-                                     // camera-space gradient normals back to
-                                     // world space before dotting world lights
+  lighting:     f32,   // 0 off, 1 on — 2-tone cel via MRT normal
+  ambient:      vec4f, // rgb = ambient color, a = intensity (reserved; unused in 2-tone path)
+  lights:       array<DirLight, 2>,  // key + fill; only [0] used in 2-tone path
 }
 
 @group(0) @binding(0) var<uniform> u: U;
@@ -97,51 +93,16 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // lights don't blow past the palette.
   var lit = vec3f(1.0, 1.0, 1.0);
   if (u.lighting > 0.5 && me.a > 0.5) {
-    // lighting = 1: read per-pixel normal from MRT (current; authoritative)
-    // lighting = 2: reconstruct normal from depth gradient in screen space
-    //               (deferred; drops the normal MRT target, cheaper for
-    //               raymarch, approximate but fine for 3-band cel)
-    var n: vec3f;
-    var shadowFactor = 1.0;
-    if (u.lighting > 1.5) {
-      let d  = textureLoad(depthTex, pxClamp, 0).r;
-      let pE = clamp(px + vec2i( 1,  0), vec2i(0), dim - vec2i(1));
-      let pS = clamp(px + vec2i( 0,  1), vec2i(0), dim - vec2i(1));
-      let dE = textureLoad(depthTex, pE, 0).r;
-      let dS = textureLoad(depthTex, pS, 0).r;
-      // Depth increases with distance from camera. Gradient → surface
-      // slope. Scale factor tuned for tight near/far (2..8m) at sprite
-      // resolution. Signs: +X-east gets larger depth if surface tilts away
-      // to the east → camera-space normal.x should point WEST (neg), so
-      // (d - dE) matches (negative when dE > d). Y flipped because screen
-      // Y increases downward. Z points toward camera (+1 in cam space).
-      let k = 80.0;
-      let camN = normalize(vec3f((d - dE) * k, (dS - d) * k, 1.0));
-      // Camera-space → world space. The view matrix is world→camera; its
-      // upper 3x3 is orthonormal (pure rotation, no scale in our rig), so
-      // the inverse rotation is the transpose. This is the load-bearing
-      // fix: world lights were being dotted against a camera-space normal,
-      // giving a shadow edge that pointed in the wrong direction.
-      let viewRot = mat3x3<f32>(u.view[0].xyz, u.view[1].xyz, u.view[2].xyz);
-      n = normalize(transpose(viewRot) * camN);
-    } else {
-      let nSample = textureLoad(normalTex, pxClamp, 0);
-      n = normalize(nSample.xyz * 2.0 - 1.0);
-      // Raymarch renderer packs its SDF soft-shadow factor into normal.a.
-      // Cube + chunk renderers write 1.0 there so their output is unchanged.
-      shadowFactor = nSample.a;
-    }
     // Minimal 2-tone cel: color × (lit or shadow) based on the key light
-    // dotted against the surface normal. No fill, no ambient gradient,
-    // no AO, no softening. The shader only needs hit color + normal;
-    // everything else went away with the user's "keep it simple" call.
-    // Classic SNES pixel-art look — two brightness states per palette
-    // colour, hard transition at the shadow line.
+    // dotted against the MRT world-space normal. No fill, no ambient,
+    // no AO. Classic SNES pixel-art — two brightness states per palette
+    // colour, hard transition at the shadow line. Raymarch renderer is
+    // a pure G-buffer (color + normal + depth); shading lives here.
+    let n = normalize(textureLoad(normalTex, pxClamp, 0).xyz * 2.0 - 1.0);
     let keyDir = u.lights[0].dirI.xyz;
     let d = dot(n, keyDir);
-    let shadowTone = 0.55;                // shadow-side brightness multiplier
-    let brightness = select(shadowTone, 1.0, d > 0.0);
-    lit = vec3f(brightness);
+    let shadowTone = 0.55;
+    lit = vec3f(select(shadowTone, 1.0, d > 0.0));
   }
 
   // Interior depth outline: opaque pixels only, compared against OPAQUE
@@ -201,13 +162,8 @@ export interface OutlinePass {
   setViewMode(mode: ViewMode): void
   setDepthOutline(on: boolean): void
   setDepthThreshold(t: number): void
-  setLighting(mode: 0 | 1 | 2): void
+  setLighting(mode: 0 | 1): void
   setLightDirection(idx: number, dir: [number, number, number]): void
-  /** Feed the current view matrix so mode-2 (depth-reconstructed normal)
-   *  can transform its camera-space normal back into world space before
-   *  dotting world-space lights. Without this the shadow edge on mode 2
-   *  points in the wrong direction. */
-  setView(view: Float32Array): void
 }
 
 export function createOutlinePass(
@@ -238,10 +194,10 @@ export function createOutlinePass(
   //   [16..23] light[0] (dirI vec4 + color vec4)
   //   [24..31] light[1] (dirI vec4 + color vec4)
   const uniformBuffer = device.createBuffer({
-    size: 192,
+    size: 128,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  const uniformData = new Float32Array(48)   // +16 for view matrix at [32..47]
+  const uniformData = new Float32Array(32)
   let currentViewMode: ViewMode = 'color'
   let currentDepthOutline = false
   let currentDepthThresh = 0.025
@@ -350,13 +306,6 @@ export function createOutlinePass(
         lights[idx].dir = normalize(dir)
         writeUniform(currentW, currentH)
       }
-    },
-    setView(view) {
-      // View matrix lives at uniformData[32..47]. Written per frame by the
-      // demo before outline.run(). Only mode-2 consumes it; the bytes are
-      // always present so the shader struct stays consistent.
-      for (let i = 0; i < 16; i++) uniformData[32 + i] = view[i]
-      device.queue.writeBuffer(uniformBuffer, 32 * 4, uniformData, 32, 16)
     },
   }
 }

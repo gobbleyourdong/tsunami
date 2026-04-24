@@ -690,7 +690,7 @@ async function main() {
     type ViewMode = 'color' | 'normal' | 'depth'
     let viewMode: ViewMode = 'color'
     let depthOutlineOn = false
-    let lightingMode: 0 | 1 | 2 = 0   // off / MRT normal / reconstructed normal
+    let lightingMode: 0 | 1 = 0   // off / on (2-tone cel from MRT normal)
 
     // --- Camera mode: editor (free orbit, sub-pixel OK) vs game (8-angle
     // cardinal preset, discrete yaw per pose-cache contract). Same
@@ -755,7 +755,7 @@ async function main() {
         outline.setDepthOutline(depthOutlineOn)
       }
       if (e.key === 'l' || e.key === 'L') {
-        lightingMode = ((lightingMode + 1) % 3) as 0 | 1 | 2
+        lightingMode = (lightingMode === 0 ? 1 : 0) as 0 | 1
         outline.setLighting(lightingMode)
       }
       if (e.key === 'g' || e.key === 'G') toggleCameraMode()
@@ -1099,11 +1099,6 @@ async function main() {
       scenePass.end()
 
       // Pass 2: outline shader reads sceneTex → writes canvas with NAVY ring.
-      // Feed current view matrix so mode-2 (depth-reconstructed normal) can
-      // convert its camera-space gradient normal into world space before
-      // dotting world-space lights. Without this the recon shadow direction
-      // reads wrong.
-      outline.setView(camera.view)
       const canvasView = gpu.context.getCurrentTexture().createView()
       outline.run(encoder, canvasView)
 
