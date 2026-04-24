@@ -226,75 +226,51 @@ async function main() {
     // the full local 4×4s (frame 0 of VAT) exactly like the composer so
     // bounds match what renders.
     const worldMatsTmp: Float32Array[] = Array.from({ length: rig.length }, () => new Float32Array(16))
-    /** Animation envelope RELATIVE to the Hips joint. Walks every frame
-     *  of every loaded animation, subtracts the Hips position at that
-     *  frame from every joint, unions the resulting offsets. The camera
-     *  tracks Hips per-frame, so jump/dash translations don't bloat the
-     *  envelope — only limb extension relative to the character's center
-     *  of mass matters. Result: tight cell fit + no anim clipping.
-     *  Returns relative bounds; camera.target is set to live Hips pos
-     *  per frame in the render loop. */
+    /** Simple rest-pose bounds — frame 0 of the first animation, current
+     *  proportion scales applied. Every preset fits to its own rest pose,
+     *  so the camera orthoSize adjusts to make chibi and realistic BOTH
+     *  fill the cell similarly (shorter character → tighter zoom → still
+     *  fills). Wild animations (backflip, defeated) may clip the frame
+     *  momentarily; that's acceptable since we're not baking atlas cells. */
     function estimateBounds(): { minY: number; maxY: number; maxR: number; cx: number; cy: number; cz: number } {
-      let minY = Infinity, maxY = -Infinity, maxR = 0
-      // Rest Hips position (frame 0 of first anim) — camera target so the
-      // Hips-relative bounds are centered in the frame.
-      let restHx = 0, restHy = 0, restHz = 0
+      const lm = loadedVAT.localMats
+      if (!lm) return { minY: 0, maxY: 1.8, maxR: 0.4, cx: 0, cy: CHARACTER_HEIGHT_M / 2, cz: 0 }
       const scaledLocal = new Float32Array(16)
-      for (const anim of animations) {
-        const lm = anim.vat.localMats
-        if (!lm) continue
-        const nf = anim.vat.numFrames
-        const nj = rig.length
-        for (let f = 0; f < nf; f++) {
-          const base = f * nj * 16
-          for (let j = 0; j < nj; j++) {
-            const s = characterParams.scales[j]
-            const src = base + j * 16
-            const parent = rig[j].parent
-            const isRoot = parent < 0
-            for (let i = 0; i < 16; i++) scaledLocal[i] = lm[src + i]
-            if (!isRoot) {
-              scaledLocal[12] *= s[0]
-              scaledLocal[13] *= s[1]
-              scaledLocal[14] *= s[2]
+      const nj = rig.length
+      for (let j = 0; j < nj; j++) {
+        const s = characterParams.scales[j]
+        const src = j * 16
+        const parent = rig[j].parent
+        const isRoot = parent < 0
+        for (let i = 0; i < 16; i++) scaledLocal[i] = lm[src + i]
+        if (!isRoot) { scaledLocal[12] *= s[0]; scaledLocal[13] *= s[1]; scaledLocal[14] *= s[2] }
+        const w = worldMatsTmp[j]
+        if (isRoot) w.set(scaledLocal)
+        else {
+          const a = worldMatsTmp[parent]
+          for (let col = 0; col < 4; col++) {
+            for (let row = 0; row < 4; row++) {
+              w[col * 4 + row] =
+                a[row]      * scaledLocal[col * 4]     +
+                a[row + 4]  * scaledLocal[col * 4 + 1] +
+                a[row + 8]  * scaledLocal[col * 4 + 2] +
+                a[row + 12] * scaledLocal[col * 4 + 3]
             }
-            const w = worldMatsTmp[j]
-            if (isRoot) {
-              w.set(scaledLocal)
-            } else {
-              const a = worldMatsTmp[parent], b = scaledLocal
-              for (let col = 0; col < 4; col++) {
-                for (let row = 0; row < 4; row++) {
-                  w[col * 4 + row] =
-                    a[row]      * b[col * 4]     +
-                    a[row + 4]  * b[col * 4 + 1] +
-                    a[row + 8]  * b[col * 4 + 2] +
-                    a[row + 12] * b[col * 4 + 3]
-                }
-              }
-            }
-          }
-          // Subtract this frame's Hips position from every joint so the
-          // bounds are relative to the character's center (jumps don't
-          // grow the envelope — they just translate Hips, which the
-          // camera follows).
-          const hipsW = worldMatsTmp[hipsIdx >= 0 ? hipsIdx : 0]
-          const hx = hipsW[12], hy = hipsW[13], hz = hipsW[14]
-          if (anim === animations[0] && f === 0) {
-            restHx = hx; restHy = hy; restHz = hz
-          }
-          for (let j = 0; j < nj; j++) {
-            const w = worldMatsTmp[j]
-            const dx = w[12] - hx, dy = w[13] - hy, dz = w[14] - hz
-            if (dy < minY) minY = dy
-            if (dy > maxY) maxY = dy
-            const r = Math.hypot(dx, dz)
-            if (r > maxR) maxR = r
           }
         }
       }
-      if (minY === Infinity) return { minY: -0.9, maxY: 0.9, maxR: 0.4, cx: 0, cy: CHARACTER_HEIGHT_M / 2, cz: 0 }
-      return { minY, maxY, maxR, cx: restHx, cy: restHy, cz: restHz }
+      let minY = Infinity, maxY = -Infinity, maxR = 0
+      const hipsW = worldMatsTmp[hipsIdx >= 0 ? hipsIdx : 0]
+      const hx = hipsW[12], hy = hipsW[13], hz = hipsW[14]
+      for (let j = 0; j < nj; j++) {
+        const w = worldMatsTmp[j]
+        const dx = w[12] - hx, dy = w[13] - hy, dz = w[14] - hz
+        if (dy < minY) minY = dy
+        if (dy > maxY) maxY = dy
+        const r = Math.hypot(dx, dz)
+        if (r > maxR) maxR = r
+      }
+      return { minY, maxY, maxR, cx: hx, cy: hy, cz: hz }
     }
 
     function fitCameraToCharacter() {
@@ -394,11 +370,6 @@ async function main() {
     }
     function applyPreset(key: PresetKey) {
       currentProportion = key
-      // Reset EVERY joint to identity first. applyGroupScale only writes
-      // joints matching a group regex — ungrouped joints (accessories,
-      // weapon sockets, etc.) would otherwise keep whatever scale the
-      // previous preset's normalizer left on them, causing each click
-      // to compound more vertical stretch. Fresh canvas every apply.
       for (let j = 0; j < rig.length; j++) {
         characterParams.scales[j] = [1, 1, 1]
       }
@@ -408,73 +379,9 @@ async function main() {
         currentScales[g] = typeof v === 'number' ? v : v[1]
         applyGroupScale(g, v)
       }
-      // Normalize total height so every preset produces the same rendered
-      // character size. Chibi with squashed legs would otherwise render
-      // ~55% the size of realistic. We measure the rest-pose Y extent at
-      // the current scales, compute the factor that would restore it to
-      // the canonical (all-1.0) height, and multiply scale.y on every
-      // joint. Width/Z unchanged — only vertical size normalizes. Result:
-      // proportions change shape, NOT character size. Cell size decides
-      // character size; the proportion sliders only reshuffle the
-      // silhouette within that size.
-      normalizeRestHeight()
       if (currentExpression !== 'neutral') applyExpression(currentExpression)
       fitCameraToCharacter()
       invalidateRaymarchCache()
-    }
-
-    /** Compute rest Y extent at current scales vs canonical (all-1.0)
-     *  and apply a uniform Y-scale factor to every joint so the total
-     *  matches. Leaves per-group ratios intact (big head / short legs
-     *  chibi shape preserved) — only the TOTAL height collapses back
-     *  to the Mixamo Y-Bot baseline. */
-    function normalizeRestHeight() {
-      // Canonical = Mixamo Y-Bot at all scale=1. Known from the rest
-      // offsets after hierarchy compose. We compute it once-ever as a
-      // constant (could cache on first call; fast enough to re-measure).
-      const currentY = measureRestYExtent(characterParams.scales)
-      const canonY   = measureRestYExtent(null)   // null = identity scales
-      if (currentY < 1e-6) return
-      const factor = canonY / currentY
-      for (let j = 0; j < rig.length; j++) {
-        const s = characterParams.scales[j]
-        characterParams.scales[j] = [s[0], s[1] * factor, s[2]]
-      }
-    }
-
-    /** Walk the rig at frame 0 with the given scales (null = all 1.0),
-     *  return maxY - minY. Used by the height normalizer. */
-    function measureRestYExtent(scales: Vec3[] | null): number {
-      const lm = loadedVAT.localMats
-      if (!lm) return 1.8
-      const sl = new Float32Array(16)
-      let minY = Infinity, maxY = -Infinity
-      for (let j = 0; j < rig.length; j++) {
-        const src = j * 16
-        const parent = rig[j].parent
-        const isRoot = parent < 0
-        const s = scales ? scales[j] : [1, 1, 1]
-        for (let i = 0; i < 16; i++) sl[i] = lm[src + i]
-        if (!isRoot) { sl[12] *= s[0]; sl[13] *= s[1]; sl[14] *= s[2] }
-        const w = worldMatsTmp[j]
-        if (isRoot) w.set(sl)
-        else {
-          const a = worldMatsTmp[parent]
-          for (let col = 0; col < 4; col++) {
-            for (let row = 0; row < 4; row++) {
-              w[col * 4 + row] =
-                a[row]      * sl[col * 4]     +
-                a[row + 4]  * sl[col * 4 + 1] +
-                a[row + 8]  * sl[col * 4 + 2] +
-                a[row + 12] * sl[col * 4 + 3]
-            }
-          }
-        }
-        const y = w[13]
-        if (y < minY) minY = y
-        if (y > maxY) maxY = y
-      }
-      return maxY - minY
     }
 
     /** Proportion and resolution are independent axes. Same CT-class cell
