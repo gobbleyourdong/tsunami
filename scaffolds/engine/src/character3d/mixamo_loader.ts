@@ -218,6 +218,7 @@ const CHIBI_SLOTS = {
 export function chibiMaterial(rig: Joint[]): SpriteMaterial {
   const PART_TO_SLOT: Record<string, number> = {
     Head:         CHIBI_SLOTS.skin,   // head reads as skin (face); hair layers later
+    Neck:         CHIBI_SLOTS.skin,   // exposed neck reads as skin, not bg
     Spine1:       CHIBI_SLOTS.shirt,
     Hips:         CHIBI_SLOTS.pants,
     LeftArm:      CHIBI_SLOTS.skin,
