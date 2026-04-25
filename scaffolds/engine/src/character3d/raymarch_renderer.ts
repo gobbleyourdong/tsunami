@@ -105,12 +105,20 @@ export interface FaceMark {
 
 /** Color function enum — evaluated at raymarch hit time, picks between
  *  paletteSlot and paletteSlotB based on a per-function rule. All results
- *  palette-quantized so pixel-art consistency holds. */
+ *  palette-quantized so pixel-art consistency holds.
+ *
+ *  Patterns (4-6) evaluate in PRIMITIVE-LOCAL space — the same coordinate
+ *  the SDF eval already computes via worldToLocal(). That gives bind-space
+ *  anchoring for free: a stripe pattern stays glued to the bone surface
+ *  through any animation (no world-space drift). */
 export type ColorFunc =
   | 0  // flat: always paletteSlot
   | 1  // gradientY: hitPos.y / colorExtent → slotA (bottom) ↔ slotB (top), 3 crisp bands
   | 2  // pulsate: time-oscillating swap between A and B
   | 3  // radialFade: radial distance from primitive origin → A (center) ↔ B (edge)
+  | 4  // stripes: alternating slotA/slotB along primitive-local Y. colorExtent = stripes/meter
+  | 5  // dots: dot grid on primitive-local XY plane. colorExtent = cell size in meters
+  | 6  // checker: 3D checker in primitive-local space. colorExtent = cell size in meters
 
 export interface RaymarchPrimitive {
   type: number             // 0..9, see header comment
@@ -147,6 +155,20 @@ export interface RaymarchPrimitive {
    *  sprite resolution. Does not affect silhouette or shadows; only
    *  shading via the 3-band cel normal. */
   detailAmplitude?: number
+  /** Selective specular highlight flag. When true, the surface picks
+   *  up a tight hot-spot on the lit side (`n·keyDir > 0.85`) tinted by
+   *  the key light's colour. When false, surface is fully matte (no
+   *  highlight). Per-primitive boolean — replaces the old roughness
+   *  scalar with a simpler authored choice. Bit-packed into colorFunc's
+   *  upper bit on the GPU side, no per-prim storage cost. */
+  shiny?: boolean
+  /** Unlit flag — when true, the outline pass skips ALL lighting for
+   *  this primitive's pixels (no cel band, no point lights, no specular).
+   *  Pixels render with the raw palette colour authored by colorFunc /
+   *  paletteSlot. For VFX (flames, beams, magic, lightning) which are
+   *  meant to glow with their own pre-coloured intensity. Bit-packed
+   *  into colorFunc's bit 6 alongside shiny in bit 7. */
+  unlit?: boolean
 }
 
 /** Same VATData interface used by skeleton_renderer + chunk_renderer. */
@@ -512,8 +534,143 @@ fn evalPrim(primIdx: u32, pWorld: vec3f) -> f32 {
     case 10u: { return sdLightning(pPrim, params.x, params.y, params.z, u.time); }
     case 11u: { return sdNoiseCloud(pPrim, params.x, params.y, params.z, params.w, u.time); }
     case 12u: { return sdCone(pPrim, vec2f(params.x, params.y), params.z); }
+    case 13u: { return sdChibiHead(pPrim, params.x, params.y, params.z); }
     default: { return 1e9; }
   }
+}
+
+// 2D ellipse SDF (Inigo Quilez approximation).
+fn sdEllipse2D(p: vec2f, c: vec2f, r: vec2f) -> f32 {
+  let q = p - c;
+  let k0 = length(q / r);
+  let k1 = length(q / (r * r));
+  return k0 * (k0 - 1.0) / max(k1, 1e-8);
+}
+
+// 3-vertex polygon SDF (CCW). Inlined edge tests.
+fn sdPoly3(p: vec2f, a: vec2f, b: vec2f, c: vec2f) -> f32 {
+  let e0 = b - a; let e1 = c - b; let e2 = a - c;
+  let v0 = p - a; let v1 = p - b; let v2 = p - c;
+  let pq0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
+  let pq1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
+  let pq2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+  let s = sign(e0.x * e2.y - e0.y * e2.x);
+  let dx = min(min(dot(pq0, pq0), dot(pq1, pq1)), dot(pq2, pq2));
+  let dy = min(min(s * (v0.x * e0.y - v0.y * e0.x),
+                   s * (v1.x * e1.y - v1.y * e1.x)),
+                   s * (v2.x * e2.y - v2.y * e2.x));
+  return -sqrt(dx) * sign(dy);
+}
+
+// Generic 5-vertex polygon SDF (works for any convex/concave 5-gon CCW).
+// Trapezoid uses sdPoly5 with the 4th vert duplicated; could specialize but
+// keeping one routine is simpler.
+fn sdPoly5(p: vec2f, v0: vec2f, v1: vec2f, v2: vec2f, v3: vec2f, v4: vec2f) -> f32 {
+  let vs = array<vec2f, 5>(v0, v1, v2, v3, v4);
+  var d = dot(p - vs[0], p - vs[0]);
+  var s = 1.0;
+  for (var i = 0u; i < 5u; i = i + 1u) {
+    let j = (i + 4u) % 5u;
+    let e = vs[j] - vs[i];
+    let w = p - vs[i];
+    let t = clamp(dot(w, e) / max(dot(e, e), 1e-8), 0.0, 1.0);
+    let b = w - e * t;
+    d = min(d, dot(b, b));
+    let c1 = p.y >= vs[i].y;
+    let c2 = p.y <  vs[j].y;
+    let c3 = (e.x * w.y) > (e.y * w.x);
+    if ((c1 && c2 && c3) || (!c1 && !c2 && !c3)) { s = -s; }
+  }
+  return s * sqrt(d);
+}
+
+// 4-vertex polygon (trapezoid). Same machinery as sdPoly5 with one fewer edge.
+fn sdPoly4(p: vec2f, v0: vec2f, v1: vec2f, v2: vec2f, v3: vec2f) -> f32 {
+  let vs = array<vec2f, 4>(v0, v1, v2, v3);
+  var d = dot(p - vs[0], p - vs[0]);
+  var s = 1.0;
+  for (var i = 0u; i < 4u; i = i + 1u) {
+    let j = (i + 3u) % 4u;
+    let e = vs[j] - vs[i];
+    let w = p - vs[i];
+    let t = clamp(dot(w, e) / max(dot(e, e), 1e-8), 0.0, 1.0);
+    let b = w - e * t;
+    d = min(d, dot(b, b));
+    let c1 = p.y >= vs[i].y;
+    let c2 = p.y <  vs[j].y;
+    let c3 = (e.x * w.y) > (e.y * w.x);
+    if ((c1 && c2 && c3) || (!c1 && !c2 && !c3)) { s = -s; }
+  }
+  return s * sqrt(d);
+}
+
+// Chibi head — pixel-fitted from anime reference (IoU 0.99 on side fit).
+// 3D shape = max(side(p.zy), front(p.xy)) — intersection of two extruded
+// 2D silhouettes. Each silhouette = min(ellipse, polygon(s)) for cranium +
+// jaw / chin geometry.
+//   R         = world-space scale (head spans ~R in each axis from centre)
+//   chibi_t   = [0..1] compresses lower jaw toward cranium bottom
+//   chin_tuck = [0..1] pulls chin tip back in z (less protrusion)
+// Params from /tmp/sdf_research/head_3d_params.json.
+fn sdChibiHead(p: vec3f, R: f32, chibi_t: f32, chin_tuck: f32) -> f32 {
+  let np = p / max(R, 1e-6);
+
+  // SIDE silhouette in (z, y) plane.
+  let pzy = vec2f(np.z, np.y);
+  let dSE = sdEllipse2D(pzy, vec2f(0.0, 0.0838), vec2f(0.4417, 0.4162));
+
+  // Side polygon — 5 verts (jaw + chin region). Compress lower verts
+  // toward cranium-bottom for chibi, pull chin tip back for tuck.
+  let craniumBotY = 0.0838 - 0.4162;   // ellipse cy - ry
+  let v0 = vec2f(0.4110, -0.0548);
+  let v1 = vec2f(-0.2353, -0.0548);
+  // v2, v3 are below craniumBotY → compress for chibi
+  var v2y = -0.5049; var v3y = -0.5000;
+  if (chibi_t > 0.0) {
+    let f = chibi_t * 0.65;
+    v2y = v2y * (1.0 - f) + craniumBotY * f;
+    v3y = v3y * (1.0 - f) + craniumBotY * f;
+  }
+  // Chin tip (v3) z gets pulled back for tuck + chibi
+  var v3z = 0.3681 - 0.15 * chin_tuck - 0.08 * chibi_t;
+  let v2 = vec2f(-0.1946, v2y);
+  let v3 = vec2f(v3z, v3y);
+  let v4 = vec2f(0.4936, -0.2183);
+  let dSP = sdPoly5(pzy, v0, v1, v2, v3, v4);
+  let dSide = min(dSE, dSP);
+
+  // FRONT silhouette in (x, y) plane.
+  let pxy = vec2f(np.x, np.y);
+  let dFE = sdEllipse2D(pxy, vec2f(0.0, 0.0858), vec2f(0.4142, 0.4142));
+
+  // Trap (4 verts) — compresses for chibi (y_bot pulled up toward y_top).
+  let trapYTop = -0.0656;
+  let baseTrapYBot = -0.3788;
+  let trapYBot = baseTrapYBot * (1.0 - chibi_t * 0.40) + trapYTop * (chibi_t * 0.40);
+  let trapTopHw = 0.3856;
+  let trapBotHw = 0.2745 * (1.0 - 0.10 * chibi_t);
+  let dFT = sdPoly4(pxy,
+    vec2f( trapTopHw, trapYTop),
+    vec2f(-trapTopHw, trapYTop),
+    vec2f(-trapBotHw, trapYBot),
+    vec2f( trapBotHw, trapYBot));
+
+  // Triangle (3 verts) — chin point. Pinned to trap bottom; height shrinks for chibi.
+  let triYTop = trapYBot;
+  let triHeight = (-0.5 - (-0.3788)) * (1.0 - 0.65 * chibi_t);   // negative
+  let triYBot = triYTop + triHeight;
+  let triTopHw = trapBotHw;
+  let dFTri = sdPoly3(pxy,
+    vec2f( triTopHw, triYTop),
+    vec2f(-triTopHw, triYTop),
+    vec2f(0.0, triYBot));
+
+  let dFront = min(dFE, min(dFT, dFTri));
+
+  // 3D intersection (max in SDF terms) — head is the volume that's inside
+  // BOTH the side silhouette extrusion AND the front silhouette extrusion.
+  // Multiply by R to convert normalized distance back to world units.
+  return max(dSide, dFront) * max(R, 1e-6);
 }
 
 struct SceneHit {
@@ -714,7 +871,11 @@ fn fs_main(in: VsOut) -> FsOut {
   let colorCfg = prims[base + 3u];
   let slotsB = bitcast<vec4u>(prims[base + 3u]);
   let slotA = slots.y;
-  let colorFunc = slots.w;
+  // colorFunc stored in lower 6 bits; bit 6 (0x40) = unlit, bit 7 (0x80) = shiny.
+  let cfPacked = slots.w;
+  let colorFunc = cfPacked & 0x3Fu;
+  let primUnlit = (cfPacked & 0x40u) != 0u;
+  let primShiny = (cfPacked & 0x80u) != 0u;
   let slotB = slotsB.x;
   let colorExtent = colorCfg.y;
 
@@ -744,6 +905,42 @@ fn fs_main(in: VsOut) -> FsOut {
     let localP = worldToLocal(boneWorld, hitPos) - offset;
     let r = length(localP);
     if (r > colorExtent) { slot = slotB; }
+  } else if (colorFunc == 4u) {
+    // STRIPES — alternating slotA/slotB bands along primitive-local Y.
+    // colorExtent = stripes per metre. The +1024 offset keeps the floor()
+    // arg positive across the [-1m, +1m] range we expect for sprite-tier
+    // primitive-local coordinates, so u32 parity test is unambiguous.
+    let boneIdx = slots.z;
+    let boneWorld = readMat4((u.frameIdx * u.numJoints + boneIdx) * 4u);
+    let offset = prims[base + 2u].xyz;
+    let localY = worldToLocal(boneWorld, hitPos).y - offset.y;
+    let band = u32(floor(localY * colorExtent + 1024.0));
+    if ((band & 1u) == 1u) { slot = slotB; }
+  } else if (colorFunc == 5u) {
+    // DOTS — circular spots tiled on the primitive-local XY plane.
+    // colorExtent = cell size in metres; dot radius is 0.30 × cell.
+    // Cells centre on (cell, cell) lattice; fract() wraps positions
+    // into [0, 1) per cell so any sub-pixel sample finds its nearest dot.
+    let boneIdx = slots.z;
+    let boneWorld = readMat4((u.frameIdx * u.numJoints + boneIdx) * 4u);
+    let offset = prims[base + 2u].xyz;
+    let localP = worldToLocal(boneWorld, hitPos) - offset;
+    let cell = max(colorExtent, 0.001);
+    let cellX = fract(localP.x / cell + 1024.5) - 0.5;
+    let cellY = fract(localP.y / cell + 1024.5) - 0.5;
+    if ((cellX * cellX + cellY * cellY) < 0.09) { slot = slotB; }
+  } else if (colorFunc == 6u) {
+    // CHECKER — 3D checkerboard in primitive-local space. colorExtent
+    // = cell size in metres. Parity of (cx + cy + cz) selects A/B.
+    let boneIdx = slots.z;
+    let boneWorld = readMat4((u.frameIdx * u.numJoints + boneIdx) * 4u);
+    let offset = prims[base + 2u].xyz;
+    let localP = worldToLocal(boneWorld, hitPos) - offset;
+    let cell = max(colorExtent, 0.001);
+    let cx = u32(floor(localP.x / cell + 1024.0));
+    let cy = u32(floor(localP.y / cell + 1024.0));
+    let cz = u32(floor(localP.z / cell + 1024.0));
+    if (((cx + cy + cz) & 1u) == 1u) { slot = slotB; }
   }
 
   // Face marks — surface-color overrides that live on a bone. Iterate
@@ -805,16 +1002,20 @@ fn fs_main(in: VsOut) -> FsOut {
   // we already have totalDist (near→far world distance).
   let dNdc = clamp(t / totalDist, 0.0, 1.0);
 
-  // Lighting is fully deferred — raymarch outputs pure geometry (tint +
-  // normal + depth) and the outline pass does all shading (key cel bands,
-  // fill linear rolloff, ambient, screen-space AO). An earlier version
-  // baked a single-light shadow ray into normal.a, which (1) ignored the
-  // actual configured light directions and (2) layered shadow artefacts
-  // on top of otherwise clean cel lighting. Deferred = one shading rule,
-  // one place to tune.
+  // Pure G-buffer: tint + normal + depth. Lighting is fully deferred to
+  // the outline pass, which combines ambient + key + fill light per
+  // pixel using the surface normal. No per-material PBR for now —
+  // metalness/roughness/AO removed pending need for them. Foundational
+  // light wire-up (tinted ambient + dual-direction key/fill) is the
+  // current priority; per-material specularity, point lights, and
+  // contact shadows layer on top later.
+  // G-buffer flags packed into spare channels:
+  //   normal.a = shiny flag (1 = specular hot-spot on lit side, 0 = matte)
+  //   depth.g  = unlit flag (1 = pass albedo through unmodified, 0 = lit)
+  // Outline pass reads both to gate per-pixel shading decisions.
   out.color  = vec4f(tint, 1.0);
-  out.normal = vec4f(n * 0.5 + 0.5, 1.0);  // alpha=1 → "no pre-baked shadow"
-  out.depth  = vec4f(dNdc, 0.0, 0.0, 1.0);
+  out.normal = vec4f(n * 0.5 + 0.5, select(0.0, 1.0, primShiny));
+  out.depth  = vec4f(dNdc, select(0.0, 1.0, primUnlit), 0.0, 1.0);
   return out;
 }
 `
@@ -981,11 +1182,18 @@ export function createRaymarchRenderer(
     for (let i = 0; i < list.length; i++) {
       const p = list[i]
       const base = i * PRIM_STRIDE_FLOATS
-      // vec4<u32> in slot 0: type, slotA, boneIdx, colorFunc
+      // vec4<u32> in slot 0: type, slotA, boneIdx, colorFunc.
+      // colorFunc lower 6 bits = function ID; bit 6 (0x40) packs the
+      // unlit flag; bit 7 (0x80) packs the shiny flag. Both saved as
+      // overflow bits so we don't grow per-prim storage.
+      const cfPacked =
+        ((p.colorFunc ?? 0) & 0x3F) |
+        (p.unlit ? 0x40 : 0) |
+        (p.shiny ? 0x80 : 0)
       u32[base + 0] = p.type
       u32[base + 1] = p.paletteSlot
       u32[base + 2] = p.boneIdx
-      u32[base + 3] = p.colorFunc ?? 0
+      u32[base + 3] = cfPacked
       // vec4<f32> in slot 1: params
       f32[base + 4] = p.params[0]
       f32[base + 5] = p.params[1]

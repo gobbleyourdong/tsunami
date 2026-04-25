@@ -30,18 +30,42 @@ struct U {
   depthOutline: f32,   // 0 off, 1 on — adds interior depth-step outlines
   depthThresh:  f32,   // depth-delta threshold for edge detection
   lighting:     f32,   // 0 off, 1 on — 2-tone cel via MRT normal
-  ambient:      vec4f, // rgb = ambient color, a = intensity (reserved; unused in 2-tone path)
-  lights:       array<DirLight, 2>,  // key + fill; only [0] used in 2-tone path
+  ambient:      vec4f, // rgb = ambient color, a = intensity (applied everywhere)
+  lights:       array<DirLight, 2>,  // [0] key (cel-quantized), [1] fill (half-lambert wrap)
   leftEye:      vec4f, // (screenX, screenY, ndcDepth, _) — per-point projected
   rightEye:     vec4f, //   from world-space eye/mouth positions so rotation
   mouth:        vec4f, //   (incl. upside-down) moves the paint with the head.
-  pupilHalf:    vec4f, // (halfW, halfH, _, _) in pixels
-  whiteHalf:    vec4f, // (halfW, halfH, _, _) in pixels
-  mouthHalf:    vec4f, // (halfW, halfH, _, _) in pixels
+  pupilHalf:    vec4f, // (halfW, halfH, _, _) in pixels  (legacy, unused by stylised path)
+  whiteHalf:    vec4f, // (halfW, halfH, _, _) in pixels  (legacy)
+  mouthHalf:    vec4f, // (halfW, halfH, _, _) in pixels  (legacy)
   eyeColor:     vec4f, // pupil color (rgb + enable in .a)
   whiteColor:   vec4f, // eye-white color (rgb + enable in .a)
   mouthColor:   vec4f, // mouth color (rgb + enable in .a)
   viewForward:  vec4f, // camera forward (world) — extra front-face gate
+  // Style-enum + per-frame state for the face pixel-stamp system.
+  //   x = eyeStyleId   (0 mario, 1 dot, 2 round, 3 goggles, 4 glowing, 5 closed)
+  //   y = mouthStyleId (0 off,   1 line, 2 smile, 3 open_o, 4 frown, 5 pout)
+  //   z = blinkAmount  [0..1]  — when >= 0.5 the eye forces closed
+  //   w = glowAmount   [0..1]  — glowing style pulses with this
+  faceFlags:    vec4f,
+  // Inverse view-projection matrix — used to reconstruct world position
+  // from (ndc.xy, depth) for point-light evaluation. Demo updates each
+  // frame from the camera. Identity (default) makes point lights useless
+  // but doesn't crash.
+  invViewProj:  mat4x4<f32>,
+  // Active point-light count (0..MAX_POINT_LIGHTS). Loop bound in shader.
+  numPointLights: u32,
+  _padPL0: u32,
+  _padPL1: u32,
+  _padPL2: u32,
+  // Up to 4 point lights — each is two vec4f packed:
+  //   [2k+0] position.xyz, falloffRadius   (radius in metres; quadratic
+  //                                         attenuation = 1 / (1 + (d/r)²))
+  //   [2k+1] color.rgb, intensity
+  pointLights: array<vec4f, 8>,
+  // Optional secondary palette colours used by stylised eyes (goggles frame,
+  // glowing inner core). rgb + enable in .a.
+  eyeAccent:    vec4f,
 }
 
 @group(0) @binding(0) var<uniform> u: U;
@@ -102,17 +126,105 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // all contributions are summed with ambient and MIN'd to 1.0 so heavy
   // lights don't blow past the palette.
   var lit = vec3f(1.0, 1.0, 1.0);
-  if (u.lighting > 0.5 && me.a > 0.5) {
-    // Minimal 2-tone cel: color × (lit or shadow) based on the key light
-    // dotted against the MRT world-space normal. No fill, no ambient,
-    // no AO. Classic SNES pixel-art — two brightness states per palette
-    // colour, hard transition at the shadow line. Raymarch renderer is
-    // a pure G-buffer (color + normal + depth); shading lives here.
-    let n = normalize(textureLoad(normalTex, pxClamp, 0).xyz * 2.0 - 1.0);
+  // Albedo passed forward to the final multiply. Defaults to the raw
+  // raymarch tint; the cel pass below substitutes a saturation-boosted
+  // version on the shadow side (color-burn vibe — deeper, richer
+  // shadows that pull the underlying colour rather than just dimming).
+  var useAlbedo = me.rgb;
+  // Per-primitive unlit flag (depth.g) — pixels marked unlit by the
+  // raymarch pass skip ALL lighting and render with their authored
+  // palette colour unchanged. For VFX (flames, lightning, beams,
+  // magic glow) which carry their own emissive tones.
+  let unlitFlag = textureLoad(depthTex, pxClamp, 0).g > 0.5;
+  // u.lighting modes: 0 = off (flat unlit), 1 = on (ambient + key
+  // directional + active point lights, all summed). Two-tone cel:
+  // lit pixels get ambient + key, shadow pixels get just ambient.
+  // Point lights are transient (spawned by VFX for muzzle flashes etc.)
+  // and add their contribution on top of directional.
+  if (u.lighting > 0.5 && me.a > 0.5 && !unlitFlag) {
+    // Two-tone cel. ambient + key, that's it.
+    //   shadow: ambient                 (cool baseline)
+    //   lit:    ambient + keyContrib    (warm bright when n·keyDir > 0)
+    // No fill, no specular by default. Point lights add transient
+    // contribution on top when VFX spawns them.
+    let normalSample = textureLoad(normalTex, pxClamp, 0);
+    let n = normalize(normalSample.xyz * 2.0 - 1.0);
+    let isShiny = normalSample.a > 0.5;     // per-primitive flag, packed by raymarch
+
+    let ambColor = u.ambient.rgb * u.ambient.a;
+
     let keyDir = u.lights[0].dirI.xyz;
-    let d = dot(n, keyDir);
-    let shadowTone = 0.55;
-    lit = vec3f(select(shadowTone, 1.0, d > 0.0));
+    let keyInt = u.lights[0].dirI.w;
+    let keyCol = u.lights[0].color.rgb;
+    let keyDot = dot(n, keyDir);
+    let keyContrib = select(vec3f(0.0), keyCol * keyInt, keyDot > 0.0);
+
+    // Color-burn-style saturation boost on the shadow side. Extrapolate
+    // the albedo away from its grayscale luminance so each colour pulls
+    // deeper toward its hue instead of just dimming flatly. mix(gray,
+    // albedo, t > 1.0) past-1 amounts gives an out-of-gamut bias that
+    // we clamp into [0, 1] — most albedos stay in range; pure-saturated
+    // ones clamp at their max which is fine.
+    let lumaGray = vec3f(dot(me.rgb, vec3f(0.299, 0.587, 0.114)));
+    let satAlbedo = clamp(mix(lumaGray, me.rgb, 1.2), vec3f(0.0), vec3f(1.0));
+    useAlbedo = select(satAlbedo, me.rgb, keyDot > 0.0);
+
+    var pointContrib = vec3f(0.0);
+    // Point lights — transient sources spawned by VFX (muzzle flashes,
+    // flares, explosion bursts). Loop runs whenever any are active.
+    if (u.numPointLights > 0u) {
+      // World-pos reconstruction. The depth buffer packs t/totalDist
+      // (LINEAR ray fraction from raymarch) — NOT NDC z. So we cannot
+      // feed it to invViewProj as the z coordinate.
+      //
+      // Same near/far interpolation the raymarch already uses:
+      //   ro    = invViewProj × (ndc, 0, 1)   → camera near point
+      //   farW  = invViewProj × (ndc, 1, 1)   → camera far point
+      //   rdRaw = farW - ro                   → world span across this ray
+      //   worldPos = ro + rdRaw × (t/totalDist)
+      // Because the raymarch's totalDist == length(rdRaw), multiplying
+      // by the linear fraction recovers the exact hit position.
+      let ndcX = uv.x * 2.0 - 1.0;
+      let ndcY = (1.0 - uv.y) * 2.0 - 1.0;
+      let depthLinear = textureLoad(depthTex, pxClamp, 0).r;
+      let nearW = u.invViewProj * vec4f(ndcX, ndcY, 0.0, 1.0);
+      let farW  = u.invViewProj * vec4f(ndcX, ndcY, 1.0, 1.0);
+      let ro    = nearW.xyz / nearW.w;
+      let rdRaw = farW.xyz / farW.w - ro;
+      let worldPos = ro + rdRaw * depthLinear;
+
+      for (var i = 0u; i < u.numPointLights; i = i + 1u) {
+        let pl0 = u.pointLights[i * 2u + 0u];
+        let pl1 = u.pointLights[i * 2u + 1u];
+        let lightPos = pl0.xyz;
+        let radius   = max(pl0.w, 0.001);
+        let lightCol = pl1.rgb;
+        let lightInt = pl1.a;
+        let toLight  = lightPos - worldPos;
+        let dist     = length(toLight);
+        let lightDir = toLight / max(dist, 0.001);
+        // Cel-quantized falloff: hard cutoff at the radius (one ring),
+        // cel-quantized n·l (one terminator line). Result is at most
+        // two clean transition lines on the body — no smooth gradient,
+        // no per-pixel falloff blur. Matches the cel-shading discipline
+        // of the rest of the pipeline.
+        let inRange = dist < radius;
+        let nDotL   = dot(n, lightDir) > 0.0;
+        let cellOn  = inRange && nDotL;
+        pointContrib = pointContrib + select(vec3f(0.0), lightCol * lightInt, cellOn);
+      }
+    }
+
+    // Selective specular: shiny primitives get a tight hot-spot from the
+    // key light when n·keyDir crosses 0.85. Tinted by key colour. Matte
+    // primitives skip this entirely. Single binary per-primitive choice
+    // — replaces the old roughness scalar with simpler authoring.
+    var specContrib = vec3f(0.0);
+    if (isShiny && keyDot > 0.85) {
+      specContrib = keyCol * keyInt * 0.9;
+    }
+
+    lit = ambColor + keyContrib + pointContrib + specContrib;
   }
 
   // SINGLE depth-based outline — catches both silhouette and interior
@@ -152,56 +264,147 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let depthTol = 0.02;
   let pxF = vec2f(f32(px.x), f32(px.y));
 
-  // Mario eye stamp. Each eye = 2 px wide × 3 px tall pattern.
-  // The demo places each anchor exactly 1 px from face-center along the
-  // head-right screen axis, so leftEye anchor sits on the INNER column of
-  // the left eye block and rightEye anchor sits on the INNER column of
-  // the right eye block. Blocks extend outward from their anchors; a
-  // single unpainted column between them falls out automatically.
+  // Stylised eye stamp. Each eye has an anchor in screen pixels + a
+  // local (dx, dy) offset from that anchor. Blink forces "closed" when
+  // faceFlags.z >= 0.5. Styles encoded in faceFlags.x:
+  //   0 mario    — 2×3, outer white column, inner W/B/B pupil pillar
+  //   1 dot      — single black pixel at anchor
+  //   2 round    — 2×2 solid pupil
+  //   3 goggles  — 3×3, outline rim (accent), inner white, tiny pupil
+  //   4 glowing  — 2×2 accent glow + 1×1 bright core (pulses on faceFlags.w)
+  //   5 closed   — 2×1 horizontal line (also the forced blink pose)
+  //   6 crying   — closed line + 2-px cyan tear stream on the inner column
   //
-  //   LEFT eye block (dxL in {0, +1}):    RIGHT eye block (dxR in {-1, 0}):
-  //     [inner] [outer]                     [outer] [inner]
-  //       W       W                           W       W
-  //       B       W                           W       B
-  //       B       W                           W       B
-  //   pupil pillar (W top + B bottom pair) at dx=0 for both eyes.
-  //
-  // pupilHalf / whiteHalf are ignored on this path — pattern is fixed.
+  // The demo places left and right anchors symmetrically along the
+  // head-right screen axis; per-eye isRight lets a style draw mirrored
+  // patterns when they're asymmetric. dx convention for the MARIO case:
+  // left eye block extends to the right of anchor (dx in 0..+1); right
+  // eye block extends to the left (dx in -1..0). Other styles are
+  // symmetric and ignore the mirror.
   if (frontFacing && u.eyeColor.a > 0.5) {
-    // LEFT eye (character's left = projects to screen-right). Block
-    // extends to the right of the anchor; inner column is the anchor.
-    let lAx = i32(round(u.leftEye.x));
-    let lAy = i32(round(u.leftEye.y));
-    if (abs(pixelDepth - u.leftEye.z) < depthTol) {
-      let dxL = px.x - lAx;
-      let dyL = px.y - lAy;
-      if (dyL >= -1 && dyL <= 1 && dxL >= 0 && dxL <= 1) {
-        if (dxL == 0 && dyL >= 0) { return vec4f(u.eyeColor.rgb, 1.0); }
-        return vec4f(u.whiteColor.rgb, 1.0);
+    var rawStyle = u32(u.faceFlags.x);
+    // Blink override — >=0.5 snaps all styles to the closed pose.
+    if (u.faceFlags.z >= 0.5) { rawStyle = 5u; }
+    let leftPx  = vec2i(i32(round(u.leftEye.x)),  i32(round(u.leftEye.y)));
+    let rightPx = vec2i(i32(round(u.rightEye.x)), i32(round(u.rightEye.y)));
+    let lInDepth = abs(pixelDepth - u.leftEye.z)  < depthTol;
+    let rInDepth = abs(pixelDepth - u.rightEye.z) < depthTol;
+
+    let glow = clamp(u.faceFlags.w, 0.0, 1.0);
+    let accent = u.eyeAccent.rgb;
+
+    // Fire each eye's switch. Returning early keeps the shader branchless
+    // per pixel — the dxL/dyL range tests gate the work.
+    for (var side = 0u; side < 2u; side = side + 1u) {
+      let anchor = select(rightPx, leftPx, side == 0u);
+      let inDepth = select(rInDepth, lInDepth, side == 0u);
+      if (!inDepth) { continue; }
+      let isLeft = side == 0u;
+      let dx = px.x - anchor.x;
+      let dy = px.y - anchor.y;
+
+      switch (rawStyle) {
+        case 0u: {   // MARIO — asymmetric
+          let inner = select(dx <= 0 && dx >= -1, dx >= 0 && dx <= 1, isLeft);
+          if (!inner) { break; }
+          if (dy < -1 || dy > 1) { break; }
+          let pupilDx = select(0, 0, isLeft);    // inner col is dx=0 in both
+          let isPupilCol = dx == pupilDx;
+          if (isPupilCol && dy >= 0) { return vec4f(u.eyeColor.rgb, 1.0); }
+          return vec4f(u.whiteColor.rgb, 1.0);
+        }
+        case 1u: {   // DOT — 1×1 black
+          if (dx == 0 && dy == 0) { return vec4f(u.eyeColor.rgb, 1.0); }
+          break;
+        }
+        case 2u: {   // ROUND — 2×2 pupil (anchor is inner col, flip dx range by side)
+          let inRange = select(dx <= 0 && dx >= -1, dx >= 0 && dx <= 1, isLeft);
+          if (inRange && dy >= -1 && dy <= 0) { return vec4f(u.eyeColor.rgb, 1.0); }
+          break;
+        }
+        case 3u: {   // GOGGLES — 3×3, rim = accent, inner center = white, middle = pupil
+          let inRange = dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1;
+          if (!inRange) { break; }
+          let onRim = abs(dx) == 1 || abs(dy) == 1;
+          if (onRim) {
+            if (u.eyeAccent.a > 0.5) { return vec4f(accent, 1.0); }
+            return vec4f(u.eyeColor.rgb, 1.0);
+          }
+          return vec4f(u.eyeColor.rgb, 1.0);
+        }
+        case 4u: {   // GLOWING — 2×2 accent glow + 1×1 bright core, brightness from glow
+          let inRange = select(dx <= 0 && dx >= -1, dx >= 0 && dx <= 1, isLeft);
+          if (!inRange || dy < -1 || dy > 0) { break; }
+          let core = (dx == select(0, 0, isLeft)) && dy == 0;
+          let glowRGB = mix(u.whiteColor.rgb, accent, glow);
+          if (core) { return vec4f(mix(accent, vec3f(1.0), glow), 1.0); }
+          return vec4f(glowRGB, 1.0);
+        }
+        case 5u: {   // CLOSED — 2×1 horizontal line (blink pose)
+          let inRange = select(dx <= 0 && dx >= -1, dx >= 0 && dx <= 1, isLeft);
+          if (inRange && dy == 0) { return vec4f(u.eyeColor.rgb, 1.0); }
+          break;
+        }
+        case 6u: {   // CRYING — closed line + 2-px tear stream below inner col
+          let inRange = select(dx <= 0 && dx >= -1, dx >= 0 && dx <= 1, isLeft);
+          if (inRange && dy == 0) { return vec4f(u.eyeColor.rgb, 1.0); }
+          // Inner column is dx=0 for both eyes by convention.
+          if (dx == 0 && (dy == 1 || dy == 2)) {
+            return vec4f(0.35, 0.70, 1.00, 1.0);   // cyan tear pixel
+          }
+          break;
+        }
+        default: { break; }
       }
-    }
-    // RIGHT eye (character's right = projects to screen-left). Block
-    // extends to the left of the anchor; inner column is the anchor.
-    let rAx = i32(round(u.rightEye.x));
-    let rAy = i32(round(u.rightEye.y));
-    if (abs(pixelDepth - u.rightEye.z) < depthTol) {
-      let dxR = px.x - rAx;
-      let dyR = px.y - rAy;
-      if (dyR >= -1 && dyR <= 1 && dxR >= -1 && dxR <= 0) {
-        if (dxR == 0 && dyR >= 0) { return vec4f(u.eyeColor.rgb, 1.0); }
-        return vec4f(u.whiteColor.rgb, 1.0);
-      }
-    }
-  }
-  if (frontFacing && u.mouthColor.a > 0.5) {
-    let mOff = pxF - u.mouth.xy;
-    let mInDepth = abs(pixelDepth - u.mouth.z) < depthTol;
-    if (mInDepth && abs(mOff.x) <= u.mouthHalf.x && abs(mOff.y) <= u.mouthHalf.y) {
-      return vec4f(u.mouthColor.rgb, 1.0);
     }
   }
 
-  return vec4f(me.rgb * lit, 1.0);
+  // Mouth style stamp — screen-space pixel pattern at the mouth anchor.
+  // Styles (faceFlags.y):
+  //   0 off      — no mouth drawn
+  //   1 line     — 3×1 horizontal line
+  //   2 smile    — 3×1 line with dip at center (3×2 half-smile curve)
+  //   3 open_o   — 2×2 filled square (surprise / wide mouth)
+  //   4 frown    — 3×1 line with rise at center (upside-down smile)
+  //   5 pout     — 1×1 dot
+  if (frontFacing && u.mouthColor.a > 0.5) {
+    let style = u32(u.faceFlags.y);
+    if (style != 0u) {
+      let mPx = vec2i(i32(round(u.mouth.x)), i32(round(u.mouth.y)));
+      let mInDepth = abs(pixelDepth - u.mouth.z) < depthTol;
+      if (mInDepth) {
+        let dx = px.x - mPx.x;
+        let dy = px.y - mPx.y;
+        switch (style) {
+          case 1u: {
+            if (dy == 0 && dx >= -1 && dx <= 1) { return vec4f(u.mouthColor.rgb, 1.0); }
+            break;
+          }
+          case 2u: {   // SMILE — corners at y=0, middle at y=1 (lower)
+            let onLine = (dy == 0 && (dx == -1 || dx == 1)) || (dy == 1 && dx == 0);
+            if (onLine) { return vec4f(u.mouthColor.rgb, 1.0); }
+            break;
+          }
+          case 3u: {   // OPEN_O
+            if (dx >= 0 && dx <= 1 && dy >= 0 && dy <= 1) { return vec4f(u.mouthColor.rgb, 1.0); }
+            break;
+          }
+          case 4u: {   // FROWN — corners at y=0, middle at y=-1 (higher)
+            let onLine = (dy == 0 && (dx == -1 || dx == 1)) || (dy == -1 && dx == 0);
+            if (onLine) { return vec4f(u.mouthColor.rgb, 1.0); }
+            break;
+          }
+          case 5u: {   // POUT
+            if (dx == 0 && dy == 0) { return vec4f(u.mouthColor.rgb, 1.0); }
+            break;
+          }
+          default: { break; }
+        }
+      }
+    }
+  }
+
+  return vec4f(useAlbedo * lit, 1.0);
 }
 `
 
@@ -244,6 +447,33 @@ export interface OutlinePass {
    *  gate the eye/mouth paint so overlay pixels don't show through
    *  the back of the head. */
   setViewForward(vx: number, vy: number, vz: number): void
+  /** Face style + state. eyeStyle/mouthStyle are enum IDs matching the
+   *  shader switch (see U.faceFlags in the WGSL). blink in [0..1] — when
+   *  >=0.5 all eye styles snap to the closed pose. glow in [0..1] —
+   *  used by glowing/animated styles to pulse. */
+  setFaceStyle(
+    eyeStyle: number,
+    mouthStyle: number,
+    blink: number,
+    glow: number,
+  ): void
+  /** Accent colour for stylised eyes (goggles rim, glowing outer).
+   *  rgb + enable(.a > 0.5). */
+  setEyeAccent(color: [number, number, number, number]): void
+  /** Camera inverse-view-projection (column-major mat4). Required for
+   *  point lights — used to reconstruct world position from depth. */
+  setInvViewProj(m: Float32Array): void
+  /** Configure a point light. idx in [0, 4). Pass intensity = 0 to
+   *  disable that slot. Falloff is quadratic: atten = 1 / (1 + (d/radius)²). */
+  setPointLight(
+    idx: number,
+    pos: [number, number, number],
+    color: [number, number, number],
+    intensity: number,
+    radius: number,
+  ): void
+  /** Active point-light count [0..4]. Above this index, slots are skipped. */
+  setNumPointLights(n: number): void
 }
 
 export function createOutlinePass(
@@ -274,23 +504,28 @@ export function createOutlinePass(
   //   [16..23] light[0] (dirI vec4 + color vec4)
   //   [24..31] light[1] (dirI vec4 + color vec4)
   const uniformBuffer = device.createBuffer({
-    size: 288,
+    size: 528,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  const uniformData = new Float32Array(72)
+  const uniformData = new Float32Array(132)
+  const uniformDataU32 = new Uint32Array(uniformData.buffer)
   let currentViewMode: ViewMode = 'color'
   let currentDepthOutline = true    // single depth-based outline is THE outline now
   let currentDepthThresh = 0.025
   // 0 = off, 1 = MRT normal (authoritative), 2 = reconstructed from depth
-  let currentLightingMode: 0 | 1 | 2 = 0
+  let currentLightingMode: 0 | 1 = 0
   let currentW = sceneW
   let currentH = sceneH
   // Default rig: cool ambient + warm key (3/4 front) + cool fill (back).
   // Directions are TO the light source (what the shader dots against).
-  let ambient = { r: 0.5, g: 0.55, b: 0.65, intensity: 0.4 }
+  // Key directional is pure white — no hue shift on the lit side. Ambient
+  // keeps a faint cool bias as a subtle atmospheric baseline; can flip
+  // to fully neutral or sunrise-warm later when the day/night cycle
+  // lands and colored lights matter for time-of-day mood.
+  let ambient = { r: 0.85, g: 0.86, b: 0.90, intensity: 0.55 }
   let lights: { dir: [number, number, number]; intensity: number; color: [number, number, number] }[] = [
-    { dir: normalize([0.6, 0.7, 0.3]),   intensity: 0.8,  color: [1.0, 0.95, 0.85] },
-    { dir: normalize([-0.4, 0.3, -0.6]), intensity: 0.35, color: [0.75, 0.85, 1.0] },
+    { dir: normalize([0.6, 0.7, 0.3]),   intensity: 0.55, color: [1.00, 1.00, 1.00] },
+    { dir: normalize([-0.4, 0.3, -0.6]), intensity: 0.0,  color: [1.00, 1.00, 1.00] },  // fill: unused, reserved for layout
   ]
   // Face paint-on state: eye dots at screen-pixel offsets from the
   // (CPU-projected) head position. NOT geometry — a color override
@@ -308,6 +543,18 @@ export function createOutlinePass(
   let whiteColor: [number, number, number, number] = [0.95, 0.92, 0.88, 0]
   let mouthColor: [number, number, number, number] = [0.55, 0.20, 0.25, 0]
   let viewForward: [number, number, number] = [0, 0, -1]
+  // Face style state. faceFlags = (eyeStyleId, mouthStyleId, blink01, glow01)
+  let faceFlags:  [number, number, number, number] = [0, 0, 0, 0]
+  // Secondary palette colour used by goggles rim / glowing outer glow.
+  let eyeAccent:  [number, number, number, number] = [0.2, 0.6, 1.0, 0]
+  // Camera invViewProj, set by demo each frame for point-light world-pos
+  // reconstruction. Default = identity (point lights inert until set).
+  const invViewProj = new Float32Array(16)
+  invViewProj[0] = 1; invViewProj[5] = 1; invViewProj[10] = 1; invViewProj[15] = 1
+  // Point lights: up to 4. Each = (pos.xyz, radius), (color.rgb, intensity).
+  const MAX_POINT_LIGHTS = 4
+  let numPointLights = 0
+  const pointLights = new Float32Array(MAX_POINT_LIGHTS * 8)
 
   function writeUniform(texW: number, texH: number) {
     currentW = texW
@@ -368,6 +615,23 @@ export function createOutlinePass(
     // [68..71] viewForward
     uniformData[68] = viewForward[0]; uniformData[69] = viewForward[1]
     uniformData[70] = viewForward[2]; uniformData[71] = 0
+    // [72..75] faceFlags (eyeStyleId, mouthStyleId, blink01, glow01)
+    uniformData[72] = faceFlags[0]; uniformData[73] = faceFlags[1]
+    uniformData[74] = faceFlags[2]; uniformData[75] = faceFlags[3]
+    // Layout MUST match the WGSL U struct after faceFlags:
+    //   invViewProj   (mat4, 16 floats) → bytes 304-368, slots 76-91
+    //   numPointLights (u32, 1 word)    → byte 368, slot 92
+    //   _padPL[3]     (3×u32 align pad) → bytes 372-384, slots 93-95
+    //   pointLights   (8×vec4f, 32f)    → bytes 384-512, slots 96-127
+    //   eyeAccent     (vec4f, 4 floats) → bytes 512-528, slots 128-131
+    // Earlier layout had eyeAccent at slot 76 — that broke when point
+    // lights pushed it to the END of the struct. Fixing now.
+    uniformData.set(invViewProj, 76)
+    uniformDataU32[92] = numPointLights
+    uniformData[93] = 0; uniformData[94] = 0; uniformData[95] = 0
+    uniformData.set(pointLights, 96)
+    uniformData[128] = eyeAccent[0]; uniformData[129] = eyeAccent[1]
+    uniformData[130] = eyeAccent[2]; uniformData[131] = eyeAccent[3]
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
   }
   writeUniform(sceneW, sceneH)
@@ -450,6 +714,39 @@ export function createOutlinePass(
       whiteColor[2] = wCol[2]; whiteColor[3] = wCol[3]
       mouthColor[0] = mCol[0]; mouthColor[1] = mCol[1]
       mouthColor[2] = mCol[2]; mouthColor[3] = mCol[3]
+      writeUniform(currentW, currentH)
+    },
+    setFaceStyle(eyeStyle, mouthStyle, blink, glow) {
+      faceFlags[0] = eyeStyle
+      faceFlags[1] = mouthStyle
+      faceFlags[2] = blink
+      faceFlags[3] = glow
+      writeUniform(currentW, currentH)
+    },
+    setEyeAccent(color) {
+      eyeAccent[0] = color[0]; eyeAccent[1] = color[1]
+      eyeAccent[2] = color[2]; eyeAccent[3] = color[3]
+      writeUniform(currentW, currentH)
+    },
+    setInvViewProj(m) {
+      invViewProj.set(m)
+      writeUniform(currentW, currentH)
+    },
+    setPointLight(idx, pos, color, intensity, radius) {
+      if (idx < 0 || idx >= MAX_POINT_LIGHTS) return
+      const off = idx * 8
+      pointLights[off + 0] = pos[0]
+      pointLights[off + 1] = pos[1]
+      pointLights[off + 2] = pos[2]
+      pointLights[off + 3] = radius
+      pointLights[off + 4] = color[0]
+      pointLights[off + 5] = color[1]
+      pointLights[off + 6] = color[2]
+      pointLights[off + 7] = intensity
+      writeUniform(currentW, currentH)
+    },
+    setNumPointLights(n) {
+      numPointLights = Math.max(0, Math.min(MAX_POINT_LIGHTS, n))
       writeUniform(currentW, currentH)
     },
   }

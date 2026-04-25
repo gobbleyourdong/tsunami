@@ -139,12 +139,19 @@ export class VFXSystem {
     this.instances = this.instances.filter((v) => now - v.spawnTime < v.duration)
   }
 
-  /** Current active primitives ready to hand to raymarch.setPrimitives(). */
+  /** Current active primitives ready to hand to raymarch.setPrimitives().
+   *  All VFX primitives are auto-flagged unlit — the cel-shading pass
+   *  skips them so flames / lightning / beams render with their
+   *  authored bright colours instead of being band-shaded like body
+   *  surfaces. */
   getPrimitives(now: number): RaymarchPrimitive[] {
     const out: RaymarchPrimitive[] = []
     for (const v of this.instances) {
       const prim = this.instanceToPrim(v, now)
-      if (prim) out.push(prim)
+      if (prim) {
+        prim.unlit = true
+        out.push(prim)
+      }
     }
     return out
   }

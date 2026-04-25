@@ -210,6 +210,7 @@ const CHIBI_SLOTS = {
   fire_base: 12,   // VFX ramp: deep red (bottom of flame)
   fire_mid:  13,   //           orange (mid)
   fire_tip:  14,   //           yellow (top)
+  cape:      15,   // capes / robes / cloth chains driven by node particles
 }
 
 /** Default chibi material: 6-slot palette, each visible body part bound
@@ -221,12 +222,16 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
     Neck:         CHIBI_SLOTS.skin,   // exposed neck reads as skin, not bg
     LeftShoulder: CHIBI_SLOTS.shirt,  // shoulder ball under the shirt
     RightShoulder:CHIBI_SLOTS.shirt,
+    Spine:        CHIBI_SLOTS.shirt,  // mid-spine ellipsoid (potato sack)
     Spine1:       CHIBI_SLOTS.shirt,
+    Spine2:       CHIBI_SLOTS.shirt,  // upper chest ellipsoid
     Hips:         CHIBI_SLOTS.pants,
     LeftArm:      CHIBI_SLOTS.skin,
     LeftForeArm:  CHIBI_SLOTS.skin,
+    LeftHand:     CHIBI_SLOTS.skin,
     RightArm:     CHIBI_SLOTS.skin,
     RightForeArm: CHIBI_SLOTS.skin,
+    RightHand:    CHIBI_SLOTS.skin,
     LeftUpLeg:    CHIBI_SLOTS.pants,
     LeftLeg:      CHIBI_SLOTS.pants,
     LeftFoot:     CHIBI_SLOTS.shoes,
@@ -248,6 +253,8 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
     if (/^Hair/.test(name)) return CHIBI_SLOTS.hair
     if (/Breast/.test(name)) return CHIBI_SLOTS.shirt
     if (/HipPad/.test(name)) return CHIBI_SLOTS.pants
+    if (/^Cape/.test(name)) return CHIBI_SLOTS.cape
+    if (/^Grenade/.test(name)) return CHIBI_SLOTS.weapon
     if (/^Weapon/i.test(name) || /Sword|Shield|Staff|Bow|Gun/.test(name)) return CHIBI_SLOTS.weapon
     if (/^Accent/i.test(name) || /Pauldron|Belt|Strap/.test(name)) return CHIBI_SLOTS.accent
     return undefined
@@ -281,6 +288,7 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
   setC(CHIBI_SLOTS.fire_base, 0.60, 0.10, 0.08)    // deep red (flame base)
   setC(CHIBI_SLOTS.fire_mid,  0.95, 0.45, 0.10)    // orange    (flame mid)
   setC(CHIBI_SLOTS.fire_tip,  1.00, 0.90, 0.30)    // yellow    (flame tip)
+  setC(CHIBI_SLOTS.cape,      0.55, 0.10, 0.12)    // crimson cape
 
   return { paletteIndices, palette, namedSlots: { ...CHIBI_SLOTS } }
 }
@@ -371,6 +379,50 @@ export const DEFAULT_BODY_PARTS: BodyPart[] = [
   { name: 'RightBreast', parentName: 'Spine2', offset: [-0.045, 0.035, 0.10], displaySize: [0.050, 0.045, 0.055] },
   { name: 'LeftHipPad',  parentName: 'Hips',   offset: [ 0.095, 0.010, 0.00], displaySize: [0.040, 0.055, 0.070] },
   { name: 'RightHipPad', parentName: 'Hips',   offset: [-0.095, 0.010, 0.00], displaySize: [0.040, 0.055, 0.070] },
+]
+
+/** Bob hair — ellipsoid sitting on top of the cranium. Centred above
+ *  the head sphere (head sphere center is at (0, 0.12, 0)) so the
+ *  hair reads as a clear shell over the upper skull. Spring-driven on
+ *  the Head bone for jiggle on quick head moves. Wider than the head
+ *  in X/Z, slightly shorter in Y so the lower face stays exposed. */
+export const DEFAULT_BOB_HAIR: HairPart[] = [
+  { name: 'HairBob', parentName: 'Head', offset: [0, 0.16, 0], displaySize: [0.22, 0.16, 0.22] },
+]
+
+/** Grenade belt — two small spheres on the Hips, driven by per-grenade
+ *  springs (jiggle on running). Use weapon palette slot. */
+export const DEFAULT_GRENADE_BELT: BodyPart[] = [
+  { name: 'GrenadeL', parentName: 'Hips', offset: [ 0.110, -0.020, 0.090], displaySize: [0.026, 0.026, 0.026] },
+  { name: 'GrenadeR', parentName: 'Hips', offset: [-0.110, -0.020, 0.090], displaySize: [0.026, 0.026, 0.026] },
+]
+
+/** Cape — three-segment chain hanging behind Spine2. Each segment is a
+ *  thin roundedBox in palette slot `cape` and blend group 9, so the
+ *  three segments smin together as one cloth volume but stay visually
+ *  distinct from the body. Bone hierarchy chains through CapeRoot →
+ *  CapeMid → CapeTip so node particles can drive each segment to lag
+ *  the previous in the chain.
+ *
+ *  Empty by default — characters opt in by passing this (or a custom
+ *  cape config) to extendRigWithBodyParts. */
+export const DEFAULT_CAPE_PARTS: BodyPart[] = [
+  // 5-segment cape: Cape0 (root, locked to shoulders) → Cape4 (tip).
+  // Each subsequent segment hangs 0.18m below its parent → ~0.72m
+  // total drape from shoulders to mid-thigh. Width flares slightly
+  // toward the bottom for a heroic-cape silhouette. Cape0's offset
+  // attaches at shoulder height (Y +0.10 above Spine2 centre) and
+  // clear of the torso back (Z -0.20 vs Spine2 back at ~-0.12).
+  // halfY 0.13 (was 0.10): primitive extends 0.13m each side of segment
+  // centre, segments are 0.18m apart → 0.08m overlap with neighbour
+  // (each side). Blend group 9 with radius 0.08 fuses them into one cloth
+  // volume. Without enough overlap, smin can't bridge the seam and the
+  // cape reads as discrete stacked blocks.
+  { name: 'Cape0', parentName: 'Spine2', offset: [0,  0.10, -0.20], displaySize: [0.150, 0.13, 0.012] },
+  { name: 'Cape1', parentName: 'Cape0',  offset: [0, -0.18,  0.00], displaySize: [0.165, 0.13, 0.012] },
+  { name: 'Cape2', parentName: 'Cape1',  offset: [0, -0.18,  0.00], displaySize: [0.180, 0.13, 0.012] },
+  { name: 'Cape3', parentName: 'Cape2',  offset: [0, -0.18,  0.00], displaySize: [0.190, 0.13, 0.012] },
+  { name: 'Cape4', parentName: 'Cape3',  offset: [0, -0.18,  0.00], displaySize: [0.195, 0.13, 0.012] },
 ]
 
 export function extendRigWithBodyParts(rig: Joint[], items: BodyPart[] = DEFAULT_BODY_PARTS): Joint[] {
@@ -647,9 +699,21 @@ export const CHIBI_LIMB_THICKNESS: Record<string, [number, number]> = {
   RightFoot:    [0.065, 0.09],
 }
 export const CHIBI_CENTERED_SIZE: Record<string, [number, number, number]> = {
-  Head:    [0.19, 0.21, 0.19],
+  // Head is a uniform sphere (radius x = y = z). The "egg" silhouette
+  // comes from a cone-jaw smin'd onto its lower hemisphere — keeps the
+  // head primitive a single perfect shape across all proportions, only
+  // the jaw angle is the chibi/normal lever.
+  Head:    [0.18, 0.18, 0.18],
   Neck:    [0.045, 0.06, 0.045],
+  // Spine column. Both procedural (Hips → Spine1 → Spine2 → Head) and
+  // Mixamo (Hips → Spine → Spine1 → Spine2 → Neck → Head) rigs emit
+  // intermediate spine joints with ~0.3m offsets — if we only rendered
+  // Spine1, the torso read as two disconnected oblate disks. We now
+  // stamp an ellipsoid on every spine bone so blend group 6 has a
+  // continuous column to smin across.
+  Spine:   [0.16, 0.10, 0.11],
   Spine1:  [0.17, 0.15, 0.12],
+  Spine2:  [0.17, 0.12, 0.11],
   Hips:    [0.15, 0.07, 0.12],
 }
 export const CHIBI_CENTERED_OFFSET: Record<string, [number, number, number]> = {
@@ -679,6 +743,7 @@ export interface RaymarchPrimDesc {
   blendRadius?: number
   rotation?: [number, number, number, number]
   detailAmplitude?: number
+  shiny?: boolean
 }
 
 export function chibiRaymarchPrimitives(
@@ -699,11 +764,14 @@ export function chibiRaymarchPrimitives(
     const name = rig[j].name
     const slot = material.paletteIndices[j]
 
-    // 1) Core centered body parts — head is an ellipsoid, others are boxes.
+    // 1) Core centered body parts — head is a SPHERE (perfect primitive,
+    // shape stable across proportions), torso/hips are ellipsoids
+    // (rounded mass for the potato-sack), neck stays a small box.
     const core = CHIBI_CENTERED_SIZE[name]
     if (core) {
       const off = CHIBI_CENTERED_OFFSET[name] ?? [0, 0, 0]
-      const type = name === 'Head' ? 3 : 1   // 3=ellipsoid, 1=box
+      const isSackCore = name === 'Spine' || name === 'Spine1' || name === 'Spine2' || name === 'Hips'
+      const type = name === 'Head' ? 0 : isSackCore ? 3 : 1   // 0=sphere, 3=ellipsoid, 1=box
       // Head gets a blend group so the jaw/chin ellipsoid (below) melds into
       // it as a single skin surface rather than showing a crease at the seam.
       // 0.03m blend radius → soft under-chin transition, hard enough that
@@ -711,62 +779,59 @@ export function chibiRaymarchPrimitives(
       // Skin detail: 2mm FBM displacement read only by the normal pass.
       // Too small to shift the silhouette; big enough to break up the
       // flat ellipsoid lighting into organic 3-band cel shading.
-      const headExtras = name === 'Head'
-        ? { blendGroup: 1, blendRadius: 0.03, detailAmplitude: 0.002 }
+      //
+      // "Potato sack" — upper/lower body fuse as one volume. Group 6
+      // holds Spine1 + Hips + Neck + both Shoulders (shoulder sphere
+      // reassigned below from its arm group to here). Arms stay in
+      // their own chains (groups 2/3); where arm meets body there's
+      // still a subtle cross-group seam, which we want — lets arms
+      // articulate visually even though the torso itself is soft.
+      // Palette slots stay per-primitive, so shirt→pants colour
+      // boundaries are crisp inside one fused geometry.
+      const centerExtras: Partial<RaymarchPrimDesc> =
+        name === 'Head'
+          ? { blendGroup: 1, blendRadius: 0.10, detailAmplitude: 0.002 }
+        : (isSackCore || name === 'Neck')
+          ? { blendGroup: 6, blendRadius: 0.07 }
         : {}
+      // Sphere head uses params[0] only (radius); ellipsoid uses x/y/z.
+      // (The pixel-fit chibi_head SDF type 13 is shipped in the shader
+      // but unused until we replace its max-of-extrusions combine with
+      // an elliptical cross-section — current python approach reads
+      // square from top down because two infinite extrusions intersect
+      // as a rectangular section at every y slice.)
+      const corePrimParams: [number, number, number, number] =
+        name === 'Head' ? [core[0], 0, 0, 0] : [core[0], core[1], core[2], 0]
       prims.push({
         type, paletteSlot: slot, boneIdx: j,
-        params: [core[0], core[1], core[2], 0],
+        params: corePrimParams,
         offsetInBone: [off[0], off[1], off[2]],
-        ...headExtras,
+        ...centerExtras,
       })
-      // Face build-out, Inigo-Girl style — everything smooth-unions with
-      // the head ellipsoid via blend group 1 to read as one skin surface.
-      // Jaw tapers the chin, cheeks bulge outward below the eyes, eye
-      // sockets subtract a recess so the eye spheres sit IN the head
-      // instead of protruding off its surface. Pure RENDERING addition
-      // — no rig changes, turn off by removing this block.
+      // Blank-face head build-out — just a tapered cone jaw for the chin
+      // line. Cheeks, eye sockets, nose all removed: every face feature
+      // (eyes, mouth, blush, tears) is drawn by the screen-space pixel
+      // stamp in the outline shader, no SDF cost. Pure flat-skin head.
       if (name === 'Head') {
-        // Jaw: real taper — narrower X so the chin actually narrows
-        // relative to the skull + cheek line. Tight blend so the
-        // silhouette transition from skull to chin is crisp enough to
-        // read as a jawline at sprite resolution.
+        // Cone jaw — tapered chin extending below the head sphere.
+        // Cone primitive (type 12) is "tip at origin, base at y=-h" by
+        // default; rotation quat (1,0,0,0) flips it 180° around X so
+        // the tip (chin point) faces DOWN. 45° half-angle gives the
+        // classic anime jaw slant. Big blend radius (0.10) so the cone-
+        // sphere seam fully dissolves into a continuous taper.
+        const HEAD_RADIUS = core[0]
+        const JAW_HALF_ANGLE_SIN = 0.7071
+        const JAW_HALF_ANGLE_COS = 0.7071
+        const JAW_HEIGHT = HEAD_RADIUS
+        const jawTipY = off[1] - HEAD_RADIUS * 1.3
         prims.push({
-          type: 3, paletteSlot: slot, boneIdx: j,
-          params: [core[0] * 0.55, core[1] * 0.50, core[2] * 0.80, 0],
-          offsetInBone: [off[0], off[1] - core[1] * 0.55, off[2] + core[2] * 0.10],
-          blendGroup: 1, blendRadius: 0.02,
+          type: 12, paletteSlot: slot, boneIdx: j,
+          params: [JAW_HALF_ANGLE_SIN, JAW_HALF_ANGLE_COS, JAW_HEIGHT, 0],
+          offsetInBone: [off[0], jawTipY, off[2]],
+          rotation: [1, 0, 0, 0],
+          blendGroup: 1, blendRadius: 0.10,
           detailAmplitude: 0.002,
         })
-        // Cheeks: mirrored spheres at cheekbone height (up from where
-        // they were, closer to the eye line) and pushed slightly wider
-        // than the jaw. Tight blend so the cheek→jaw crease reads as a
-        // visible anatomical edge instead of a smooth melt.
-        const cheekR = core[0] * 0.28
-        const cheekOff: [number, number, number] = [core[0] * 0.55, off[1] - core[1] * 0.12, off[2] + core[2] * 0.65]
-        for (const sx of [1, -1]) {
-          prims.push({
-            type: 0, paletteSlot: slot, boneIdx: j,
-            params: [cheekR, 0, 0, 0],
-            offsetInBone: [cheekOff[0] * sx, cheekOff[1], cheekOff[2]],
-            blendGroup: 1, blendRadius: 0.022,
-            detailAmplitude: 0.002,
-          })
-        }
-        // Eye sockets: ellipsoids subtracted from the skin group (negative
-        // blendRadius → smax in the accumulator). Creates a recess so the
-        // eye-sphere primitives (attached to LeftEye/RightEye bones) sit
-        // visually INSIDE the face rather than protruding as beads.
-        const socketSize: [number, number, number] = [core[0] * 0.26, core[1] * 0.20, core[2] * 0.22]
-        const socketOff: [number, number, number] = [core[0] * 0.30, off[1] + core[1] * 0.16, off[2] + core[2] * 0.82]
-        for (const sx of [1, -1]) {
-          prims.push({
-            type: 3, paletteSlot: slot, boneIdx: j,
-            params: [socketSize[0], socketSize[1], socketSize[2], 0],
-            offsetInBone: [socketOff[0] * sx, socketOff[1], socketOff[2]],
-            blendGroup: 1, blendRadius: -0.02,
-          })
-        }
       }
       continue
     }
@@ -805,24 +870,57 @@ export function chibiRaymarchPrimitives(
       continue
     }
 
-    // 3) Hair — rounded boxes (soft edges read better than boxes for hair).
+    // 3) Hair — rounded boxes (soft edges) by default, ellipsoid for
+    // HairBob (single shell wrapping the cranium needs round, not boxy).
     const hp = hairByName.get(name)
     if (hp) {
-      prims.push({
-        type: 2, paletteSlot: slot, boneIdx: j,
-        params: [hp.displaySize[0], hp.displaySize[1], hp.displaySize[2], 0.015],
-        offsetInBone: [0, 0, 0],
-      })
+      if (/^HairBob/.test(name)) {
+        prims.push({
+          type: 3, paletteSlot: slot, boneIdx: j,
+          params: [hp.displaySize[0], hp.displaySize[1], hp.displaySize[2], 0],
+          offsetInBone: [0, 0, 0],
+        })
+      } else {
+        prims.push({
+          type: 2, paletteSlot: slot, boneIdx: j,
+          params: [hp.displaySize[0], hp.displaySize[1], hp.displaySize[2], 0.015],
+          offsetInBone: [0, 0, 0],
+        })
+      }
       continue
     }
 
-    // 4) Body parts — breasts as ellipsoids (natural shape), hip pads as boxes.
+    // 4) Body parts — breasts as ellipsoids (natural shape), capes as
+    // chained roundedBoxes in their own blend group, hip pads as plain
+    // roundedBoxes.
     const bp = bodyByName.get(name)
     if (bp) {
       if (/Breast/.test(name)) {
         prims.push({
           type: 3, paletteSlot: slot, boneIdx: j,
           params: [bp.displaySize[0], bp.displaySize[1], bp.displaySize[2], 0],
+          offsetInBone: [0, 0, 0],
+        })
+      } else if (/^Cape/.test(name)) {
+        // Cape segment — group 9 (cape's own blend group). Adjacent
+        // segments smin together for one continuous cloth volume; cross-
+        // group min against body keeps the cape silhouette distinct.
+        // BlendRadius 0.08 (was 0.04): the segments now overlap ~0.08m
+        // on each side, so smin needs an equal-scale band to dissolve
+        // the seam smoothly. Smaller values left visible "block" edges.
+        prims.push({
+          type: 2, paletteSlot: slot, boneIdx: j,
+          params: [bp.displaySize[0], bp.displaySize[1], bp.displaySize[2], 0.015],
+          offsetInBone: [0, 0, 0],
+          blendGroup: 9, blendRadius: 0.08,
+        })
+      } else if (/^Grenade/.test(name)) {
+        // Grenades — sphere primitive, radius from displaySize[0]. No
+        // blend group: each grenade is a discrete prop, no fusion with
+        // belt or other grenades.
+        prims.push({
+          type: 0, paletteSlot: slot, boneIdx: j,
+          params: [bp.displaySize[0], 0, 0, 0],
           offsetInBone: [0, 0, 0],
         })
       } else {
@@ -847,16 +945,36 @@ export function chibiRaymarchPrimitives(
     }
 
     // 5.5) Shoulder joints — small spheres filling the gap between torso
-    // box and arm chain start. Join the arm's blend group so they fuse
-    // smoothly into the arm. Without these the arm visually "detaches"
-    // from the body at the shoulder.
+    // and arm chain start. Now part of the torso "potato sack" (group 6)
+    // instead of the arm chain: the shoulders fuse into the body mass,
+    // the arm then emerges from the fused surface. This is the key to
+    // the sack silhouette — shoulders read as body volume, not as arm
+    // sockets. Arm's upper capsule still overlaps the shoulder sphere,
+    // so the arm-to-body join remains connected (hard min at the seam).
     if (name === 'LeftShoulder' || name === 'RightShoulder') {
       prims.push({
         type: 0, paletteSlot: slot, boneIdx: j,
         params: [0.065, 0, 0, 0],     // 6.5cm sphere — matches upper arm radius
         offsetInBone: [0, 0, 0],
-        blendGroup: CHIBI_LIMB_BLEND_GROUP[name],
-        blendRadius: 0.05,
+        blendGroup: 6,
+        blendRadius: 0.07,
+      })
+      continue
+    }
+
+    // 5.6) Hands — sphere at the Hand joint, joined to the arm's own
+    // blend chain (group 2 / 3) so the fist fuses with the forearm cap.
+    // Radius slightly smaller than forearm so the hand reads as a
+    // distinct bulb rather than a continuation of the tube. Palette
+    // slot is forced to skin (not via paletteIndices) so a stale
+    // material build can't render the fist black.
+    if (name === 'LeftHand' || name === 'RightHand') {
+      prims.push({
+        type: 0, paletteSlot: CHIBI_SLOTS.skin, boneIdx: j,
+        params: [0.045, 0, 0, 0],     // 4.5cm sphere — the fist
+        offsetInBone: [0, 0, 0],
+        blendGroup: name === 'LeftHand' ? 2 : 3,
+        blendRadius: 0.04,
       })
       continue
     }
@@ -881,6 +999,27 @@ export function chibiRaymarchPrimitives(
     if (length < 1e-6) continue
 
     const halfLen = length / 2
+
+    // Foot special-case — wedge-shaped roundedBox along bone +Y instead
+    // of a capsule. Capsules at foot proportions (radius ~0.08m, length
+    // ~0.10m) read as near-spheres; a flatter, longer rounded box with
+    // narrow Z (height) and wider X (sole) reads as a shoe. Sits in the
+    // leg blend group so it fuses with the lower-leg capsule above.
+    const isFoot = name === 'LeftFoot' || name === 'RightFoot'
+    if (isFoot) {
+      const halfX = thickness[0] * 0.55                 // sole half-width
+      const halfY = halfLen                             // toe-direction half-length
+      const halfZ = thickness[1] * 0.45                 // height (flat)
+      prims.push({
+        type: 2, paletteSlot: slot, boneIdx: j,
+        params: [halfX, halfY, halfZ, 0.018],            // halfX, halfY, halfZ, cornerR
+        offsetInBone: [0, halfY, 0],
+        blendGroup: CHIBI_LIMB_BLEND_GROUP[name] ?? 0,
+        blendRadius: CHIBI_LIMB_BLEND_GROUP[name] ? 0.07 : 0,
+      })
+      continue
+    }
+
     // Capsule radius = average of the two thickness axes (they're symmetric
     // for arms/legs anyway). Center along bone by offsetting +Y halfLen.
     const radius = (thickness[0] + thickness[1]) * 0.5
@@ -899,12 +1038,25 @@ export function chibiRaymarchPrimitives(
       params: [radius, Math.max(0.001, halfLen - overlap), 0, 0],
       offsetInBone: [0, halfLen, 0],
       blendGroup: CHIBI_LIMB_BLEND_GROUP[name] ?? 0,
-      // 0.05m blend — roughly one limb-radius of softness. Wider than
-      // head/jaw (0.03m) because limb joints see a sharper geometric
-      // change and need more softening to read continuous.
-      blendRadius: CHIBI_LIMB_BLEND_GROUP[name] ? 0.05 : 0,
+      // 0.055m blend — middle ground. 0.05 left visible elbow/knee
+      // bulges; 0.07 melted the joint entirely at chibi proportions
+      // where each squashed segment is barely longer than the radius.
+      // Per-proportion scaling of this value is the next step if any
+      // single number doesn't read well across all presets.
+      blendRadius: CHIBI_LIMB_BLEND_GROUP[name] ? 0.055 : 0,
     })
   }
+  // Shininess sweep is disabled — full roughness on every body surface
+  // until we revisit the spec / highlight authoring story. The per-prim
+  // shiny flag, raymarch packing, and outline highlight band all
+  // remain in place; turning a character (or a specific primitive) shiny
+  // is a one-line p.shiny = true away when needed.
+  //
+  // When we re-enable, skin specifically needs a TIGHTER spec than the
+  // current global threshold (0.85). 0.95+ — a 1-2 pixel hot-dot, not a
+  // band across the lit side. Hair / weapon / accent can keep wider
+  // specs (0.85-0.90). Likely future shape: per-slot spec threshold
+  // alongside the SHINY_SLOTS Set.
   return prims
 }
 

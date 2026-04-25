@@ -20,6 +20,9 @@ import {
   extendLocalMatsWithHair,
   extendRigWithBodyParts,
   extendLocalMatsWithBodyParts,
+  DEFAULT_CAPE_PARTS,
+  DEFAULT_BOB_HAIR,
+  DEFAULT_GRENADE_BELT,
   DEFAULT_FACE,
   DEFAULT_HAIR,
   DEFAULT_BODY_PARTS,
@@ -41,8 +44,19 @@ import {
   defaultCharacterParams,
 } from '../src/character3d/glb_loader'
 import { createOutlinePass } from '../src/character3d/outline'
+import { mat4 } from '../src/math/vec'
 import { createRaymarchRenderer, type RaymarchPrimitive } from '../src/character3d/raymarch_renderer'
 import { VFXSystem } from '../src/character3d/vfx_system'
+import {
+  createNodeParticle,
+  tickNodeParticle,
+  type NodeParticle,
+} from '../src/character3d/node_particle'
+import {
+  createSecondarySpring,
+  tickSpring,
+  type SecondarySpring,
+} from '../src/character3d/secondary'
 
 // Canvas IS the sprite. Each mode sizes the pixel buffer to its target
 // sprite dimensions; CSS scales crisp-upscaled to fill the window.
@@ -169,11 +183,18 @@ async function main() {
           vat.rig = extendRigWithFace(vat.rig)
           vat.localMats = extendLocalMatsWithFace(vat.localMats, vat.numFrames, vat.numJoints)
           vat.numJoints = vat.rig.length
-          vat.rig = extendRigWithHair(vat.rig)
-          vat.localMats = extendLocalMatsWithHair(vat.localMats, vat.numFrames, vat.numJoints)
+          // Bob hair shipped with the engine; characters can override by
+          // passing a different list. Spring-driven jiggle applied below.
+          vat.rig = extendRigWithHair(vat.rig, DEFAULT_BOB_HAIR)
+          vat.localMats = extendLocalMatsWithHair(vat.localMats, vat.numFrames, vat.numJoints, DEFAULT_BOB_HAIR)
           vat.numJoints = vat.rig.length
-          vat.rig = extendRigWithBodyParts(vat.rig)
-          vat.localMats = extendLocalMatsWithBodyParts(vat.localMats, vat.numFrames, vat.numJoints)
+          // Body parts + cape + grenades all share the BodyPart shape.
+          // Cape gets node-particle chain motion; grenades get per-grenade
+          // springs (jiggle on running); body parts (breasts/hippads) stay
+          // rest-pose unless they get their own springs in a future tick.
+          const bodyAndExtras = [...DEFAULT_BODY_PARTS, ...DEFAULT_CAPE_PARTS, ...DEFAULT_GRENADE_BELT]
+          vat.rig = extendRigWithBodyParts(vat.rig, bodyAndExtras)
+          vat.localMats = extendLocalMatsWithBodyParts(vat.localMats, vat.numFrames, vat.numJoints, bodyAndExtras)
           vat.numJoints = vat.rig.length
           vat.rig = extendRigWithAccessories(vat.rig)
           vat.localMats = extendLocalMatsWithAccessories(vat.localMats, vat.numFrames, vat.numJoints)
@@ -449,6 +470,14 @@ async function main() {
       numFrames: loadedVAT.numFrames,
     }
     let elapsed = 0   // hoisted so switchAnimation can reset it
+    // Track last sprite-anim tick for secondary motion (cape, springs):
+    // they should update on the same cadence as the body animation, not
+    // every render frame. Otherwise cape glides smoothly at 60Hz while
+    // the sprite snaps at 8-12Hz, which reads as the cape "floating"
+    // across body poses instead of moving in sync.
+    let lastSecondaryFrame = -1
+    let lastSecondaryElapsed = 0
+    let lastSecondaryRestPose = false
 
     const material = chibiMaterial(rig)
 
@@ -512,6 +541,25 @@ async function main() {
       ]
     }
     const paletteListEl = document.getElementById('palette-list')!
+    // Per-slot pattern overrides set via UI controls. When set for a
+    // slot, overrides per-primitive colorFunc / slotB / colorExtent
+    // for primitives in that slot. PBR (metalness/roughness/AO) was
+    // dumped — characters use only the tinted ambient + key + fill
+    // light setup until those foundational lights are dialed in.
+    type PatternOverride = { colorFunc?: number; paletteSlotB?: number; colorExtent?: number }
+    const patternOverrides: Record<number, PatternOverride> = {}
+    function applyOverridesToPrims() {
+      for (const p of faceRaymarchPrims) {
+        const pat = patternOverrides[p.paletteSlot]
+        if (pat) {
+          if (pat.colorFunc    !== undefined) p.colorFunc    = pat.colorFunc as 0 | 1 | 2 | 3
+          if (pat.paletteSlotB !== undefined) p.paletteSlotB = pat.paletteSlotB
+          if (pat.colorExtent  !== undefined) p.colorExtent  = pat.colorExtent
+        }
+      }
+      raymarch.setPrimitives(faceRaymarchPrims)
+      invalidateRaymarchCache()
+    }
     function buildPaletteUI() {
       while (paletteListEl.firstChild) paletteListEl.removeChild(paletteListEl.firstChild)
       const slots = material.namedSlots
@@ -538,10 +586,45 @@ async function main() {
           invalidateRaymarchCache()
         }
         row.appendChild(picker)
+        // Pattern dropdown — colorFunc 0 (flat) / 4 (stripes) / 5 (dots)
+        // / 6 (checker). Each preset hardcodes a sensible slotB (accent)
+        // and extent so one-click applies a visible test pattern; finer
+        // tuning is a follow-up. Skip for face slots that don't have
+        // SDF primitives in the chibi build.
+        const patternWrap = document.createElement('span')
+        patternWrap.style.cssText = 'display:inline-flex;align-items:center;gap:2px;margin-left:6px;font-size:9px'
+        const patLbl = document.createElement('span')
+        patLbl.textContent = 'P'
+        patternWrap.appendChild(patLbl)
+        const patSel = document.createElement('select')
+        patSel.style.cssText = 'font-size:9px;padding:0'
+        const accentSlot = material.namedSlots.accent ?? 11
+        const presets: Array<{ name: string; cfg: PatternOverride | null }> = [
+          { name: 'flat',    cfg: { colorFunc: 0, paletteSlotB: slot, colorExtent: 0 } },
+          { name: 'stripes', cfg: { colorFunc: 4, paletteSlotB: accentSlot, colorExtent: 8 } },
+          { name: 'dots',    cfg: { colorFunc: 5, paletteSlotB: accentSlot, colorExtent: 0.04 } },
+          { name: 'checker', cfg: { colorFunc: 6, paletteSlotB: accentSlot, colorExtent: 0.03 } },
+        ]
+        for (const p of presets) {
+          const opt = document.createElement('option')
+          opt.value = p.name
+          opt.textContent = p.name
+          patSel.appendChild(opt)
+        }
+        patSel.onchange = () => {
+          const preset = presets.find((p) => p.name === patSel.value)
+          if (!preset || !preset.cfg) return
+          patternOverrides[slot] = preset.cfg
+          applyOverridesToPrims()
+        }
+        patternWrap.appendChild(patSel)
+        row.appendChild(patternWrap)
         paletteListEl.appendChild(row)
       }
     }
-    buildPaletteUI()
+    // Initial buildPaletteUI() call deferred — needs faceRaymarchPrims +
+    // raymarch (declared further down) to read PBR slider initial values
+    // and push override changes to the GPU.
 
     // --- Expression blendshapes via per-axis scale.
     // Our composer's scales are vec3, so non-uniform axis scales on face
@@ -575,6 +658,15 @@ async function main() {
         RightEye:   [1,    0.50, 1],
         LeftPupil:  [1,    0.45, 1],
         RightPupil: [1,    0.45, 1],
+      },
+      crying:   {
+        // Same closed-lid blendshape as blink; pixel stamp carries
+        // the tear streams (see FACE_STYLES.crying → 'crying' eye).
+        LeftEye:    [1,    0.15, 1],
+        RightEye:   [1,    0.15, 1],
+        LeftPupil:  [1,    0.10, 1],
+        RightPupil: [1,    0.10, 1],
+        Mouth:      [0.85, 0.55, 1],
       },
     }
     // currentExpression declared near the top of main() (hoisted so the
@@ -710,8 +802,70 @@ async function main() {
     // --- Raymarch renderer: full chibi character as SDF primitives.
     const rightHandIdx = rig.findIndex((j) => j.name === 'RightHand')
     const headIdx = rig.findIndex((j) => j.name === 'Head')
+    const spine2Idx = rig.findIndex((j) => j.name === 'Spine2')
+    // 5-segment cape: Cape0 (locked anchor at shoulder) → Cape4 (tip).
+    // Each particle index matches the bone index in capeBoneIndices.
+    const capeBoneIndices: number[] = []
+    for (let i = 0; i < 5; i++) {
+      const idx = rig.findIndex((j) => j.name === `Cape${i}`)
+      if (idx >= 0) capeBoneIndices.push(idx)
+    }
+    const CAPE_SEG_DROP = 0.18   // Y drop per segment (matches DEFAULT_CAPE_PARTS)
+    const CAPE_HAS_FULL_CHAIN = capeBoneIndices.length === 5 && spine2Idx >= 0
+
+    // Particle 0 is the LOCKED anchor at the shoulder (Spine2 + rotated
+    // offset). Particles 1..4 chain via node-particle physics (one-frame-
+    // stale parent reads + distance clamp). The first VISIBLE segment
+    // spans particle[0] → particle[1] hanging DOWN from the shoulder
+    // anchor, eliminating the awkward up-bend the previous architecture
+    // had between Spine2 and Cape0.
+    const capeChain: NodeParticle[] = !CAPE_HAS_FULL_CHAIN ? [] : [
+      // Cape0 — locked anchor. restOffset is matched in the lock code below.
+      createNodeParticle({
+        parentRef: spine2Idx, parentKind: 'bone',
+        restOffset: [0, 0.10, -0.20],
+        restLength: 0.22,
+      }),
+      // Cape1..4 — chain physics, hanging straight down from previous.
+      createNodeParticle({ parentRef: 0, parentKind: 'particle', restOffset: [0, -CAPE_SEG_DROP, 0], restLength: CAPE_SEG_DROP }),
+      createNodeParticle({ parentRef: 1, parentKind: 'particle', restOffset: [0, -CAPE_SEG_DROP, 0], restLength: CAPE_SEG_DROP }),
+      createNodeParticle({ parentRef: 2, parentKind: 'particle', restOffset: [0, -CAPE_SEG_DROP, 0], restLength: CAPE_SEG_DROP }),
+      createNodeParticle({ parentRef: 3, parentKind: 'particle', restOffset: [0, -CAPE_SEG_DROP, 0], restLength: CAPE_SEG_DROP }),
+    ]
+
+    // Scratch mat4s for per-frame invViewProj computation (point lights).
+    const scratchVP   = mat4.create()
+    const scratchInvVP = mat4.create()
+
+    // Spring-driven jiggle elements — bob hair (lighter, snappier) and
+    // grenades on the belt (heavier, slower oscillation). Each spring's
+    // restTarget is the bone's current world position from the composer
+    // (i.e. wherever animation would have placed it). The spring lags
+    // and overshoots; we override the bone's translation with the spring
+    // position. Identity-style oscillation gives the bouncy "secondary"
+    // feel without needing a chain.
+    const grenadeLIdx = rig.findIndex((j) => j.name === 'GrenadeL')
+    const grenadeRIdx = rig.findIndex((j) => j.name === 'GrenadeR')
+    type SpringEntry = { boneIdx: number; spring: SecondarySpring }
+    const springEntries: SpringEntry[] = []
+    // Hair (HairBob) is now LOCKED to the head — single-primitive bob has
+    // no "tip" to swing, so we keep it rigidly attached. Future longer-
+    // hair chains will revisit with root-locked + tip-springs.
+    if (grenadeLIdx >= 0) springEntries.push({ boneIdx: grenadeLIdx, spring: createSecondarySpring([0,0,0], { stiffness: 14, damping: 0.93 }) })
+    if (grenadeRIdx >= 0) springEntries.push({ boneIdx: grenadeRIdx, spring: createSecondarySpring([0,0,0], { stiffness: 14, damping: 0.93 }) })
+    // Pass the SAME hair / bodyParts lists we used to extend the rig.
+    // The emitter uses these to build its lookup maps; without them,
+    // virtual joints (HairBob, Cape*, Grenade*) live in the rig but no
+    // primitives emit for them — invisible cape + invisible hair.
+    const bodyAndExtrasPrims = [...DEFAULT_BODY_PARTS, ...DEFAULT_CAPE_PARTS, ...DEFAULT_GRENADE_BELT]
     const faceRaymarchPrims: RaymarchPrimitive[] =
-      chibiRaymarchPrimitives(rig, material) as RaymarchPrimitive[]
+      chibiRaymarchPrimitives(
+        rig, material,
+        undefined,                 // face: stay default (empty)
+        undefined,                 // accessories: stay default
+        DEFAULT_BOB_HAIR,
+        bodyAndExtrasPrims,
+      ) as RaymarchPrimitive[]
     if (rightHandIdx >= 0) {
       const baseSlot = material.namedSlots.fire_base ?? 12
       const tipSlot  = material.namedSlots.fire_tip  ?? 14
@@ -722,6 +876,7 @@ async function main() {
         colorFunc: 1,
         paletteSlotB: tipSlot,
         colorExtent: 0.14,
+        unlit: true,    // flame is its own glow — bypass cel shading
       })
     }
     const raymarch = createRaymarchRenderer(
@@ -736,6 +891,47 @@ async function main() {
       const c0 = cacheDimsFor(spriteMode)
       raymarch.resizeCache(c0.w, c0.h)
     }
+
+    // Build the palette / PBR UI now that faceRaymarchPrims + raymarch
+    // exist (sliders read initial PBR values from prims, push updates
+    // via raymarch.setPrimitives).
+    buildPaletteUI()
+
+    // Naked-man mode — override clothing/accessory slots with the skin
+    // color so the silhouette reads as pure body. Lets us tune body
+    // proportions per preset (chibi / stylized / realistic) without
+    // clothing seams confusing the read. Toggle with K. material.palette
+    // stays canonical (palette picker UI reflects true colors); we only
+    // override the raymarch's palette LUT via setPaletteSlot.
+    const NUDE_SLOTS = ['shirt', 'pants', 'shoes', 'hair', 'accent', 'weapon'] as const
+    const nudeSnapshot: Array<[number, number, number]> = NUDE_SLOTS.map((name) => {
+      const s = material.namedSlots[name]
+      if (s === undefined) return [0, 0, 0]
+      return [
+        material.palette[s * 4 + 0],
+        material.palette[s * 4 + 1],
+        material.palette[s * 4 + 2],
+      ]
+    })
+    let nudeMode = true
+    function applyNudeMode() {
+      const skinSlot = material.namedSlots.skin
+      const sr = material.palette[skinSlot * 4 + 0]
+      const sg = material.palette[skinSlot * 4 + 1]
+      const sb = material.palette[skinSlot * 4 + 2]
+      NUDE_SLOTS.forEach((name, i) => {
+        const s = material.namedSlots[name]
+        if (s === undefined) return
+        if (nudeMode) {
+          raymarch.setPaletteSlot(s, sr, sg, sb, 1)
+        } else {
+          const [r, g, b] = nudeSnapshot[i]
+          raymarch.setPaletteSlot(s, r, g, b, 1)
+        }
+      })
+      invalidateRaymarchCache()
+    }
+    applyNudeMode()
 
     // Face paint-on lives entirely in the outline shader (screen-space
     // sprite stamp). Eyes = Mario 2×3 pattern at CPU-projected anchors;
@@ -809,11 +1005,47 @@ async function main() {
     type ViewMode = 'color' | 'normal' | 'depth'
     let viewMode: ViewMode = 'color'
     let depthOutlineOn = false
-    let lightingMode: 0 | 1 = 0   // off / on (2-tone cel from MRT normal)
+    // 0 = off (flat unlit), 1 = on (ambient + key directional + active
+    // point lights). VFX adds transient point lights for muzzle flashes
+    // etc. on top of directional in mode 1.
+    let lightingMode: 0 | 1 = 0
     // Rest pose: freezes animation and poses the rig at identity local
     // rotations — a stable reference for iterating on proportion sliders.
     // Toggle with T.
     let restPose = false
+
+    // --- Face-style registry — drives the outline shader's pixel stamp
+    // based on the currently-selected expression (the existing expression
+    // buttons: neutral/blink/smile/surprise/squint). Each expression maps
+    // to an (eye, mouth) pair + optional eye-accent colour. The style IDs
+    // match the shader switch in outline.ts: eyes 0..5, mouth 0..5.
+    const EYE_STYLES = ['mario', 'dot', 'round', 'goggles', 'glowing', 'closed', 'crying'] as const
+    type EyeStyle = typeof EYE_STYLES[number]
+    const MOUTH_STYLES = ['off', 'line', 'smile', 'open_o', 'frown', 'pout'] as const
+    type MouthStyle = typeof MOUTH_STYLES[number]
+    const FACE_STYLES: Record<string, { eye: EyeStyle; mouth: MouthStyle; accent?: [number, number, number] }> = {
+      neutral:  { eye: 'mario',  mouth: 'off'    },
+      blink:    { eye: 'closed', mouth: 'off'    },    // sticky closed-eye pose
+      smile:    { eye: 'mario',  mouth: 'smile'  },
+      surprise: { eye: 'round',  mouth: 'open_o' },
+      squint:   { eye: 'dot',    mouth: 'off'    },
+      crying:   { eye: 'crying', mouth: 'frown'  },
+    }
+    // Half-distance (pixels) of each eye anchor from the projected face
+    // centre, along the head-right screen axis. Default 1 ⇒ 2-px anchor
+    // separation ⇒ 1-px gap between eye blocks.
+    let eyeSpacingPx = 1
+    // Manual style overrides (J cycles eye, . / , cycle mouth). When
+    // non-null, override replaces the expression's authored style on
+    // that axis — lets us preview every shape against any emotion
+    // without adding a button per (style × emotion) pair. null = follow
+    // FACE_STYLES for that axis.
+    let eyeStyleOverride: EyeStyle | null = null
+    let mouthStyleOverride: MouthStyle | null = null
+    // Time-driven auto-blink (between intentional expression clicks).
+    const BLINK_PERIOD = 3.8
+    const BLINK_DURATION = 0.12
+    let blinkTimer = 0
 
     function cycleViewMode() {
       viewMode = viewMode === 'color' ? 'normal' : viewMode === 'normal' ? 'depth' : 'color'
@@ -838,6 +1070,33 @@ async function main() {
       if (e.key === 't' || e.key === 'T') {
         restPose = !restPose
         invalidateRaymarchCache()
+      }
+      if (e.key === 'k' || e.key === 'K') {
+        nudeMode = !nudeMode
+        applyNudeMode()
+      }
+      // Eye spacing: [ narrower, ] wider. Clamp to [0, 4] px half-offset.
+      if (e.key === '[') eyeSpacingPx = Math.max(0, eyeSpacingPx - 1)
+      if (e.key === ']') eyeSpacingPx = Math.min(4, eyeSpacingPx + 1)
+      // J: cycle eye-style override (null → mario → dot → round → goggles →
+      // glowing → closed → null). Null = follow the expression's authored
+      // eye. Shift+J goes backward through the ring.
+      if (e.key === 'j' || e.key === 'J') {
+        const ring: (EyeStyle | null)[] = [null, ...EYE_STYLES]
+        const idx = ring.indexOf(eyeStyleOverride)
+        const next = e.shiftKey
+          ? ring[(idx - 1 + ring.length) % ring.length]
+          : ring[(idx + 1) % ring.length]
+        eyeStyleOverride = next
+      }
+      // . / , : cycle mouth-style override forward / back. null = follow
+      // the expression's authored mouth. Ring: null → off → line →
+      // smile → open_o → frown → pout → null.
+      if (e.key === '.' || e.key === ',') {
+        const ring: (MouthStyle | null)[] = [null, ...MOUTH_STYLES]
+        const idx = ring.indexOf(mouthStyleOverride)
+        const step = e.key === '.' ? 1 : -1
+        mouthStyleOverride = ring[(idx + step + ring.length) % ring.length]
       }
       if (e.key === 'f' || e.key === 'F') togglePreviewMode()
       // VFX spawn keys — gameplay-like triggers to validate the lifetime
@@ -993,9 +1252,191 @@ async function main() {
       // Rest-pose mode (T key) bypasses the animation and writes the
       // rig's structural pose instead — stable reference for tuning
       // proportions across the body.
-      if (composer) {
+      // Update animation → update physics → draw, Unreal-style. Both
+      // anim (composer) and physics (cape, springs) tick on the same
+      // sprite-FPS cadence; render runs free at display refresh. Skip
+      // composer + secondary on non-tick frames so the GPU keeps the
+      // last-tick state and the cape doesn't appear to update faster
+      // than the body.
+      const tickShouldRun =
+        frameIdx !== lastSecondaryFrame ||
+        restPose !== lastSecondaryRestPose
+      const tickDt = tickShouldRun ? Math.max(elapsed - lastSecondaryElapsed, 1 / 60) : 0
+      if (composer && tickShouldRun) {
         if (restPose) composer.applyRestPose(characterParams)
         else          composer.update(frameIdx, characterParams)
+      }
+
+      // Cape secondary motion — node particles drive cape bone positions
+      // and orientations. Each segment is centered at the midpoint between
+      // its endpoint joints (top = parent particle / Spine2; bottom = this
+      // particle), with its bone +Y axis pointing toward the top. That
+      // makes the roundedBox primitive (whose long axis is +Y) align along
+      // the chain direction so the cape reads as bent fabric.
+      if (composer && CAPE_HAS_FULL_CHAIN && tickShouldRun) {
+        const wm = composer.worldMatrices
+        const getBoneWorldPos = (boneIdx: number): [number, number, number] => [
+          wm[boneIdx * 16 + 12],
+          wm[boneIdx * 16 + 13],
+          wm[boneIdx * 16 + 14],
+        ]
+        // Read Spine2's world rotation columns so we can transform the
+        // cape's local-frame offsets into world space — without this
+        // the cape stays in world axes and doesn't follow body rotation.
+        const s2 = spine2Idx * 16
+        const sX: [number, number, number] = [wm[s2 + 0], wm[s2 + 1], wm[s2 + 2]]
+        const sY: [number, number, number] = [wm[s2 + 4], wm[s2 + 5], wm[s2 + 6]]
+        const sZ: [number, number, number] = [wm[s2 + 8], wm[s2 + 9], wm[s2 + 10]]
+        const rotByS2 = (v: [number, number, number]): [number, number, number] => [
+          v[0] * sX[0] + v[1] * sY[0] + v[2] * sZ[0],
+          v[0] * sX[1] + v[1] * sY[1] + v[2] * sZ[1],
+          v[0] * sX[2] + v[1] * sY[2] + v[2] * sZ[2],
+        ]
+
+        // Wind in WORLD space — drift the cape sideways regardless of body
+        // facing. Slow swirl + small secondary oscillation = light breeze.
+        const windStrength = 0.04
+        const windAngle = elapsed * 0.7 + Math.sin(elapsed * 0.4) * 0.3
+        const windX = Math.cos(windAngle) * windStrength
+        const windZ = Math.sin(windAngle) * windStrength
+
+        // ROOT (i=0): LOCKED — snap to Spine2's current world position
+        // plus rotated rest offset. No stale-read lag at the attachment
+        // point so the cape can't drift forward through the torso.
+        {
+          const spine2Pos = getBoneWorldPos(spine2Idx)
+          const rotatedOff = rotByS2(capeChain[0].restOffset)
+          capeChain[0].position[0] = spine2Pos[0] + rotatedOff[0]
+          capeChain[0].position[1] = spine2Pos[1] + rotatedOff[1]
+          capeChain[0].position[2] = spine2Pos[2] + rotatedOff[2]
+          capeChain[0].prevParentPos[0] = spine2Pos[0]
+          capeChain[0].prevParentPos[1] = spine2Pos[1]
+          capeChain[0].prevParentPos[2] = spine2Pos[2]
+          capeChain[0].initialised = true
+        }
+
+        // MID + TIP: chain physics with rotated offsets + wind.
+        for (let i = 1; i < capeChain.length; i++) {
+          const baseOff = capeChain[i].restOffset
+          const rotatedOff = rotByS2(baseOff)
+          const k = (i + 1) / capeChain.length
+          const offsetWithWind: [number, number, number] = [
+            rotatedOff[0] + windX * k,
+            rotatedOff[1],
+            rotatedOff[2] + windZ * k,
+          ]
+          tickNodeParticle(capeChain[i], capeChain, getBoneWorldPos, offsetWithWind)
+        }
+
+        // Body collision — push cape particles out of bounding spheres
+        // around the spine. Stops the cape from passing through the
+        // torso when it swings forward in wind / motion.
+        const collisionList: { bone: number; r: number }[] = []
+        if (spine2Idx >= 0) collisionList.push({ bone: spine2Idx, r: 0.16 })
+        if (hipsIdx   >= 0) collisionList.push({ bone: hipsIdx,   r: 0.17 })
+        // Skip root (i=0) — it's already locked to a sensible position.
+        for (let i = 1; i < capeChain.length; i++) {
+          const cp = capeChain[i].position
+          for (const col of collisionList) {
+            const cb = getBoneWorldPos(col.bone)
+            const dx = cp[0] - cb[0]
+            const dy = cp[1] - cb[1]
+            const dz = cp[2] - cb[2]
+            const dist = Math.hypot(dx, dy, dz)
+            if (dist > 1e-6 && dist < col.r) {
+              const k2 = col.r / dist
+              cp[0] = cb[0] + dx * k2
+              cp[1] = cb[1] + dy * k2
+              cp[2] = cb[2] + dz * k2
+            }
+          }
+        }
+        for (let i = 0; i < capeBoneIndices.length; i++) {
+          const boneIdx = capeBoneIndices[i]
+          const off = boneIdx * 16
+          // bone[i]'s segment spans particle[i] (TOP) → particle[i+1] (BOTTOM).
+          // For the LAST bone (no next particle) the segment extrapolates a
+          // tail of CAPE_SEG_DROP straight down so the cape has a clean
+          // bottom edge instead of cutting off mid-segment.
+          const top: [number, number, number] = capeChain[i].position
+          const bottom: [number, number, number] = (i + 1 < capeChain.length)
+            ? capeChain[i + 1].position
+            : [top[0], top[1] - CAPE_SEG_DROP, top[2]]
+          // Up vector = direction from segment bottom to top (bone +Y).
+          let uy0 = top[0] - bottom[0]
+          let uy1 = top[1] - bottom[1]
+          let uy2 = top[2] - bottom[2]
+          const ulen = Math.hypot(uy0, uy1, uy2) || 1
+          uy0 /= ulen; uy1 /= ulen; uy2 /= ulen
+          // Right vector = world X projected onto plane perpendicular to up.
+          // Falls back to world Z if up is too close to world X.
+          const upDotX = uy0
+          let rx0 = 1 - uy0 * upDotX
+          let rx1 = -uy1 * upDotX
+          let rx2 = -uy2 * upDotX
+          let rlen = Math.hypot(rx0, rx1, rx2)
+          if (rlen < 0.05) {
+            // Up is near-parallel to world X — switch reference axis to world Z.
+            const upDotZ = uy2
+            rx0 = -uy0 * upDotZ
+            rx1 = -uy1 * upDotZ
+            rx2 = 1 - uy2 * upDotZ
+            rlen = Math.hypot(rx0, rx1, rx2) || 1
+          }
+          rx0 /= rlen; rx1 /= rlen; rx2 /= rlen
+          // Forward (Z axis) = right × up.
+          const fz0 = rx1 * uy2 - rx2 * uy1
+          const fz1 = rx2 * uy0 - rx0 * uy2
+          const fz2 = rx0 * uy1 - rx1 * uy0
+          // Translation = midpoint between top and bottom (segment center).
+          const cx = (top[0] + bottom[0]) * 0.5
+          const cy = (top[1] + bottom[1]) * 0.5
+          const cz = (top[2] + bottom[2]) * 0.5
+          // Column-major mat4: col0=right, col1=up, col2=forward, col3=center.
+          wm[off + 0]  = rx0; wm[off + 1]  = rx1; wm[off + 2]  = rx2; wm[off + 3]  = 0
+          wm[off + 4]  = uy0; wm[off + 5]  = uy1; wm[off + 6]  = uy2; wm[off + 7]  = 0
+          wm[off + 8]  = fz0; wm[off + 9]  = fz1; wm[off + 10] = fz2; wm[off + 11] = 0
+          wm[off + 12] = cx;  wm[off + 13] = cy;  wm[off + 14] = cz;  wm[off + 15] = 1
+        }
+        // Re-upload the contiguous cape-bone range. Cape0..N are appended
+        // in order to the rig so their world matrices live in consecutive
+        // slots in the matrix buffer.
+        const cape0Idx = capeBoneIndices[0]
+        const startFloat = cape0Idx * 16
+        device.queue.writeBuffer(
+          vatHandle.buffer,
+          cape0Idx * 64,
+          wm.buffer,
+          wm.byteOffset + startFloat * 4,
+          16 * capeBoneIndices.length * 4,
+        )
+        invalidateRaymarchCache()
+      }
+
+      // Spring-jiggle: each entry's spring follows its bone's world
+      // position with lag + overshoot. Read the composer-computed rest
+      // target, tick the spring, override translation, re-upload that
+      // bone slot. Rotation stays untouched so spheres / ellipsoids
+      // inherit the parent bone's orientation.
+      if (composer && springEntries.length > 0 && tickShouldRun) {
+        const wm = composer.worldMatrices
+        const dt = tickDt
+        for (const entry of springEntries) {
+          const off = entry.boneIdx * 16
+          const restTarget: [number, number, number] = [wm[off + 12], wm[off + 13], wm[off + 14]]
+          tickSpring(entry.spring, restTarget, dt)
+          wm[off + 12] = entry.spring.position[0]
+          wm[off + 13] = entry.spring.position[1]
+          wm[off + 14] = entry.spring.position[2]
+          device.queue.writeBuffer(
+            vatHandle.buffer,
+            entry.boneIdx * 64,
+            wm.buffer,
+            wm.byteOffset + off * 4,
+            64,
+          )
+        }
+        invalidateRaymarchCache()
       }
       // Camera stays fixed — no per-frame Hips tracking. Scale is
       // correct via the Hips-relative envelope; if a jump animation
@@ -1006,6 +1447,13 @@ async function main() {
       {
         const c = cacheDimsFor(spriteMode)
         camera.pixelSnapView(c.w, c.h)
+      }
+      // Commit the tick tracker now that all anim+physics blocks have
+      // observed the gate. Next frame compares against these values.
+      if (tickShouldRun) {
+        lastSecondaryFrame = frameIdx
+        lastSecondaryElapsed = elapsed
+        lastSecondaryRestPose = restPose
       }
       // When the composer is active, the shader reads slot 0 (composer
       // writes current frame there each tick). Without composer (VAT1),
@@ -1140,8 +1588,11 @@ async function main() {
         // to get a screen-space "head right" direction, normalize it, then
         // place both anchors ±1 px from the rounded face center along that
         // direction. Rotation of the head carries the eyes with it.
-        const faceCenterPt = projHeadLocal(0.000, 0.155, 0.17)
-        const leftRaw      = projHeadLocal(0.055, 0.155, 0.17)
+        // Anime proportions — eye line at the vertical centre of the head
+        // (50% down) rather than the upper third. Chibi convention has a
+        // big forehead with eyes high; anime convention puts eyes mid-face.
+        const faceCenterPt = projHeadLocal(0.000, 0.115, 0.17)
+        const leftRaw      = projHeadLocal(0.055, 0.115, 0.17)
         const dxAxis = leftRaw[0] - faceCenterPt[0]
         const dyAxis = leftRaw[1] - faceCenterPt[1]
         const axisLen = Math.hypot(dxAxis, dyAxis) || 1
@@ -1149,9 +1600,20 @@ async function main() {
         const uy = dyAxis / axisLen
         const fcRx = Math.round(faceCenterPt[0])
         const fcRy = Math.round(faceCenterPt[1])
-        const leftEyePt:  [number, number, number] = [fcRx + ux, fcRy + uy, faceCenterPt[2]]
-        const rightEyePt: [number, number, number] = [fcRx - ux, fcRy - uy, faceCenterPt[2]]
-        const mouthPt = projHeadLocal(0.0, 0.055, 0.19)
+        // eyeSpacingPx scales the unit direction so each anchor sits
+        // eyeSpacingPx px from the face centre along the head-right axis.
+        const leftEyePt:  [number, number, number] = [
+          fcRx + ux * eyeSpacingPx,
+          fcRy + uy * eyeSpacingPx,
+          faceCenterPt[2],
+        ]
+        const rightEyePt: [number, number, number] = [
+          fcRx - ux * eyeSpacingPx,
+          fcRy - uy * eyeSpacingPx,
+          faceCenterPt[2],
+        ]
+        // Mouth at ~80% down the face — between eye line (centre) and chin.
+        const mouthPt = projHeadLocal(0.0, 0.000, 0.19)
 
         // Half-sizes per LOD.
         const pupilHalf: [number, number] = [EYE_PUPIL[spriteMode][2], EYE_PUPIL[spriteMode][3]]
@@ -1169,17 +1631,56 @@ async function main() {
         const fl = Math.hypot(fx, fy, fz) || 1
         outline.setViewForward(fx / fl, fy / fl, fz / fl)
 
-        // Mario-eye screen-space stamp. Shader paints a fixed 2×3 pattern
-        // at each projected anchor — pupilHalf/whiteHalf unused by the
-        // Mario path but still wired for the mouth rect stamp below.
-        const marioPupil: [number, number, number, number] = [0.06, 0.05, 0.10, 1]
-        const marioWhite: [number, number, number, number] = [0.96, 0.94, 0.90, 1]
-        const mouthOff:   [number, number, number, number] = [0, 0, 0, 0]
+        // Point-light infrastructure stays armed but no lights are
+        // active by default — clean two-tone cel from ambient + key.
+        // Future VFX (muzzle flashes, flares, explosions) will spawn
+        // transient point lights into slots 0..3 for their lifetime.
+        // invViewProj still pushed each frame so reconstruction is
+        // ready the moment a light is added.
+        const viewProjScratch = scratchVP
+        mat4.multiply(viewProjScratch, camera.projection, camera.view)
+        mat4.invert(scratchInvVP, viewProjScratch)
+        outline.setInvViewProj(scratchInvVP)
+        outline.setNumPointLights(0)
+
+        // Face stamp — anchors + colours on the legacy setFacePaint path,
+        // style / state on the new setFaceStyle. Mouth colour always
+        // enabled (.a=1); shader gates mouth on mouthStyle != 0.
+        const eyePupilCol: [number, number, number, number] = [0.06, 0.05, 0.10, 1]
+        const eyeWhiteCol: [number, number, number, number] = [0.96, 0.94, 0.90, 1]
+        const mouthCol:    [number, number, number, number] = [0.55, 0.20, 0.25, 1]
         outline.setFacePaint(
           leftEyePt, rightEyePt, mouthPt,
           pupilHalf, whiteHalf, mouthHalf,
-          marioPupil, marioWhite, mouthOff,
+          eyePupilCol, eyeWhiteCol, mouthCol,
         )
+
+        // Time-driven auto-blink — skipped when the chosen expression is
+        // already 'blink' (user asked for sticky closed eyes).
+        blinkTimer += stats?.dt ?? 0
+        const cycle = BLINK_PERIOD + BLINK_DURATION
+        if (blinkTimer >= cycle) blinkTimer -= cycle
+        const autoBlink = currentExpression === 'blink' ? 1 : (blinkTimer > BLINK_PERIOD ? 1 : 0)
+
+        // Pixel-stamp face style follows the expression button state,
+        // with J / ,. overrides replacing eye / mouth respectively.
+        // Fallback to neutral if unmapped.
+        const faceStyle = FACE_STYLES[currentExpression] ?? FACE_STYLES.neutral
+        const effectiveEye   = eyeStyleOverride   ?? faceStyle.eye
+        const effectiveMouth = mouthStyleOverride ?? faceStyle.mouth
+        const eyeStyleId = EYE_STYLES.indexOf(effectiveEye)
+        const mouthStyleId = MOUTH_STYLES.indexOf(effectiveMouth)
+        const glow = 0.5 + 0.5 * Math.sin(elapsed * 3)
+        outline.setFaceStyle(eyeStyleId, mouthStyleId, autoBlink, glow)
+        if (faceStyle.accent) {
+          outline.setEyeAccent([faceStyle.accent[0], faceStyle.accent[1], faceStyle.accent[2], 1])
+        } else if (effectiveEye === 'goggles') {
+          outline.setEyeAccent([0.18, 0.55, 1.0, 1])
+        } else if (effectiveEye === 'glowing') {
+          outline.setEyeAccent([1.0, 0.35, 0.15, 1])
+        } else {
+          outline.setEyeAccent([0, 0, 0, 0])
+        }
       }
 
       // Pass 2: outline shader reads sceneTex → writes canvas with NAVY ring.
@@ -1197,7 +1698,8 @@ async function main() {
         `  canvas buffer: ${canvas.width}×${canvas.height} (CSS upscaled to window)`,
         ``,
         `[1] 24²   [2] 32²   [3] 48²   [4] debug 256²   proportion: ${currentProportion}`,
-        `[V] view: ${viewMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${lightingMode ? 'on' : 'off'}   [T] rest pose: ${restPose ? 'on' : 'off'}`,
+        `[V] view: ${viewMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${lightingMode ? 'on' : 'off'}   [T] rest pose: ${restPose ? 'on' : 'off'}   [K] naked: ${nudeMode ? 'on' : 'off'}`,
+        `expression: ${currentExpression}   [ / ] eye spacing: ${eyeSpacingPx}px   [J] eye style: ${eyeStyleOverride ?? '(emotion)'}`,
         `drag = orbit   [T] rest pose`,
         `[Space] swipe   [X] star   [Z] flash   [N] bolt   [B] beam   VFX: ${vfxSystem.count()}`,
         `drag = orbit   [F] preview: ${previewMode}`,
