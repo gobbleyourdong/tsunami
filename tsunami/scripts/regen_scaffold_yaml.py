@@ -100,6 +100,21 @@ def regen(scaffold_name: str = "react-app") -> Path:
             lines.append(f"  {name}: {props}")
         else:
             lines.append(f"  {name}: (see source)")
+        # Sub-exports — components defined in the same file with a
+        # different name (e.g. Card.tsx exports CardHeader, CardTitle,
+        # CardDescription, CardContent, CardFooter; Button.tsx exports
+        # IconButton). These are idiomatic React composition and the
+        # _patterns.tsx fixtures use them — list them so cold instances
+        # know they exist.
+        for sub_match in re.finditer(r"^export (?:default )?function ([A-Z][a-zA-Z0-9]+)", src, re.MULTILINE):
+            sub_name = sub_match.group(1)
+            if sub_name == name:
+                continue  # already listed above as the file-name component
+            sub_props = _extract_props(src, sub_name)
+            if sub_props:
+                lines.append(f"  {sub_name}: {sub_props}  # sub-export from {name}.tsx")
+            else:
+                lines.append(f"  {sub_name}: (sub-export from {name}.tsx — see source)")
 
     # Hooks (by scanning src/hooks/)
     hooks_dir = scaffold_root / "src" / "hooks"

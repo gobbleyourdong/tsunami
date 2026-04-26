@@ -15,8 +15,14 @@ components:
   BeforeAfter: before?: string, after?: string, beforeImage?: string, afterImage?: string, labelBefore?: string, labelAfter?: string, height?: number, className?: string, children?: ReactNode
   Box: padding?: number | string, p?: number | string, margin?: number | string, m?: number | string, bg?: string, bordered?: boolean, rounded?: boolean | number | string, shadow?: boolean | "sm" | "md" | "l
   Button: variant?: Variant, size?: Size, loading?: boolean, fullWidth?: boolean, leftIcon?: React.ReactNode, rightIcon?: React.ReactNode
+  IconButton: (sub-export from Button.tsx — see source)
   Calendar: value?: Date, selected?: Date, onChange?: (date: Date) => void, onSelect?: (date: Date) => void, events?: CalendarEvent[], rangeStart?: Date, rangeEnd?: Date, mode?: "single" | "range" | "multiple"
   Card: variant?: "default" | "elevated" | "outline" | "ghost" | "filled", padding?: "none" | "sm" | "md" | "lg" | "xl" | number, hoverable?: boolean, interactive?: boolean, bordered?: boolean
+  CardHeader: (sub-export from Card.tsx — see source)
+  CardTitle: (sub-export from Card.tsx — see source)
+  CardDescription: (sub-export from Card.tsx — see source)
+  CardContent: (sub-export from Card.tsx — see source)
+  CardFooter: (sub-export from Card.tsx — see source)
   Chart: type?: ChartType, kind?: ChartType, data?: ChartDatum[], series?: ChartDatum[], height?: number | string, color?: string, palette?: string[], showGrid?: boolean, showLegend?: boolean, showTooltip?: bo
   ColorPicker: value: string, onChange: (color: string) => void, presets?: string[], swatches?: string[], label?: string, className?: string
   CommandPalette: commands: Command[], placeholder?: string, trigger?: string
