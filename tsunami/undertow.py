@@ -1301,6 +1301,17 @@ async def _vlm_describe_screenshot(
     (brand cohesion, bug symptoms, game juice, …) rather than the generic
     one-sentence describe. See `pick_direction_set`.
     """
+    # VLM-based screenshot description is DEFERRED since 2026-04-26.
+    # Was POSTing to BEE_ENDPOINT (Qwen3.6/Gemma multimodal) which was
+    # retired with the local-LLM stack. Short-circuit to None so the
+    # caller falls back to _describe_screenshot() pixel-stats without
+    # burning a 120s timeout. Re-enable by replacing this body with a
+    # Claude vision API call (anthropic.Anthropic().messages.create with
+    # image content + the system_content prompt below).
+    log.debug("_vlm_describe_screenshot: skipped (VLM endpoint deferred)")
+    return None
+
+    # Preserved below for future re-enablement — see docstring above.
     import base64
     b64 = base64.b64encode(screenshot_bytes).decode()
     system_base = (
@@ -1363,6 +1374,15 @@ async def _eddy_compare(
     comparison, but is now primed to weigh the checklist. See
     `pick_direction_set`.
     """
+    # Eddy/VLM compare is DEFERRED since 2026-04-26. Was POSTing to
+    # BEE_ENDPOINT (Qwen3.6) which was retired with the local-LLM stack.
+    # Short-circuit to UNCLEAR so callers know the semantic compare is
+    # unavailable, without burning a 20s timeout. Re-enable by replacing
+    # this body with a Claude API call using the prompt structure below.
+    log.debug("_eddy_compare: skipped (VLM endpoint deferred)")
+    return "UNCLEAR: VLM compare deferred (Generations TBD)"
+
+    # Preserved below for future re-enablement — see docstring above.
     prompt = f"""Expected: {expected}
 Saw: {saw}
 

@@ -216,6 +216,26 @@ async def vision_check(dist_html: Path, task: str,
                  "image_url": {"url": f"data:image/png;base64,{b64}"}},
             ]},
         ]
+    # Vision-VLM call is DEFERRED since 2026-04-26 — the localhost:8090
+    # endpoint default was the deleted serve_transformers proxy. Until
+    # this is wired to a Claude vision API call (anthropic SDK with
+    # image content + the messages structure prepared above), the gate
+    # cannot judge visual presentation.
+    #
+    # IMPORTANT: previously this returned passed=True on endpoint error
+    # (fail-open). That silently passed every build. New behavior is
+    # fail-closed: the gate explicitly returns passed=False with a
+    # deferred-error issues string, so a future agent calling vision_check
+    # gets a clear signal that the gate isn't operational, instead of a
+    # silent skip that lets visual bugs ship.
+    log.warning("vision_check: VLM endpoint deferred — gate is not operational")
+    return {
+        "passed": False,
+        "issues": "vision_gate deferred — wire to Claude vision API to re-enable",
+        "raw": "(VLM endpoint retired 2026-04-26; see CLAUDE.md 'Generations TBD')",
+    }
+
+    # Preserved below for future re-enablement — see comment above.
     try:
         async with httpx.AsyncClient(timeout=timeout_s) as client:
             r = await client.post(
