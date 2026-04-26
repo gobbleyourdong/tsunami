@@ -402,10 +402,15 @@ the conventions are:
 1. Make a directory `skills/<skill-name>/`.
 2. Inside, create `SKILL.md` with REQUIRED sections:
    - `## When` — trigger conditions (when this skill applies)
-   - `## Pipeline` — step-by-step workflow (uses the legacy
-     agent-tool API; see the translation table above)
+   - A workflow section — usually `## Pipeline` for sequential
+     skills, but `build-recovery/SKILL.md` uses
+     `## Pattern → Action` (decision table) instead. The shape
+     follows the skill type. Both use the legacy agent-tool API;
+     see the translation table above.
    - `## Gotchas` — common pitfalls
-   - Optional: `## When NOT` (when to use a different skill instead)
+   - Optional: `## When NOT` (when to use a different skill instead),
+     `## After the fix` (post-action verification, see build-recovery),
+     skill-specific deeper sections (build-react has `## Available components`)
 3. Add a one-line bullet to the `skills/` catalog in the
    "What's actually here" section of this CLAUDE.md (with trigger
    hint).
