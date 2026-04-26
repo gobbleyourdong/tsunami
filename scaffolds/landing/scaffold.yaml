@@ -1,0 +1,77 @@
+# AUTO-GENERATED from landing/src/components/ui/*.tsx
+# Regenerate with: python3 -m tsunami.scripts.regen_scaffold_yaml landing
+
+render_target: dom
+frame_cadence: event
+
+components:
+  Accordion: items: AccordionItem[], multiple?: boolean, type?: "single" | "multiple", defaultOpen?: number | number[], collapsible?: boolean
+  Alert: type?: AlertKind, variant?: AlertKind, title?: string, children: ReactNode, onDismiss?: () => void, dismissible?: boolean, dismissable?: boolean, icon?: ReactNode, className?: string
+  AnimatedCounter: value?: number, to?: number, from?: number, duration?: number, prefix?: string, suffix?: string, precision?: number, format?: CounterFormat, className?: string, style?: React.CSSProperties
+  AnnouncementBar: text?: string, message?: string, link?: { text: string; href: string
+  AudioPlayer: tracks: Track[], autoPlay?: boolean, onTrackChange?: (index: number) => void
+  Avatar: src?: string, name?: string, fallback?: string, alt?: string, size?: AvatarSize, color?: string, shape?: AvatarShape, radius?: number | "none" | "sm" | "md" | "lg" | "full", status?: "online" | "offli
+  Badge: variant?: BadgeVariant, size?: BadgeSize, color?: string, pill?: boolean, outline?: boolean, dot?: boolean, status?: "online" | "offline" | "away" | "busy" | string
+  BeforeAfter: before?: string, after?: string, beforeImage?: string, afterImage?: string, labelBefore?: string, labelAfter?: string, height?: number, className?: string
+  Box: padding?: number | string, p?: number | string, margin?: number | string, m?: number | string, bg?: string, bordered?: boolean, rounded?: boolean | number | string, shadow?: boolean | "sm" | "md" | "l
+  Button: variant?: Variant, size?: Size, loading?: boolean, fullWidth?: boolean, leftIcon?: React.ReactNode, rightIcon?: React.ReactNode
+  Calendar: value?: Date, selected?: Date, onChange?: (date: Date) => void, onSelect?: (date: Date) => void, events?: CalendarEvent[], rangeStart?: Date, rangeEnd?: Date, mode?: "single" | "range" | "multiple"
+  Card: variant?: "default" | "elevated" | "outline" | "ghost" | "filled", padding?: "none" | "sm" | "md" | "lg" | "xl" | number, hoverable?: boolean, interactive?: boolean, bordered?: boolean
+  ColorPicker: value: string, onChange: (color: string) => void, presets?: string[], swatches?: string[], label?: string, className?: string
+  CommandPalette: commands: Command[], placeholder?: string, trigger?: string
+  Dialog: open?: boolean, isOpen?: boolean, onClose?: () => void, onOpenChange?: (open: boolean) => void, title?: string, description?: string, children?: ReactNode, actions?: ReactNode, footer?: ReactNode, siz
+  Dropdown: trigger: ReactNode, items?: DropdownItem[], options?: DropdownItem[], align?: "left" | "right"
+  FileManager: files: FileNode[], onSelect?: (path: string) => void, onRename?: (oldPath: string, newPath: string) => void, onDelete?: (path: string) => void, onUpload?: (files: FileList) => void
+  Flex: direction?: "row" | "col" | "column" | "row-reverse" | "col-reverse" | "column-reverse", align?: "start" | "center" | "end" | "stretch" | "baseline", justify?: "start" | "center" | "end" | "between" |
+  GlowCard: children: ReactNode, color?: string, glowColor?: string, intensity?: number, padding?: "none" | "sm" | "md" | "lg" | "xl" | number, style?: React.CSSProperties, className?: string
+  GradientText: children: ReactNode, from?: string, to?: string, via?: string, animate?: boolean, style?: React.CSSProperties, className?: string, as?: ElementType, size?: "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "
+  Heading: level?: 1 | 2 | 3 | 4 | 5 | 6, size?: HeadingSize, as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | string, weight?: Weight, color?: string
+  Input: label?: string, error?: string, helperText?: string, size?: InputSize, prefix?: React.ReactNode, suffix?: React.ReactNode, leftIcon?: React.ReactNode, rightIcon?: React.ReactNode, fullWidth?: boolean
+  Kanban: columns: KanbanColumn[], onMove?: (cardId: string, fromCol: string, toCol: string) => void
+  Marquee: children: ReactNode, speed?: number, duration?: number, direction?: "left" | "right", pauseOnHover?: boolean, gap?: number
+  NotificationCenter: notifications?: Notification[], toasts?: Notification[], onDismiss: (id: string) => void, position?: "top-right" | "top-left" | "bottom-right" | "bottom-left", maxVisible?: number
+  Parallax: children: ReactNode, speed?: number, offset?: number, className?: string, style?: React.CSSProperties
+  Progress: value?: number, max?: number, color?: string, height?: number, size?: ProgressSize, showLabel?: boolean, showValue?: boolean, variant?: "default" | "striped" | "gradient", indeterminate?: boolean, cla
+  RichTextEditor: value?: string, defaultValue?: string, onChange?: (html: string) => void, placeholder?: string, minHeight?: number, className?: string
+  ScrollReveal: children: ReactNode, direction?: RevealDirection, animation?: RevealDirection | "slide-up" | "slide-down" | "slide-left" | "slide-right" | "fade-in", delay?: number, duration?: number, distance?: numb
+  Select: value: string, onChange?: (value: string) => void, onValueChange?: (value: string) => void, options: { value: string; label: string
+  Skeleton: width?: string | number, height?: string | number, size?: number, radius?: number, circle?: boolean, variant?: SkeletonVariant, lines?: number, animation?: SkeletonAnimation, className?: string, style
+  Slideshow: images: string[], interval?: number, duration?: number, autoplay?: boolean, height?: number, showDots?: boolean, showArrows?: boolean
+  StarRating: rating?: number, value?: number, max?: number, count?: number, size?: number, color?: string, onChange?: (rating: number) => void, onValueChange?: (rating: number) => void, readOnly?: boolean, readonl
+  Switch: checked?: boolean, value?: boolean, defaultChecked?: boolean, onChange?: (checked: boolean) => void, onCheckedChange?: (checked: boolean) => void, onValueChange?: (checked: boolean) => void, label?: s
+  Text: as?: "span" | "p" | "div" | "label" | "small", size?: TextSize, muted?: boolean, weight?: "normal" | "medium" | "semibold" | "bold", color?: string
+  Timeline: items: TimelineItem[]
+  Tooltip: text?: string, content?: ReactNode, children: ReactNode, position?: "top" | "bottom" | "left" | "right", placement?: "top" | "bottom" | "left" | "right", delay?: number
+  TypeWriter: texts?: string[], words?: string[], speed?: number, pause?: number, cursor?: boolean, loop?: boolean, style?: React.CSSProperties
+  VideoPlayer: src: string, poster?: string, autoPlay?: boolean, loop?: boolean, subtitles?: { src: string; label: string; lang: string
+
+hooks:
+  index: 
+  useDebounce: export function useDebounce<T>(value: T, delay: number = 300): T
+  useLocalStorage: export function useLocalStorage<T>(key: string, initial: T): [T, (val: T | ((prev: T) => T)) => void]
+  useMediaQuery: export function useMediaQuery(query: string): boolean
+
+imports:  # copy verbatim — use RELATIVE paths, not @/ alias (alias has a known resolution bug)
+  # UI components: import { Button, Card, CardContent, Input, Progress, Flex, Heading, Text, Badge, Dialog, Switch, Tooltip } from "./components/ui"
+  # Hooks: import { useInterval, useLocalStorage, useDebounce } from "./hooks"
+  # NEVER use @/components/... — TypeScript TS2614 resolution issue. Use ./components/... relative paths.
+
+usage_examples:  # literal JSX — copy the form, vary the values
+  Heading: <Heading level={1} size="3xl">Title</Heading>   # level is a NUMBER, not string
+  Button: <Button variant="primary" size="md" onClick={fn}>Click</Button>
+  Card: <Card className="p-6"><CardContent>...</CardContent></Card>
+  Flex: <Flex direction="col" gap={4} align="center">children</Flex>   # gap is a NUMBER
+  Input: <Input label="Name" value={v} onChange={e => setV(e.target.value)} />
+  Progress: <Progress value={75} variant="striped" />   # value is a NUMBER 0-100
+  Badge: <Badge className="ml-2">New</Badge>   # Badge takes only className + children
+  Text: <Text as="p" className="text-muted">body</Text>   # no size/muted props, use className
+  Dialog: <Dialog open={isOpen} onClose={close}>body</Dialog>
+
+rules:
+  - Only use props listed in components above — TypeScript will reject unknown props.
+  - Numeric prop types (`level`, `gap`, `value`, `size` when unioned with numbers) MUST be JSX numeric literals `{1}`, not strings `"1"`.
+  - For styling, use className with scaffold CSS classes (container, flex, card, etc.).
+  - <Input> takes only the declared props; do NOT pass `ref` (use `React.forwardRef` wrapper if needed).
+  - Don't overwrite main.tsx, vite.config.ts, or index.css.
+
+build: cd {project_path} && npm run build  # runs tsc + vite + vitest
