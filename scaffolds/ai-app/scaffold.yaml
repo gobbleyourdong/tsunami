@@ -6,6 +6,6 @@ frame_cadence: event
 
 inherits_from: react-app  # see scaffolds/react-app/scaffold.yaml for UI components
 
-# Scaffold-specific contract lives in __fixtures__/drone_natural.tsx
-# (e.g. ai-app-specific hooks, providers, route guards).
-# Read that fixture FIRST for the locked API surface this scaffold adds.
+# Scaffold-specific contract lives in __fixtures__/chat_stream.tsx
+# (locks the API surface this scaffold adds on top of react-app's UI).
+# Read that fixture FIRST for the locked contract.

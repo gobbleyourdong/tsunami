@@ -48,11 +48,24 @@ def regen(scaffold_name: str = "react-app") -> Path:
     ui_dir = scaffold_root / "src" / "components" / "ui"
     if not ui_dir.is_dir():
         # Inheriting scaffolds (auth-app, ai-app) re-export react-app's
-        # UI components from their __fixtures__/drone_natural.tsx and
-        # add scaffold-specific contracts (useAuth, useChat) — they
-        # don't have a self-contained src/components/ui/ to scan. Emit
-        # a small inheritance-marker scaffold.yaml so consumers know
-        # this scaffold's UI surface lives in the parent.
+        # UI components and add scaffold-specific contracts (useAuth,
+        # useChat) in scaffold-specific fixtures (auth_flow.tsx,
+        # chat_stream.tsx) — they don't have a self-contained
+        # src/components/ui/ to scan, AND their fixture isn't named
+        # drone_natural.tsx (each scaffold names its fixture after the
+        # contract it locks). Emit a small inheritance-marker
+        # scaffold.yaml that points at the actual fixture file.
+        fixtures_dir = scaffold_root / "__fixtures__"
+        # Scan for the scaffold-specific fixture (anything that's not
+        # drone_natural.tsx or a *_patterns.tsx pattern fixture)
+        scaffold_fixture = "<read __fixtures__/ for the locked contract>"
+        if fixtures_dir.is_dir():
+            tsxs = sorted(p.name for p in fixtures_dir.glob("*.tsx"))
+            non_generic = [n for n in tsxs if n != "drone_natural.tsx" and "_patterns.tsx" not in n]
+            if non_generic:
+                scaffold_fixture = f"__fixtures__/{non_generic[0]}"
+            elif tsxs:
+                scaffold_fixture = f"__fixtures__/{tsxs[0]}"
         inherit_marker = scaffold_root / "scaffold.yaml"
         inherit_marker.write_text(
             f"# AUTO-GENERATED — {scaffold_name} inherits UI from react-app\n"
@@ -63,9 +76,9 @@ def regen(scaffold_name: str = "react-app") -> Path:
             f"\n"
             f"inherits_from: react-app  # see scaffolds/react-app/scaffold.yaml for UI components\n"
             f"\n"
-            f"# Scaffold-specific contract lives in __fixtures__/drone_natural.tsx\n"
-            f"# (e.g. {scaffold_name}-specific hooks, providers, route guards).\n"
-            f"# Read that fixture FIRST for the locked API surface this scaffold adds.\n"
+            f"# Scaffold-specific contract lives in {scaffold_fixture}\n"
+            f"# (locks the API surface this scaffold adds on top of react-app's UI).\n"
+            f"# Read that fixture FIRST for the locked contract.\n"
         )
         print(f"Wrote {inherit_marker} (inheritance marker — no src/components/ui/)")
         return inherit_marker

@@ -173,9 +173,23 @@ calling functions:
 
 1. **Read the user request** → pick scaffold + plan_scaffold + style_scaffold
    (the choose-your-own-adventure above)
-2. **Read** `../scaffolds/<scaffold>/README.md` and
-   `../scaffolds/<scaffold>/__fixtures__/drone_natural.tsx` (the locked prop
-   vocab — fixtures exist so you don't drift the API surface)
+2. **Read the scaffold's locked-contract files.** Three patterns based on
+   scaffold shape (don't assume drone_natural.tsx exists for every scaffold —
+   only 7 of 20 do):
+   - **Self-contained React** (react-app, landing, dashboard, data-viz,
+     form-app, fullstack, realtime): read `README.md` + `__fixtures__/drone_natural.tsx`
+     (locked component prop vocab) + the matching `__fixtures__/<scaffold>_patterns.tsx`
+     (domain patterns).
+   - **Inheriting React** (auth-app, ai-app): read `__fixtures__/auth_flow.tsx`
+     (auth-app — locks the `useAuth` contract) or `__fixtures__/chat_stream.tsx`
+     (ai-app — locks the `useChat` + `parseSSE` contract). UI components
+     are inherited from react-app — see `scaffold.yaml` `inherits_from: react-app`.
+   - **Bespoke-gate** (api-only, chrome-extension, electron-app), **engine**,
+     **game**, **gamedev**: no `__fixtures__/` dir. Read `README.md` (these
+     all have one) + `package.json` + `src/` directly. Chrome-extension
+     also has `manifest.json`. Gamedev edits `data/*.json` + `src/scenes/`.
+   - **Lighter** (cli, mobile, infra, training, web): no README, no
+     fixtures. `ls` the scaffold dir and read what's there.
 3. **Read** `plan_scaffolds/<scaffold>.md` (conventions + gotchas specific to
    that build target)
 4. **Build** by writing files in a working dir, using your own tools (Bash for
