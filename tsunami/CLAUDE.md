@@ -351,11 +351,20 @@ studies / sigma archives, they're historical. Don't try to use them.
 
 ## Files NOT to touch unless you know what you're doing
 
-- **`outbound_exfil.py`** — security gate that BLOCKS literal API keys / private
-  keys / exfil-shaped URLs from being written to disk. The name reads as
-  "outbound exfiltration" — it's the OPPOSITE: the defense AGAINST exfil. This
-  module has its own production-firing-audit history (12+ commits of `return None`
-  stub before a real ruleset landed). Do not stub or weaken without a strong reason.
+- **`outbound_exfil.py`** — security gate that BLOCKS suspicious content from
+  being written to disk. The name reads as "outbound exfiltration" — it's the
+  OPPOSITE: the defense AGAINST exfil. Four detector categories:
+  (1) literal credentials (Anthropic / OpenAI / GitHub / Slack / Google API
+  keys, JWT-shaped tokens); (2) PEM private keys; (3) env-var-value leaks
+  (when an env var's literal value ≥12 chars appears in written content);
+  (4) URLs to known webhook-capture services (webhook.site, requestbin,
+  etc. — narrow "high-confidence" list, NOT all webhooks; legitimate hosts
+  like hooks.slack.com, discord.com, pipedream.net are NOT blocked because
+  they have legitimate uses). Entry point: `check_outbound_exfil(content,
+  filename, task_prompt) → Optional[str]`. Returns block-reason string on
+  hit, None on pass. This module has its own production-firing-audit history
+  (12+ commits of `return None` stub before a real ruleset landed). Do not
+  stub or weaken without a strong reason.
 - **`circulation.py`**, **`undertow.py`**, **`vision_gate.py`** — the load-bearing
   patterns. Read and follow; don't gut.
 - **`../scaffolds/`** entirely — the catalog is the product. Modifying a scaffold
