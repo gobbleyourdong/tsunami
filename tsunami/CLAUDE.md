@@ -1,7 +1,9 @@
 # tsunami — cold-start, choose your own adventure
 
-> You are an instance that just landed in `tsunami/` (the agent-loop subdir of the repo). This file is the only thing
-> you have to read to know what to do. If after reading it you still can't answer
+> You are an AI coding agent (Claude Code or equivalent harness) that just landed in
+> `tsunami/` — the patterns + scaffold-library subdir of the repo. **Tsunami is not
+> a binary you invoke; it is files you read.** This doc is the only thing you have
+> to read to know what to do. If after reading it you still can't answer
 > "user wants X, I match it to scaffold Y, I read these N files, I start building" —
 > the doc has failed. File a fix.
 
