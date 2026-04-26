@@ -340,6 +340,77 @@ studies / sigma archives, they're historical. Don't try to use them.
 - **`animation/`, `game_content/`, `vendor/BPAD/`** — game-rendering and
   image-processing primitives. Use as-is.
 
+## Adding new probes / styles / skills (META work)
+
+If the user asks you to EXTEND tsunami itself (not USE it to build),
+the conventions are:
+
+### Add a new probe (verifies a non-vision-gated scaffold)
+
+1. Copy the closest existing probe (e.g. `core/mobile_probe.py` for an
+   iOS variant, `core/openapi_probe.py` for an API variant). Rename and
+   adapt the docstring + entrypoint signature.
+2. **Register it** in `core/dispatch.py` — the `_PROBES = {...}` dict
+   on line ~49. The lookup at the bottom of dispatch.py errors with
+   "Add one or rename the scaffold" if the dispatch can't find a
+   matching probe — that's your signal you forgot this step.
+3. Add a row to the **No-vision-gate adventures** table in this
+   CLAUDE.md (under Choose-your-own-adventure section).
+4. (Optional) Add a `scaffolds/<scaffold-name>/` template if the new
+   probe needs a corresponding scaffold to verify.
+
+### Add a new visual style
+
+1. Write `style_scaffolds/<name>.md` — frontmatter must include
+   `default_mode`, `applies_to`, `mood`, plus the body sections
+   (Palette / Typography / Layout / etc. — see existing styles for
+   the template).
+2. **Write the matching `undertow_scaffolds/<name>.md`** — REQUIRED.
+   The 1:1 pairing is strict. The undertow scaffold defines the QA
+   approach for that aesthetic (what to check via Playwright levers).
+3. **No manifest update needed.** `style_scaffolds/manifest.py` is
+   on-demand auto-discovery — it scans `*.md` at query time, so a
+   new style file is automatically visible.
+4. Add a row to the **Visual style** table in this CLAUDE.md.
+
+### Add a new skill
+
+1. Make a directory `skills/<skill-name>/`.
+2. Inside, create `SKILL.md` with REQUIRED sections:
+   - `## When` — trigger conditions (when this skill applies)
+   - `## Pipeline` — step-by-step workflow (uses the legacy
+     agent-tool API; see the translation table above)
+   - `## Gotchas` — common pitfalls
+   - Optional: `## When NOT` (when to use a different skill instead)
+3. Add a one-line bullet to the `skills/` catalog in the
+   "What's actually here" section of this CLAUDE.md (with trigger
+   hint).
+
+### Modify CLAUDE.md itself
+
+1. Edit the relevant section.
+2. **Always bump the iteration log** at the bottom — add a new row
+   with today's date, next version (v3.7 → v3.8 etc.), and a
+   one-line description of what changed. This preserves the audit
+   trail for future cold instances.
+3. Verify all new file references resolve (the cold-test pattern in
+   recent iterations: `for ref in <list>; do [ -e tsunami/$ref ] && echo ok; done`).
+
+### Modify a scaffold
+
+**Don't, ad-hoc.** The scaffolds catalog is the product. Modifying
+`scaffolds/<name>/` changes every future build that uses it. If a
+real scaffold-level change is needed:
+
+1. Open an issue in `scaffolds/GAPS.md` first describing what's
+   broken / missing.
+2. The change should land as a single coherent commit with a
+   "scaffold: <name>" prefix and explain the user-visible impact.
+3. Closed-status scaffolds (most React-family) have locked
+   `__fixtures__/drone_natural.tsx` — modifying that file changes
+   the API surface every drone build is expected to use, so it
+   needs to be intentional.
+
 ## Where to dig deeper
 
 - `../README.md` — the public-facing tsunami pitch ("tsunami is a scaffold")
@@ -428,3 +499,4 @@ This doc evolves. Each refresh adds a row.
 | 2026-04-26 | v3.4 | Iteration-14 audit caught a major mis-categorization. `mesh/` (21 files / 392 KB) was kept across iterations 1-13 as "game-rendering 3D mesh utilities" based on the directory name. Reading its README revealed it's actually **MegaLAN — a decentralized compute mesh** for distributing tsunami agent jobs across networked nodes (P2P, identity / peer / ledger / discovery layers). With tsunami not invoked anymore + no agent jobs to distribute, the entire subsystem is dead orchestration infrastructure. Nuked the dir; verified no external dependents in the surviving codebase. CLAUDE.md mentions of `mesh/` removed from "What's actually here" + "Files NOT to touch" sections. Also short-circuited `tools/riptide.py` vision grounding (same pattern as `seed_from_image.py` in iteration 13 — was iterating through 3 dead localhost endpoints, now returns a deferred-error immediately with a re-enable hint pointing at Claude vision API). All 13 `core/<name>_probe.py` files audited and verified clean (zero broken imports, zero dead-endpoint refs, all import-test successfully). |
 | 2026-04-26 | v3.5 | Iteration-15 systematic docstring sweep across all surviving files (applying iteration-14's lesson: don't trust dir/file names). Caught one more mis-categorization: `target_layout.py` was described in CLAUDE.md across multiple sections as "extracts UI element bboxes from a reference image and returns ratio-based CSS" — this was wrong. The actual file is "Full-page ERNIE target-layout GENERATION" — calls the deleted ERNIE-Image endpoint at `localhost:8092` to GENERATE a reference image (the bbox EXTRACTION half is `tools/riptide.py`, which was already short-circuited in iter 14). Both halves of the visual-clone pipeline are now dormant until image-gen returns. Nuked `target_layout.py` (zero external imports — `vision_gate.py` only used the name as a parameter for a Path). Updated 4 CLAUDE.md mentions: removed from "Top-level patterns" enumeration, replaced the honorable-mention bullet with `routing.py` (was missing from that list anyway), updated `visual-clone` skill description to flag it as currently degraded, updated cold-instance test answer #2 to point at responsive flex/grid CSS instead of the dormant bbox helper. |
 | 2026-04-26 | v3.6 | Iteration-16 caught dead-endpoint code in the LOAD-BEARING patterns themselves (vision_gate.py + undertow.py — the files the choose-your-own-adventure points cold instances at). Three short-circuits applied with consistent pattern: early-return + clear deferred message + preserved-below-for-future-reactivation: (1) `vision_gate.vision_check()` was POSTing to `localhost:8090/v1/chat/completions` and **returning `passed=True` on endpoint error (fail-open!)** — silently passing every build. Changed to fail-closed: returns `passed=False` with explicit "wire to Claude vision API to re-enable" issues string. This is a real correctness fix, not just a hygiene fix. (2) `undertow._vlm_describe_screenshot()` was POSTing to `BEE_ENDPOINT/v1/chat/completions` (Qwen3.6/Gemma) — short-circuited to `None` (caller's `_describe_screenshot()` pixel-stats fallback handles it). Saves 120s per call. (3) `undertow._eddy_compare()` similarly short-circuited to "UNCLEAR: VLM compare deferred". Saves 20s per call. The Playwright lever-pulling machinery in undertow.py (screenshots, keys, clicks, console reads via `_lever_*` functions) is unchanged and works fine — only the VLM-augmented helpers are dormant. |
+| 2026-04-26 | v3.7 | Iteration-18 META-orientation cold-test (validating that an instance asked to MODIFY tsunami — not USE it — can self-orient). The cold-test agent reverse-engineered all 4 conventions correctly (probe registration via `core/dispatch.py`'s `_PROBES` dict, style-scaffold's strict 1:1 pairing with `undertow_scaffolds/<name>.md`, SKILL.md's required `## When` / `## Pipeline` / `## Gotchas` sections, iteration-log bump convention) — but had to GUESS at the dispatch.py registry pattern by reading code. Closed the gap with a new "Adding new probes / styles / skills (META work)" section directly above "Where to dig deeper". The section walks through 5 META operations explicitly (add probe / add style / add skill / modify CLAUDE.md / modify a scaffold) with the actual file paths, line numbers, and required updates. Verified `dispatch.py` has `_PROBES = {...}` at line ~49 and self-errors with "Add one or rename the scaffold" if the dispatch can't find a probe — that's what makes the dispatch.py update step feel safe to a cold instance. Verified `style_scaffolds/manifest.py` is on-demand auto-discovery (no manifest update needed for new styles). Verified SKILL.md format consistency across 3 sample skills. |
