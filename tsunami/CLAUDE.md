@@ -223,8 +223,8 @@ The repo went from 200+ python files to ~56. The trimmed surface:
 - **`undertow_scaffolds/` (9 files)** — QA approach templates matched to styles
 - **`genre_scaffolds/` (18 files)** — game-genre templates
 - **`skills/` (7 skills)** — canonical named workflows for common build situations.
-  Each is a directory with `SKILL.md` + `WAVEFORM.md`. Use them when their
-  trigger fits — they encode hard-won patterns for the specific situation:
+  Each is a directory with a `SKILL.md`. Use them when their trigger fits —
+  they encode hard-won patterns for the specific situation:
   - `build-react/` — single-page React app build (the most-common path)
   - `build-multi-page/` — multi-page web app build
   - `build-recovery/` — recovering a broken / stuck build
@@ -233,6 +233,29 @@ The repo went from 200+ python files to ~56. The trimmed surface:
   - `qa-loop/` — QA-focused iteration when the build compiles but the QA fails
   - `visual-clone/` — replicating a reference image (use with `target_layout.py`
     + `tools/pixel_extract.py`)
+
+**Skill files use the legacy tsunami-agent tool API** — names like
+`shell_exec`, `file_write`, `file_read`, `file_edit`, `project_init`,
+`generate_image`, `match_glob`, `message_result`, `message_chat`.
+Those tools were deleted along with the agent loop on 2026-04-26 — when
+a skill instructs you to use one, map it to your own harness's equivalent.
+
+For Claude Code, the mapping is:
+
+| Skills say... | Claude Code tool to use |
+|---|---|
+| `shell_exec` | `Bash` |
+| `file_read` | `Read` |
+| `file_write` | `Write` |
+| `file_edit` | `Edit` (uses `old_string` + `new_string`) |
+| `match_glob` | `Glob` |
+| `project_init` | no direct equivalent — copy a scaffold dir via `Bash` + customize via `Edit`/`Write` |
+| `generate_image` | no direct equivalent — image-gen is deferred ("Generations TBD") |
+| `message_result` | just respond in your text output (no special tool call) |
+| `message_chat` | **NEVER do this** — skills call this out as the anti-pattern. The `build-recovery` skill explicitly warns "NEVER fall back to message_chat saying 'I'll look into it.'" Translation: don't punt back to the user; do the work. |
+
+The skills' workflow logic (the WHEN / WHAT / GOTCHAS sections) is current and
+correct — only the tool-call syntax is from the dead-agent era.
 
 That's the entire surface. If you find yourself looking for `agent.py`,
 `cli.py`, `model.py`, `config.py`, `prompt.py`, `routing.py`, `eddy.py`,
@@ -387,3 +410,4 @@ This doc evolves. Each refresh adds a row.
 | 2026-04-26 | v3 | Aligned with the post-purge reality. "Major refactor in flight" section deleted (executed, not pending). "What was deleted" expanded to the full 6-commit / ~317-file / ~65K-line story. Added "What's actually here (current surface)" enumeration. Reframed agent-loop language ("you do the work, not a tsunami binary"). Updated cold-instance Q3 (no more lazy-import-in-agent.py since agent.py is gone — the question is now about historical references in stale docs). Added `core/<name>_probe.py` table for non-vision scaffolds. Removed `eddy.py` references (deleted in c94b029). |
 | 2026-04-26 | v3.1 | Cold-tested with a fresh Explore agent. Four gaps fixed: (1) added explicit "if the genre isn't in the table, fall back to `gamedev/custom/`" note (the table establishes a `gamedev/<genre>/` pattern that breaks for metroidvania / rhythm-fighter / etc.). (2) Added explicit game-flow-vs-web-flow distinction: games use `genre_scaffolds/` + `core/gamedev_scaffold_probe.py`, NOT `style_scaffolds/` + `undertow_scaffolds/`. (3) Picked `gamedev_scaffold_probe.py` as canonical (the new data-driven flow) and explained why the older `gamedev_probe.py` exists. (4) Expanded the `skills/` entry from a one-liner to a real catalog with one-line trigger hints per skill (build-react / build-multi-page / build-recovery / in-place-cwd / iteration / qa-loop / visual-clone). Cold-test independent answers matched the doc's expected answers; v3.1 closes the remaining ambiguities. |
 | 2026-04-26 | v3.2 | Second cold-test passed all 4 scenarios with exact ground-truth match (metroidvania flame-knight, brutalist photographer portfolio, broken vite-build recovery, vision_gate-fail-3-strikes). One minor v3.2 gap closed: Games table now opens with a one-line note pointing at `plan_scaffolds/gamedev.md` as the universal game-build plan (applies to every genre — covers data-driven scaffold flow + `data/*.json` editing + `vite build` emit). The 4 web-app rows have explicit per-row plans; the games rows did not. Now they do. |
+| 2026-04-26 | v3.3 | Audited `skills/*/SKILL.md` and found 83 references to the deleted agent-tool API (shell_exec, file_write, file_read, file_edit, project_init, generate_image, match_glob, message_chat, message_result). The skills are written for the dead tsunami-agent loop's tool registry; their workflow logic is still correct but the tool-call syntax is historical. Added a tool-API translation table to the skills section: `shell_exec` → Bash, `file_read` → Read, `file_write` → Write, `file_edit` → Edit, `match_glob` → Glob, `project_init` → no direct equivalent (copy + customize), `generate_image` → no direct equivalent (image-gen deferred), `message_result` → just respond in text, `message_chat` → NEVER (anti-pattern). Less invasive than rewriting 7 skill files; cold instance reads CLAUDE.md, sees the table, can interpret skills correctly. WAVEFORM.md mention removed from the skills bullet (no skills currently have one — the gitignore exception is precautionary). |
