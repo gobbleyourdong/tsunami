@@ -181,12 +181,23 @@ calling functions:
 4. **Build** by writing files in a working dir, using your own tools (Bash for
    `npm install`, Write/Edit for source, etc.). Use the helpers in `tools/`
    when relevant (image processing, project init).
-5. **Verify** by following the gates pattern in `deliver_gates.py`:
-   - Did you write the entry point? (code_write)
-   - Do all `<img>` tags reference real files? (asset_existence)
-   - Does `tsc --noEmit` pass? (prop_type)
-   - Does `page.goto()` not throw? (runtime_smoke — Bash + Playwright)
-   - Does the screenshot match the intent? (vision_gate — see pattern below)
+5. **Verify** with the cascading-gates pattern. `deliver_gates.py`
+   actually wires only 2 gates today (`code_write_gate`,
+   `asset_existence_gate`); the rest of the verification cascade
+   lives in adjacent modules or is run directly by the agent. The
+   full conceptual cascade (run them in this order):
+   - `code_write_gate` (in `deliver_gates.py`) — did you write the
+     entry point?
+   - `asset_existence_gate` (in `deliver_gates.py`) — do all `<img>`
+     tags reference real files in `public/`?
+   - `prop_type` — does `tsc --noEmit` pass? Run via your own `Bash`
+     tool; not currently a deliver_gates function.
+   - `runtime_smoke` — does `page.goto()` not throw? Run via your
+     own `Bash` + Playwright; not currently a deliver_gates function.
+   - `vision_gate` — does the screenshot match the intent? Lives in
+     the separate `vision_gate.py` module (NOT in `deliver_gates.py`).
+     Currently dormant pending Claude-vision re-wire — see below.
+   - `accessibility_gate` — axe-core. Future, not implemented.
 6. **If a gate fails**, follow the lever pattern in `undertow.py`: take a
    screenshot, read console errors, click the broken affordance, get back
    concrete failures. Fix and loop.
