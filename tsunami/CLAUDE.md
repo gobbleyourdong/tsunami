@@ -11,31 +11,32 @@
 
 You match work to scaffolds. Pick a scaffold from the catalog, read the matching
 `plan_scaffolds/<name>.md` + `../scaffolds/<name>/__fixtures__/drone_natural.tsx`
-(your locked component vocab), build, verify with `vision_gate.py` +
-`undertow.py`, let `circulation.py` catch you if you spiral, ship. Don't try
-to be clever — the scaffolds are already clever. **The directory `../scaffolds/`
-is the product catalog and is off-limits for ad-hoc edits.** Orchestrator is
-Claude (you, via API) — self-hosted LLMs were deleted 2026-04-26.
+(your locked component vocab), build using your own tools (Bash/Edit/Write/etc.),
+verify the build by following the patterns in `vision_gate.py` + `undertow.py`,
+let `circulation.py`'s drift-detection shape catch you if you spiral, ship.
+Don't try to be clever — the scaffolds are already clever. **The directory
+`../scaffolds/` is the product catalog and is off-limits for ad-hoc edits.**
+
+The python files in this directory are **patterns you read**, not modules you
+import. Tsunami used to be a binary that ran an agent loop calling these
+modules; that loop was retired (see "What was deleted" below). Now you (the
+agent harness) are the loop. The patterns describe what you do.
 
 Your first move: read the choose-your-own-adventure table below. Match the user's
 request to a row. That row tells you the next 3 files to read.
 
 ## What tsunami is, in one paragraph
 
-Tsunami is a **scaffold executor**. The hard work — picking the right project shape,
-the right visual style, the right QA strategy, the right game genre — is already done
-and lives as a catalog of named scaffolds in `../scaffolds/` and in the four
-`*_scaffolds/` directories at this level. Your job is to **match the user's request
-to the right scaffolds, then drive the agent loop that fills the scaffold in and
-verifies the build with screenshots and Playwright levers.** Don't think of this as
-a sophisticated reasoning agent. Think of it as a fast, accurate scaffold matcher
-plus a relentless visual-grounding QA loop.
-
-The agent loop is **Claude (you, via API) as orchestrator**. Tsunami is the framework
-around you. There is no local LLM anymore — that infrastructure was deleted on
-2026-04-26. If you find imports of `serve_transformers`, `gemma_args`,
-`chat_template_safety`, `adapter_router`, `adapter_swap`, `wilson_loop`, or
-`model_fallback`, they are dead and need to be stripped or refactored.
+Tsunami is a **scaffold library plus the patterns for executing scaffolds well**.
+The hard work — picking the right project shape, the right visual style, the
+right QA strategy, the right game genre — is already done and lives as a catalog
+of named scaffolds in `../scaffolds/` and in the four `*_scaffolds/` directories
+at this level. Your job is to **match the user's request to the right scaffolds,
+read the relevant patterns, fill the scaffold in, and verify the build with
+screenshots and Playwright levers.** Don't think of yourself as a sophisticated
+reasoning agent. Think of yourself as a fast, accurate scaffold matcher plus a
+relentless visual-grounding QA loop, both of which the scaffolds + patterns make
+straightforward.
 
 ## Choose your own adventure — what work just landed?
 
@@ -57,19 +58,26 @@ to apply for visuals, and which undertow_scaffold to use for QA.
 | "chatbot", "AI app", "streaming chat" | `ai-app` | `plan_scaffolds/ai-app.md` | vision + SSE wire format |
 | "auth", "login", "JWT users" | `auth-app` | `plan_scaffolds/auth-app.md` | vision + `useAuth` contract |
 
-### No-vision-gate adventures (need bespoke QA harness — see `../scaffolds/GAPS.md`)
+### No-vision-gate adventures (use the bespoke probe in `core/`)
 
-| User says... | scaffold | plan | gate type |
+| User says... | scaffold | plan | gate (in `core/`) |
 |---|---|---|---|
-| "REST API", "no UI", "OpenAPI spec" | `api-only` | `plan_scaffolds/api-only.md` | OpenAPI handler-vs-spec probe |
-| "Chrome extension", "browser plugin" | `chrome-extension` | `plan_scaffolds/chrome-extension.md` | playwright load-unpacked |
-| "Electron desktop app" | `electron-app` | `plan_scaffolds/electron-app.md` | playwright-electron mode |
+| "REST API", "no UI", "OpenAPI spec" | `api-only` | `plan_scaffolds/api-only.md` | `core/openapi_probe.py` (handler-vs-spec) |
+| "Chrome extension", "browser plugin" | `chrome-extension` | `plan_scaffolds/chrome-extension.md` | `core/extension_probe.py` (load-unpacked) |
+| "Electron desktop app" | `electron-app` | `plan_scaffolds/electron-app.md` | `core/electron_probe.py` (build + artifact check) |
+| "CLI tool" | `cli` | (light) | `core/cli_probe.py` |
+| "mobile app" | `mobile` | (light) | `core/mobile_probe.py` |
+| "infrastructure / deploy" | `infra` | (light) | `core/infra_probe.py` |
+| "data pipeline" | (custom) | (custom) | `core/data_pipeline_probe.py` |
+| "docs / static site" | (custom) | (custom) | `core/docs_probe.py` |
+| "WebSocket / SSE backend" | (custom) | (custom) | `core/ws_probe.py` / `core/sse_probe.py` |
+| "training run" | `training` | (light, deferred) | `core/training_probe.py` |
 
 ### Games
 
 | User says... | scaffold | genre template | engine |
 |---|---|---|---|
-| "platformer", "Mario-like", "side-scrolling action" | `gamedev/platformer/` | `genre_scaffolds/platformer.md` | `scaffolds/engine/` (WebGPU) |
+| "platformer", "Mario-like", "side-scrolling action" | `gamedev/platformer/` | `genre_scaffolds/platformer.md` | `../scaffolds/engine/` (WebGPU) |
 | "fighter", "Street Fighter-like", "1v1 combat" | `gamedev/fighting/` | `genre_scaffolds/fighter.md` | engine |
 | "JRPG", "Final Fantasy-like", "turn-based" | `gamedev/jrpg/` | `genre_scaffolds/jrpg.md` | engine |
 | "FPS", "Doom-like", "first person shooter" | `gamedev/fps/` | `genre_scaffolds/fps.md` | engine |
@@ -77,26 +85,11 @@ to apply for visuals, and which undertow_scaffold to use for QA.
 | "racing", "kart racer", "Mario Kart-like" | `gamedev/racing/` | `genre_scaffolds/kart_racer.md` | engine |
 | "stealth", "Metal Gear-like" | `gamedev/stealth/` | `genre_scaffolds/stealth.md` | engine |
 | "action adventure", "Zelda-like" | `gamedev/action_adventure/` | `genre_scaffolds/action_adventure.md` | engine |
-| something more exotic | `gamedev/custom/` | check `genre_scaffolds/` for: action_rpg_atb, immersive_sim, magic_hoops, metroidvania, metroid_runs, ninja_garden, open_world, rhythm_fighter, rts, ninja_garden | engine |
+| something more exotic | `gamedev/custom/` | check `genre_scaffolds/` for: action_rpg_atb, immersive_sim, magic_hoops, metroidvania, metroid_runs, ninja_garden, open_world, rhythm_fighter, rts | engine |
 
 For any game with retro-game pattern matching (sprite styling, enemy behaviors,
 level structure), check `../scaffolds/.claude/nudges/<year>_<game>/` for the
 existing scrape catalog (Castlevania I & II, Dragon Quest, etc.).
-
-### Other
-
-| User says... | scaffold | plan |
-|---|---|---|
-| "CLI tool", "command-line script" | `cli` | (light-weight, scaffold-driven) |
-| "mobile app" | `mobile` | (light-weight) |
-| "infrastructure", "deploy script" | `infra` | (light-weight) |
-| "training data prep" (rare now — local-LLM era) | `training` | (likely dead path; verify before building) |
-
-**Lighter scaffolds (no README — read the dir contents directly):** `cli`,
-`game`, `gamedev`, `infra`, `mobile`, `training`, `web`. These are smaller
-templates without a polished scaffold catalog. The gamedev sub-genres live at
-`../scaffolds/gamedev/{action_adventure, beat_em_up, cross, custom, fighting,
-fps, jrpg, platformer, racing, stealth}/`.
 
 ### Work-type plans — orthogonal to scaffold choice
 
@@ -135,87 +128,133 @@ file with the QA approach for that aesthetic.
 | `photo_studio.md` | Portfolio, image-first, minimal chrome | `undertow_scaffolds/photo_studio.md` |
 | `playful_chromatic.md` | Bright, animated, motion-rich | `undertow_scaffolds/playful_chromatic.md` |
 
-The default for React-app-family scaffolds is `react-app`'s baked-in atmospheric
-dark theme (Plus Jakarta Sans, deep palette). Only override when the user asks
-for a specific style.
+Default for React-app-family scaffolds: `react-app`'s baked-in atmospheric dark
+theme (Plus Jakarta Sans, deep palette). Only override when the user asks.
 
-## How the agent loop runs (the standing wave, simplified)
+## The build pattern (what you do)
 
-You don't need to understand the full loop to be useful — the loop's job is to
-match work to scaffolds and verify visually. But here's the shape:
+This describes you (the agent harness) doing the work — not a tsunami binary
+calling functions:
 
-1. **Read user request** → pick scaffold, plan_scaffold, style_scaffold (the
-   choose-your-own-adventure above)
+1. **Read the user request** → pick scaffold + plan_scaffold + style_scaffold
+   (the choose-your-own-adventure above)
 2. **Read** `../scaffolds/<scaffold>/README.md` and
-   `../scaffolds/<scaffold>/__fixtures__/drone_natural.tsx` (the locked prop vocab
-   you must use — fixtures exist so you don't drift the API surface)
-3. **Read** `plan_scaffolds/<scaffold>.md` (conventions + gotchas specific to that
-   build target)
-4. **Build** by writing files in a working dir, using tools from `tools/`
-5. **Verify** via `deliver_gates.py` — cascading gates that must all pass:
-   - `code_write_gate` — did you write anything?
-   - `asset_existence_gate` — do all `<img>` tags reference real files?
-   - `prop_type_gate` — does `tsc --noEmit` pass?
-   - `runtime_smoke_gate` — does `page.goto()` not throw?
-   - `vision_gate` — screenshot → Claude vision → "list visual issues" → loop
-   - `accessibility_gate` — axe-core (future)
-6. **If a gate fails**, `undertow.py` pulls Playwright levers (screenshots,
-   keypresses, clicks, console reads) and reports back with concrete failures.
-   Fix and loop.
-7. **If you spiral** (3+ context overflows, repeated identical errors, infinite
-   read loops), `circulation.py` catches you, compresses context, warns you,
-   and gives you a recovery window. If you fail recovery, it breaks cleanly
-   rather than runaway.
+   `../scaffolds/<scaffold>/__fixtures__/drone_natural.tsx` (the locked prop
+   vocab — fixtures exist so you don't drift the API surface)
+3. **Read** `plan_scaffolds/<scaffold>.md` (conventions + gotchas specific to
+   that build target)
+4. **Build** by writing files in a working dir, using your own tools (Bash for
+   `npm install`, Write/Edit for source, etc.). Use the helpers in `tools/`
+   when relevant (image processing, project init).
+5. **Verify** by following the gates pattern in `deliver_gates.py`:
+   - Did you write the entry point? (code_write)
+   - Do all `<img>` tags reference real files? (asset_existence)
+   - Does `tsc --noEmit` pass? (prop_type)
+   - Does `page.goto()` not throw? (runtime_smoke — Bash + Playwright)
+   - Does the screenshot match the intent? (vision_gate — see pattern below)
+6. **If a gate fails**, follow the lever pattern in `undertow.py`: take a
+   screenshot, read console errors, click the broken affordance, get back
+   concrete failures. Fix and loop.
+7. **If you spiral** (3+ identical failures, infinite read-loop, context
+   overflow), follow the drift-detection pattern in `circulation.py`:
+   acknowledge the loop, compress, try one different approach, then break
+   cleanly. Don't grind.
 
-## Three load-bearing primitives — read these before you touch anything visual
+## Three load-bearing patterns — read these before you touch anything visual
 
 If your work touches build verification, visual matching, or QA in any way,
-read these three files first. They are the most-load-bearing modules in
-the entire codebase.
+read these three files first. They are patterns to follow, not modules to
+import.
 
-- **`vision_gate.py`** — verifies the build by screenshot + Claude vision API.
-  Currently hardcoded to a Qwen3.6-VL endpoint that no longer exists; needs swap
-  to `anthropic.Anthropic().messages.create(...)` with vision content. **Refactor
-  target.**
-- **`undertow.py`** — Playwright lever-puller. Async wrapper that takes
-  screenshots, presses keys, clicks elements, reads the console, and returns
-  a structured `QAReport`. The "wander off path then turn around if too crazy"
-  pattern lives here. Don't touch the lever API — agents depend on it.
-- **`circulation.py`** — circuit-breaker state machine
-  (`flowing → eddying → probing → broken`). The "drift detection" mechanism.
-  Don't disable; only extend.
+- **`vision_gate.py`** — the visual verification pattern: take a screenshot
+  of the built page, send it to the vision-capable LLM (you, in this
+  conversation, with image content), ask "list visual issues", iterate.
+- **`undertow.py`** — the Playwright lever-pulling pattern. Async wrapper
+  that takes screenshots, presses keys, clicks elements, reads the console,
+  and returns a structured `QAReport`. The "wander off path then turn around
+  if too crazy" pattern. Lever names = stable API; if you re-implement, keep
+  the names.
+- **`circulation.py`** — the drift-detection state-machine pattern
+  (`flowing → eddying → probing → broken`). Counts repeated failures, triggers
+  cool-downs, gives one recovery shot, breaks cleanly rather than runaway.
 
-Two more honorable mentions:
+Honorable mention:
 
-- **`deliver_gates.py`** — cascading verification gates. Add new gates here
-  rather than scattering checks throughout the agent loop.
-- **`eddy.py` + `eddy_communication.py`** — parallel lightweight worker dispatch.
-  When you need to read 10 files at once or grep across the codebase, dispatch
-  eddies. They share findings via `eddy_communication.py` so you don't duplicate
-  work. Think of them as boids racing for the fastest path; the first to
-  arrive wins, the rest die.
+- **`deliver_gates.py`** — the cascading verification gates pattern. Add new
+  gates here rather than scattering checks throughout the build flow.
+- **`target_layout.py`** — extracts UI element bboxes from a reference image
+  and returns ratio-based CSS. Useful when the user provides a visual mockup.
 
-## What was deleted on 2026-04-26 (don't try to use these)
+## What's actually here (current surface, after the 2026-04-26 purge)
 
-The local-LLM-serving infrastructure. If you find references in old docs or
-commits, they're historical. Specifically gone:
+The repo went from 200+ python files to ~56. The trimmed surface:
 
-- `serving/` (entire directory — Qwen3.6 / ERNIE serving, NVFP4 quant, MTP, decode)
-- `serve_transformers.py` (transformers serving)
-- `gemma_args.py`, `chat_template_safety.py` (Gemma-specific tool-call parsing)
-- `adapter_router.py`, `adapter_swap.py` (LoRA hot-swapping)
-- `wilson_loop.py` (embedding server probe)
-- `model_fallback.py` (local-server failover)
-- `training/` (LLM fine-tuning data prep)
-- `gguf_ops/` (GGUF dequantization / loading)
-- `tools/ernie_eval.py`, `harness/server_monitor.py`
-- 9 stale tests of the above
-- `~/.tsunami/server_monitor.{jsonl,md}` and `~/.tsunami/opportunistic_runs/`
+- **`CLAUDE.md`** — this file (the cold-start scaffold)
+- **Top-level patterns (.py, 7 files)** — `vision_gate`, `target_layout`,
+  `undertow`, `circulation`, `deliver_gates`, `outbound_exfil`, `__init__`
+- **`tools/` (7 files)** — image processing + scaffold init utilities
+  (`emit_design`, `pixel_extract`, `image_ops`, `riptide`, `project_init`,
+  `project_init_gamedev`, `__init__`)
+- **`core/` (17 files)** — bespoke verification probes (one per non-vision
+  scaffold: api-only, electron, chrome-extension, mobile, cli, gamedev,
+  data-pipeline, docs, ws, sse, training, infra, server) plus
+  `dispatch.py` and `_probe_common.py`
+- **`mesh/`, `animation/`, `game_content/`** — game-rendering primitives
+- **`vendor/BPAD/`** — image processing (edges, resize, pattern noise, denoise)
+- **`scripts/regen_scaffold_yaml.py`** — scaffold maintenance utility
+- **`plan_scaffolds/` (16 files)** — per-scaffold + work-type plan templates
+- **`style_scaffolds/` (9 files)** — visual style templates
+- **`undertow_scaffolds/` (9 files)** — QA approach templates matched to styles
+- **`genre_scaffolds/` (18 files)** — game-genre templates
+- **`skills/`** — canonical workflow blueprints (`SKILL.md`, `WAVEFORM.md`
+  per skill — see existing skills for the format)
 
-What still references the deleted modules (waiting on the orchestrator-swap
-refactor): `agent.py` (3 lazy imports inside function bodies), `observer.py`
-(Gemma role-marker logic). These are dead-code-paths-in-waiting; don't try to
-hit them, and feel free to strip them when you're refactoring.
+That's the entire surface. If you find yourself looking for `agent.py`,
+`cli.py`, `model.py`, `config.py`, `prompt.py`, `routing.py`, `eddy.py`,
+`server.py`, `serve.py`, etc. — they were intentionally deleted. See below.
+
+## What was deleted on 2026-04-26 (and why)
+
+A six-commit purge retired the local-LLM-orchestrator era of tsunami. Total
+removal: ~65,000 lines across ~317 files. Major waves:
+
+1. **`0a02c80` — Local-LLM serving stack.** `serving/` (Qwen3.6 / ERNIE / embed
+   serving, NVFP4 quant, MTP, decode), `serve_transformers.py`, `gemma_args.py`,
+   `chat_template_safety.py`, `adapter_router.py`, `adapter_swap.py`,
+   `wilson_loop.py`, `model_fallback.py`, `training/`, `gguf_ops/`,
+   `tools/ernie_eval.py`, `harness/server_monitor.py`. Reason: pivot from
+   self-hosted inference to Claude (your harness's API) as the orchestrator.
+2. **`2ba795b` — Installers + tsu CLI + config.yaml.** `setup.sh`, `setup.ps1`,
+   `tsu`, `tsu.ps1`, `config.yaml`. Reason: tsunami isn't a binary anymore;
+   no installer or wrapper needed. The README was rewritten around "tsunami is
+   a scaffold" in the same commit.
+3. **`c94b029` — 67 orchestration python files.** The agent loop and everything
+   that supported it: `agent.py` (325K!), `prompt.py`, `model.py`, `observer.py`,
+   `planfile.py`, `phase_machine.py`, `task_decomposer.py`, `hooks.py`,
+   `skills.py`, `session.py`, `session_memory.py`, `state.py`, `watcher.py`,
+   `compression.py`, `microcompact.py`, `semantic_dedup.py`, `snip.py`,
+   `token_estimation.py`, `tool_dedup.py`, `tool_timeout.py`,
+   `tool_result_storage.py`, `dynamic_tool_filter.py`, `routing.py`,
+   `routing_telemetry.py`, `behavior_infer.py`, `cost_tracker.py`,
+   `quality_telemetry.py`, `speed_audit.py`, `notifier.py`, `feedback.py`,
+   `progress.py`, `doctrine_history.py`, `pending_files.py`, `abort.py`,
+   `phase_filter.py`, `worker.py`, `run.py`, `__main__.py`, `cli.py`,
+   `config.py`, `loop_guard.py`, `bash_security.py`, `server.py` (FastAPI
+   Mission Control), `brand_scaffold.py`, `error_fixer.py`, `engine_catalog.py`,
+   `runtime_check.py`, `pre_scaffold_naming.py`, `source_analysis.py`,
+   `git_detect.py`, `jsx_import_check.py`, `content_probe.py`, `auto_build.py`,
+   `test_compiler.py`, `vision_preview.py`, `qa_rubrics.py`, `eddy.py`,
+   `eddy_communication.py`, `serve.py`, `harness/` (entire dir),
+   `tools/{base,discovery,toolbox,filesystem,generate,message,plan,search,shell,undertow}.py`.
+   Reason: file system as context. Anything that was loading something or
+   performing a very specific function got nuked. The agent loop is now you,
+   the harness — not a python module.
+4. **`ca9604d` — `tests/` + `pytest.ini` + `cufile.log`.** 149 test files,
+   ~5.6 MB. ~128 tested modules already deleted; the rest can be regenerated
+   from the surviving primitives. Reason: tests of dead code are dead.
+
+If you see references to any of the above in older docs / commits / case
+studies / sigma archives, they're historical. Don't try to use them.
 
 ## Files NOT to touch unless you know what you're doing
 
@@ -224,7 +263,8 @@ hit them, and feel free to strip them when you're refactoring.
   "outbound exfiltration" — it's the OPPOSITE: the defense AGAINST exfil. This
   module has its own production-firing-audit history (12+ commits of `return None`
   stub before a real ruleset landed). Do not stub or weaken without a strong reason.
-- **`circulation.py`**, **`undertow.py`**, **`vision_gate.py`** — see above.
+- **`circulation.py`**, **`undertow.py`**, **`vision_gate.py`** — the load-bearing
+  patterns. Read and follow; don't gut.
 - **`../scaffolds/`** entirely — the catalog is the product. Modifying a scaffold
   changes every future build that uses it. If you need a new scaffold, propose
   it in `../scaffolds/GAPS.md` first.
@@ -237,27 +277,12 @@ hit them, and feel free to strip them when you're refactoring.
   Off-limits.
 - **`../deliverables/`** — past tsunami builds (chiptune-maker, crypto-tracker,
   hn-trend-dashboard, pomodoro-pro, pomodoro-timer). Reference material.
-
-## Major refactor in flight — don't be surprised if you find half-state
-
-The Claude-as-orchestrator pivot is in progress. Expected residual state:
-
-- `agent.py`, `model.py`, `config.py` still reference the old localhost:8090
-  endpoint and the deleted `serve_transformers` module. They will not import
-  cleanly until the swap lands.
-- `observer.py` still has Gemma role-marker logic that needs to come out.
-- The `model_backend` config field exists but is ignored — the abstraction is
-  a lie until the refactor lands.
-- The public-facing `../README.md` still claims "no OpenAI. no Anthropic. no
-  API keys." — this was true in the local-LLM era, no longer accurate. Update
-  separately when the orchestrator-swap PR is ready.
-
-If you are doing the orchestrator swap: start with `model.py` (smallest unit),
-then `agent.py`'s `model.generate()` callers, then `config.py`'s endpoint
-defaults, then `vision_gate.py`'s VLM call. Tests will be the canary.
+- **`mesh/`, `animation/`, `game_content/`, `vendor/BPAD/`** — game-rendering and
+  image-processing primitives. Use as-is.
 
 ## Where to dig deeper
 
+- `../README.md` — the public-facing tsunami pitch ("tsunami is a scaffold")
 - `../scaffolds/GAPS.md` — current scaffold-rollout status (10 closed, 3 open),
   per-scaffold work shape, contention rules
 - `../scaffolds/<name>/GAP.md` (open scaffolds only) — what's left for that scaffold
@@ -269,10 +294,8 @@ defaults, then `vision_gate.py`'s VLM call. Tests will be the canary.
 - `style_scaffolds/<name>.md` — visual style templates
 - `undertow_scaffolds/<name>.md` — QA approach matched to style
 - `genre_scaffolds/<name>.md` — game-genre templates
-- `cli.py` — agent entry point
-- `agent.py` — the standing-wave loop (in transitional state — see refactor note)
-- `core/dispatch.py` — multi-modal task dispatch (gamedev, mobile, training,
-  infra, openapi, etc.)
+- `core/dispatch.py` — multi-modal task dispatch pattern
+- `core/<name>_probe.py` — bespoke verification probe per non-vision scaffold
 
 ## The cold-instance test (you, right now)
 
@@ -282,12 +305,10 @@ If you can answer these three questions after reading this file, the doc worked:
    Which scaffold do you clone? Which plan_scaffold do you read first? Which
    undertow_scaffold gates your QA?
 2. **Your first build attempt fails the vision_gate** ("the sidebar is on the right,
-   should be on the left"). Which file do you read to figure out how to pull a
-   Playwright lever to confirm the screenshot, and which file decides whether
-   to retry or break?
-3. **You notice a file that imports `from .serve_transformers import ChatRequest`.**
-   Is this dead code? What's the right action — delete the import, refactor, or
-   leave it?
+   should be on the left"). Which file do you read to figure out what Playwright
+   lever to pull, and which file decides whether to retry or break?
+3. **You find a python module like `agent.py` referenced in an old commit message
+   or sigma case study, but it doesn't exist in the repo.** What's going on?
 
 If you can't answer all three, file an issue against this CLAUDE.md before
 proceeding. The cold-start scaffold is the codebase, and a cold instance who
@@ -309,24 +330,26 @@ can't orient is the failure mode the whole thing is designed against.
      visual style
 
 2. **vision_gate fails on "sidebar is on the right, should be on the left".**
-   - Read `undertow.py` to find the `screenshot` lever (returns base64 PNG
-     you can re-inspect)
+   - Read `undertow.py` to find the `screenshot` lever pattern (returns base64
+     PNG you can re-inspect in your own conversation)
    - Read `circulation.py` to know your retry budget — if you've burned 3+
-     vision-gate fails on the same intent without progress, circulation
-     trips to `eddying`, compresses your context, warns you, and gives you
-     one recovery attempt before going terminal
+     vision-gate fails on the same intent without progress, the pattern is
+     to compress your context, try one different approach, then break
+     cleanly rather than grind
    - Practical fix path: re-read `target_layout.py` for ratio-based
      positioning, regenerate the JSX with the corrected sidebar position
      (the layout system is ratio-anchored — don't hard-code px), retry
 
-3. **`from .serve_transformers import ChatRequest` in some file.**
-   - Dead code (deleted 2026-04-26). Action depends on file:
-     - **Lazy import inside an `agent.py` function body**: leave it for the
-       Claude-orchestrator-swap PR (don't touch agent.py until that lands)
-     - **Top-of-file import in any other module**: strip the import + the
-       now-dead code path it feeds. If the whole file is *purely* about the
-       dead module, delete the file
-     - **Test file**: delete the test (the module under test is gone)
+3. **`agent.py` (or `cli.py`, `model.py`, `config.py`, `eddy.py`, `server.py`,
+   etc.) referenced but missing.**
+   - Historical artifact. The 2026-04-26 purge retired the entire
+     local-LLM-orchestrator era — see "What was deleted" above. Tsunami isn't
+     invoked anymore; nothing imports `tsunami.agent` or
+     `tsunami.serve_transformers`. If a doc points you at one of these
+     modules, the doc is stale. Update the doc; don't try to revive the module.
+   - The patterns the deleted modules encoded survive in the surviving
+     primitives (`vision_gate`, `undertow`, `circulation`, `deliver_gates`)
+     and in this CLAUDE.md.
 
 ## Iteration log
 
@@ -335,4 +358,5 @@ This doc evolves. Each refresh adds a row.
 | Date | Iteration | What changed |
 |---|---|---|
 | 2026-04-26 | v1 | Initial cold-start scaffold. 21 scaffolds catalogued. Adventure-table for web/games/CLI. Three load-bearing primitives named. Deleted-module list. Refactor-in-flight note. |
-| 2026-04-26 | v2 | TL;DR added. Work-type plans (refactor/replicator/research) called out as orthogonal to scaffold choice. Lighter-scaffolds note (cli/game/gamedev/infra/mobile/training/web — no README, read dir directly). Concrete answers added for the cold-instance self-check. |
+| 2026-04-26 | v2 | TL;DR added. Work-type plans (refactor/replicator/research) called out as orthogonal to scaffold choice. Lighter-scaffolds note. Concrete answers for the cold-instance self-check. |
+| 2026-04-26 | v3 | Aligned with the post-purge reality. "Major refactor in flight" section deleted (executed, not pending). "What was deleted" expanded to the full 6-commit / ~317-file / ~65K-line story. Added "What's actually here (current surface)" enumeration. Reframed agent-loop language ("you do the work, not a tsunami binary"). Updated cold-instance Q3 (no more lazy-import-in-agent.py since agent.py is gone — the question is now about historical references in stale docs). Added `core/<name>_probe.py` table for non-vision scaffolds. Removed `eddy.py` references (deleted in c94b029). |

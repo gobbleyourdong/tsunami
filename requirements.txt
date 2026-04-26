@@ -1,32 +1,35 @@
-# TSUNAMI — Core runtime (the agent + server)
+# tsunami — Python deps for the surviving build/QA pattern primitives.
+#
+# Tsunami isn't invoked as a binary anymore — these are deps the patterns
+# reference (vision_gate / undertow / target_layout / deliver_gates / core
+# probes / tools/ image processing) when an AI agent harness uses them.
+
+# --- HTTP + protocols (vision_gate, undertow, probes, realtime) ---
 httpx>=0.24.0
+websockets>=12.0          # realtime scaffold + ws_probe
+
+# --- YAML config loaders (used by scaffolds) ---
 pyyaml>=6.0
-rich>=13.0
-psutil>=5.9.0
-Pillow>=10.0
-ddgs>=9.0
-websockets>=12.0
-fastapi>=0.100.0
-uvicorn>=0.20.0
-# undertow QA tool — real browser screenshot + interaction
+
+# --- Browser automation (undertow QA pattern + delivery gates) ---
 playwright>=1.40.0
 
-# SPRITE EXTRACTION — scaffolds/engine/tools/pixel_extract.py
-# Wavelet denoising is load-bearing: without it, sub-pixel color drift on
-# AI-generated pixel art anchors k-means cluster centroids on fringe colors
-# instead of letting them snap to the transparency palette entry. The scipy
-# Gaussian fallback in _maybe_denoise is too weak to collapse that drift.
+# --- Image processing (vision_gate, target_layout, tools/, vendor/BPAD/) ---
+Pillow>=10.0
 numpy>=1.24
 scipy>=1.11
+
+# --- Sprite extraction (tools/pixel_extract.py) ---
+# Wavelet denoising is load-bearing for AI-generated pixel art:
+# without it, sub-pixel color drift anchors k-means cluster centroids on
+# fringe colors instead of letting them snap to the transparency palette
+# entry. The scipy Gaussian fallback in _maybe_denoise is too weak to
+# collapse that drift.
 scikit-image>=0.22
 scikit-learn>=1.3
 PyWavelets>=1.5
 
-# TRAINING — needed only for training/train.py + sweep.sh
-# Install separately: pip install -r requirements-train.txt
-# (kept out of core to avoid bloating tsunami-runtime installs)
-
-# SYSTEM DEPS (NOT pip-installable):
-#   - nodejs + npm           (L5 integration eval runs `npm` / `vite build`)
-#   - chromium browser       (`playwright install chromium`)
-#   - chromium shared libs   (`playwright install-deps chromium` on Ubuntu)
+# --- System deps (NOT pip-installable) ---
+#   nodejs + npm           — for `npm install`, `vite build`
+#   chromium browser       — `playwright install chromium`
+#   chromium shared libs   — `playwright install-deps chromium` on Ubuntu
