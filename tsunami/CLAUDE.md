@@ -531,15 +531,34 @@ real scaffold-level change is needed:
   closed) + what shipped per scaffold + which probe verifies each
 - `../scaffolds/<name>/GAP.md` (open scaffolds only) — what's left for that scaffold
 **`drone_natural.tsx` vs `scaffold.yaml` — same scaffold, different scope:**
-`scaffold.yaml` is the FULL TS introspection (every component in
-`src/components/ui/*.tsx`). `drone_natural.tsx` is the CURATED SUBSET that
-agents should default to using. The 7 self-contained React scaffolds each
-have **5 components in TS source but NOT in drone_natural.tsx**:
-`AudioPlayer`, `CommandPalette`, `FileManager`, `Kanban`, `VideoPlayer`.
-These are heavier/more-specialized components that require explicit user
-intent to use — don't reach for them when the user just says "build a
-dashboard." Look at scaffold.yaml only when you genuinely need a component
-not in drone_natural.tsx (and reconsider whether the user really wants it).
+`scaffold.yaml` is the FULL TS introspection (every component + sub-export
+in `src/components/ui/*.tsx`, including Card.tsx's sub-exports CardHeader /
+CardTitle / CardDescription / CardContent / CardFooter, Button.tsx's
+IconButton, etc.). `drone_natural.tsx` is the CURATED DEFAULT VOCAB that
+agents should reach for first.
+
+**Two tiers of "not in drone_natural":**
+
+1. **Specialized heavy components** (consistently excluded across all 7
+   self-contained React scaffolds): `AudioPlayer`, `CommandPalette`,
+   `FileManager`, `Kanban`, `VideoPlayer`. These need explicit user
+   intent — don't reach for them when the user just says "build a
+   dashboard."
+
+2. **Card-family + IconButton** — INCONSISTENT across scaffolds:
+   - `react-app/drone_natural.tsx` HAS CardContent, CardHeader,
+     CardTitle (3 of 5 Card sub-exports). MISSING: CardDescription,
+     CardFooter, IconButton.
+   - All 6 other React scaffolds' drone_natural.tsx has NONE of the
+     Card sub-exports (treat Card as opaque) and no IconButton.
+   - `_patterns.tsx` fixtures DO use these (landing_dashboard_gallery,
+     dashboard_patterns) — patterns demonstrate composition with
+     sub-exports even when drone_natural doesn't list them.
+
+If you need Card sub-exports or IconButton: scaffold.yaml lists them
+(post-iter-49 regen). The patterns fixtures show idiomatic usage. Just
+import them from `./components/ui` — they're real exports from
+`Card.tsx` / `Button.tsx`.
 
 - **Per-scaffold locked-contract fixture** — the API surface you must use.
   Naming varies by scaffold tier (see build-pattern step 2):
