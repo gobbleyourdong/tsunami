@@ -289,6 +289,11 @@ struct Uniforms {
 //
 // Shapes: 0=circle, 1=rect, 2=line, 3=triangle (future).
 @group(0) @binding(4) var<storage, read> faceMarks: array<vec4f>;
+// Reaction-diffusion (Gray-Scott) field. RD_GRID²-element f32 array sampled
+// by world-XY → uv (mod 1.0 for tiling). Baked CPU-side at spec ingest, not
+// updated per-frame. Default-zero buffer when RD is not in use.
+const RD_GRID: u32 = 128u;
+@group(0) @binding(5) var<storage, read> rdField: array<f32>;
 
 struct VsOut {
   @builtin(position) clip: vec4f,
@@ -1424,6 +1429,20 @@ fn evalPrim(primIdx: u32, pWorld: vec3f) -> f32 {
       let t = max(0.0, dominant);
       d = d - t * weaveDepth;                              // SUBTRACT = raised strand
     }
+  } else if (colorFn == 27u) {
+    // REACTION-DIFFUSION (Gray-Scott) — sample baked V-channel field by
+    // world-XY → tiled uv. High V = raised feature (coral spot, brain
+    // ridge). Pattern is emergent (not analytical), F/k-tuned CPU-side
+    // at spec ingest. density (slot 3.y) sets tiles-per-meter.
+    let rdDepth = prims[base + 2u].w;
+    if (rdDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let uv = fract(pWorld.xy * density);
+      let gx = u32(uv.x * f32(RD_GRID)) % RD_GRID;
+      let gy = u32(uv.y * f32(RD_GRID)) % RD_GRID;
+      let v = rdField[gy * RD_GRID + gx];
+      d = d - v * rdDepth;                                 // SUBTRACT = raised peak
+    }
   }
   // ──────────────── SECONDARY WEAR DEFORMER ────────────────
   // Runs AFTER the primary colorFunc deformer. Limited to FBM-based wear
@@ -2179,6 +2198,17 @@ fn fs_main(in: VsOut) -> FsOut {
     let parity = (i32(cellSum) % 2) == 0;
     let dominant = select(strandV, strandH, parity);
     if (dominant < 0.0) { slot = slotB; }                    // gap between strands
+  } else if (colorFunc == 27u) {
+    // REACTION-DIFFUSION — peaks (high V) take slot B (the accent palette
+    // entry, dark by default for sunken-feature deformers but raised here),
+    // valleys keep slot A. Threshold at V=0.3 — Gray-Scott V settles in
+    // [0, ~0.5] for typical F/k presets so 0.3 picks "established" peaks.
+    let densityRD = colorExtent;
+    let uvRD = fract(hitPos.xy * densityRD);
+    let gxRD = u32(uvRD.x * f32(RD_GRID)) % RD_GRID;
+    let gyRD = u32(uvRD.y * f32(RD_GRID)) % RD_GRID;
+    let vRD = rdField[gyRD * RD_GRID + gxRD];
+    if (vRD > 0.3) { slot = slotB; }
   }
 
   // Face marks — surface-color overrides that live on a bone. Iterate
@@ -2284,6 +2314,11 @@ export interface RaymarchRenderer {
    *  to the mark's bone AND whose in-plane offset lies within the mark's
    *  shape. No SDF geometry change; pure color override. Max 16 marks. */
   setFaceMarks(marks: FaceMark[]): void
+  /** Upload a CPU-baked Gray-Scott reaction-diffusion field. Expected
+   *  length = 128² = 16384 floats (the V channel after N iterations).
+   *  Sampled by colorFunc=27 deformer for raised coral/brain/zebra
+   *  patterns. Always-bound; default-zero so RD is silent unless authored. */
+  setRDField(data: Float32Array): void
 
   // --- Static cache (for pass-based compositing) ---
   // Typical usage pattern from the caller:
@@ -2398,6 +2433,18 @@ export function createRaymarchRenderer(
   device.queue.writeBuffer(faceMarksBuffer, 0, new Float32Array(MAX_FACE_MARKS * 16))
   let numFaceMarks = 0
 
+  // Reaction-diffusion field — 128² f32 storage buffer sampled by colorFunc=27
+  // (Gray-Scott RD deformer). Default-zero so the binding is valid even when
+  // no RD prim is in the scene. Caller invokes setRDField(data) with a
+  // CPU-baked V-channel result.
+  const RD_GRID_SIZE = 128
+  const rdFieldBuffer = device.createBuffer({
+    label: 'raymarch-rd-field',
+    size: RD_GRID_SIZE * RD_GRID_SIZE * 4,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  })
+  device.queue.writeBuffer(rdFieldBuffer, 0, new Float32Array(RD_GRID_SIZE * RD_GRID_SIZE))
+
   let currentVat = vat
   let numPrims = 0
   let bindGroup: GPUBindGroup | null = null
@@ -2488,6 +2535,7 @@ export function createRaymarchRenderer(
         { binding: 2, resource: { buffer: currentVat.buffer } },
         { binding: 3, resource: { buffer: paletteBuffer } },
         { binding: 4, resource: { buffer: faceMarksBuffer } },
+        { binding: 5, resource: { buffer: rdFieldBuffer } },
       ],
     })
   }
@@ -2757,6 +2805,15 @@ fn fs_main(in: VsOut) -> FsOut {
     },
     setPxPerM(v) {
       currentPxPerM = v
+    },
+    setRDField(data) {
+      // Upload a CPU-baked Gray-Scott V-channel field. Expected length =
+      // RD_GRID_SIZE² (128² = 16384). Shorter inputs zero-pad, longer
+      // inputs clip — both keep the binding valid for any caller.
+      const need = RD_GRID_SIZE * RD_GRID_SIZE
+      const out = data.length === need ? data
+        : (() => { const f = new Float32Array(need); f.set(data.subarray(0, Math.min(data.length, need))); return f })()
+      device.queue.writeBuffer(rdFieldBuffer, 0, out)
     },
     resizeCache(w, h) {
       resizeCache(w, h)

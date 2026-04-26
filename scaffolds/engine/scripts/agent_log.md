@@ -808,3 +808,147 @@ techniques validated:
   - Periodic: hex, brick, dimples, studs
   - Radial: whorl
   - **Periodic-organic**: fishscale ← bridges periodic regularity with organic-tile feel
+
+## /loop iter 25: weave deformer (over-under two-axis fabric)
+- **New WGSL deformer 26: weave**. Two perpendicular sin strands (`sin(pp.x*2π)`, `sin(pp.y*2π)`) with explicit over-under: `parity(floor(pp.x*0.5)+floor(pp.y*0.5))` picks which strand is on top per 2×2 strand-cell, so the surface reads as genuinely woven, not just cross-hatched. Strand peaks SUBTRACT from `d` → raised strands; gaps stay at the base surface. Light FBM domain warp (0.15 amplitude) so strands wave gently.
+- **Why over-under matters**: cross-hatched (just `max(strandH, strandV)`) reads as a grid, not a weave. The parity flip in alternating large cells creates the characteristic basket-weave perception — the eye picks up that horizontal goes over vertical here, vertical goes over horizontal there.
+- **Distinct from related modes**: grain(14) is single-direction stripes; chevrons(23) is V-pattern raised; brick(18) is offset-row sunken mortar. Weave is the first TWO-AXIS RAISED pattern.
+- **Use cases**: woven fabric, basket weave, cane chair, mesh, chainmail, woven grass mat, wickerwork.
+- **Modeler wiring**: `weaveDepth/weaveDensity` plumbed through ModelerPrim → specToPrims → JSON normalizer (modeler_demo.ts:196,1273,1901).
+- **Self-validated via live preview daemon** (preview.png at density=22, depth=0.0030 on 60×60mm slab): all 4 views show the basket-weave pattern; over-under flip clearly visible on front/iso views, depth profile reads correctly on side/top.
+- **Library state**: 17 primary deformers (12 color-aware) + 4 wear deformers + 6 path-gen modes + 3 path profiles + meander + taper + accentSlot.
+- **Family map updated**:
+  - Organic-irregular: bumps, scales, voronoiCracks, ridges
+  - Organic-natural: cracks, pits, veins
+  - Directional: grain, streaks, scratches, chevrons
+  - Periodic: hex, brick, dimples, studs
+  - Radial: whorl
+  - Periodic-organic: fishscale
+  - **Two-axis raised**: weave ← new family
+- **Process note**: live preview daemon (preview_daemon.mjs, 3s interval) replaces the per-iter modeler_driver.mjs invocation. Daemon stays warm against `modeler_demo.html`; iter just writes inbox.ark.json and the next 3s snapshot reflects it. Visit http://localhost:5173/sdf_modeler/preview.html for the feed.
+
+## Cron-driven loop restarted 2026-04-25 23:5x — job 02939633
+- New cron job `02939633`, every 10 min at :07/:17/:27/:37/:47/:57 (off the :00/:30 fleet hotspots). Auto-expires after 7 days.
+- Roadmap (user-directed):
+  1. **Continue surface patterns** — long tail of family expansions still possible (lichen, frost, basalt-columnar, more two-axis variants).
+  2. **Reaction-diffusion (coral, brain)** — Gray-Scott style. The natural escalation past hand-tuned analytical patterns: emergent, parameter-tunable, gives true coral/zebra/brain-coral/leopard textures. Will need WGSL compute pass or an iterative dispatch — NOT a per-pixel SDF deformer like the existing 17.
+  3. **Manhattan / Chebyshev pathfinding** for street and pipe layouts on building faces. New path-gen mode beyond walk/astar/lightning/tree/tendril — discrete grid pathing with L1 (Manhattan = right-angle, street-grid feel) or L∞ (Chebyshev = also-diagonals, mechanical/circuit feel). Authoring use case: extruded pipes + recessed conduits on building wall panels, sci-fi armor circuit traces, urban building facade layouts.
+- Architecture note: items 2 and 3 are STRUCTURALLY different from the existing 17 deformers (which are all per-fragment WGSL math). RD needs state across frames or a fixed-iteration compute warm-up; pathfinding emits discrete prims like the existing path-gen system. So iter 26+ = path-gen extension first (drops in at `emitCarvesFromPath`), iter 27+ = RD architecture spike.
+
+## /loop iter 26: Manhattan / Chebyshev metrics on A* pathing
+- **New `metric` option on crackPathGen mode='astar'**: `'euclidean' | 'manhattan' | 'chebyshev'`. Single field switches three things atomically:
+  - **NEIGHBORS topology**: manhattan = 4-neighbor (orthogonal only); euclidean/chebyshev = 8-neighbor.
+  - **Diagonal step cost**: chebyshev = 1.0 (diagonals are free, 45° preferred); euclidean = √2; manhattan = N/A (no diagonals).
+  - **Heuristic**: manhattan = `|dx|+|dy|`; chebyshev = `max(|dx|,|dy|)`; euclidean = `hypot`.
+- **Polish-pass gate**: smoothPath (Catmull-Rom) only runs when metric='euclidean'. Manhattan/chebyshev paths stay ANGULAR — smoothing would round off the right-angle corners that ARE the visual signature.
+- **Why one option, not new modes**: extending `astar` by a metric flag is a strict superset and ~20 LoC. A separate `'mechanical'` mode would have duplicated the cost-field, A* loop, and waypoint reconstruction. The behavioral difference IS just the metric.
+- **Test spec**: manhattan_streets_v1 — 60×60×6mm facade slab + 3 manhattan A* carves forming an X-cross + center alley (gridRes=24, varying noiseWeight 0.5/1.5 for primary vs alley). Live preview confirmed: visible stair-step right-angle grooves on front + iso views, no curved corners. The angular signature reads cleanly.
+- **Distinct authoring use cases enabled**:
+  - **Manhattan**: street grids on building facades, wiring trunks, sidewalk layouts, plumbing risers — anywhere the visual language is "right angles only"
+  - **Chebyshev**: PCB traces, sci-fi conduit layouts, steampunk pipework — where 45° diagonal segments read as "engineered" rather than organic
+  - **Euclidean** (existing default): natural cracks following weak material — unchanged
+- **Library state**: 17 primary deformers + 4 wear deformers + 6 path-gen modes + **astar now has 3 metrics** + 3 path profiles + meander + taper + accentSlot. Path-gen taxonomy gains a new axis (metric) under the cost-field family.
+- **Architectural note**: this is the cleanest kind of iter — extends an existing system via one new option, opens a whole new visual category, no new infrastructure. Compare to weave (iter 25) which was a new WGSL deformer (~30 LoC shader + ~10 LoC modeler wiring + slot bookkeeping). Path metric is ~20 LoC of pure JS branching.
+- **Live preview latency lesson**: edited modeler_demo.ts 5× during iter; vite HMR reloaded each time; daemon's headless modeler had to re-init between reloads. User saw stale weave_v1 captures for ~30s. Future: batch related TS edits before triggering preview verification, or pause the daemon during edit bursts.
+
+## Iter 27 candidate: T-junctions / branches for mechanical paths
+- Streets and pipes have JUNCTIONS, not just isolated runs. Stack two manhattan A* carves currently produces a visible cross only because the user authored two paths that geometrically intersect. The next leverage: a `branches` field on astar mode that spawns N perpendicular sub-paths off the main spine at random waypoints (2-8). For pipes: T-fittings everywhere. For streets: side-streets off the avenue. Same cost-field logic, just N more A* runs from random main-path waypoints to grid-snapped endpoints.
+
+## Iter 28 candidate: reaction-diffusion (Gray-Scott) — coral / brain / zebra
+- Architectural spike: WGSL compute shader doing N iterations of Gray-Scott RD on a 2D grid (256² typical), output written to a storage texture. Surface deformer reads the texture by world-XY → uv mapping. ~150 LoC compute + ~30 LoC sampler. Tunable F (feed) and k (kill) → coral, brain-coral, zebra, leopard, fingerprint, chaos. Different category from any existing deformer because the pattern is EMERGENT, not analytical.
+
+## /loop iter 27: raise-polarity flag on path-gen — pipes / conduits / cables on facades
+- **New `raise?: boolean` field on `crackPathGen` and `pathCarves`**. Default false (existing carve-trench behavior). When true, segments ADD to parent (smooth union with positive blendRadius) instead of subtracting (smooth subtraction with negative blendRadius). Same magnitude (0.002) → predictable visual weight either polarity.
+- **Threading**: emitCarvesFromPath gained 6th param `raise`, stamps onto each emitted carve. All 5 path-gen modes propagate (walk, astar, lightning, tree, tendril) plus the 2 inline pushes (walk-mode branches at line 670, tree-mode segments at line 924). Lightning's branch sub-paths inherit via `{...opts}` spread — no special handling needed. JSON normalizer round-trips `raise: true` on both `pathCarves` and `crackPathGen`.
+- **expandPathCarves switches blend sign per-carve**: `blendRadius: c.raise ? 0.002 : -0.002`. Per-carve granularity (not per-prim) means a single path-gen could in principle mix raised + carved segments — currently the modes emit homogeneous polarity, but the door's open for hybrid effects later (e.g., a pipe with carved valve cutouts).
+- **Why a polarity flag, not a new mode**: every existing path-gen mode (astar/walk/lightning/tree/tendril) gets raised variants for free. Adding "pipe" / "conduit" / "cable" as separate modes would have duplicated the routing code. Polarity is orthogonal to routing — exactly the kind of thing a flag should express.
+- **Test scene**: brick_facade_pipe_crack_v1 — 60×60×6mm slab with brick deformer (brickDepth=0.0009, brickDensity=28), chebyshev raised pipe (thickness=0.0018, depth=0.003, noiseWeight=0.4 for engineered straightness), euclidean carved crack (thickness=0.0007, depth=0.0025, noiseWeight=1.6 for organic weak-material drift). Self-validated via preview daemon: front view shows running-bond brick + diagonal pipe + smooth crack; side view shows pipe protruding (raise = real additive geometry, not a recolor); top view shows pipe breaking silhouette while crack stays flush; iso shows all three layers compositing cleanly with no visual interference.
+- **Authoring use cases unlocked**:
+  - **Pipes / conduits / cables** on building facades, sci-fi corridors, mechanical panels
+  - **Welding beads / seams** on metal plates (chebyshev or manhattan, very fine thickness)
+  - **Vines / ivy** on walls (tendril mode + raise — raised growth instead of carved trail)
+  - **Ribs / piping** on chest armor, leather goods, tooled book covers (any path mode + raise)
+  - **Branches** of a tree growing OUT from a base trunk (tree mode + raise) instead of carved tree-shaped grooves
+- **Library state**: 17 primary deformers + 4 wear deformers + 6 path-gen modes + astar with 3 metrics + 3 path profiles + meander + taper + accentSlot + **raise polarity flag (orthogonal across all 5 path modes)**.
+- **Architectural note**: this is a *cross-cutting* extension — adds a feature that multiplies across 5 existing modes, not adds a new sibling mode. The 5 modes × 2 polarities = 10 path-gen variants from a 1-flag change. Compares favorably to iter 26 (1 new option × 3 metrics = 3 variants for similar implementation cost).
+- **Scope decision**: skipped T-junctions/branches (previously the iter 27 candidate). Branches still on the stack but raise-polarity unlocks more orthogonal variety per LoC — pipes-on-facades was a missing capability category, branches are an enhancement to an existing one. Iter 28 candidates: T-junctions (mechanical Y-fittings), reaction-diffusion (Gray-Scott).
+
+## /loop iter 28: T-junction branches on A* paths
+- **New `astarBranches?: number` field on `crackPathGen`** (astar mode only). Spawns N perpendicular sub-paths off the main spine. Each branch picks a random INTERIOR waypoint (endpoint branches look detached), computes local tangent via central difference, projects perpendicular by 30-60% of the main bbox diagonal at random side, then recursively runs A* from waypoint → projected end with `astarBranches: 0` to prevent fractal explosion. Capped at 8 branches.
+- **Branches inherit polarity, metric, profile, noiseWeight from parent** via `{...opts}` spread. Override only `start/end/seed/astarBranches/thickness*0.6/depth*0.85`. So:
+  - chebyshev + raise=true + branches → mechanical T-fittings on raised pipework
+  - manhattan + branches → side-streets off avenues (right-angle preserved)
+  - euclidean + branches → tributary cracks / forking weak-material lines (smoothed via Catmull-Rom — branch joins fuse naturally)
+- **Why `astarBranches` not `branches`**: tree-mode already has `branches?: number` (per-node fork count). Disambiguating the field names avoids ambiguity in the schema. The `astar` prefix also reads as "applies only to astar mode" which is the actual constraint.
+- **Test scene**: brick_facade_pipe_tjunctions_v1 — same brick facade + chebyshev raised pipe with `astarBranches: 3` + euclidean carved crack with `astarBranches: 2`. Self-validated via preview daemon: front view shows pipe spine + 3 perpendicular protruding T-stubs + crack with 2 organic tributary forks; side view confirms branch protrusions in 3D (raised inherits correctly); iso view shows pipe network and crack network composing on brick without visual conflict.
+- **Architectural note**: this iter is the cleanest kind of "free orthogonal extension" — `branches × metric × polarity × profile = 3×2×3 = 18 visual variants` from a ~50 LoC change, on top of iter 27's already-orthogonal `metric × polarity` matrix. Cost-field reuse (sub-A* runs with same noise seed offset) means branches feel cohesive with the main path rather than randomly tacked on.
+- **Library state**: 17 primary deformers + 4 wear deformers + 6 path-gen modes + astar with 3 metrics × 2 polarities × {0..8} branches + 3 path profiles + meander + taper + accentSlot.
+- **Iter 29 candidates**:
+  - **Pipe end caps**: when raise=true, emit small hemisphere prims at start/end so pipes terminating mid-surface read as finished (currently the rounded-box ends look slightly clipped). ~15 LoC.
+  - **Reaction-diffusion (Gray-Scott)**: still on the stack. Major architectural spike — WGSL compute pass + storage texture sampler. Different category from analytical deformers. Estimated ~150-200 LoC.
+  - **Branch angle control**: currently branches project at exactly perpendicular (90°). A `branchAngleDeg?: number` override (default 90, e.g., 60-75 for swept-back tributaries that read as drainage rather than perpendicular splits) would extend authoring range. ~10 LoC.
+
+## /loop iter 29: T-junction fittings via 'joint' kind on pathCarves
+- **New `kind?: 'segment' | 'joint'` field on pathCarves**. 'segment' (default) = roundedBox along from→to (existing behavior, all path-gen modes emit this). 'joint' = sphere at `from` of radius=thickness, ignores `to`. Emitted by `expandPathCarves` via early-branch on c.kind, so adding it required no refactor of the existing prim emission.
+- **A* branch loop now emits a joint at each connection point** in addition to the perpendicular sub-path. Joint inherits raise polarity, so `raise=true` paths get raised T-fittings (pipework) and `raise=false` paths get carved sinkholes at fork points (cracks merging in a deeper pit). `blendRadius: c.raise ? 0.0015 : -0.0015` (tighter than segments' 0.002, so joints read as distinct bulbs rather than melting into the spine).
+- **Critical sizing lesson**: joint radius MUST exceed pipe depth or the sphere stays buried inside the tube/trench union and contributes nothing visually. First attempt used `thickness * 1.35 = 0.0024` against `depth = 0.003` — sphere top below pipe top → invisible. Fixed to `Math.max(thickness * 2.5, depth * 2.0) = 0.006` for the brick-facade test, giving ~3mm protrusion above the pipe spine. The blunt heuristic: joint radius needs to be at least 2× the pipe depth for the bulge to read at typical authoring scales.
+- **Validation methodology that paid off**: when the iter-28-spec re-render with the new code looked identical to iter 28, I wrote a STANDALONE test spec with manually-authored `kind: 'joint'` pathCarves at known XY positions on the bare facade (no pipe). That render showed three crisp hemispherical bumps — proved the emission path was correct, isolated the bug to joint sizing relative to surrounding geometry. Without that isolated test, "looks the same" could have meant "code never runs" or "code runs but gets clipped" or "blend radius too aggressive" — debugging via hypothesis-elimination instead of guessing.
+- **Test scene**: brick_facade_pipe_tjunctions_joints_v1 — same brick facade with 3-branch chebyshev raised pipe (now with visibly-bulged T-fittings) + 2-branch euclidean carved crack (small pit-joints at the 2 fork points, polarity correctly inherited). Self-validated: front view shows pipe spine fattening at each connection point, side/iso views confirm 3D protrusion of joints.
+- **Library state**: 17 primary deformers + 4 wear deformers + 6 path-gen modes + astar with 3 metrics × 2 polarities × {0..8} branches × **{segment, joint} carve kinds** + 3 path profiles + meander + taper + accentSlot.
+- **Iter 30 candidates**:
+  - **Reaction-diffusion (Gray-Scott)** — finally promote this. Two iters of small extensions on path-gen makes the next move a pivot to a new category. New WGSL compute architecture; coral, brain, zebra, leopard from F/k tuning.
+  - **Joint shape variety**: currently sphere-only. A `jointShape?: 'sphere' | 'torus' | 'cube'` field would unlock ring fittings (torus around the spine — like a flange), cubic junctions (industrial valve boxes), etc. ~15 LoC + sphere-equivalent cases.
+  - **Joint at endpoints (start/end of main path)**: currently only at branch connection points. End-of-pipe spheres would replace the rounded-box clipped-cap look with proper hemispherical caps. ~10 LoC. Cheaper than the iter-29-candidate "pipe end caps" because it reuses the joint emit path.
+
+## /loop iter 30: endpoint caps on A* paths — pipe authoring story complete
+- **New `endCaps?: boolean` field on `crackPathGen`** (astar mode). Default = `!!opts.raise` — raised pipes get endpoint hemisphere caps automatically (so they read as terminated rather than clipped); carved trenches don't (extra pits at endpoints look like accidents). Override explicitly to force on/off.
+- **Implementation reuses iter 29's joint-emit path**. After main `emitCarvesFromPath`, push a `kind:'joint'` carve at `wp[0]` and `wp[wp.length-1]` with the same `Math.max(thickness*2.5, depth*2.0)` sizing. Total ~12 LoC including schema, normalizer, and gen logic. Extension cost is low because the joint primitive type was already wired through expandPathCarves last iter.
+- **Test scene**: brick_facade_pipe_endcaps_v1 — same spec as iter 29 but renamed to flag the new render. Pipe now displays prominent hemispherical bulbs at both ends, plus the existing 3 T-junction joints. Side view confirms 3D protrusion of all 5 joints. Carved crack remains uncapped — confirms the polarity-driven default.
+- **Architectural note**: this iter is the *closing brace* on the path-gen sub-thread that ran iters 26-30. Each iter added one orthogonal capability:
+  - **iter 26**: A* metrics (3 variants — euclidean/manhattan/chebyshev)
+  - **iter 27**: raise polarity (×2 → 6 variants, doubled the visual catalog)
+  - **iter 28**: T-junction branches (×{0..8} → 54 variants, multiplied again)
+  - **iter 29**: T-junction joint primitives (engineered fitting visual layer)
+  - **iter 30**: endpoint caps (closes the silhouette of raised pipes)
+- **The compounding worked**: 5 iters × ~30 LoC each = ~150 LoC total, but the resulting authoring matrix has tens of distinct visual outputs from a single spec field combinatorial. This is the mode I should aim for going forward — pick orthogonal extension axes, not parallel siblings.
+- **Library state**: 17 primary deformers + 4 wear deformers + 6 path-gen modes + astar with 3 metrics × 2 polarities × {0..8} branches × {auto/forced} endcaps × {segment, joint} carve kinds + 3 path profiles + meander + taper + accentSlot.
+
+## Iter 31 plan: Reaction-diffusion (Gray-Scott) — focused architectural spike
+- **Pivot from path-gen polish to a new deformer category**. Path-gen has had 5 iters; per the 6-iter cap, time to move on. RD has been deferred at iters 28 and 29 — claiming this slot.
+- **Architecture decision**: CPU-side Gray-Scott bake at spec-normalize time, upload field as a 2D texture, sample in the WGSL fragment deformer. This avoids needing a new compute pipeline + ping-pong storage texture infrastructure (which the modeler's WGSL block currently lacks — it only has scene/normal/depth tex bindings + uniform; no compute pass, no storage texture for read-write).
+- **Why CPU bake is the right tradeoff**: RD only needs to run ONCE per spec (~1000-3000 iterations to settle into stable patterns). At 256² grid that's ~65k cells × 3000 iters = 200M ops. ~1 second on JS at modern speeds. Spec-normalize already runs all the path-gen logic on CPU; this is in keeping. GPU compute would be faster (10-100×) but adds bind-group machinery, double-buffer texture state, and dispatch ordering — too much one-iter scope.
+- **Plan**:
+  1. Add fields to ModelerPrim: `rdFeed?: number` (F), `rdKill?: number` (k), `rdIterations?: number` (default 2000), `rdGridRes?: number` (default 256), `rdDepth?: number` (displacement amplitude), `rdSeed?: number`.
+  2. CPU implementation of Gray-Scott update on a Float32Array pair (U, V) double-buffered. Initial conditions: small seed of V perturbation in the center; rest pure U.
+  3. After bake, take the V channel, upload as `rg32float` or `r32float` texture (one channel, 256² × 4 bytes = 256KB, fits well).
+  4. Add new texture binding (binding=5, since 0-4 are taken) to the WGSL block.
+  5. New deformer function in WGSL that samples by world-XY → uv (mod 1.0 for tiling).
+  6. Wire into the per-prim deformer dispatcher.
+  7. Test scene: 60×60×6mm slab with RD deformer at F=0.055, k=0.062 (coral preset).
+- **Risk**: WGSL fragment-shader texture sampling is straightforward, but adding a new bind group entry mid-pipeline could surface plumbing details I haven't seen. If the spike runs over budget, fallback is a 1D field encoded directly into the prim params (8x8 grid in a vec4 array — much cruder, but no new bindings).
+- **Calibration**: known F/k presets — coral (0.055, 0.062), brain (0.040, 0.060), zebra (0.020, 0.060), leopard (0.025, 0.060), spots (0.014, 0.054), chaos (0.026, 0.051). The pattern axis (F, k) is roughly orthogonal to "scale" — same F/k at different grid resolution gives larger/smaller features. Authors will pick from preset → adjust for taste.
+
+## /loop iter 31: Reaction-diffusion (Gray-Scott) deformer — coral works
+- **New `colorFunc=27` deformer** in raymarch_renderer.ts: samples a CPU-baked V-channel field via `@binding(5) var<storage, read> rdField: array<f32>`. Geometric pass adds `-v * rdDepth` to d (high V = raised peak). Color pass picks slot B for V > 0.3 (the established peak threshold). Pattern is emergent (analytical deformers can't make this).
+- **CPU bake**: `bakeReactionDiffusion(F, k, iterations, seed)` runs Gray-Scott Euler integration on a 128² Float32Array pair (U, V). Toroidal Laplacian (5-point, wraps), random ~5% V-perturbation seed, normalised to [0,1]. Cached on (F, k, iters, seed) — re-renders without RD changes don't re-bake. ~50ms for 2000 iters.
+- **Engine plumbing**: added `rdFieldBuffer` (128² × 4B = 64KB) at renderer construction, default-zero so binding stays valid when no RD prims exist; `setRDField(data: Float32Array)` public method; bind group entry at binding 5. Auto-derived bind group layout from WGSL declarations meant zero explicit layout-spec changes — the new `@binding(5)` line was the entire layout-side change.
+- **Critical bug caught**: first attempt used `Du=1.0, Dv=0.5, dt=1.0` (informally remembered from Wikipedia). With those values, the explicit Euler integrator is unstable past iter ~20 — the Laplacian's ×4-neighbor swing exceeds the stability bound, U/V values blow past saturation into NaN. NaN flowed through writeBuffer onto the GPU, made `d = d - NaN * rdDepth` return NaN inside the SDF, and **the entire surface vanished — the render came back empty grid**. Fixed by switching to **Pearson's classical params: Du=0.16, Dv=0.08**. Stability lesson: never trust un-cited diffusion coefficients; the well-known stable presets exist for a reason.
+- **Diagnostic methodology**: when the RD spec rendered empty grid, swapped to a known-good brick-only spec (no RD) — that worked, isolating the bug to the RD code path. Ruled out plumbing (binding, layout) by elimination. Then suspected NaN → reasoned about the diffusion stability bound → fixed → next render showed coral. ~2 spec swaps from "broken" to "fixed" without needing browser console access.
+- **Test scene**: rd_coral_v2_fixed_du — 60×60×6mm slab with rdDepth=0.0015, rdDensity=14, F/k=0.055/0.062 (coral preset), 2000 iters, seed=7. Render shows ~6-8 coral spots scattered across the front face, each ~5-10mm wide, with characteristic intricate amoeba-boundary topology. Side view shows clear 3D protrusion (~1.5mm raised). Iso shows depth and pattern compositing cleanly.
+- **One-field-per-scene constraint**: shared rdFieldBuffer means one F/k bake at a time. Each prim with rdDepth > 0 samples the same field at its own density/depth, but the F/k that defines the PATTERN is set by the FIRST RD prim found in spec.primitives. Acceptable for first cut; future iters could move to multi-field via array<array<f32, GRID²>, MAX_FIELDS> or per-prim baked atlases.
+- **Library state**: 18 primary deformers (12 color-aware: 9, 10, 12, 13, 15, 16, 17, 18, 21, 22, 23, 24, 25, **27**) + 4 wear deformers + 6 path-gen modes + astar matrix + 3 path profiles + meander + taper + accentSlot.
+- **Family map updated**:
+  - Organic-irregular: bumps, scales, voronoiCracks, ridges
+  - Organic-natural: cracks, pits, veins
+  - Directional: grain, streaks, scratches, chevrons
+  - Periodic: hex, brick, dimples, studs
+  - Radial: whorl
+  - Periodic-organic: fishscale
+  - Two-axis raised: weave
+  - **Emergent: reaction-diffusion (Gray-Scott)** ← new family. First non-analytical deformer — pattern emerges from rule iteration, not from a closed-form expression.
+- **Architectural milestone**: this iter is the first to add new GPU storage binding to the raymarch pipeline. The pattern is now established — future iters needing precomputed fields (e.g., voronoi-region tables, signed distance maps for arbitrary glyphs, custom palette atlases) can copy the rdFieldBuffer pattern: createBuffer at init, default-zero fill, setX() public method, bind group entry. Auto-derived layout means no explicit layout maintenance.
+- **Iter 32 candidates**:
+  - **Other RD presets validated** — brain (0.040, 0.060), zebra (0.020, 0.060), leopard (0.025, 0.060). Different F/k same architecture; just pick presets to confirm visual range. Cheap iter.
+  - **RD on a path-gen carved surface** — apply RD to a prim that ALSO has a chebyshev pipe carved into it. Visual: coral wall with mechanical pipework. Tests deformer composition (path-gen pathCarves are separate prims, RD is on parent — should naturally compose).
+  - **Per-prim independent RD fields**: extend rdFieldBuffer from `array<f32, 128²>` to `array<f32, 128² × MAX_RD_PRIMS>` and index by per-prim `rdFieldIdx`. Allows multiple RD-deformed prims in one scene with different F/k. ~30 LoC.
+  - **RD wear overlay**: wire RD into the secondary wear-deformer slot (currently FBM-only modes 1-4). Coral-textured rust on a brick wall, brain-fold detail on a face. ~10 LoC + new wearFn ID.

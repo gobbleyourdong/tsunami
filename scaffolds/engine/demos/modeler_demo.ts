@@ -190,6 +190,41 @@ interface ModelerPrim {
   fishscaleDepth?: number
   /** Fishscale density (rows per meter). */
   fishscaleDensity?: number
+  /** Reaction-diffusion (Gray-Scott) deformer depth (m). When > 0, prim
+   *  surface is displaced by a CPU-baked Gray-Scott V-channel field. High V
+   *  = raised features (coral spots, brain ridges, zebra stripes). Pattern
+   *  is emergent from F (feed) and k (kill) tuning — analytical deformers
+   *  can't produce it. Bake runs once at spec ingest (~50ms for default
+   *  iterations on 128²); never per-frame. ONE shared field per scene (the
+   *  first RD prim's F/k/iters/seed wins; subsequent RD prims sample the
+   *  same field at their own density/depth). */
+  rdDepth?: number
+  /** RD density (tiles-per-meter). Lower = larger pattern features.
+   *  Default 12 ≈ one full tile per ~80mm — matches typical facade/panel
+   *  authoring scale. Higher densities tile the pattern more, useful for
+   *  small accessory props. */
+  rdDensity?: number
+  /** RD feed rate F. Tunable parameter of Gray-Scott. Combined with k,
+   *  picks the pattern: coral=0.055, brain=0.040, zebra=0.020,
+   *  leopard=0.025, spots=0.014, chaos=0.026. Default 0.055 (coral).
+   *  Explicit value overrides any rdPreset selection. */
+  rdFeed?: number
+  /** RD kill rate k. See rdFeed for presets. Default 0.062 (coral).
+   *  Explicit value overrides any rdPreset selection. */
+  rdKill?: number
+  /** Named RD pattern preset. Convenience over manual F/k tuning — picks
+   *  a (F, k) pair from a curated lookup. Use this for legibility ("coral"
+   *  beats "0.055/0.062"); use rdFeed/rdKill explicitly only when you want
+   *  to deviate from a named preset. Explicit rdFeed/rdKill override the
+   *  preset's mapping at any time. */
+  rdPreset?: 'coral' | 'brain' | 'zebra' | 'leopard' | 'spots' | 'chaos' | 'fingerprint' | 'flower'
+  /** RD iteration count. ~1500-3000 is the settled-pattern range; lower
+   *  values give half-formed transient patterns (sometimes more interesting
+   *  than steady-state). Default 2000. */
+  rdIterations?: number
+  /** RD initial-condition seed. Same seed = same starting V perturbation
+   *  pattern = same final field (deterministic). Default 1. */
+  rdSeed?: number
   /** Weave depth (m). Two-axis over-under fabric pattern — horizontal and
    *  vertical strands raise alternately based on cell parity. Use cases:
    *  woven fabric, basket weave, cane, mesh, chainmail, woven grass mat. */
@@ -214,12 +249,22 @@ interface ModelerPrim {
    *  peaks). Set to override per-prim. */
   accentSlot?: number
   /** Path-based carves. List of waypoint segments; each expands into a
-   *  thin subtractive box. Author manually OR via crackPathGen (auto). */
+   *  thin box that either subtracts from the parent (carved trench, default)
+   *  or adds to it (raised tube). Author manually OR via crackPathGen (auto). */
   pathCarves?: Array<{
     from: Vec3
     to: Vec3
     thickness?: number
     depth?: number
+    /** When true, segment ADDS to parent (raised tube/pipe/conduit). When
+     *  false/omitted, segment SUBTRACTS (carved trench, original behavior). */
+    raise?: boolean
+    /** Geometry kind. 'segment' (default) = roundedBox along from→to —
+     *  the standard tube/trench shape. 'joint' = sphere at `from` with
+     *  radius=thickness, ignores `to` — used at T-junction connection
+     *  points so branches read as engineered fittings rather than two
+     *  paths crossing. */
+    kind?: 'segment' | 'joint'
   }>
   /** Auto-generate a branching crack path. Modeler routes a path from
    *  start to end. `mode='walk'` uses a seeded random walk with jitter
@@ -276,6 +321,14 @@ interface ModelerPrim {
     gridRes?: number
     /** A*: weight on noise cost (higher = paths bend harder around weakness). */
     noiseWeight?: number
+    /** A*: distance metric.
+     *  'euclidean' (default) = 8-neighbor with diagonal cost √2; smooth post-pass.
+     *  'manhattan' = 4-neighbor (orthogonal only). Heuristic |dx|+|dy|.
+     *      Right-angle paths only — street-grid / wiring-trunk look. NO smooth.
+     *  'chebyshev' = 8-neighbor, diagonal cost = orthogonal cost. Heuristic
+     *      max(|dx|,|dy|). 45°-preferring paths — PCB traces, mechanical
+     *      conduits, sci-fi pipework. NO smooth. */
+    metric?: 'euclidean' | 'manhattan' | 'chebyshev'
     /** Half-width of trenches (m). */
     thickness?: number
     /** Penetration depth (m). */
@@ -296,6 +349,25 @@ interface ModelerPrim {
      *  along path. Lightning naturally tapers from cloud→strike; vines taper
      *  from stem→tip. Branches inherit a steeper taper. */
     taper?: number
+    /** Polarity. false (default) = subtractive carved trenches (cracks,
+     *  streets, channels). true = additive raised tubes (pipes, conduits,
+     *  cables, wires, mechanical traces). Same path-gen, opposite blend. */
+    raise?: boolean
+    /** A*-only: spawn N perpendicular T-junction branches off the main
+     *  spine. Each branch is a sub-A* from a random main-path waypoint
+     *  to a grid-snapped perpendicular endpoint, with thickness/depth
+     *  scaled down to 60% / 85% so it reads as a side-branch. Branches
+     *  inherit metric, raise polarity, profile, and noiseWeight from the
+     *  parent. Use cases: T-fittings on raised pipework, side-streets on
+     *  manhattan grids, tributary cracks on euclidean weak-material paths.
+     *  Default 0. Cap 8 to bound prim explosion. */
+    astarBranches?: number
+    /** A*-only: emit `kind:'joint'` sphere caps at the path's start and
+     *  end waypoints. Default = same as `raise`: raised pipes get capped
+     *  ends (so they read as terminated rather than clipped); carved
+     *  trenches don't (extra pits at endpoints look like accidents).
+     *  Override explicitly to force on/off. */
+    endCaps?: boolean
     /** Lightning recursion depth (# of midpoint-displacement passes).
      *  Each pass doubles segment count. 5–7 is a good range; >8 → diminishing
      *  visual returns and quadratic cost. Default 6. */
@@ -635,7 +707,7 @@ function generateCrackPath(opts: NonNullable<ModelerPrim['crackPathGen']>): NonN
 
   // Spine segments via profile-aware emitter (river → dual-layer U).
   const out: NonNullable<ModelerPrim['pathCarves']> = []
-  out.push(...emitCarvesFromPath(smoothSpine, thickness, depth, opts.profile, opts.taper))
+  out.push(...emitCarvesFromPath(smoothSpine, thickness, depth, opts.profile, opts.taper, opts.raise))
 
   // Optional branches off the spine waypoints (always single-layer 'crack'
   // even when main path is 'river' — branches are tributaries / hairlines).
@@ -655,6 +727,7 @@ function generateCrackPath(opts: NonNullable<ModelerPrim['crackPathGen']>): NonN
         from: spine[i], to: branchEnd,
         ...(thickness !== undefined ? { thickness } : {}),
         ...(depth !== undefined ? { depth } : {}),
+        ...(opts.raise ? { raise: true } : {}),
       })
     }
   }
@@ -748,12 +821,14 @@ function emitCarvesFromPath(
   depth: number | undefined,
   profile: 'crack' | 'river' | 'channel' | undefined,
   taper: number | undefined,
+  raise: boolean | undefined = false,
 ): NonNullable<ModelerPrim['pathCarves']> {
   const out: NonNullable<ModelerPrim['pathCarves']> = []
   const t = thickness ?? 0.0008
   const d = depth ?? 0.010
   const tap = taper ?? 0
   const n = wp.length - 1
+  const r = raise ? { raise: true } : {}
   for (let i = 0; i < n; i++) {
     // Linear taper: scale at midpoint of segment i = lerp(1, 1-tap, mid/n).
     const u = (i + 0.5) / Math.max(1, n)
@@ -762,12 +837,12 @@ function emitCarvesFromPath(
     const tk = t * k
     const dk = d * k
     if (profile === 'river') {
-      out.push({ from: wp[i], to: wp[i + 1], thickness: tk * 3.0, depth: dk * 0.4 })
-      out.push({ from: wp[i], to: wp[i + 1], thickness: tk * 0.7, depth: dk })
+      out.push({ from: wp[i], to: wp[i + 1], thickness: tk * 3.0, depth: dk * 0.4, ...r })
+      out.push({ from: wp[i], to: wp[i + 1], thickness: tk * 0.7, depth: dk, ...r })
     } else if (profile === 'channel') {
-      out.push({ from: wp[i], to: wp[i + 1], thickness: tk * 2.0, depth: dk })
+      out.push({ from: wp[i], to: wp[i + 1], thickness: tk * 2.0, depth: dk, ...r })
     } else {
-      out.push({ from: wp[i], to: wp[i + 1], thickness: tk, depth: dk })
+      out.push({ from: wp[i], to: wp[i + 1], thickness: tk, depth: dk, ...r })
     }
   }
   return out
@@ -828,7 +903,7 @@ function generateLightningPath(
   // Final main-bolt waypoints (in order along path).
   const wp: Vec3[] = [segs[0][0]]
   for (const [, b] of segs) wp.push(b)
-  const out = emitCarvesFromPath(wp, thickness, segDepth, profile, taper)
+  const out = emitCarvesFromPath(wp, thickness, segDepth, profile, taper, opts.raise)
 
   // Branches: each is a smaller, jaggier sub-bolt. Use shorter range, steeper
   // taper, half the input thickness/depth.
@@ -903,6 +978,7 @@ function generateTreePath(
       to: [end[0], end[1], z0],
       thickness: baseT * taperK,
       depth: baseD * taperK,
+      ...(opts.raise ? { raise: true } : {}),
     })
     // Spawn child branches from `end`, splayed ±branchAngle.
     // For 2 branches: ±half-angle. For 3+: even spread across full ±range.
@@ -938,7 +1014,7 @@ function generateTreePath(
     for (const c of out) {
       reEmit.push(...emitCarvesFromPath(
         [c.from, c.to],
-        c.thickness, c.depth, profile, 0,
+        c.thickness, c.depth, profile, 0, opts.raise,
       ))
     }
     return reEmit
@@ -996,7 +1072,7 @@ function generateTendrilPath(
     ]
     wp.push(pos)
   }
-  return emitCarvesFromPath(wp, baseT, baseD, profile, taper)
+  return emitCarvesFromPath(wp, baseT, baseD, profile, taper, opts.raise)
 }
 
 /** Grid-based A* path-find from start to end through a noise cost field.
@@ -1038,15 +1114,25 @@ function generateAStarPath(opts: NonNullable<ModelerPrim['crackPathGen']>): NonN
   const [sx, sy] = worldToGrid(opts.start[0], opts.start[1])
   const [tx, ty] = worldToGrid(opts.end[0], opts.end[1])
   const idx = (x: number, y: number): number => y * grid + x
-  // A*
+  // A* — neighbor topology + heuristic + diagonal-step cost all driven by metric.
+  // Manhattan = 4-neighbor (right-angle paths only). Chebyshev = 8-neighbor with
+  // diagonal cost == orthogonal (45°-preferring). Euclidean = 8-neighbor √2 cost.
+  const metric = opts.metric ?? 'euclidean'
+  const NEIGHBORS = metric === 'manhattan'
+    ? [[1,0],[-1,0],[0,1],[0,-1]]
+    : [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
+  const diagCost = metric === 'chebyshev' ? 1.0 : 1.414
+  const heuristic = metric === 'manhattan'
+    ? (x: number, y: number): number => Math.abs(x - tx) + Math.abs(y - ty)
+    : metric === 'chebyshev'
+      ? (x: number, y: number): number => Math.max(Math.abs(x - tx), Math.abs(y - ty))
+      : (x: number, y: number): number => Math.hypot(x - tx, y - ty)
   const cameFrom = new Map<number, number>()
   const gScore = new Map<number, number>()
   const fScore = new Map<number, number>()
-  const heuristic = (x: number, y: number): number => Math.hypot(x - tx, y - ty)
   gScore.set(idx(sx, sy), 0)
   fScore.set(idx(sx, sy), heuristic(sx, sy))
   const open: Array<[number, number]> = [[idx(sx, sy), heuristic(sx, sy)]]
-  const NEIGHBORS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
   let foundEnd = -1
   while (open.length > 0) {
     // Pop lowest f-score
@@ -1059,7 +1145,7 @@ function generateAStarPath(opts: NonNullable<ModelerPrim['crackPathGen']>): NonN
       const nx = cx + ddx, ny = cy + ddy
       if (nx < 0 || ny < 0 || nx >= grid || ny >= grid) continue
       const ni = idx(nx, ny)
-      const stepLen = (ddx !== 0 && ddy !== 0) ? 1.414 : 1.0
+      const stepLen = (ddx !== 0 && ddy !== 0) ? diagCost : 1.0
       const stepCost = costAt(nx, ny) * stepLen
       const tentativeG = (gScore.get(cur) ?? Infinity) + stepCost
       if (tentativeG < (gScore.get(ni) ?? Infinity)) {
@@ -1090,21 +1176,118 @@ function generateAStarPath(opts: NonNullable<ModelerPrim['crackPathGen']>): NonN
   // straightens the meandering. Sample 3 sub-points per segment.
   // 3 sub-points per segment was visibly smooth but ~3× the prim count of
   // the raw A* path. 2 reads almost identical and halves the live cost.
-  wp = smoothPath(wp, 2)
+  // Manhattan/Chebyshev paths are kept ANGULAR — smoothing would round off
+  // the right-angle corners that ARE the visual signature.
+  if (metric === 'euclidean') wp = smoothPath(wp, 2)
   // Optional sinusoidal meander on top of the smoothed path.
   if (opts.meander && opts.meander > 0) {
     wp = meanderPath(wp, opts.meander, opts.meanderFreq ?? 3)
   }
-  return emitCarvesFromPath(wp, thickness, depth, opts.profile, opts.taper)
+  const main = emitCarvesFromPath(wp, thickness, depth, opts.profile, opts.taper, opts.raise)
+
+  // Optional endpoint caps. Default-on for raised paths (pipes need to
+  // terminate visibly); default-off for carved (extra pits at trench ends
+  // read as accidents). Reuses the joint sphere geometry from iter 29.
+  const endCaps = opts.endCaps ?? !!opts.raise
+  if (endCaps && wp.length >= 2) {
+    const tubeT = thickness ?? 0.0018
+    const tubeD = depth ?? 0.003
+    const capR = Math.max(tubeT * 2.5, tubeD * 2.0)
+    for (const pt of [wp[0], wp[wp.length - 1]]) {
+      main.push({
+        from: pt,
+        to: pt,
+        thickness: capR,
+        depth: tubeD,
+        kind: 'joint',
+        ...(opts.raise ? { raise: true } : {}),
+      })
+    }
+  }
+
+  // Optional T-junction branches off the main spine. Each branch picks a
+  // random INTERIOR waypoint, computes the local tangent via central
+  // difference, projects perpendicular by a random length (40-70% of
+  // main bbox diagonal), then runs a sub-A* from waypoint → projected end.
+  // Recurses with branches=0 so we don't get a fractal explosion.
+  const branchCount = Math.max(0, Math.min(8, opts.astarBranches ?? 0))
+  if (branchCount > 0 && wp.length > 4) {
+    const bRng = makeRng(seed ^ 0x9e3779b1)
+    const mainLen = Math.hypot(opts.end[0] - opts.start[0], opts.end[1] - opts.start[1]) || 0.04
+    const bThickness = thickness !== undefined ? thickness * 0.6 : undefined
+    const bDepth = depth !== undefined ? depth * 0.85 : undefined
+    const usedWp = new Set<number>()
+    for (let b = 0; b < branchCount; b++) {
+      // Random interior waypoint (not endpoints — endpoint branches look detached)
+      let wpIdx = -1
+      for (let tries = 0; tries < 8; tries++) {
+        const cand = 1 + Math.floor(bRng() * (wp.length - 2))
+        if (!usedWp.has(cand)) { wpIdx = cand; break }
+      }
+      if (wpIdx < 0) wpIdx = 1 + Math.floor(bRng() * (wp.length - 2))
+      usedWp.add(wpIdx)
+      const branchStart = wp[wpIdx]
+      // Local tangent: central difference
+      const wPrev = wp[wpIdx - 1]
+      const wNext = wp[wpIdx + 1]
+      const tnx = wNext[0] - wPrev[0]
+      const tny = wNext[1] - wPrev[1]
+      const tlen = Math.hypot(tnx, tny) || 1
+      // Perpendicular in XY, random side
+      const side = bRng() < 0.5 ? -1 : 1
+      const px = (-tny / tlen) * side
+      const py = (tnx / tlen) * side
+      // Branch length 30-60% of main bbox diagonal
+      const bLen = mainLen * (0.3 + bRng() * 0.3)
+      const branchEnd: Vec3 = [
+        branchStart[0] + px * bLen,
+        branchStart[1] + py * bLen,
+        branchStart[2],
+      ]
+      const subOpts: NonNullable<ModelerPrim['crackPathGen']> = {
+        ...opts,
+        start: branchStart,
+        end: branchEnd,
+        seed: (opts.seed ?? 1) + (b + 1) * 1000,
+        astarBranches: 0,                       // no recursive branching
+        thickness: bThickness,
+        depth: bDepth,
+      }
+      main.push(...generateAStarPath(subOpts))
+      // Engineered-fitting joint at the branch connection point. Sphere
+      // radius must exceed pipe depth or the sphere stays buried inside
+      // the tube/trench union and contributes nothing visually. Take the
+      // max of (1.5× thickness, 1.2× depth) so the joint always bulges
+      // above the spine. Inherits raise polarity → raised T-fitting /
+      // carved sinkhole.
+      const tubeT = thickness ?? 0.0018
+      const tubeD = depth ?? 0.003
+      // 2.5× / 2.0× empirically gives joints that read as distinct fittings
+      // rather than dissolving into the spine. Lower multipliers (1.5×/1.2×)
+      // produced bumps inside the pipe's smooth-union envelope — invisible.
+      const jointR = Math.max(tubeT * 2.5, tubeD * 2.0)
+      main.push({
+        from: branchStart,
+        to: branchStart,
+        thickness: jointR,
+        depth: tubeD,
+        kind: 'joint',
+        ...(opts.raise ? { raise: true } : {}),
+      })
+    }
+  }
+  return main
 }
 
-/** Expand a list of path-segments into subtractive box prims that carve
- *  trenches along each segment. Used as a proto for A*-routed cracks:
- *  the waypoints are generated externally (manual, A*, random walk),
- *  this function builds the geometry. Each segment becomes a thin box
- *  rotated to align its long axis (local Y) with the segment direction
- *  (XY plane only — Z direction is currently flat). The boxes inherit
- *  the parent prim's blendGroup and use a small negative blendRadius. */
+/** Expand a list of path-segments into box prims that either carve trenches
+ *  (default) or extrude raised tubes (when c.raise is true) along each
+ *  segment. The waypoints are generated externally (manual, A*, random walk,
+ *  lightning, tree, tendril); this function builds the geometry. Each
+ *  segment becomes a thin box rotated to align its long axis (local Y) with
+ *  the segment direction (XY plane only — Z direction is currently flat).
+ *  The boxes inherit the parent prim's blendGroup; blendRadius is negative
+ *  for carves (smooth subtraction), positive for raised tubes (smooth
+ *  union — small fillet at wall-tube interface). */
 function expandPathCarves(
   parent: RaymarchPrimitive,
   carves: NonNullable<ModelerPrim['pathCarves']>,
@@ -1112,6 +1295,25 @@ function expandPathCarves(
   const out: RaymarchPrimitive[] = []
   for (let i = 0; i < carves.length; i++) {
     const c = carves[i]
+    if (c.kind === 'joint') {
+      // Sphere fitting at c.from. Radius = thickness; ignores c.to.
+      // T-junction connection points so branches read as engineered
+      // fittings rather than two paths crossing.
+      const r = c.thickness ?? 0.0008
+      out.push({
+        type: 0,                                       // sphere
+        paletteSlot: 0,
+        boneIdx: 0,
+        params: [r, 0, 0, 0],
+        offsetInBone: [c.from[0], c.from[1], c.from[2]],
+        blendGroup: parent.blendGroup ?? 1,
+        // Slightly tighter blend than segments so the joint reads as a
+        // distinct bulb rather than melting fully into the spine.
+        blendRadius: c.raise ? 0.0015 : -0.0015,
+        rotation: [0, 0, 0, 1],
+      })
+      continue
+    }
     const dx = c.to[0] - c.from[0]
     const dy = c.to[1] - c.from[1]
     const dz = c.to[2] - c.from[2]
@@ -1137,11 +1339,115 @@ function expandPathCarves(
       params: [thickness, len * 0.5 + overlap, depth, thickness * 0.9],
       offsetInBone: [cx, cy, cz],
       blendGroup: parent.blendGroup ?? 1,
-      blendRadius: -0.002,                            // subtract from parent group
+      // Carves subtract (-0.002), raised tubes add (+0.002 fillet at the
+      // wall-tube join). Same magnitude → predictable visual weight.
+      blendRadius: c.raise ? 0.002 : -0.002,
       rotation: quat,
     })
   }
   return out
+}
+
+// --- Reaction-diffusion (Gray-Scott) CPU bake ----------------------------
+
+const RD_GRID_SIZE = 128 // must match raymarch_renderer's RD_GRID
+
+/** Named Gray-Scott (F, k) presets. Lifted from Pearson 1993 + community-
+ *  curated ranges. Each pattern emerges only inside a narrow F/k band — the
+ *  presets pick a stable point inside each band. Authors who want
+ *  experimental drift override via rdFeed/rdKill explicitly. */
+const RD_PRESETS = {
+  coral:       [0.055, 0.062],   // discrete amoeba spots, intricate boundaries
+  brain:       [0.040, 0.060],   // maze-like worm-loops (brain-coral)
+  zebra:       [0.020, 0.060],   // long parallel stripes
+  leopard:     [0.025, 0.060],   // larger scattered spots, less intricate than coral
+  spots:       [0.014, 0.054],   // small bright pinpricks on dark
+  chaos:       [0.026, 0.051],   // unstable mixture, never settles
+  fingerprint: [0.038, 0.061],   // ridges + bifurcations, near-brain but tighter
+  flower:      [0.062, 0.061],   // hex-packed bulbs, almost periodic
+} as const satisfies Record<string, readonly [number, number]>
+
+interface RDBakeOpts { feed: number; kill: number; iterations: number; seed: number }
+
+/** Cached last bake — keyed on opts. Avoids re-computing if spec re-ingests
+ *  with the same parameters (typical when authoring non-RD prims). */
+let rdBakeCache: { key: string; field: Float32Array } | null = null
+
+/** Run N iterations of the Gray-Scott reaction-diffusion model on a
+ *  RD_GRID²-sized 2D field. Returns the V channel, normalised so that the
+ *  highest value in the field maps to ~1.0 (the deformer expects roughly
+ *  [0, 1]). Toroidal boundaries (wraps), so the field tiles cleanly.
+ *
+ *  Gray-Scott classical setup: U + 2V → 3V (V eats U via autocatalysis),
+ *  V → P (V decays to inert P at rate k+F). Initial conditions: U=1, V=0
+ *  everywhere except a small seed patch where V=0.5. Standard Du=1, Dv=0.5
+ *  diffusion-coefficient ratio. dt=1, 5-point Laplacian.
+ *
+ *  Param presets (F, k):
+ *    coral    = (0.055, 0.062)
+ *    brain    = (0.040, 0.060)
+ *    zebra    = (0.020, 0.060)
+ *    leopard  = (0.025, 0.060)
+ *    spots    = (0.014, 0.054)
+ *    chaos    = (0.026, 0.051) */
+function bakeReactionDiffusion(opts: RDBakeOpts): Float32Array {
+  const key = `${opts.feed}|${opts.kill}|${opts.iterations}|${opts.seed}`
+  if (rdBakeCache && rdBakeCache.key === key) return rdBakeCache.field
+
+  const N = RD_GRID_SIZE
+  // Pearson's classical params (1993). Du=0.16, Dv=0.08 with dt=1.0 keeps
+  // the explicit Euler integration stable. With Du=1.0 the 5-point
+  // Laplacian's swing (×4 neighbor count) blows past the dt=1 stability
+  // bound, producing NaN — and NaN propagates to the GPU buffer, making
+  // d = d - NaN*amp return NaN and the surface vanishes.
+  const Du = 0.16, Dv = 0.08, dt = 1.0
+  const F = opts.feed, k = opts.kill
+  const iters = Math.max(50, Math.min(8000, opts.iterations | 0))
+
+  // Double buffers. U starts at 1.0, V at 0.0 (steady state).
+  let U = new Float32Array(N * N).fill(1.0)
+  let V = new Float32Array(N * N).fill(0.0)
+  let U2 = new Float32Array(N * N)
+  let V2 = new Float32Array(N * N)
+
+  // Seed: random ~5% of cells get a V-perturbation. Deterministic from seed.
+  const rand = makeRng(opts.seed)
+  for (let i = 0; i < N * N; i++) {
+    if (rand() < 0.05) { U[i] = 0.5; V[i] = 0.25 + rand() * 0.25 }
+  }
+
+  // Update loop. 5-point Laplacian with toroidal wraps.
+  for (let it = 0; it < iters; it++) {
+    for (let y = 0; y < N; y++) {
+      const yp = (y - 1 + N) % N, yn = (y + 1) % N
+      const yRow = y * N, ypRow = yp * N, ynRow = yn * N
+      for (let x = 0; x < N; x++) {
+        const xp = (x - 1 + N) % N, xn = (x + 1) % N
+        const i = yRow + x
+        const Ucenter = U[i], Vcenter = V[i]
+        // 5-point Laplacian: 4 neighbors - 4×center.
+        const Lu = U[yRow + xp] + U[yRow + xn] + U[ypRow + x] + U[ynRow + x] - 4 * Ucenter
+        const Lv = V[yRow + xp] + V[yRow + xn] + V[ypRow + x] + V[ynRow + x] - 4 * Vcenter
+        const reac = Ucenter * Vcenter * Vcenter
+        U2[i] = Ucenter + dt * (Du * Lu - reac + F * (1 - Ucenter))
+        V2[i] = Vcenter + dt * (Dv * Lv + reac - (k + F) * Vcenter)
+      }
+    }
+    // Swap.
+    const tU = U, tV = V
+    U = U2; V = V2; U2 = tU; V2 = tV
+  }
+
+  // Normalize V to ~[0, 1] so the deformer's amplitude reads predictably.
+  let vMax = 0
+  for (let i = 0; i < V.length; i++) if (V[i] > vMax) vMax = V[i]
+  if (vMax > 1e-4) {
+    const scale = 1 / vMax
+    for (let i = 0; i < V.length; i++) V[i] *= scale
+  }
+
+  rdBakeCache = { key, field: V }
+  return V
 }
 
 // --- Spec -> prims --------------------------------------------------------
@@ -1276,6 +1582,14 @@ function specToPrims(spec: ModelerSpec): RaymarchPrimitive[] {
       prim.detailAmplitude = p.weaveDepth
       prim.paletteSlotB = p.accentSlot ?? 1
       prim.colorExtent = p.weaveDensity ?? 22
+    } else if (p.rdDepth && p.rdDepth > 0) {
+      // reaction-diffusion (colorFunc=27) — RAISED peaks (high V), accent
+      // slot picks coral/spot color. Field is shared globally per scene
+      // (one bake) — first RD prim's F/k/iters/seed wins.
+      prim.colorFunc = 27
+      prim.detailAmplitude = p.rdDepth
+      prim.paletteSlotB = p.accentSlot ?? 2
+      prim.colorExtent = p.rdDensity ?? 12
     }
     // Secondary wear deformer (optional, runs AFTER the primary).
     if (p.wearDeformer && p.wearDeformer.depth > 0) {
@@ -1671,10 +1985,11 @@ async function main() {
   let displayMode: DisplayMode = 'agent'
 
   // Per-panel resolution. Atlas (agent mode) is 2×renderRes × 2×renderRes.
-  // 192 is the pragmatic point: sharp enough for agent vision (encoders
-  // downsample to ~384 anyway), 44% cheaper than 256. Drop to 128 for
-  // older hardware via the res buttons in the sidebar.
-  let renderRes = 192
+  // 384 → 768² atlas. Headless GB10 has plenty of GPU headroom, and the
+  // sharper render makes pixel-scale features (brick mortar, T-junction
+  // joints, fine cracks) actually readable. Drop to 192/128 via the res
+  // buttons in the sidebar if running on older hardware.
+  let renderRes = 384
 
   /** Per-frame view+proj matrices for the agent atlas. Computed each frame
    *  because scene bounds (and thus distance) can change as the spec is
@@ -1902,6 +2217,15 @@ async function main() {
         norm.fishscaleDepth = p.fishscaleDepth
         if (typeof p.fishscaleDensity === 'number') norm.fishscaleDensity = p.fishscaleDensity
       }
+      if (typeof p.rdDepth === 'number' && p.rdDepth > 0) {
+        norm.rdDepth = p.rdDepth
+        if (typeof p.rdDensity === 'number') norm.rdDensity = p.rdDensity
+        if (typeof p.rdFeed === 'number') norm.rdFeed = p.rdFeed
+        if (typeof p.rdKill === 'number') norm.rdKill = p.rdKill
+        if (typeof p.rdIterations === 'number') norm.rdIterations = p.rdIterations | 0
+        if (typeof p.rdSeed === 'number') norm.rdSeed = p.rdSeed | 0
+        if (typeof p.rdPreset === 'string' && p.rdPreset in RD_PRESETS) norm.rdPreset = p.rdPreset
+      }
       if (typeof p.weaveDepth === 'number' && p.weaveDepth > 0) {
         norm.weaveDepth = p.weaveDepth
         if (typeof p.weaveDensity === 'number') norm.weaveDensity = p.weaveDensity
@@ -1926,6 +2250,8 @@ async function main() {
             to: [c.to[0] || 0, c.to[1] || 0, c.to[2] || 0] as Vec3,
             ...(typeof c.thickness === 'number' ? { thickness: c.thickness } : {}),
             ...(typeof c.depth === 'number' ? { depth: c.depth } : {}),
+            ...(c.raise === true ? { raise: true } : {}),
+            ...(c.kind === 'joint' ? { kind: 'joint' as const } : {}),
           }))
         if (!norm.pathCarves.length) delete norm.pathCarves
       }
@@ -1957,6 +2283,10 @@ async function main() {
           ...(typeof g.treeDepth === 'number' ? { treeDepth: g.treeDepth } : {}),
           ...(typeof g.tendrilSteps === 'number' ? { tendrilSteps: g.tendrilSteps } : {}),
           ...(typeof g.curlIntensity === 'number' ? { curlIntensity: g.curlIntensity } : {}),
+          ...(g.metric === 'manhattan' || g.metric === 'chebyshev' || g.metric === 'euclidean' ? { metric: g.metric } : {}),
+          ...(g.raise === true ? { raise: true } : {}),
+          ...(typeof g.astarBranches === 'number' ? { astarBranches: g.astarBranches } : {}),
+          ...(typeof g.endCaps === 'boolean' ? { endCaps: g.endCaps } : {}),
         }
       }
       if (p.repeats && Array.isArray(p.repeats)) {
@@ -1983,6 +2313,24 @@ async function main() {
       }])
     } else {
       raymarch.setPrimitives(prims)
+    }
+    // RD bake: scan spec for the first prim with rdDepth > 0 and bake its
+    // (F, k, iterations, seed). One field shared scene-wide. Skipped (no
+    // upload) when no RD prims exist — the renderer's default-zero buffer
+    // keeps the binding valid.
+    const rdPrim = spec.primitives.find((p) => typeof p.rdDepth === 'number' && p.rdDepth > 0)
+    if (rdPrim) {
+      // Resolve preset → (F, k); explicit rdFeed/rdKill always win over preset.
+      const presetFK = rdPrim.rdPreset ? RD_PRESETS[rdPrim.rdPreset] : undefined
+      const F = rdPrim.rdFeed ?? presetFK?.[0] ?? 0.055
+      const k = rdPrim.rdKill ?? presetFK?.[1] ?? 0.062
+      const field = bakeReactionDiffusion({
+        feed: F,
+        kill: k,
+        iterations: rdPrim.rdIterations ?? 2000,
+        seed: rdPrim.rdSeed ?? 1,
+      })
+      raymarch.setRDField(field)
     }
   }
 
