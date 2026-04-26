@@ -247,9 +247,16 @@ async def gamedev_probe_dispatch(project_dir: Path, task_text: str = "") -> dict
     if has_pkg and has_data:
         return await gamedev_scaffold_probe(pdir, task_text)
 
-    # Legacy path — delegate to the original probe.
-    from .gamedev_probe import gamedev_probe
-    return await gamedev_probe(pdir, task_text)
+    # Legacy path — original gamedev_probe (public/game_definition.json
+    # flow) was retired 2026-04-26 with the local-LLM-orchestrator era.
+    # If we land here it means the project doesn't have package.json +
+    # data/*.json (the new-flow markers) but also was routed to gamedev.
+    # Skip with a clear reason rather than crash on the missing import.
+    return skip(
+        "gamedev legacy probe (public/game_definition.json flow) was "
+        "retired 2026-04-26. Project doesn't match the new data-driven "
+        "flow markers (needs package.json + data/*.json)."
+    )
 
 
 __all__ = [

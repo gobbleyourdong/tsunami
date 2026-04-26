@@ -31,8 +31,11 @@ from .data_pipeline_probe import data_pipeline_probe
 from .docs_probe import docs_probe
 from .electron_probe import electron_probe
 from .extension_probe import extension_probe
-from .gamedev_probe import gamedev_probe
 from .gamedev_scaffold_probe import gamedev_probe_dispatch
+# Note: legacy gamedev_probe (public/game_definition.json flow) was
+# nuked 2026-04-26. gamedev_probe_dispatch falls through to a no-op
+# skip when the legacy markers are present (since the legacy probe is
+# gone). All current gamedev builds use the new data-driven flow.
 from .infra_probe import infra_probe
 from .mobile_probe import mobile_probe
 from .openapi_probe import openapi_probe
@@ -86,9 +89,10 @@ _PROBES = {
     # build. Requires config OR docs/ tree + content pages + homepage.
     "docs":             docs_probe,
 }
-# Direct handle to the legacy probe for callers that want to bypass the
-# scaffold router (introspection + tests).
-_gamedev_probe_legacy = gamedev_probe
+# Direct handle to the legacy probe was retired with gamedev_probe.py
+# itself in iter 14 (2026-04-26). Kept as None for any caller that
+# still introspects the symbol.
+_gamedev_probe_legacy = None
 
 
 def detect_scaffold(project_dir: Path) -> str | None:
