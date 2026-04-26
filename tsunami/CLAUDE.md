@@ -117,6 +117,15 @@ For ALL games: read `plan_scaffolds/gamedev.md` first (applies to every genre �
 
 For metroidvania specifically: prefer `gamedev/cross/metroid_runs/` (concrete scaffold) over `gamedev/custom/` + `genre_scaffolds/metroidvania.md` (which is the plan template fallback). Both work — metroid_runs gives you a head-start.
 
+**Engine asset library — useful for ALL game builds.** `../scaffolds/engine/`
+ships with substantial reusable resources you should pull from rather than
+generating new:
+- `engine/asset_library/{animations, autotile_masks, dialogue_portrait, entities, iso_character}/` — 4.4 MB of pre-made game assets
+- `engine/asset_workflows/{autotile_47_masks, dialogue_portrait, effect_custom, iso_character, _common}/` — 2.8 MB of asset-generation workflows
+- `engine/assets/sprites/` + `engine/assets/manifest.json` — runtime sprite manifest
+- `engine/demos/` — working WebGPU demos (atlas_runtime, modeler_demo, etc.) — see them work to know what's possible
+- `engine/tools/{build_sprites.py, font_bake.py, game_from_text.py, generate_asset.py}` — sprite-building + font-baking + text-to-game tools (note: `generate_asset.py` may be image-gen-deferred per "Generations TBD")
+
 **Important:** The actual `gamedev/` subdirs are exactly: `action_adventure,
 beat_em_up, cross, custom, fighting, fps, jrpg, platformer, racing, stealth`.
 **If the user asks for a genre that isn't one of those (metroidvania, jrpg-atb,
