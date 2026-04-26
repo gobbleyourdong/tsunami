@@ -65,13 +65,25 @@ to apply for visuals, and which undertow_scaffold to use for QA.
 | "REST API", "no UI", "OpenAPI spec" | `api-only` | `plan_scaffolds/api-only.md` | `core/openapi_probe.py` (handler-vs-spec) |
 | "Chrome extension", "browser plugin" | `chrome-extension` | `plan_scaffolds/chrome-extension.md` | `core/extension_probe.py` (load-unpacked) |
 | "Electron desktop app" | `electron-app` | `plan_scaffolds/electron-app.md` | `core/electron_probe.py` (build + artifact check) |
-| "CLI tool" | `cli` | (light) | `core/cli_probe.py` |
-| "mobile app" | `mobile` | (light) | `core/mobile_probe.py` |
-| "infrastructure / deploy" | `infra` | (light) | `core/infra_probe.py` |
+| "CLI: config generator" | `cli/config-generator/` | (light) | `core/cli_probe.py` |
+| "CLI: data processor", "stream-processing CLI", "jq-/mlr-/csvkit-like" | `cli/data-processor/` | (light) | `core/cli_probe.py` |
+| "CLI: file converter", "format converter" | `cli/file-converter/` | (light) | `core/cli_probe.py` |
+| "mobile chat app", "messaging app" | `mobile/chat/` | (light) | `core/mobile_probe.py` |
+| "mobile notes app" | `mobile/notes/` | (light) | `core/mobile_probe.py` |
+| "blog", "post list + detail + tags" | `web/blog/` | (light) | `core/docs_probe.py` |
+| "docs / static documentation site" | `web/docs-site/` | (light) | `core/docs_probe.py` |
+| "ecommerce", "online store" | `web/ecommerce/` | (light) | `core/docs_probe.py` |
+| "docker-compose", "container infra" | `infra/docker-compose/` | (light) | `core/infra_probe.py` |
 | "data pipeline" | (custom) | (custom) | `core/data_pipeline_probe.py` |
-| "docs / static site" | (custom) | (custom) | `core/docs_probe.py` |
 | "WebSocket / SSE backend" | (custom) | (custom) | `core/ws_probe.py` / `core/sse_probe.py` |
-| "training run" | `training` | (light, deferred) | `core/training_probe.py` |
+| "finetune recipe", "training run" (rare — image/text gen deferred per "Generations TBD") | `training/finetune-recipe/` | (light) | `core/training_probe.py` |
+
+**Important: lighter scaffolds are CATEGORIES, not single templates.**
+The 10 specific sub-scaffold paths above are the actual buildable
+templates. Each has its own `README.md` with a Pitch + Quick Start.
+Read it. CLAUDE.md prior to v3.25 treated `cli/`, `mobile/`, `web/`,
+`infra/`, `training/` as single templates and missed the 10 concrete
+sub-scaffolds inside.
 
 ### Games
 
@@ -188,8 +200,11 @@ calling functions:
      **game**, **gamedev**: no `__fixtures__/` dir. Read `README.md` (these
      all have one) + `package.json` + `src/` directly. Chrome-extension
      also has `manifest.json`. Gamedev edits `data/*.json` + `src/scenes/`.
-   - **Lighter** (cli, mobile, infra, training, web): no README, no
-     fixtures. `ls` the scaffold dir and read what's there.
+   - **Lighter** (cli, mobile, infra, training, web): the top-level dir
+     is a CATEGORY (no README), but it contains 10 sub-scaffolds with
+     their own READMEs (`cli/data-processor/README.md`, `web/blog/README.md`,
+     etc. — see the "Other" table for the full enumeration). Read the
+     specific sub-scaffold's README.
 3. **Read** `plan_scaffolds/<scaffold>.md` (conventions + gotchas specific to
    that build target)
 4. **Build** by writing files in a working dir, using your own tools (Bash for
