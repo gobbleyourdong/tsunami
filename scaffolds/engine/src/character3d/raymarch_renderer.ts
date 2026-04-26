@@ -119,9 +119,12 @@ export type ColorFunc =
   | 4  // stripes: alternating slotA/slotB along primitive-local Y. colorExtent = stripes/meter
   | 5  // dots: dot grid on primitive-local XY plane. colorExtent = cell size in meters
   | 6  // checker: 3D checker in primitive-local space. colorExtent = cell size in meters
+  | 7  // chevron: V-shaped bands by |x|+y in primitive-local. colorExtent = chevrons/meter
+  | 8  // worldStripes: stripes along WORLD Y — continuous across multi-prim chains
+  | 9  // cracks: voronoi edge bands → irregular dark fracture lines on the surface. colorExtent = cells/meter
 
 export interface RaymarchPrimitive {
-  type: number             // 0..9, see header comment
+  type: number             // 0..15, see header comment + sdLineCapsule3D for type 15
   paletteSlot: number      // primary palette LUT index (slotA)
   boneIdx: number          // index into VAT buffer's per-joint matrices
   params: [number, number, number, number]
@@ -143,6 +146,17 @@ export interface RaymarchPrimitive {
    *  Positive = smooth-union (smin k = radius). Negative = smooth-subtract
    *  (smax(-d, group, k=|radius|)). Zero = hard-union into the group. */
   blendRadius?: number
+  /** When true, the group blend uses CHAMFER (Mercury hg_sdf 45° bevel)
+   *  instead of polynomial smin. Sharper edges — useful for armor /
+   *  weapons / mecha. Encoded as bit 4 of the packed blendGroup u32 in
+   *  the storage buffer; the shader masks it out for the group lookup. */
+  chamfer?: boolean
+  /** When true, this primitive is duplicated at emit time with its
+   *  offsetInBone.x sign-flipped — effectively mirroring across the
+   *  YZ plane. Halves authoring effort for symmetric features (horns,
+   *  ears, decorative trim). Expansion is a CPU pass before upload via
+   *  `expandMirrors()`; the shader sees just two regular prims. */
+  mirrorYZ?: boolean
   /** Optional rotation quaternion (x, y, z, w) applied in the primitive's
    *  local frame. Omit (or pass identity) for axis-aligned primitives.
    *  Useful for: angled weapons, tilted face features, oriented cones.
@@ -169,6 +183,60 @@ export interface RaymarchPrimitive {
    *  meant to glow with their own pre-coloured intensity. Bit-packed
    *  into colorFunc's bit 6 alongside shiny in bit 7. */
   unlit?: boolean
+  /** Optional secondary "wear" deformer that runs AFTER the primary
+   *  colorFunc deformer in evalPrim. Lets one prim layer a base structural
+   *  pattern (cracks/hex/scales/etc.) PLUS a weathering overlay (bumps for
+   *  pitting, grain for striation, streaks for drips, scratches for wear).
+   *  IDs (1-based to leave 0 as off): 1=bumps, 2=grain, 3=streaks,
+   *  4=scratches. */
+  wearFn?: 0 | 1 | 2 | 3 | 4
+  /** Wear-deformer depth (m). Same units as the primary deformer's depth. */
+  wearDepth?: number
+  /** Wear-deformer density (cycles/cells per meter). */
+  wearDensity?: number
+}
+
+/** Expand any RaymarchPrimitive with `mirrorYZ` into a pair: original
+ *  + X-flipped sibling. Other fields copy verbatim. The sibling's name
+ *  isn't needed (RaymarchPrimitive has no name field), so the shader
+ *  just sees two regular prims. Call before `setPrimitives()`.
+ *
+ *  Note: `mirrorYZ` only flips `offsetInBone.x`. If the primitive's
+ *  shape itself isn't symmetric (e.g. a quat-rotated cone or a typed
+ *  cube whose params use signed values for direction), the caller is
+ *  responsible for additional sign flips on `params` / `rotation`. */
+export function expandMirrors(prims: RaymarchPrimitive[]): RaymarchPrimitive[] {
+  const out: RaymarchPrimitive[] = []
+  for (const p of prims) {
+    out.push(p)
+    if (p.mirrorYZ) {
+      const m: RaymarchPrimitive = {
+        ...p,
+        mirrorYZ: false,   // prevent re-expansion if expandMirrors runs twice
+        offsetInBone: [-p.offsetInBone[0], p.offsetInBone[1], p.offsetInBone[2]],
+      }
+      // Mirror slot-4 too. For most prims, slot 4 = rotation quaternion.
+      // Reflecting a rotation across the YZ plane (x-flip): the rotation
+      // axis x-component is reflected (q.x stays since it represents
+      // sin(θ/2)*axis.x and axis.x flips, BUT the handedness flip from
+      // mirroring makes the angle reverse, which negates y,z components).
+      // Net effect: (x, y, z, w) → (x, -y, -z, w). Standard reflection rule.
+      // Type 14 (bentCapsule) overloads slot 4 as tipDelta (xyz, w unused);
+      // for that, mirror tipDelta.x → -tipDelta.x (it's an offset in
+      // primitive-local space, mirrors with the prim).
+      if (p.rotation) {
+        if (p.type === 14) {
+          // bentCapsule: rotation slot is tipDelta vector. Mirror x.
+          m.rotation = [-p.rotation[0], p.rotation[1], p.rotation[2], p.rotation[3]]
+        } else {
+          // Standard rotation quaternion: (x, -y, -z, w) for X-axis reflection.
+          m.rotation = [p.rotation[0], -p.rotation[1], -p.rotation[2], p.rotation[3]]
+        }
+      }
+      out.push(m)
+    }
+  }
+  return out
 }
 
 /** Same VATData interface used by skeleton_renderer + chunk_renderer. */
@@ -178,13 +246,18 @@ export interface VATData {
   numFrames: number
 }
 
-// Storage-buffer layout per primitive (20 floats = 80 bytes):
+// Storage-buffer layout per primitive (24 floats = 96 bytes):
 //   [0..3]    typeAndSlots as u32 cast: type, paletteSlot, boneIdx, colorFunc
 //   [4..7]    params x/y/z/w
 //   [8..11]   offsetInBone x/y/z/detailAmplitude (normal-pass FBM, 0 = off)
 //   [12..15]  slotB (u32) | colorExtent (f32) | blendGroup (u32) | blendRadius (f32, signed)
 //   [16..19]  rotation quat (x, y, z, w) — identity (0,0,0,1) if axis-aligned
-const PRIM_STRIDE_FLOATS = 20
+//   [20..23]  wearFn (u32) | wearDepth (f32) | wearDensity (f32) | _pad
+//             Secondary "wear" deformer that runs after the primary colorFunc
+//             deformer. Limited to FBM-based wear modes: 1=bumps, 2=grain,
+//             3=streaks, 4=scratches. 0 = off. Lets one prim composite a base
+//             structural pattern with a weathering overlay.
+const PRIM_STRIDE_FLOATS = 24
 
 const RAYMARCH_SHADER = /* wgsl */ `
 struct Uniforms {
@@ -301,10 +374,122 @@ fn sdRoundedBox(p: vec3f, h: vec3f, r: f32) -> f32 {
   let hi = max(h - vec3f(r), vec3f(0.0));
   return sdBox(p, hi) - r;
 }
+// Band (rectangular-cross-section torus / "rectangular ring"): a torus
+// where the cross-section perpendicular to the ring is a rectangle of
+// half-width w (radial in/out) and half-height h (along axis Y) instead
+// of a circle. The "band" / "flat strap" form factor — barrel hoops with
+// width, sword-belt buckles, mug handles with rectangular grip cross-section.
+// R = major radius (ring radius), w = radial half-extent, h = axial half-extent.
+fn sdBand(p: vec3f, R: f32, w: f32, h: f32) -> f32 {
+  let q = vec2f(length(p.xz) - R, p.y);
+  let d = vec2f(abs(q.x) - w, abs(q.y) - h);
+  return length(max(d, vec2f(0.0))) + min(max(d.x, d.y), 0.0);
+}
+// Trapezoidal box (truncated rectangular pyramid / frustum): bottom face has
+// half-extents (bx, bz), top face uniformly scaled by topRatio. Height 2h
+// along Y. topRatio==1 reduces to a regular box; topRatio==0 collapses the
+// top to a point (rectangular pyramid).
+//
+// Use cases: knife/sword blades (taper from spine to edge), gun stocks,
+// pyramid frustums, decorative bezels, cone-like shapes with rectangular
+// cross-section. Params packed as (bx, bz, h, topRatio).
+fn sdTrapezoidalBox(p: vec3f, bx: f32, bz: f32, h: f32, topRatio: f32) -> f32 {
+  // Vertical position [0..1] along the height; clamped for outside-box query.
+  let t  = clamp((p.y + h) / (2.0 * h), 0.0, 1.0);
+  let ex = mix(bx, bx * topRatio, t);
+  let ez = mix(bz, bz * topRatio, t);
+  // 2D distance to rectangle (ex, ez) at this height.
+  let q  = vec2f(abs(p.x) - ex, abs(p.z) - ez);
+  let d2D = length(max(q, vec2f(0.0))) + min(max(q.x, q.y), 0.0);
+  // Vertical distance outside the height range.
+  let dy = abs(p.y) - h;
+  // Combine: max for inside, length-of-outside for outside.
+  let outside = vec2f(max(d2D, 0.0), max(dy, 0.0));
+  let inside  = min(max(d2D, dy), 0.0);
+  return length(outside) + inside;
+}
 fn sdEllipsoid(p: vec3f, r: vec3f) -> f32 {
   let k0 = length(p / r);
   let k1 = length(p / (r * r));
   return (k0 * (k0 - 1.0)) / k1;
+}
+// Exact ellipsoid SDF via quadratic-root formulation. Solves
+//
+//     ax² + bx + c = 0    where a, b, c are derived from |p| and r²
+//
+// for the ray parameter t such that p - t·dir lies on the ellipsoid
+// surface. Combined with three axis-projection solves, recovers a
+// signed distance that's tighter than the IQ "inexact bound" type 3
+// uses (the inexact one degrades linearly with distance from surface).
+//
+// Public formula — see Inigo Quilez' SDF article + Unbound's _metallic_2
+// deobfuscated form. ~5× more ALU than type 3 but the correct distance
+// matters when ellipsoids are highly anisotropic (e.g. r = (0.05, 0.30,
+// 0.05) for a long crest ridge) — type 3 over-shoots dramatically.
+fn solveQuadratic2(a: f32, b: f32, c: f32) -> vec2f {
+  let disc = b * b - 4.0 * a * c;
+  if (disc < 0.0) { return vec2f(1e20, 1e20); }
+  let q = -b / (2.0 * a);
+  let s = sqrt(disc) / (2.0 * a);
+  return vec2f(q - s, q + s);
+}
+// Cardano cubic root solver — returns the smallest non-negative real
+// root in [0, 1] of the depressed cubic x³ + px + q = 0 (caller must
+// pre-depress general ax³ + bx² + cx + d = 0 via x = t - b/(3a)).
+// Used for exact closest-point on a quadratic Bezier (the minimization
+// d/dt|B(t) - p|² = 0 is a cubic in t). Returns 1e20 if no root in
+// [0, 1] (caller falls back to clamped endpoints).
+//
+// Discriminant cases:
+//   D > 0  → one real root (use Cardano + cube roots)
+//   D = 0  → triple or double root (use linear-style fallback)
+//   D < 0  → three real roots (use trigonometric form)
+//
+// Public formula — see Inigo Quilez's 2D Bezier distance article.
+fn solveCubicCardano(p: f32, q: f32) -> vec3f {
+  let disc = q * q + (4.0 / 27.0) * p * p * p;
+  if (disc > 0.0) {
+    let sqd = sqrt(disc);
+    let u = -0.5 * q + 0.5 * sqd;
+    let v = -0.5 * q - 0.5 * sqd;
+    let cuRoot = sign(u) * pow(abs(u), 1.0 / 3.0) + sign(v) * pow(abs(v), 1.0 / 3.0);
+    return vec3f(cuRoot, 1e20, 1e20);
+  }
+  // D <= 0: three real roots via trig form.
+  let r = sqrt(-p / 3.0);
+  let cosArg = clamp(1.5 * q / (p * r), -1.0, 1.0);
+  let theta = acos(cosArg) / 3.0;
+  let twoR = 2.0 * r;
+  return vec3f(
+    twoR * cos(theta),
+    twoR * cos(theta - 2.094395102),   // - 2π/3
+    twoR * cos(theta - 4.188790205),   // - 4π/3
+  );
+}
+fn sdEllipsoidExact(p: vec3f, r: vec3f) -> f32 {
+  let ap = abs(p);
+  let r2 = r * r;
+  let invR2 = vec3f(1.0) / r2;
+  let neg2pInvR2 = -2.0 * ap * invR2;
+  let p2InvR2 = ap * ap * invR2;
+  let cIn = (p2InvR2.x + p2InvR2.y + p2InvR2.z) - 1.0;
+  // Surface solve.
+  let aSum = invR2.x + invR2.y + invR2.z;
+  let bSum = neg2pInvR2.x + neg2pInvR2.y + neg2pInvR2.z;
+  let roots = solveQuadratic2(aSum, bSum, cIn);
+  var d = min(abs(roots.x), abs(roots.y));
+  // Inside? — sign flip.
+  if (cIn <= 0.0) { return -d; }
+  // Three axis projections — refine when point is closer to a box-axis
+  // face than to the ellipsoid surface (handles very flat / elongated
+  // shapes where the surface solve overestimates).
+  let r2yz = solveQuadratic2(invR2.y + invR2.z, neg2pInvR2.y + neg2pInvR2.z, p2InvR2.y + p2InvR2.z - 1.0);
+  d = min(d, max(min(abs(r2yz.x), abs(r2yz.y)), ap.x));
+  let r2xz = solveQuadratic2(invR2.x + invR2.z, neg2pInvR2.x + neg2pInvR2.z, p2InvR2.x + p2InvR2.z - 1.0);
+  d = min(d, max(min(abs(r2xz.x), abs(r2xz.y)), ap.y));
+  let r2xy = solveQuadratic2(invR2.x + invR2.y, neg2pInvR2.x + neg2pInvR2.y, p2InvR2.x + p2InvR2.y - 1.0);
+  d = min(d, max(min(abs(r2xy.x), abs(r2xy.y)), ap.z));
+  return d;
 }
 fn sdCylinder(p: vec3f, r: f32, h: f32) -> f32 {
   let dx = length(vec2f(p.x, p.z)) - r;
@@ -315,9 +500,179 @@ fn sdCapsule(p: vec3f, r: f32, h: f32) -> f32 {
   let y = clamp(p.y, -h, h);
   return length(vec3f(p.x, p.y - y, p.z)) - r;
 }
+// Bent capsule — straight at the root, displaces toward tipDelta
+// quadratically along Y so the tip carries the most bend. tipDelta is
+// in PRIMITIVE-LOCAL coordinates (the same frame p is in). For sprite-
+// tier strand wisps the bend is small (a few cm at most) so the SDF
+// stays a reasonable approximation despite not being an exact swept
+// distance — round-tripped against the original capsule formula at
+// tipDelta=0 and matches.
+fn sdBentCapsule(p: vec3f, r: f32, h: f32, tipDelta: vec3f) -> f32 {
+  let t = clamp((p.y + h) / (2.0 * h), 0.0, 1.0);
+  let bend = tipDelta * (t * t);
+  let bp = p - bend;
+  let y = clamp(bp.y, -h, h);
+  return length(vec3f(bp.x, bp.y - y, bp.z)) - r;
+}
+// Line capsule — distance from a WORLD-space point to the line
+// segment (a, b), with linearly interpolated radius (ra at a, rb at b).
+// The "queen swoop" architecture: limbs are SDFs of distance-to-line
+// between two JOINT positions. Length is implicit (|b - a|), driven by
+// animation + proportion changes; joint scale becomes only thickness.
+// Decouples skeletal motion from limb shape — no bone-local frame, no
+// non-uniform-scale Lipschitz issues, no joint squish.
+fn sdLineCapsule3D(p: vec3f, a: vec3f, b: vec3f, ra: f32, rb: f32) -> f32 {
+  let pa = p - a;
+  let ba = b - a;
+  let denom = max(dot(ba, ba), 1e-8);
+  let h = clamp(dot(pa, ba) / denom, 0.0, 1.0);
+  let r = mix(ra, rb, h);
+  return length(pa - ba * h) - r;
+}
+// Bezier-profile capsule — the anatomy primitive.
+//   3D shape: quadratic Bezier curve through three joints A, B, C.
+//   1D radius: cubic Bezier of 4 control radii r0..r3 sampled along the
+//              same parameter t. The profile is the muscle / silhouette
+//              curve — wider at bicep peak, narrower at elbow, etc.
+// N=8-segment subdivision: for each segment, take the line-distance with
+// linearly-interpolated radius across that segment, accumulate min. Not
+// a tight Lipschitz SDF (overestimates step size when the curve is high-
+// curvature), but at sprite res with sane bezier control points the
+// raymarch converges in 32 steps no problem.
+fn sdBezierProfileCapsule(p: vec3f, a: vec3f, b: vec3f, c: vec3f,
+                          r0: f32, r1: f32, r2: f32, r3: f32) -> f32 {
+  let N: u32 = 8u;
+  var d: f32 = 1e9;
+  var prevP: vec3f = a;
+  var prevR: f32 = r0;
+  for (var i: u32 = 1u; i <= N; i = i + 1u) {
+    let t  = f32(i) / f32(N);
+    let mt = 1.0 - t;
+    // Quadratic 3D Bezier: B(t) = (1-t)²A + 2(1-t)t·B + t²C
+    let pos = mt * mt * a + 2.0 * mt * t * b + t * t * c;
+    // Cubic 1D Bezier on radii: r(t) = (1-t)³r0 + 3(1-t)²t·r1 + 3(1-t)t²·r2 + t³r3
+    let r = mt * mt * mt * r0
+          + 3.0 * mt * mt * t * r1
+          + 3.0 * mt * t * t * r2
+          + t * t * t * r3;
+    // Line-segment distance with interpolated radius across this segment.
+    let pa = p - prevP;
+    let ba = pos - prevP;
+    let h  = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-8), 0.0, 1.0);
+    let rs = mix(prevR, r, h);
+    d = min(d, length(pa - ba * h) - rs);
+    prevP = pos;
+    prevR = r;
+  }
+  return d;
+}
+// EXACT bezier-profile capsule — replaces type 17's N=8 segment
+// approximation with the Cardano-cubic closest-point on a quadratic
+// Bezier. Same authoring shape (3 joints + 4-control radius profile)
+// but tighter SDF — the marcher takes fewer steps because the
+// distance is genuinely the minimum, not an upper-bounded sample.
+//
+// The closest-point math: for B(t) = (1-t)²A + 2(1-t)t·B + t²·C,
+// d/dt|B(t) - p|² = 0 expands to a cubic in t. We solve it via the
+// Cardano helper, evaluate the radius at the root from the 1D radius
+// profile, and return distance - radius. Endpoints t=0 and t=1 are
+// also tested in case the cubic root falls outside [0, 1].
+fn sdBezierExactCapsule(p: vec3f, a: vec3f, b: vec3f, c: vec3f,
+                         r0: f32, r1: f32, r2: f32, r3: f32) -> f32 {
+  // m0 = A - P, m1 = B - A, m2 = A - 2B + C  (so B(t) = m0 + 2t·m1 + t²·m2 + P)
+  let m0 = a - p;
+  let m1 = b - a;
+  let m2 = a - 2.0 * b + c;
+  // Cubic coefficients of (B(t) - P) · B'(t) = 0:
+  //   a₃·t³ + a₂·t² + a₁·t + a₀ = 0
+  let a3 = dot(m2, m2);
+  let a2 = 3.0 * dot(m1, m2);
+  let a1 = 2.0 * dot(m1, m1) + dot(m0, m2);
+  let a0 = dot(m0, m1);
+  // Sample distance at three candidate t values: 0, 1, and the cubic
+  // root closest to [0, 1]. Take the min — covers all "what if the
+  // closest point is on the curve OR at an endpoint" cases.
+  var best = 1e20;
+  var bestT = 0.0;
+  // Endpoint t=0.
+  let d0 = length(m0);
+  if (d0 < best) { best = d0; bestT = 0.0; }
+  // Endpoint t=1.
+  let d1 = length(m0 + 2.0 * m1 + m2);
+  if (d1 < best) { best = d1; bestT = 1.0; }
+  // Cubic root via Cardano. Depress: a₃·t³ + a₂·t² + a₁·t + a₀ → s³ + p·s + q
+  // with t = s - a₂/(3·a₃).
+  if (abs(a3) > 1e-8) {
+    let invA3 = 1.0 / a3;
+    let A = a2 * invA3;
+    let B = a1 * invA3;
+    let C = a0 * invA3;
+    let pCoef = B - A * A / 3.0;
+    let qCoef = 2.0 * A * A * A / 27.0 - A * B / 3.0 + C;
+    let roots = solveCubicCardano(pCoef, qCoef);
+    let shift = A / 3.0;
+    let candidates = vec3f(roots.x - shift, roots.y - shift, roots.z - shift);
+    for (var k = 0; k < 3; k = k + 1) {
+      let t = clamp(candidates[k], 0.0, 1.0);
+      // Skip 1e20 sentinels.
+      if (abs(candidates[k]) > 1e10) { continue; }
+      let bt = m0 + 2.0 * t * m1 + t * t * m2;
+      let d = length(bt);
+      if (d < best) { best = d; bestT = t; }
+    }
+  }
+  // Cubic Bezier of radii sampled at the closest t.
+  let t = bestT;
+  let mt = 1.0 - t;
+  let r = mt * mt * mt * r0
+        + 3.0 * mt * mt * t * r1
+        + 3.0 * mt * t * t * r2
+        + t * t * t * r3;
+  return best - r;
+}
 fn sdTorus(p: vec3f, R: f32, r: f32) -> f32 {
   let qx = length(vec2f(p.x, p.z)) - R;
   return length(vec2f(qx, p.y)) - r;
+}
+// SUP — superellipsoid-style parametric primitive. ONE function covers
+// sphere / box / rounded-box / bowl / hemisphere / open-top-box via four
+// continuous parameters. Mirrors Unbound's _bsdf_2 + IQ rounded-box +
+// shell + Y-clip composition.
+//
+//   r       — base radius (uniform scale of the volume)
+//   blend   — 0 = sphere, 1 = box, in-between = rounded-box morph
+//   shell   — 0 = solid; > 0 = hollow shell of that thickness (bowl/cup)
+//   yClipN  — 0 = no clip; in (-1, 1) clips above the plane y = yClipN * r
+//             positive = clip top, negative = clip bottom
+//
+// At blend=0: distance to a sphere of radius r.
+// At blend=1: distance to a box of half-extent r.
+// Intermediate: smooth morph (lerp(distance_sphere, distance_box, blend)
+// is bounded but not strictly Lipschitz; safe for raymarch step sizes
+// at sprite res).
+//
+// Shell: subtract from inside via abs(distance) - shellHalf — produces a
+// hollow body. Y-clip: max with a half-plane SDF — caps the volume above
+// or below a horizontal plane.
+fn sdSUP(p: vec3f, r: f32, blend: f32, shell: f32, yClipN: f32) -> f32 {
+  // Sphere component: |p| - r
+  let dSphere = length(p) - r;
+  // Box component: rounded-box-ish with corner radius proportional to r.
+  let q = abs(p) - vec3f(r);
+  let dBox = length(max(q, vec3f(0.0))) + min(max(q.x, max(q.y, q.z)), 0.0);
+  // Linear blend.
+  var d = mix(dSphere, dBox, clamp(blend, 0.0, 1.0));
+  // Shell — hollow it out.
+  if (shell > 0.0) {
+    d = abs(d) - shell * 0.5;
+  }
+  // Y-clip — half-space cull above (yClipN > 0) or below (yClipN < 0).
+  if (yClipN > 0.0) {
+    d = max(d, p.y - yClipN * r);
+  } else if (yClipN < 0.0) {
+    d = max(d, -p.y + yClipN * r);
+  }
+  return d;
 }
 
 // --- 3D value noise --------------------------------------------------
@@ -483,12 +838,49 @@ fn sdFlame(p: vec3f, r: f32, h: f32, noiseAmp: f32, noiseFreq: f32, t: f32) -> f
 }
 
 fn evalPrim(primIdx: u32, pWorld: vec3f) -> f32 {
-  let base = primIdx * 5u;      // 5 vec4s per primitive (see PRIM_STRIDE_FLOATS)
+  let base = primIdx * 6u;      // 6 vec4s per primitive (PRIM_STRIDE_FLOATS = 24)
   let slots = bitcast<vec4u>(prims[base + 0u]);
   let primType    = slots.x;    // 'type' is a WGSL reserved keyword
   let boneIdx     = slots.z;
   let params      = prims[base + 1u];
   let offset      = prims[base + 2u].xyz;
+
+  // Type 15 (lineCapsule) — TWO-bone path. SDF is distance from pWorld
+  // to the line segment between bone A's world translation (offset by
+  // 'offset' in A's local frame) and bone B's world translation. boneB
+  // index is bit-cast from params.z. No worldToLocal, no rotation slot
+  // — limb length is implicit, only radius needs authoring.
+  if (primType == 15u) {
+    let boneAWorld = readMat4((u.frameIdx * u.numJoints + boneIdx) * 4u);
+    let jointBIdx  = bitcast<u32>(params.z);
+    let boneBWorld = readMat4((u.frameIdx * u.numJoints + jointBIdx) * 4u);
+    let aWorld = (boneAWorld * vec4f(offset, 1.0)).xyz;
+    let bWorld = boneBWorld[3].xyz;
+    return sdLineCapsule3D(pWorld, aWorld, bWorld, params.x, params.y);
+  }
+  // Type 17 (bezierProfileCapsule) — THREE-bone path. Quadratic Bezier
+  // curve in 3D through joints A (boneIdx) → B (params.x bitcast u32) →
+  // C (params.y bitcast u32). Cubic Bezier profile of radii r0..r3 in
+  // the rotation slot (slot 4: x=r0, y=r1, z=r2, w=r3) sampled along
+  // the same parameter t. Used for limbs (round elbow / knee bends)
+  // and the future anatomy curves (bicep / glute / hip flare bulges).
+  if (primType == 17u || primType == 20u) {
+    let boneAWorld = readMat4((u.frameIdx * u.numJoints + boneIdx) * 4u);
+    let jointBIdx  = bitcast<u32>(params.x);
+    let jointCIdx  = bitcast<u32>(params.y);
+    let boneBWorld = readMat4((u.frameIdx * u.numJoints + jointBIdx) * 4u);
+    let boneCWorld = readMat4((u.frameIdx * u.numJoints + jointCIdx) * 4u);
+    let aWorld = (boneAWorld * vec4f(offset, 1.0)).xyz;
+    let bWorld = boneBWorld[3].xyz;
+    let cWorld = boneCWorld[3].xyz;
+    let profile = prims[base + 4u];
+    if (primType == 20u) {
+      return sdBezierExactCapsule(pWorld, aWorld, bWorld, cWorld,
+                                  profile.x, profile.y, profile.z, profile.w);
+    }
+    return sdBezierProfileCapsule(pWorld, aWorld, bWorld, cWorld,
+                                  profile.x, profile.y, profile.z, profile.w);
+  }
 
   // Transform world → bone_local → primitive_local.
   // Pixel-copy snap: project the primitive's world center into view space
@@ -511,32 +903,572 @@ fn evalPrim(primIdx: u32, pWorld: vec3f) -> f32 {
     boneWorld[3] = boneWorld[3] + vec4f(deltaW, 0.0);
   }
   let pBone = worldToLocal(boneWorld, pWorld);
-  // Primitive-local orientation: read quat from slot 4 and apply its inverse
-  // to the march point. Identity (0,0,0,1) is a no-op (the default).
-  // Defensive: a zero-init record (w=0, xyz=0) gets swapped to identity.
-  let q0 = prims[base + 4u];
-  let qIsZero = q0.w == 0.0 && all(q0.xyz == vec3f(0.0));
-  let q  = select(q0, vec4f(0.0, 0.0, 0.0, 1.0), qIsZero);
-  let qInv = vec4f(-q.x, -q.y, -q.z, q.w);
-  let pPrim = rotateByQuat(pBone - offset, qInv);
-
-  switch (primType) {
-    case 0u: { return sdSphere(pPrim, params.x); }
-    case 1u: { return sdBox(pPrim, params.xyz); }
-    case 2u: { return sdRoundedBox(pPrim, params.xyz, params.w); }
-    case 3u: { return sdEllipsoid(pPrim, params.xyz); }
-    case 4u: { return sdCylinder(pPrim, params.x, params.y); }
-    case 5u: { return sdCapsule(pPrim, params.x, params.y); }
-    case 6u: { return sdTorus(pPrim, params.x, params.y); }
-    case 7u: { return sdFlame(pPrim, params.x, params.y, params.z, params.w, u.time); }
-    case 8u: { return sdSwipeArc(pPrim, params.x, params.y, params.z, params.w); }
-    case 9u: { return sdLogPolarSineTrail(pPrim, params.x, params.y, params.z, params.w); }
-    case 10u: { return sdLightning(pPrim, params.x, params.y, params.z, u.time); }
-    case 11u: { return sdNoiseCloud(pPrim, params.x, params.y, params.z, params.w, u.time); }
-    case 12u: { return sdCone(pPrim, vec2f(params.x, params.y), params.z); }
-    case 13u: { return sdChibiHead(pPrim, params.x, params.y, params.z); }
-    default: { return 1e9; }
+  // Slot 4 is overloaded: standard primitives read it as a rotation
+  // quaternion (xyz/w); type 14 (bent capsule) reads xyz as tipDelta in
+  // primitive-local space and ignores w. The branch costs one compare
+  // per prim per march step.
+  let slot4 = prims[base + 4u];
+  var pPrim: vec3f;
+  var tipDelta: vec3f = vec3f(0.0);
+  if (primType == 14u) {
+    pPrim = pBone - offset;
+    tipDelta = slot4.xyz;
+  } else {
+    let qIsZero = slot4.w == 0.0 && all(slot4.xyz == vec3f(0.0));
+    let q  = select(slot4, vec4f(0.0, 0.0, 0.0, 1.0), qIsZero);
+    let qInv = vec4f(-q.x, -q.y, -q.z, q.w);
+    pPrim = rotateByQuat(pBone - offset, qInv);
   }
+
+  var d: f32 = 1e9;
+  switch (primType) {
+    case 0u:  { d = sdSphere(pPrim, params.x); }
+    case 1u:  { d = sdBox(pPrim, params.xyz); }
+    case 2u:  { d = sdRoundedBox(pPrim, params.xyz, params.w); }
+    case 3u:  { d = sdEllipsoid(pPrim, params.xyz); }
+    case 4u:  { d = sdCylinder(pPrim, params.x, params.y); }
+    case 5u:  { d = sdCapsule(pPrim, params.x, params.y); }
+    case 6u:  { d = sdTorus(pPrim, params.x, params.y); }
+    case 7u:  { d = sdFlame(pPrim, params.x, params.y, params.z, params.w, u.time); }
+    case 8u:  { d = sdSwipeArc(pPrim, params.x, params.y, params.z, params.w); }
+    case 9u:  { d = sdLogPolarSineTrail(pPrim, params.x, params.y, params.z, params.w); }
+    case 10u: { d = sdLightning(pPrim, params.x, params.y, params.z, u.time); }
+    case 11u: { d = sdNoiseCloud(pPrim, params.x, params.y, params.z, params.w, u.time); }
+    case 12u: { d = sdCone(pPrim, vec2f(params.x, params.y), params.z); }
+    case 13u: { d = sdChibiHead(pPrim, params.x, params.y, params.z); }
+    case 14u: { d = sdBentCapsule(pPrim, params.x, params.y, tipDelta); }
+    case 18u: { d = sdSUP(pPrim, params.x, params.y, params.z, params.w); }
+    case 19u: { d = sdEllipsoidExact(pPrim, params.xyz); }
+    case 21u: { d = sdTrapezoidalBox(pPrim, params.x, params.y, params.z, params.w); }
+    case 22u: { d = sdBand(pPrim, params.x, params.y, params.z); }
+    default:  { d = 1e9; }
+  }
+
+  // GEOMETRIC CRACK DISPLACEMENT — when colorFunc=9 is set on this prim,
+  // and the slot 2.w (detailAmplitude) is repurposed as crack DEPTH,
+  // displace the SDF surface OUTWARD near voronoi cell edges. This makes
+  // the cracks become real silhouette gaps rather than just dark color
+  // bands. World-space evaluation so cracks wrap the geometry consistently.
+  let colorFn = slots.w;
+  if (colorFn == 9u) {
+    // CRACKS — domain-warped FBM noise band, smoothstep falloff. Warping the
+    // input coordinate by an independent FBM field breaks the regular signature
+    // of plain FBM contours so cracks read as natural fracture lines instead of
+    // a uniform ripple. INWARD displacement: d = d + delta pushes surface away
+    // from the outside query → sunken into the model.
+    let crackDepth = prims[base + 2u].w;
+    if (crackDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let warp = vec3f(
+        fbm3(pWorld * (density * 0.5)),
+        fbm3(pWorld * (density * 0.5) + vec3f(31.0, 17.0, 53.0)),
+        fbm3(pWorld * (density * 0.5) + vec3f(7.0, 41.0, 23.0)),
+      );
+      let pw = pWorld * density + warp * 1.4;
+      let n = fbm3(pw);
+      let ridgeDist = abs(n);
+      let thresh = 0.06;
+      let t = 1.0 - smoothstep(0.0, thresh, ridgeDist);
+      d = d + t * crackDepth;                          // ADD = sunken (inward)
+    }
+  } else if (colorFn == 10u) {
+    // PITS — Worley distance to nearest cell point. Where distance is
+    // small (close to a random "impact" point), displace the surface
+    // INWARD by pitDepth → creates round craters. Domain-warped input
+    // so pits are irregularly distributed, not on a grid.
+    let pitDepth = prims[base + 2u].w;
+    if (pitDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      // Domain warp via FBM at higher freq, like the crack code.
+      let warp = vec3f(
+        fbm3(pWorld * 8.0),
+        fbm3(pWorld * 8.0 + vec3f(31.0, 17.0, 53.0)),
+        fbm3(pWorld * 8.0 + vec3f(7.0, 41.0, 23.0)),
+      ) - vec3f(0.5);
+      let pp = (pWorld + warp * 0.15) * density;
+      let pi = floor(pp);
+      var dmin = 1e9;
+      for (var z = -1; z <= 1; z = z + 1) {
+        for (var y = -1; y <= 1; y = y + 1) {
+          for (var x = -1; x <= 1; x = x + 1) {
+            let cell = pi + vec3f(f32(x), f32(y), f32(z));
+            var h = fract(sin(dot(cell, vec3f(127.1, 311.7, 74.7))) * 43758.5);
+            let pt = cell + vec3f(h, fract(h * 37.0), fract(h * 91.0));
+            let dd = length(pp - pt);
+            if (dd < dmin) { dmin = dd; }
+          }
+        }
+      }
+      // Pit radius — 0.30 cell-units = round pits ~30% of cell size.
+      let pitRadius = 0.30;
+      if (dmin < pitRadius) {
+        let t = 1.0 - dmin / pitRadius;             // 1 at center, 0 at rim
+        d = d + pow(t, 2.0) * pitDepth;             // smooth crater
+      }
+    }
+  } else if (colorFn == 11u) {
+    // BUMPS — smooth outward FBM displacement. fbm3 is already centered
+    // on 0 (range ~±0.5), no shift needed.
+    let bumpDepth = prims[base + 2u].w;
+    if (bumpDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let n = fbm3(pWorld * density);
+      d = d - n * bumpDepth * 2.0;                     // subtract → outward bumps
+    }
+  } else if (colorFn == 12u) {
+    // SCALES — raised RIDGES along Worley cell EDGES. Each tile is a
+    // cell with raised borders separating it from neighbors. The
+    // cell-center version reads as just "lumpy" not "scaled" — the EDGE
+    // RIDGES are what visually communicate tile boundaries. Smoothstep
+    // falloff (not pow) to keep SDF Lipschitz / no march overshoot.
+    let scaleDepth = prims[base + 2u].w;
+    if (scaleDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let warp = vec3f(
+        fbm3(pWorld * 6.0),
+        fbm3(pWorld * 6.0 + vec3f(31.0, 17.0, 53.0)),
+        fbm3(pWorld * 6.0 + vec3f(7.0, 41.0, 23.0)),
+      ) - vec3f(0.5);
+      let pp = (pWorld + warp * 0.10) * density;
+      let pi = floor(pp);
+      var d1 = vec3f(0.0); var d1m = 1e9;
+      for (var z = -1; z <= 1; z = z + 1) {
+        for (var y = -1; y <= 1; y = y + 1) {
+          for (var x = -1; x <= 1; x = x + 1) {
+            let cell = pi + vec3f(f32(x), f32(y), f32(z));
+            var h = fract(sin(dot(cell, vec3f(127.1, 311.7, 74.7))) * 43758.5);
+            let pt = cell + vec3f(h, fract(h * 37.0), fract(h * 91.0));
+            let dd = length(pp - pt);
+            if (dd < d1m) { d1m = dd; d1 = pt; }
+          }
+        }
+      }
+      var d2m = 1e9;
+      for (var z = -1; z <= 1; z = z + 1) {
+        for (var y = -1; y <= 1; y = y + 1) {
+          for (var x = -1; x <= 1; x = x + 1) {
+            let cell = pi + vec3f(f32(x), f32(y), f32(z));
+            var h = fract(sin(dot(cell, vec3f(127.1, 311.7, 74.7))) * 43758.5);
+            let pt = cell + vec3f(h, fract(h * 37.0), fract(h * 91.0));
+            if (length(pt - d1) < 0.001) { continue; }
+            let dd = length(pp - pt);
+            if (dd < d2m) { d2m = dd; }
+          }
+        }
+      }
+      let edge = d2m - d1m;
+      let thresh = 0.10;
+      let t = 1.0 - smoothstep(0.0, thresh, edge);
+      d = d - t * scaleDepth;
+    }
+  } else if (colorFn == 13u) {
+    // VEINS — same FBM noise-band as cracks but RAISED. Smoothstep falloff,
+    // 0-centered noise (corrected from earlier abs(n-0.5) bug).
+    let veinDepth = prims[base + 2u].w;
+    if (veinDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let n = fbm3(pWorld * density);
+      let ridgeDist = abs(n);
+      let thresh = 0.04;
+      let t = 1.0 - smoothstep(0.0, thresh, ridgeDist);
+      d = d - t * veinDepth;          // SUBTRACT → raised
+    }
+  } else if (colorFn == 14u) {
+    // WOOD GRAIN — directional sinusoidal stripes along Y axis, distorted
+    // by FBM warp for natural irregularity. Cheap and effective for wood
+    // planks, tree bark, muscle striation, rope strands.
+    let grainDepth = prims[base + 2u].w;
+    if (grainDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      // FBM warp shifts the stripe phase locally → wavy not perfectly
+      // straight grain. Higher amplitude = wavier; 0 = ruler-straight.
+      let warp = fbm3(pWorld * 5.0) * 1.5;
+      let s = sin(pWorld.y * density * 6.283 + warp * 4.0);
+      // |s| ∈ [0, 1]; thin band where it crosses zero = grain line.
+      let thresh = 0.30;
+      let t = 1.0 - smoothstep(0.0, thresh, abs(s));
+      d = d + t * grainDepth;          // ADD = sunken grain line
+    }
+  } else if (colorFn == 15u) {
+    // RIDGED MULTIFRACTAL — classic Musgrave/Perlin "mountain" pattern. Each
+    // octave is folded via 1-|n| then squared so peaks stay sharp while valleys
+    // fill in smoothly. Domain-warped input so spines don't read as periodic.
+    // Use cases: mountain ridges, sword-blade fullers, scaly ridges along a
+    // creature's spine, wrinkled bark, knotted rope. Different look from
+    // crack-band: ONE prominent ridge per noise period, not band-pair edges.
+    let ridgeDepth = prims[base + 2u].w;
+    if (ridgeDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let warp = vec3f(
+        fbm3(pWorld * (density * 0.4)),
+        fbm3(pWorld * (density * 0.4) + vec3f(31.0, 17.0, 53.0)),
+        fbm3(pWorld * (density * 0.4) + vec3f(7.0, 41.0, 23.0)),
+      );
+      var p = pWorld * density + warp * 1.2;
+      var amp = 0.5;
+      var sum = 0.0;
+      var prev = 1.0;
+      // 4-octave ridged multifractal. fbm3 already loops octaves but we want
+      // explicit folding per octave so we re-implement here.
+      for (var i = 0; i < 4; i = i + 1) {
+        let n = fbm3(p);                      // signed noise ~[-0.5, 0.5]
+        var r = 1.0 - abs(n * 2.0);           // fold to peaks ~[0,1]
+        r = r * r * prev;                      // sharpen + multiplicative warping
+        sum = sum + r * amp;
+        prev = r;
+        p = p * 2.03;                          // non-integer lacunarity
+        amp = amp * 0.5;
+      }
+      // sum ∈ ~[0, 1.0]. Subtract from d → raised ridges along peaks.
+      d = d - sum * ridgeDepth;
+    }
+  } else if (colorFn == 16u) {
+    // EROSION STREAKS — directional gradient × FBM, gives the look of vertical
+    // drips, rust runs, water staining on stone. Streaks are aligned with the
+    // local +Y axis (gravity direction). Higher up = no streak; lower = full
+    // streak intensity, modulated by FBM so streaks are uneven and clustered.
+    // Combine with bumps or grain for layered weathering.
+    let streakDepth = prims[base + 2u].w;
+    if (streakDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      // High-freq horizontal noise picks WHICH columns drip; low-freq vertical
+      // noise modulates intensity along the column. Together → patchy vertical
+      // streaks (not uniform striping).
+      let columnPick = fbm3(vec3f(pWorld.x * density, 0.0, pWorld.z * density));
+      let columnT = smoothstep(0.45, 0.55, columnPick);
+      // Vertical falloff: streaks start ~middle of bbox and intensify downward.
+      // Use raw +Y so streaks are gravity-aligned in world space.
+      let drip = clamp(0.5 - pWorld.y * 5.0, 0.0, 1.0);
+      // Vertical jitter so streaks don't all end at the same line.
+      let jitter = fbm3(vec3f(pWorld.x * density * 2.0, pWorld.y * density * 0.5, pWorld.z * density * 2.0));
+      let intensity = columnT * drip * (0.5 + jitter);
+      d = d + clamp(intensity, 0.0, 1.0) * streakDepth;     // ADD = sunken streak
+    }
+  } else if (colorFn == 17u) {
+    // HEX TILES — periodic hexagonal lattice with raised cell faces and sunken
+    // mortar grooves. Pointy-top hex orientation. Domain-warped to break the
+    // perfectly-regular lattice into a "natural" but still hex-recognizable
+    // pattern. Use cases: sci-fi armor plating, honeycomb, alien skin,
+    // tessellated shields. Different from scaleDepth (Voronoi cells, irregular
+    // sizes) — hex has uniform cell size, perfect tiling.
+    let hexDepth = prims[base + 2u].w;
+    if (hexDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      // Light domain warp so panel boundaries aren't ruler-straight.
+      let warp2 = vec2f(
+        fbm3(pWorld * (density * 0.6)),
+        fbm3(pWorld * (density * 0.6) + vec3f(31.0, 17.0, 53.0)),
+      );
+      let pp = pWorld.xy * density + warp2 * 0.3;
+      // Hex tiling via two interlocking rectangular grids offset by half-cell;
+      // pick whichever cell center is closer. s = (sqrt(3), 1) for pointy-top.
+      let s = vec2f(1.7320508, 1.0);
+      let h = s * 0.5;
+      let a = pp - s * floor(pp / s + vec2f(0.5));
+      let b = (pp - h) - s * floor((pp - h) / s + vec2f(0.5));
+      let q = select(b, a, dot(a, a) < dot(b, b));
+      // Distance to nearest hex EDGE for pointy-top hex centered at origin.
+      // Standard formula: max(|qx|*sqrt(3)/2 + |qy|*0.5, |qy|).
+      let aq = abs(q);
+      let edgeDist = 0.5 - max(aq.x * 0.8660254 + aq.y * 0.5, aq.y);
+      // edgeDist ∈ ~[0, 0.5]; small near edge, large near center.
+      let groove = 0.04;            // mortar half-width in cell units
+      let t = 1.0 - smoothstep(0.0, groove, edgeDist);
+      d = d + t * hexDepth;          // ADD = sunken mortar groove between plates
+    }
+  } else if (colorFn == 18u) {
+    // BRICK MASONRY — offset rectangular tiling with mortar grooves. Each row
+    // shifted by half a brick (running-bond pattern). Domain-warped slightly
+    // so individual bricks have natural irregularity. Use cases: stone walls,
+    // chimneys, building facades, dungeon walls.
+    let brickDepth = prims[base + 2u].w;
+    if (brickDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let warp2 = vec2f(
+        fbm3(pWorld * (density * 0.4)),
+        fbm3(pWorld * (density * 0.4) + vec3f(31.0, 17.0, 53.0)),
+      );
+      // Brick aspect ratio 2:1 (twice as wide as tall). XY plane.
+      let brickSize = vec2f(2.0, 1.0);
+      var pp = pWorld.xy * density + warp2 * 0.2;
+      // Row index → row offset by half a brick on alternate rows.
+      let rowIdx = floor(pp.y / brickSize.y);
+      let rowOffset = (rowIdx - 2.0 * floor(rowIdx * 0.5)) * brickSize.x * 0.5;
+      pp.x = pp.x + rowOffset;
+      // Local position within a brick.
+      let local = pp - brickSize * (floor(pp / brickSize) + vec2f(0.5));
+      // Distance to nearest brick edge (mortar joint).
+      let edgeXY = brickSize * 0.5 - abs(local);
+      let edgeDist = min(edgeXY.x, edgeXY.y);
+      let groove = 0.06;
+      let t = 1.0 - smoothstep(0.0, groove, edgeDist);
+      d = d + t * brickDepth;        // ADD = sunken mortar between bricks
+    }
+  } else if (colorFn == 19u) {
+    // VORONOI CRACKS — geometric cell-network fracture. Distinct from the
+    // FBM-band cracks (mode 9): this finds F1 and F2 (1st & 2nd nearest
+    // Voronoi cell points) and uses their bisector distance to draw thin
+    // sunken lines exactly along cell boundaries. The result reads as
+    // cracked dried mud, dragon-egg shell, broken tile, parched earth.
+    // Cell SIZES are uniform (random jitter only), so the network feels
+    // organic but not "noisy" — every line is a true cell boundary.
+    let voronoiDepth = prims[base + 2u].w;
+    if (voronoiDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      // Mild domain warp so cell shapes aren't perfectly Voronoi-textbook.
+      let warp = vec3f(
+        fbm3(pWorld * (density * 0.5)),
+        fbm3(pWorld * (density * 0.5) + vec3f(31.0, 17.0, 53.0)),
+        fbm3(pWorld * (density * 0.5) + vec3f(7.0, 41.0, 23.0)),
+      );
+      let pp = (pWorld + warp * 0.06) * density;
+      let pi = floor(pp);
+      var d1m = 1e9;
+      var d1p = vec3f(0.0);
+      // Two-pass Voronoi: F1 first, then F2 excluding F1's cell.
+      for (var z = -1; z <= 1; z = z + 1) {
+        for (var y = -1; y <= 1; y = y + 1) {
+          for (var x = -1; x <= 1; x = x + 1) {
+            let cell = pi + vec3f(f32(x), f32(y), f32(z));
+            let h = fract(sin(dot(cell, vec3f(127.1, 311.7, 74.7))) * 43758.5);
+            let pt = cell + vec3f(h, fract(h * 37.0), fract(h * 91.0));
+            let dd = length(pp - pt);
+            if (dd < d1m) { d1m = dd; d1p = pt; }
+          }
+        }
+      }
+      // F2: project query onto the F1↔F2 bisector for accurate edge distance.
+      var bisDist = 1e9;
+      for (var z = -1; z <= 1; z = z + 1) {
+        for (var y = -1; y <= 1; y = y + 1) {
+          for (var x = -1; x <= 1; x = x + 1) {
+            let cell = pi + vec3f(f32(x), f32(y), f32(z));
+            let h = fract(sin(dot(cell, vec3f(127.1, 311.7, 74.7))) * 43758.5);
+            let pt = cell + vec3f(h, fract(h * 37.0), fract(h * 91.0));
+            let delta = pt - d1p;
+            let dlen = length(delta);
+            if (dlen < 1e-4) { continue; }              // skip F1 itself
+            // Bisector distance = projection of (pp - midpoint) onto unit normal.
+            let mid = (pt + d1p) * 0.5;
+            let nrm = delta / dlen;
+            let bd = abs(dot(pp - mid, nrm));
+            if (bd < bisDist) { bisDist = bd; }
+          }
+        }
+      }
+      let crackHalfWidth = 0.04;                         // line half-thickness in cell units
+      let t = 1.0 - smoothstep(0.0, crackHalfWidth, bisDist);
+      d = d + t * voronoiDepth;          // ADD = sunken crack along cell edges
+    }
+  } else if (colorFn == 20u) {
+    // SCRATCHES — sparse directional strokes. Each scratch is a line along
+    // local +X (rotate the prim to redirect). Two FBM fields combine: a
+    // high-freq selector that picks WHICH lines exist, and a low-freq jitter
+    // that bends individual scratches slightly. Result: brushed-metal /
+    // weapon-wear look. Different from grain mode (continuous parallel stripes)
+    // — scratches are sparse, irregular, partial-length.
+    let scratchDepth = prims[base + 2u].w;
+    if (scratchDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      // Low-freq vertical jitter bends each scratch's exact path slightly.
+      let bend = fbm3(vec3f(pWorld.x * density * 0.3, 0.0, pWorld.z * density * 0.3));
+      let yLine = pWorld.y * density + bend * 0.6;
+      // Sin gives perfect parallel lines; floor identifies WHICH line we're near.
+      let lineIdx = floor(yLine + 0.5);
+      let distToLine = abs(yLine - lineIdx);
+      // Selector: per-line random hash decides if THIS line exists (sparse).
+      let exists = fract(sin(lineIdx * 12.9898 + 78.233) * 43758.5);
+      let lineExists = step(0.7, exists);                // ~30% of lines exist
+      // Length-along-X also masked: scratches are partial-length.
+      let xMask = fbm3(vec3f(pWorld.x * density * 0.4, lineIdx * 0.1, 0.0));
+      let lengthMask = smoothstep(0.4, 0.55, xMask);
+      let lineWidth = 0.06;
+      let t = (1.0 - smoothstep(0.0, lineWidth, distToLine)) * lineExists * lengthMask;
+      d = d + t * scratchDepth;
+    }
+  } else if (colorFn == 21u) {
+    // DIMPLES — regular grid of sunken sphere indents. The XY plane is
+    // tiled with cell-centered hemispheres (radius = 0.35 cell-units, can
+    // be tightened) that subtract from the surface. Domain-warped slightly
+    // so the grid isn't ruler-perfect. Use cases: golf ball, hammered
+    // metal, perforated panel, leather pebbling. Inverse of mode 22 (studs).
+    let dimpleDepth = prims[base + 2u].w;
+    if (dimpleDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let warp2 = vec2f(
+        fbm3(pWorld * (density * 0.4)),
+        fbm3(pWorld * (density * 0.4) + vec3f(31.0, 17.0, 53.0)),
+      );
+      let pp = pWorld.xy * density + warp2 * 0.15;
+      let local = pp - floor(pp + vec2f(0.5));            // [-0.5, 0.5] per cell
+      let r = length(local);
+      let dimpleR = 0.35;                                 // cell-units
+      // Smooth radial falloff: 1 at center, 0 at rim. Falls beyond rim → 0.
+      let t = 1.0 - smoothstep(0.0, dimpleR, r);
+      d = d + t * dimpleDepth;                            // ADD = sunken indent
+    }
+  } else if (colorFn == 22u) {
+    // STUDS — regular grid of raised hemispheres. Inverse of dimples. Same
+    // grid math, opposite sign on d. Use cases: rivets, tactile dot
+    // patterns (control-pad / D-pad), studded leather, decorative dots.
+    let studDepth = prims[base + 2u].w;
+    if (studDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let warp2 = vec2f(
+        fbm3(pWorld * (density * 0.4)),
+        fbm3(pWorld * (density * 0.4) + vec3f(31.0, 17.0, 53.0)),
+      );
+      let pp = pWorld.xy * density + warp2 * 0.10;
+      let local = pp - floor(pp + vec2f(0.5));
+      let r = length(local);
+      let studR = 0.30;
+      let t = 1.0 - smoothstep(0.0, studR, r);
+      d = d - t * studDepth;                              // SUBTRACT = raised
+    }
+  } else if (colorFn == 23u) {
+    // CHEVRONS — V-shaped raised ridges along local +Y axis. Like grain but
+    // V-pattern: at each Y-step, a chevron spans ±X width. Domain-warped to
+    // break the perfectly-regular pattern. Use cases: arrow pavement,
+    // textured rubber grip, military stencil chevrons, herringbone leather.
+    let chevDepth = prims[base + 2u].w;
+    if (chevDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let warp = fbm3(pWorld * (density * 0.5)) * 0.4;
+      let yIdx = floor(pWorld.y * density + warp);
+      // V-shape: y position relative to current chevron + |x| determines
+      // distance to the V. Higher |x| = needs greater +y to be on V.
+      let yLocal = (pWorld.y * density + warp) - yIdx;
+      let xLocal = abs(pWorld.x * density) % 1.0;
+      let vDist = abs(yLocal - 0.5 - xLocal * 0.5);       // V-shape distance
+      let chevWidth = 0.08;
+      let t = 1.0 - smoothstep(0.0, chevWidth, vDist);
+      d = d - t * chevDepth;                              // SUBTRACT = raised V
+    }
+  } else if (colorFn == 24u) {
+    // WHORL — concentric rings around the local origin (XY plane). The radius
+    // is domain-warped by FBM so rings aren't perfect circles — they wave and
+    // pinch like fingerprint or tree-growth rings. sin(radius * density)
+    // crossings are the ring lines (sunken). Different from every existing
+    // mode: pure radial, no Voronoi/lattice/band. Use cases: fingerprints,
+    // tree-stump rings, sliced fruit, contour topo lines, target patterns,
+    // wood end-grain.
+    let whorlDepth = prims[base + 2u].w;
+    if (whorlDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let warp = fbm3(pWorld * (density * 0.4)) * 0.6;
+      let r = length(pWorld.xy) + warp * 0.012;
+      let s = sin(r * density * 6.283);                    // ring oscillation
+      let t = 1.0 - smoothstep(0.0, 0.30, abs(s));
+      d = d + t * whorlDepth;                              // ADD = sunken ring
+    }
+  } else if (colorFn == 25u) {
+    // FISHSCALE — offset arc-rows. Each cell shows a half-circle arc whose
+    // visible bottom edge is the shadow line BETWEEN overlapping scales.
+    // Adjacent rows shifted by half-cell so arcs interlock (offset bond
+    // pattern, like brick but with curves). Different from scales mode 12,
+    // Voronoi cells, irregular sizes) — fishscale is uniform, regular,
+    // unmistakably "tile / scale / pinecone-bract". Domain-warped lightly
+    // so the arc edges aren't ruler-perfect.
+    let fsDepth = prims[base + 2u].w;
+    if (fsDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      let warp2 = vec2f(
+        fbm3(pWorld * (density * 0.4)),
+        fbm3(pWorld * (density * 0.4) + vec3f(31.0, 17.0, 53.0)),
+      );
+      let cellSize = vec2f(2.0, 1.0);
+      var pp = pWorld.xy * density + warp2 * 0.10;
+      let rowIdx = floor(pp.y / cellSize.y);
+      let rowOffset = (rowIdx - 2.0 * floor(rowIdx * 0.5)) * cellSize.x * 0.5;
+      pp.x = pp.x + rowOffset;
+      let local = pp - cellSize * (floor(pp / cellSize) + vec2f(0.5));
+      // Arc center sits at cell-top (local.y = +cellSize.y/2). Arc radius is
+      // ~half cell width; the visible half-circle is the BOTTOM of this arc.
+      let arcCenter = vec2f(0.0, cellSize.y * 0.5);
+      let arcR = cellSize.x * 0.55;
+      let r = length(local - arcCenter);
+      let dArcLine = abs(r - arcR);
+      // Smooth gate: only the bottom half of the arc circle (below arcCenter.y)
+      // is the visible scale boundary. Above = inside the next-row scale.
+      let visibleBottom = smoothstep(arcCenter.y + 0.05, arcCenter.y - 0.05, local.y);
+      let lineW = 0.06;
+      let t = visibleBottom * (1.0 - smoothstep(0.0, lineW, dArcLine));
+      d = d + t * fsDepth;                                 // ADD = sunken groove
+    }
+  } else if (colorFn == 26u) {
+    // WEAVE — two-axis over-under fabric pattern. Horizontal strands raise
+    // along X; vertical strands raise along Y. In alternating large cells,
+    // either H or V strand is dominant (on top), so the surface reads as
+    // genuinely woven, not just cross-hatched. Different from grain (single
+    // direction) and chevrons (V-pattern). Use cases: woven fabric, basket
+    // weave, cane, mesh, chainmail, woven grass mat.
+    let weaveDepth = prims[base + 2u].w;
+    if (weaveDepth > 0.0) {
+      let density = prims[base + 3u].y;
+      // Light domain warp so strands wave gently, not ruler-straight.
+      let warp2 = vec2f(
+        fbm3(pWorld * (density * 0.3)),
+        fbm3(pWorld * (density * 0.3) + vec3f(31.0, 17.0, 53.0)),
+      );
+      let pp = pWorld.xy * density + warp2 * 0.15;
+      // Two perpendicular sin strands. Peak (sin == 1) = strand top.
+      let strandH = sin(pp.x * 6.283);          // horizontal-running strand
+      let strandV = sin(pp.y * 6.283);          // vertical-running strand
+      // Over-under: parity of (cellX + cellY) at half the density picks which
+      // strand is on top in each large cell. The factor 0.5 makes large cells
+      // = 2x2 strand-cells so over-under flips visibly.
+      let cellSum = floor(pp.x * 0.5) + floor(pp.y * 0.5);
+      let parity = (i32(cellSum) % 2) == 0;
+      let dominant = select(strandV, strandH, parity);
+      // Raise where dominant strand peaks (top of sin wave).
+      let t = max(0.0, dominant);
+      d = d - t * weaveDepth;                              // SUBTRACT = raised strand
+    }
+  }
+  // ──────────────── SECONDARY WEAR DEFORMER ────────────────
+  // Runs AFTER the primary colorFunc deformer. Limited to FBM-based wear
+  // modes so the wear block stays compact (the primary chain is 14-wide;
+  // duplicating that for the wear slot is overkill — wear is realistically
+  // always one of these four). Slot 5: x=wearFn (u32), y=wearDepth (f32),
+  // z=wearDensity (f32), w=pad. wearFn=0 = off (early-out via the if).
+  let slot5 = prims[base + 5u];
+  let wearFn = bitcast<u32>(slot5.x);
+  if (wearFn != 0u) {
+    let wDepth = slot5.y;
+    let wDens = slot5.z;
+    if (wearFn == 1u) {
+      // BUMPS overlay — smooth FBM outward displacement. Same math as primary mode 11.
+      let n = fbm3(pWorld * wDens);
+      d = d - n * wDepth * 2.0;
+    } else if (wearFn == 2u) {
+      // GRAIN overlay — directional sin stripes warped by FBM. Same as mode 14.
+      let warp = fbm3(pWorld * 5.0) * 1.5;
+      let s = sin(pWorld.y * wDens * 6.283 + warp * 4.0);
+      let t = 1.0 - smoothstep(0.0, 0.30, abs(s));
+      d = d + t * wDepth;
+    } else if (wearFn == 3u) {
+      // STREAKS overlay — gravity-aligned drips. Same as mode 16.
+      let columnPick = fbm3(vec3f(pWorld.x * wDens, 0.0, pWorld.z * wDens));
+      let columnT = smoothstep(0.45, 0.55, columnPick);
+      let drip = clamp(0.5 - pWorld.y * 5.0, 0.0, 1.0);
+      let jitter = fbm3(vec3f(pWorld.x * wDens * 2.0, pWorld.y * wDens * 0.5, pWorld.z * wDens * 2.0));
+      let intensity = columnT * drip * (0.5 + jitter);
+      d = d + clamp(intensity, 0.0, 1.0) * wDepth;
+    } else if (wearFn == 4u) {
+      // SCRATCHES overlay — sparse directional strokes. Same as mode 20.
+      let bend = fbm3(vec3f(pWorld.x * wDens * 0.3, 0.0, pWorld.z * wDens * 0.3));
+      let yLine = pWorld.y * wDens + bend * 0.6;
+      let lineIdx = floor(yLine + 0.5);
+      let distToLine = abs(yLine - lineIdx);
+      let exists = fract(sin(lineIdx * 12.9898 + 78.233) * 43758.5);
+      let lineExists = step(0.7, exists);
+      let xMask = fbm3(vec3f(pWorld.x * wDens * 0.4, lineIdx * 0.1, 0.0));
+      let lengthMask = smoothstep(0.4, 0.55, xMask);
+      let t = (1.0 - smoothstep(0.0, 0.06, distToLine)) * lineExists * lengthMask;
+      d = d + t * wDepth;
+    }
+  }
+  return d;
 }
 
 // 2D ellipse SDF (Inigo Quilez approximation).
@@ -690,6 +1622,24 @@ fn smax_k(a: f32, b: f32, k: f32) -> f32 {
   let h = clamp(0.5 - 0.5 * (b - a) / kk, 0.0, 1.0);
   return mix(b, a, h) + kk * h * (1.0 - h);
 }
+// CHAMFER blend operators — Mercury hg_sdf canonical formulas. Sharper
+// than smin (smin produces fillets / soft creases; chamfer produces
+// hard 45° bevels). Useful for armor, weapons, mecha — anything where
+// edges should READ as edges, not as soft transitions. The constant
+// 0.7071 is sin(45°) = cos(45°) = sqrt(0.5).
+fn cmin_k(a: f32, b: f32, k: f32) -> f32 {
+  let kk = max(k, 1e-6);
+  return min(min(a, b), (a - kk + b) * 0.7071067811865476);
+}
+fn cmax_k(a: f32, b: f32, k: f32) -> f32 {
+  let kk = max(k, 1e-6);
+  return max(max(a, b), (a + kk + b) * 0.7071067811865476);
+}
+// Chamfer-subtract (carve b out of a with a beveled edge).
+fn cdiff_k(a: f32, b: f32, k: f32) -> f32 {
+  let kk = max(k, 1e-6);
+  return max(max(a, -b), (a + kk - b) * 0.7071067811865476);
+}
 
 const MAX_GROUPS: u32 = 16u;
 
@@ -717,34 +1667,60 @@ fn sceneSDF(pWorld: vec3f, wantDetail: u32) -> SceneHit {
     groupIdx[g]    = 0u;
   }
   for (var i = 0u; i < u.numPrims; i = i + 1u) {
-    let base = i * 5u;
+    let base = i * 6u;
     let cfg  = prims[base + 3u];
     let groupPacked = bitcast<u32>(cfg.z);
     let blendR = cfg.w;
 
     // Per-primitive occlusion — skip if the primitive's world bounding
-    // sphere is farther than the current best. Each primitive self-declares
-    // its "can I possibly win" range; evalPrim is expensive, this test is
-    // a vec sub + dot + sqrt + compare. On march steps outside the
-    // character region 'best' collapses fast once one prim lands, and all
-    // far prims short-circuit. "Layer was dumb, occlusion is smart."
+    // sphere is farther than the current best. Multi-bone primitives
+    // (line capsule, bezier limb) need their bounding to enclose ALL
+    // joints, not just bone A — otherwise a ray pointing down the limb
+    // axis skips the prim and you get holes at extreme camera angles.
     let slots0     = bitcast<vec4u>(prims[base + 0u]);
+    let primType0  = slots0.x;
     let params0    = prims[base + 1u];
     let offset0    = prims[base + 2u].xyz;
     let bone0      = readMat4((u.frameIdx * u.numJoints + slots0.z) * 4u);
-    let c00 = bone0[0].xyz;
-    let c10 = bone0[1].xyz;
-    let c20 = bone0[2].xyz;
-    let maxScaleSq = max(max(dot(c00, c00), dot(c10, c10)), dot(c20, c20));
-    let worldCtr   = (bone0 * vec4f(offset0, 1.0)).xyz;
-    // Conservative upper bound on primitive extent in local space. Sum of
-    // absolute params catches sphere radius, capsule r+h, torus R+r, cone
-    // tip→base, etc. in one formula — never under-estimates. The 0.05m
-    // margin covers smin blend softening, rotation re-orientation, and
-    // VFX noise displacement.
-    let radiusLocal = abs(params0.x) + abs(params0.y) + abs(params0.z) + abs(params0.w) + 0.05;
-    let radiusWorld = radiusLocal * sqrt(maxScaleSq) + abs(blendR);
-    let sphereDist  = distance(pWorld, worldCtr) - radiusWorld;
+    let aWorld0    = (bone0 * vec4f(offset0, 1.0)).xyz;
+
+    var worldCtr: vec3f;
+    var radiusWorld: f32;
+    if (primType0 == 17u || primType0 == 20u) {
+      // Bezier through joints A / B / C. params.x, .y bitcast u32 = jointB, jointC.
+      let jointBIdx0 = bitcast<u32>(params0.x);
+      let jointCIdx0 = bitcast<u32>(params0.y);
+      let boneB0 = readMat4((u.frameIdx * u.numJoints + jointBIdx0) * 4u);
+      let boneC0 = readMat4((u.frameIdx * u.numJoints + jointCIdx0) * 4u);
+      let bW0 = boneB0[3].xyz;
+      let cW0 = boneC0[3].xyz;
+      worldCtr = (aWorld0 + bW0 + cW0) / 3.0;
+      let prof = prims[base + 4u];
+      let maxR = max(max(prof.x, prof.y), max(prof.z, prof.w));
+      let dA = distance(worldCtr, aWorld0);
+      let dB = distance(worldCtr, bW0);
+      let dC = distance(worldCtr, cW0);
+      radiusWorld = max(max(dA, dB), dC) + maxR + abs(blendR) + 0.05;
+    } else if (primType0 == 15u) {
+      // Line capsule between joint A (this bone) and joint B (params.z u32).
+      let jointBIdx0 = bitcast<u32>(params0.z);
+      let boneB0 = readMat4((u.frameIdx * u.numJoints + jointBIdx0) * 4u);
+      let bW0 = boneB0[3].xyz;
+      worldCtr = (aWorld0 + bW0) * 0.5;
+      let segHalf = distance(aWorld0, bW0) * 0.5;
+      let maxR = max(abs(params0.x), abs(params0.y));
+      radiusWorld = segHalf + maxR + abs(blendR) + 0.05;
+    } else {
+      // Single-bone primitive — local-radius bounded by sum of |params|.
+      let c00 = bone0[0].xyz;
+      let c10 = bone0[1].xyz;
+      let c20 = bone0[2].xyz;
+      let maxScaleSq = max(max(dot(c00, c00), dot(c10, c10)), dot(c20, c20));
+      let radiusLocal = abs(params0.x) + abs(params0.y) + abs(params0.z) + abs(params0.w) + 0.05;
+      worldCtr = aWorld0;
+      radiusWorld = radiusLocal * sqrt(maxScaleSq) + abs(blendR);
+    }
+    let sphereDist = distance(pWorld, worldCtr) - radiusWorld;
     if (sphereDist >= best) { continue; }
 
     var d = evalPrim(i, pWorld);
@@ -756,11 +1732,18 @@ fn sceneSDF(pWorld: vec3f, wantDetail: u32) -> SceneHit {
         d = d - detailAmp * fbm3(pWorld * 28.0);
       }
     }
-    if (groupPacked == 0u || groupPacked > MAX_GROUPS) {
+    // Group ID is 1..15 in low 4 bits; bit 4 (0x10) flags CHAMFER blend
+    // mode (Mercury hg_sdf canonical bevel) instead of polynomial smin
+    // (default). Bit 4 set => sharp 45° bevel; bit 4 clear => smooth
+    // fillet. The flag survives through groupPacked; we mask it out
+    // for the group index lookup.
+    let chamferFlag = (groupPacked & 0x10u) != 0u;
+    let groupId     = groupPacked & 0x0Fu;
+    if (groupId == 0u || groupId > MAX_GROUPS) {
       // Standalone — hard union into scene.
       if (d < best) { best = d; bestIdx = i; }
     } else {
-      let g = groupPacked - 1u;
+      let g = groupId - 1u;
       // Additive primitives own the attribution; subtractors carve and
       // leave attribution to whoever was already there.
       if (blendR >= 0.0 && d < groupArgmin[g]) {
@@ -768,9 +1751,17 @@ fn sceneSDF(pWorld: vec3f, wantDetail: u32) -> SceneHit {
         groupIdx[g]    = i;
       }
       if (blendR > 0.0) {
-        groupDist[g] = smin_k(groupDist[g], d, blendR);
+        if (chamferFlag) {
+          groupDist[g] = cmin_k(groupDist[g], d, blendR);
+        } else {
+          groupDist[g] = smin_k(groupDist[g], d, blendR);
+        }
       } else if (blendR < 0.0) {
-        groupDist[g] = smax_k(groupDist[g], -d, -blendR);
+        if (chamferFlag) {
+          groupDist[g] = cdiff_k(groupDist[g], d, -blendR);
+        } else {
+          groupDist[g] = smax_k(groupDist[g], -d, -blendR);
+        }
       } else {
         groupDist[g] = min(groupDist[g], d);
       }
@@ -866,7 +1857,7 @@ fn fs_main(in: VsOut) -> FsOut {
   // Procedural color: pick between slotA and slotB based on colorFunc.
   // Crisp 2-3 band palette selection — no interpolated RGB, stays on
   // the discrete palette so the pixel-art contract holds.
-  let base = hitPrim * 5u;   // 5 vec4s per primitive
+  let base = hitPrim * 6u;   // 6 vec4s per primitive (PRIM_STRIDE_FLOATS = 24)
   let slots = bitcast<vec4u>(prims[base + 0u]);
   let colorCfg = prims[base + 3u];
   let slotsB = bitcast<vec4u>(prims[base + 3u]);
@@ -941,6 +1932,253 @@ fn fs_main(in: VsOut) -> FsOut {
     let cy = u32(floor(localP.y / cell + 1024.0));
     let cz = u32(floor(localP.z / cell + 1024.0));
     if (((cx + cy + cz) & 1u) == 1u) { slot = slotB; }
+  } else if (colorFunc == 7u) {
+    // CHEVRON — V-shaped bands in primitive-local space. Stripe parameter
+    // is |x| + y, so a horizontal slice gives a /\\ shape pointing UP.
+    // colorExtent = chevrons per metre. Used for heraldic capes.
+    let boneIdx = slots.z;
+    let boneWorld = readMat4((u.frameIdx * u.numJoints + boneIdx) * 4u);
+    let offset = prims[base + 2u].xyz;
+    let localP = worldToLocal(boneWorld, hitPos) - offset;
+    let v = abs(localP.x) + localP.y;
+    let band = u32(floor(v * colorExtent + 1024.0));
+    if ((band & 1u) == 1u) { slot = slotB; }
+  } else if (colorFunc == 8u) {
+    // WORLD-Y STRIPES — same idea as colorFunc 4 but the band parameter
+    // is the world-space Y of the hit, NOT primitive-local Y. Result: a
+    // chain of cape segments shows ONE continuous striped pattern instead
+    // of each segment showing its own self-centred stripes (which would
+    // visibly jump at segment seams). Stripes-per-metre stays the same.
+    let band = u32(floor(hitPos.y * colorExtent + 1024.0));
+    if ((band & 1u) == 1u) { slot = slotB; }
+  } else if (colorFunc == 9u) {
+    // VORONOI EDGE CRACKS — irregular branching dark lines suggesting
+    // surface fractures. Cell-edge distance via 2-nearest-neighbour
+    // search; pixels close to a Voronoi cell boundary read as cracks.
+    // colorExtent = density (cells per metre). Higher = finer cracks.
+    let pp = hitPos * colorExtent;
+    let pi = floor(pp);
+    var d1 = vec3f(0.0); var d1m = 1e9;
+    for (var z = -1; z <= 1; z = z + 1) {
+      for (var y = -1; y <= 1; y = y + 1) {
+        for (var x = -1; x <= 1; x = x + 1) {
+          let cell = pi + vec3f(f32(x), f32(y), f32(z));
+          var h = fract(sin(dot(cell, vec3f(127.1, 311.7, 74.7))) * 43758.5);
+          let pt = cell + vec3f(h, fract(h * 37.0), fract(h * 91.0));
+          let dd = length(pp - pt);
+          if (dd < d1m) { d1m = dd; d1 = pt; }
+        }
+      }
+    }
+    var d2m = 1e9;
+    for (var z = -1; z <= 1; z = z + 1) {
+      for (var y = -1; y <= 1; y = y + 1) {
+        for (var x = -1; x <= 1; x = x + 1) {
+          let cell = pi + vec3f(f32(x), f32(y), f32(z));
+          var h = fract(sin(dot(cell, vec3f(127.1, 311.7, 74.7))) * 43758.5);
+          let pt = cell + vec3f(h, fract(h * 37.0), fract(h * 91.0));
+          if (length(pt - d1) < 0.001) { continue; }
+          let dd = length(pp - pt);
+          if (dd < d2m) { d2m = dd; }
+        }
+      }
+    }
+    if ((d2m - d1m) < 0.10) { slot = slotB; }   // edge band → crack
+  } else if (colorFunc == 10u) {
+    // PITS — round craters picked into slotB. Mirror the domain-warped Worley
+    // F1 distance from evalPrim. Crater interior gets the dark accent.
+    let warp = vec3f(
+      fbm3(hitPos * (colorExtent * 0.8)),
+      fbm3(hitPos * (colorExtent * 0.8) + vec3f(31.0, 17.0, 53.0)),
+      fbm3(hitPos * (colorExtent * 0.8) + vec3f(7.0, 41.0, 23.0)),
+    );
+    let pp = (hitPos + warp * 0.15) * colorExtent;
+    let pi = floor(pp);
+    var dmin = 1e9;
+    for (var z = -1; z <= 1; z = z + 1) {
+      for (var y = -1; y <= 1; y = y + 1) {
+        for (var x = -1; x <= 1; x = x + 1) {
+          let cell = pi + vec3f(f32(x), f32(y), f32(z));
+          let h = fract(sin(dot(cell, vec3f(127.1, 311.7, 74.7))) * 43758.5);
+          let pt = cell + vec3f(h, fract(h * 37.0), fract(h * 91.0));
+          let dd = length(pp - pt);
+          if (dd < dmin) { dmin = dd; }
+        }
+      }
+    }
+    if (dmin < 0.30) { slot = slotB; }                       // pit interior
+  } else if (colorFunc == 13u) {
+    // VEINS — same FBM-band ridge as cracks but raised. Picked into slotB
+    // so the dark vein lines visibly trace the raised geometry.
+    let n = fbm3(hitPos * colorExtent);
+    if (abs(n) < 0.04) { slot = slotB; }                     // vein ridge band
+  } else if (colorFunc == 15u) {
+    // RIDGES — ridged-multifractal peaks picked into slotB. Approximation of
+    // the 4-octave fold from evalPrim using a single-octave (1-|n|) — color
+    // contrast doesn't need full multifractal precision, just "near a ridge".
+    let warp = vec3f(
+      fbm3(hitPos * (colorExtent * 0.4)),
+      fbm3(hitPos * (colorExtent * 0.4) + vec3f(31.0, 17.0, 53.0)),
+      fbm3(hitPos * (colorExtent * 0.4) + vec3f(7.0, 41.0, 23.0)),
+    );
+    let pp = hitPos * colorExtent + warp * 1.2;
+    let n = fbm3(pp);
+    let r = 1.0 - abs(n * 2.0);                              // [0, 1] peak proximity
+    if (r > 0.65) { slot = slotB; }                          // near a ridge peak
+  } else if (colorFunc == 16u) {
+    // STREAKS — gravity-aligned drips picked into slotB. Same column-pick +
+    // vertical falloff math from evalPrim. Streaks darken (rust runoff,
+    // water staining).
+    let columnPick = fbm3(vec3f(hitPos.x * colorExtent, 0.0, hitPos.z * colorExtent));
+    let columnT = smoothstep(0.45, 0.55, columnPick);
+    let drip = clamp(0.5 - hitPos.y * 5.0, 0.0, 1.0);
+    let jitter = fbm3(vec3f(hitPos.x * colorExtent * 2.0, hitPos.y * colorExtent * 0.5, hitPos.z * colorExtent * 2.0));
+    let intensity = clamp(columnT * drip * (0.5 + jitter), 0.0, 1.0);
+    if (intensity > 0.25) { slot = slotB; }                  // streak band
+  } else if (colorFunc == 12u) {
+    // SCALES — Voronoi cell-edge ridges picked into slotB. Mirror the F1-F2
+    // bisector math from evalPrim's geometric pass so the dark ridges line up
+    // with the raised displacement. Same domain warp.
+    let warp = vec3f(
+      fbm3(hitPos * (colorExtent * 0.6)),
+      fbm3(hitPos * (colorExtent * 0.6) + vec3f(31.0, 17.0, 53.0)),
+      fbm3(hitPos * (colorExtent * 0.6) + vec3f(7.0, 41.0, 23.0)),
+    );
+    let pp = (hitPos + warp * 0.10) * colorExtent;
+    let pi = floor(pp);
+    var d1 = vec3f(0.0); var d1m = 1e9;
+    for (var z = -1; z <= 1; z = z + 1) {
+      for (var y = -1; y <= 1; y = y + 1) {
+        for (var x = -1; x <= 1; x = x + 1) {
+          let cell = pi + vec3f(f32(x), f32(y), f32(z));
+          let h = fract(sin(dot(cell, vec3f(127.1, 311.7, 74.7))) * 43758.5);
+          let pt = cell + vec3f(h, fract(h * 37.0), fract(h * 91.0));
+          let dd = length(pp - pt);
+          if (dd < d1m) { d1m = dd; d1 = pt; }
+        }
+      }
+    }
+    var d2m = 1e9;
+    for (var z = -1; z <= 1; z = z + 1) {
+      for (var y = -1; y <= 1; y = y + 1) {
+        for (var x = -1; x <= 1; x = x + 1) {
+          let cell = pi + vec3f(f32(x), f32(y), f32(z));
+          let h = fract(sin(dot(cell, vec3f(127.1, 311.7, 74.7))) * 43758.5);
+          let pt = cell + vec3f(h, fract(h * 37.0), fract(h * 91.0));
+          if (length(pt - d1) < 0.001) { continue; }
+          let dd = length(pp - pt);
+          if (dd < d2m) { d2m = dd; }
+        }
+      }
+    }
+    let edge = d2m - d1m;
+    if (edge < 0.10) { slot = slotB; }                       // cell-edge ridge
+  } else if (colorFunc == 17u) {
+    // HEX TILES — mortar grooves between plates picked into slotB. Mirrors
+    // the geometric evaluation in evalPrim so the dark mortar lines up with
+    // the sunken displacement. Density read from colorExtent.
+    let warp2 = vec2f(
+      fbm3(hitPos * (colorExtent * 0.6)),
+      fbm3(hitPos * (colorExtent * 0.6) + vec3f(31.0, 17.0, 53.0)),
+    );
+    let pp = hitPos.xy * colorExtent + warp2 * 0.3;
+    let s = vec2f(1.7320508, 1.0);
+    let h = s * 0.5;
+    let a = pp - s * floor(pp / s + vec2f(0.5));
+    let b = (pp - h) - s * floor((pp - h) / s + vec2f(0.5));
+    let q = select(b, a, dot(a, a) < dot(b, b));
+    let aq = abs(q);
+    let edgeDist = 0.5 - max(aq.x * 0.8660254 + aq.y * 0.5, aq.y);
+    if (edgeDist < 0.04) { slot = slotB; }                  // mortar line
+  } else if (colorFunc == 18u) {
+    // BRICK MASONRY — mortar joints picked into slotB. Same offset-row math
+    // as the geometric pass.
+    let warp2 = vec2f(
+      fbm3(hitPos * (colorExtent * 0.4)),
+      fbm3(hitPos * (colorExtent * 0.4) + vec3f(31.0, 17.0, 53.0)),
+    );
+    let brickSize = vec2f(2.0, 1.0);
+    var pp = hitPos.xy * colorExtent + warp2 * 0.2;
+    let rowIdx = floor(pp.y / brickSize.y);
+    let rowOffset = (rowIdx - 2.0 * floor(rowIdx * 0.5)) * brickSize.x * 0.5;
+    pp.x = pp.x + rowOffset;
+    let local = pp - brickSize * (floor(pp / brickSize) + vec2f(0.5));
+    let edgeXY = brickSize * 0.5 - abs(local);
+    let edgeDist = min(edgeXY.x, edgeXY.y);
+    if (edgeDist < 0.06) { slot = slotB; }                  // mortar joint
+  } else if (colorFunc == 21u) {
+    // DIMPLES — center of each cell picked into slotB so dimples darken,
+    // matching the sunken geometry.
+    let warp2 = vec2f(
+      fbm3(hitPos * (colorExtent * 0.4)),
+      fbm3(hitPos * (colorExtent * 0.4) + vec3f(31.0, 17.0, 53.0)),
+    );
+    let pp = hitPos.xy * colorExtent + warp2 * 0.15;
+    let local = pp - floor(pp + vec2f(0.5));
+    let r = length(local);
+    if (r < 0.30) { slot = slotB; }                          // dimple interior
+  } else if (colorFunc == 22u) {
+    // STUDS — raised hemispheres picked into slotB so tops can highlight
+    // (use a brighter slotB) OR darken (set slotB darker than slotA, e.g.
+    // shadow ring around studs).
+    let warp2 = vec2f(
+      fbm3(hitPos * (colorExtent * 0.4)),
+      fbm3(hitPos * (colorExtent * 0.4) + vec3f(31.0, 17.0, 53.0)),
+    );
+    let pp = hitPos.xy * colorExtent + warp2 * 0.10;
+    let local = pp - floor(pp + vec2f(0.5));
+    let r = length(local);
+    if (r < 0.25) { slot = slotB; }                          // stud face
+  } else if (colorFunc == 23u) {
+    // CHEVRONS — V-ridge band picked into slotB. Same V-distance math as
+    // the geometric pass.
+    let warp = fbm3(hitPos * (colorExtent * 0.5)) * 0.4;
+    let yIdx = floor(hitPos.y * colorExtent + warp);
+    let yLocal = (hitPos.y * colorExtent + warp) - yIdx;
+    let xLocal = abs(hitPos.x * colorExtent) % 1.0;
+    let vDist = abs(yLocal - 0.5 - xLocal * 0.5);
+    if (vDist < 0.07) { slot = slotB; }                      // V-band
+  } else if (colorFunc == 24u) {
+    // WHORL — ring lines picked into slotB so concentric rings read as actual
+    // dark lines (fingerprint / growth-ring look) over the base material.
+    let warp = fbm3(hitPos * (colorExtent * 0.4)) * 0.6;
+    let r = length(hitPos.xy) + warp * 0.012;
+    let s = sin(r * colorExtent * 6.283);
+    if (abs(s) < 0.20) { slot = slotB; }                     // ring line
+  } else if (colorFunc == 25u) {
+    // FISHSCALE — shadow line between overlapping scales picked into slotB.
+    // Mirror the geometric pass's offset-row arc math.
+    let warp2 = vec2f(
+      fbm3(hitPos * (colorExtent * 0.4)),
+      fbm3(hitPos * (colorExtent * 0.4) + vec3f(31.0, 17.0, 53.0)),
+    );
+    let cellSize = vec2f(2.0, 1.0);
+    var pp = hitPos.xy * colorExtent + warp2 * 0.10;
+    let rowIdx = floor(pp.y / cellSize.y);
+    let rowOffset = (rowIdx - 2.0 * floor(rowIdx * 0.5)) * cellSize.x * 0.5;
+    pp.x = pp.x + rowOffset;
+    let local = pp - cellSize * (floor(pp / cellSize) + vec2f(0.5));
+    let arcCenter = vec2f(0.0, cellSize.y * 0.5);
+    let arcR = cellSize.x * 0.55;
+    let r = length(local - arcCenter);
+    let dArcLine = abs(r - arcR);
+    if (dArcLine < 0.05 && local.y < arcCenter.y) { slot = slotB; }
+  } else if (colorFunc == 26u) {
+    // WEAVE — sunken (between-strand) regions picked into slotB so the
+    // negative space (gaps between strands) reads as dark, putting the
+    // raised strands in light slot A. Mirror the geometric pass's
+    // alternating-cell over-under logic.
+    let warp2 = vec2f(
+      fbm3(hitPos * (colorExtent * 0.3)),
+      fbm3(hitPos * (colorExtent * 0.3) + vec3f(31.0, 17.0, 53.0)),
+    );
+    let pp = hitPos.xy * colorExtent + warp2 * 0.15;
+    let strandH = sin(pp.x * 6.283);
+    let strandV = sin(pp.y * 6.283);
+    let cellSum = floor(pp.x * 0.5) + floor(pp.y * 0.5);
+    let parity = (i32(cellSum) % 2) == 0;
+    let dominant = select(strandV, strandH, parity);
+    if (dominant < 0.0) { slot = slotB; }                    // gap between strands
   }
 
   // Face marks — surface-color overrides that live on a bone. Iterate
@@ -1194,20 +2432,34 @@ export function createRaymarchRenderer(
       u32[base + 1] = p.paletteSlot
       u32[base + 2] = p.boneIdx
       u32[base + 3] = cfPacked
-      // vec4<f32> in slot 1: params
-      f32[base + 4] = p.params[0]
-      f32[base + 5] = p.params[1]
-      f32[base + 6] = p.params[2]
+      // vec4<f32> in slot 1: params. Some types overload params slots
+      // as u32 bone indices — write those through the u32 view so the
+      // shader's bitcast<u32>(...) reads the right bits.
+      //   type 15 (lineCapsule):           params.z = jointBIdx
+      //   type 17 (bezierProfileCapsule):  params.x = jointBIdx,
+      //                                    params.y = jointCIdx
+      if (p.type === 17 || p.type === 20) {
+        u32[base + 4] = p.params[0]
+        u32[base + 5] = p.params[1]
+      } else {
+        f32[base + 4] = p.params[0]
+        f32[base + 5] = p.params[1]
+      }
+      if (p.type === 15) {
+        u32[base + 6] = p.params[2]
+      } else {
+        f32[base + 6] = p.params[2]
+      }
       f32[base + 7] = p.params[3]
       // vec4<f32> in slot 2: offset in bone (xyz) + detailAmplitude (w)
       f32[base + 8] = p.offsetInBone[0]
       f32[base + 9] = p.offsetInBone[1]
       f32[base + 10] = p.offsetInBone[2]
       f32[base + 11] = p.detailAmplitude ?? 0
-      // vec4 in slot 3: slotB (u32), colorExtent (f32), blendGroup (u32), blendRadius (f32 signed)
+      // vec4 in slot 3: slotB (u32), colorExtent (f32), blendGroup (u32 — bit 4 = chamfer flag), blendRadius (f32 signed)
       u32[base + 12] = p.paletteSlotB ?? p.paletteSlot
       f32[base + 13] = p.colorExtent ?? 0.1
-      u32[base + 14] = p.blendGroup ?? 0
+      u32[base + 14] = (p.blendGroup ?? 0) | (p.chamfer ? 0x10 : 0)
       f32[base + 15] = p.blendRadius ?? 0
       // vec4 in slot 4: rotation quaternion (x, y, z, w). Identity if absent.
       const rot = p.rotation ?? [0, 0, 0, 1]
@@ -1215,6 +2467,12 @@ export function createRaymarchRenderer(
       f32[base + 17] = rot[1]
       f32[base + 18] = rot[2]
       f32[base + 19] = rot[3]
+      // vec4 in slot 5: wearFn (u32), wearDepth (f32), wearDensity (f32), pad.
+      // wearFn=0 → secondary deformer is off (early-out in the shader).
+      u32[base + 20] = p.wearFn ?? 0
+      f32[base + 21] = p.wearDepth ?? 0
+      f32[base + 22] = p.wearDensity ?? 0
+      f32[base + 23] = 0
     }
     device.queue.writeBuffer(primsBuffer!, 0, data)
     rebuildBindGroup()

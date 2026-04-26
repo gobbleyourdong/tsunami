@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDF Modeler — VL-driven live viewer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: #0a0a10; color: #d8e0e8;
+      font-family: -apple-system, BlinkMacSystemFont, monospace; overflow: hidden;
+    }
+    #app { display: grid; grid-template-columns: 1fr 360px; width: 100vw; height: 100vh; }
+    #stage {
+      position: relative; background: #060810;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    canvas { width: 100%; height: 100%; display: block; }
+    #side {
+      background: #0d1018; border-left: 1px solid #1a1f2c;
+      padding: 14px; overflow-y: auto;
+      font-size: 12px; line-height: 1.5;
+    }
+    h2 { font-size: 13px; color: #fc4; margin: 12px 0 6px; font-weight: 500; }
+    h2:first-child { margin-top: 0; }
+    .row { display: flex; gap: 6px; margin: 4px 0; align-items: center; }
+    .row label { color: #8a96a6; min-width: 70px; font-size: 11px; }
+    button {
+      background: #1a2540; color: #cde; border: 1px solid #2c3a5c;
+      padding: 4px 10px; font-size: 11px; cursor: pointer; border-radius: 3px;
+      font-family: inherit;
+    }
+    button:hover { background: #243559; }
+    button.on { background: #2a5638; border-color: #4a8a5e; }
+    button.off { background: #4a1a1a; border-color: #7a2d2d; }
+    select, input[type="text"] {
+      background: #060810; color: #d8e0e8; border: 1px solid #2c3a5c;
+      padding: 4px 6px; font-family: inherit; font-size: 11px; border-radius: 3px;
+      width: 100%;
+    }
+    textarea {
+      width: 100%; height: 220px;
+      background: #060810; color: #d8e0e8; border: 1px solid #2c3a5c;
+      font-family: monospace; font-size: 10px; padding: 6px; border-radius: 3px;
+      resize: vertical;
+    }
+    #stats {
+      position: absolute; top: 10px; left: 10px;
+      background: rgba(8, 12, 22, 0.78); padding: 6px 10px; border-radius: 3px;
+      font-size: 11px; line-height: 1.5; color: #cde; pointer-events: none;
+      font-family: monospace;
+    }
+    #status-banner {
+      position: absolute; bottom: 10px; left: 10px;
+      background: rgba(8, 12, 22, 0.78); padding: 4px 8px; border-radius: 3px;
+      font-size: 11px; color: #8a96a6;
+    }
+    #status-banner.fresh { color: #6cf; }
+    #status-banner.error { color: #f88; }
+    .hint { color: #6a7585; font-size: 10px; line-height: 1.4; margin-top: 6px; }
+    #spec-list {
+      max-height: 180px; overflow-y: auto;
+      border: 1px solid #1f2738; border-radius: 3px; padding: 4px;
+      background: #060810;
+    }
+    .spec-item {
+      padding: 3px 6px; cursor: pointer; border-radius: 2px;
+      font-size: 10px; display: flex; justify-content: space-between;
+    }
+    .spec-item:hover { background: #1a2540; }
+    .spec-item .meta { color: #6a7585; }
+    .spec-item.warn .meta { color: #d8a050; }
+    .pill { display: inline-block; padding: 1px 6px; border-radius: 8px;
+            background: #1a2540; color: #8ab; font-size: 10px; }
+    #error {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      background: #2a0810; border: 1px solid #5a1822; padding: 18px; border-radius: 6px;
+      max-width: 480px; display: none; text-align: center; color: #fbb;
+    }
+    .palette-strip { display: flex; gap: 2px; margin: 4px 0; flex-wrap: wrap; }
+    .palette-strip .swatch {
+      width: 18px; height: 18px; border-radius: 2px; border: 1px solid #222;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="stage">
+      <canvas id="canvas"></canvas>
+      <div id="stats">init…</div>
+      <div id="status-banner">awaiting spec</div>
+      <div id="error"></div>
+    </div>
+    <div id="side">
+      <h2>VL hook</h2>
+      <div class="row">
+        <label>poll</label>
+        <button id="poll-toggle" class="on">ON</button>
+        <span id="poll-status" style="font-size:10px;color:#6a7585">—</span>
+      </div>
+      <div class="row">
+        <input id="poll-path" type="text" value="/sdf_modeler/inbox.ark.json" />
+      </div>
+      <div class="hint">VL agent writes ark.json to the polled path; the viewer rebuilds on change. Default path resolves under the dev server's public dir.</div>
+
+      <h2>Quick load</h2>
+      <div id="spec-list">loading…</div>
+
+      <h2>Manual spec</h2>
+      <div class="row">
+        <input id="manual-path" type="text" placeholder="/sdf_modeler/dagger.ark.json" />
+        <button id="manual-load">load</button>
+      </div>
+      <textarea id="manual-text" spellcheck="false" placeholder='paste ark.json here…'></textarea>
+      <div class="row" style="margin-top:6px;">
+        <button id="manual-apply">apply text</button>
+        <button id="manual-file">load file</button>
+        <input type="file" id="manual-file-input" accept=".json" style="display:none" />
+      </div>
+
+      <h2>Render</h2>
+      <div class="row">
+        <label>spin</label>
+        <button id="spin-toggle" class="on">auto-orbit</button>
+      </div>
+      <div class="row">
+        <label>view</label>
+        <button data-view="iso">iso</button>
+        <button data-view="front">front</button>
+        <button data-view="side">side</button>
+        <button data-view="top">top</button>
+      </div>
+      <div class="hint">Drag to orbit, scroll to zoom, double-click to reset.</div>
+
+      <h2>Palette</h2>
+      <div class="palette-strip" id="palette-strip"></div>
+
+      <h2>Spec</h2>
+      <div id="spec-meta" style="font-size:10px; color:#8a96a6;">—</div>
+    </div>
+  </div>
+  <script type="module" src="./sdf_modeler.ts"></script>
+</body>
+</html>

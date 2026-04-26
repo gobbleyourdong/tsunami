@@ -477,5 +477,65 @@ separate cache invalidation axis, independent of anim/physics).
 - `src/character3d/secondary.ts` — single-mass spring (jiggle).
 - `src/character3d/node_particle.ts` — chain mechanic (cape, long hair,
   tentacles, ribbons).
+- `src/character3d/wardrobe.ts` — `WardrobePiece` / `WardrobeOutfit` types
+  + `WARDROBE` registry (knight, mage, light, barbarian).
+- `src/character3d/face_pixels.ts` — `FacePixelGrid` + canonical
+  `EYE_STYLES` / `MOUTH_STYLES`, the data layer for the face editor.
+- `src/character3d/face_pixel_editor.ts` — DOM grid editor with
+  localStorage persistence + auto-bake on click.
 - `docs/bvh_layered_cache.md` — future scene-partition architecture.
 - `docs/character_pipeline_status.md` — this document.
+
+## Tonight's plan A–G — landed
+
+Reference: 7-item plan from the conversation (long hair, hair strands,
+silhouette wardrobe, cape projected pattern, grenade collision, full
+knight outfit, face pixel editor).
+
+- **A — Long hair (cape architecture port)**: 5-segment node-particle
+  chain `HairLong0..HairLong4`, root locked to back of cranium with
+  head-rotated offset, head sphere (r=0.18) + shoulder sphere (r=0.07)
+  collision, world-frame breeze, GPU upload of contiguous hair bones.
+- **B — Hair strands**: `DEFAULT_HAIR_STRANDS` = 6 capsules (top tufts,
+  fringe, sideburns) attached to Head with baked `rotationDeg`. Each
+  strand has its own spring (CPU side, lazy-init); per-frame the bone
+  matrix is rewritten so +Y points root→springTip. Straight capsule
+  for now; bent_capsule shader primitive deferred.
+- **C — Silhouette wardrobe**: 4 outfits in `WARDROBE` (knight, mage,
+  light, barbarian). New palette slots `cloth: 17`, `leather: 18`.
+  Routing in `accessorySlot()` keys off outfit prefix
+  (`WP_Mage_*` → cloth, `WP_Light_*` → leather, etc). `BodyPart.shape`
+  override lets semantic names like `WP_Mage_Hood` pick the ellipsoid
+  primitive.
+- **D — Cape projected pattern**: shader gained `colorFunc 7` (chevron,
+  V-bands by `|x|+y`) and `colorFunc 8` (world-Y stripes, continuous
+  across multi-prim chains so segment seams disappear). Default cape
+  pattern moved from local-Y stripes to world-Y. Real RGBA texture
+  buffer deferred — procedural patterns suffice at sprite tier.
+- **E — Grenade body collision**: bounding-sphere push-out on
+  Hips (r=0.17) + Spine2 (r=0.16) after spring tick + velocity reflect
+  along the contact normal so grenades never tunnel into the torso.
+- **F — Full knight outfit**: 14 armor primitives across helmet,
+  pauldrons, chest+back plates, belt, vambraces, gauntlets, greaves,
+  boots. Blend group 11 (armor pieces fuse where they overlap, hard
+  min vs body group 6).
+- **G — Face pixel editor**: HTML grid widget mounted in `#face-pixel-
+  editor`; reads `EYE_STYLES` / `MOUTH_STYLES` as presets, click-paints
+  with a 7-slot palette (clear/pupil/eyewhite/accent/tear/glow/mouth).
+  Auto-bakes on every click; persists edits to `localStorage` under
+  `'facePixels.v1'`. Reset restores the canonical baseline + clears
+  storage.
+
+## Polish layered on top
+
+- **Loadout test panel** in `#props`: armor outfit / hair style / cape
+  on/off / cape pattern / grenades on/off / animation dropdown +
+  shuffle / reset. Reads enums directly from `WARDROBE`,
+  `CAPE_PATTERNS`, `EXPRESSIONS` so values are always in-set.
+- **Save / load round-trip**: `CharacterSpecV2.loadout` (optional)
+  captures armor + hair + cape + capePattern + grenades + expression
+  alongside palette + proportions. Backward-compat with older specs.
+- **UE-tick pipeline**: animation update → physics update → draw, with
+  cape / long-hair / strand / spring blocks all gated on
+  `tickShouldRun = frameIdx !== lastSecondaryFrame || restPose !== lastSecondaryRestPose`
+  so physics fires once per sprite-anim tick rather than per-frame.

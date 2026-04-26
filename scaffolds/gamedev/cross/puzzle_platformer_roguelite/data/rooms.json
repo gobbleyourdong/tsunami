@@ -21,13 +21,13 @@
     },
     {
       "id": "ice_traversal",
-      "tags": ["movement"],
+      "tags": ["movement", "platformer"],
       "difficulty": 2,
       "physics_mod": { "friction_mul": 0.15 }
     },
     {
       "id": "windy_gap",
-      "tags": ["hazard"],
+      "tags": ["hazard", "platformer"],
       "difficulty": 3,
       "physics_mod": { "gravity_mul": 1.0, "wind_x": 40 }
     },

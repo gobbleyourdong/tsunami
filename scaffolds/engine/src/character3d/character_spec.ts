@@ -64,6 +64,34 @@ export interface CharacterSpecV2 {
     redistribution?: boolean
     author?:         string
   }
+  /** Optional loadout / preset selections — what the demo's UI panel
+   *  has selected. Round-trips so a saved character restores its outfit
+   *  and expression. Strings are treated as opaque tokens by this module
+   *  — the demo validates them against its own enums on load. */
+  loadout?: {
+    armor?:       string
+    hair?:        string
+    cape?:        boolean
+    capePattern?: string
+    grenades?:    boolean
+    expression?:  string
+    proportion?:  string
+    hands?:       string
+    feet?:        string
+    helm?:        string
+  }
+  /** Optional anatomy profile overrides — each entry is a 4-control-point
+   *  cubic Bezier of radii along the corresponding curve (limb beziers in
+   *  `limbs` keyed by limb name; anatomy curves in `anatomy` keyed by
+   *  AnatomyCurve.name). The demo's emission resolves these against the
+   *  active rig + DEFAULT_ANATOMY at load time. Missing entries fall
+   *  back to engine defaults — partial overrides are valid. The
+   *  combination of these knobs is the character's "muscularity / sex
+   *  characteristics" surface. */
+  profiles?: {
+    limbs?:   Record<string, [number, number, number, number]>
+    anatomy?: Record<string, [number, number, number, number]>
+  }
 }
 
 /** V1 legacy shape — kept for backward-compat load. */
@@ -89,6 +117,8 @@ export interface SerializeInput {
   bodyParts:    BodyPart[]
   accessories:  Accessory[]
   license?:     CharacterSpecV2['license']
+  loadout?:     CharacterSpecV2['loadout']
+  profiles?:    CharacterSpecV2['profiles']
 }
 
 export function serializeCharacterSpec(input: SerializeInput): CharacterSpecV2 {
@@ -103,6 +133,13 @@ export function serializeCharacterSpec(input: SerializeInput): CharacterSpecV2 {
     bodyParts:   input.bodyParts.map(cloneAttached),
     accessories: input.accessories.map(cloneAttached),
     ...(input.license ? { license: { ...input.license } } : {}),
+    ...(input.loadout ? { loadout: { ...input.loadout } } : {}),
+    ...(input.profiles ? {
+      profiles: {
+        ...(input.profiles.limbs   ? { limbs:   { ...input.profiles.limbs   } } : {}),
+        ...(input.profiles.anatomy ? { anatomy: { ...input.profiles.anatomy } } : {}),
+      },
+    } : {}),
   }
 }
 

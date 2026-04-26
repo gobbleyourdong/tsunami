@@ -14,6 +14,8 @@ import {
   chibiMaterial,
   extendRigWithFace,
   extendLocalMatsWithFace,
+  extendRigWithAnchors,
+  extendLocalMatsWithAnchors,
   extendRigWithAccessories,
   extendLocalMatsWithAccessories,
   extendRigWithHair,
@@ -22,6 +24,8 @@ import {
   extendLocalMatsWithBodyParts,
   DEFAULT_CAPE_PARTS,
   DEFAULT_BOB_HAIR,
+  DEFAULT_LONG_HAIR,
+  DEFAULT_HAIR_STRANDS,
   DEFAULT_GRENADE_BELT,
   DEFAULT_FACE,
   DEFAULT_HAIR,
@@ -44,8 +48,17 @@ import {
   defaultCharacterParams,
 } from '../src/character3d/glb_loader'
 import { createOutlinePass } from '../src/character3d/outline'
+import { WARDROBE, outfitToBodyParts } from '../src/character3d/wardrobe'
+import { DEFAULT_ANATOMY, BUILD_PRESETS } from '../src/character3d/anatomy'
+import { DEFAULT_ATTACHMENTS, HAND_LIBRARY, FOOT_LIBRARY } from '../src/character3d/attachments'
+import {
+  EYE_STYLES as FACE_EYE_DATA,
+  MOUTH_STYLES as FACE_MOUTH_DATA,
+  resolveSlot as resolveFaceSlot,
+} from '../src/character3d/face_pixels'
+import { createFacePixelEditor } from '../src/character3d/face_pixel_editor'
 import { mat4 } from '../src/math/vec'
-import { createRaymarchRenderer, type RaymarchPrimitive } from '../src/character3d/raymarch_renderer'
+import { createRaymarchRenderer, expandMirrors, type RaymarchPrimitive } from '../src/character3d/raymarch_renderer'
 import { VFXSystem } from '../src/character3d/vfx_system'
 import {
   createNodeParticle,
@@ -183,16 +196,35 @@ async function main() {
           vat.rig = extendRigWithFace(vat.rig)
           vat.localMats = extendLocalMatsWithFace(vat.localMats, vat.numFrames, vat.numJoints)
           vat.numJoints = vat.rig.length
+          // Anatomy anchors — virtual joints on the head that anatomy
+          // curves (jawline / brow / cheekbones) reference as bezier
+          // control points. Position-only; no primitive emission.
+          vat.rig = extendRigWithAnchors(vat.rig)
+          vat.localMats = extendLocalMatsWithAnchors(vat.localMats, vat.numFrames, vat.numJoints)
+          vat.numJoints = vat.rig.length
           // Bob hair shipped with the engine; characters can override by
           // passing a different list. Spring-driven jiggle applied below.
-          vat.rig = extendRigWithHair(vat.rig, DEFAULT_BOB_HAIR)
-          vat.localMats = extendLocalMatsWithHair(vat.localMats, vat.numFrames, vat.numJoints, DEFAULT_BOB_HAIR)
+          const allHair = [...DEFAULT_BOB_HAIR, ...DEFAULT_LONG_HAIR, ...DEFAULT_HAIR_STRANDS]
+          vat.rig = extendRigWithHair(vat.rig, allHair)
+          vat.localMats = extendLocalMatsWithHair(vat.localMats, vat.numFrames, vat.numJoints, allHair)
           vat.numJoints = vat.rig.length
           // Body parts + cape + grenades all share the BodyPart shape.
           // Cape gets node-particle chain motion; grenades get per-grenade
           // springs (jiggle on running); body parts (breasts/hippads) stay
           // rest-pose unless they get their own springs in a future tick.
-          const bodyAndExtras = [...DEFAULT_BODY_PARTS, ...DEFAULT_CAPE_PARTS, ...DEFAULT_GRENADE_BELT]
+          // Extend the rig with EVERY outfit's bones, not just knight.
+          // The loadout panel can then swap outfits at runtime by toggling
+          // which subset emits primitives — no rig regen needed. Each
+          // outfit uses unique bone-name prefixes (WP_Mage_, WP_Light_,
+          // etc.) so there are no name collisions.
+          const allWardrobeParts = Object.values(WARDROBE)
+            .flatMap((o) => outfitToBodyParts(o))
+          const bodyAndExtras = [
+            ...DEFAULT_BODY_PARTS,
+            ...DEFAULT_CAPE_PARTS,
+            ...DEFAULT_GRENADE_BELT,
+            ...allWardrobeParts,
+          ]
           vat.rig = extendRigWithBodyParts(vat.rig, bodyAndExtras)
           vat.localMats = extendLocalMatsWithBodyParts(vat.localMats, vat.numFrames, vat.numJoints, bodyAndExtras)
           vat.numJoints = vat.rig.length
@@ -222,16 +254,48 @@ async function main() {
     // Groups mirror typical character-editor UI knobs. Each joint belongs to
     // exactly one group; scale propagates to its descendants via hierarchy
     // composition in the retarget composer.
+    // Group regexes follow the rule: attachments inherit their parent
+    // joint's group scale. So head-attached hair / helmets land in the
+    // head group, arm-attached gauntlets in arms, leg-attached boots
+    // in legs, etc. When the head scales 1.4×, every head-attached
+    // attachment scales 1.4× too — no orphaned tiny hair on a giant
+    // head, no oversized gauntlets on a chibi forearm.
+    //
+    // Suffix matching uses (^|_) so both bare role names (WP_Helmet,
+    // legacy knight) and outfit-prefixed names (WP_Mage_Hood,
+    // WP_Light_BootL) match the same role-suffix regex.
     const GROUP_PATTERNS: Record<string, RegExp> = {
-      // Head group includes face features — chibi-scaling the head must
-      // grow the eyes/mouth/nose too, otherwise a huge head with tiny
-      // features looks wrong. Face joints are parented to Head so their
-      // position already inherits head scale through col3 propagation;
-      // adding them to this group scales their OWN display cubes too.
-      head:  /^(Head|HeadTop_End|Neck|LeftEye|RightEye|LeftPupil|RightPupil|Mouth|Nose|Hair(Top|Back|LeftSide|RightSide|Fringe))$/,
-      torso: /^(Spine|Spine1|Spine2|Hips|Left(Shoulder)|Right(Shoulder))$/,
-      arms:  /(LeftArm|RightArm|LeftForeArm|RightForeArm|LeftHand|RightHand)/,
-      legs:  /(LeftUpLeg|LeftLeg|LeftFoot|RightUpLeg|RightLeg|RightFoot|LeftToe|RightToe)/,
+      head: new RegExp(
+        '^(' +
+          'Head|HeadTop_End|Neck|LeftEye|RightEye|LeftPupil|RightPupil|Mouth|Nose|' +
+          'Hair[A-Za-z0-9]*|' +                            // every hair variant (Bob, Long*, Strand*, etc.)
+          'WP_Helmet|' +                                   // legacy knight head armor
+          'WP_[A-Za-z]+_(Hood|Mask|Cap|Helmet)' +          // outfit-prefixed head armor
+        ')$',
+      ),
+      torso: new RegExp(
+        '^(' +
+          'Spine|Spine1|Spine2|Hips|LeftShoulder|RightShoulder|' +
+          'Cape[0-9]+|Grenade[LR]|' +                      // body extras parented to spine/hips
+          'WP_(ChestPlate|BackPlate|Belt|Pauldron[LR])|' + // legacy knight torso/shoulder armor
+          'WP_[A-Za-z]+_(ChestPlate|BackPlate|Belt|Pauldron[LR]|RobeChest|RobeSkirt|Sash[LR]|LoinFront|LoinBack)' +
+        ')$',
+      ),
+      arms: new RegExp(
+        '(' +
+          'LeftArm|RightArm|LeftForeArm|RightForeArm|LeftHand|RightHand|' +
+          'WP_(Vambrace[LR]|Gauntlet[LR])|' +              // legacy knight arm armor
+          'WP_[A-Za-z]+_(Vambrace[LR]|Gauntlet[LR]|Wrap[LR]|Bracer[LR]|Sleeve[LR])|' +
+          'RightWeapon' +                                   // weapon socket
+        ')',
+      ),
+      legs: new RegExp(
+        '(' +
+          'LeftUpLeg|LeftLeg|LeftFoot|RightUpLeg|RightLeg|RightFoot|LeftToe|RightToe|' +
+          'WP_(Greave[LR]|Boot[LR])|' +                    // legacy knight leg armor
+          'WP_[A-Za-z]+_(Greave[LR]|Boot[LR])' +
+        ')',
+      ),
       // Secondary-sex-characteristic virtual joints; default slider = 0
       // so they're invisible unless a preset or slider enables them.
       bust:  /^(LeftBreast|RightBreast)$/,
@@ -398,32 +462,31 @@ async function main() {
     type Scale = number | [number, number, number]
     type PresetKey = 'realistic' | 'stylized' | 'chibi'
     const BODY_PRESETS: Record<PresetKey, Record<string, Scale>> = {
-      // Alucard-tier SotN realistic: adult proportions, head small, legs
-      // long. 1:1 Mixamo with mild anime-lengthening of the legs.
+      // Proportion presets follow ONE rule: the only dials are HEAD
+      // (uniform scale) and LEGS (Y-only scale, propagates through the
+      // whole leg chain — UpLeg → Leg → Foot → Toe). Torso, arms, and
+      // any other group always stay at identity. Earlier presets that
+      // touched torso/arms/X+Z bled the silhouette in ways that read as
+      // distortion rather than proportional change.
       realistic: {
-        head:  [1.0, 0.95, 1.0],
-        torso: [1.0, 1.0,  1.0],
-        arms:  [1.0, 1.05, 1.0],
-        legs:  [1.0, 1.10, 1.0],
-        bust: 0.0, hips: 0.0,
-      },
-      // SNES anime-RPG (Chrono / FF6 / Secret of Mana): head prominent but
-      // not dominant, limbs slightly shortened, width unchanged.
-      stylized: {
-        head:  [1.0, 1.35, 1.0],
-        torso: [1.0, 0.9,  1.0],
-        arms:  [1.0, 0.85, 1.0],
-        legs:  [1.0, 0.82, 1.0],
-        bust: 0.0, hips: 0.0,
-      },
-      // SNES-chibi: head stays ROUND (uniform 1.0, no Y-stretch → no
-      // cone-head); the body is squashed HARD so the head dominates by
-      // ratio, not by stretching. Width unchanged across the character.
-      chibi: {
         head:  [1.0, 1.0, 1.0],
-        torso: [1.0, 0.55, 1.0],
-        arms:  [1.0, 0.5,  1.0],
-        legs:  [1.0, 0.3,  1.0],
+        torso: [1.0, 1.0, 1.0],
+        arms:  [1.0, 1.0, 1.0],
+        legs:  [1.0, 1.0, 1.0],
+        bust: 0.0, hips: 0.0,
+      },
+      stylized: {
+        head:  [1.15, 1.15, 1.15],
+        torso: [1.0, 1.0, 1.0],
+        arms:  [1.0, 1.0, 1.0],
+        legs:  [1.0, 0.85, 1.0],
+        bust: 0.0, hips: 0.0,
+      },
+      chibi: {
+        head:  [1.40, 1.40, 1.40],
+        torso: [1.0, 1.0, 1.0],
+        arms:  [1.0, 1.0, 1.0],
+        legs:  [1.0, 0.55, 1.0],
         bust: 0.0, hips: 0.0,
       },
     }
@@ -717,19 +780,60 @@ async function main() {
           material.palette[slotIdx * 4 + 2],
         ]
       }
+      // Pack the active hair geometry (driven by loadout.hair) into the
+      // spec so a saved character is self-contained — even if the
+      // module defaults change in a future engine version, this file
+      // still re-creates the same silhouette.
+      const activeHair = loadout.hair === 'bob'           ? DEFAULT_BOB_HAIR
+                       : loadout.hair === 'long'          ? DEFAULT_LONG_HAIR
+                       : loadout.hair === 'strands'       ? DEFAULT_HAIR_STRANDS
+                       : loadout.hair === 'bob+strands'   ? [...DEFAULT_BOB_HAIR,  ...DEFAULT_HAIR_STRANDS]
+                       : loadout.hair === 'long+strands'  ? [...DEFAULT_LONG_HAIR, ...DEFAULT_HAIR_STRANDS]
+                       : []
+      // Pack the active armor outfit's pieces into bodyParts too so the
+      // exported character is self-describing without needing the
+      // engine to ship the same WARDROBE registry.
+      const activeArmor = loadout.armor !== 'none' && WARDROBE[loadout.armor]
+        ? outfitToBodyParts(WARDROBE[loadout.armor])
+        : []
       return serializeCharacterSpec({
         name:        nameInput.value || 'unnamed',
         archetype:   ARCHETYPE_CHIBI,
         proportions: { ...currentScales },
         palette:     paletteEntries,
-        // Face/hair/body/accessories are module-constant defaults today;
-        // dump them so the spec round-trips. Runtime-mutable arrays would
-        // slot in here once the rig-extend path accepts per-character
-        // overrides.
         face:        DEFAULT_FACE,
-        hair:        DEFAULT_HAIR,
-        bodyParts:   DEFAULT_BODY_PARTS,
+        hair:        activeHair,
+        bodyParts:   [
+          ...DEFAULT_BODY_PARTS,
+          ...(loadout.cape     ? DEFAULT_CAPE_PARTS   : []),
+          ...(loadout.grenades ? DEFAULT_GRENADE_BELT : []),
+          ...activeArmor,
+        ],
         accessories: DEFAULT_ACCESSORIES,
+        // Loadout state — captured as opaque string tokens so saved
+        // characters round-trip the test panel's selections (outfit,
+        // hair style, cape pattern, expression).
+        loadout: {
+          armor:       loadout.armor,
+          hair:        loadout.hair,
+          cape:        loadout.cape,
+          capePattern: loadout.capePattern,
+          grenades:    loadout.grenades,
+          expression:  currentExpression,
+          proportion:  currentProportion,
+          hands:       loadout.hands,
+          feet:        loadout.feet,
+          helm:        loadout.helm,
+        },
+        // Anatomy profile overrides — only emitted when at least one
+        // entry is set, so default characters round-trip without a
+        // bloated `profiles` block.
+        ...((Object.keys(profiles.limbs).length > 0 || Object.keys(profiles.anatomy).length > 0)
+          ? { profiles: {
+              ...(Object.keys(profiles.limbs).length   > 0 ? { limbs:   { ...profiles.limbs   } } : {}),
+              ...(Object.keys(profiles.anatomy).length > 0 ? { anatomy: { ...profiles.anatomy } } : {}),
+            } }
+          : {}),
       })
     }
 
@@ -762,6 +866,62 @@ async function main() {
       const nonEmpty = spec.face.length + spec.hair.length + spec.bodyParts.length + spec.accessories.length
       if (nonEmpty > 0) {
         console.info(`[spec] ${spec.name}: ${spec.face.length} face / ${spec.hair.length} hair / ${spec.bodyParts.length} body / ${spec.accessories.length} accessories parsed (runtime override pending)`)
+      }
+      // Loadout — apply only those fields that match known enums; ignore
+      // unknowns so older specs don't crash newer engines and v.v.
+      if (spec.loadout) {
+        const lo = spec.loadout
+        if (typeof lo.armor === 'string' && (lo.armor === 'none' || lo.armor in WARDROBE)) {
+          loadout.armor = lo.armor as typeof loadout.armor
+        }
+        if (typeof lo.hair === 'string' &&
+            ['none','bob','long','strands','bob+strands','long+strands'].includes(lo.hair)) {
+          loadout.hair = lo.hair as typeof loadout.hair
+        }
+        if (typeof lo.cape === 'boolean')      loadout.cape = lo.cape
+        if (typeof lo.grenades === 'boolean')  loadout.grenades = lo.grenades
+        if (typeof lo.capePattern === 'string' && lo.capePattern in CAPE_PATTERNS) {
+          loadout.capePattern = lo.capePattern as typeof loadout.capePattern
+        }
+        if (typeof lo.expression === 'string' && lo.expression in EXPRESSIONS) {
+          applyExpression(lo.expression)
+        }
+        if (typeof lo.proportion === 'string' &&
+            (lo.proportion === 'chibi' || lo.proportion === 'stylized' || lo.proportion === 'realistic')) {
+          applyPreset(lo.proportion)
+        }
+        if (typeof lo.hands === 'string' && lo.hands in HAND_LIBRARY) {
+          loadout.hands = lo.hands
+        }
+        if (typeof lo.feet === 'string' && lo.feet in FOOT_LIBRARY) {
+          loadout.feet = lo.feet
+        }
+        if (typeof lo.helm === 'string' && (HELM_STYLES as readonly string[]).includes(lo.helm)) {
+          loadout.helm = lo.helm as HelmStyle
+        }
+        rebuildPersistentPrims()
+        buildLoadoutUI()   // refresh active-button highlights
+      }
+      // Anatomy profile overrides — partial maps. Validate each
+      // entry is a 4-element numeric tuple before storing; reject
+      // malformed without crashing.
+      if (spec.profiles) {
+        const isProfile = (v: unknown): v is ProfileTuple =>
+          Array.isArray(v) && v.length === 4 && v.every((n) => typeof n === 'number' && Number.isFinite(n))
+        // Reset before applying so a load fully replaces prior overrides.
+        for (const k of Object.keys(profiles.limbs))   delete profiles.limbs[k]
+        for (const k of Object.keys(profiles.anatomy)) delete profiles.anatomy[k]
+        if (spec.profiles.limbs) {
+          for (const [k, v] of Object.entries(spec.profiles.limbs)) {
+            if (isProfile(v)) profiles.limbs[k] = [v[0], v[1], v[2], v[3]]
+          }
+        }
+        if (spec.profiles.anatomy) {
+          for (const [k, v] of Object.entries(spec.profiles.anatomy)) {
+            if (isProfile(v)) profiles.anatomy[k] = [v[0], v[1], v[2], v[3]]
+          }
+        }
+        rebuildPersistentPrims()
       }
     }
 
@@ -803,6 +963,8 @@ async function main() {
     const rightHandIdx = rig.findIndex((j) => j.name === 'RightHand')
     const headIdx = rig.findIndex((j) => j.name === 'Head')
     const spine2Idx = rig.findIndex((j) => j.name === 'Spine2')
+    const lShoulderIdx = rig.findIndex((j) => j.name === 'LeftShoulder')
+    const rShoulderIdx = rig.findIndex((j) => j.name === 'RightShoulder')
     // 5-segment cape: Cape0 (locked anchor at shoulder) → Cape4 (tip).
     // Each particle index matches the bone index in capeBoneIndices.
     const capeBoneIndices: number[] = []
@@ -833,6 +995,59 @@ async function main() {
       createNodeParticle({ parentRef: 3, parentKind: 'particle', restOffset: [0, -CAPE_SEG_DROP, 0], restLength: CAPE_SEG_DROP }),
     ]
 
+    // 5-segment long hair: HairLong0 (locked to back of head) → HairLong4
+    // (tip). Cape architecture port — same locked-root + node-particle
+    // chain. restOffset / restLength values match DEFAULT_LONG_HAIR so the
+    // bind-pose chain geometry equals what the rig was set up with.
+    const HAIR_ANCHOR_OFFSET: [number, number, number] = [0, 0.04, -0.13]   // Head → HairLong0 (back of cranium)
+    const HAIR_SEG_DROP = 0.13                                              // Y drop per segment
+    const hairBoneIndices: number[] = []
+    for (let i = 0; i < 5; i++) {
+      const idx = rig.findIndex((j) => j.name === `HairLong${i}`)
+      if (idx >= 0) hairBoneIndices.push(idx)
+    }
+    const HAIR_HAS_FULL_CHAIN = hairBoneIndices.length === 5 && headIdx >= 0
+    const hairChain: NodeParticle[] = !HAIR_HAS_FULL_CHAIN ? [] : [
+      createNodeParticle({
+        parentRef: headIdx, parentKind: 'bone',
+        restOffset: HAIR_ANCHOR_OFFSET,
+        restLength: Math.hypot(...HAIR_ANCHOR_OFFSET),
+      }),
+      createNodeParticle({ parentRef: 0, parentKind: 'particle', restOffset: [0, -HAIR_SEG_DROP, 0], restLength: HAIR_SEG_DROP }),
+      createNodeParticle({ parentRef: 1, parentKind: 'particle', restOffset: [0, -HAIR_SEG_DROP, 0], restLength: HAIR_SEG_DROP }),
+      createNodeParticle({ parentRef: 2, parentKind: 'particle', restOffset: [0, -HAIR_SEG_DROP, 0], restLength: HAIR_SEG_DROP }),
+      createNodeParticle({ parentRef: 3, parentKind: 'particle', restOffset: [0, -HAIR_SEG_DROP, 0], restLength: HAIR_SEG_DROP }),
+    ]
+
+    // Hair strands — N independent capsule chunks attached to Head, each
+    // a self-contained strand with its OWN spring on the tip. No chain
+    // between strands. Per-frame the bone matrix is rewritten so the
+    // bone's +Y axis points (root → spring-tip), bending the strand
+    // toward wherever the tip wants to swing.
+    interface StrandEntry {
+      boneIdx: number
+      halfLen: number
+      spring: SecondarySpring
+      /** Index into persistentPrims for the strand's primitive. Updated
+       *  by rebuildPersistentPrims; used to mutate the prim's rotation
+       *  slot (= tipDelta for type 14) without scanning the prim list
+       *  every frame. -1 = strand's primitive isn't currently emitted
+       *  (hair style != strands / bob+strands / long+strands). */
+      primIdx: number
+    }
+    const strandEntries: StrandEntry[] = []
+    for (const hp of DEFAULT_HAIR_STRANDS) {
+      const idx = rig.findIndex((j) => j.name === hp.name)
+      if (idx < 0) continue
+      // Snappier spring than grenades — strands are light + low-mass.
+      strandEntries.push({
+        boneIdx: idx,
+        halfLen: hp.displaySize[1],
+        spring: createSecondarySpring([0, 0, 0], { stiffness: 22, damping: 0.88 }),
+        primIdx: -1,
+      })
+    }
+
     // Scratch mat4s for per-frame invViewProj computation (point lights).
     const scratchVP   = mat4.create()
     const scratchInvVP = mat4.create()
@@ -857,13 +1072,19 @@ async function main() {
     // The emitter uses these to build its lookup maps; without them,
     // virtual joints (HairBob, Cape*, Grenade*) live in the rig but no
     // primitives emit for them — invisible cape + invisible hair.
-    const bodyAndExtrasPrims = [...DEFAULT_BODY_PARTS, ...DEFAULT_CAPE_PARTS, ...DEFAULT_GRENADE_BELT]
+    const bodyAndExtrasPrims = [
+      ...DEFAULT_BODY_PARTS,
+      ...DEFAULT_CAPE_PARTS,
+      ...DEFAULT_GRENADE_BELT,
+      ...outfitToBodyParts(WARDROBE.knight),
+    ]
+    const allHairPrims = [...DEFAULT_BOB_HAIR, ...DEFAULT_LONG_HAIR, ...DEFAULT_HAIR_STRANDS]
     const faceRaymarchPrims: RaymarchPrimitive[] =
       chibiRaymarchPrimitives(
         rig, material,
         undefined,                 // face: stay default (empty)
         undefined,                 // accessories: stay default
-        DEFAULT_BOB_HAIR,
+        allHairPrims,
         bodyAndExtrasPrims,
       ) as RaymarchPrimitive[]
     if (rightHandIdx >= 0) {
@@ -896,6 +1117,37 @@ async function main() {
     // exist (sliders read initial PBR values from prims, push updates
     // via raymarch.setPrimitives).
     buildPaletteUI()
+
+    // Mount the face pixel editor widget. The editor takes ownership of
+    // baking + uploading; on init it pushes the existing presets to the
+    // GPU so visuals match the prior hardcoded shader switch. Edits in
+    // the widget call onBake which re-uploads the buffer.
+    const facePixelEditorEl = document.getElementById('face-pixel-editor')
+    if (facePixelEditorEl) {
+      createFacePixelEditor(facePixelEditorEl, (styles, pixels) => {
+        outline.setFacePixelData(styles, pixels)
+        invalidateRaymarchCache()
+      })
+    } else {
+      // Fallback: bake presets directly without the editor (headless or
+      // missing host element).
+      const allStyles = [...FACE_EYE_DATA, ...FACE_MOUTH_DATA]
+      const flat: number[] = []
+      const styles = new Int32Array(16 * 4)
+      const slotIdMap: Record<string, number> = {
+        pupil: 0, eyewhite: 1, accent: 2, tear: 3, glow_core: 4, mouth: 5,
+      }
+      for (let s = 0; s < allStyles.length; s++) {
+        const start = flat.length / 4
+        for (const px of allStyles[s].pixels) {
+          flat.push(px.dx, px.dy, slotIdMap[px.slot] ?? 0, 0)
+        }
+        styles[s * 4 + 0] = start
+        styles[s * 4 + 1] = flat.length / 4 - start
+      }
+      outline.setFacePixelData(styles, new Int32Array(flat))
+    }
+    void resolveFaceSlot
 
     // Naked-man mode — override clothing/accessory slots with the skin
     // color so the silhouette reads as pure body. Lets us tune body
@@ -949,7 +1201,7 @@ async function main() {
     // press X for an impact star; press Z for a muzzle flash. All feed
     // the same raymarch renderer — no separate pipeline for VFX. ---
     const vfxSystem = new VFXSystem()
-    const persistentPrims = faceRaymarchPrims.slice()   // copy; add ephemeral per-frame
+    const persistentPrims: RaymarchPrimitive[] = faceRaymarchPrims.slice()   // mutable; loadout swaps repopulate
     console.log(`Raymarch: ${persistentPrims.length} persistent primitives`)
     if (persistentPrims.length > 0) {
       console.log('  first:', persistentPrims[0])
@@ -958,6 +1210,485 @@ async function main() {
     function currentAllPrims(now: number): RaymarchPrimitive[] {
       return persistentPrims.concat(vfxSystem.getPrimitives(now))
     }
+
+    // ---- Loadout: which body extras + hair style emit primitives. ----
+    // Bones for every group are already in the rig (extended once at init);
+    // toggling loadout just changes which ones get raymarch primitives.
+    // Existing data registries (DEFAULT_*, WARDROBE) are read as-is so the
+    // UI doesn't fork from the canonical definitions — same pattern as the
+    // face pixel editor reading EYE_STYLES / MOUTH_STYLES.
+    type ArmorOutfit = 'none' | keyof typeof WARDROBE
+    type HairStyle  = 'none' | 'bob'   | 'long' | 'strands' | 'bob+strands' | 'long+strands'
+    // Cape patterns are colorFunc IDs in the raymarch shader. Lookup
+    // table makes the UI labels stable while the IDs stay an internal
+    // shader contract.
+    const CAPE_PATTERNS = {
+      solid:        0,
+      stripes:      8,   // world-Y — tiles continuously across segments
+      stripesLocal: 4,   // primitive-local Y — each segment self-centred
+      chevron:      7,
+      checker:      6,
+      dots:         5,
+    } as const
+    type CapePattern = keyof typeof CAPE_PATTERNS
+    type HelmStyle = 'none' | 'kettle' | 'horned' | 'pickelhaube' | 'greathelm' | 'sallet' | 'crested' | 'plumed'
+    const HELM_STYLES: HelmStyle[] = ['none', 'kettle', 'horned', 'pickelhaube', 'greathelm', 'sallet', 'crested', 'plumed']
+    // Isolation viewer — filters the prim list to a single category so
+    // an accessory can be inspected alone in the canvas. When active,
+    // animation is forced OFF (rest pose) so the piece floats statically
+    // and the user can orbit-camera around it without limb motion.
+    type IsolateCategory = 'none' | 'helm' | 'hands' | 'feet' | 'hair' | 'cape'
+                         | 'grenades' | 'armor' | 'limbs' | 'anatomy' | 'body'
+    const ISOLATE_CATEGORIES: IsolateCategory[] = [
+      'none', 'helm', 'hands', 'feet', 'hair', 'cape', 'grenades',
+      'armor', 'limbs', 'anatomy', 'body',
+    ]
+    interface Loadout {
+      armor: ArmorOutfit
+      hair:  HairStyle
+      cape: boolean
+      grenades: boolean
+      capePattern: CapePattern
+      hands: string   // key into HAND_LIBRARY
+      feet:  string   // key into FOOT_LIBRARY
+      helm:  HelmStyle   // SUP + CHAMFER + mirrorYZ helmet (Tier-1 demo)
+      isolate: IsolateCategory   // accessory inspector — filter to one category
+    }
+    const loadout: Loadout = {
+      armor: 'knight',
+      hair: 'bob',
+      cape: true,
+      grenades: true,
+      capePattern: 'stripes',
+      hands: 'skin',
+      feet:  'shoe',
+      helm:  'none',
+      isolate: 'none' as IsolateCategory,
+    }
+    // Anatomy profile overrides — partial maps. Keyed by limb name
+    // (LeftArm/RightArm/LeftUpLeg/RightUpLeg) for the base limb's
+    // muscularity profile, and by AnatomyCurve.name for per-curve
+    // sex-characteristic dials (pec/glute/hipFlare/...). Empty by
+    // default; spec.profiles populates these on load.
+    type ProfileTuple = [number, number, number, number]
+    const profiles: {
+      limbs:   Record<string, ProfileTuple>
+      anatomy: Record<string, ProfileTuple>
+    } = { limbs: {}, anatomy: {} }
+    let currentBuild: string = 'standard'
+    function applyBuildPreset(name: string) {
+      const preset = BUILD_PRESETS[name]
+      if (!preset) return
+      currentBuild = name
+      // Replace, don't merge — clearing first means switching from
+      // "strong" to "skinny" actually drops the strong overrides.
+      for (const k of Object.keys(profiles.limbs))   delete profiles.limbs[k]
+      for (const k of Object.keys(profiles.anatomy)) delete profiles.anatomy[k]
+      if (preset.limbs) {
+        for (const [k, v] of Object.entries(preset.limbs)) {
+          profiles.limbs[k] = [v[0], v[1], v[2], v[3]]
+        }
+      }
+      if (preset.anatomy) {
+        for (const [k, v] of Object.entries(preset.anatomy)) {
+          profiles.anatomy[k] = [v[0], v[1], v[2], v[3]]
+        }
+      }
+      rebuildPersistentPrims()
+    }
+    // localStorage persistence — every panel change rewrites this, so
+    // reloads restore the last-used setup. Validates against the enums
+    // on load so older saved data doesn't crash newer code (or vice-
+    // versa). Same pattern as the face_pixel_editor's persistence.
+    const LOADOUT_STORAGE_KEY = 'loadout.v1'
+    function saveLoadoutToStorage() {
+      try {
+        if (typeof localStorage === 'undefined') return
+        // Pack `currentBuild` alongside the loadout fields. The build
+        // preset is conceptually loadout-adjacent — round-tripping it
+        // means a reload restores the chosen body archetype, not just
+        // the wardrobe / hair / cape selections.
+        localStorage.setItem(LOADOUT_STORAGE_KEY,
+          JSON.stringify({ ...loadout, build: currentBuild }))
+      } catch { /* quota / private mode — ignore */ }
+    }
+    function loadLoadoutFromStorage() {
+      try {
+        if (typeof localStorage === 'undefined') return
+        const raw = localStorage.getItem(LOADOUT_STORAGE_KEY)
+        if (!raw) return
+        const data = JSON.parse(raw) as Partial<Loadout>
+        if (typeof data.armor === 'string' && (data.armor === 'none' || data.armor in WARDROBE)) {
+          loadout.armor = data.armor as ArmorOutfit
+        }
+        if (typeof data.hair === 'string' &&
+            ['none','bob','long','strands','bob+strands','long+strands'].includes(data.hair)) {
+          loadout.hair = data.hair as HairStyle
+        }
+        if (typeof data.cape === 'boolean')     loadout.cape = data.cape
+        if (typeof data.grenades === 'boolean') loadout.grenades = data.grenades
+        if (typeof data.capePattern === 'string' && data.capePattern in CAPE_PATTERNS) {
+          loadout.capePattern = data.capePattern as CapePattern
+        }
+        if (typeof data.hands === 'string' && data.hands in HAND_LIBRARY) loadout.hands = data.hands
+        if (typeof data.feet  === 'string' && data.feet  in FOOT_LIBRARY) loadout.feet  = data.feet
+        if (typeof data.helm  === 'string' && (HELM_STYLES as readonly string[]).includes(data.helm)) loadout.helm = data.helm as HelmStyle
+        if (typeof data.isolate === 'string' && (ISOLATE_CATEGORIES as readonly string[]).includes(data.isolate)) loadout.isolate = data.isolate as IsolateCategory
+        // Build preset — re-apply via applyBuildPreset so profiles
+        // get re-populated, not just currentBuild bookkeeping.
+        if (typeof (data as { build?: string }).build === 'string' &&
+            (data as { build: string }).build in BUILD_PRESETS) {
+          applyBuildPreset((data as { build: string }).build)
+        }
+      } catch { /* parse error — leave defaults */ }
+    }
+    loadLoadoutFromStorage()
+    /** Classify an emitted primitive into a category for the isolate
+     *  viewer. Heuristic: rig joint name + blendGroup + primitive type.
+     *  Order matters — first match wins. Anything that doesn't match
+     *  a specific category falls through to 'body' (head + torso +
+     *  hips + neck centered ellipsoids). */
+    function categoryOf(p: RaymarchPrimitive): IsolateCategory {
+      const name = p.boneIdx >= 0 && p.boneIdx < rig.length ? rig[p.boneIdx].name : ''
+      // Helm — uniquely identified by its dedicated blend group 14.
+      if (p.blendGroup === 14) return 'helm'
+      // Hands / feet — terminal limb attachments.
+      if (name === 'LeftHand' || name === 'RightHand') return 'hands'
+      if (name === 'LeftFoot' || name === 'RightFoot') return 'feet'
+      // Hair — every hair variant (Bob, Long*, Strand*) starts with 'Hair'.
+      if (/^Hair/.test(name)) return 'hair'
+      // Cape segments + grenades — body extras, named by prefix.
+      if (/^Cape/.test(name)) return 'cape'
+      if (/^Grenade/.test(name)) return 'grenades'
+      // Wardrobe pieces — WP_ prefix.
+      if (/^WP_/.test(name)) return 'armor'
+      // Bezier-profile capsules: chain-root names = limbs; everything
+      // else (anatomy curves) = anatomy.
+      if (p.type === 17 || p.type === 20) {
+        if (name === 'LeftArm' || name === 'RightArm' ||
+            name === 'LeftUpLeg' || name === 'RightUpLeg') return 'limbs'
+        return 'anatomy'
+      }
+      // Centered-part fallback: head, spine, hips, neck, shoulders.
+      return 'body'
+    }
+    function rebuildPersistentPrims() {
+      const armorOutfit = loadout.armor !== 'none' ? WARDROBE[loadout.armor] : undefined
+      const bodyAndExtras = [
+        ...DEFAULT_BODY_PARTS,
+        ...(loadout.cape     ? DEFAULT_CAPE_PARTS     : []),
+        ...(loadout.grenades ? DEFAULT_GRENADE_BELT   : []),
+        ...(armorOutfit ? outfitToBodyParts(armorOutfit) : []),
+      ]
+      const hairList = loadout.hair === 'bob'           ? DEFAULT_BOB_HAIR
+                     : loadout.hair === 'long'          ? DEFAULT_LONG_HAIR
+                     : loadout.hair === 'strands'       ? DEFAULT_HAIR_STRANDS
+                     : loadout.hair === 'bob+strands'   ? [...DEFAULT_BOB_HAIR,  ...DEFAULT_HAIR_STRANDS]
+                     : loadout.hair === 'long+strands'  ? [...DEFAULT_LONG_HAIR, ...DEFAULT_HAIR_STRANDS]
+                     : []
+      // Apply anatomy profile overrides — clone DEFAULT_ANATOMY with
+      // any character-specific profile from `profiles.anatomy` substituted.
+      // Partial maps; missing entries fall back to DEFAULT_ANATOMY's profile.
+      const effectiveAnatomy = DEFAULT_ANATOMY.map((c) => {
+        const o = profiles.anatomy[c.name]
+        return o ? { ...c, profile: [o[0], o[1], o[2], o[3]] as ProfileTuple } : c
+      })
+      // Wardrobe → attachments: any wardrobe piece parented to a hand
+      // or foot bone OCCLUDES the corresponding base attachment so
+      // the gauntlet/boot replaces the hand/foot mesh rather than
+      // emitting on top of it. Knight gauntlets cover the hand;
+      // barbarian / light / knight boots cover the foot.
+      const occludedJoints = new Set<string>()
+      if (armorOutfit) {
+        for (const piece of armorOutfit.pieces) {
+          for (const part of piece.parts) {
+            if (part.parentName === 'LeftHand'  || part.parentName === 'RightHand' ||
+                part.parentName === 'LeftFoot'  || part.parentName === 'RightFoot') {
+              occludedJoints.add(part.parentName)
+            }
+          }
+        }
+      }
+      // Build the active attachment list from HAND_LIBRARY[loadout.hands]
+      // + FOOT_LIBRARY[loadout.feet], then drop entries on occluded
+      // joints. Library miss falls back to the 'skin'/'shoe' defaults.
+      const handsList = HAND_LIBRARY[loadout.hands] ?? HAND_LIBRARY.skin
+      const feetList  = FOOT_LIBRARY[loadout.feet]  ?? FOOT_LIBRARY.shoe
+      const effectiveAttachments = [...handsList, ...feetList].filter(
+        (a) => !occludedJoints.has(a.jointName),
+      )
+      const next = chibiRaymarchPrimitives(
+        rig, material, undefined, undefined, hairList, bodyAndExtras,
+        effectiveAnatomy, effectiveAttachments, loadout.helm,
+      ) as RaymarchPrimitive[]
+      // Apply limb profile overrides — chibiRaymarchPrimitives emits a
+      // type-17 prim per chain root (LeftArm/RightArm/LeftUpLeg/RightUpLeg)
+      // with rotation = profile. Walk the result, identify chain-root prims
+      // by bone name, and swap rotation when the override is set.
+      const limbBoneByIdx: Record<number, string> = {}
+      for (const limbName of ['LeftArm', 'RightArm', 'LeftUpLeg', 'RightUpLeg']) {
+        const idx = rig.findIndex((j) => j.name === limbName)
+        if (idx >= 0) limbBoneByIdx[idx] = limbName
+      }
+      for (const p of next) {
+        if (p.type !== 17) continue
+        const limbName = limbBoneByIdx[p.boneIdx]
+        if (!limbName) continue
+        const o = profiles.limbs[limbName]
+        if (o) p.rotation = [o[0], o[1], o[2], o[3]]
+      }
+      // Apply cape pattern override — find prims whose bone is a Cape
+      // segment and rewrite their colorFunc. Default emission picked
+      // colorFunc 8 (world-Y stripes); the loadout picker can swap in
+      // any other pattern. Using the rig name as the routing key means
+      // we don't have to thread the pattern through the chibi emitter.
+      const capePatternFunc = CAPE_PATTERNS[loadout.capePattern]
+      for (const p of next) {
+        if (p.boneIdx >= 0 && p.boneIdx < rig.length && /^Cape/.test(rig[p.boneIdx].name)) {
+          p.colorFunc = capePatternFunc as RaymarchPrimitive['colorFunc']
+        }
+      }
+      if (rightHandIdx >= 0) {
+        const baseSlot = material.namedSlots.fire_base ?? 12
+        const tipSlot  = material.namedSlots.fire_tip  ?? 14
+        next.push({
+          type: 7, paletteSlot: baseSlot, boneIdx: rightHandIdx,
+          params: [0.05, 0.14, 0.03, 12.0],
+          offsetInBone: [0, 0.18, 0],
+          colorFunc: 1,
+          paletteSlotB: tipSlot,
+          colorExtent: 0.14,
+          unlit: true,
+        })
+      }
+      // Mirror expansion — any prim with mirrorYZ:true gets a sibling
+      // with X-flipped offsetInBone. Doubles the prim count for those
+      // entries; lets authoring describe one side and get both. CPU
+      // pass before upload, no shader-side cost.
+      const expanded = expandMirrors(next)
+      // Isolation filter — when active, drop every prim except those
+      // matching the selected category. Camera + raymarch unchanged;
+      // the accessory floats alone in the canvas. Animation is forced
+      // off elsewhere (see restPose override) so the piece doesn't
+      // limb-flop while you orbit around it.
+      const isolated = loadout.isolate === 'none'
+        ? expanded
+        : expanded.filter((p) => categoryOf(p) === loadout.isolate)
+      persistentPrims.length = 0
+      for (const p of isolated) persistentPrims.push(p)
+      // Refresh strand → prim index mapping. Each strand bone is unique
+      // in the rig so the boneIdx → primIdx lookup is one-to-one for
+      // type 14 prims.
+      for (const e of strandEntries) e.primIdx = -1
+      for (let i = 0; i < persistentPrims.length; i++) {
+        const p = persistentPrims[i]
+        if (p.type !== 14) continue
+        const e = strandEntries.find((s) => s.boneIdx === p.boneIdx)
+        if (e) e.primIdx = i
+      }
+      // Persist the new loadout — every panel toggle / shuffle / load
+      // funnels through here, so this is the canonical save site.
+      saveLoadoutToStorage()
+      invalidateRaymarchCache()
+    }
+
+    // Loadout UI — single-select rows for armor + hair, toggle pills for
+    // cape + grenades. Buttons auto-style the active option so the user
+    // can read the current loadout at a glance.
+    function buildLoadoutUI() {
+      const host = document.getElementById('loadout-panel')
+      if (!host) return
+      while (host.firstChild) host.removeChild(host.firstChild)
+
+      function makeRow(
+        label: string,
+        opts: { value: string; text: string }[],
+        getActive: () => string,
+        setActive: (v: string) => void,
+      ) {
+        const row = document.createElement('div')
+        row.style.cssText = 'display:flex; gap:4px; align-items:center; flex-wrap:wrap;'
+        const lbl = document.createElement('span')
+        lbl.textContent = label
+        lbl.style.cssText = 'width:54px; color:#9ab; font-size:11px;'
+        row.appendChild(lbl)
+        const buttons: HTMLButtonElement[] = []
+        for (const o of opts) {
+          const b = document.createElement('button')
+          b.textContent = o.text
+          b.dataset.value = o.value
+          b.style.fontSize = '11px'
+          b.onclick = () => {
+            setActive(o.value)
+            for (const bb of buttons) {
+              bb.style.background = bb.dataset.value === o.value ? '#2a4070' : '#1a2b4a'
+            }
+            rebuildPersistentPrims()
+          }
+          buttons.push(b)
+          row.appendChild(b)
+        }
+        const active = getActive()
+        for (const bb of buttons) {
+          bb.style.background = bb.dataset.value === active ? '#2a4070' : '#1a2b4a'
+        }
+        host.appendChild(row)
+      }
+
+      // Armor — list every outfit in WARDROBE plus 'none'.
+      const armorOpts: { value: string; text: string }[] = [{ value: 'none', text: 'none' }]
+      for (const k of Object.keys(WARDROBE) as ArmorOutfit[]) armorOpts.push({ value: k, text: k })
+      makeRow('armor', armorOpts, () => loadout.armor, (v) => { loadout.armor = v as ArmorOutfit })
+      makeRow('hair',
+        [
+          { value: 'none', text: 'none' },
+          { value: 'bob', text: 'bob' },
+          { value: 'long', text: 'long' },
+          { value: 'strands', text: 'strands' },
+          { value: 'bob+strands', text: 'bob+s' },
+          { value: 'long+strands', text: 'long+s' },
+        ],
+        () => loadout.hair, (v) => { loadout.hair = v as HairStyle },
+      )
+      makeRow('cape',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.cape ? 'on' : 'off', (v) => { loadout.cape = v === 'on' },
+      )
+      makeRow('pattern',
+        (Object.keys(CAPE_PATTERNS) as CapePattern[]).map((p) => ({ value: p, text: p })),
+        () => loadout.capePattern, (v) => { loadout.capePattern = v as CapePattern },
+      )
+      makeRow('grenades',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.grenades ? 'on' : 'off', (v) => { loadout.grenades = v === 'on' },
+      )
+      // Hand / foot library pickers — values come from HAND_LIBRARY +
+      // FOOT_LIBRARY keys, so adding a new variant in attachments.ts
+      // surfaces here automatically without UI plumbing.
+      makeRow('hands',
+        Object.keys(HAND_LIBRARY).map((k) => ({ value: k, text: k })),
+        () => loadout.hands, (v) => { loadout.hands = v },
+      )
+      makeRow('feet',
+        Object.keys(FOOT_LIBRARY).map((k) => ({ value: k, text: k })),
+        () => loadout.feet, (v) => { loadout.feet = v },
+      )
+      // Helm picker — Tier-1 extractions demo (SUP + CHAMFER + mirrorYZ).
+      //   kettle      = crown + chamfered brim
+      //   horned      = same + mirrored horn pair
+      //   pickelhaube = same + chamfered spike on top
+      makeRow('helm',
+        HELM_STYLES.map((k) => ({ value: k, text: k })),
+        () => loadout.helm, (v) => { loadout.helm = v as HelmStyle },
+      )
+      // Isolation viewer — show only the prims of one category, hide
+      // everything else. Animation auto-pauses (forced rest pose) so
+      // the piece floats statically; the camera still orbits.
+      makeRow('iso',
+        ISOLATE_CATEGORIES.map((k) => ({ value: k, text: k })),
+        () => loadout.isolate, (v) => { loadout.isolate = v as IsolateCategory },
+      )
+
+      // Build preset row — copies a named bundle of (limbs, anatomy)
+      // profiles into runtime state. Spec round-trip already covers
+      // it from earlier ticks, so saved characters remember the build.
+      // makeRow's onSelect calls rebuildPersistentPrims indirectly; here
+      // we route through applyBuildPreset to actually copy the values.
+      const buildRow = document.createElement('div')
+      buildRow.style.cssText = 'display:flex; gap:4px; align-items:center; flex-wrap:wrap;'
+      const buildLbl = document.createElement('span')
+      buildLbl.textContent = 'build'
+      buildLbl.style.cssText = 'width:54px; color:#9ab; font-size:11px;'
+      buildRow.appendChild(buildLbl)
+      const buildKeys = Object.keys(BUILD_PRESETS)
+      const buildButtons: HTMLButtonElement[] = []
+      for (const key of buildKeys) {
+        const b = document.createElement('button')
+        b.textContent = key
+        b.dataset.value = key
+        b.style.fontSize = '11px'
+        b.onclick = () => {
+          applyBuildPreset(key)
+          for (const bb of buildButtons) {
+            bb.style.background = bb.dataset.value === key ? '#2a4070' : '#1a2b4a'
+          }
+        }
+        buildButtons.push(b)
+        buildRow.appendChild(b)
+      }
+      for (const bb of buildButtons) {
+        bb.style.background = bb.dataset.value === currentBuild ? '#2a4070' : '#1a2b4a'
+      }
+      host.appendChild(buildRow)
+
+      // Animation switcher — surface the M-key cycle behaviour as a
+      // dropdown so the panel can drive it without focus on the canvas.
+      // animations[] is populated during demo init (well before the panel
+      // builds) so the names are stable here.
+      if (animations.length > 1) {
+        const animRow = document.createElement('div')
+        animRow.style.cssText = 'display:flex; gap:4px; align-items:center; flex-wrap:wrap;'
+        const animLbl = document.createElement('span')
+        animLbl.textContent = 'anim'
+        animLbl.style.cssText = 'width:54px; color:#9ab; font-size:11px;'
+        animRow.appendChild(animLbl)
+        const animSel = document.createElement('select')
+        animSel.style.cssText = 'font-size:11px; flex:1;'
+        animations.forEach((a, i) => {
+          const o = document.createElement('option')
+          o.value = String(i); o.textContent = a.name
+          animSel.appendChild(o)
+        })
+        animSel.value = String(animIdx)
+        animSel.onchange = () => {
+          switchAnimation(parseInt(animSel.value, 10) || 0)
+        }
+        animRow.appendChild(animSel)
+        host.appendChild(animRow)
+      }
+
+      // Shuffle + reset buttons — drive the panel state from the data
+      // registries directly so the random values are always valid (no
+      // out-of-enum picks). Reset matches the initial Loadout literal.
+      const actionRow = document.createElement('div')
+      actionRow.style.cssText = 'display:flex; gap:4px; margin-top:4px;'
+      const shuffleBtn = document.createElement('button')
+      shuffleBtn.textContent = 'shuffle'
+      shuffleBtn.style.fontSize = '11px'
+      shuffleBtn.onclick = () => {
+        const armorKeys: ArmorOutfit[] = ['none', ...(Object.keys(WARDROBE) as Array<keyof typeof WARDROBE>)]
+        const hairKeys: HairStyle[]    = ['none', 'bob', 'long', 'strands', 'bob+strands', 'long+strands']
+        const patternKeys              = Object.keys(CAPE_PATTERNS) as CapePattern[]
+        const proportionKeys: PresetKey[] = ['chibi', 'stylized', 'realistic']
+        const expressionKeys           = Object.keys(EXPRESSIONS)
+        const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]
+        loadout.armor       = pick(armorKeys)
+        loadout.hair        = pick(hairKeys)
+        loadout.cape        = Math.random() < 0.7
+        loadout.capePattern = pick(patternKeys)
+        loadout.grenades    = Math.random() < 0.5
+        applyPreset(pick(proportionKeys))
+        if (expressionKeys.length > 0) applyExpression(pick(expressionKeys))
+        rebuildPersistentPrims()
+        buildLoadoutUI()
+      }
+      const resetBtn = document.createElement('button')
+      resetBtn.textContent = 'reset'
+      resetBtn.style.fontSize = '11px'
+      resetBtn.onclick = () => {
+        loadout.armor       = 'knight'
+        loadout.hair        = 'bob'
+        loadout.cape        = true
+        loadout.capePattern = 'stripes'
+        loadout.grenades    = true
+        rebuildPersistentPrims()
+        buildLoadoutUI()
+      }
+      actionRow.appendChild(shuffleBtn)
+      actionRow.appendChild(resetBtn)
+      host.appendChild(actionRow)
+    }
+    buildLoadoutUI()
 
     function switchAnimation(idx: number) {
       animIdx = ((idx % animations.length) + animations.length) % animations.length
@@ -1184,17 +1915,43 @@ async function main() {
       const c2x = m[base + 8],  c2y = m[base + 9],  c2z = m[base + 10]
       const tx  = m[base + 12], ty  = m[base + 13], tz  = m[base + 14]
       const [ox, oy, oz] = p.offsetInBone
-      // world = bone * (offset, 1)
-      const cx = c0x * ox + c1x * oy + c2x * oz + tx
-      const cy = c0y * ox + c1y * oy + c2y * oz + ty
-      const cz = c0z * ox + c1z * oy + c2z * oz + tz
+      const aX = c0x * ox + c1x * oy + c2x * oz + tx
+      const aY = c0y * ox + c1y * oy + c2y * oz + ty
+      const aZ = c0z * ox + c1z * oy + c2z * oz + tz
+      // Type 17 (bezier limb): bound across joints A, B, C.
+      // params[0], [1] are bone indices; profile rgba live in `rotation`.
+      if (p.type === 17 || p.type === 20) {
+        const jointBIdx = p.params[0]
+        const jointCIdx = p.params[1]
+        const bX = m[jointBIdx * 16 + 12], bY = m[jointBIdx * 16 + 13], bZ = m[jointBIdx * 16 + 14]
+        const cX = m[jointCIdx * 16 + 12], cY = m[jointCIdx * 16 + 13], cZ = m[jointCIdx * 16 + 14]
+        const cx = (aX + bX + cX) / 3, cy = (aY + bY + cY) / 3, cz = (aZ + bZ + cZ) / 3
+        const dA = Math.hypot(cx - aX, cy - aY, cz - aZ)
+        const dB = Math.hypot(cx - bX, cy - bY, cz - bZ)
+        const dC = Math.hypot(cx - cX, cy - cY, cz - cZ)
+        const prof = p.rotation ?? [0, 0, 0, 0]
+        const maxR = Math.max(prof[0], prof[1], prof[2], prof[3])
+        const r = Math.max(dA, dB, dC) + maxR + Math.abs(p.blendRadius ?? 0) + 0.05
+        return { cx, cy, cz, r }
+      }
+      // Type 15 (line capsule): bound the segment from A to B.
+      if (p.type === 15) {
+        const jointBIdx = p.params[2]
+        const bX = m[jointBIdx * 16 + 12], bY = m[jointBIdx * 16 + 13], bZ = m[jointBIdx * 16 + 14]
+        const cx = (aX + bX) * 0.5, cy = (aY + bY) * 0.5, cz = (aZ + bZ) * 0.5
+        const segHalf = Math.hypot(aX - bX, aY - bY, aZ - bZ) * 0.5
+        const maxR = Math.max(Math.abs(p.params[0]), Math.abs(p.params[1]))
+        const r = segHalf + maxR + Math.abs(p.blendRadius ?? 0) + 0.05
+        return { cx, cy, cz, r }
+      }
+      // Single-bone fallback.
       const s0 = Math.sqrt(c0x * c0x + c0y * c0y + c0z * c0z)
       const s1 = Math.sqrt(c1x * c1x + c1y * c1y + c1z * c1z)
       const s2 = Math.sqrt(c2x * c2x + c2y * c2y + c2z * c2z)
       const maxScale = Math.max(s0, s1, s2)
       const rLocal = Math.abs(p.params[0]) + Math.abs(p.params[1]) + Math.abs(p.params[2]) + Math.abs(p.params[3]) + 0.05
       const r = rLocal * maxScale + Math.abs(p.blendRadius ?? 0)
-      return { cx, cy, cz, r }
+      return { cx: aX, cy: aY, cz: aZ, r }
     }
 
     /** Compare current primitive AABBs + camera ROTATION to last frame's
@@ -1258,13 +2015,20 @@ async function main() {
       // composer + secondary on non-tick frames so the GPU keeps the
       // last-tick state and the cape doesn't appear to update faster
       // than the body.
+      // Isolation viewer forces rest pose so the accessory floats
+      // statically while the user orbits the camera around it. Use the
+      // EFFECTIVE rest-pose flag for both the tick gate AND the
+      // dispatch — otherwise toggling isolate while animating doesn't
+      // re-trigger the composer and cape/spring physics keep reading
+      // animated joints into a rest-pose body.
+      const effectiveRestPose = restPose || loadout.isolate !== 'none'
       const tickShouldRun =
         frameIdx !== lastSecondaryFrame ||
-        restPose !== lastSecondaryRestPose
+        effectiveRestPose !== lastSecondaryRestPose
       const tickDt = tickShouldRun ? Math.max(elapsed - lastSecondaryElapsed, 1 / 60) : 0
       if (composer && tickShouldRun) {
-        if (restPose) composer.applyRestPose(characterParams)
-        else          composer.update(frameIdx, characterParams)
+        if (effectiveRestPose) composer.applyRestPose(characterParams)
+        else                   composer.update(frameIdx, characterParams)
       }
 
       // Cape secondary motion — node particles drive cape bone positions
@@ -1293,6 +2057,15 @@ async function main() {
           v[0] * sX[2] + v[1] * sY[2] + v[2] * sZ[2],
         ]
 
+        // Cape length scales with the character's body Y. Without this,
+        // the chibi preset (torso 0.55, legs 0.3) keeps a full-length
+        // 0.9m cape on a ~0.7m body — overshoots the feet. Use the
+        // average of torso + legs scale because the cape spans both.
+        // Smin between segments smoothly fuses the now-overlapping
+        // chunks into one continuous shorter cape.
+        const bodyYScale = (currentScales.torso + currentScales.legs) * 0.5
+        const segDrop    = CAPE_SEG_DROP * bodyYScale
+
         // Wind in WORLD space — drift the cape sideways regardless of body
         // facing. Slow swirl + small secondary oscillation = light breeze.
         const windStrength = 0.04
@@ -1300,25 +2073,50 @@ async function main() {
         const windX = Math.cos(windAngle) * windStrength
         const windZ = Math.sin(windAngle) * windStrength
 
-        // ROOT (i=0): LOCKED — snap to Spine2's current world position
-        // plus rotated rest offset. No stale-read lag at the attachment
-        // point so the cape can't drift forward through the torso.
+        // ROOT (i=0): LOCKED. Anchor at the LINE BETWEEN THE SHOULDERS
+        // (midpoint of LeftShoulder + RightShoulder world positions),
+        // not at Spine2. Spine2's centre drifts off the shoulder line
+        // when the torso twists, which made the cape look like it was
+        // sticking out of one shoulder. The shoulder midpoint moves
+        // with the actual collarbone level no matter how the body
+        // rotates. Rotation is still derived from Spine2 (cape
+        // "behind" axis follows torso facing). Offset Z=-0.10 pushes
+        // anchor slightly behind the shoulders so cape clears the
+        // upper-back without sitting on top of it.
         {
-          const spine2Pos = getBoneWorldPos(spine2Idx)
-          const rotatedOff = rotByS2(capeChain[0].restOffset)
-          capeChain[0].position[0] = spine2Pos[0] + rotatedOff[0]
-          capeChain[0].position[1] = spine2Pos[1] + rotatedOff[1]
-          capeChain[0].position[2] = spine2Pos[2] + rotatedOff[2]
-          capeChain[0].prevParentPos[0] = spine2Pos[0]
-          capeChain[0].prevParentPos[1] = spine2Pos[1]
-          capeChain[0].prevParentPos[2] = spine2Pos[2]
+          const sMidX = (lShoulderIdx >= 0 && rShoulderIdx >= 0)
+            ? (wm[lShoulderIdx * 16 + 12] + wm[rShoulderIdx * 16 + 12]) * 0.5
+            : wm[spine2Idx * 16 + 12]
+          const sMidY = (lShoulderIdx >= 0 && rShoulderIdx >= 0)
+            ? (wm[lShoulderIdx * 16 + 13] + wm[rShoulderIdx * 16 + 13]) * 0.5
+            : wm[spine2Idx * 16 + 13]
+          const sMidZ = (lShoulderIdx >= 0 && rShoulderIdx >= 0)
+            ? (wm[lShoulderIdx * 16 + 14] + wm[rShoulderIdx * 16 + 14]) * 0.5
+            : wm[spine2Idx * 16 + 14]
+          // Smaller back-offset since shoulder midpoint is already at
+          // shoulder level (no need for the +Y bump the Spine2 attach
+          // had). Just push slightly back so cape clears the body.
+          const rotatedOff = rotByS2([0, 0, -0.10])
+          capeChain[0].position[0] = sMidX + rotatedOff[0]
+          capeChain[0].position[1] = sMidY + rotatedOff[1]
+          capeChain[0].position[2] = sMidZ + rotatedOff[2]
+          capeChain[0].prevParentPos[0] = sMidX
+          capeChain[0].prevParentPos[1] = sMidY
+          capeChain[0].prevParentPos[2] = sMidZ
           capeChain[0].initialised = true
         }
 
-        // MID + TIP: chain physics with rotated offsets + wind.
+        // MID + TIP: chain physics with rotated offsets + wind. All
+        // segments rotate with body so cape follows torso facing.
+        // baseOff is normalized by CAPE_SEG_DROP so we can re-scale by
+        // segDrop here without re-creating the particles.
         for (let i = 1; i < capeChain.length; i++) {
           const baseOff = capeChain[i].restOffset
-          const rotatedOff = rotByS2(baseOff)
+          const rotatedOff = rotByS2([
+            baseOff[0],
+            (baseOff[1] / CAPE_SEG_DROP) * segDrop,
+            baseOff[2],
+          ])
           const k = (i + 1) / capeChain.length
           const offsetWithWind: [number, number, number] = [
             rotatedOff[0] + windX * k,
@@ -1361,7 +2159,7 @@ async function main() {
           const top: [number, number, number] = capeChain[i].position
           const bottom: [number, number, number] = (i + 1 < capeChain.length)
             ? capeChain[i + 1].position
-            : [top[0], top[1] - CAPE_SEG_DROP, top[2]]
+            : [top[0], top[1] - segDrop, top[2]]
           // Up vector = direction from segment bottom to top (bone +Y).
           let uy0 = top[0] - bottom[0]
           let uy1 = top[1] - bottom[1]
@@ -1413,6 +2211,235 @@ async function main() {
         invalidateRaymarchCache()
       }
 
+      // Long hair secondary motion — same architecture as the cape, but
+      // anchored to Head and using the head's rotation columns to place
+      // segment offsets. Body collision pushes hair particles out of a
+      // head sphere + two shoulder spheres so the chain doesn't tunnel
+      // through the cranium when the head whips around.
+      if (composer && HAIR_HAS_FULL_CHAIN && tickShouldRun) {
+        const wm = composer.worldMatrices
+        const getBoneWorldPos = (boneIdx: number): [number, number, number] => [
+          wm[boneIdx * 16 + 12],
+          wm[boneIdx * 16 + 13],
+          wm[boneIdx * 16 + 14],
+        ]
+        // Head rotation columns — transform local-frame offsets into world.
+        const h0 = headIdx * 16
+        const hX: [number, number, number] = [wm[h0 + 0], wm[h0 + 1], wm[h0 + 2]]
+        const hY: [number, number, number] = [wm[h0 + 4], wm[h0 + 5], wm[h0 + 6]]
+        const hZ: [number, number, number] = [wm[h0 + 8], wm[h0 + 9], wm[h0 + 10]]
+        const rotByHead = (v: [number, number, number]): [number, number, number] => [
+          v[0] * hX[0] + v[1] * hY[0] + v[2] * hZ[0],
+          v[0] * hX[1] + v[1] * hY[1] + v[2] * hZ[1],
+          v[0] * hX[2] + v[1] * hY[2] + v[2] * hZ[2],
+        ]
+
+        // Wind: weaker than the cape (hair is lighter but closer to head,
+        // so big sideways drift looks wrong). Slight DOWN bias keeps the
+        // strands flowing earthward instead of flying horizontal.
+        const hairWindStrength = 0.025
+        const hairWindAngle = elapsed * 0.85 + Math.sin(elapsed * 0.5) * 0.4
+        const hairWindX = Math.cos(hairWindAngle) * hairWindStrength
+        const hairWindZ = Math.sin(hairWindAngle) * hairWindStrength
+
+        // ROOT: lock HairLong0 to Head world position + head-rotated offset.
+        {
+          const headPos = getBoneWorldPos(headIdx)
+          const rotatedOff = rotByHead(HAIR_ANCHOR_OFFSET)
+          hairChain[0].position[0] = headPos[0] + rotatedOff[0]
+          hairChain[0].position[1] = headPos[1] + rotatedOff[1]
+          hairChain[0].position[2] = headPos[2] + rotatedOff[2]
+          hairChain[0].prevParentPos[0] = headPos[0]
+          hairChain[0].prevParentPos[1] = headPos[1]
+          hairChain[0].prevParentPos[2] = headPos[2]
+          hairChain[0].initialised = true
+        }
+
+        // MID + TIP: chain physics with head-rotated offsets + wind. The
+        // tip sees the most wind drift; root segments stay closer to their
+        // rest direction.
+        for (let i = 1; i < hairChain.length; i++) {
+          const baseOff = hairChain[i].restOffset
+          const rotatedOff = rotByHead(baseOff)
+          const k = (i + 1) / hairChain.length
+          const offsetWithWind: [number, number, number] = [
+            rotatedOff[0] + hairWindX * k,
+            rotatedOff[1],
+            rotatedOff[2] + hairWindZ * k,
+          ]
+          tickNodeParticle(hairChain[i], hairChain, getBoneWorldPos, offsetWithWind)
+        }
+
+        // Body collision: head sphere (so hair doesn't tunnel through the
+        // cranium during quick rotations) + shoulder spheres (so falling
+        // strands rest naturally over the shoulders rather than passing
+        // through them). Skip root (i=0) — it's locked to a clean spot.
+        const hairCollisionList: { bone: number; r: number }[] = [
+          { bone: headIdx, r: 0.18 },
+        ]
+        if (lShoulderIdx >= 0) hairCollisionList.push({ bone: lShoulderIdx, r: 0.07 })
+        if (rShoulderIdx >= 0) hairCollisionList.push({ bone: rShoulderIdx, r: 0.07 })
+        for (let i = 1; i < hairChain.length; i++) {
+          const cp = hairChain[i].position
+          for (const col of hairCollisionList) {
+            const cb = getBoneWorldPos(col.bone)
+            const dx = cp[0] - cb[0]
+            const dy = cp[1] - cb[1]
+            const dz = cp[2] - cb[2]
+            const dist = Math.hypot(dx, dy, dz)
+            if (dist > 1e-6 && dist < col.r) {
+              const k2 = col.r / dist
+              cp[0] = cb[0] + dx * k2
+              cp[1] = cb[1] + dy * k2
+              cp[2] = cb[2] + dz * k2
+            }
+          }
+        }
+
+        // Render: bone[i] segment spans particle[i] (TOP) → particle[i+1]
+        // (BOTTOM); last bone extrapolates straight down for a clean tail.
+        for (let i = 0; i < hairBoneIndices.length; i++) {
+          const boneIdx = hairBoneIndices[i]
+          const off = boneIdx * 16
+          const top: [number, number, number] = hairChain[i].position
+          const bottom: [number, number, number] = (i + 1 < hairChain.length)
+            ? hairChain[i + 1].position
+            : [top[0], top[1] - HAIR_SEG_DROP, top[2]]
+          let uy0 = top[0] - bottom[0]
+          let uy1 = top[1] - bottom[1]
+          let uy2 = top[2] - bottom[2]
+          const ulen = Math.hypot(uy0, uy1, uy2) || 1
+          uy0 /= ulen; uy1 /= ulen; uy2 /= ulen
+          const upDotX = uy0
+          let rx0 = 1 - uy0 * upDotX
+          let rx1 = -uy1 * upDotX
+          let rx2 = -uy2 * upDotX
+          let rlen = Math.hypot(rx0, rx1, rx2)
+          if (rlen < 0.05) {
+            const upDotZ = uy2
+            rx0 = -uy0 * upDotZ
+            rx1 = -uy1 * upDotZ
+            rx2 = 1 - uy2 * upDotZ
+            rlen = Math.hypot(rx0, rx1, rx2) || 1
+          }
+          rx0 /= rlen; rx1 /= rlen; rx2 /= rlen
+          const fz0 = rx1 * uy2 - rx2 * uy1
+          const fz1 = rx2 * uy0 - rx0 * uy2
+          const fz2 = rx0 * uy1 - rx1 * uy0
+          const cx = (top[0] + bottom[0]) * 0.5
+          const cy = (top[1] + bottom[1]) * 0.5
+          const cz = (top[2] + bottom[2]) * 0.5
+          wm[off + 0]  = rx0; wm[off + 1]  = rx1; wm[off + 2]  = rx2; wm[off + 3]  = 0
+          wm[off + 4]  = uy0; wm[off + 5]  = uy1; wm[off + 6]  = uy2; wm[off + 7]  = 0
+          wm[off + 8]  = fz0; wm[off + 9]  = fz1; wm[off + 10] = fz2; wm[off + 11] = 0
+          wm[off + 12] = cx;  wm[off + 13] = cy;  wm[off + 14] = cz;  wm[off + 15] = 1
+        }
+        // HairLong0..4 are appended contiguously at extendRigWithHair time.
+        const hair0Idx = hairBoneIndices[0]
+        device.queue.writeBuffer(
+          vatHandle.buffer,
+          hair0Idx * 64,
+          wm.buffer,
+          wm.byteOffset + hair0Idx * 16 * 4,
+          16 * hairBoneIndices.length * 4,
+        )
+        invalidateRaymarchCache()
+      }
+
+      // Hair strand secondary motion — each strand is independent. The
+      // bone matrix STAYS at its rest orientation (composer left it
+      // alone). Spring tip lives in WORLD; we transform the world-space
+      // delta back into PRIMITIVE-LOCAL space and upload it to the
+      // strand's slot-4 (tipDelta). The shader's bent_capsule SDF
+      // (type 14) curves the strand body quadratically toward this
+      // delta — the BEND comes from the SDF, not from re-aiming the
+      // bone frame, which keeps the rest envelope clean.
+      if (composer && strandEntries.length > 0 && tickShouldRun) {
+        const wm = composer.worldMatrices
+        const dt = tickDt
+        const sWindStrength = 0.015
+        const sWindAngle = elapsed * 1.1 + Math.sin(elapsed * 0.7) * 0.4
+        const sWindX = Math.cos(sWindAngle) * sWindStrength
+        const sWindZ = Math.sin(sWindAngle) * sWindStrength
+
+        const headBase = headIdx >= 0 ? headIdx * 16 : -1
+        for (let i = 0; i < strandEntries.length; i++) {
+          const e = strandEntries[i]
+          const off = e.boneIdx * 16
+          const rootX = wm[off + 12]
+          const rootY = wm[off + 13]
+          const rootZ = wm[off + 14]
+          // Bone +Y in world (rest direction).
+          const restYx = wm[off + 4], restYy = wm[off + 5], restYz = wm[off + 6]
+          const tipLen = 2 * e.halfLen
+          // Rest tip world position + breeze applied to the rest target.
+          const restTipX = rootX + restYx * tipLen + sWindX
+          const restTipY = rootY + restYy * tipLen
+          const restTipZ = rootZ + restYz * tipLen + sWindZ
+          if (!e.spring.initialised) {
+            e.spring.position[0] = restTipX
+            e.spring.position[1] = restTipY
+            e.spring.position[2] = restTipZ
+            e.spring.initialised = true
+          }
+          tickSpring(e.spring, [restTipX, restTipY, restTipZ], dt)
+          // Body collision: push spring tip out of the head sphere.
+          if (headBase >= 0) {
+            const cx = wm[headBase + 12], cy = wm[headBase + 13], cz = wm[headBase + 14]
+            const dx = e.spring.position[0] - cx
+            const dy = e.spring.position[1] - cy
+            const dz = e.spring.position[2] - cz
+            const dist = Math.hypot(dx, dy, dz)
+            const HEAD_R = 0.18
+            if (dist > 1e-6 && dist < HEAD_R) {
+              const k = HEAD_R / dist
+              e.spring.position[0] = cx + dx * k
+              e.spring.position[1] = cy + dy * k
+              e.spring.position[2] = cz + dz * k
+            }
+          }
+          // World tipDelta = springTip - restTipNoWind.
+          // (Wind already moved the rest target; spring follows. We
+          // want the bend to read TIP - REST_OF_BONE not TIP - REST_OF_TARGET,
+          // so subtract the un-windified rest tip here.)
+          const restTipNoWindX = rootX + restYx * tipLen
+          const restTipNoWindY = rootY + restYy * tipLen
+          const restTipNoWindZ = rootZ + restYz * tipLen
+          const wDx = e.spring.position[0] - restTipNoWindX
+          const wDy = e.spring.position[1] - restTipNoWindY
+          const wDz = e.spring.position[2] - restTipNoWindZ
+          // Inverse-rotate world delta into primitive-local frame.
+          // Bone matrix is orthonormal (no scaling on strand bones), so
+          // M^T equals M^-1 for the rotation block.
+          const bX0 = wm[off + 0], bX1 = wm[off + 1], bX2 = wm[off + 2]
+          const bY0 = wm[off + 4], bY1 = wm[off + 5], bY2 = wm[off + 6]
+          const bZ0 = wm[off + 8], bZ1 = wm[off + 9], bZ2 = wm[off + 10]
+          const localX = bX0 * wDx + bX1 * wDy + bX2 * wDz
+          const localY = bY0 * wDx + bY1 * wDy + bY2 * wDz
+          const localZ = bZ0 * wDx + bZ1 * wDy + bZ2 * wDz
+          // Cap the bend magnitude — runaway tipDelta breaks the SDF
+          // approximation. 1.5× halfLen is a safe upper bound: the
+          // tip can move sideways up to 1.5 × strand length.
+          const MAX_BEND = e.halfLen * 1.5
+          const blen = Math.hypot(localX, localY, localZ)
+          let bx = localX, by = localY, bz = localZ
+          if (blen > MAX_BEND) {
+            const k = MAX_BEND / blen
+            bx *= k; by *= k; bz *= k
+          }
+          if (e.primIdx >= 0) {
+            // Mutate the persistent prim's slot-4 in place — the next
+            // setPrimitives upload (driven by invalidateRaymarchCache
+            // below) will carry the fresh tipDelta. Saves a partial
+            // GPU write at the cost of repacking the whole buffer.
+            const rot = persistentPrims[e.primIdx].rotation
+            if (rot) { rot[0] = bx; rot[1] = by; rot[2] = bz; rot[3] = 0 }
+            else persistentPrims[e.primIdx].rotation = [bx, by, bz, 0]
+          }
+        }
+        invalidateRaymarchCache()
+      }
+
       // Spring-jiggle: each entry's spring follows its bone's world
       // position with lag + overshoot. Read the composer-computed rest
       // target, tick the spring, override translation, re-upload that
@@ -1421,10 +2448,46 @@ async function main() {
       if (composer && springEntries.length > 0 && tickShouldRun) {
         const wm = composer.worldMatrices
         const dt = tickDt
+        // Body collision spheres for spring-jiggle elements (grenades,
+        // future jiggle bones). After spring integration each pixel-
+        // can-only-deform-AWAY-from-body push: project particle out of
+        // any sphere it's penetrating. Spheres come from Hips + Spine1
+        // + Spine2 bone world centres.
+        const springCollisionList: { bone: number; r: number }[] = []
+        if (hipsIdx   >= 0) springCollisionList.push({ bone: hipsIdx,   r: 0.17 })
+        if (spine2Idx >= 0) springCollisionList.push({ bone: spine2Idx, r: 0.16 })
         for (const entry of springEntries) {
           const off = entry.boneIdx * 16
           const restTarget: [number, number, number] = [wm[off + 12], wm[off + 13], wm[off + 14]]
           tickSpring(entry.spring, restTarget, dt)
+          // Push out of body bounding spheres (grenades, etc only deform
+          // OUTWARD from the body — never let the spring carry them
+          // inside the torso).
+          for (const col of springCollisionList) {
+            const cb: [number, number, number] = [
+              wm[col.bone * 16 + 12],
+              wm[col.bone * 16 + 13],
+              wm[col.bone * 16 + 14],
+            ]
+            const dx = entry.spring.position[0] - cb[0]
+            const dy = entry.spring.position[1] - cb[1]
+            const dz = entry.spring.position[2] - cb[2]
+            const dist = Math.hypot(dx, dy, dz)
+            if (dist > 1e-6 && dist < col.r) {
+              const k = col.r / dist
+              entry.spring.position[0] = cb[0] + dx * k
+              entry.spring.position[1] = cb[1] + dy * k
+              entry.spring.position[2] = cb[2] + dz * k
+              // Kill velocity component pointing into the sphere so
+              // the spring doesn't keep accelerating into the body.
+              const vDotN = (entry.spring.velocity[0] * dx + entry.spring.velocity[1] * dy + entry.spring.velocity[2] * dz) / dist
+              if (vDotN < 0) {
+                entry.spring.velocity[0] -= (vDotN * dx) / dist
+                entry.spring.velocity[1] -= (vDotN * dy) / dist
+                entry.spring.velocity[2] -= (vDotN * dz) / dist
+              }
+            }
+          }
           wm[off + 12] = entry.spring.position[0]
           wm[off + 13] = entry.spring.position[1]
           wm[off + 14] = entry.spring.position[2]
@@ -1453,7 +2516,7 @@ async function main() {
       if (tickShouldRun) {
         lastSecondaryFrame = frameIdx
         lastSecondaryElapsed = elapsed
-        lastSecondaryRestPose = restPose
+        lastSecondaryRestPose = effectiveRestPose
       }
       // When the composer is active, the shader reads slot 0 (composer
       // writes current frame there each tick). Without composer (VAT1),

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tsunami — CSG Modeler</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: #0a0a10; color: #d8e0e8;
+      font-family: -apple-system, BlinkMacSystemFont, monospace;
+      overflow: hidden;
+      font-size: 12px;
+    }
+    #app { display: grid; grid-template-columns: 1fr 380px; width: 100vw; height: 100vh; }
+
+    /* --- canvas stage --- */
+    #stage {
+      position: relative; background: #060810;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    #canvas-wrap {
+      position: relative;
+      /* Fixed-square: side is the smaller of available width / height. */
+      width:  min(calc(100vw - 380px), 100vh);
+      height: min(calc(100vw - 380px), 100vh);
+      background: #060810;
+      border: 1px solid #1a1f2c;
+    }
+    .panel-label {
+      position: absolute;
+      font-family: monospace;
+      font-size: 11px;
+      color: #6cf;
+      text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+      pointer-events: none;
+      white-space: nowrap;
+      letter-spacing: 0.05em;
+    }
+    .panel-label.tl { top: 6px; left: 8px; }
+    .panel-label.tr { top: 6px; left: 50%; padding-left: 8px; }
+    .panel-label.bl { top: 50%; left: 8px; padding-top: 6px; }
+    .panel-label.br { top: 50%; left: 50%; padding: 6px 0 0 8px; }
+    /* Human mode renders one big panel — hide the agent-mode labels. */
+    #canvas-wrap.human-mode .panel-label,
+    #canvas-wrap.human-mode #scale-label { display: none; }
+    .panel-label .axes { color: #9bc; font-size: 10px; }
+    #scale-label {
+      position: absolute;
+      bottom: 8px; right: 10px;
+      font-family: monospace;
+      font-size: 10px;
+      color: #6cf;
+      text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+      pointer-events: none;
+    }
+    canvas {
+      width: 100%; height: 100%; display: block;
+      background: #060810;
+      image-rendering: auto;
+    }
+    #stats, #status-banner {
+      position: absolute;
+      background: rgba(8, 12, 22, 0.78);
+      padding: 4px 10px; border-radius: 3px;
+      font-size: 11px; line-height: 1.5;
+      pointer-events: none;
+      font-family: monospace;
+    }
+    #stats { top: 10px; left: 10px; color: #cde; }
+    #status-banner { bottom: 10px; left: 10px; color: #8a96a6; }
+    #status-banner.fresh { color: #6cf; }
+    #status-banner.error { color: #f88; }
+    #error {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      background: #2a0810; border: 1px solid #5a1822; padding: 18px; border-radius: 6px;
+      max-width: 480px; display: none; text-align: center; color: #fbb;
+    }
+
+    /* --- side panel --- */
+    #side {
+      background: #0d1018; border-left: 1px solid #1a1f2c;
+      padding: 10px 12px; overflow-y: auto;
+      line-height: 1.45;
+    }
+    h2 {
+      font-size: 11px; color: #fc4; margin: 14px 0 4px;
+      font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    h2:first-child { margin-top: 0; }
+    .row { display: flex; gap: 6px; margin: 3px 0; align-items: center; }
+    .row label { color: #8a96a6; min-width: 64px; font-size: 11px; }
+    .row .grow { flex: 1; }
+    button {
+      background: #1a2540; color: #cde; border: 1px solid #2c3a5c;
+      padding: 3px 8px; font-size: 11px; cursor: pointer; border-radius: 3px;
+      font-family: inherit;
+    }
+    button:hover { background: #243559; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button.on { background: #2a5638; border-color: #4a8a5e; }
+    button.off { background: #4a1a1a; border-color: #7a2d2d; }
+    button.danger { background: #4a1a1a; border-color: #7a2d2d; }
+    button.danger:hover { background: #5d2424; }
+    button.primary { background: #2a3e6e; border-color: #4a6098; }
+    select, input[type="text"], input[type="number"] {
+      background: #060810; color: #d8e0e8; border: 1px solid #2c3a5c;
+      padding: 3px 6px; font-family: inherit; font-size: 11px; border-radius: 3px;
+      width: 100%;
+    }
+    input[type="number"] { width: 64px; flex: none; }
+    input[type="range"] { flex: 1; height: 14px; }
+    textarea {
+      width: 100%;
+      background: #060810; color: #d8e0e8; border: 1px solid #2c3a5c;
+      font-family: monospace; font-size: 10px; padding: 6px; border-radius: 3px;
+      resize: vertical;
+    }
+    .hint { color: #6a7585; font-size: 10px; line-height: 1.4; margin-top: 4px; }
+
+    /* --- prim list --- */
+    #prim-list {
+      max-height: 220px; overflow-y: auto;
+      border: 1px solid #1f2738; border-radius: 3px; padding: 2px;
+      background: #060810;
+    }
+    .prim-row {
+      padding: 3px 6px; cursor: pointer; border-radius: 2px;
+      font-size: 11px; display: flex; gap: 6px; align-items: center;
+    }
+    .prim-row:hover { background: #142035; }
+    .prim-row.sel { background: #1d3258; color: #fff; }
+    .prim-row .badge {
+      display: inline-block; padding: 0 4px; border-radius: 2px;
+      background: #1a2540; color: #8ab; font-size: 9px;
+      font-family: monospace; min-width: 28px; text-align: center;
+    }
+    .prim-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prim-row .swatch-mini {
+      width: 10px; height: 10px; border-radius: 1px; border: 1px solid #222;
+    }
+    .prim-row .flags {
+      font-size: 9px; color: #6a7585; font-family: monospace;
+    }
+
+    /* --- editor --- */
+    #editor {
+      border: 1px solid #1f2738; border-radius: 3px; padding: 6px;
+      background: #060810;
+    }
+    #editor.empty { color: #6a7585; text-align: center; padding: 16px 6px; font-style: italic; }
+    .field {
+      display: grid; grid-template-columns: 64px 1fr 64px;
+      gap: 6px; align-items: center; margin: 2px 0;
+    }
+    .field label { color: #8a96a6; font-size: 11px; }
+    .field .vec {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;
+      grid-column: 2 / 4;
+    }
+    .field .vec input { width: 100%; }
+    .checkbox-row {
+      display: flex; gap: 12px; flex-wrap: wrap; margin: 4px 0;
+    }
+    .checkbox-row label { display: flex; gap: 4px; align-items: center; font-size: 11px; color: #cde; cursor: pointer; }
+    .checkbox-row input[type="checkbox"] { margin: 0; }
+
+    /* --- palette --- */
+    .palette-strip { display: flex; gap: 2px; flex-wrap: wrap; margin: 4px 0; }
+    .palette-strip .swatch {
+      width: 22px; height: 22px; border-radius: 2px; border: 1px solid #2c3a5c;
+      cursor: pointer; position: relative;
+    }
+    .palette-strip .swatch.sel { border-color: #fc4; box-shadow: 0 0 0 1px #fc4; }
+    .palette-strip .swatch .idx {
+      position: absolute; bottom: -1px; right: 1px;
+      font-size: 8px; color: #fff; text-shadow: 0 0 2px #000;
+      font-family: monospace; pointer-events: none;
+    }
+
+    /* --- view controls --- */
+    .btn-row { display: flex; gap: 4px; flex-wrap: wrap; }
+    .btn-row button { flex: 1; min-width: 0; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="stage">
+      <div id="canvas-wrap">
+        <canvas id="canvas"></canvas>
+        <div id="stats">init…</div>
+        <div id="status-banner">empty model</div>
+        <div id="error"></div>
+        <div id="panel-label-front" class="panel-label tl">FRONT <span class="axes">X→ Y↑ (look -Z)</span></div>
+        <div id="panel-label-side"  class="panel-label tr">SIDE <span class="axes">Z→ Y↑ (look -X)</span></div>
+        <div id="panel-label-top"   class="panel-label bl">TOP <span class="axes">X→ Z↓ (look -Y)</span></div>
+        <div id="panel-label-iso"   class="panel-label br">ISO <span class="axes">(3/4 view)</span></div>
+        <div id="scale-label">grid: 1cm major / 5mm minor</div>
+      </div>
+    </div>
+    <div id="side">
+      <h2>Model</h2>
+      <div class="row">
+        <input id="model-name" type="text" value="untitled" />
+      </div>
+      <div class="btn-row" style="margin: 4px 0">
+        <button id="btn-new">new</button>
+        <button id="btn-import">import</button>
+        <button id="btn-export" class="primary">export json</button>
+        <input type="file" id="file-input" accept=".json" style="display:none" />
+      </div>
+
+      <h2>Primitives <span id="prim-count" style="color:#6a7585;font-weight:normal">(0)</span></h2>
+      <div id="prim-list">empty — add a primitive below</div>
+      <div class="btn-row" style="margin-top: 4px">
+        <select id="add-type" style="flex: 2">
+          <!-- populated by JS -->
+        </select>
+        <button id="btn-add">add</button>
+        <button id="btn-dup" disabled>dup</button>
+        <button id="btn-del" class="danger" disabled>del</button>
+      </div>
+
+      <h2>Selected primitive</h2>
+      <div id="editor" class="empty">select a primitive above</div>
+
+      <h2>View</h2>
+      <div class="row">
+        <label>mode</label>
+        <button data-mode="agent" class="on">agent (4-view)</button>
+        <button data-mode="human">human (orbit)</button>
+      </div>
+      <div class="row">
+        <label>orbit</label>
+        <button id="spin-toggle" class="on">auto</button>
+      </div>
+      <div class="row">
+        <label>res</label>
+        <button data-res="128">128</button>
+        <button data-res="256" class="on">256</button>
+        <button data-res="384">384</button>
+        <button data-res="512">512</button>
+      </div>
+      <div class="row">
+        <label>view</label>
+        <button data-vmode="color" class="on">color</button>
+        <button data-vmode="normal">normal</button>
+        <button data-vmode="depth">depth</button>
+        <button data-vmode="silhouette">silh</button>
+        <button data-vmode="curvature">curv</button>
+        <button data-vmode="persurface">surf</button>
+      </div>
+      <div class="btn-row">
+        <button data-view="iso">iso</button>
+        <button data-view="front">front</button>
+        <button data-view="side">side</button>
+        <button data-view="top">top</button>
+        <button data-view="back">back</button>
+      </div>
+      <div class="hint">drag = orbit · wheel = zoom · double-click = iso</div>
+
+      <h2>VL inbox</h2>
+      <div class="row">
+        <label>poll</label>
+        <button id="poll-toggle" class="on">ON</button>
+        <span id="poll-status" style="font-size:10px;color:#6a7585">—</span>
+      </div>
+      <div class="row">
+        <input id="poll-path" type="text" value="/sdf_modeler/inbox.ark.json" />
+      </div>
+      <div class="hint">VL agent / Tsunami can write JSON to the polled path; the modeler picks it up. Or call <code style="color:#cde">window.modeler.*</code> directly.</div>
+
+      <h2>JSON</h2>
+      <textarea id="json-out" spellcheck="false" rows="8" placeholder="(model JSON appears here as you author)"></textarea>
+      <div class="btn-row" style="margin-top:4px">
+        <button id="btn-copy">copy</button>
+        <button id="btn-apply-json">apply edits</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./modeler_demo.ts"></script>
+</body>
+</html>

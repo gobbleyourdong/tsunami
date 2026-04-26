@@ -63,6 +63,17 @@ struct U {
   //                                         attenuation = 1 / (1 + (d/r)²))
   //   [2k+1] color.rgb, intensity
   pointLights: array<vec4f, 8>,
+  // Face-pixel data — replaces the hardcoded mario/dot/round/goggles
+  // switch in the eye/mouth stamp code with a data-driven loop. The
+  // editor widget paints cells, bakes to this layout, uploads once.
+  // Per pixel = vec4i: (dx, dy, paletteSlot, flags). flags lower bit
+  // marks "glow_pulse" so the glowing eye style still pulses.
+  // Per style = vec4i: (startIdx, count, _, _). Eye styles occupy
+  // entries 0..6; mouth styles occupy 7..12. Both arrays use vec4i
+  // (signed) — some Tint validator builds reject dynamic indexing
+  // into uniform array<vec4u> while accepting array<vec4i>.
+  faceStyles: array<vec4i, 16>,
+  facePixels: array<vec4i, 64>,
   // Optional secondary palette colours used by stylised eyes (goggles frame,
   // glowing inner core). rgb + enable in .a.
   eyeAccent:    vec4f,
@@ -281,80 +292,55 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // left eye block extends to the right of anchor (dx in 0..+1); right
   // eye block extends to the left (dx in -1..0). Other styles are
   // symmetric and ignore the mirror.
+  // Data-driven face stamp. Each style is a list of (dx, dy, slot)
+  // pixels stored in u.facePixels. u.faceStyles[styleId] holds the
+  // (start, count) into that array. The editor widget bakes pixel
+  // grids into this layout. Existing styles (mario / dot / round /
+  // goggles / glowing / closed / crying) are pre-loaded as data —
+  // identical visual output.
+  //
+  // Slot semantics inside the stamp:
+  //   0 = pupil     → u.eyeColor.rgb
+  //   1 = eyewhite  → u.whiteColor.rgb
+  //   2 = accent    → u.eyeAccent.rgb
+  //   3 = tear      → cyan (0.35, 0.70, 1.0)
+  //   4 = glow_core → mix(accent, white, glow)  (pulses with faceFlags.w)
+  //   5 = mouth     → u.mouthColor.rgb
   if (frontFacing && u.eyeColor.a > 0.5) {
-    var rawStyle = u32(u.faceFlags.x);
-    // Blink override — >=0.5 snaps all styles to the closed pose.
-    if (u.faceFlags.z >= 0.5) { rawStyle = 5u; }
+    var eyeStyle = u32(u.faceFlags.x);
+    if (u.faceFlags.z >= 0.5) { eyeStyle = 5u; }   // blink override → CLOSED
     let leftPx  = vec2i(i32(round(u.leftEye.x)),  i32(round(u.leftEye.y)));
     let rightPx = vec2i(i32(round(u.rightEye.x)), i32(round(u.rightEye.y)));
     let lInDepth = abs(pixelDepth - u.leftEye.z)  < depthTol;
     let rInDepth = abs(pixelDepth - u.rightEye.z) < depthTol;
-
     let glow = clamp(u.faceFlags.w, 0.0, 1.0);
-    let accent = u.eyeAccent.rgb;
+    // Variable named eMeta — WGSL reserves the bare word "meta".
+    let eMeta = u.faceStyles[eyeStyle];
+    let startIdx = u32(eMeta.x);
+    let count = u32(eMeta.y);
 
-    // Fire each eye's switch. Returning early keeps the shader branchless
-    // per pixel — the dxL/dyL range tests gate the work.
     for (var side = 0u; side < 2u; side = side + 1u) {
-      let anchor = select(rightPx, leftPx, side == 0u);
-      let inDepth = select(rInDepth, lInDepth, side == 0u);
-      if (!inDepth) { continue; }
       let isLeft = side == 0u;
+      let anchor = select(rightPx, leftPx, isLeft);
+      let inDepth = select(rInDepth, lInDepth, isLeft);
+      if (!inDepth) { continue; }
       let dx = px.x - anchor.x;
       let dy = px.y - anchor.y;
-
-      switch (rawStyle) {
-        case 0u: {   // MARIO — asymmetric
-          let inner = select(dx <= 0 && dx >= -1, dx >= 0 && dx <= 1, isLeft);
-          if (!inner) { break; }
-          if (dy < -1 || dy > 1) { break; }
-          let pupilDx = select(0, 0, isLeft);    // inner col is dx=0 in both
-          let isPupilCol = dx == pupilDx;
-          if (isPupilCol && dy >= 0) { return vec4f(u.eyeColor.rgb, 1.0); }
-          return vec4f(u.whiteColor.rgb, 1.0);
+      for (var i = 0u; i < count; i = i + 1u) {
+        let pixel = u.facePixels[startIdx + i];
+        // Right-eye mirror: negate the authored dx so a style whose
+        // outer column is at dx=+1 (left eye) becomes dx=-1 (right eye).
+        let pdx = select(-pixel.x, pixel.x, isLeft);
+        let pdy = pixel.y;
+        if (dx == pdx && dy == pdy) {
+          let slot = u32(pixel.z);
+          if      (slot == 0u) { return vec4f(u.eyeColor.rgb, 1.0); }
+          else if (slot == 1u) { return vec4f(u.whiteColor.rgb, 1.0); }
+          else if (slot == 2u) { return vec4f(u.eyeAccent.rgb, 1.0); }
+          else if (slot == 3u) { return vec4f(0.35, 0.70, 1.0, 1.0); }
+          else if (slot == 4u) { return vec4f(mix(u.eyeAccent.rgb, vec3f(1.0), glow), 1.0); }
+          else if (slot == 5u) { return vec4f(u.mouthColor.rgb, 1.0); }
         }
-        case 1u: {   // DOT — 1×1 black
-          if (dx == 0 && dy == 0) { return vec4f(u.eyeColor.rgb, 1.0); }
-          break;
-        }
-        case 2u: {   // ROUND — 2×2 pupil (anchor is inner col, flip dx range by side)
-          let inRange = select(dx <= 0 && dx >= -1, dx >= 0 && dx <= 1, isLeft);
-          if (inRange && dy >= -1 && dy <= 0) { return vec4f(u.eyeColor.rgb, 1.0); }
-          break;
-        }
-        case 3u: {   // GOGGLES — 3×3, rim = accent, inner center = white, middle = pupil
-          let inRange = dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1;
-          if (!inRange) { break; }
-          let onRim = abs(dx) == 1 || abs(dy) == 1;
-          if (onRim) {
-            if (u.eyeAccent.a > 0.5) { return vec4f(accent, 1.0); }
-            return vec4f(u.eyeColor.rgb, 1.0);
-          }
-          return vec4f(u.eyeColor.rgb, 1.0);
-        }
-        case 4u: {   // GLOWING — 2×2 accent glow + 1×1 bright core, brightness from glow
-          let inRange = select(dx <= 0 && dx >= -1, dx >= 0 && dx <= 1, isLeft);
-          if (!inRange || dy < -1 || dy > 0) { break; }
-          let core = (dx == select(0, 0, isLeft)) && dy == 0;
-          let glowRGB = mix(u.whiteColor.rgb, accent, glow);
-          if (core) { return vec4f(mix(accent, vec3f(1.0), glow), 1.0); }
-          return vec4f(glowRGB, 1.0);
-        }
-        case 5u: {   // CLOSED — 2×1 horizontal line (blink pose)
-          let inRange = select(dx <= 0 && dx >= -1, dx >= 0 && dx <= 1, isLeft);
-          if (inRange && dy == 0) { return vec4f(u.eyeColor.rgb, 1.0); }
-          break;
-        }
-        case 6u: {   // CRYING — closed line + 2-px tear stream below inner col
-          let inRange = select(dx <= 0 && dx >= -1, dx >= 0 && dx <= 1, isLeft);
-          if (inRange && dy == 0) { return vec4f(u.eyeColor.rgb, 1.0); }
-          // Inner column is dx=0 for both eyes by convention.
-          if (dx == 0 && (dy == 1 || dy == 2)) {
-            return vec4f(0.35, 0.70, 1.00, 1.0);   // cyan tear pixel
-          }
-          break;
-        }
-        default: { break; }
       }
     }
   }
@@ -369,36 +355,25 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   //   5 pout     — 1×1 dot
   if (frontFacing && u.mouthColor.a > 0.5) {
     let style = u32(u.faceFlags.y);
+    // Mouth styles also data-driven. Stored at faceStyles[7..12] with
+    // styleId offset by NUM_EYE_STYLES (= 7).
     if (style != 0u) {
       let mPx = vec2i(i32(round(u.mouth.x)), i32(round(u.mouth.y)));
       let mInDepth = abs(pixelDepth - u.mouth.z) < depthTol;
       if (mInDepth) {
         let dx = px.x - mPx.x;
         let dy = px.y - mPx.y;
-        switch (style) {
-          case 1u: {
-            if (dy == 0 && dx >= -1 && dx <= 1) { return vec4f(u.mouthColor.rgb, 1.0); }
-            break;
+        let mMeta = u.faceStyles[7u + style];
+        let mStart = u32(mMeta.x);
+        let mCount = u32(mMeta.y);
+        for (var i = 0u; i < mCount; i = i + 1u) {
+          let pixel = u.facePixels[mStart + i];
+          if (dx == pixel.x && dy == pixel.y) {
+            let slot = u32(pixel.z);
+            if      (slot == 0u) { return vec4f(u.eyeColor.rgb, 1.0); }
+            else if (slot == 5u) { return vec4f(u.mouthColor.rgb, 1.0); }
+            else                 { return vec4f(u.mouthColor.rgb, 1.0); }
           }
-          case 2u: {   // SMILE — corners at y=0, middle at y=1 (lower)
-            let onLine = (dy == 0 && (dx == -1 || dx == 1)) || (dy == 1 && dx == 0);
-            if (onLine) { return vec4f(u.mouthColor.rgb, 1.0); }
-            break;
-          }
-          case 3u: {   // OPEN_O
-            if (dx >= 0 && dx <= 1 && dy >= 0 && dy <= 1) { return vec4f(u.mouthColor.rgb, 1.0); }
-            break;
-          }
-          case 4u: {   // FROWN — corners at y=0, middle at y=-1 (higher)
-            let onLine = (dy == 0 && (dx == -1 || dx == 1)) || (dy == -1 && dx == 0);
-            if (onLine) { return vec4f(u.mouthColor.rgb, 1.0); }
-            break;
-          }
-          case 5u: {   // POUT
-            if (dx == 0 && dy == 0) { return vec4f(u.mouthColor.rgb, 1.0); }
-            break;
-          }
-          default: { break; }
         }
       }
     }
@@ -474,6 +449,11 @@ export interface OutlinePass {
   ): void
   /** Active point-light count [0..4]. Above this index, slots are skipped. */
   setNumPointLights(n: number): void
+  /** Upload face-pixel data for the data-driven eye/mouth stamp.
+   *  styles: per-style (startIdx, count) — eye styles at 0..6, mouth at 7..12.
+   *  pixels: flat array of (dx, dy, slotId, flags) tuples.
+   *  Bake button in the editor calls this to push edits to GPU. */
+  setFacePixelData(styles: Int32Array, pixels: Int32Array): void
 }
 
 export function createOutlinePass(
@@ -504,11 +484,12 @@ export function createOutlinePass(
   //   [16..23] light[0] (dirI vec4 + color vec4)
   //   [24..31] light[1] (dirI vec4 + color vec4)
   const uniformBuffer = device.createBuffer({
-    size: 528,
+    size: 1808,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  const uniformData = new Float32Array(132)
+  const uniformData = new Float32Array(452)
   const uniformDataU32 = new Uint32Array(uniformData.buffer)
+  const uniformDataI32 = new Int32Array(uniformData.buffer)
   let currentViewMode: ViewMode = 'color'
   let currentDepthOutline = true    // single depth-based outline is THE outline now
   let currentDepthThresh = 0.025
@@ -555,6 +536,13 @@ export function createOutlinePass(
   const MAX_POINT_LIGHTS = 4
   let numPointLights = 0
   const pointLights = new Float32Array(MAX_POINT_LIGHTS * 8)
+  // Face-pixel data (data-driven eye/mouth stamps). Editor populates this.
+  // faceStyles[i] = (startIdx, count, _, _) for style i (eye 0..6, mouth 7..12).
+  // facePixels[k] = (dx, dy, slot, flags) for pixel k.
+  const MAX_FACE_PIXELS = 64
+  const MAX_FACE_STYLES = 16
+  const faceStyles = new Int32Array(MAX_FACE_STYLES * 4)   // u32 in shader; using i32 view for write
+  const facePixels = new Int32Array(MAX_FACE_PIXELS * 4)
 
   function writeUniform(texW: number, texH: number) {
     currentW = texW
@@ -626,12 +614,27 @@ export function createOutlinePass(
     //   eyeAccent     (vec4f, 4 floats) → bytes 512-528, slots 128-131
     // Earlier layout had eyeAccent at slot 76 — that broke when point
     // lights pushed it to the END of the struct. Fixing now.
+    // Layout (post-faceStyles/facePixels expansion):
+    //   invViewProj   (mat4, 16f) → slots 76-91, bytes 304-368
+    //   numPointLights u32        → slot 92, byte 368
+    //   _padPL[3]                 → slots 93-95
+    //   pointLights   (8×vec4)    → slots 96-127, bytes 384-512
+    //   faceStyles    (16×vec4i)  → slots 128-191, bytes 512-768
+    //   facePixels    (64×vec4i)  → slots 192-447, bytes 768-1792
+    //   eyeAccent     (vec4f)     → slots 448-451, bytes 1792-1808
     uniformData.set(invViewProj, 76)
     uniformDataU32[92] = numPointLights
     uniformData[93] = 0; uniformData[94] = 0; uniformData[95] = 0
     uniformData.set(pointLights, 96)
-    uniformData[128] = eyeAccent[0]; uniformData[129] = eyeAccent[1]
-    uniformData[130] = eyeAccent[2]; uniformData[131] = eyeAccent[3]
+    // faceStyles is i32 in shader (vec4i). The runtime Int32Array view
+    // is its native type — write through uniformDataI32. Values stay
+    // positive in practice (start/count are non-negative) so the
+    // signed/unsigned bit pattern is identical.
+    for (let i = 0; i < faceStyles.length; i++) uniformDataI32[128 + i] = faceStyles[i]
+    // facePixels is i32 (signed dx/dy can be negative).
+    for (let i = 0; i < facePixels.length; i++) uniformDataI32[192 + i] = facePixels[i]
+    uniformData[448] = eyeAccent[0]; uniformData[449] = eyeAccent[1]
+    uniformData[450] = eyeAccent[2]; uniformData[451] = eyeAccent[3]
     device.queue.writeBuffer(uniformBuffer, 0, uniformData)
   }
   writeUniform(sceneW, sceneH)
@@ -747,6 +750,16 @@ export function createOutlinePass(
     },
     setNumPointLights(n) {
       numPointLights = Math.max(0, Math.min(MAX_POINT_LIGHTS, n))
+      writeUniform(currentW, currentH)
+    },
+    setFacePixelData(styles, pixels) {
+      // Copy into the persistent buffers, padding the rest with zeros so
+      // stale tail-data from a previous style set doesn't bleed into the
+      // shader (zero `count` skips that style's loop entirely).
+      faceStyles.fill(0)
+      facePixels.fill(0)
+      faceStyles.set(styles.subarray(0, Math.min(styles.length, faceStyles.length)))
+      facePixels.set(pixels.subarray(0, Math.min(pixels.length, facePixels.length)))
       writeUniform(currentW, currentH)
     },
   }
