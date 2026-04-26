@@ -477,6 +477,19 @@ real scaffold-level change is needed:
   for that scaffold (the API surface you must use)
 - `../scaffolds/<name>/__fixtures__/<scaffold>_patterns.tsx` — domain-pattern
   fixtures (e.g. `landing_dashboard_gallery.tsx` for layouts)
+- `../scaffolds/<name>/scaffold.yaml` — auto-generated component prop
+  contract (only present for React-shape scaffolds — the 9 vision-gated
+  ones). Generated from `src/components/ui/*.tsx` via
+  `python3 -m tsunami.scripts.regen_scaffold_yaml <name>`. Two of the 9
+  (`auth-app`, `ai-app`) are inheritance markers — they re-export
+  react-app's UI + add scaffold-specific contracts (`useAuth`,
+  `useChat`); their scaffold.yaml has `inherits_from: react-app` and
+  points at their `__fixtures__/drone_natural.tsx` for the addition.
+  Bespoke-gate scaffolds (api-only, chrome-extension, electron-app),
+  game scaffolds (game, engine, gamedev), and lighter scaffolds (cli,
+  mobile, infra, training, web) don't have scaffold.yaml — different
+  contract models (server probe / data-driven game schema / minimal
+  UI surface).
 - `plan_scaffolds/<name>.md` — domain conventions + gotchas
 - `style_scaffolds/<name>.md` — visual style templates
 - `undertow_scaffolds/<name>.md` — QA approach matched to style
