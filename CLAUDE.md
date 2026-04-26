@@ -11,10 +11,17 @@ run.** Your cold-start orientation lives one directory deeper:
 
 ## Quick map of what's here
 
-- **`scaffolds/`** — 20 polished project templates with locked component
-  vocabularies (the catalog you'll pick from), plus `scaffolds/nudges/` —
-  the retro-game scrape reference catalog (Castlevania, Dragon Quest,
-  Mario, etc., 69 game dirs)
+- **`scaffolds/`** — 21 top-level dirs, but ~42 buildable templates total
+  once you count sub-scaffolds. Top-level: 9 React (7 self-contained + 2
+  inheriting), 3 bespoke-gate (api-only, chrome-extension, electron-app),
+  1 web-game (`game`), 1 WebGPU engine (`engine`), 1 gamedev category, 5
+  lighter categories (`cli`, `mobile`, `web`, `infra`, `training`), plus
+  `scaffolds/nudges/` — the retro-game scrape reference catalog (Castlevania,
+  Dragon Quest, Mario, etc., 69 game dirs). The 5 lighter categories
+  contain 10 sub-scaffolds (cli/3, mobile/2, web/3, infra/1, training/1)
+  + gamedev contains 9 standard sub-genres + `gamedev/cross/` is itself
+  a category with 9 cross-genre sub-scaffolds. See `tsunami/CLAUDE.md`
+  choose-your-own-adventure tables for the full enumeration.
 - **`tsunami/`** — patterns + utilities the catalog references (vision_gate,
   undertow, circulation, deliver_gates, core probes, image processing, skills)
 - **`deliverables/`** — past builds (reference, not active work)

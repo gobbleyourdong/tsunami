@@ -101,6 +101,22 @@ For ALL games: read `plan_scaffolds/gamedev.md` first (applies to every genre â€
 | "action adventure", "Zelda-like" | `gamedev/action_adventure/` | `genre_scaffolds/action_adventure.md` | engine |
 | something more exotic | `gamedev/custom/` | check `genre_scaffolds/` for: action_rpg_atb, immersive_sim, magic_hoops, metroidvania, metroid_runs, ninja_garden, open_world, rhythm_fighter, rts | engine |
 
+**Cross-genre scaffolds (don't fall back to `gamedev/custom/` if one of these matches):** `gamedev/cross/` is itself a category with 9 specific cross-genre sub-scaffolds, each with its own README + package.json:
+
+| User says... | sub-scaffold |
+|---|---|
+| "ATB action RPG", "Final Fantasy ATB-style", "Chrono Trigger combat" | `gamedev/cross/action_rpg_atb/` |
+| "bullet hell RPG", "shoot-em-up RPG hybrid" | `gamedev/cross/bullet_hell_rpg/` |
+| "magic hoops", "magical sport / hoops" | `gamedev/cross/magic_hoops/` |
+| "metroidvania", "metroid runs", "backtracking exploration platformer" | `gamedev/cross/metroid_runs/` |
+| "ninja garden", "fast-action ninja platformer" | `gamedev/cross/ninja_garden/` |
+| "platform fighter", "Smash Bros-like" | `gamedev/cross/platform_fighter/` |
+| "puzzle platformer roguelite" | `gamedev/cross/puzzle_platformer_roguelite/` |
+| "rhythm fighter", "music-driven combat" | `gamedev/cross/rhythm_fighter/` |
+| "tactics action adventure", "Final Fantasy Tactics + Zelda hybrid" | `gamedev/cross/tactics_action_adventure/` |
+
+For metroidvania specifically: prefer `gamedev/cross/metroid_runs/` (concrete scaffold) over `gamedev/custom/` + `genre_scaffolds/metroidvania.md` (which is the plan template fallback). Both work â€” metroid_runs gives you a head-start.
+
 **Important:** The actual `gamedev/` subdirs are exactly: `action_adventure,
 beat_em_up, cross, custom, fighting, fps, jrpg, platformer, racing, stealth`.
 **If the user asks for a genre that isn't one of those (metroidvania, jrpg-atb,
