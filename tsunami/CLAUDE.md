@@ -215,10 +215,16 @@ import.
 - **`vision_gate.py`** — the visual verification pattern: take a screenshot
   of the built page, send it to the vision-capable LLM (you, in this
   conversation, with image content), ask "list visual issues", iterate.
-- **`undertow.py`** — the Playwright lever-pulling pattern. Async wrapper
-  that takes screenshots, presses keys, clicks elements, reads the console,
-  and returns a structured `QAReport`. The "wander off path then turn around
-  if too crazy" pattern. Lever names = stable API; if you re-implement, keep
+- **`undertow.py`** — the Playwright lever-pulling pattern. Async wrappers
+  for 9 lever kinds: `screenshot`, `press`, `click`, `type`, `read_text`,
+  `motion` (animation/transitions), `sequence` (run sub-levers in order),
+  `autopilot` (automated exploration), `ghost_classes` (find unused CSS).
+  Plus 2 static variants for non-Playwright runs (`ghost_classes_static`,
+  `unused_dep_static`). Console errors are read as a side-channel (passed
+  through to lever functions via `console_msgs`), NOT as a separate lever.
+  Each lever returns a `LeverResult`; `pull_levers()` aggregates them into
+  a `QAReport`. The "wander off path then turn around if too crazy"
+  pattern lives here. Lever names = stable API; if you re-implement, keep
   the names.
 - **`circulation.py`** — the drift-detection state-machine pattern
   (`flowing → eddying → probing → broken`). Counts repeated failures, triggers
