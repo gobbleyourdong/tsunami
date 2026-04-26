@@ -328,8 +328,11 @@ studies / sigma archives, they're historical. Don't try to use them.
 - **`../scaffolds/`** entirely — the catalog is the product. Modifying a scaffold
   changes every future build that uses it. If you need a new scaffold, propose
   it in `../scaffolds/GAPS.md` first.
-- **`../scaffolds/.claude/nudges/`** — the retro-game scrape catalog. Castlevania,
-  Dragon Quest, Castlevania II nudges live here. Don't lose these.
+- **`../scaffolds/.claude/nudges/`** — the retro-game scrape catalog (71 game
+  dirs / ~2K nudge JSON files). Castlevania, Dragon Quest, Mario, Metroid,
+  Contra, Zelda, Final Fantasy, etc. Don't lose these. Tracked via an
+  explicit `.gitignore` exception (the broader `.claude/` rule would otherwise
+  strip them from clones).
 - **`../../sdf_modeling_research/`** — the active SDF/sculpt research project. Has
   its own gap.md / attempts/ structure (sigma method standard). Off-limits.
 - **`../scaffolds/engine/demos/skeleton_demo.{html,ts}`** and

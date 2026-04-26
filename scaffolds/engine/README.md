@@ -101,20 +101,21 @@ ChipMusic · SfxLibrary
 
 ```
   ┌──────────────────────────────────────────────────────────────┐
-  │ Tsunami agent (tsunami/agent.py)                              │
-  │  - project_init: detects "game" prompt, rejects 7 genres      │
-  │  - loads tsunami/context/design_script.md into system prompt  │
-  │  - picks nearest-match example (arena_shooter/rhythm/…)        │
+  │ Your AI agent (Claude Code or equivalent harness)             │
+  │  - reads tsunami/CLAUDE.md to pick the gamedev scaffold       │
+  │  - reads tsunami/genre_scaffolds/<genre>.md for genre         │
+  │    template (platformer, fighter, jrpg, fps, …)                │
+  │  - picks nearest-match example                                │
   └───────────────┬──────────────────────────────────────────────┘
                   │ 1. emit JSON
                   ▼
   ┌──────────────────────────────────────────────────────────────┐
-  │ emit_design(design, project_name, auto_fix=True)              │
+  │ emit_design(design, project_name, auto_fix=False)             │
   │  = subprocess → scaffolds/engine/src/design/cli.ts            │
   │    • validate (23 error kinds)                                │
   │    • compile  (ValidatedDesign → GameDefinition)              │
-  │  on failure: error_fixer.fix_design_validation_errors         │
-  │    → deterministic patches (17 patchers) → recompile one pass │
+  │  auto_fix path retired 2026-04-26 — caller handles errors     │
+  │  directly now (see tsunami/CHANGELOG.md v3.6 / v3.9)          │
   └───────────────┬──────────────────────────────────────────────┘
                   │ 2. valid GameDefinition JSON
                   ▼

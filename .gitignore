@@ -71,6 +71,12 @@ SCRATCHPAD.md
 # resource. Without this exception the file gets caught by the ALL_CAPS
 # convention above and a fresh clone won't have it.
 !scaffolds/GAPS.md
+# Retro-game scrape catalog (Castlevania, Dragon Quest, Mario, Metroid,
+# etc. — 71 game dirs / ~2K nudge files). Referenced from tsunami/CLAUDE.md
+# as the cross-reference for game builds with retro pattern matching.
+# Without this exception the .claude/ rule above strips them from clones.
+!scaffolds/.claude/nudges/
+!scaffolds/.claude/nudges/**
 
 # Misc
 *.log
