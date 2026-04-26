@@ -67,6 +67,10 @@ SCRATCHPAD.md
 !tsunami/CLAUDE.md
 # Repo-root pointer that orients AI agents at tsunami/CLAUDE.md
 !/CLAUDE.md
+# Scaffold catalog status — referenced from tsunami/CLAUDE.md as a cold-start
+# resource. Without this exception the file gets caught by the ALL_CAPS
+# convention above and a fresh clone won't have it.
+!scaffolds/GAPS.md
 
 # Misc
 *.log
