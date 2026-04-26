@@ -1,0 +1,12 @@
+{
+  "essence": "1988_mega_man_2",
+  "animation_name": "wily_castle_cutscene",
+  "kind": "ui",
+  "sub_kind": "cutscene",
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of wily_castle_cutscene \u2014 a ui (cutscene) from 1988 mega man 2. Wily Castle intro cutscene + 'Wily Fortress' banner \u2014 1290\u00d7805 composite. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_mega_man_2_wily_castle_cutscene",
+  "source_progression_description": "Wily Castle intro cutscene + 'Wily Fortress' banner \u2014 1290\u00d7805 composite",
+  "nudges": []
+}

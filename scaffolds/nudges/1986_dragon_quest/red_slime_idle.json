@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "red_slime_idle",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of red_slime_idle \u2014 a character from 1986 dragon quest. Red Slime (She-Slime in NA localization) \u2014 slightly stronger palette-swap. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_red_slime_idle",
+  "source_progression_description": "Red Slime (She-Slime in NA localization) \u2014 slightly stronger palette-swap; surrounding fields same HP class",
+  "nudges": []
+}

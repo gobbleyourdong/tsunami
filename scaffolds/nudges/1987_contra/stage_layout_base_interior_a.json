@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "stage_layout_base_interior_a",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_layout_base_interior_a \u2014 a tile (level_layout) from 1987 contra. Stage 2/4/6/7 base-interior corridor segment \u2014 overhead pseudo-3D view, 288\u00d764 section. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_stage_layout_base_interior_a",
+  "source_progression_description": "Stage 2/4/6/7 base-interior corridor segment \u2014 overhead pseudo-3D view, 288\u00d764 section",
+  "nudges": []
+}

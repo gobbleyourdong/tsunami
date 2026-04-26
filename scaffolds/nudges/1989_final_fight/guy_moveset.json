@@ -1,0 +1,12 @@
+{
+  "essence": "1989_final_fight",
+  "animation_name": "guy_moveset",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of guy_moveset \u2014 a character (playable) from 1989 final fight. Guy \u2014 Bushin-ryu ninjutsu. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_final_fight_guy_moveset",
+  "source_progression_description": "Guy \u2014 Bushin-ryu ninjutsu; elbow-combo + wall-jump + run-dash. Fast but weak",
+  "nudges": []
+}

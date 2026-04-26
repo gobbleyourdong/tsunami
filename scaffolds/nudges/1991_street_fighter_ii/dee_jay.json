@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "dee_jay",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of dee_jay \u2014 a character from 1991 street fighter ii. Dee Jay \u2014 Super SF2 Jamaican kickboxer. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_dee_jay",
+  "source_progression_description": "Dee Jay \u2014 Super SF2 Jamaican kickboxer; Air Slasher + Machine Gun Upper",
+  "nudges": []
+}

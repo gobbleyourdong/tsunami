@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "tile_rock",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tile_rock \u2014 a tile from 1986 legend of zelda. Rock \u2014 impassable. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_tile_rock",
+  "source_progression_description": "Rock \u2014 impassable; some can be bombed to reveal hidden paths",
+  "nudges": []
+}

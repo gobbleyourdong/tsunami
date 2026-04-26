@@ -1,0 +1,37 @@
+{
+  "essence": "1997_final_fantasy_tactics",
+  "animation_name": "20_job_classes",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of 20_job_classes \u2014 a character from 1997 final fantasy tactics. 20 base-jobs: Squire/Chemist. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_final_fantasy_tactics_20_job_classes",
+  "source_progression_description": "20 base-jobs: Squire/Chemist \u2192 Knight/Archer \u2192 Monk/White Mage/Black Mage/Priest/Wizard/Time Mage/Summoner \u2192 Thief/Oracle/Geomancer/Dragoon/Mediator/Lancer/Samurai/Ninja/Calculator \u2192 Arithmetician/Bard/Dancer",
+  "nudges": [
+    {
+      "delta": "Knight/Archer",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "Monk/White Mage/Black Mage/Priest/Wizard/Time Mage/Summoner",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "Thief/Oracle/Geomancer/Dragoon/Mediator/Lancer/Samurai/Ninja/Calculator",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "Arithmetician/Bard/Dancer",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

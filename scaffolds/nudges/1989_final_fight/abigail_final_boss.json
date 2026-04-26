@@ -1,0 +1,12 @@
+{
+  "essence": "1989_final_fight",
+  "animation_name": "abigail_final_boss",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of abigail_final_boss \u2014 a character (final_boss) from 1989 final fight. Abigail \u2014 final-boss-before-Belger Stage 5 heavy. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_final_fight_abigail_final_boss",
+  "source_progression_description": "Abigail \u2014 final-boss-before-Belger Stage 5 heavy; became SFV fighter. 495\u00d7763",
+  "nudges": []
+}

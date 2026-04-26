@@ -1,0 +1,12 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "enemies_atlas",
+  "kind": "character",
+  "sub_kind": "minion",
+  "frame_count": 40,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemies_atlas \u2014 a character (minion) from 1987 mega man. Enemy roster \u2014 Metool (hard-hat turtle), Sniper Joe, Picket Man, Big Eye, Crazy Razy, Bunby Heli, Beak, Bladers, Super Cutter, Screw Driver, Watcher, Foot Holder, Octopus Battery, Flying Shell, etc. 626\u00d7337 canvas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_enemies_atlas",
+  "source_progression_description": "Enemy roster \u2014 Metool (hard-hat turtle), Sniper Joe, Picket Man, Big Eye, Crazy Razy, Bunby Heli, Beak, Bladers, Super Cutter, Screw Driver, Watcher, Foot Holder, Octopus Battery, Flying Shell, etc. 626\u00d7337 canvas",
+  "nudges": []
+}

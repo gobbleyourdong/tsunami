@@ -1,0 +1,19 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "sage_merchant_walk",
+  "kind": "character",
+  "sub_kind": "npc",
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of sage_merchant_walk \u2014 a character (npc) from 1986 dragon quest. Robed sage / merchant \u2014 4-dir \u00d7 2-frame walk. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_sage_merchant_walk",
+  "source_progression_description": "Robed sage / merchant \u2014 4-dir \u00d7 2-frame walk; purple/blue robe figure; shop-keeper or spell-learning NPC",
+  "nudges": [
+    {
+      "delta": "merchant \u2014 4-dir \u00d7 2-frame walk",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

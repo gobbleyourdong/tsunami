@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "bosses_koopalings",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 32,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bosses_koopalings \u2014 a character (boss) from 1988 super mario bros 3. 7 Koopalings \u2014 Larry (W1), Morton (W2), Wendy (W3), Iggy (W4), Roy (W5), Lemmy (W6), Ludwig (W7) \u2014 each with 3-4 attack frames (wand-shot + jump + defeat) + Bowser (W8 final). 356\u00d71442 tall canvas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_bosses_koopalings",
+  "source_progression_description": "7 Koopalings \u2014 Larry (W1), Morton (W2), Wendy (W3), Iggy (W4), Roy (W5), Lemmy (W6), Ludwig (W7) \u2014 each with 3-4 attack frames (wand-shot + jump + defeat) + Bowser (W8 final). 356\u00d71442 tall canvas",
+  "nudges": []
+}

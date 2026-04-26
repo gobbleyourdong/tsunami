@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "world_5_forest_of_illusion",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of world_5_forest_of_illusion \u2014 a tile (level_layout) from 1990 super mario world. Forest of Illusion 1-4 + Forest Ghost House + Forest Secret Area + Forest Fortress + Roy's Castle + Blue Switch Palace. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_world_5_forest_of_illusion",
+  "source_progression_description": "Forest of Illusion 1-4 + Forest Ghost House + Forest Secret Area + Forest Fortress + Roy's Castle + Blue Switch Palace",
+  "nudges": []
+}

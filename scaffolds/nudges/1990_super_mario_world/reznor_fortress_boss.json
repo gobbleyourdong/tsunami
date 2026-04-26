@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "reznor_fortress_boss",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of reznor_fortress_boss \u2014 a character (boss) from 1990 super mario world. Reznor \u2014 4 fire-breathing tricerotops-bosses on rotating-wheel platform. Fortress recurring boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_reznor_fortress_boss",
+  "source_progression_description": "Reznor \u2014 4 fire-breathing tricerotops-bosses on rotating-wheel platform. Fortress recurring boss",
+  "nudges": []
+}

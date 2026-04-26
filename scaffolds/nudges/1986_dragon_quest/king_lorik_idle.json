@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "king_lorik_idle",
+  "kind": "character",
+  "sub_kind": "npc",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of king_lorik_idle \u2014 a character (npc) from 1986 dragon quest. King Lorik of Tantegel \u2014 4-dir facing. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_king_lorik_idle",
+  "source_progression_description": "King Lorik of Tantegel \u2014 4-dir facing; typically found on throne-dais, not walking. Issues quest to Hero at game start",
+  "nudges": []
+}

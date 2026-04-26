@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "tourian_zebetite_block",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tourian_zebetite_block \u2014 a tile from 1986 metroid. Zebetite \u2014 Mother Brain protection-column. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_tourian_zebetite_block",
+  "source_progression_description": "Zebetite \u2014 Mother Brain protection-column; 2-frame pulse; 5 Missiles each to destroy; guards Mother Brain chamber (3 total required)",
+  "nudges": []
+}

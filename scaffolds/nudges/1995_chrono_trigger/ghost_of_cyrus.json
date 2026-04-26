@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "ghost_of_cyrus",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of ghost_of_cyrus \u2014 a character from 1995 chrono trigger. Ghost of Cyrus. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_ghost_of_cyrus",
+  "source_progression_description": "Ghost of Cyrus",
+  "nudges": []
+}

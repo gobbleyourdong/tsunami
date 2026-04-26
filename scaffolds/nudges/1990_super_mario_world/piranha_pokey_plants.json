@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "piranha_pokey_plants",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of piranha_pokey_plants \u2014 a character from 1990 super mario world. Piranha Plant + Pokey + Muncher black plant. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_piranha_pokey_plants",
+  "source_progression_description": "Piranha Plant + Pokey + Muncher black plant",
+  "nudges": []
+}

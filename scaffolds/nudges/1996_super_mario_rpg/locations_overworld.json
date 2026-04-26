@@ -1,0 +1,12 @@
+{
+  "essence": "1996_super_mario_rpg",
+  "animation_name": "locations_overworld",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of locations_overworld \u2014 a tile from 1996 super mario rpg. Mushroom Kingdom + Rose Town + Moleville + Land's End + Monstro Town + Nimbus Land + Barrel Volcano + Factory. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_super_mario_rpg_locations_overworld",
+  "source_progression_description": "Mushroom Kingdom + Rose Town + Moleville + Land's End + Monstro Town + Nimbus Land + Barrel Volcano + Factory",
+  "nudges": []
+}

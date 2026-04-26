@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "overworld_full_map",
+  "kind": "tile",
+  "sub_kind": "overworld_map",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of overworld_full_map \u2014 a tile (overworld_map) from 1987 final fantasy. Full overworld map \u2014 entire FF1 world composite, 4096\u00d74352 canvas. Continents + oceans + rivers + 9 towns + 11 dungeons all marked. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_overworld_full_map",
+  "source_progression_description": "Full overworld map \u2014 entire FF1 world composite, 4096\u00d74352 canvas. Continents + oceans + rivers + 9 towns + 11 dungeons all marked",
+  "nudges": []
+}

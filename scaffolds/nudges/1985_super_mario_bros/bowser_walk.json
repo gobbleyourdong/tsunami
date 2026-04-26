@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "bowser_walk",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bowser_walk \u2014 a character (boss) from 1985 super mario bros. Bowser's body takes 4 NES 8\u00d716 sprites in composition. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_bowser_walk",
+  "source_progression_description": "2-frame walk cycle at 2\u00d72-tile scale \u2014 Bowser's body takes 4 NES 8\u00d716 sprites in composition; head bobs as legs alternate",
+  "nudges": []
+}

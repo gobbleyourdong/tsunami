@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "palom",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of palom \u2014 a character (playable) from 1991 final fantasy iv. Palom \u2014 Black Mage twin, child. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_palom",
+  "source_progression_description": "Palom \u2014 Black Mage twin, child",
+  "nudges": []
+}

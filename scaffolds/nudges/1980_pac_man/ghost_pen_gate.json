@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "ghost_pen_gate",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of ghost_pen_gate \u2014 a tile from 1980 pac man. Pink horizontal bar at top of ghost-pen \u2014 allows only ghosts to pass through (not Pac-Man). Persistent static tile. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_ghost_pen_gate",
+  "source_progression_description": "Pink horizontal bar at top of ghost-pen \u2014 allows only ghosts to pass through (not Pac-Man). Persistent static tile",
+  "nudges": []
+}

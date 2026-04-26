@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "ending_samus_full_body_bikini",
+  "kind": "ui",
+  "sub_kind": "portrait",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of ending_samus_full_body_bikini \u2014 a ui (portrait) from 1986 metroid. Full-body Samus-in-leotard portrait \u2014 shown as a 'speed-run reward' if game beaten under 1 hour. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_ending_samus_full_body_bikini",
+  "source_progression_description": "Full-body Samus-in-leotard portrait \u2014 shown as a 'speed-run reward' if game beaten under 1 hour; earlier unlock tier",
+  "nudges": []
+}

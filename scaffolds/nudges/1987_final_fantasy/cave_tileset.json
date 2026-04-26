@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "cave_tileset",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 232,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of cave_tileset \u2014 a tile from 1987 final fantasy. Cave \u2014 tall atlas (128\u00d7464) with stalactite/stalagmite/lava/darkness tiles. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_cave_tileset",
+  "source_progression_description": "Cave \u2014 tall atlas (128\u00d7464) with stalactite/stalagmite/lava/darkness tiles",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1997_castlevania_symphony_of_night",
+  "animation_name": "dracula_multi_form",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of dracula_multi_form \u2014 a character (final_boss) from 1997 castlevania symphony of night. Dracula final-boss \u2014 normal form + demon-giant transformation. Shaft (dark priest) pre-boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_castlevania_symphony_of_night_dracula_multi_form",
+  "source_progression_description": "Dracula final-boss \u2014 normal form + demon-giant transformation. Shaft (dark priest) pre-boss",
+  "nudges": []
+}

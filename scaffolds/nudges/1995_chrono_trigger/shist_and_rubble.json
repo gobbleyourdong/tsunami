@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "shist_and_rubble",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of shist_and_rubble \u2014 a character from 1995 chrono trigger. Shist & Rubble. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_shist_and_rubble",
+  "source_progression_description": "Shist & Rubble",
+  "nudges": []
+}

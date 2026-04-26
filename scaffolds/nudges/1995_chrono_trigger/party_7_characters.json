@@ -1,0 +1,49 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "party_7_characters",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 7,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of party_7_characters \u2014 a character (playable) from 1995 chrono trigger. Crono (silent protagonist swordsman), Marle (crossbow princess), Lucca (genius inventor), Frog (cursed knight Glenn), Robo (R-66Y repurposed robot), Ayla (prehistoric warrior chief), Magus (Dark Lord antagonist-joinable). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_party_7_characters",
+  "source_progression_description": "Crono (silent protagonist swordsman), Marle (crossbow princess), Lucca (genius inventor), Frog (cursed knight Glenn), Robo (R-66Y repurposed robot), Ayla (prehistoric warrior chief), Magus (Dark Lord antagonist-joinable)",
+  "nudges": [
+    {
+      "delta": "Marle (crossbow princess)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "Lucca (genius inventor)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "Frog (cursed knight Glenn)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "Robo (R-66Y repurposed robot)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "Ayla (prehistoric warrior chief)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "Magus (Dark Lord antagonist-joinable)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    }
+  ]
+}

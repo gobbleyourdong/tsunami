@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "donatello",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 40,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of donatello \u2014 a character (playable) from 1991 turtles in time. Donatello \u2014 bo-staff reach + longest range. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_donatello",
+  "source_progression_description": "Donatello \u2014 bo-staff reach + longest range",
+  "nudges": []
+}

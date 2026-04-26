@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "attract_screen_galactic_heroes_scoreboard",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of attract_screen_galactic_heroes_scoreboard \u2014 a ui (hud_readout) from 1981 galaga. 'THE GALACTIC HEROES / BEST 5' scoreboard \u2014 top-5 hi-scores with SCORE and NAME columns (3-letter initials). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_attract_screen_galactic_heroes_scoreboard",
+  "source_progression_description": "'THE GALACTIC HEROES / BEST 5' scoreboard \u2014 top-5 hi-scores with SCORE and NAME columns (3-letter initials); rendered in cyan text on black",
+  "nudges": []
+}

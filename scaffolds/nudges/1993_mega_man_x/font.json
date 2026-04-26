@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mega_man_x",
+  "animation_name": "font",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 48,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of font \u2014 a ui (hud_readout) from 1993 mega man x. HUD font. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mega_man_x_font",
+  "source_progression_description": "HUD font",
+  "nudges": []
+}

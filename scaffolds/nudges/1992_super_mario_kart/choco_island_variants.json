@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "choco_island_variants",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of choco_island_variants \u2014 a tile from 1992 super mario kart. Choco Island 1-2 (asset IDs 6874/81335) \u2014 chocolate-swamp tracks. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_choco_island_variants",
+  "source_progression_description": "Choco Island 1-2 (asset IDs 6874/81335) \u2014 chocolate-swamp tracks",
+  "nudges": []
+}

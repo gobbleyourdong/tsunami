@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "tileset_level_5_cursed_prison",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 64,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tileset_level_5_cursed_prison \u2014 a tile (level_layout) from 1986 castlevania. Cursed Prison tileset \u2014 dark-green stone walls, iron-bars doors, skull-wall decorations, falling platforms. Palette: dark-green + bone-white. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_tileset_level_5_cursed_prison",
+  "source_progression_description": "Cursed Prison tileset \u2014 dark-green stone walls, iron-bars doors, skull-wall decorations, falling platforms. Palette: dark-green + bone-white",
+  "nudges": []
+}

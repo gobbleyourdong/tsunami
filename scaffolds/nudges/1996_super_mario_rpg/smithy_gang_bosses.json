@@ -1,0 +1,12 @@
+{
+  "essence": "1996_super_mario_rpg",
+  "animation_name": "smithy_gang_bosses",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 10,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of smithy_gang_bosses \u2014 a character (boss) from 1996 super mario rpg. Smithy Gang \u2014 Mack/Bowyer/Yaridovich/Axem Rangers (color-coded team)/Smithy (final, 2-phase). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_super_mario_rpg_smithy_gang_bosses",
+  "source_progression_description": "Smithy Gang \u2014 Mack/Bowyer/Yaridovich/Axem Rangers (color-coded team)/Smithy (final, 2-phase)",
+  "nudges": []
+}

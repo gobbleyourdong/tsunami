@@ -1,0 +1,19 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "swim_waterfall",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of swim_waterfall \u2014 a character from 1987 contra. Swimming in waist-deep waterfall water \u2014 torso-above, arms paddling. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_swim_waterfall",
+  "source_progression_description": "Swimming in waist-deep waterfall water \u2014 torso-above, arms paddling",
+  "nudges": [
+    {
+      "delta": "arms paddling",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "battle_backgrounds_atlas",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of battle_backgrounds_atlas \u2014 a tile from 1987 final fantasy. Battle backdrops \u2014 forest/desert/castle/cave/ocean/volcano per encounter region. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_battle_backgrounds_atlas",
+  "source_progression_description": "Battle backdrops \u2014 forest/desert/castle/cave/ocean/volcano per encounter region",
+  "nudges": []
+}

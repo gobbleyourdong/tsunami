@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "npc_shadow_ghost",
+  "kind": "character",
+  "sub_kind": "npc",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of npc_shadow_ghost \u2014 a character (npc) from 1987 castlevania ii simons quest. Black-silhouette NPC \u2014 appears in churches/shrines as mysterious figure giving hints. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_npc_shadow_ghost",
+  "source_progression_description": "Black-silhouette NPC \u2014 appears in churches/shrines as mysterious figure giving hints",
+  "nudges": []
+}

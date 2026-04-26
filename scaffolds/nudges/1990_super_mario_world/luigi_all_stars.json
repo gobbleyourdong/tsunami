@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "luigi_all_stars",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 200,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of luigi_all_stars \u2014 a character (playable) from 1990 super mario world. Luigi (All-Stars version) \u2014 same pose-set as Mario but with Luigi-specific physics (higher jump, slippery). Same 1004\u00d73618. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_luigi_all_stars",
+  "source_progression_description": "Luigi (All-Stars version) \u2014 same pose-set as Mario but with Luigi-specific physics (higher jump, slippery). Same 1004\u00d73618",
+  "nudges": []
+}

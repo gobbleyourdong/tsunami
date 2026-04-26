@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "npcs_overworld",
+  "kind": "character",
+  "sub_kind": "npc",
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of npcs_overworld \u2014 a character (npc) from 1991 final fantasy iv. Overworld NPCs \u2014 townsfolk palettes \u00d7 10-15 stock sprites. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_npcs_overworld",
+  "source_progression_description": "Overworld NPCs \u2014 townsfolk palettes \u00d7 10-15 stock sprites",
+  "nudges": []
+}

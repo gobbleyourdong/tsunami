@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "magic_vfx_atlas",
+  "kind": "effect_layer",
+  "sub_kind": "spell_vfx",
+  "frame_count": 64,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of magic_vfx_atlas \u2014 a effect_layer (spell_vfx) from 1987 final fantasy. Spell VFX atlas \u2014 ~8 rows \u00d7 8 cols of per-element spell effects (FIRE/BLIZ/LIT/NUKE + HRM/CURE/LIFE/DIA white magic + STAR bursts). Each spell has 2-3 animation frames. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_magic_vfx_atlas",
+  "source_progression_description": "Spell VFX atlas \u2014 ~8 rows \u00d7 8 cols of per-element spell effects (FIRE/BLIZ/LIT/NUKE + HRM/CURE/LIFE/DIA white magic + STAR bursts). Each spell has 2-3 animation frames",
+  "nudges": []
+}

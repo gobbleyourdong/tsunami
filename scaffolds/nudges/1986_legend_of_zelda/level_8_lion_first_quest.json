@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "level_8_lion_first_quest",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of level_8_lion_first_quest \u2014 a tile (level_layout) from 1986 legend of zelda. Level 8 'Lion' \u2014 Patra boss, Magical Key-item + Book of Magic. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_level_8_lion_first_quest",
+  "source_progression_description": "Level 8 'Lion' \u2014 Patra boss, Magical Key-item + Book of Magic",
+  "nudges": []
+}

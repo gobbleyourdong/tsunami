@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "simon_whip_level_2_full_strip",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of simon_whip_level_2_full_strip \u2014 a character from 1986 castlevania. Chain whip (level 2, mid-upgrade) \u2014 longer reach, different segment graphic. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_simon_whip_level_2_full_strip",
+  "source_progression_description": "Chain whip (level 2, mid-upgrade) \u2014 longer reach, different segment graphic; 4-stance \u00d7 3-frame same structure as level 1. Acquired via chain-whip powerup pickup",
+  "nudges": []
+}

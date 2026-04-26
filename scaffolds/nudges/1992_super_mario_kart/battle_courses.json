@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "battle_courses",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of battle_courses \u2014 a tile from 1992 super mario kart. Battle Mode 4 arenas (asset IDs 63870/81330/81331/81332) \u2014 balloon-pop VS mode. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_battle_courses",
+  "source_progression_description": "Battle Mode 4 arenas (asset IDs 63870/81330/81331/81332) \u2014 balloon-pop VS mode",
+  "nudges": []
+}

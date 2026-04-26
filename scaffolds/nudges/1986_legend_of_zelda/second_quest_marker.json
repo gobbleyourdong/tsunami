@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "second_quest_marker",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of second_quest_marker \u2014 a ui from 1986 legend of zelda. '2ND QUEST' indicator \u2014 shown on save-file after beating Quest 1. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_second_quest_marker",
+  "source_progression_description": "'2ND QUEST' indicator \u2014 shown on save-file after beating Quest 1; unlocks harder Quest 2 with different dungeon layouts",
+  "nudges": []
+}

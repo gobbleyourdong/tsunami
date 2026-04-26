@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "char_select_nc",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of char_select_nc \u2014 a ui from 1991 street fighter ii. New Challengers (SSF2) char-select \u2014 16 slots (4 new challengers). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_char_select_nc",
+  "source_progression_description": "New Challengers (SSF2) char-select \u2014 16 slots (4 new challengers)",
+  "nudges": []
+}

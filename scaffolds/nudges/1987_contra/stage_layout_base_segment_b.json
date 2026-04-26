@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "stage_layout_base_segment_b",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_layout_base_segment_b \u2014 a tile (level_layout) from 1987 contra. Base-interior segment \u2014 smaller tilemap chunk (208\u00d764). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_stage_layout_base_segment_b",
+  "source_progression_description": "Base-interior segment \u2014 smaller tilemap chunk (208\u00d764)",
+  "nudges": []
+}

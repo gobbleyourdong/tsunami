@@ -1,0 +1,12 @@
+{
+  "essence": "1999_chrono_cross",
+  "animation_name": "character_portraits",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 45,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of character_portraits \u2014 a ui from 1999 chrono cross. 45 recruitable character portraits. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1999_chrono_cross_character_portraits",
+  "source_progression_description": "45 recruitable character portraits",
+  "nudges": []
+}

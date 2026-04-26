@@ -1,0 +1,12 @@
+{
+  "essence": "1989_final_fight",
+  "animation_name": "cody_moveset",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of cody_moveset \u2014 a character (playable) from 1989 final fight. Cody \u2014 idle/walk/dash/jump/punch-combo (3-hit)/throw/kick/knife-pickup/pipe-pickup/ground-finisher/hit/KO/victory/mega-crash-clothesline special. Balanced stats. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_final_fight_cody_moveset",
+  "source_progression_description": "Cody \u2014 idle/walk/dash/jump/punch-combo (3-hit)/throw/kick/knife-pickup/pipe-pickup/ground-finisher/hit/KO/victory/mega-crash-clothesline special. Balanced stats",
+  "nudges": []
+}

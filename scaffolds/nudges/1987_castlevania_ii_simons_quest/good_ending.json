@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "good_ending",
+  "kind": "ui",
+  "sub_kind": "cutscene",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of good_ending \u2014 a ui (cutscene) from 1987 castlevania ii simons quest. Good Ending \u2014 earned by completing under 8 game-days. Shows Dracula resurrection implication, Simon walking away from castle. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_good_ending",
+  "source_progression_description": "Good Ending \u2014 earned by completing under 8 game-days. Shows Dracula resurrection implication, Simon walking away from castle; contains 5-7 cutscene frames in vertical strip. 'To be continued' setup for Castlevania III / Dracula's Curse narrative",
+  "nudges": []
+}

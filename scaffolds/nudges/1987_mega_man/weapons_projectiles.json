@@ -1,0 +1,12 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "weapons_projectiles",
+  "kind": "projectile",
+  "sub_kind": "special_attack_proj",
+  "frame_count": 24,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of weapons_projectiles \u2014 a projectile (special_attack_proj) from 1987 mega man. Player weapons \u2014 Mega Buster (charged + regular) + Rolling Cutter spin + Thunder Beam 3-way + Ice Slasher + Fire Storm + Hyper Bomb arc + Super Arm block-throw. 680\u00d7318 canvas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_weapons_projectiles",
+  "source_progression_description": "Player weapons \u2014 Mega Buster (charged + regular) + Rolling Cutter spin + Thunder Beam 3-way + Ice Slasher + Fire Storm + Hyper Bomb arc + Super Arm block-throw. 680\u00d7318 canvas",
+  "nudges": []
+}

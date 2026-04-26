@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "fireball_projectile_palette_variants",
+  "kind": "projectile",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of fireball_projectile_palette_variants \u2014 a projectile from 1986 legend of zelda. Fireball projectile \u2014 4 color palettes. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_fireball_projectile_palette_variants",
+  "source_progression_description": "Fireball projectile \u2014 4 color palettes; used by various enemies (Aquamentus / Dodongo / Gleeok) to attack Link. Travels in straight line from enemy",
+  "nudges": []
+}

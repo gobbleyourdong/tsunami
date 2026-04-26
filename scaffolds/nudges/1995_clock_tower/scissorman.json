@@ -1,0 +1,12 @@
+{
+  "essence": "1995_clock_tower",
+  "animation_name": "scissorman",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of scissorman \u2014 a character from 1995 clock tower. Scissorman \u2014 giant-scissor child-killer stalker. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_clock_tower_scissorman",
+  "source_progression_description": "Scissorman \u2014 giant-scissor child-killer stalker; recurring ambusher",
+  "nudges": []
+}

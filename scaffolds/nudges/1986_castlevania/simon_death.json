@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "simon_death",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of simon_death \u2014 a character from 1986 castlevania. collapsing-to-ground then prone. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_simon_death",
+  "source_progression_description": "2-frame death \u2014 collapsing-to-ground then prone; triggers game-over sequence",
+  "nudges": []
+}

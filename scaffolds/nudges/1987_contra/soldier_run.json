@@ -1,0 +1,25 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "soldier_run",
+  "kind": "character",
+  "sub_kind": "minion",
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of soldier_run \u2014 a character (minion) from 1987 contra. Red-shirt foot-soldier \u2014 runs left/right firing, 3-frame cycle. Most common Stage 1 enemy. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_soldier_run",
+  "source_progression_description": "Red-shirt foot-soldier \u2014 runs left/right firing, 3-frame cycle. Most common Stage 1 enemy",
+  "nudges": [
+    {
+      "delta": "next phase of 3-frame cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of 3-frame cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

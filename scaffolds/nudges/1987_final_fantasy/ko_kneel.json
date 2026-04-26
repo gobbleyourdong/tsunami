@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "ko_kneel",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of ko_kneel \u2014 a character from 1987 final fantasy. HP=0 kneeling pose, head-down. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_ko_kneel",
+  "source_progression_description": "HP=0 kneeling pose, head-down",
+  "nudges": []
+}

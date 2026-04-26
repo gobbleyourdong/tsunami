@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_2",
+  "animation_name": "prototype_characters_unused",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of prototype_characters_unused \u2014 a character from 1988 super mario bros 2. Prototype/unused character sprites \u2014 early Doki Doki Panic protagonists (Imajin/Mama/Lina/Papa) retained in ROM. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_2_prototype_characters_unused",
+  "source_progression_description": "Prototype/unused character sprites \u2014 early Doki Doki Panic protagonists (Imajin/Mama/Lina/Papa) retained in ROM",
+  "nudges": []
+}

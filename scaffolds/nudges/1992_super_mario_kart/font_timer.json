@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "font_timer",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 48,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of font_timer \u2014 a ui (hud_readout) from 1992 super mario kart. HUD font + lap-timer. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_font_timer",
+  "source_progression_description": "HUD font + lap-timer",
+  "nudges": []
+}

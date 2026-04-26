@@ -1,0 +1,12 @@
+{
+  "essence": "1997_castlevania_symphony_of_night",
+  "animation_name": "transform_vfx",
+  "kind": "effect_layer",
+  "sub_kind": "spell_vfx",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of transform_vfx \u2014 a effect_layer (spell_vfx) from 1997 castlevania symphony of night. Transform VFX + spell-casting animations + summon-familiar sprites + stone/poison/curse status-ailments. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_castlevania_symphony_of_night_transform_vfx",
+  "source_progression_description": "Transform VFX + spell-casting animations + summon-familiar sprites + stone/poison/curse status-ailments",
+  "nudges": []
+}

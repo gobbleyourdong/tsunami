@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "char_select_ww",
+  "kind": "ui",
+  "sub_kind": "dialog",
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of char_select_ww \u2014 a ui (dialog) from 1991 street fighter ii. Original 8-fighter select grid (World Warrior) + 'PLAYER SELECT' banner. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_char_select_ww",
+  "source_progression_description": "Original 8-fighter select grid (World Warrior) + 'PLAYER SELECT' banner",
+  "nudges": []
+}

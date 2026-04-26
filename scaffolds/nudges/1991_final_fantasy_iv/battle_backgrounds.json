@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "battle_backgrounds",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 16,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of battle_backgrounds \u2014 a tile from 1991 final fantasy iv. 16 battle-bg regions (Baron/Damcyan/Tower of Bab-il/Cave/Dungeon/Lunar/Space/etc.). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_battle_backgrounds",
+  "source_progression_description": "16 battle-bg regions (Baron/Damcyan/Tower of Bab-il/Cave/Dungeon/Lunar/Space/etc.)",
+  "nudges": []
+}

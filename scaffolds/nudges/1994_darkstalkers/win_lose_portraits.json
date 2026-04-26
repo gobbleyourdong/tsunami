@@ -1,0 +1,12 @@
+{
+  "essence": "1994_darkstalkers",
+  "animation_name": "win_lose_portraits",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of win_lose_portraits \u2014 a ui from 1994 darkstalkers. Win/Lose portraits per fighter. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_darkstalkers_win_lose_portraits",
+  "source_progression_description": "Win/Lose portraits per fighter",
+  "nudges": []
+}

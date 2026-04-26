@@ -1,0 +1,12 @@
+{
+  "essence": "1994_darkstalkers",
+  "animation_name": "rikuo",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of rikuo \u2014 a character (playable) from 1994 darkstalkers. Rikuo \u2014 gill-man creature. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_darkstalkers_rikuo",
+  "source_progression_description": "Rikuo \u2014 gill-man creature; Sonic Wave water-breath",
+  "nudges": []
+}

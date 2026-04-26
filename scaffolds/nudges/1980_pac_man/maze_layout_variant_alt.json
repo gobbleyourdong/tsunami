@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "maze_layout_variant_alt",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of maze_layout_variant_alt \u2014 a tile (level_layout) from 1980 pac man. Second maze variant shown \u2014 nearly identical topology but with small wall-tweak differences (possibly Ms. Pac-Man / Jr. Pac-Man variation placeholder, or hacks/bootleg maze). Same blue-wall-on-black palette. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_maze_layout_variant_alt",
+  "source_progression_description": "Second maze variant shown \u2014 nearly identical topology but with small wall-tweak differences (possibly Ms. Pac-Man / Jr. Pac-Man variation placeholder, or hacks/bootleg maze). Same blue-wall-on-black palette",
+  "nudges": []
+}

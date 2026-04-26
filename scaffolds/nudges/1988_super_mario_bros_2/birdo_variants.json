@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_2",
+  "animation_name": "birdo_variants",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of birdo_variants \u2014 a character (boss) from 1988 super mario bros 2. Birdo \u2014 recurring mini-boss at end of most worlds. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_2_birdo_variants",
+  "source_progression_description": "Birdo \u2014 recurring mini-boss at end of most worlds; fires eggs/fireballs. 3 palette-tiers (pink/red/green) with different projectile behavior. 528\u00d7166 sheet",
+  "nudges": []
+}

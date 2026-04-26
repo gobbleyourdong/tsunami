@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "raphael",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 40,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of raphael \u2014 a character (playable) from 1991 turtles in time. Raphael \u2014 sai dual-wield. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_raphael",
+  "source_progression_description": "Raphael \u2014 sai dual-wield; fastest attacker",
+  "nudges": []
+}

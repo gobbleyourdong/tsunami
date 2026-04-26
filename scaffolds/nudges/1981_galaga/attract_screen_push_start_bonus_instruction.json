@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "attract_screen_push_start_bonus_instruction",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of attract_screen_push_start_bonus_instruction \u2014 a ui (hud_readout) from 1981 galaga. 'PUSH START BUTTON / 1ST BONUS FOR ___ PTS / 2ND BONUS FOR ___ PTS / AND FOR EVERY ___ PTS' extra-life instruction \u2014 fill-in score values depend on cabinet DIP-switch settings. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_attract_screen_push_start_bonus_instruction",
+  "source_progression_description": "'PUSH START BUTTON / 1ST BONUS FOR ___ PTS / 2ND BONUS FOR ___ PTS / AND FOR EVERY ___ PTS' extra-life instruction \u2014 fill-in score values depend on cabinet DIP-switch settings",
+  "nudges": []
+}

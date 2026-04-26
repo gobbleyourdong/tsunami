@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "enemy_transform_mosquito",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemy_transform_mosquito \u2014 a character from 1981 galaga. Challenging-stage variant \u2014 mosquito shape. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_enemy_transform_mosquito",
+  "source_progression_description": "Challenging-stage variant \u2014 mosquito shape; bonus wave enemies",
+  "nudges": []
+}

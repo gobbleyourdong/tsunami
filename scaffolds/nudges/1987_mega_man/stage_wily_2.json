@@ -1,0 +1,12 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "stage_wily_2",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_wily_2 \u2014 a tile (level_layout) from 1987 mega man. Wily Stage 2 \u2014 Copy Robot (mirror Mega Man) boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_stage_wily_2",
+  "source_progression_description": "Wily Stage 2 \u2014 Copy Robot (mirror Mega Man) boss",
+  "nudges": []
+}

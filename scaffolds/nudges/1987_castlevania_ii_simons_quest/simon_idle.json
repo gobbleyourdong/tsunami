@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "simon_idle",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of simon_idle \u2014 a character (playable) from 1987 castlevania ii simons quest. Simon Belmont stands \u2014 dark-blue tunic + brown leather armor. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_simon_idle",
+  "source_progression_description": "Simon Belmont stands \u2014 dark-blue tunic + brown leather armor; matured older look vs CV1. 7 years post-CV1 timeline",
+  "nudges": []
+}

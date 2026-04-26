@@ -1,0 +1,12 @@
+{
+  "essence": "1988_ninja_gaiden",
+  "animation_name": "bosses_atlas",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 18,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bosses_atlas \u2014 a character (final_boss) from 1988 ninja gaiden. All bosses \u2014 Barbarian (Act 1), Bomber Head (Act 2), Basaquer (Act 3), Kelbeross 2-dog (Act 4), Bloody Malth (Act 5), Masked Devil + Jaquio + Demon (Act 6 final). 854\u00d71626 tall canvas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_ninja_gaiden_bosses_atlas",
+  "source_progression_description": "All bosses \u2014 Barbarian (Act 1), Bomber Head (Act 2), Basaquer (Act 3), Kelbeross 2-dog (Act 4), Bloody Malth (Act 5), Masked Devil + Jaquio + Demon (Act 6 final). 854\u00d71626 tall canvas",
+  "nudges": []
+}

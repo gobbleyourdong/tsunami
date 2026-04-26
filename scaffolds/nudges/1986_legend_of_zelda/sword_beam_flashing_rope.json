@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "sword_beam_flashing_rope",
+  "kind": "effect_layer",
+  "sub_kind": "aura_vfx",
+  "frame_count": 5,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of sword_beam_flashing_rope \u2014 a effect_layer (aura_vfx) from 1986 legend of zelda. Sword-beam / flashing-rope palette cycle example. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_sword_beam_flashing_rope",
+  "source_progression_description": "Sword-beam / flashing-rope palette cycle example; 5 frames of color-shift illustrating palette-cycle trick used for invulnerable-enemy flash",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "mother_brain_early_unused",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of mother_brain_early_unused \u2014 a tile from 1986 metroid. 'Mother Brain Early Multivela Lava SPR Graphics Flamethrower Space Cabbage? No Idea' \u2014 unused/cut-content labeled on sheet. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_mother_brain_early_unused",
+  "source_progression_description": "'Mother Brain Early Multivela Lava SPR Graphics Flamethrower Space Cabbage? No Idea' \u2014 unused/cut-content labeled on sheet; 4 mystery sprites. Sheet annotates with 'No Idea' \u2014 true scope-of-Metroid-cuts reference",
+  "nudges": []
+}

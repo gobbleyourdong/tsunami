@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "ghouls_acid_spit",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ghouls_acid_spit \u2014 a character from 1987 castlevania ii simons quest. Acid-spitting ghoul \u2014 2-frame. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_ghouls_acid_spit",
+  "source_progression_description": "Acid-spitting ghoul \u2014 2-frame",
+  "nudges": []
+}

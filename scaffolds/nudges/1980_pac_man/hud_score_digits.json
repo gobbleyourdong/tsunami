@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "hud_score_digits",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 10,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of hud_score_digits \u2014 a ui (hud_readout) from 1980 pac man. 0-9 score digits in white palette \u2014 rendered at top HUD '1UP / HIGH SCORE / 2UP' labels. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_hud_score_digits",
+  "source_progression_description": "0-9 score digits in white palette \u2014 rendered at top HUD '1UP / HIGH SCORE / 2UP' labels; same 8\u00d78 glyphs as text sheet but isolated here for HUD rendering",
+  "nudges": []
+}

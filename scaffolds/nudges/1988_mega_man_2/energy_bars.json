@@ -1,0 +1,12 @@
+{
+  "essence": "1988_mega_man_2",
+  "animation_name": "energy_bars",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 24,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of energy_bars \u2014 a ui from 1988 mega man 2. HP + weapon-energy bars with per-weapon colored pixels. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_mega_man_2_energy_bars",
+  "source_progression_description": "HP + weapon-energy bars with per-weapon colored pixels",
+  "nudges": []
+}

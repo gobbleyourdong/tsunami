@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "princess_gwaelin_walk",
+  "kind": "character",
+  "sub_kind": "npc",
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of princess_gwaelin_walk \u2014 a character (npc) from 1986 dragon quest. Princess Gwaelin (damsel captive) \u2014 4-dir \u00d7 2-frame walk. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_princess_gwaelin_walk",
+  "source_progression_description": "Princess Gwaelin (damsel captive) \u2014 4-dir \u00d7 2-frame walk; red dress, long hair. Found in Dragonlord's cave, can be carried by Hero",
+  "nudges": []
+}

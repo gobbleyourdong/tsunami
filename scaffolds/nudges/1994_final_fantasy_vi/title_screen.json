@@ -1,0 +1,12 @@
+{
+  "essence": "1994_final_fantasy_vi",
+  "animation_name": "title_screen",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of title_screen \u2014 a ui from 1994 final fantasy vi. Title Screen. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_final_fantasy_vi_title_screen",
+  "source_progression_description": "Title Screen",
+  "nudges": []
+}

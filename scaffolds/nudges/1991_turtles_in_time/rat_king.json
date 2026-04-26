@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "rat_king",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of rat_king \u2014 a character (boss) from 1991 turtles in time. Rat King \u2014 Stage 2 Alley Cat Blues boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_rat_king",
+  "source_progression_description": "Rat King \u2014 Stage 2 Alley Cat Blues boss",
+  "nudges": []
+}

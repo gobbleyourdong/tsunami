@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "tileset_town_castle",
+  "kind": "tile",
+  "sub_kind": "tile_atlas",
+  "frame_count": 48,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tileset_town_castle \u2014 a tile (tile_atlas) from 1986 dragon quest. Town/castle atlas \u2014 wooden-plank houses, thatched roofs, castle walls, gates, fountain, trees, fences, shops signs (weapon/armor/inn/herb shops), red carpet, throne-dais. Used across Tantegel, Brecconary, Garinham, Kol, Rimuldar, Cantlin, Hauksness. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_tileset_town_castle",
+  "source_progression_description": "Town/castle atlas \u2014 wooden-plank houses, thatched roofs, castle walls, gates, fountain, trees, fences, shops signs (weapon/armor/inn/herb shops), red carpet, throne-dais. Used across Tantegel, Brecconary, Garinham, Kol, Rimuldar, Cantlin, Hauksness",
+  "nudges": []
+}

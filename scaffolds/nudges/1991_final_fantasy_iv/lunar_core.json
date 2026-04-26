@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "lunar_core",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of lunar_core \u2014 a tile from 1991 final fantasy iv. Lunar Core \u2014 final dungeon with Zeromus. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_lunar_core",
+  "source_progression_description": "Lunar Core \u2014 final dungeon with Zeromus",
+  "nudges": []
+}

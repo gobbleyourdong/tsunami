@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "fiend_lich",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of fiend_lich \u2014 a character (boss) from 1987 final fantasy. Lich \u2014 Earth Fiend, first of 4 Elemental Fiends. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_fiend_lich",
+  "source_progression_description": "Lich \u2014 Earth Fiend, first of 4 Elemental Fiends",
+  "nudges": []
+}

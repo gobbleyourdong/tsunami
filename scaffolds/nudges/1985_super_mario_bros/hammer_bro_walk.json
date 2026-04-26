@@ -1,0 +1,19 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "hammer_bro_walk",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of hammer_bro_walk \u2014 a character from 1985 super mario bros. koopa-kin with helmet. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_hammer_bro_walk",
+  "source_progression_description": "2-frame walk cycle \u2014 koopa-kin with helmet; walks tight platform back-and-forth",
+  "nudges": [
+    {
+      "delta": "next phase of walk cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "stage_9_starbase",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_9_starbase \u2014 a tile (level_layout) from 1991 turtles in time. Starbase: Where No Turtle Has Gone Before \u2014 2100 AD space station. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_stage_9_starbase",
+  "source_progression_description": "Starbase: Where No Turtle Has Gone Before \u2014 2100 AD space station",
+  "nudges": []
+}

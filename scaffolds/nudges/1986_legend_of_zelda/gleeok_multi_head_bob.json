@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "gleeok_multi_head_bob",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of gleeok_multi_head_bob \u2014 a character (boss) from 1986 legend of zelda. Gleeok \u2014 hydra dragon with 2/3/4 heads (scales with dungeon level). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_gleeok_multi_head_bob",
+  "source_progression_description": "Gleeok \u2014 hydra dragon with 2/3/4 heads (scales with dungeon level); 4-frame neck-wave of snake-heads. Heads detach on defeat and continue flying around shooting fireballs. Boss of Levels 4/7",
+  "nudges": []
+}

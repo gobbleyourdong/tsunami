@@ -1,0 +1,12 @@
+{
+  "essence": "1994_super_metroid",
+  "animation_name": "samus_full_poseset",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 80,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of samus_full_poseset \u2014 a character (playable) from 1994 super metroid. Samus \u2014 Power Suit + Varia + Gravity suits \u00d7 run/jump/morph-ball/spring-ball/spin-jump/screw-attack/wall-jump/shinespark/crystal-flash/grapple-swing/charge-beam. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_super_metroid_samus_full_poseset",
+  "source_progression_description": "Samus \u2014 Power Suit + Varia + Gravity suits \u00d7 run/jump/morph-ball/spring-ball/spin-jump/screw-attack/wall-jump/shinespark/crystal-flash/grapple-swing/charge-beam",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "score_popups_unused",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of score_popups_unused \u2014 a ui (hud_readout) from 1981 galaga. 'Unused' label block on sheet \u2014 indicates score values present in ROM but never reached in retail gameplay (e.g. intermediate point-values). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_score_popups_unused",
+  "source_progression_description": "'Unused' label block on sheet \u2014 indicates score values present in ROM but never reached in retail gameplay (e.g. intermediate point-values)",
+  "nudges": []
+}

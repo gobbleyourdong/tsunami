@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "track_objects",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 16,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of track_objects \u2014 a tile (level_layout) from 1992 super mario kart. Track-side objects \u2014 signs/trees/ghosts/coins/item-boxes. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_track_objects",
+  "source_progression_description": "Track-side objects \u2014 signs/trees/ghosts/coins/item-boxes",
+  "nudges": []
+}

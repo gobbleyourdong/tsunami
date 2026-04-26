@@ -1,0 +1,12 @@
+{
+  "essence": "1987_r_type",
+  "animation_name": "dobkeratops",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of dobkeratops \u2014 a character (boss) from 1987 r type. Dobkeratops \u2014 Stage-1 end-boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_r_type_dobkeratops",
+  "source_progression_description": "Dobkeratops \u2014 Stage-1 end-boss; massive biomechanical alien-fetus with pulsing core. 669\u00d72145 vertical canvas with multi-phase attack poses. Iconic R-Type signature-boss (Giger-inspired)",
+  "nudges": []
+}

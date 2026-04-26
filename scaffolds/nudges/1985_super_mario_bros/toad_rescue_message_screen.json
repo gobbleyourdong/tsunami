@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "toad_rescue_message_screen",
+  "kind": "ui",
+  "sub_kind": "dialog",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of toad_rescue_message_screen \u2014 a ui (dialog) from 1985 super mario bros. End-of-castle dialog screen (worlds 1-7) \u2014 'THANK YOU \\[MARIO/LUIGI\\]! BUT OUR PRINCESS IS IN ANOTHER CASTLE!' text below Toad NPC sprite. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_toad_rescue_message_screen",
+  "source_progression_description": "End-of-castle dialog screen (worlds 1-7) \u2014 'THANK YOU \\[MARIO/LUIGI\\]! BUT OUR PRINCESS IS IN ANOTHER CASTLE!' text below Toad NPC sprite",
+  "nudges": []
+}

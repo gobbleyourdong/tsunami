@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_2",
+  "animation_name": "peach_poseset",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of peach_poseset \u2014 a character (playable) from 1988 super mario bros 2. Princess Peach \u2014 signature float-hover mid-air (1-2 sec glide) but slowest lift + jump. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_2_peach_poseset",
+  "source_progression_description": "Princess Peach \u2014 signature float-hover mid-air (1-2 sec glide) but slowest lift + jump",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1989_final_fight",
+  "animation_name": "haggar_moveset",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 80,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of haggar_moveset \u2014 a character (playable) from 1989 final fight. Mike Haggar \u2014 Metro City Mayor + pro-wrestler. Piledriver + spinning-clothesline-special + powerbomb + suplex. Slow but strong. 1229\u00d7966 largest playable sheet. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_final_fight_haggar_moveset",
+  "source_progression_description": "Mike Haggar \u2014 Metro City Mayor + pro-wrestler. Piledriver + spinning-clothesline-special + powerbomb + suplex. Slow but strong. 1229\u00d7966 largest playable sheet",
+  "nudges": []
+}

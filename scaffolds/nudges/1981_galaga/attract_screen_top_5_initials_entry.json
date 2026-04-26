@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "attract_screen_top_5_initials_entry",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of attract_screen_top_5_initials_entry \u2014 a ui (hud_readout) from 1981 galaga. 'TOP 5 SCORE NAME' alternate hi-score entry variant \u2014 slightly different header. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_attract_screen_top_5_initials_entry",
+  "source_progression_description": "'TOP 5 SCORE NAME' alternate hi-score entry variant \u2014 slightly different header; possibly 2-player-alternating mode entry",
+  "nudges": []
+}

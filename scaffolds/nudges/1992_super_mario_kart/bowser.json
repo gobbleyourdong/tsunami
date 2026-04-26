@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "bowser",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bowser \u2014 a character (boss) from 1992 super mario kart. Bowser \u2014 heavyweight. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_bowser",
+  "source_progression_description": "Bowser \u2014 heavyweight; drops flame-trail special",
+  "nudges": []
+}

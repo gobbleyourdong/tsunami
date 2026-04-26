@@ -1,0 +1,12 @@
+{
+  "essence": "1993_nba_jam",
+  "animation_name": "portraits",
+  "kind": "ui",
+  "sub_kind": "portrait",
+  "frame_count": 54,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of portraits \u2014 a ui (portrait) from 1993 nba jam. Player portraits \u2014 27 NBA teams \u00d7 2 players = 54 digitized-face mugshots + hidden characters (Bill Clinton/Michael Jordan removed in final). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_nba_jam_portraits",
+  "source_progression_description": "Player portraits \u2014 27 NBA teams \u00d7 2 players = 54 digitized-face mugshots + hidden characters (Bill Clinton/Michael Jordan removed in final)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1998_metal_gear_solid",
+  "animation_name": "codec_portraits",
+  "kind": "ui",
+  "sub_kind": "dialog",
+  "frame_count": 12,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of codec_portraits \u2014 a ui (dialog) from 1998 metal gear solid. Codec-call portraits \u2014 Snake + Mei Ling + Campbell + Naomi + Otacon + Meryl + Liquid etc.. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1998_metal_gear_solid_codec_portraits",
+  "source_progression_description": "Codec-call portraits \u2014 Snake + Mei Ling + Campbell + Naomi + Otacon + Meryl + Liquid etc.",
+  "nudges": []
+}

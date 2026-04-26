@@ -1,0 +1,12 @@
+{
+  "essence": "1988_mega_man_2",
+  "animation_name": "bubble_man",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bubble_man \u2014 a character (boss) from 1988 mega man 2. Bubble Man \u2014 underwater boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_mega_man_2_bubble_man",
+  "source_progression_description": "Bubble Man \u2014 underwater boss; Bubble Lead gravity-hugging weapon",
+  "nudges": []
+}

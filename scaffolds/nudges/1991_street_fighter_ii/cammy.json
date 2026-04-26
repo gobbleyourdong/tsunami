@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "cammy",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 70,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of cammy \u2014 a character from 1991 street fighter ii. Cammy White \u2014 Super SF2 New Challenger. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_cammy",
+  "source_progression_description": "Cammy White \u2014 Super SF2 New Challenger; Cannon Spike + Spiral Arrow",
+  "nudges": []
+}

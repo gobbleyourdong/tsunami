@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "zangief",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 80,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of zangief \u2014 a character from 1991 street fighter ii. Zangief \u2014 Spinning Piledriver (360+P) + Lariat. Grappler archetype. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_zangief",
+  "source_progression_description": "Zangief \u2014 Spinning Piledriver (360+P) + Lariat. Grappler archetype",
+  "nudges": []
+}

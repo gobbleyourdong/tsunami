@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "hud_credit_indicator",
+  "kind": "ui",
+  "sub_kind": "logo",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of hud_credit_indicator \u2014 a ui (logo) from 1981 galaga. 'CREDIT' label + small 2-digit credit counter (ranges 00-99). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_hud_credit_indicator",
+  "source_progression_description": "'CREDIT' label + small 2-digit credit counter (ranges 00-99); bottom-left during attract",
+  "nudges": []
+}

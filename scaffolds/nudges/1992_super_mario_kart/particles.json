@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "particles",
+  "kind": "effect_layer",
+  "sub_kind": "atmospheric_vfx",
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of particles \u2014 a effect_layer (atmospheric_vfx) from 1992 super mario kart. Dust/smoke/sparks from drifting + hit-stun + boost-flames. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_particles",
+  "source_progression_description": "Dust/smoke/sparks from drifting + hit-stun + boost-flames",
+  "nudges": []
+}

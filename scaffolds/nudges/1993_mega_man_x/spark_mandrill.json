@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mega_man_x",
+  "animation_name": "spark_mandrill",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of spark_mandrill \u2014 a character (boss) from 1993 mega man x. Spark Mandrill \u2014 Electric Spark weapon. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mega_man_x_spark_mandrill",
+  "source_progression_description": "Spark Mandrill \u2014 Electric Spark weapon",
+  "nudges": []
+}

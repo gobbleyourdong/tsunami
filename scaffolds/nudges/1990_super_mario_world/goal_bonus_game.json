@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "goal_bonus_game",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of goal_bonus_game \u2014 a ui from 1990 super mario world. Goal-post bonus slot-machine (match-3 goal-tape reward). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_goal_bonus_game",
+  "source_progression_description": "Goal-post bonus slot-machine (match-3 goal-tape reward)",
+  "nudges": []
+}

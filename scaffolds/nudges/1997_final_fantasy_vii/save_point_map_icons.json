@@ -1,0 +1,12 @@
+{
+  "essence": "1997_final_fantasy_vii",
+  "animation_name": "save_point_map_icons",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 16,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of save_point_map_icons \u2014 a ui from 1997 final fantasy vii. World-map icons + save points + weapon/accessory/item sprites. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_final_fantasy_vii_save_point_map_icons",
+  "source_progression_description": "World-map icons + save points + weapon/accessory/item sprites",
+  "nudges": []
+}

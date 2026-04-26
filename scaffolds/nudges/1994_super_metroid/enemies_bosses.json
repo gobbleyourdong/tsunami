@@ -1,0 +1,25 @@
+{
+  "essence": "1994_super_metroid",
+  "animation_name": "enemies_bosses",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 80,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemies_bosses \u2014 a character (boss) from 1994 super metroid. Enemies across 6 regions + bosses (Kraid/Phantoon/Draygon/Ridley. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_super_metroid_enemies_bosses",
+  "source_progression_description": "Enemies across 6 regions + bosses (Kraid/Phantoon/Draygon/Ridley \u2192 Golden Torizo sub-bosses \u2192 Mother Brain final)",
+  "nudges": [
+    {
+      "delta": "Golden Torizo sub-bosses",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "Mother Brain final)",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

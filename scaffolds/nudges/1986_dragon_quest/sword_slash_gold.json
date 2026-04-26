@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "sword_slash_gold",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 5,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of sword_slash_gold \u2014 a effect_layer from 1986 dragon quest. highest-tier weapon strike. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_sword_slash_gold",
+  "source_progression_description": "5-frame gold sword slash \u2014 highest-tier weapon strike",
+  "nudges": []
+}

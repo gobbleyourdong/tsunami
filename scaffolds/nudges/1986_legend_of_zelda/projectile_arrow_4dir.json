@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "projectile_arrow_4dir",
+  "kind": "projectile",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of projectile_arrow_4dir \u2014 a projectile from 1986 legend of zelda. Bow-and-arrow projectile \u2014 4-dir static arrow graphic. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_projectile_arrow_4dir",
+  "source_progression_description": "Bow-and-arrow projectile \u2014 4-dir static arrow graphic; travels from Link toward target",
+  "nudges": []
+}

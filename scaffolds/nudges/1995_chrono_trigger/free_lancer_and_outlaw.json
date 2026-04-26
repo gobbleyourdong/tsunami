@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "free_lancer_and_outlaw",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of free_lancer_and_outlaw \u2014 a character from 1995 chrono trigger. Free Lancer & Outlaw. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_free_lancer_and_outlaw",
+  "source_progression_description": "Free Lancer & Outlaw",
+  "nudges": []
+}

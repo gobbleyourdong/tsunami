@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "samus_palette_variants_example",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of samus_palette_variants_example \u2014 a character (playable) from 1986 metroid. 'Colors Example 1 2 3 4' \u2014 4 palette variants: 1=normal suit, 2=Varia suit (stronger variant), 3/4=glow-frames during item pickup. Row used to demonstrate palette rotation used in-game. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_samus_palette_variants_example",
+  "source_progression_description": "'Colors Example 1 2 3 4' \u2014 4 palette variants: 1=normal suit, 2=Varia suit (stronger variant), 3/4=glow-frames during item pickup. Row used to demonstrate palette rotation used in-game",
+  "nudges": []
+}

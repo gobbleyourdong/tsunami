@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "enemies_atlas",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 120,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemies_atlas \u2014 a character (boss) from 1988 super mario bros 3. Full enemy roster \u2014 Goomba (regular/micro/para), Koopa Troopa (green/red/shell), Para-Koopa, Paragoomba, Buzzy Beetle, Piranha Plant (red/green + Fire variants), Hammer Bro, Boomerang Bro, Fire Bro, Sledge Bro (Brick Bro), Boo (new!), Chain Chomp (new!), Lakitu, Spiny, Bullet Bill, Banzai Bill, Thwomp, Dry Bones, Bob-omb, Podoboo lava-ball, Cheep Cheep, Blooper, Spike (new!), Rocky Wrench (new!), Boss Bass. 735\u00d71731 tall canvas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_enemies_atlas",
+  "source_progression_description": "Full enemy roster \u2014 Goomba (regular/micro/para), Koopa Troopa (green/red/shell), Para-Koopa, Paragoomba, Buzzy Beetle, Piranha Plant (red/green + Fire variants), Hammer Bro, Boomerang Bro, Fire Bro, Sledge Bro (Brick Bro), Boo (new!), Chain Chomp (new!), Lakitu, Spiny, Bullet Bill, Banzai Bill, Thwomp, Dry Bones, Bob-omb, Podoboo lava-ball, Cheep Cheep, Blooper, Spike (new!), Rocky Wrench (new!), Boss Bass. 735\u00d71731 tall canvas",
+  "nudges": []
+}

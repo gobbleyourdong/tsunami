@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "ken",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 80,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ken \u2014 a character (playable) from 1991 street fighter ii. Ken Masters \u2014 red-gi shoto, flame-Shoryuken variant. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_ken",
+  "source_progression_description": "Ken Masters \u2014 red-gi shoto, flame-Shoryuken variant; Ryu's friendly rival",
+  "nudges": []
+}

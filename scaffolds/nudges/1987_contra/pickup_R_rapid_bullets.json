@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "pickup_R_rapid_bullets",
+  "kind": "pickup_item",
+  "sub_kind": "power_item",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of pickup_R_rapid_bullets \u2014 a pickup_item (power_item) from 1987 contra. Rapid-bullets capsule \u2014 'R' letter, increases projectile velocity. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_pickup_R_rapid_bullets",
+  "source_progression_description": "Rapid-bullets capsule \u2014 'R' letter, increases projectile velocity",
+  "nudges": []
+}

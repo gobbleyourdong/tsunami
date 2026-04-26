@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "rex_blargg_dinorhino",
+  "kind": "character",
+  "sub_kind": "mount_or_vehicle",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of rex_blargg_dinorhino \u2014 a character (mount_or_vehicle) from 1990 super mario world. Rex (2-hit lizard), Blargg (lava beast), Dino-Rhino (Koopa-platform mount). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_rex_blargg_dinorhino",
+  "source_progression_description": "Rex (2-hit lizard), Blargg (lava beast), Dino-Rhino (Koopa-platform mount)",
+  "nudges": []
+}

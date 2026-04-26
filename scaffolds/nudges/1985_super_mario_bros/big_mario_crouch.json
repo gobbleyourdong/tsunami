@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "big_mario_crouch",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of big_mario_crouch \u2014 a character (playable) from 1985 super mario bros. Crouch pose \u2014 Mario compresses vertically, bottom 8 px unchanged. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_big_mario_crouch",
+  "source_progression_description": "Crouch pose \u2014 Mario compresses vertically, bottom 8 px unchanged; only available to Big form; used for ducking under obstacles and entering pipes",
+  "nudges": []
+}

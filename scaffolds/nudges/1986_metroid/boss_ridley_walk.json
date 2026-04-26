@@ -1,0 +1,25 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "boss_ridley_walk",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of boss_ridley_walk \u2014 a character (boss) from 1986 metroid. Ridley \u2014 purple pterodactyl-dragon boss of Ridley's Lair. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_boss_ridley_walk",
+  "source_progression_description": "Ridley \u2014 purple pterodactyl-dragon boss of Ridley's Lair; 3-frame walk/flap cycle; breathes fireballs. Space Pirate commander",
+  "nudges": [
+    {
+      "delta": "next phase of flap cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of flap cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

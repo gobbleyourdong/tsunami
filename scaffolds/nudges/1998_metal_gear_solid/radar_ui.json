@@ -1,0 +1,12 @@
+{
+  "essence": "1998_metal_gear_solid",
+  "animation_name": "radar_ui",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of radar_ui \u2014 a ui from 1998 metal gear solid. Soliton Radar + guard-cone view + alert/caution states. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1998_metal_gear_solid_radar_ui",
+  "source_progression_description": "Soliton Radar + guard-cone view + alert/caution states",
+  "nudges": []
+}

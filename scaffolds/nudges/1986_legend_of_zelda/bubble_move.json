@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "bubble_move",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bubble_move \u2014 a character from 1986 legend of zelda. Bubble / Anti-Fairy \u2014 skull-with-flames. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_bubble_move",
+  "source_progression_description": "Bubble / Anti-Fairy \u2014 skull-with-flames; 2-frame float; contact disables sword for ~5s (red variant) or permanently until blue-bubble cures",
+  "nudges": []
+}

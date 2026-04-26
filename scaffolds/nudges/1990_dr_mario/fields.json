@@ -1,0 +1,12 @@
+{
+  "essence": "1990_dr_mario",
+  "animation_name": "fields",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 40,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of fields \u2014 a tile from 1990 dr mario. Playfield tiles \u2014 bottle-frame, virus cells (3 colors), pill halves (red/blue/yellow + bicolor), empty-cell. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_dr_mario_fields",
+  "source_progression_description": "Playfield tiles \u2014 bottle-frame, virus cells (3 colors), pill halves (red/blue/yellow + bicolor), empty-cell",
+  "nudges": []
+}

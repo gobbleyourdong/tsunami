@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "stage_intro_map_variants",
+  "kind": "ui",
+  "sub_kind": "cutscene",
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_intro_map_variants \u2014 a ui (cutscene) from 1987 contra. 8 stage-intro map variants (one per stage) \u2014 each shows briefing + target location. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_stage_intro_map_variants",
+  "source_progression_description": "8 stage-intro map variants (one per stage) \u2014 each shows briefing + target location",
+  "nudges": []
+}

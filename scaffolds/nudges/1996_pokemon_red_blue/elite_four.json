@@ -1,0 +1,12 @@
+{
+  "essence": "1996_pokemon_red_blue",
+  "animation_name": "elite_four",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 5,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of elite_four \u2014 a character from 1996 pokemon red blue. Elite Four (Lorelei/Bruno/Agatha/Lance) + Champion Blue. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_pokemon_red_blue_elite_four",
+  "source_progression_description": "Elite Four (Lorelei/Bruno/Agatha/Lance) + Champion Blue",
+  "nudges": []
+}

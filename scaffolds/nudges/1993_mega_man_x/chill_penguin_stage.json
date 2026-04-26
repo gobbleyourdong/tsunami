@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mega_man_x",
+  "animation_name": "chill_penguin_stage",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of chill_penguin_stage \u2014 a tile from 1993 mega man x. Chill Penguin Stage \u2014 arctic, Leg Armor capsule. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mega_man_x_chill_penguin_stage",
+  "source_progression_description": "Chill Penguin Stage \u2014 arctic, Leg Armor capsule",
+  "nudges": []
+}

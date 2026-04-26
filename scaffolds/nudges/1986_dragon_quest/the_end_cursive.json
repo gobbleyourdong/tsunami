@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "the_end_cursive",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of the_end_cursive \u2014 a ui (menu_screen) from 1986 dragon quest. 'The End' silver cursive script \u2014 shown at game credits ending. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_the_end_cursive",
+  "source_progression_description": "'The End' silver cursive script \u2014 shown at game credits ending",
+  "nudges": []
+}

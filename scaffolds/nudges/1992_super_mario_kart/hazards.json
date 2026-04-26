@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "hazards",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of hazards \u2014 a effect_layer from 1992 super mario kart. Track hazards \u2014 Piranha Plants/Thwomps/Monty Moles/item-boxes/oil-slicks. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_hazards",
+  "source_progression_description": "Track hazards \u2014 Piranha Plants/Thwomps/Monty Moles/item-boxes/oil-slicks",
+  "nudges": []
+}

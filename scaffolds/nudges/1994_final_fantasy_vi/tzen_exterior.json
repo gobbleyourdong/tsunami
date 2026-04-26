@@ -1,0 +1,12 @@
+{
+  "essence": "1994_final_fantasy_vi",
+  "animation_name": "tzen_exterior",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tzen_exterior \u2014 a tile from 1994 final fantasy vi. Tzen (Exterior). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_final_fantasy_vi_tzen_exterior",
+  "source_progression_description": "Tzen (Exterior)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "vanilla_lake_variants",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of vanilla_lake_variants \u2014 a tile from 1992 super mario kart. Vanilla Lake 1-2 (asset IDs 6878/81344) \u2014 ice tracks. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_vanilla_lake_variants",
+  "source_progression_description": "Vanilla Lake 1-2 (asset IDs 6878/81344) \u2014 ice tracks",
+  "nudges": []
+}

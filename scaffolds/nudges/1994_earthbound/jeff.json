@@ -1,0 +1,12 @@
+{
+  "essence": "1994_earthbound",
+  "animation_name": "jeff",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 30,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of jeff \u2014 a character (playable) from 1994 earthbound. Jeff \u2014 boarding-school genius. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_earthbound_jeff",
+  "source_progression_description": "Jeff \u2014 boarding-school genius; uses tools/guns. No PSI but 'check' broken-items for upgrades",
+  "nudges": []
+}

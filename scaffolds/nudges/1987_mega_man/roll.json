@@ -1,0 +1,19 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "roll",
+  "kind": "character",
+  "sub_kind": "npc",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of roll \u2014 a character (npc) from 1987 mega man. Roll \u2014 sister helper NPC (red dress, broom), 2-frame idle. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_roll",
+  "source_progression_description": "Roll \u2014 sister helper NPC (red dress, broom), 2-frame idle",
+  "nudges": [
+    {
+      "delta": "broom)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    }
+  ]
+}

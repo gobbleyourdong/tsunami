@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "pipe_horizontal_green",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of pipe_horizontal_green \u2014 a tile from 1985 super mario bros. Horizontal pipe variant \u2014 cap + body rotated 90\u00b0. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_pipe_horizontal_green",
+  "source_progression_description": "Horizontal pipe variant \u2014 cap + body rotated 90\u00b0; appears in world 4-2 / 8-4 secret pipes and bonus-room entries",
+  "nudges": []
+}

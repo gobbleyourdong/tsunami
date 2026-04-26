@@ -1,0 +1,19 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "techs_combos",
+  "kind": "effect_layer",
+  "sub_kind": "spell_vfx",
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of techs_combos \u2014 a effect_layer (spell_vfx) from 1995 chrono trigger. Individual Techs per character + Dual Techs (2-char combos) + Triple Techs (3-char ultimate combos like Delta Force / Triple Raid). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_techs_combos",
+  "source_progression_description": "Individual Techs per character + Dual Techs (2-char combos) + Triple Techs (3-char ultimate combos like Delta Force / Triple Raid)",
+  "nudges": [
+    {
+      "delta": "Triple Raid)",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

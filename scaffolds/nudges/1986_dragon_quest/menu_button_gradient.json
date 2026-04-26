@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "menu_button_gradient",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 3,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of menu_button_gradient \u2014 a ui (menu_screen) from 1986 dragon quest. Gradient rectangular button \u2014 3 color variants (black/orange/blue). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_menu_button_gradient",
+  "source_progression_description": "Gradient rectangular button \u2014 3 color variants (black/orange/blue); used as menu-option backplate for Fight/Spell/Item/Run choices",
+  "nudges": []
+}

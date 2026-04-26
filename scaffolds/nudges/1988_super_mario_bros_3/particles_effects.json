@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "particles_effects",
+  "kind": "effect_layer",
+  "sub_kind": "explosion_vfx",
+  "frame_count": 40,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of particles_effects \u2014 a effect_layer (explosion_vfx) from 1988 super mario bros 3. All VFX \u2014 poof-clouds, coin-sparkles, enemy-stomp flat, brick-shatter, fireball-explosion, star-sparkle, P-meter-flash. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_particles_effects",
+  "source_progression_description": "All VFX \u2014 poof-clouds, coin-sparkles, enemy-stomp flat, brick-shatter, fireball-explosion, star-sparkle, P-meter-flash",
+  "nudges": []
+}

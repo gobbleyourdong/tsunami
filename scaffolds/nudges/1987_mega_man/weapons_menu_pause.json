@@ -1,0 +1,12 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "weapons_menu_pause",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 7,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of weapons_menu_pause \u2014 a ui (menu_screen) from 1987 mega man. Pause-menu weapon-select \u2014 M/C/G/E/I/F/B cursor positions. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_weapons_menu_pause",
+  "source_progression_description": "Pause-menu weapon-select \u2014 M/C/G/E/I/F/B cursor positions; on 1738\u00d7347 composite strip. Players press SELECT to switch weapon mid-stage",
+  "nudges": []
+}

@@ -1,0 +1,37 @@
+{
+  "essence": "1997_final_fantasy_vii",
+  "animation_name": "materia_icons",
+  "kind": "pickup_item",
+  "sub_kind": "power_item",
+  "frame_count": 48,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of materia_icons \u2014 a pickup_item (power_item) from 1997 final fantasy vii. Materia orbs \u2014 5 types (Magic green / Command yellow / Support blue / Independent purple / Summon red) \u00d7 48 distinct materia. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_final_fantasy_vii_materia_icons",
+  "source_progression_description": "Materia orbs \u2014 5 types (Magic green / Command yellow / Support blue / Independent purple / Summon red) \u00d7 48 distinct materia",
+  "nudges": [
+    {
+      "delta": "Command yellow",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "Support blue",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "Independent purple",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "Summon red) \u00d7 48 distinct materia",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

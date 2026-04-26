@@ -1,0 +1,19 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "podoboo_lava_bubble_pulse",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of podoboo_lava_bubble_pulse \u2014 a character from 1985 super mario bros. arc-jumping lava-bubble expands/contracts as it rises from pit then falls. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_podoboo_lava_bubble_pulse",
+  "source_progression_description": "2-frame flame pulse \u2014 arc-jumping lava-bubble expands/contracts as it rises from pit then falls; fixed sine-arc trajectory",
+  "nudges": [
+    {
+      "delta": "next phase of flame pulse \u2014 arc-jumping lava-bubble expands/contracts as it rises from pit then falls",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

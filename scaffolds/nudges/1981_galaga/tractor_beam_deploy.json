@@ -1,0 +1,31 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "tractor_beam_deploy",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of tractor_beam_deploy \u2014 a effect_layer from 1981 galaga. Boss-Galaga tractor beam \u2014 4-frame expanding concentric rings of blue-yellow-red projecting downward from hovering Boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_tractor_beam_deploy",
+  "source_progression_description": "Boss-Galaga tractor beam \u2014 4-frame expanding concentric rings of blue-yellow-red projecting downward from hovering Boss; width grows on each frame then loops. If player ship enters beam, it's captured and attached beneath Boss (must be rescued for dual-fighter state)",
+  "nudges": [
+    {
+      "delta": "next phase of then loop",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of then loop",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of then loop",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

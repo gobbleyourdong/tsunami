@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "tile_dungeon_bombable_wall",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tile_dungeon_bombable_wall \u2014 a tile from 1986 legend of zelda. Cracked/bombable wall \u2014 looks identical to regular until bombed. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_tile_dungeon_bombable_wall",
+  "source_progression_description": "Cracked/bombable wall \u2014 looks identical to regular until bombed; leads to secret rooms",
+  "nudges": []
+}

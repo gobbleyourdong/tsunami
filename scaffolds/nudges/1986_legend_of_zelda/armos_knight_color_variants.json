@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "armos_knight_color_variants",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of armos_knight_color_variants \u2014 a character from 1986 legend of zelda. Armos variants \u2014 4 palettes (red/blue/gray/purple) for different positions around the 'Armos ring' in overworld. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_armos_knight_color_variants",
+  "source_progression_description": "Armos variants \u2014 4 palettes (red/blue/gray/purple) for different positions around the 'Armos ring' in overworld",
+  "nudges": []
+}

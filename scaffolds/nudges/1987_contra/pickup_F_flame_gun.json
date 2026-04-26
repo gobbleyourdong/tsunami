@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "pickup_F_flame_gun",
+  "kind": "pickup_item",
+  "sub_kind": "weapon_pickup",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of pickup_F_flame_gun \u2014 a pickup_item (weapon_pickup) from 1987 contra. Flame Gun capsule \u2014 'F' letter, spiral-fire projectile. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_pickup_F_flame_gun",
+  "source_progression_description": "Flame Gun capsule \u2014 'F' letter, spiral-fire projectile",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "koopas_masked_koopas",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of koopas_masked_koopas \u2014 a character (playable) from 1990 super mario world. Koopa Troopas \u2014 green/red/blue/yellow palette \u00d7 shell/nonshell variants + Masked Koopa Mario-hider. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_koopas_masked_koopas",
+  "source_progression_description": "Koopa Troopas \u2014 green/red/blue/yellow palette \u00d7 shell/nonshell variants + Masked Koopa Mario-hider",
+  "nudges": []
+}

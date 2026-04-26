@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mortal_kombat_ii",
+  "animation_name": "character_bios",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 12,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of character_bios \u2014 a ui from 1993 mortal kombat ii. Character bio cards (pre-match story-blurb screens). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mortal_kombat_ii_character_bios",
+  "source_progression_description": "Character bio cards (pre-match story-blurb screens)",
+  "nudges": []
+}

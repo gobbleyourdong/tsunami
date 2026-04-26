@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "spell_fireball_expanded",
+  "kind": "effect_layer",
+  "sub_kind": "atmospheric_vfx",
+  "frame_count": 5,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of spell_fireball_expanded \u2014 a effect_layer (atmospheric_vfx) from 1986 dragon quest. follow-on frames of fire-pillar showing roll/dissipation. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_spell_fireball_expanded",
+  "source_progression_description": "5-frame larger flame-wave \u2014 follow-on frames of fire-pillar showing roll/dissipation",
+  "nudges": []
+}

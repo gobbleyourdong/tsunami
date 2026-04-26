@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "m_bison",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 70,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of m_bison \u2014 a character (final_boss) from 1991 street fighter ii. M. Bison/Vega \u2014 final boss Shadoloo leader. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_m_bison",
+  "source_progression_description": "M. Bison/Vega \u2014 final boss Shadoloo leader; Psycho Crusher + Scissor Kick",
+  "nudges": []
+}

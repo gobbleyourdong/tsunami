@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "boss_carmilla_mask_variants",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of boss_carmilla_mask_variants \u2014 a character (boss) from 1987 castlevania ii simons quest. Carmilla \u2014 pale mask + orange-mask variants. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_boss_carmilla_mask_variants",
+  "source_progression_description": "Carmilla \u2014 pale mask + orange-mask variants; mansion boss. Spawns from the floating-mask mechanic",
+  "nudges": []
+}

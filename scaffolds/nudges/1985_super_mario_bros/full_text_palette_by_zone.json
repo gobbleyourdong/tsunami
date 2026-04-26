@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "full_text_palette_by_zone",
+  "kind": "ui",
+  "sub_kind": "typography",
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of full_text_palette_by_zone \u2014 a ui (typography) from 1985 super mario bros. Documentation block \u2014 'ABC 123' sample text rendered in all 6 zone palettes (Overworld / Underground / Castle / Underwater / Mushrooms / Snow) per emulator (Nestopia + FCEUX). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_full_text_palette_by_zone",
+  "source_progression_description": "Documentation block \u2014 'ABC 123' sample text rendered in all 6 zone palettes (Overworld / Underground / Castle / Underwater / Mushrooms / Snow) per emulator (Nestopia + FCEUX); shows how the same font atlas renders differently per zone",
+  "nudges": []
+}

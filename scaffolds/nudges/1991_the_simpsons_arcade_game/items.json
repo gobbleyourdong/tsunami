@@ -1,0 +1,12 @@
+{
+  "essence": "1991_the_simpsons_arcade_game",
+  "animation_name": "items",
+  "kind": "pickup_item",
+  "sub_kind": "health_pickup",
+  "frame_count": 20,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of items \u2014 a pickup_item (health_pickup) from 1991 the simpsons arcade game. Pickups \u2014 food (health), Donut + Saxophone + Krusty Balloon + weapons. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_the_simpsons_arcade_game_items",
+  "source_progression_description": "Pickups \u2014 food (health), Donut + Saxophone + Krusty Balloon + weapons",
+  "nudges": []
+}

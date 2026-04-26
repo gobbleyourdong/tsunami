@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "palette_chart_blocks_by_zone",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of palette_chart_blocks_by_zone \u2014 a ui from 1985 super mario bros. Documentation block \u2014 each block state \u00d7 each of 4 zone palettes (OW / UG / Castle / UW). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_palette_chart_blocks_by_zone",
+  "source_progression_description": "Documentation block \u2014 each block state \u00d7 each of 4 zone palettes (OW / UG / Castle / UW); reference for runtime palette-swap at level-load",
+  "nudges": []
+}

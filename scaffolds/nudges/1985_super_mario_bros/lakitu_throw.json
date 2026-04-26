@@ -1,0 +1,19 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "lakitu_throw",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of lakitu_throw \u2014 a character (playable) from 1985 super mario bros. idle on cloud / throwing arm extended dropping spiny-egg. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_lakitu_throw",
+  "source_progression_description": "2-frame alternation \u2014 idle on cloud / throwing arm extended dropping spiny-egg",
+  "nudges": [
+    {
+      "delta": "throwing arm extended dropping spiny-egg",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

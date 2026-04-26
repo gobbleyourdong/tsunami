@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "rankings_ranks",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of rankings_ranks \u2014 a ui from 1992 super mario kart. Rank banners \u2014 1st/2nd/3rd/4th + Congratulations + Mario-waves. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_rankings_ranks",
+  "source_progression_description": "Rank banners \u2014 1st/2nd/3rd/4th + Congratulations + Mario-waves",
+  "nudges": []
+}

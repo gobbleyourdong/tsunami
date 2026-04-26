@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "enemy_boss_galaga_damaged",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemy_boss_galaga_damaged \u2014 a character (boss) from 1981 galaga. Boss Galaga damaged variant \u2014 blue palette after 1st hit. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_enemy_boss_galaga_damaged",
+  "source_progression_description": "Boss Galaga damaged variant \u2014 blue palette after 1st hit; 1 HP remaining",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "world_1_2_layout",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of world_1_2_layout \u2014 a tile (level_layout) from 1985 super mario bros. Underground overworld \u2014 dark-blue sky palette, brick-ceiling + brick-floor, rows of coins, Piranha-plant pipes. Secret warp-zone pipes at end lead to world 2/3/4.. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_world_1_2_layout",
+  "source_progression_description": "Underground overworld \u2014 dark-blue sky palette, brick-ceiling + brick-floor, rows of coins, Piranha-plant pipes. Secret warp-zone pipes at end lead to world 2/3/4.",
+  "nudges": []
+}

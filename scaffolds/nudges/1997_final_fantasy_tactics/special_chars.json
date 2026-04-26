@@ -1,0 +1,12 @@
+{
+  "essence": "1997_final_fantasy_tactics",
+  "animation_name": "special_chars",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of special_chars \u2014 a character (playable) from 1997 final fantasy tactics. Cloud (FF7 cameo!) + Mustadio + Rafa + Malak + Beowulf + Reis + others. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_final_fantasy_tactics_special_chars",
+  "source_progression_description": "Cloud (FF7 cameo!) + Mustadio + Rafa + Malak + Beowulf + Reis + others",
+  "nudges": []
+}

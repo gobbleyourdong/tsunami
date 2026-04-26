@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "mountain_bg_mushrooms_applied_overworld",
+  "kind": "background_layer",
+  "sub_kind": "parallax_single",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of mountain_bg_mushrooms_applied_overworld \u2014 a background_layer (parallax_single) from 1985 super mario bros. Mushrooms palette overlay applied to Overworld base \u2014 red/orange mushroom-cap-colored hills. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_mountain_bg_mushrooms_applied_overworld",
+  "source_progression_description": "Mushrooms palette overlay applied to Overworld base \u2014 red/orange mushroom-cap-colored hills",
+  "nudges": []
+}

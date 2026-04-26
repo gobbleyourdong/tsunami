@@ -1,0 +1,12 @@
+{
+  "essence": "1988_ninja_gaiden",
+  "animation_name": "cutscene_part_11",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of cutscene_part_11 \u2014 a ui from 1988 ninja gaiden. Jaquio confrontation. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_ninja_gaiden_cutscene_part_11",
+  "source_progression_description": "Jaquio confrontation",
+  "nudges": []
+}

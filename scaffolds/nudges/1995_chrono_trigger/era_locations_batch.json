@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "era_locations_batch",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 7,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of era_locations_batch \u2014 a tile from 1995 chrono trigger. 7 era-overworlds \u2014 Prehistoric 65M BC / Middle Ages 600 AD / Present 1000 AD / Dark Ages 12000 BC / Apocalypse 1999 AD / Future 2300 AD / End of Time (hub). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_era_locations_batch",
+  "source_progression_description": "7 era-overworlds \u2014 Prehistoric 65M BC / Middle Ages 600 AD / Present 1000 AD / Dark Ages 12000 BC / Apocalypse 1999 AD / Future 2300 AD / End of Time (hub)",
+  "nudges": []
+}

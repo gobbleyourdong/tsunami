@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "snow_tile_palette0",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of snow_tile_palette0 \u2014 a tile from 1985 super mario bros. Snow-field tile \u2014 used in The Lost Levels / FDS Minus World variants. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_snow_tile_palette0",
+  "source_progression_description": "Snow-field tile \u2014 used in The Lost Levels / FDS Minus World variants; not reached in vanilla SMB level flow",
+  "nudges": []
+}

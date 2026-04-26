@@ -1,0 +1,12 @@
+{
+  "essence": "1994_earthbound",
+  "animation_name": "encounter_swirls",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 10,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of encounter_swirls \u2014 a effect_layer from 1994 earthbound. Battle-transition psychedelic-swirl backgrounds \u2014 each region has unique swirl. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_earthbound_encounter_swirls",
+  "source_progression_description": "Battle-transition psychedelic-swirl backgrounds \u2014 each region has unique swirl",
+  "nudges": []
+}

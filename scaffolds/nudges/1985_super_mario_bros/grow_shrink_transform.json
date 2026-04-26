@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "grow_shrink_transform",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of grow_shrink_transform \u2014 a effect_layer from 1985 super mario bros. alternates Small\u2194Big silhouette rapidly with color-flicker during invuln window. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_grow_shrink_transform",
+  "source_progression_description": "4-frame powerup-transition animation \u2014 alternates Small\u2194Big silhouette rapidly with color-flicker during invuln window; 'Grow' on mushroom pickup, 'Shrink' on damage with Big form. Fire variant uses same frames with fire-palette.",
+  "nudges": []
+}

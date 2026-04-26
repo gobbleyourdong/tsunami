@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "attract_screen_character_intro_jp_normal",
+  "kind": "ui",
+  "sub_kind": "cutscene",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of attract_screen_character_intro_jp_normal \u2014 a ui (cutscene) from 1980 pac man. Japanese normal-names character-intro screen \u2014 shows 4 ghosts with character-archetype / nickname pairs: OIKAKE (Akabei), MACHIBUSE (Pinky), KIMAGURE (Aosuke), OTOBOKE (Guzuta). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_attract_screen_character_intro_jp_normal",
+  "source_progression_description": "Japanese normal-names character-intro screen \u2014 shows 4 ghosts with character-archetype / nickname pairs: OIKAKE (Akabei), MACHIBUSE (Pinky), KIMAGURE (Aosuke), OTOBOKE (Guzuta); plus 10-pt and 50-pt dot legend. Footer: 'namco / CREDIT'",
+  "nudges": []
+}

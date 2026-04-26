@@ -1,0 +1,25 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "zombie_rise_walk",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of zombie_rise_walk \u2014 a character from 1987 castlevania ii simons quest. Zombie \u2014 3-frame: rise-from-ground / upright / walk. Night spawn in most towns' surroundings. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_zombie_rise_walk",
+  "source_progression_description": "Zombie \u2014 3-frame: rise-from-ground / upright / walk. Night spawn in most towns' surroundings",
+  "nudges": [
+    {
+      "delta": "upright",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "walk. Night spawn in most towns' surroundings",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

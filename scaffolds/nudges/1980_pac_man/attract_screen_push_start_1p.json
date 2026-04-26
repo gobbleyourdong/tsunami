@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "attract_screen_push_start_1p",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of attract_screen_push_start_1p \u2014 a ui from 1980 pac man. PUSH START BUTTON / 1 PLAYER ONLY / BONUS PUCKMAN FOR ___ PTS / \u00a9 namco 1980 / CREDIT screen \u2014 Japanese ROM (PUCKMAN spelling). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_attract_screen_push_start_1p",
+  "source_progression_description": "PUSH START BUTTON / 1 PLAYER ONLY / BONUS PUCKMAN FOR ___ PTS / \u00a9 namco 1980 / CREDIT screen \u2014 Japanese ROM (PUCKMAN spelling)",
+  "nudges": []
+}

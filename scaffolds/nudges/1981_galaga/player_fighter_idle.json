@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "player_fighter_idle",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of player_fighter_idle \u2014 a character (boss) from 1981 galaga. White/red Galaxian-style player ship \u2014 single static sprite, always faces up. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_player_fighter_idle",
+  "source_progression_description": "White/red Galaxian-style player ship \u2014 single static sprite, always faces up; only moves horizontally along bottom edge. Appears multiple times in sheet in different color-highlight states (idle, firing, captured-by-boss-galaga state, dual-fighter merge state)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "small_mario_skid",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of small_mario_skid \u2014 a character (playable) from 1985 super mario bros. Turning/skid pose \u2014 leaning-back with arms-out, back-foot planted. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_small_mario_skid",
+  "source_progression_description": "Turning/skid pose \u2014 leaning-back with arms-out, back-foot planted; played when player changes direction mid-run",
+  "nudges": []
+}

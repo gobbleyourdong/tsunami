@@ -1,0 +1,25 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "boss_gomeramos_king",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 6,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of boss_gomeramos_king \u2014 a character (final_boss) from 1987 contra. Stage 8 final-boss Gomeramos King \u2014 alien-heart queen with multiple phases: heart-pulse. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_boss_gomeramos_king",
+  "source_progression_description": "Stage 8 final-boss Gomeramos King \u2014 alien-heart queen with multiple phases: heart-pulse \u2192 spawning face-huggers \u2192 final explosion. Iconic Contra finale",
+  "nudges": [
+    {
+      "delta": "spawning face-huggers",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "final explosion. Iconic Contra finale",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "msx_tileset_full",
+  "kind": "tile",
+  "sub_kind": "tile_atlas",
+  "frame_count": 60,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of msx_tileset_full \u2014 a tile (tile_atlas) from 1986 dragon quest. MSX overworld + cave + town tileset \u2014 compact atlas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_msx_tileset_full",
+  "source_progression_description": "MSX overworld + cave + town tileset \u2014 compact atlas; 179\u00d7144 RGBA canvas. All terrain types represented in lower color-depth MSX palette",
+  "nudges": []
+}

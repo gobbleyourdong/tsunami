@@ -1,0 +1,12 @@
+{
+  "essence": "1994_earthbound",
+  "animation_name": "sky_runner_cutscene",
+  "kind": "ui",
+  "sub_kind": "cutscene",
+  "frame_count": 12,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of sky_runner_cutscene \u2014 a ui (cutscene) from 1994 earthbound. Sky Runner Cutscene \u2014 Jeff's flying-vehicle intro. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_earthbound_sky_runner_cutscene",
+  "source_progression_description": "Sky Runner Cutscene \u2014 Jeff's flying-vehicle intro",
+  "nudges": []
+}

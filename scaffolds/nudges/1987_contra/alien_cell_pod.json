@@ -1,0 +1,25 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "alien_cell_pod",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of alien_cell_pod \u2014 a effect_layer from 1987 contra. Biomechanical cell-pod \u2014 pulses. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_alien_cell_pod",
+  "source_progression_description": "Biomechanical cell-pod \u2014 pulses \u2192 splits \u2192 releases hugger",
+  "nudges": [
+    {
+      "delta": "splits",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "releases hugger",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

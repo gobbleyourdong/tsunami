@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "area_laruba_mansion",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of area_laruba_mansion \u2014 a tile (level_layout) from 1987 castlevania ii simons quest. Laruba Mansion \u2014 5th body-part container. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_area_laruba_mansion",
+  "source_progression_description": "Laruba Mansion \u2014 5th body-part container",
+  "nudges": []
+}

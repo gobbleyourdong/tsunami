@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_2",
+  "animation_name": "title_character_select",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of title_character_select \u2014 a ui (menu_screen) from 1988 super mario bros 2. Title screen + 2\u00d72 character-select grid with Mario/Luigi/Toad/Peach portraits and stat-bars. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_2_title_character_select",
+  "source_progression_description": "Title screen + 2\u00d72 character-select grid with Mario/Luigi/Toad/Peach portraits and stat-bars; 772\u00d71126 large composite",
+  "nudges": []
+}

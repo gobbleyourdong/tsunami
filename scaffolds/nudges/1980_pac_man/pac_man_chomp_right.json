@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "pac_man_chomp_right",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of pac_man_chomp_right \u2014 a character from 1980 pac man. closed-circle. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_pac_man_chomp_right",
+  "source_progression_description": "3-frame chomp cycle facing right \u2014 closed-circle \u2192 half-open wedge \u2192 fully-open wedge; loops continuously while moving. Yellow palette. Same frame count for each of 4 directions (right/left/up/down) via rotation",
+  "nudges": []
+}

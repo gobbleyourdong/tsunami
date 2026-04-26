@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "ending_ceremony",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of ending_ceremony \u2014 a ui from 1992 super mario kart. Podium ceremony after cup win \u2014 animated trophy reveals + spray champagne. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_ending_ceremony",
+  "source_progression_description": "Podium ceremony after cup win \u2014 animated trophy reveals + spray champagne",
+  "nudges": []
+}

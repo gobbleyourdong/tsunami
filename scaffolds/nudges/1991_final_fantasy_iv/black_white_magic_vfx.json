@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "black_white_magic_vfx",
+  "kind": "effect_layer",
+  "sub_kind": "spell_vfx",
+  "frame_count": 48,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of black_white_magic_vfx \u2014 a effect_layer (spell_vfx) from 1991 final fantasy iv. All spell VFX \u2014 Black (Fire/Blizzard/Thunder/Meteor/Quake/etc.) + White (Cure/Raise/Haste/Slow/Holy) + special moves. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_black_white_magic_vfx",
+  "source_progression_description": "All spell VFX \u2014 Black (Fire/Blizzard/Thunder/Meteor/Quake/etc.) + White (Cure/Raise/Haste/Slow/Holy) + special moves",
+  "nudges": []
+}

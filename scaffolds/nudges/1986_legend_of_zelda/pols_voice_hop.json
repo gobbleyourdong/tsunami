@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "pols_voice_hop",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of pols_voice_hop \u2014 a character from 1986 legend of zelda. Pols Voice \u2014 pink rabbit-creature with big ears. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_pols_voice_hop",
+  "source_progression_description": "Pols Voice \u2014 pink rabbit-creature with big ears; 2-frame hop. Weak to arrows (and flute sound in JP version \u2014 hardware quirk tied to microphone input)",
+  "nudges": []
+}

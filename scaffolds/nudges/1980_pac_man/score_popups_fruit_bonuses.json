@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "score_popups_fruit_bonuses",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of score_popups_fruit_bonuses \u2014 a ui (hud_readout) from 1980 pac man. Score-popup numbers for eaten bonus fruits: 100 / 300 / 500 / 700 / 1000 / 2000 / 3000 / 5000 (pink-text for fruit). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_score_popups_fruit_bonuses",
+  "source_progression_description": "Score-popup numbers for eaten bonus fruits: 100 / 300 / 500 / 700 / 1000 / 2000 / 3000 / 5000 (pink-text for fruit)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "fds_loading_animation",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of fds_loading_animation \u2014 a effect_layer from 1986 metroid. Disk-loading animation \u2014 4-frame progress. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_fds_loading_animation",
+  "source_progression_description": "Disk-loading animation \u2014 4-frame progress; FDS-specific during room-transitions as disk reads",
+  "nudges": []
+}

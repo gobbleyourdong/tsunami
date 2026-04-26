@@ -1,0 +1,12 @@
+{
+  "essence": "1995_clock_tower",
+  "animation_name": "jennifer_protagonist",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of jennifer_protagonist \u2014 a character from 1995 clock tower. Jennifer Simpson \u2014 panic-animations + run/hide/faint/death. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_clock_tower_jennifer_protagonist",
+  "source_progression_description": "Jennifer Simpson \u2014 panic-animations + run/hide/faint/death",
+  "nudges": []
+}

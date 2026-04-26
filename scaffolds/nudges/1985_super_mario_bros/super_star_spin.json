@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "super_star_spin",
+  "kind": "pickup_item",
+  "sub_kind": "power_item",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of super_star_spin \u2014 a pickup_item (power_item) from 1985 super mario bros. face rotates from full-front. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_super_star_spin",
+  "source_progression_description": "4-frame star spin \u2014 face rotates from full-front \u2192 3-quarter \u2192 edge \u2192 3-quarter-back; palette cycles same as Fire Flower; bounces on ground travel",
+  "nudges": []
+}

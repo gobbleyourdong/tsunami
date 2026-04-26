@@ -1,0 +1,31 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "brick_block_debris",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of brick_block_debris \u2014 a effect_layer from 1985 super mario bros. 4 fragments fly outward in X pattern (upper-left / upper-right / lower-left / lower-right). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_brick_block_debris",
+  "source_progression_description": "4-frame brick-shatter debris \u2014 4 fragments fly outward in X pattern (upper-left / upper-right / lower-left / lower-right); each sub-chunk is 8\u00d78 NES-tile quarter of the brick; rotates in arc as it falls off-screen",
+  "nudges": [
+    {
+      "delta": "upper-right",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "lower-left",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "lower-right)",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1989_final_fight",
+  "animation_name": "dug_bred_jake_grunts",
+  "kind": "character",
+  "sub_kind": "minion",
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of dug_bred_jake_grunts \u2014 a character (minion) from 1989 final fight. Dug/Bred/Jake punk-grunt-set \u2014 805\u00d7427 each, all 3 palette-variants of same pose-set. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_final_fight_dug_bred_jake_grunts",
+  "source_progression_description": "Dug/Bred/Jake punk-grunt-set \u2014 805\u00d7427 each, all 3 palette-variants of same pose-set",
+  "nudges": []
+}

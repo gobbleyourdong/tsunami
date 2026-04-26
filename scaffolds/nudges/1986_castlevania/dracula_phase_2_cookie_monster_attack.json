@@ -1,0 +1,31 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "dracula_phase_2_cookie_monster_attack",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of dracula_phase_2_cookie_monster_attack \u2014 a character (final_boss) from 1986 castlevania. Dracula Phase 2 \u2014 transformed into giant cyan-blue 'Cookie Monster' demon form after Phase 1 defeat. 4-frame animation: stomp-forward / leap / descending-claw / land. Extremely tall, Simon must whip feet while dodging leap-crushes. Final boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_dracula_phase_2_cookie_monster_attack",
+  "source_progression_description": "Dracula Phase 2 \u2014 transformed into giant cyan-blue 'Cookie Monster' demon form after Phase 1 defeat. 4-frame animation: stomp-forward / leap / descending-claw / land. Extremely tall, Simon must whip feet while dodging leap-crushes. Final boss",
+  "nudges": [
+    {
+      "delta": "leap",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "descending-claw",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "land. Extremely tall, Simon must whip feet while dodging leap-crushes. Final boss",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

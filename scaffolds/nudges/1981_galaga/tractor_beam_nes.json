@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "tractor_beam_nes",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of tractor_beam_nes \u2014 a effect_layer from 1981 galaga. Tractor beam \u2014 NES palette rendition. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_tractor_beam_nes",
+  "source_progression_description": "Tractor beam \u2014 NES palette rendition; 4-frame expand loop; functionally identical mechanic to arcade",
+  "nudges": []
+}

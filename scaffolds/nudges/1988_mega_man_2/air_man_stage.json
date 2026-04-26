@@ -1,0 +1,12 @@
+{
+  "essence": "1988_mega_man_2",
+  "animation_name": "air_man_stage",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of air_man_stage \u2014 a tile from 1988 mega man 2. Air Man \u2014 cloud-sky platforming with Pipi bird + Big Fish. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_mega_man_2_air_man_stage",
+  "source_progression_description": "Air Man \u2014 cloud-sky platforming with Pipi bird + Big Fish",
+  "nudges": []
+}

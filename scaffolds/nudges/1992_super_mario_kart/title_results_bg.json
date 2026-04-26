@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "title_results_bg",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of title_results_bg \u2014 a ui (menu_screen) from 1992 super mario kart. Title screen + Results-screen backgrounds. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_title_results_bg",
+  "source_progression_description": "Title screen + Results-screen backgrounds",
+  "nudges": []
+}

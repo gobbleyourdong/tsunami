@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "boss_final_gate",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 6,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of boss_final_gate \u2014 a character (final_boss) from 1987 contra. Stage 4 Final Gate \u2014 alien-mouth-gate boss with opening/closing jaw phases. Multi-head hydra pattern. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_boss_final_gate",
+  "source_progression_description": "Stage 4 Final Gate \u2014 alien-mouth-gate boss with opening/closing jaw phases. Multi-head hydra pattern",
+  "nudges": []
+}

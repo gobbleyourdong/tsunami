@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "dark_ages_map_pre-disaster",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of dark_ages_map_pre-disaster \u2014 a character from 1995 chrono trigger. Dark Ages Map (Pre-Disaster). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_dark_ages_map_pre-disaster",
+  "source_progression_description": "Dark Ages Map (Pre-Disaster)",
+  "nudges": []
+}

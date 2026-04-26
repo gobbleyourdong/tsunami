@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "dungeon_dwarves_cave",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of dungeon_dwarves_cave \u2014 a tile from 1987 final fantasy. Dwarves Cave \u2014 TNT acquisition + Nerrick NPC. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_dungeon_dwarves_cave",
+  "source_progression_description": "Dwarves Cave \u2014 TNT acquisition + Nerrick NPC",
+  "nudges": []
+}

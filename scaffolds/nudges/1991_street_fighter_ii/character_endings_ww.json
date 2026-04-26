@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "character_endings_ww",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 12,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of character_endings_ww \u2014 a ui from 1991 street fighter ii. 12 character-specific post-tournament endings (victory epilogues). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_character_endings_ww",
+  "source_progression_description": "12 character-specific post-tournament endings (victory epilogues)",
+  "nudges": []
+}

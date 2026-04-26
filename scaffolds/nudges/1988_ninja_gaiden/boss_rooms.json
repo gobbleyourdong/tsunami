@@ -1,0 +1,12 @@
+{
+  "essence": "1988_ninja_gaiden",
+  "animation_name": "boss_rooms",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of boss_rooms \u2014 a tile from 1988 ninja gaiden. 6 Act-boss arena layouts \u2014 544\u00d7748 composite. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_ninja_gaiden_boss_rooms",
+  "source_progression_description": "6 Act-boss arena layouts \u2014 544\u00d7748 composite",
+  "nudges": []
+}

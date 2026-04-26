@@ -1,0 +1,31 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "moblin_walk_shoot",
+  "kind": "character",
+  "sub_kind": "minion",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of moblin_walk_shoot \u2014 a character (minion) from 1986 legend of zelda. Moblin \u2014 bulldog-faced pig-knight. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_moblin_walk_shoot",
+  "source_progression_description": "Moblin \u2014 bulldog-faced pig-knight; 4-dir walk cycle with arrow-shoot. Hides in forests. Drops rupees occasionally",
+  "nudges": [
+    {
+      "delta": "next phase of walk cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of walk cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of walk cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

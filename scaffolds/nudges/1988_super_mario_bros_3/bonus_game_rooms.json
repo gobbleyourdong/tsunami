@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "bonus_game_rooms",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of bonus_game_rooms \u2014 a tile from 1988 super mario bros 3. Bonus rooms \u2014 Toad's Mushroom-House (item-gift), N-Spade (card-match), Coin Ship rare-encounter. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_bonus_game_rooms",
+  "source_progression_description": "Bonus rooms \u2014 Toad's Mushroom-House (item-gift), N-Spade (card-match), Coin Ship rare-encounter",
+  "nudges": []
+}

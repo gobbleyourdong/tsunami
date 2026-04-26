@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mega_man_x",
+  "animation_name": "weapons_items",
+  "kind": "projectile",
+  "sub_kind": "gun_proj",
+  "frame_count": 20,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of weapons_items \u2014 a projectile (gun_proj) from 1993 mega man x. 8 Maverick weapons + X-Buster + charge + items. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mega_man_x_weapons_items",
+  "source_progression_description": "8 Maverick weapons + X-Buster + charge + items",
+  "nudges": []
+}

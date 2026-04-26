@@ -1,0 +1,12 @@
+{
+  "essence": "1987_r_type",
+  "animation_name": "compiler",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of compiler \u2014 a character (boss) from 1987 r type. Compiler \u2014 Stage-4 boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_r_type_compiler",
+  "source_progression_description": "Compiler \u2014 Stage-4 boss; digital-mothership. Image download failed (asset may be broken on server)",
+  "nudges": []
+}

@@ -1,0 +1,31 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "ghost_frightened_warning",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ghost_frightened_warning \u2014 a character from 1980 pac man. Frightened-ending flash \u2014 alternates blue-body and white-body rapidly (warning ~2s before frightened-mode expires and ghosts return to chase-mode). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_ghost_frightened_warning",
+  "source_progression_description": "Frightened-ending flash \u2014 alternates blue-body and white-body rapidly (warning ~2s before frightened-mode expires and ghosts return to chase-mode)",
+  "nudges": [
+    {
+      "delta": "alternate to white-body rapidly (warning ~2s before frightened-mode expires and ghosts return to chase-mode)",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "alternate to white-body rapidly (warning ~2s before frightened-mode expires and ghosts return to chase-mode)",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "alternate to white-body rapidly (warning ~2s before frightened-mode expires and ghosts return to chase-mode)",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

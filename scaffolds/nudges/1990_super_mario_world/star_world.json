@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "star_world",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 5,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of star_world \u2014 a tile from 1990 super mario world. Star World 1-5 \u2014 hidden world accessed via star-exits. Unlocks Special World. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_star_world",
+  "source_progression_description": "Star World 1-5 \u2014 hidden world accessed via star-exits. Unlocks Special World",
+  "nudges": []
+}

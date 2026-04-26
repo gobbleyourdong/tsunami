@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mortal_kombat_ii",
+  "animation_name": "johnny_cage",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of johnny_cage \u2014 a character (playable) from 1993 mortal kombat ii. Johnny Cage \u2014 digitized-actor Jean-Claude-Van-Damme-esque fighter. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mortal_kombat_ii_johnny_cage",
+  "source_progression_description": "Johnny Cage \u2014 digitized-actor Jean-Claude-Van-Damme-esque fighter; Shadow Kick + Split Punch + 'nut punch' low attack",
+  "nudges": []
+}

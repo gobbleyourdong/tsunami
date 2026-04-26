@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "course_select",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of course_select \u2014 a ui (menu_screen) from 1992 super mario kart. Course-select screen. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_course_select",
+  "source_progression_description": "Course-select screen",
+  "nudges": []
+}

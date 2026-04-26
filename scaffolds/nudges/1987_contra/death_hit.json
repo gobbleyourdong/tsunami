@@ -1,0 +1,25 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "death_hit",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of death_hit \u2014 a character from 1987 contra. Hit-reaction: jerk-back. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_death_hit",
+  "source_progression_description": "Hit-reaction: jerk-back \u2192 fly-back \u2192 fall sprawl \u2014 iconic Contra death animation",
+  "nudges": [
+    {
+      "delta": "fly-back",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "fall sprawl \u2014 iconic Contra death animation",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

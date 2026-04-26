@@ -1,0 +1,12 @@
+{
+  "essence": "1988_ninja_gaiden",
+  "animation_name": "ninpo_fire_wheel",
+  "kind": "projectile",
+  "sub_kind": "special_attack_proj",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ninpo_fire_wheel \u2014 a projectile (special_attack_proj) from 1988 ninja gaiden. Art of Fire Wheel \u2014 3 fire-orbs rotating. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_ninja_gaiden_ninpo_fire_wheel",
+  "source_progression_description": "Art of Fire Wheel \u2014 3 fire-orbs rotating",
+  "nudges": []
+}

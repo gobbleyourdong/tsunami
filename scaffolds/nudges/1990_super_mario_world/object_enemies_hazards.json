@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "object_enemies_hazards",
+  "kind": "character",
+  "sub_kind": "minion",
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of object_enemies_hazards \u2014 a character (minion) from 1990 super mario world. Thwomp + Spike Trap + Rope-swinging bar + other level-hazards. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_object_enemies_hazards",
+  "source_progression_description": "Thwomp + Spike Trap + Rope-swinging bar + other level-hazards",
+  "nudges": []
+}

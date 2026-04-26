@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "ghost_inky_move",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ghost_inky_move \u2014 a character (playable) from 1980 pac man. Cyan ghost (Inky / Bashful / Kimagure-Aosuke) \u2014 2-frame body-wave cycle, cyan palette. AI: targets tile at vector (Blinky. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_ghost_inky_move",
+  "source_progression_description": "Cyan ghost (Inky / Bashful / Kimagure-Aosuke) \u2014 2-frame body-wave cycle, cyan palette. AI: targets tile at vector (Blinky\u2192PacMan+2) doubled (erratic)",
+  "nudges": []
+}

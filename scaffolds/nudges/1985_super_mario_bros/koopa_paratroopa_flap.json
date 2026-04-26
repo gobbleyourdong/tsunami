@@ -1,0 +1,19 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "koopa_paratroopa_flap",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of koopa_paratroopa_flap \u2014 a character from 1985 super mario bros. wings down / wings up. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_koopa_paratroopa_flap",
+  "source_progression_description": "2-frame wing-flap cycle \u2014 wings down / wings up; flies in fixed arc or hovers pattern",
+  "nudges": [
+    {
+      "delta": "wings up",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "tunnel_warp_zone",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tunnel_warp_zone \u2014 a tile from 1980 pac man. Side-tunnel warp entrance \u2014 both left and right sides of maze at middle-row. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_tunnel_warp_zone",
+  "source_progression_description": "Side-tunnel warp entrance \u2014 both left and right sides of maze at middle-row; ghosts move at half-speed through tunnels (Blinky-Cruise-Elroy speed boost an exception)",
+  "nudges": []
+}

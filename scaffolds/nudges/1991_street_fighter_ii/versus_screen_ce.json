@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "versus_screen_ce",
+  "kind": "ui",
+  "sub_kind": "portrait",
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of versus_screen_ce \u2014 a ui (portrait) from 1991 street fighter ii. Versus screen \u2014 dual-portrait face-off before match. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_versus_screen_ce",
+  "source_progression_description": "Versus screen \u2014 dual-portrait face-off before match",
+  "nudges": []
+}

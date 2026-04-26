@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "epoch_crash_cutscene",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of epoch_crash_cutscene \u2014 a character from 1995 chrono trigger. Epoch Crash Cutscene. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_epoch_crash_cutscene",
+  "source_progression_description": "Epoch Crash Cutscene",
+  "nudges": []
+}

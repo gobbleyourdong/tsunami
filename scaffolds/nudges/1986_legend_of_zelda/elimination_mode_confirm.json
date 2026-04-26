@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "elimination_mode_confirm",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of elimination_mode_confirm \u2014 a ui from 1986 legend of zelda. 'ELIMINATION MODE / PLEASE SELECT FILE / 1 2 3' \u2014 deletion confirmation screen. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_elimination_mode_confirm",
+  "source_progression_description": "'ELIMINATION MODE / PLEASE SELECT FILE / 1 2 3' \u2014 deletion confirmation screen",
+  "nudges": []
+}

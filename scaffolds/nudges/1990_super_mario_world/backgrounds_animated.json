@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "backgrounds_animated",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 16,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of backgrounds_animated \u2014 a tile from 1990 super mario world. Animated backdrops \u2014 cloud-sky/lava-flow/underwater wave. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_backgrounds_animated",
+  "source_progression_description": "Animated backdrops \u2014 cloud-sky/lava-flow/underwater wave",
+  "nudges": []
+}

@@ -1,0 +1,25 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "boss_turrets",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of boss_turrets \u2014 a character (boss) from 1987 contra. Stage 1 end-boss 'Jungle Gate' \u2014 2 rotating gun turrets flanking a central core. Player must destroy both turrets. 3-frame rotation-fire cycle. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_boss_turrets",
+  "source_progression_description": "Stage 1 end-boss 'Jungle Gate' \u2014 2 rotating gun turrets flanking a central core. Player must destroy both turrets. 3-frame rotation-fire cycle",
+  "nudges": [
+    {
+      "delta": "next phase of rotation-fire cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of rotation-fire cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mega_man_x",
+  "animation_name": "sting_chameleon",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of sting_chameleon \u2014 a character (boss) from 1993 mega man x. Sting Chameleon \u2014 Chameleon Sting invincibility weapon. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mega_man_x_sting_chameleon",
+  "source_progression_description": "Sting Chameleon \u2014 Chameleon Sting invincibility weapon",
+  "nudges": []
+}

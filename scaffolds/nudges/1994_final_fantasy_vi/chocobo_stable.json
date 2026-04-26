@@ -1,0 +1,12 @@
+{
+  "essence": "1994_final_fantasy_vi",
+  "animation_name": "chocobo_stable",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of chocobo_stable \u2014 a character from 1994 final fantasy vi. Chocobo Stable. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_final_fantasy_vi_chocobo_stable",
+  "source_progression_description": "Chocobo Stable",
+  "nudges": []
+}

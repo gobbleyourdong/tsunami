@@ -1,0 +1,12 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "hyper_bomb_explosion",
+  "kind": "effect_layer",
+  "sub_kind": "explosion_vfx",
+  "frame_count": 6,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of hyper_bomb_explosion \u2014 a effect_layer (explosion_vfx) from 1987 mega man. Hyper Bomb detonation VFX \u2014 6-frame expanding spiral on 911\u00d7200 strip. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_hyper_bomb_explosion",
+  "source_progression_description": "Hyper Bomb detonation VFX \u2014 6-frame expanding spiral on 911\u00d7200 strip",
+  "nudges": []
+}

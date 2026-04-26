@@ -1,0 +1,37 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "projectile_bomb_explosion",
+  "kind": "effect_layer",
+  "sub_kind": "explosion_vfx",
+  "frame_count": 5,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of projectile_bomb_explosion \u2014 a effect_layer (explosion_vfx) from 1986 legend of zelda. small-dot. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_projectile_bomb_explosion",
+  "source_progression_description": "5-frame bomb explosion \u2014 small-dot \u2192 expanding-fireball \u2192 full-burst \u2192 collapse \u2192 fade. Destroys breakable walls + damages enemies",
+  "nudges": [
+    {
+      "delta": "expanding-fireball",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "full-burst",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "collapse",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "fade. Destroys breakable walls + damages enemies",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

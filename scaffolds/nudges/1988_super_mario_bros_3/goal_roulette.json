@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "goal_roulette",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 12,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of goal_roulette \u2014 a ui (hud_readout) from 1988 super mario bros 3. Stage-end goal-card roulette \u2014 Mushroom/Flower/Starman reel spinning. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_goal_roulette",
+  "source_progression_description": "Stage-end goal-card roulette \u2014 Mushroom/Flower/Starman reel spinning; match-3 rewards 2-5 extra lives",
+  "nudges": []
+}

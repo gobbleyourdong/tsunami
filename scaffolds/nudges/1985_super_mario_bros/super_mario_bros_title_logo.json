@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "super_mario_bros_title_logo",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of super_mario_bros_title_logo \u2014 a ui (menu_screen) from 1985 super mario bros. Static SUPER MARIO BROS. title logo \u2014 red brick-look letterforms with gold outline + drop-shadow. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_super_mario_bros_title_logo",
+  "source_progression_description": "Static SUPER MARIO BROS. title logo \u2014 red brick-look letterforms with gold outline + drop-shadow; composed from tile-set on title screen only; displayed above menu options",
+  "nudges": []
+}

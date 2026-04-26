@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "spiny_egg_fall",
+  "kind": "projectile",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of spiny_egg_fall \u2014 a projectile from 1985 super mario bros. Lakitu's thrown spiny-before-hatch. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_spiny_egg_fall",
+  "source_progression_description": "2-frame rotating egg \u2014 Lakitu's thrown spiny-before-hatch; rotates while falling then becomes spiny on ground contact",
+  "nudges": []
+}

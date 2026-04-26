@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "enemy_transforms_challenging_nes",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 10,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemy_transforms_challenging_nes \u2014 a character from 1981 galaga. 5 challenging-stage enemy types \u00d7 2-frame flap each \u2014 NES palette variants of arcade challenging-wave roster (scorpion/galaxian/dragonfly/mosquito/stingray). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_enemy_transforms_challenging_nes",
+  "source_progression_description": "5 challenging-stage enemy types \u00d7 2-frame flap each \u2014 NES palette variants of arcade challenging-wave roster (scorpion/galaxian/dragonfly/mosquito/stingray)",
+  "nudges": []
+}

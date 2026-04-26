@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "enemy_death_effect",
+  "kind": "effect_layer",
+  "sub_kind": "explosion_vfx",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemy_death_effect \u2014 a effect_layer (explosion_vfx) from 1987 castlevania ii simons quest. Shared enemy-death burst \u2014 4-frame fade. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_enemy_death_effect",
+  "source_progression_description": "Shared enemy-death burst \u2014 4-frame fade",
+  "nudges": []
+}

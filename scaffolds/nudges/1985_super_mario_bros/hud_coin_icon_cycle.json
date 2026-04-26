@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "hud_coin_icon_cycle",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of hud_coin_icon_cycle \u2014 a ui (hud_readout) from 1985 super mario bros. synced with in-world coin_spin animation. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_hud_coin_icon_cycle",
+  "source_progression_description": "4-frame HUD coin icon spin \u2014 synced with in-world coin_spin animation; displays in HUD next to coin count; 4 zone-palette variants (overworld / underground / castle / underwater)",
+  "nudges": []
+}

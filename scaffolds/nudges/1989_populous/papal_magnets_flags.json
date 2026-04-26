@@ -1,0 +1,12 @@
+{
+  "essence": "1989_populous",
+  "animation_name": "papal_magnets_flags",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of papal_magnets_flags \u2014 a effect_layer from 1989 populous. Papal Magnet (deploys believers' leader) + flag markers for good + evil sides. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_populous_papal_magnets_flags",
+  "source_progression_description": "Papal Magnet (deploys believers' leader) + flag markers for good + evil sides",
+  "nudges": []
+}

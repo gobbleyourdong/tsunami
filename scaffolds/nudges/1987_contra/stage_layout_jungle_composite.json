@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "stage_layout_jungle_composite",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_layout_jungle_composite \u2014 a tile (level_layout) from 1987 contra. Stage 1 Jungle (side-scroll) \u2014 full horizontal scroll layout with palm trees, crates, waterfalls, river-bridges. 3456px wide = ~13 NES screens. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_stage_layout_jungle_composite",
+  "source_progression_description": "Stage 1 Jungle (side-scroll) \u2014 full horizontal scroll layout with palm trees, crates, waterfalls, river-bridges. 3456px wide = ~13 NES screens",
+  "nudges": []
+}

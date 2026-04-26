@@ -1,0 +1,12 @@
+{
+  "essence": "1989_simcity",
+  "animation_name": "bowser_disaster",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bowser_disaster \u2014 a character (boss) from 1989 simcity. Bowser disaster \u2014 replaces Godzilla from original PC SimCity. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_simcity_bowser_disaster",
+  "source_progression_description": "Bowser disaster \u2014 replaces Godzilla from original PC SimCity; stomps buildings in SNES-exclusive easter-egg disaster. Animated walk + fire-breath",
+  "nudges": []
+}

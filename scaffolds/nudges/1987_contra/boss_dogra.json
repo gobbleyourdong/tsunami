@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "boss_dogra",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of boss_dogra \u2014 a character (boss) from 1987 contra. Stage 6 Dogra \u2014 smallest boss sheet. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_boss_dogra",
+  "source_progression_description": "Stage 6 Dogra \u2014 smallest boss sheet; possibly a mini-boss or turret variant",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mega_man_x",
+  "animation_name": "zero",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 30,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of zero \u2014 a character (boss) from 1993 mega man x. Zero \u2014 red-armor Maverick Hunter. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mega_man_x_zero",
+  "source_progression_description": "Zero \u2014 red-armor Maverick Hunter; Z-Saber + Z-Buster. NPC in MMX1, playable in MMX2+",
+  "nudges": []
+}

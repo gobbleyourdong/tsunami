@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "mario",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of mario \u2014 a character (playable) from 1992 super mario kart. Mario \u2014 8-direction kart-rotation sprite + jump/spin/KO poses. Balanced stats. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_mario",
+  "source_progression_description": "Mario \u2014 8-direction kart-rotation sprite + jump/spin/KO poses. Balanced stats",
+  "nudges": []
+}

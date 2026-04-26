@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "message_box_banner_en",
+  "kind": "ui",
+  "sub_kind": "dialog",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of message_box_banner_en \u2014 a ui (dialog) from 1986 dragon quest. Stylized 'DRAGON QUEST' dialogue-banner in black + yellow/bronze. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_message_box_banner_en",
+  "source_progression_description": "Stylized 'DRAGON QUEST' dialogue-banner in black + yellow/bronze; may be dialog/message box header graphic",
+  "nudges": []
+}

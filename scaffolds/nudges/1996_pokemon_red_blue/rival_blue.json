@@ -1,0 +1,12 @@
+{
+  "essence": "1996_pokemon_red_blue",
+  "animation_name": "rival_blue",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of rival_blue \u2014 a character from 1996 pokemon red blue. Blue (Gary) \u2014 rival. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_pokemon_red_blue_rival_blue",
+  "source_progression_description": "Blue (Gary) \u2014 rival; 6 scripted encounters across game",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mortal_kombat_ii",
+  "animation_name": "pong_easter_egg",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of pong_easter_egg \u2014 a ui from 1993 mortal kombat ii. Pong easter-egg \u2014 triggered by double-double-flawless. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mortal_kombat_ii_pong_easter_egg",
+  "source_progression_description": "Pong easter-egg \u2014 triggered by double-double-flawless",
+  "nudges": []
+}

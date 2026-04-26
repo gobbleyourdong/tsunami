@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "bowser_final_boss",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 10,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bowser_final_boss \u2014 a character (final_boss) from 1990 super mario world. Bowser final-boss \u2014 Koopa Clown Car piloting. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_bowser_final_boss",
+  "source_progression_description": "Bowser final-boss \u2014 Koopa Clown Car piloting; drops Mechakoopas + throws Big Steelies. 840\u00d7280",
+  "nudges": []
+}

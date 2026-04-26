@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "tileset_charlock_castle",
+  "kind": "tile",
+  "sub_kind": "tile_atlas",
+  "frame_count": 32,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tileset_charlock_castle \u2014 a tile (tile_atlas) from 1986 dragon quest. Charlock Castle atlas \u2014 dark purple stones, skull-wall decorations, magical-barrier tile, golem-rubble blocks. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_tileset_charlock_castle",
+  "source_progression_description": "Charlock Castle atlas \u2014 dark purple stones, skull-wall decorations, magical-barrier tile, golem-rubble blocks; final dungeon aesthetic",
+  "nudges": []
+}

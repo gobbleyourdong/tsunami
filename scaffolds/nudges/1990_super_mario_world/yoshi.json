@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "yoshi",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 24,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of yoshi \u2014 a character (playable) from 1990 super mario world. Yoshi \u2014 green + red + blue + yellow (palette-variants) \u00d7 idle/run/flutter-jump/tongue-grab/swallow/spit-shell/spit-fire. 235\u00d7200. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_yoshi",
+  "source_progression_description": "Yoshi \u2014 green + red + blue + yellow (palette-variants) \u00d7 idle/run/flutter-jump/tongue-grab/swallow/spit-shell/spit-fire. 235\u00d7200",
+  "nudges": []
+}

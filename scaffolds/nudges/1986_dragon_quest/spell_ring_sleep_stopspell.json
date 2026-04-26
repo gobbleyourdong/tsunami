@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "spell_ring_sleep_stopspell",
+  "kind": "effect_layer",
+  "sub_kind": "spell_vfx",
+  "frame_count": 5,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of spell_ring_sleep_stopspell \u2014 a effect_layer (spell_vfx) from 1986 dragon quest. Sleep spell (orange ring) or Stopspell (yellow-ring). Expands outward from caster to target. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_spell_ring_sleep_stopspell",
+  "source_progression_description": "5-frame concentric-ring growing from circle \u2014 Sleep spell (orange ring) or Stopspell (yellow-ring). Expands outward from caster to target",
+  "nudges": []
+}

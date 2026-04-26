@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "gohma_eye_open_close",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of gohma_eye_open_close \u2014 a character (boss) from 1986 legend of zelda. Gohma \u2014 crab-creature with eye. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_gohma_eye_open_close",
+  "source_progression_description": "Gohma \u2014 crab-creature with eye; 4-frame eye-open-close cycle. Boss of Level 6 (Dragon, red variant) + Level 9 (blue variant). Only vulnerable when eye open; arrows only",
+  "nudges": []
+}

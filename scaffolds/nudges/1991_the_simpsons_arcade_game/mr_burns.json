@@ -1,0 +1,12 @@
+{
+  "essence": "1991_the_simpsons_arcade_game",
+  "animation_name": "mr_burns",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of mr_burns \u2014 a character (final_boss) from 1991 the simpsons arcade game. Mr. Burns \u2014 final boss, robot-suit mech. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_the_simpsons_arcade_game_mr_burns",
+  "source_progression_description": "Mr. Burns \u2014 final boss, robot-suit mech",
+  "nudges": []
+}

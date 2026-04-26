@@ -1,0 +1,12 @@
+{
+  "essence": "1991_the_simpsons_arcade_game",
+  "animation_name": "npcs",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of npcs \u2014 a character from 1991 the simpsons arcade game. Background Springfield NPCs \u2014 Apu/Otto/Principal Skinner/etc.. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_the_simpsons_arcade_game_npcs",
+  "source_progression_description": "Background Springfield NPCs \u2014 Apu/Otto/Principal Skinner/etc.",
+  "nudges": []
+}

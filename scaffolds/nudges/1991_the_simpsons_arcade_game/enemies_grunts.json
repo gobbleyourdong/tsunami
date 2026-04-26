@@ -1,0 +1,12 @@
+{
+  "essence": "1991_the_simpsons_arcade_game",
+  "animation_name": "enemies_grunts",
+  "kind": "character",
+  "sub_kind": "minion",
+  "frame_count": 80,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemies_grunts \u2014 a character (minion) from 1991 the simpsons arcade game. Grunt enemies \u2014 Bouncer Brothers/Kabuki Master/Ninja/Drunk/Bigfoot/Bear/Zombie/Firefighter/Goon/Hazmat/Lumberjack/Bart Devil/Space Mutant/etc.. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_the_simpsons_arcade_game_enemies_grunts",
+  "source_progression_description": "Grunt enemies \u2014 Bouncer Brothers/Kabuki Master/Ninja/Drunk/Bigfoot/Bear/Zombie/Firefighter/Goon/Hazmat/Lumberjack/Bart Devil/Space Mutant/etc.",
+  "nudges": []
+}

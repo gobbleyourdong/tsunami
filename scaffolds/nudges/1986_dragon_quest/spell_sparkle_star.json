@@ -1,0 +1,25 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "spell_sparkle_star",
+  "kind": "effect_layer",
+  "sub_kind": "spell_vfx",
+  "frame_count": 5,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of spell_sparkle_star \u2014 a effect_layer (spell_vfx) from 1986 dragon quest. buff / Outside / Return spell shimmer. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_spell_sparkle_star",
+  "source_progression_description": "5-frame yellow sparkle \u2014 buff / Outside / Return spell shimmer",
+  "nudges": [
+    {
+      "delta": "Outside",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "Return spell shimmer",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1997_castlevania_symphony_of_night",
+  "animation_name": "alucard_full_poseset",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 100,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of alucard_full_poseset \u2014 a character (boss) from 1997 castlevania symphony of night. Alucard \u2014 walk/run/dash/jump/double-jump/slide/parry/shield-rod/spell-cast/summon-familiar (Sword/Demon/Bat/Ghost/Faerie) + weapon-specific attack animations \u00d7 wolf/bat/mist transformations. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_castlevania_symphony_of_night_alucard_full_poseset",
+  "source_progression_description": "Alucard \u2014 walk/run/dash/jump/double-jump/slide/parry/shield-rod/spell-cast/summon-familiar (Sword/Demon/Bat/Ghost/Faerie) + weapon-specific attack animations \u00d7 wolf/bat/mist transformations",
+  "nudges": []
+}

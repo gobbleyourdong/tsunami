@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "item_heart_small",
+  "kind": "pickup_item",
+  "sub_kind": "health_pickup",
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of item_heart_small \u2014 a pickup_item (health_pickup) from 1986 legend of zelda. Small Heart \u2014 2-frame pulse. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_item_heart_small",
+  "source_progression_description": "Small Heart \u2014 2-frame pulse; drops from enemies; restores 1 HP",
+  "nudges": []
+}

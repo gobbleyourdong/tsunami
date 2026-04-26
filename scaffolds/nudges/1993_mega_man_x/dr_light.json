@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mega_man_x",
+  "animation_name": "dr_light",
+  "kind": "character",
+  "sub_kind": "npc",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of dr_light \u2014 a character (npc) from 1993 mega man x. Dr. Light \u2014 hologram capsule-appearance grants armor upgrades. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mega_man_x_dr_light",
+  "source_progression_description": "Dr. Light \u2014 hologram capsule-appearance grants armor upgrades",
+  "nudges": []
+}

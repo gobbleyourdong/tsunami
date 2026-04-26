@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "tileset_dracula_final_keep",
+  "kind": "tile",
+  "sub_kind": "tile_atlas",
+  "frame_count": 48,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tileset_dracula_final_keep \u2014 a tile (tile_atlas) from 1986 castlevania. Dracula's Keep tileset (Level 7) \u2014 dark purple/blue stones, throne-room decor, ominous palette. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_tileset_dracula_final_keep",
+  "source_progression_description": "Dracula's Keep tileset (Level 7) \u2014 dark purple/blue stones, throne-room decor, ominous palette; smaller tile set than main levels since level is short",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1989_final_fight",
+  "animation_name": "andore_family",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 24,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of andore_family \u2014 a character from 1989 final fight. Andore Family \u2014 heavy-tier grappler bosses (Andore/G. Andore/F. Andore/U. Andore). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_final_fight_andore_family",
+  "source_progression_description": "Andore Family \u2014 heavy-tier grappler bosses (Andore/G. Andore/F. Andore/U. Andore); based on Andr\u00e9 the Giant",
+  "nudges": []
+}

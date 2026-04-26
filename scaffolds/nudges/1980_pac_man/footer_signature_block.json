@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "footer_signature_block",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of footer_signature_block \u2014 a ui from 1980 pac man. Attribution footer \u2014 'PAC-MAN COMPLETE SPRITE SHEET WITH ALL PALETTES RIPPED AND SORTED BY CAYI1E USING ORIGINAL ASSETS MADE BY NAMCO' on magenta background + small glyph-palette reference swatch. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_footer_signature_block",
+  "source_progression_description": "Attribution footer \u2014 'PAC-MAN COMPLETE SPRITE SHEET WITH ALL PALETTES RIPPED AND SORTED BY CAYI1E USING ORIGINAL ASSETS MADE BY NAMCO' on magenta background + small glyph-palette reference swatch",
+  "nudges": []
+}

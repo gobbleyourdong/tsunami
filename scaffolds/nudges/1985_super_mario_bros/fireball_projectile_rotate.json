@@ -1,0 +1,31 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "fireball_projectile_rotate",
+  "kind": "projectile",
+  "sub_kind": "special_attack_proj",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of fireball_projectile_rotate \u2014 a projectile (special_attack_proj) from 1985 super mario bros. flame sprite rotates 90\u00b0 per frame to appear spinning. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_fireball_projectile_rotate",
+  "source_progression_description": "4-frame rotating-fireball cycle \u2014 flame sprite rotates 90\u00b0 per frame to appear spinning; 8\u00d78 NES-tile sized",
+  "nudges": [
+    {
+      "delta": "next phase of rotating-fireball cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of rotating-fireball cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of rotating-fireball cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

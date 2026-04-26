@@ -1,0 +1,12 @@
+{
+  "essence": "1989_final_fight",
+  "animation_name": "character_select",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of character_select \u2014 a ui (menu_screen) from 1989 final fight. Player-select screen \u2014 3 character portraits (Cody/Guy/Haggar) + stat-bars + insert-coin prompt. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_final_fight_character_select",
+  "source_progression_description": "Player-select screen \u2014 3 character portraits (Cody/Guy/Haggar) + stat-bars + insert-coin prompt",
+  "nudges": []
+}

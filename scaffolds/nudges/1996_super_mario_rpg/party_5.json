@@ -1,0 +1,37 @@
+{
+  "essence": "1996_super_mario_rpg",
+  "animation_name": "party_5",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 5,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of party_5 \u2014 a character (boss) from 1996 super mario rpg. Mario (jumps), Mallow (frog-prince weather magic), Geno (toy-doll sentient star), Bowser (joinable!), Peach (healer). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_super_mario_rpg_party_5",
+  "source_progression_description": "Mario (jumps), Mallow (frog-prince weather magic), Geno (toy-doll sentient star), Bowser (joinable!), Peach (healer)",
+  "nudges": [
+    {
+      "delta": "Mallow (frog-prince weather magic)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "Geno (toy-doll sentient star)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "Bowser (joinable!)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "Peach (healer)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    }
+  ]
+}

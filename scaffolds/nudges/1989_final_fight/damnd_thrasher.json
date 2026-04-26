@@ -1,0 +1,19 @@
+{
+  "essence": "1989_final_fight",
+  "animation_name": "damnd_thrasher",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of damnd_thrasher \u2014 a character (boss) from 1989 final fight. Damnd (US) / Thrasher (JP) \u2014 Stage 1 boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_final_fight_damnd_thrasher",
+  "source_progression_description": "Damnd (US) / Thrasher (JP) \u2014 Stage 1 boss; whistle-summons gang-reinforcements",
+  "nudges": [
+    {
+      "delta": "Thrasher (JP) \u2014 Stage 1 boss",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

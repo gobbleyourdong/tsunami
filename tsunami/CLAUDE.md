@@ -97,7 +97,7 @@ the matching `genre_scaffolds/<name>.md` for genre-specific conventions** — do
 NOT try to find a `gamedev/metroidvania/` or similar; it doesn't exist.
 
 For any game with retro-game pattern matching (sprite styling, enemy behaviors,
-level structure), check `../scaffolds/.claude/nudges/<year>_<game>/` for the
+level structure), check `../scaffolds/nudges/<year>_<game>/` for the
 existing scrape catalog (Castlevania I & II, Dragon Quest, etc.).
 
 **Game-flow vs web-flow distinction:** Games use `genre_scaffolds/<name>.md` +
@@ -328,11 +328,12 @@ studies / sigma archives, they're historical. Don't try to use them.
 - **`../scaffolds/`** entirely — the catalog is the product. Modifying a scaffold
   changes every future build that uses it. If you need a new scaffold, propose
   it in `../scaffolds/GAPS.md` first.
-- **`../scaffolds/.claude/nudges/`** — the retro-game scrape catalog (71 game
+- **`../scaffolds/nudges/`** — the retro-game scrape catalog (71 game
   dirs / ~2K nudge JSON files). Castlevania, Dragon Quest, Mario, Metroid,
-  Contra, Zelda, Final Fantasy, etc. Don't lose these. Tracked via an
-  explicit `.gitignore` exception (the broader `.claude/` rule would otherwise
-  strip them from clones).
+  Contra, Zelda, Final Fantasy, etc. Don't lose these. Lives at
+  `scaffolds/nudges/` (NOT inside `scaffolds/.claude/nudges/` where it
+  used to be) so the `.claude/` gitignore rule doesn't strip it from
+  fresh clones — moved 2026-04-26.
 - **`../../sdf_modeling_research/`** — the active SDF/sculpt research project. Has
   its own gap.md / attempts/ structure (sigma method standard). Off-limits.
 - **`../scaffolds/engine/demos/skeleton_demo.{html,ts}`** and

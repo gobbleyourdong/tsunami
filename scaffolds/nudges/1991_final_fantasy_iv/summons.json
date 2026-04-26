@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "summons",
+  "kind": "effect_layer",
+  "sub_kind": "summon_vfx",
+  "frame_count": 15,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of summons \u2014 a effect_layer (summon_vfx) from 1991 final fantasy iv. Summon creature animations \u2014 Chocobo/Mist Dragon/Shiva/Ifrit/Ramuh/Titan/Leviathan/Odin/Asura/Bahamut/Goblin/Bomb/Cockatrice. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_summons",
+  "source_progression_description": "Summon creature animations \u2014 Chocobo/Mist Dragon/Shiva/Ifrit/Ramuh/Titan/Leviathan/Odin/Asura/Bahamut/Goblin/Bomb/Cockatrice",
+  "nudges": []
+}

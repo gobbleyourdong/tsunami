@@ -1,0 +1,25 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "simon_whip_subweapon_standing",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of simon_whip_subweapon_standing \u2014 a character from 1986 castlevania. wind-up (arm back) / extension (arm forward) / recovery. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_simon_whip_subweapon_standing",
+  "source_progression_description": "3-frame whip/subweapon-use cycle while standing \u2014 wind-up (arm back) / extension (arm forward) / recovery; also used for subweapon throw animation (same body pose, subweapon swaps in)",
+  "nudges": [
+    {
+      "delta": "extension (arm forward)",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "recovery",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1989_populous",
+  "animation_name": "walkers",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 32,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of walkers \u2014 a character from 1989 populous. Walker units \u2014 villager/settler/warrior/knight at 4 upgrade tiers \u00d7 4 directions \u00d7 good+evil palette. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_populous_walkers",
+  "source_progression_description": "Walker units \u2014 villager/settler/warrior/knight at 4 upgrade tiers \u00d7 4 directions \u00d7 good+evil palette",
+  "nudges": []
+}

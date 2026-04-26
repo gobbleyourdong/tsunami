@@ -71,12 +71,10 @@ SCRATCHPAD.md
 # resource. Without this exception the file gets caught by the ALL_CAPS
 # convention above and a fresh clone won't have it.
 !scaffolds/GAPS.md
-# Retro-game scrape catalog (Castlevania, Dragon Quest, Mario, Metroid,
-# etc. — 71 game dirs / ~2K nudge files). Referenced from tsunami/CLAUDE.md
-# as the cross-reference for game builds with retro pattern matching.
-# Without this exception the .claude/ rule above strips them from clones.
-!scaffolds/.claude/nudges/
-!scaffolds/.claude/nudges/**
+# Note: retro-game scrape catalog lives at scaffolds/nudges/ (NOT inside
+# scaffolds/.claude/) precisely so the .claude/ rule above doesn't strip
+# it from clones. Git's negation pattern can't re-include a child if its
+# parent dir is excluded.
 
 # Misc
 *.log

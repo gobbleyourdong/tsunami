@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "player_two_luigi_name_label",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of player_two_luigi_name_label \u2014 a ui from 1985 super mario bros. Static 'LUIGI' text label \u2014 swaps into Player Name slot when P2 is active (or on P1->P2 alternation after death). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_player_two_luigi_name_label",
+  "source_progression_description": "Static 'LUIGI' text label \u2014 swaps into Player Name slot when P2 is active (or on P1->P2 alternation after death)",
+  "nudges": []
+}

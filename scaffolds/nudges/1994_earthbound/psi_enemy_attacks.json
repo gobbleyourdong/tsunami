@@ -1,0 +1,12 @@
+{
+  "essence": "1994_earthbound",
+  "animation_name": "psi_enemy_attacks",
+  "kind": "effect_layer",
+  "sub_kind": "spell_vfx",
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of psi_enemy_attacks \u2014 a effect_layer (spell_vfx) from 1994 earthbound. Enemy attack VFX \u2014 Beam/PSI Starstorm/PSI Fire/Giygas's Attack (final-boss reality-distortion). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_earthbound_psi_enemy_attacks",
+  "source_progression_description": "Enemy attack VFX \u2014 Beam/PSI Starstorm/PSI Fire/Giygas's Attack (final-boss reality-distortion)",
+  "nudges": []
+}

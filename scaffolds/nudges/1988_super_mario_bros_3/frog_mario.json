@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "frog_mario",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 6,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of frog_mario \u2014 a character (playable) from 1988 super mario bros 3. Frog Mario (Frog Suit) \u2014 underwater hop + increased swim speed. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_frog_mario",
+  "source_progression_description": "Frog Mario (Frog Suit) \u2014 underwater hop + increased swim speed",
+  "nudges": []
+}

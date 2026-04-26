@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "big_mario_fireball_throw_partial",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of big_mario_fireball_throw_partial \u2014 a character (playable) from 1985 super mario bros. Partial-overlay sprite \u2014 top 24 px replaces current sprite's top while bottom 8 px stays. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_big_mario_fireball_throw_partial",
+  "source_progression_description": "Partial-overlay sprite \u2014 top 24 px replaces current sprite's top while bottom 8 px stays; used when throwing fireball mid-movement (walking/skidding/jumping-L-R). When standing still or jumping-up, the full-body throw sprite is used instead",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "pipe_vertical_green",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of pipe_vertical_green \u2014 a tile from 1985 super mario bros. Pipe cap + body tiles \u2014 cap is 32\u00d716 (2 8\u00d716 tiles wide \u00d7 16 tall), body can repeat vertically. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_pipe_vertical_green",
+  "source_progression_description": "Pipe cap + body tiles \u2014 cap is 32\u00d716 (2 8\u00d716 tiles wide \u00d7 16 tall), body can repeat vertically; static, no animation. Pipe tiles act as solid platforms and transition points (warp when Mario enters from top + holds down)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1988_ninja_gaiden",
+  "animation_name": "act_cutscene",
+  "kind": "ui",
+  "sub_kind": "dialog",
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of act_cutscene \u2014 a ui (dialog) from 1988 ninja gaiden. Act-number banner screen (pre-Act number reveal). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_ninja_gaiden_act_cutscene",
+  "source_progression_description": "Act-number banner screen (pre-Act number reveal)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "pig_frog_mini_status",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of pig_frog_mini_status \u2014 a character (playable) from 1991 final fantasy iv. Pig / Frog / Mini status-transformation sprites per-character. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_pig_frog_mini_status",
+  "source_progression_description": "Pig / Frog / Mini status-transformation sprites per-character",
+  "nudges": []
+}

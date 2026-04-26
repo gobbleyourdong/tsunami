@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "luigi_all_animations_palette_swap",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 50,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of luigi_all_animations_palette_swap \u2014 a character (playable) from 1985 super mario bros. Full mirror of Mario's animation set rendered with Luigi's green/white/brown palette \u2014 small/big/fire forms \u00d7 idle/walk/jump/skid/swim/climb/die/throw-fireball/grow-shrink/glitch. Not separately enumerated per animation. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_luigi_all_animations_palette_swap",
+  "source_progression_description": "Full mirror of Mario's animation set rendered with Luigi's green/white/brown palette \u2014 small/big/fire forms \u00d7 idle/walk/jump/skid/swim/climb/die/throw-fireball/grow-shrink/glitch. Not separately enumerated per animation; each mirrors its Mario counterpart",
+  "nudges": []
+}

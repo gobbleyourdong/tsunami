@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "heart_big",
+  "kind": "pickup_item",
+  "sub_kind": "health_pickup",
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of heart_big \u2014 a pickup_item (health_pickup) from 1986 castlevania. Big heart \u2014 2-frame blink. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_heart_big",
+  "source_progression_description": "Big heart \u2014 2-frame blink; +5 hearts; rare drop",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "fds_lost_levels_world_map_a",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of fds_lost_levels_world_map_a \u2014 a tile (level_layout) from 1985 super mario bros. Famicom Disk System 'The Lost Levels' / SMB2-JP level map \u2014 harder variant using same tile atlas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_fds_lost_levels_world_map_a",
+  "source_progression_description": "Famicom Disk System 'The Lost Levels' / SMB2-JP level map \u2014 harder variant using same tile atlas; includes Poison Mushroom + wind-gust mechanics not in retail SMB.",
+  "nudges": []
+}

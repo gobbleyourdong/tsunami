@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "wall_cannon",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of wall_cannon \u2014 a effect_layer from 1987 contra. Wall-embedded cannon \u2014 opens/closes for shooting pattern. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_wall_cannon",
+  "source_progression_description": "Wall-embedded cannon \u2014 opens/closes for shooting pattern",
+  "nudges": []
+}

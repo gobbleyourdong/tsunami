@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "thief_ninja",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of thief_ninja \u2014 a character from 1987 final fantasy. Thief + Ninja class-change \u2014 green hood, dagger/sword. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_thief_ninja",
+  "source_progression_description": "Thief + Ninja class-change \u2014 green hood, dagger/sword",
+  "nudges": []
+}

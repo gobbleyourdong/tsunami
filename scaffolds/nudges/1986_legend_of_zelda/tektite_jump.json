@@ -1,0 +1,19 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "tektite_jump",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of tektite_jump \u2014 a character from 1986 legend of zelda. Tektite \u2014 spider-like 4-legged creature. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_tektite_jump",
+  "source_progression_description": "Tektite \u2014 spider-like 4-legged creature; 2-frame jump cycle; hops erratically on mountain paths",
+  "nudges": [
+    {
+      "delta": "next phase of jump cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

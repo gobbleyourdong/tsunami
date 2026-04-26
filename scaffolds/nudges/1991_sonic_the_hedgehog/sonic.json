@@ -1,0 +1,12 @@
+{
+  "essence": "1991_sonic_the_hedgehog",
+  "animation_name": "sonic",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 32,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of sonic \u2014 a character (playable) from 1991 sonic the hedgehog. Sonic \u2014 stand/tap-foot (impatient idle)/walk/run/super-run/spin-dash/spin-attack/jump/roll/hurt/drowning (countdown 5-0)/invincibility-sparkle. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_sonic_the_hedgehog_sonic",
+  "source_progression_description": "Sonic \u2014 stand/tap-foot (impatient idle)/walk/run/super-run/spin-dash/spin-attack/jump/roll/hurt/drowning (countdown 5-0)/invincibility-sparkle",
+  "nudges": []
+}

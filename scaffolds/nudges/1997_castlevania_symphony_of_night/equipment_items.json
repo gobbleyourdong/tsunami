@@ -1,0 +1,12 @@
+{
+  "essence": "1997_castlevania_symphony_of_night",
+  "animation_name": "equipment_items",
+  "kind": "pickup_item",
+  "sub_kind": null,
+  "frame_count": 200,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of equipment_items \u2014 a pickup_item from 1997 castlevania symphony of night. ~200 equipment items \u2014 weapons (swords/whips/maces/fists)/armor/shields/accessories + consumables + sub-weapons. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_castlevania_symphony_of_night_equipment_items",
+  "source_progression_description": "~200 equipment items \u2014 weapons (swords/whips/maces/fists)/armor/shields/accessories + consumables + sub-weapons",
+  "nudges": []
+}

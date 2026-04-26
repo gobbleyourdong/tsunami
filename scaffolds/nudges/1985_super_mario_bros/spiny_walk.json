@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "spiny_walk",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of spiny_walk \u2014 a character from 1985 super mario bros. spiked koopa-variant that can't be stomped safely. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_spiny_walk",
+  "source_progression_description": "2-frame walk \u2014 spiked koopa-variant that can't be stomped safely; spikes render on shell back",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "title_bat_flyby_animation",
+  "kind": "effect_layer",
+  "sub_kind": "atmospheric_vfx",
+  "frame_count": 40,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of title_bat_flyby_animation \u2014 a effect_layer (atmospheric_vfx) from 1986 castlevania. small red bat flies in sine-wave arc across title screen over tombstone-shaped hill in front of castle silhouette with moonlit sky. Starts far right, weaves past 'Castlevania' text letter-by-letter revealing the title. Iconic opening. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_title_bat_flyby_animation",
+  "source_progression_description": "40-frame bat-flyby intro \u2014 small red bat flies in sine-wave arc across title screen over tombstone-shaped hill in front of castle silhouette with moonlit sky. Starts far right, weaves past 'Castlevania' text letter-by-letter revealing the title. Iconic opening",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "title_logo_jp",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of title_logo_jp \u2014 a ui from 1987 castlevania ii simons quest. '\u30c9\u30e9\u30ad\u30e5\u30e9II \u546a\u3044\u306e\u5c01\u5370' (Dracula II - Noroi no Fuuin) JP title \u2014 red letters + KONAMI 1987. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_title_logo_jp",
+  "source_progression_description": "'\u30c9\u30e9\u30ad\u30e5\u30e9II \u546a\u3044\u306e\u5c01\u5370' (Dracula II - Noroi no Fuuin) JP title \u2014 red letters + KONAMI 1987",
+  "nudges": []
+}

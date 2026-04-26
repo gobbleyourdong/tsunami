@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "victory_flag",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of victory_flag \u2014 a character from 1992 super mario kart. Checkered victory flag (Lakitu waves at finish). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_victory_flag",
+  "source_progression_description": "Checkered victory flag (Lakitu waves at finish)",
+  "nudges": []
+}

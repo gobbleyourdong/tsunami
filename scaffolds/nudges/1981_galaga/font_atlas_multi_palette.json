@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "font_atlas_multi_palette",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 42,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of font_atlas_multi_palette \u2014 a ui (hud_readout) from 1981 galaga. ASCII font atlas \u2014 A-Z + 0-9 + punctuation '-' '.' '%' '/' '?' ':' plus '(' ')' rendered at 8\u00d78 px. Shown in 4+ palette colors (white / red / cyan / yellow) on sheet bottom-right. Used for all HUD + attract-mode text. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_font_atlas_multi_palette",
+  "source_progression_description": "ASCII font atlas \u2014 A-Z + 0-9 + punctuation '-' '.' '%' '/' '?' ':' plus '(' ')' rendered at 8\u00d78 px. Shown in 4+ palette colors (white / red / cyan / yellow) on sheet bottom-right. Used for all HUD + attract-mode text",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "shop_npcs_and_signs",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of shop_npcs_and_signs \u2014 a character from 1987 final fantasy. Shop-keeper NPCs (weapon/armor/item/white-magic/black-magic/inn/clinic) + shop-sign icons. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_shop_npcs_and_signs",
+  "source_progression_description": "Shop-keeper NPCs (weapon/armor/item/white-magic/black-magic/inn/clinic) + shop-sign icons",
+  "nudges": []
+}

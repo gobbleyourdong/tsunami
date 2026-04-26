@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "flagpole_stem",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of flagpole_stem \u2014 a tile from 1985 super mario bros. Static pole column \u2014 8-wide tile repeats vertically. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_flagpole_stem",
+  "source_progression_description": "Static pole column \u2014 8-wide tile repeats vertically; topped by flag_wave sprite at world-end",
+  "nudges": []
+}

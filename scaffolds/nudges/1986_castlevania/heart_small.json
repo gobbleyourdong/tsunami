@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "heart_small",
+  "kind": "pickup_item",
+  "sub_kind": "health_pickup",
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of heart_small \u2014 a pickup_item (health_pickup) from 1986 castlevania. Small red heart \u2014 2-frame blink. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_heart_small",
+  "source_progression_description": "Small red heart \u2014 2-frame blink; ammo currency for subweapons (+1 heart); drops from enemies and breakable candles",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "palette_chart_all_variants",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 16,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of palette_chart_all_variants \u2014 a ui (hud_readout) from 1980 pac man. Mega palette-reference chart \u2014 every in-game sprite (Pac-Man, all 4 ghosts frightened+normal, fruits, dots, score-popups, font) rendered in all ~16 palette indices used across levels 1-256. Each palette block includes: characters row, alphabet row, fruits column, score-popups column. Levels 1-6 have distinct palettes. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_palette_chart_all_variants",
+  "source_progression_description": "Mega palette-reference chart \u2014 every in-game sprite (Pac-Man, all 4 ghosts frightened+normal, fruits, dots, score-popups, font) rendered in all ~16 palette indices used across levels 1-256. Each palette block includes: characters row, alphabet row, fruits column, score-popups column. Levels 1-6 have distinct palettes; levels 7+ cycle through repeats until kill-screen glitch at level 256",
+  "nudges": []
+}

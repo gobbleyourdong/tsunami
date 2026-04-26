@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "enemy_red_skeleton_walk_regenerate",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemy_red_skeleton_walk_regenerate \u2014 a character from 1986 castlevania. Red skeleton \u2014 2-frame walk + 1 collapse-to-bones state. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_enemy_red_skeleton_walk_regenerate",
+  "source_progression_description": "Red skeleton \u2014 2-frame walk + 1 collapse-to-bones state; bones auto-regenerate after timeout forming walking skeleton again; cannot be permanently killed without Holy Water. Level 5 Prison, Level 6",
+  "nudges": []
+}

@@ -1,0 +1,19 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "mega_man_throwing",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of mega_man_throwing \u2014 a character from 1987 mega man. Throwing \u2014 Hyper Bomb / Rolling Cutter release pose \u00d7 idle/walk/jump/climb. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_mega_man_throwing",
+  "source_progression_description": "Throwing \u2014 Hyper Bomb / Rolling Cutter release pose \u00d7 idle/walk/jump/climb",
+  "nudges": [
+    {
+      "delta": "Rolling Cutter release pose \u00d7 idle/walk/jump/climb",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

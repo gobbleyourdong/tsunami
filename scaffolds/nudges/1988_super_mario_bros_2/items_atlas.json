@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_2",
+  "animation_name": "items_atlas",
+  "kind": "pickup_item",
+  "sub_kind": "health_pickup",
+  "frame_count": 24,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of items_atlas \u2014 a pickup_item (health_pickup) from 1988 super mario bros 2. Item roster \u2014 Vegetable (pull-and-throw), Magic Potion (Subspace-door), Cherry (5=Starman), Mushroom (1-health), POW Block, Key, Shell (koopa-slide), Bombs, Heart (refill), 1UP, Stopwatch. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_2_items_atlas",
+  "source_progression_description": "Item roster \u2014 Vegetable (pull-and-throw), Magic Potion (Subspace-door), Cherry (5=Starman), Mushroom (1-health), POW Block, Key, Shell (koopa-slide), Bombs, Heart (refill), 1UP, Stopwatch",
+  "nudges": []
+}

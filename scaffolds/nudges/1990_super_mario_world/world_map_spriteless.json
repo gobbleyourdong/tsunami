@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "world_map_spriteless",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of world_map_spriteless \u2014 a tile (level_layout) from 1990 super mario world. World Map spriteless variants (alt palette for post-clear). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_world_map_spriteless",
+  "source_progression_description": "World Map spriteless variants (alt palette for post-clear)",
+  "nudges": []
+}

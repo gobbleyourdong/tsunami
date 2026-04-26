@@ -1,0 +1,12 @@
+{
+  "essence": "1989_simcity",
+  "animation_name": "various_icons",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 48,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of various_icons \u2014 a ui from 1989 simcity. Tool-palette icons \u2014 zoom/help/save/gift-unlock icons. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_simcity_various_icons",
+  "source_progression_description": "Tool-palette icons \u2014 zoom/help/save/gift-unlock icons",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "boss_dracula_body_parts",
+  "kind": "pickup_item",
+  "sub_kind": "health_pickup",
+  "frame_count": 5,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of boss_dracula_body_parts \u2014 a pickup_item (health_pickup) from 1987 castlevania ii simons quest. Dracula's body parts \u2014 5 macabre quest items (Rib / Heart / Eye / Nail / Ring) scattered across mansions. Collect all 5 + Cross to finish game. Central gameplay mechanic. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_boss_dracula_body_parts",
+  "source_progression_description": "Dracula's body parts \u2014 5 macabre quest items (Rib / Heart / Eye / Nail / Ring) scattered across mansions. Collect all 5 + Cross to finish game. Central gameplay mechanic",
+  "nudges": []
+}

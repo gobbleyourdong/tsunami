@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "font_abc",
+  "kind": "ui",
+  "sub_kind": "typography",
+  "frame_count": 96,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of font_abc \u2014 a ui (typography) from 1987 final fantasy. Alphabet + numbers + punctuation (196\u00d7240 canvas). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_font_abc",
+  "source_progression_description": "Alphabet + numbers + punctuation (196\u00d7240 canvas)",
+  "nudges": []
+}

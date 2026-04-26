@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "whip_cycle_palette_example",
+  "kind": "effect_layer",
+  "sub_kind": "aura_vfx",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of whip_cycle_palette_example \u2014 a effect_layer (aura_vfx) from 1987 castlevania ii simons quest. 'CHAIN AND M.STAR CYCLE SPRITE WHIP PALETTE' \u2014 4-frame color-cycle flash of whip-tip. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_whip_cycle_palette_example",
+  "source_progression_description": "'CHAIN AND M.STAR CYCLE SPRITE WHIP PALETTE' \u2014 4-frame color-cycle flash of whip-tip; cycles during strike. Same metallic-glint trick as CV1",
+  "nudges": []
+}

@@ -1,0 +1,19 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "alien_face_hugger",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of alien_face_hugger \u2014 a character from 1987 contra. Base-stage alien \u2014 wall-crawling face-hugger, inspired by Giger/Aliens. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_alien_face_hugger",
+  "source_progression_description": "Base-stage alien \u2014 wall-crawling face-hugger, inspired by Giger/Aliens",
+  "nudges": [
+    {
+      "delta": "inspired by Giger/Aliens",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    }
+  ]
+}

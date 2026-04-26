@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "unused_sidehopper_waver_fake_ridley",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 6,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of unused_sidehopper_waver_fake_ridley \u2014 a character (boss) from 1986 metroid. 'Unused' sprites in ROM \u2014 Sidehopper (Brinstar variant) + Waver (Kraid's Lair variant) + Fake Ridley (2-frame pink variant) not placed in retail levels. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_unused_sidehopper_waver_fake_ridley",
+  "source_progression_description": "'Unused' sprites in ROM \u2014 Sidehopper (Brinstar variant) + Waver (Kraid's Lair variant) + Fake Ridley (2-frame pink variant) not placed in retail levels",
+  "nudges": []
+}

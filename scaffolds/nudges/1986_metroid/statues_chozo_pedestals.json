@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "statues_chozo_pedestals",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of statues_chozo_pedestals \u2014 a tile from 1986 metroid. Chozo statues \u2014 bird-warrior pedestals holding powerups in hands. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_statues_chozo_pedestals",
+  "source_progression_description": "Chozo statues \u2014 bird-warrior pedestals holding powerups in hands; 2 palette variants (Brinstar-blue/Norfair-red)",
+  "nudges": []
+}

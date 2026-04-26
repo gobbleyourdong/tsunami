@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "dpad_ring_control",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of dpad_ring_control \u2014 a ui from 1986 dragon quest. Virtual D-pad ring \u2014 large concentric-ring control widget. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_dpad_ring_control",
+  "source_progression_description": "Virtual D-pad ring \u2014 large concentric-ring control widget; mobile port touch input overlay",
+  "nudges": []
+}

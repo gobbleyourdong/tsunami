@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "yoshi_house_tileset",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 16,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of yoshi_house_tileset \u2014 a tile from 1990 super mario world. Yoshi's House tileset \u2014 starting-area NPC home. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_yoshi_house_tileset",
+  "source_progression_description": "Yoshi's House tileset \u2014 starting-area NPC home",
+  "nudges": []
+}

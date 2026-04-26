@@ -1,0 +1,12 @@
+{
+  "essence": "1988_ninja_gaiden",
+  "animation_name": "items_torches",
+  "kind": "pickup_item",
+  "sub_kind": "health_pickup",
+  "frame_count": 16,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of items_torches \u2014 a pickup_item (health_pickup) from 1988 ninja gaiden. Torch containers + drops \u2014 Windmill/Fire/Jump/Vacuum/Invincible ninpo scrolls + Small/Large HP + Spiritual Strength + Time-freeze orb. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_ninja_gaiden_items_torches",
+  "source_progression_description": "Torch containers + drops \u2014 Windmill/Fire/Jump/Vacuum/Invincible ninpo scrolls + Small/Large HP + Spiritual Strength + Time-freeze orb",
+  "nudges": []
+}

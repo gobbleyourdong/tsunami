@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "ghost_frightened_blue",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ghost_frightened_blue \u2014 a character from 1980 pac man. Frightened/vulnerable ghost \u2014 dark-blue body + white eyes + frowning mouth. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_ghost_frightened_blue",
+  "source_progression_description": "Frightened/vulnerable ghost \u2014 dark-blue body + white eyes + frowning mouth; 2-frame body-wave. All 4 ghosts share this sprite after Pac-Man eats power-pellet. Player can eat for 200/400/800/1600 points escalating",
+  "nudges": []
+}

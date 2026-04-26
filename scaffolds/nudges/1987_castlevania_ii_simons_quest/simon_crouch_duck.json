@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "simon_crouch_duck",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of simon_crouch_duck \u2014 a character from 1987 castlevania ii simons quest. Crouch \u2014 essential for finding hidden passages (whip-blocks in graveyards while crouching). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_simon_crouch_duck",
+  "source_progression_description": "Crouch \u2014 essential for finding hidden passages (whip-blocks in graveyards while crouching)",
+  "nudges": []
+}

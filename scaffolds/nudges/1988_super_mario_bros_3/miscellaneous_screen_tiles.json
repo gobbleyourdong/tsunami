@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "miscellaneous_screen_tiles",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 240,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of miscellaneous_screen_tiles \u2014 a tile (level_layout) from 1988 super mario bros 3. Master tile atlas of all misc UI tiles \u2014 letter-cards, N-Spade minigame tiles, coin-heaven ceiling, toad-house. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_miscellaneous_screen_tiles",
+  "source_progression_description": "Master tile atlas of all misc UI tiles \u2014 letter-cards, N-Spade minigame tiles, coin-heaven ceiling, toad-house",
+  "nudges": []
+}

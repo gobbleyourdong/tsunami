@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "dot_regular",
+  "kind": "pickup_item",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of dot_regular \u2014 a pickup_item from 1980 pac man. Small white dot \u2014 10 points each. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_dot_regular",
+  "source_progression_description": "Small white dot \u2014 10 points each; 240 per maze; eating all clears level",
+  "nudges": []
+}

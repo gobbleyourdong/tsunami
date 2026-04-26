@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "hud_font",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 48,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of hud_font \u2014 a ui (hud_readout) from 1988 super mario bros 3. HUD + dialog font \u2014 A-Z + 0-9 + punctuation. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_hud_font",
+  "source_progression_description": "HUD + dialog font \u2014 A-Z + 0-9 + punctuation",
+  "nudges": []
+}

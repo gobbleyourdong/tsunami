@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mega_man_x",
+  "animation_name": "armored_armadillo_stage",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of armored_armadillo_stage \u2014 a tile from 1993 mega man x. Armored Armadillo Stage \u2014 mine cart. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mega_man_x_armored_armadillo_stage",
+  "source_progression_description": "Armored Armadillo Stage \u2014 mine cart; Hadouken capsule",
+  "nudges": []
+}

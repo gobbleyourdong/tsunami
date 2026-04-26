@@ -1,0 +1,12 @@
+{
+  "essence": "1988_mega_man_2",
+  "animation_name": "weapons_projectiles",
+  "kind": "projectile",
+  "sub_kind": "special_attack_proj",
+  "frame_count": 24,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of weapons_projectiles \u2014 a projectile (special_attack_proj) from 1988 mega man 2. 8 RM weapons + Mega Buster: Metal Blade (8-directional), Crash Bomber (attach+explode), Bubble Lead (gravity drop), Quick Boomerang, Atomic Fire (charged), Time Stopper, Leaf Shield (4-leaf rotating), Air Shooter (8-tornado spread) + Items 1/2/3. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_mega_man_2_weapons_projectiles",
+  "source_progression_description": "8 RM weapons + Mega Buster: Metal Blade (8-directional), Crash Bomber (attach+explode), Bubble Lead (gravity drop), Quick Boomerang, Atomic Fire (charged), Time Stopper, Leaf Shield (4-leaf rotating), Air Shooter (8-tornado spread) + Items 1/2/3",
+  "nudges": []
+}

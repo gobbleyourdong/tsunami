@@ -1,0 +1,19 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "jump",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of jump \u2014 a character from 1987 contra. Tucked-jump / somersault \u2014 2 frame spin. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_jump",
+  "source_progression_description": "Tucked-jump / somersault \u2014 2 frame spin",
+  "nudges": [
+    {
+      "delta": "somersault \u2014 2 frame spin",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

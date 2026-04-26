@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "tile_per_dungeon_palette_variants",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 9,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tile_per_dungeon_palette_variants \u2014 a tile from 1986 legend of zelda. Per-dungeon palette recolors \u2014 9 dungeon-level palette variants of wall/floor tiles (Level 1 blue, Level 2 red, Level 3 green etc). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_tile_per_dungeon_palette_variants",
+  "source_progression_description": "Per-dungeon palette recolors \u2014 9 dungeon-level palette variants of wall/floor tiles (Level 1 blue, Level 2 red, Level 3 green etc)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "hammer_mario",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of hammer_mario \u2014 a character (playable) from 1988 super mario bros 3. Hammer Mario (Hammer Suit) \u2014 hammer-throw (Hammer Bro ability) + duck-invincibility. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_hammer_mario",
+  "source_progression_description": "Hammer Mario (Hammer Suit) \u2014 hammer-throw (Hammer Bro ability) + duck-invincibility",
+  "nudges": []
+}

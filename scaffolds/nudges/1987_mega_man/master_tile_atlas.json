@@ -1,0 +1,12 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "master_tile_atlas",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 520,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of master_tile_atlas \u2014 a tile from 1987 mega man. Master tile atlas \u2014 1540\u00d7973 canvas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_master_tile_atlas",
+  "source_progression_description": "Master tile atlas \u2014 1540\u00d7973 canvas; all 6 stage + 4 Wily-castle tilesets consolidated: industrial metal plates, spike-hazards, ladders, crumbling-blocks, water, ice, fire, electric-spark tiles",
+  "nudges": []
+}

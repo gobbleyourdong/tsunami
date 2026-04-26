@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "tilemap_preview",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of tilemap_preview \u2014 a tile from 1985 super mario bros. Embedded tilemap preview of block/pipe/bush/ground tiles. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_tilemap_preview",
+  "source_progression_description": "Embedded tilemap preview of block/pipe/bush/ground tiles; no animation \u2014 included for reference to show which tiles Mario can traverse or land on",
+  "nudges": []
+}

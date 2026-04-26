@@ -1,0 +1,12 @@
+{
+  "essence": "1991_puyo_puyo",
+  "animation_name": "puyo_pieces",
+  "kind": "pickup_item",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of puyo_pieces \u2014 a pickup_item from 1991 puyo puyo. 4 puyo colors (red/blue/green/yellow) \u00d7 face expressions (idle/nervous/scared/pop) + garbage puyo (gray clear-resistant) + pair-orientations. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_puyo_puyo_puyo_pieces",
+  "source_progression_description": "4 puyo colors (red/blue/green/yellow) \u00d7 face expressions (idle/nervous/scared/pop) + garbage puyo (gray clear-resistant) + pair-orientations",
+  "nudges": []
+}

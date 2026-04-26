@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "mega_mutant_giga_mutant_and_terra_mutant",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of mega_mutant_giga_mutant_and_terra_mutant \u2014 a character from 1995 chrono trigger. Mega Mutant, Giga Mutant, & Terra Mutant. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_mega_mutant_giga_mutant_and_terra_mutant",
+  "source_progression_description": "Mega Mutant, Giga Mutant, & Terra Mutant",
+  "nudges": []
+}

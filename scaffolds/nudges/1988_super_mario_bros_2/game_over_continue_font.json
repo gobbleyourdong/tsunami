@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_2",
+  "animation_name": "game_over_continue_font",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 60,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of game_over_continue_font \u2014 a ui (menu_screen) from 1988 super mario bros 2. Game Over + Continue screens + ASCII font (519\u00d7257 canvas \u2014 ~60 font glyphs + 2 screen-layouts). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_2_game_over_continue_font",
+  "source_progression_description": "Game Over + Continue screens + ASCII font (519\u00d7257 canvas \u2014 ~60 font glyphs + 2 screen-layouts)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "leonardo",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 40,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of leonardo \u2014 a character (playable) from 1991 turtles in time. Leonardo \u2014 katana slash + throw-foot-soldier-at-screen special + stage-hurl (signature move). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_leonardo",
+  "source_progression_description": "Leonardo \u2014 katana slash + throw-foot-soldier-at-screen special + stage-hurl (signature move)",
+  "nudges": []
+}

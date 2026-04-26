@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "title_logo_us",
+  "kind": "ui",
+  "sub_kind": "dialog",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of title_logo_us \u2014 a ui (dialog) from 1987 castlevania ii simons quest. 'Castlevania II Simon's Quest' US title-screen \u2014 green gothic banner + \u00a9 1988 Konami Industry Co Ltd / LICENSED BY NINTENDO OF AMERICA INC. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_title_logo_us",
+  "source_progression_description": "'Castlevania II Simon's Quest' US title-screen \u2014 green gothic banner + \u00a9 1988 Konami Industry Co Ltd / LICENSED BY NINTENDO OF AMERICA INC",
+  "nudges": []
+}

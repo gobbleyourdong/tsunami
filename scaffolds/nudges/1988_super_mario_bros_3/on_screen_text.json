@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "on_screen_text",
+  "kind": "ui",
+  "sub_kind": "dialog",
+  "frame_count": 30,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of on_screen_text \u2014 a ui (dialog) from 1988 super mario bros 3. On-screen dialog text overlays \u2014 'WORLD 1', 'COURSE 1-1', 'TIME UP'. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_on_screen_text",
+  "source_progression_description": "On-screen dialog text overlays \u2014 'WORLD 1', 'COURSE 1-1', 'TIME UP'",
+  "nudges": []
+}

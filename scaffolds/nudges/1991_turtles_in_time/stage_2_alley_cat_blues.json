@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "stage_2_alley_cat_blues",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_2_alley_cat_blues \u2014 a tile (level_layout) from 1991 turtles in time. Alley Cat Blues \u2014 subway/alley Stage 2 (Rat King boss). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_stage_2_alley_cat_blues",
+  "source_progression_description": "Alley Cat Blues \u2014 subway/alley Stage 2 (Rat King boss)",
+  "nudges": []
+}

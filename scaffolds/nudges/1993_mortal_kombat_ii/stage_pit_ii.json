@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mortal_kombat_ii",
+  "animation_name": "stage_pit_ii",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_pit_ii \u2014 a tile (level_layout) from 1993 mortal kombat ii. The Pit II \u2014 uppercut-knock-off Stage Fatality (rocks below). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mortal_kombat_ii_stage_pit_ii",
+  "source_progression_description": "The Pit II \u2014 uppercut-knock-off Stage Fatality (rocks below)",
+  "nudges": []
+}

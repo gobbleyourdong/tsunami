@@ -1,0 +1,12 @@
+{
+  "essence": "1988_mega_man_2",
+  "animation_name": "item_ride_2",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of item_ride_2 \u2014 a character from 1988 mega man 2. Item-2 jet-platform (horizontal flight). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_mega_man_2_item_ride_2",
+  "source_progression_description": "Item-2 jet-platform (horizontal flight)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1994_super_metroid",
+  "animation_name": "beams_weapons",
+  "kind": "projectile",
+  "sub_kind": "special_attack_proj",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of beams_weapons \u2014 a projectile (special_attack_proj) from 1994 super metroid. Beam weapons \u2014 Power/Ice/Wave/Spazer/Plasma/Charged + Missiles + Super Missiles + Power Bombs + Grapple Beam. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_super_metroid_beams_weapons",
+  "source_progression_description": "Beam weapons \u2014 Power/Ice/Wave/Spazer/Plasma/Charged + Missiles + Super Missiles + Power Bombs + Grapple Beam",
+  "nudges": []
+}

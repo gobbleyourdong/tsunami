@@ -1,0 +1,12 @@
+{
+  "essence": "1994_final_fantasy_vi",
+  "animation_name": "espers_summons_batch",
+  "kind": "effect_layer",
+  "sub_kind": "spell_vfx",
+  "frame_count": 27,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of espers_summons_batch \u2014 a effect_layer (spell_vfx) from 1994 final fantasy vi. 27 Espers \u2014 Ramuh, Shiva, Ifrit, Siren, Odin, Raiden, Phantom, Carbunkl, Bismark, Phoenix, Alexander, Crusader, Bahamut, etc.. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_final_fantasy_vi_espers_summons_batch",
+  "source_progression_description": "27 Espers \u2014 Ramuh, Shiva, Ifrit, Siren, Odin, Raiden, Phantom, Carbunkl, Bismark, Phoenix, Alexander, Crusader, Bahamut, etc.",
+  "nudges": []
+}

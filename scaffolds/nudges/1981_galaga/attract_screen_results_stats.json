@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "attract_screen_results_stats",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of attract_screen_results_stats \u2014 a ui from 1981 galaga. End-of-game stats screen: '\u2014RESULTS\u2014 / SHOTS FIRED ___ / NUMBER OF HITS ___ / HIT-MISS RATIO ___%'. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_attract_screen_results_stats",
+  "source_progression_description": "End-of-game stats screen: '\u2014RESULTS\u2014 / SHOTS FIRED ___ / NUMBER OF HITS ___ / HIT-MISS RATIO ___%'; signature Galaga end-of-run stat display. Low hit-miss under ~30% felt disappointing; \u226570% was bragging-rights",
+  "nudges": []
+}

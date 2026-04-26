@@ -1,0 +1,12 @@
+{
+  "essence": "1989_simcity",
+  "animation_name": "scenarios_select",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of scenarios_select \u2014 a ui from 1989 simcity. Scenario select \u2014 5 preset disasters (Las Vegas monster + Bern traffic + Tokyo earthquake etc.) + difficulty. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_simcity_scenarios_select",
+  "source_progression_description": "Scenario select \u2014 5 preset disasters (Las Vegas monster + Bern traffic + Tokyo earthquake etc.) + difficulty",
+  "nudges": []
+}

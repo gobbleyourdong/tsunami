@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "hud",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of hud \u2014 a ui (hud_readout) from 1990 super mario world. HUD \u2014 lives/coins/score/time + Yoshi-indicator. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_hud",
+  "source_progression_description": "HUD \u2014 lives/coins/score/time + Yoshi-indicator",
+  "nudges": []
+}

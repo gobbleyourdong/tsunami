@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "samus_unused_palette_pose",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of samus_unused_palette_pose \u2014 a character (playable) from 1986 metroid. 'Unused' label \u2014 spare Samus pose present in ROM but not used in-game. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_samus_unused_palette_pose",
+  "source_progression_description": "'Unused' label \u2014 spare Samus pose present in ROM but not used in-game",
+  "nudges": []
+}

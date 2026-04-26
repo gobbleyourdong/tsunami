@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "physical_hit_flash_tan",
+  "kind": "effect_layer",
+  "sub_kind": "explosion_vfx",
+  "frame_count": 5,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of physical_hit_flash_tan \u2014 a effect_layer (explosion_vfx) from 1986 dragon quest. may indicate weak hit or monster-critical variant. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_physical_hit_flash_tan",
+  "source_progression_description": "5-frame tan/brown burst \u2014 may indicate weak hit or monster-critical variant",
+  "nudges": []
+}

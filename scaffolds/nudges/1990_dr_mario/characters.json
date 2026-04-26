@@ -1,0 +1,12 @@
+{
+  "essence": "1990_dr_mario",
+  "animation_name": "characters",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of characters \u2014 a character (playable) from 1990 dr mario. Dr. Mario animations (pill-throw pose \u00d7 4 tempos) + 3 Virus mascots (Red Fever/Blue Chill/Yellow Weird) idle-wiggle + defeated-pose. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_dr_mario_characters",
+  "source_progression_description": "Dr. Mario animations (pill-throw pose \u00d7 4 tempos) + 3 Virus mascots (Red Fever/Blue Chill/Yellow Weird) idle-wiggle + defeated-pose",
+  "nudges": []
+}

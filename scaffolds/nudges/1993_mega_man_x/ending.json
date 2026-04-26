@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mega_man_x",
+  "animation_name": "ending",
+  "kind": "ui",
+  "sub_kind": "cutscene",
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of ending \u2014 a ui (cutscene) from 1993 mega man x. Ending cutscene \u2014 X rides into sunset, Zero-reveal. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mega_man_x_ending",
+  "source_progression_description": "Ending cutscene \u2014 X rides into sunset, Zero-reveal",
+  "nudges": []
+}

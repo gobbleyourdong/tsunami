@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "projectile_wave_beam",
+  "kind": "projectile",
+  "sub_kind": "special_attack_proj",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of projectile_wave_beam \u2014 a projectile (special_attack_proj) from 1986 metroid. Wave Beam \u2014 4-frame sine-wave projectile. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_projectile_wave_beam",
+  "source_progression_description": "Wave Beam \u2014 4-frame sine-wave projectile; passes through walls; acquired as beam-upgrade",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "pause_font_x_counter",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 13,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of pause_font_x_counter \u2014 a ui (menu_screen) from 1986 legend of zelda. Pause-counter font \u2014 'X' prefix + 0-9 digits + 'A' 'B' \u2014 13 glyphs used in pause-screen counters ('X12' rupees etc). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_pause_font_x_counter",
+  "source_progression_description": "Pause-counter font \u2014 'X' prefix + 0-9 digits + 'A' 'B' \u2014 13 glyphs used in pause-screen counters ('X12' rupees etc)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "world_2_2_layout",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of world_2_2_layout \u2014 a tile (level_layout) from 1985 super mario bros. First underwater level \u2014 blue-water palette, coral floor, Bloopers + Cheep-Cheeps float/swim. Mario has swim-jump physics.. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_world_2_2_layout",
+  "source_progression_description": "First underwater level \u2014 blue-water palette, coral floor, Bloopers + Cheep-Cheeps float/swim. Mario has swim-jump physics.",
+  "nudges": []
+}

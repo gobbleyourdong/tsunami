@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "mario_circuit_variants",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of mario_circuit_variants \u2014 a tile from 1992 super mario kart. Mario Circuit 1-4 (asset IDs 6877/81341/81342/81343) \u2014 grassy-figure-8 tracks. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_mario_circuit_variants",
+  "source_progression_description": "Mario Circuit 1-4 (asset IDs 6877/81341/81342/81343) \u2014 grassy-figure-8 tracks",
+  "nudges": []
+}

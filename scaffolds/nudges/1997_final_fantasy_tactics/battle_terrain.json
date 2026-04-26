@@ -1,0 +1,12 @@
+{
+  "essence": "1997_final_fantasy_tactics",
+  "animation_name": "battle_terrain",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 50,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of battle_terrain \u2014 a tile from 1997 final fantasy tactics. Isometric battle-maps with height-layers \u2014 castle/mountain/river/desert/chapel terrain tiles. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_final_fantasy_tactics_battle_terrain",
+  "source_progression_description": "Isometric battle-maps with height-layers \u2014 castle/mountain/river/desert/chapel terrain tiles",
+  "nudges": []
+}

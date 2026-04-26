@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "small_mario_die",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of small_mario_die \u2014 a character (playable) from 1985 super mario bros. Death pose \u2014 Mario falls backward arms-up. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_small_mario_die",
+  "source_progression_description": "Death pose \u2014 Mario falls backward arms-up; plays at moment of death; composited with upward-then-downward arc in engine, not per-frame animation on sheet",
+  "nudges": []
+}

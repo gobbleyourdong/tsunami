@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "palette_overworld_underground_underwater_castle",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of palette_overworld_underground_underwater_castle \u2014 a ui from 1985 super mario bros. Reference palette strip \u2014 4 color-slot states for the player sprite across different level types: overworld / underground / underwater / castle. Drives per-zone hue shift at load-time, not per-frame animation. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_palette_overworld_underground_underwater_castle",
+  "source_progression_description": "Reference palette strip \u2014 4 color-slot states for the player sprite across different level types: overworld / underground / underwater / castle. Drives per-zone hue shift at load-time, not per-frame animation",
+  "nudges": []
+}

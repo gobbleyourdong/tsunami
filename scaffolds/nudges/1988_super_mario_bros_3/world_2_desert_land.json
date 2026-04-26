@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "world_2_desert_land",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of world_2_desert_land \u2014 a tile (level_layout) from 1988 super mario bros 3. World 2 \u2014 Desert Hill/Desert Land. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_world_2_desert_land",
+  "source_progression_description": "World 2 \u2014 Desert Hill/Desert Land; pyramid + quicksand",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1989_final_fight",
+  "animation_name": "axl_grunt",
+  "kind": "character",
+  "sub_kind": "minion",
+  "frame_count": 24,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of axl_grunt \u2014 a character (minion) from 1989 final fight. Axl \u2014 standard punk grunt, multi-palette variants. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_final_fight_axl_grunt",
+  "source_progression_description": "Axl \u2014 standard punk grunt, multi-palette variants",
+  "nudges": []
+}

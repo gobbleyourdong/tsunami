@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "small_enemies_atlas",
+  "kind": "character",
+  "sub_kind": "enemy_group",
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of small_enemies_atlas \u2014 a character (enemy_group) from 1987 final fantasy. Small-enemy roster \u2014 3 rows \u00d7 20 cols. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_small_enemies_atlas",
+  "source_progression_description": "Small-enemy roster \u2014 3 rows \u00d7 20 cols; imps/goblins/wolves/bats/snakes/zombies/skeletons/eyeballs/crocodiles/tigers/centaurs. Color-palette variants indicate tier (green\u2192red\u2192purple\u2192black is weak\u2192strong progression)",
+  "nudges": []
+}

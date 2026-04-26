@@ -1,0 +1,25 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "zora_emerge",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of zora_emerge \u2014 a character (playable) from 1986 legend of zelda. Zora (fish-man) \u2014 3-frame: rising-from-water / head-extended / firing-fireball. Emerges periodically from rivers/ponds. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_zora_emerge",
+  "source_progression_description": "Zora (fish-man) \u2014 3-frame: rising-from-water / head-extended / firing-fireball. Emerges periodically from rivers/ponds; threatens Link at distance",
+  "nudges": [
+    {
+      "delta": "head-extended",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "firing-fireball. Emerges periodically from rivers/ponds",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

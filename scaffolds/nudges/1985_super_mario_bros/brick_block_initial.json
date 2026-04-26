@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "brick_block_initial",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of brick_block_initial \u2014 a tile from 1985 super mario bros. Initial state of brick-block (pre-hit) \u2014 2\u00d72 sub-brick pattern tile. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_brick_block_initial",
+  "source_progression_description": "Initial state of brick-block (pre-hit) \u2014 2\u00d72 sub-brick pattern tile; destructible by Big Mario from below",
+  "nudges": []
+}

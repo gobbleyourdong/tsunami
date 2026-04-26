@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "keese_fly",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of keese_fly \u2014 a character from 1986 legend of zelda. Keese \u2014 small bat. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_keese_fly",
+  "source_progression_description": "Keese \u2014 small bat; 2-frame wing-flap; dive-flies erratically around dungeon rooms",
+  "nudges": []
+}

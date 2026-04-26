@@ -1,0 +1,12 @@
+{
+  "essence": "1997_final_fantasy_vii",
+  "animation_name": "mini_games_ui",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of mini_games_ui \u2014 a ui from 1997 final fantasy vii. Chocobo Racing + Fort Condor RTS + Submarine + Snowboarding mini-games UI. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_final_fantasy_vii_mini_games_ui",
+  "source_progression_description": "Chocobo Racing + Fort Condor RTS + Submarine + Snowboarding mini-games UI",
+  "nudges": []
+}

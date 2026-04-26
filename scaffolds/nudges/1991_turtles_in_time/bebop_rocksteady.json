@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "bebop_rocksteady",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 24,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bebop_rocksteady \u2014 a character (boss) from 1991 turtles in time. Bebop + Rocksteady \u2014 Stage 5 boss duo (pig + rhino). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_bebop_rocksteady",
+  "source_progression_description": "Bebop + Rocksteady \u2014 Stage 5 boss duo (pig + rhino)",
+  "nudges": []
+}

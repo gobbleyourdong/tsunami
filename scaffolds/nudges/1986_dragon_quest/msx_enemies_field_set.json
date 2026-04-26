@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "msx_enemies_field_set",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of msx_enemies_field_set \u2014 a character from 1986 dragon quest. MSX field enemies \u2014 overworld random encounters: slime/redslime/drakee/wyvern/droll/ghost/magician/golem variants. 410\u00d7483 RGBA canvas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_msx_enemies_field_set",
+  "source_progression_description": "MSX field enemies \u2014 overworld random encounters: slime/redslime/drakee/wyvern/droll/ghost/magician/golem variants. 410\u00d7483 RGBA canvas",
+  "nudges": []
+}

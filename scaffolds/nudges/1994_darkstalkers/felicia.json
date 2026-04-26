@@ -1,0 +1,12 @@
+{
+  "essence": "1994_darkstalkers",
+  "animation_name": "felicia",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 80,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of felicia \u2014 a character from 1994 darkstalkers. Felicia \u2014 catwoman cat-bestia. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_darkstalkers_felicia",
+  "source_progression_description": "Felicia \u2014 catwoman cat-bestia; Delta Kick + Rolling Buckler",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "mega_man_shooting",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of mega_man_shooting \u2014 a character from 1987 mega man. Shoot idle + walk \u2014 blaster-arm forward. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_mega_man_shooting",
+  "source_progression_description": "Shoot idle + walk \u2014 blaster-arm forward",
+  "nudges": []
+}

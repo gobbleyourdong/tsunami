@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "maze_flash_end_of_level",
+  "kind": "effect_layer",
+  "sub_kind": "aura_vfx",
+  "frame_count": 7,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of maze_flash_end_of_level \u2014 a effect_layer (aura_vfx) from 1980 pac man. End-of-level maze-flash \u2014 after last dot eaten, maze walls alternate blue. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_maze_flash_end_of_level",
+  "source_progression_description": "End-of-level maze-flash \u2014 after last dot eaten, maze walls alternate blue\u2192white rapidly (3-4 cycles over ~1s), creating celebratory flash before level transition. Sheet shows several color variants (blue/cyan/white/red) that cycle",
+  "nudges": []
+}

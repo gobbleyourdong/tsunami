@@ -1,0 +1,19 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "dolphins",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of dolphins \u2014 a character from 1990 super mario world. Dolphins \u2014 Vanilla Dome / Cheese Bridge water-jumping platforms. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_dolphins",
+  "source_progression_description": "Dolphins \u2014 Vanilla Dome / Cheese Bridge water-jumping platforms",
+  "nudges": [
+    {
+      "delta": "Cheese Bridge water-jumping platforms",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "world_4_1_layout",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of world_4_1_layout \u2014 a tile (level_layout) from 1985 super mario bros. Overworld \u2014 lakitu debut. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_world_4_1_layout",
+  "source_progression_description": "Overworld \u2014 lakitu debut; clouds floating / throwing Spinies. Horizontal pipe introduced as shortcut entry.",
+  "nudges": []
+}

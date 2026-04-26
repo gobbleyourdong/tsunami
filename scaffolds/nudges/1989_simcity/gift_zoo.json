@@ -1,0 +1,12 @@
+{
+  "essence": "1989_simcity",
+  "animation_name": "gift_zoo",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of gift_zoo \u2014 a tile from 1989 simcity. Zoo gift. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_simcity_gift_zoo",
+  "source_progression_description": "Zoo gift",
+  "nudges": []
+}

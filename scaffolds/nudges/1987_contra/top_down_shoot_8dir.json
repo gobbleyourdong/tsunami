@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "top_down_shoot_8dir",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of top_down_shoot_8dir \u2014 a character from 1987 contra. Overhead-view poses for base-interior stages (2 + 4) \u2014 8 directional shoot sprites. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_top_down_shoot_8dir",
+  "source_progression_description": "Overhead-view poses for base-interior stages (2 + 4) \u2014 8 directional shoot sprites",
+  "nudges": []
+}

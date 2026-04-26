@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "link_wooden_sword_slash_4dir",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of link_wooden_sword_slash_4dir \u2014 a character (playable) from 1986 legend of zelda. Wooden Sword attack \u2014 4-dir single-frame slash pose with sword extended forward in facing direction. Level-1 starting weapon. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_link_wooden_sword_slash_4dir",
+  "source_progression_description": "Wooden Sword attack \u2014 4-dir single-frame slash pose with sword extended forward in facing direction. Level-1 starting weapon",
+  "nudges": []
+}

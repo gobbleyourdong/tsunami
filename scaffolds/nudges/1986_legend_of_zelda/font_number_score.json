@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "font_number_score",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 10,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of font_number_score \u2014 a ui (hud_readout) from 1986 legend of zelda. HUD-specific 0-9 digits \u2014 used in rupee/bomb/key counters. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_font_number_score",
+  "source_progression_description": "HUD-specific 0-9 digits \u2014 used in rupee/bomb/key counters",
+  "nudges": []
+}

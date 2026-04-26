@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "darknut_walk",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of darknut_walk \u2014 a character from 1986 legend of zelda. Darknut \u2014 armored knight. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_darknut_walk",
+  "source_progression_description": "Darknut \u2014 armored knight; 4-dir walk; front-shielded, must attack from side/behind. Red (weaker) + blue (stronger) variants",
+  "nudges": []
+}

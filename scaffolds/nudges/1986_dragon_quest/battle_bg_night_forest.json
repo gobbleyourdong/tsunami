@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "battle_bg_night_forest",
+  "kind": "background_layer",
+  "sub_kind": "parallax_single",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of battle_bg_night_forest \u2014 a background_layer (parallax_single) from 1986 dragon quest. Night-forest backdrop \u2014 darker palette variant. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_battle_bg_night_forest",
+  "source_progression_description": "Night-forest backdrop \u2014 darker palette variant",
+  "nudges": []
+}

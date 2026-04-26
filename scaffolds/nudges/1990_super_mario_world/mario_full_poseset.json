@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "mario_full_poseset",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 200,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of mario_full_poseset \u2014 a character (playable) from 1990 super mario world. Mario \u2014 Small/Super/Fire/Cape forms \u00d7 stand/walk/run/jump/crouch/swim/slide/spin-jump (new!)/climb/pipe/Yoshi-ride/Yoshi-dismount/throw-turtle-shell/throw-item/Goal-tape/cleared. 1004\u00d73618 massive atlas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_mario_full_poseset",
+  "source_progression_description": "Mario \u2014 Small/Super/Fire/Cape forms \u00d7 stand/walk/run/jump/crouch/swim/slide/spin-jump (new!)/climb/pipe/Yoshi-ride/Yoshi-dismount/throw-turtle-shell/throw-item/Goal-tape/cleared. 1004\u00d73618 massive atlas",
+  "nudges": []
+}

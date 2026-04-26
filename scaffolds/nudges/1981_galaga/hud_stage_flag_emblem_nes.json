@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "hud_stage_flag_emblem_nes",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of hud_stage_flag_emblem_nes \u2014 a ui from 1981 galaga. Stage-flag emblems \u2014 1/5/10/20/30/50 values shown at bottom-right. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_hud_stage_flag_emblem_nes",
+  "source_progression_description": "Stage-flag emblems \u2014 1/5/10/20/30/50 values shown at bottom-right; NES palette",
+  "nudges": []
+}

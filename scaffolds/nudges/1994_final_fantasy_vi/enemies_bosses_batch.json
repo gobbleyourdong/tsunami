@@ -1,0 +1,12 @@
+{
+  "essence": "1994_final_fantasy_vi",
+  "animation_name": "enemies_bosses_batch",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 250,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemies_bosses_batch \u2014 a character (final_boss) from 1994 final fantasy vi. ~250 enemies + bosses (including Kefka multi-form finale, Atma Weapon, Tonberry debut, Magic Master). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_final_fantasy_vi_enemies_bosses_batch",
+  "source_progression_description": "~250 enemies + bosses (including Kefka multi-form finale, Atma Weapon, Tonberry debut, Magic Master)",
+  "nudges": []
+}

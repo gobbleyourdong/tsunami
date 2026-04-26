@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "cid_pollendina",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of cid_pollendina \u2014 a character (playable) from 1991 final fantasy iv. Cid Pollendina \u2014 Baron airship engineer. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_cid_pollendina",
+  "source_progression_description": "Cid Pollendina \u2014 Baron airship engineer; recurring FF Cid archetype established here",
+  "nudges": []
+}

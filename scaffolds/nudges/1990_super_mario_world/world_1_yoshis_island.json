@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "world_1_yoshis_island",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 5,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of world_1_yoshis_island \u2014 a tile (level_layout) from 1990 super mario world. Yoshi's Island \u2014 5 stages (Yoshi's House + YI-1 + YI-2 + YI-3 + YI-4 + Yellow Switch Palace). Starter world tutorial. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_world_1_yoshis_island",
+  "source_progression_description": "Yoshi's Island \u2014 5 stages (Yoshi's House + YI-1 + YI-2 + YI-3 + YI-4 + Yellow Switch Palace). Starter world tutorial",
+  "nudges": []
+}

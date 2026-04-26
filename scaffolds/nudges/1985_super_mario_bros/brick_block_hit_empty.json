@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "brick_block_hit_empty",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of brick_block_hit_empty \u2014 a effect_layer from 1985 super mario bros. Empty bump \u2014 brick-block contains no power-up so it just bumps up and returns without shattering (played when Small Mario hits). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_brick_block_hit_empty",
+  "source_progression_description": "Empty bump \u2014 brick-block contains no power-up so it just bumps up and returns without shattering (played when Small Mario hits)",
+  "nudges": []
+}

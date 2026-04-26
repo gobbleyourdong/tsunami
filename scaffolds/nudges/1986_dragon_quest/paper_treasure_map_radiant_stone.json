@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "paper_treasure_map_radiant_stone",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of paper_treasure_map_radiant_stone \u2014 a ui from 1986 dragon quest. 'Paper treasure map' scroll sprite \u2014 parchment with brown border + marker indicating hidden item (Staff of Rain or Radiant Stone search hints). In-game used to gate progression toward Dragonlord's island. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_paper_treasure_map_radiant_stone",
+  "source_progression_description": "'Paper treasure map' scroll sprite \u2014 parchment with brown border + marker indicating hidden item (Staff of Rain or Radiant Stone search hints). In-game used to gate progression toward Dragonlord's island",
+  "nudges": []
+}

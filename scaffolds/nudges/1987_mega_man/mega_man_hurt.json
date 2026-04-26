@@ -1,0 +1,12 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "mega_man_hurt",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of mega_man_hurt \u2014 a character from 1987 mega man. Hurt \u2014 knockback flinch pose. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_mega_man_hurt",
+  "source_progression_description": "Hurt \u2014 knockback flinch pose",
+  "nudges": []
+}

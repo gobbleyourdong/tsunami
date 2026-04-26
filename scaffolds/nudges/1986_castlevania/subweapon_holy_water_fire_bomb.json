@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "subweapon_holy_water_fire_bomb",
+  "kind": "projectile",
+  "sub_kind": "special_attack_proj",
+  "frame_count": 5,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of subweapon_holy_water_fire_bomb \u2014 a projectile (special_attack_proj) from 1986 castlevania. Holy Water bottle subweapon \u2014 thrown short distance to ground, shatters in flame on impact. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_subweapon_holy_water_fire_bomb",
+  "source_progression_description": "Holy Water bottle subweapon \u2014 thrown short distance to ground, shatters in flame on impact; 5-frame animation (bottle mid-air \u2192 bottle-shatter \u2192 3-frame flame-pillar). Stuns enemies standing on fire. Heart cost 1 (2 for Stopwatch+)",
+  "nudges": []
+}

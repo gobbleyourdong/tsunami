@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "raccoon_mario",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 10,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of raccoon_mario \u2014 a character (playable) from 1988 super mario bros 3. Raccoon Mario (Super Leaf) \u2014 tail-whip attack + flight (P-meter fill) + slow-fall glide. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_raccoon_mario",
+  "source_progression_description": "Raccoon Mario (Super Leaf) \u2014 tail-whip attack + flight (P-meter fill) + slow-fall glide",
+  "nudges": []
+}

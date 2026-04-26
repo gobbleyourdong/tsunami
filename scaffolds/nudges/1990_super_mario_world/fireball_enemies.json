@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "fireball_enemies",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of fireball_enemies \u2014 a character from 1990 super mario world. Bullet Bills + Podoboos + Ball 'n' Chain hazards. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_fireball_enemies",
+  "source_progression_description": "Bullet Bills + Podoboos + Ball 'n' Chain hazards",
+  "nudges": []
+}

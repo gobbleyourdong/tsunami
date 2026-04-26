@@ -1,0 +1,12 @@
+{
+  "essence": "1988_mega_man_2",
+  "animation_name": "dr_wily_phases",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of dr_wily_phases \u2014 a character (boss) from 1988 mega man 2. Dr. Wily Machine 2 \u2014 multi-phase fight (2-stage mech) + Wily Alien final-form (hologram trick, revealed as hologram by Bubble Lead). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_mega_man_2_dr_wily_phases",
+  "source_progression_description": "Dr. Wily Machine 2 \u2014 multi-phase fight (2-stage mech) + Wily Alien final-form (hologram trick, revealed as hologram by Bubble Lead)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "trees_bg_loop_overworld",
+  "kind": "background_layer",
+  "sub_kind": "parallax_single",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of trees_bg_loop_overworld \u2014 a background_layer (parallax_single) from 1985 super mario bros. 48-tile-wide (3-screen) parallax background \u2014 tree trunks + foliage + fence + distant clouds. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_trees_bg_loop_overworld",
+  "source_progression_description": "48-tile-wide (3-screen) parallax background \u2014 tree trunks + foliage + fence + distant clouds; appears in forested overworld levels; trees alternate tall and short groupings creating visual rhythm",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mortal_kombat_ii",
+  "animation_name": "shao_kahn",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 40,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of shao_kahn \u2014 a character (final_boss) from 1993 mortal kombat ii. Shao Kahn \u2014 final boss, Emperor of Outworld. Hammer-swing + Taunts ('You Weak Pathetic Fool'). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mortal_kombat_ii_shao_kahn",
+  "source_progression_description": "Shao Kahn \u2014 final boss, Emperor of Outworld. Hammer-swing + Taunts ('You Weak Pathetic Fool')",
+  "nudges": []
+}

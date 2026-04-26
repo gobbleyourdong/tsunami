@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "assembled_structure_pipe_tall",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of assembled_structure_pipe_tall \u2014 a tile from 1985 super mario bros. Pre-composed tall pipe \u2014 2-tile wide \u00d7 4-tile tall green pipe showing cap + 3 body segments. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_assembled_structure_pipe_tall",
+  "source_progression_description": "Pre-composed tall pipe \u2014 2-tile wide \u00d7 4-tile tall green pipe showing cap + 3 body segments; reference composition for level-build visualization",
+  "nudges": []
+}

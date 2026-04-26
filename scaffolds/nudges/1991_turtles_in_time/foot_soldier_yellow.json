@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "foot_soldier_yellow",
+  "kind": "character",
+  "sub_kind": "minion",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of foot_soldier_yellow \u2014 a character (minion) from 1991 turtles in time. Foot Soldier yellow. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_foot_soldier_yellow",
+  "source_progression_description": "Foot Soldier yellow",
+  "nudges": []
+}

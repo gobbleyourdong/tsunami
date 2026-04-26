@@ -1,0 +1,19 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "ghost_blinky_move",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ghost_blinky_move \u2014 a character (playable) from 1980 pac man. Red ghost (Blinky / Shadow / Oikake-Akabei) \u2014 2-frame body-wave cycle alternating bottom-fringe position. One sprite set per direction (right/left/up/down) with eyes-only direction-change. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_ghost_blinky_move",
+  "source_progression_description": "Red ghost (Blinky / Shadow / Oikake-Akabei) \u2014 2-frame body-wave cycle alternating bottom-fringe position. One sprite set per direction (right/left/up/down) with eyes-only direction-change; body identical across dirs, pupils offset to indicate look-direction. Chases player directly",
+  "nudges": [
+    {
+      "delta": "Shadow",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1996_super_mario_rpg",
+  "animation_name": "enemies_roster",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 100,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemies_roster \u2014 a character (boss) from 1996 super mario rpg. Enemies \u2014 Goombas + Koopas + Smithy Gang grunts + unique (Crystal/Guerilla/Bundt wedding cake boss). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_super_mario_rpg_enemies_roster",
+  "source_progression_description": "Enemies \u2014 Goombas + Koopas + Smithy Gang grunts + unique (Crystal/Guerilla/Bundt wedding cake boss)",
+  "nudges": []
+}

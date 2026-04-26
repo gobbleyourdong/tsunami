@@ -1,0 +1,12 @@
+{
+  "essence": "1988_mega_man_2",
+  "animation_name": "items_miscellaneous",
+  "kind": "pickup_item",
+  "sub_kind": "health_pickup",
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of items_miscellaneous \u2014 a pickup_item (health_pickup) from 1988 mega man 2. Pickups \u2014 E-tank (new! stores energy), small/large energy, weapon-energy, 1UP, score-balls. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_mega_man_2_items_miscellaneous",
+  "source_progression_description": "Pickups \u2014 E-tank (new! stores energy), small/large energy, weapon-energy, 1UP, score-balls",
+  "nudges": []
+}

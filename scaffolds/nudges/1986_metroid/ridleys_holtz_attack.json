@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "ridleys_holtz_attack",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ridleys_holtz_attack \u2014 a character (boss) from 1986 metroid. Holtz \u2014 ceiling-attacker in Ridley's Lair. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_ridleys_holtz_attack",
+  "source_progression_description": "Holtz \u2014 ceiling-attacker in Ridley's Lair",
+  "nudges": []
+}

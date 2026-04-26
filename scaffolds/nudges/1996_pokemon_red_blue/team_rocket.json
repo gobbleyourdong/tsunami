@@ -1,0 +1,12 @@
+{
+  "essence": "1996_pokemon_red_blue",
+  "animation_name": "team_rocket",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of team_rocket \u2014 a character from 1996 pokemon red blue. Team Rocket grunts + Jessie/James anime-cameos. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_pokemon_red_blue_team_rocket",
+  "source_progression_description": "Team Rocket grunts + Jessie/James anime-cameos",
+  "nudges": []
+}

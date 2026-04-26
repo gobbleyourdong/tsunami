@@ -1,0 +1,12 @@
+{
+  "essence": "1989_populous",
+  "animation_name": "structures",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 16,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of structures \u2014 a tile from 1989 populous. Settlement buildings \u2014 hut/house/tower/castle at 4 tier-upgrades \u00d7 good + evil palette variants. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_populous_structures",
+  "source_progression_description": "Settlement buildings \u2014 hut/house/tower/castle at 4 tier-upgrades \u00d7 good + evil palette variants",
+  "nudges": []
+}

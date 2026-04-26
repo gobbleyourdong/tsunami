@@ -1,0 +1,12 @@
+{
+  "essence": "1994_final_fantasy_vi",
+  "animation_name": "playables_14_batch",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 14,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of playables_14_batch \u2014 a character (playable) from 1994 final fantasy vi. 14 playable characters \u2014 Terra (half-esper)/Locke (thief)/Edgar (machinist)/Sabin (martial artist twin)/Celes (magitek knight)/Cyan (samurai)/Shadow (ninja)/Gau (child of wild)/Setzer (gambler)/Mog (moogle)/Strago (mage)/Relm (painter)/Umaro (yeti)/Gogo (mime) + Leo (temp story). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_final_fantasy_vi_playables_14_batch",
+  "source_progression_description": "14 playable characters \u2014 Terra (half-esper)/Locke (thief)/Edgar (machinist)/Sabin (martial artist twin)/Celes (magitek knight)/Cyan (samurai)/Shadow (ninja)/Gau (child of wild)/Setzer (gambler)/Mog (moogle)/Strago (mage)/Relm (painter)/Umaro (yeti)/Gogo (mime) + Leo (temp story)",
+  "nudges": []
+}

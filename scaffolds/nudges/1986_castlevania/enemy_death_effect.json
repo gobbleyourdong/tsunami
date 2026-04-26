@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "enemy_death_effect",
+  "kind": "effect_layer",
+  "sub_kind": "explosion_vfx",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemy_death_effect \u2014 a effect_layer (explosion_vfx) from 1986 castlevania. shared across all enemies. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_enemy_death_effect",
+  "source_progression_description": "4-frame enemy-death burst \u2014 shared across all enemies; small-flash \u2192 cross-spark \u2192 wider-spark \u2192 fade. Heart-item spawn may follow",
+  "nudges": []
+}

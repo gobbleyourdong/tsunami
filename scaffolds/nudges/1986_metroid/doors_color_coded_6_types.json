@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "doors_color_coded_6_types",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of doors_color_coded_6_types \u2014 a tile from 1986 metroid. Doors \u2014 6 color-coded door types: Basic (blue) / Orange (rockets) / Blue (rockets alt) / Pink (Samus Suitless) / Red (Ridley-only) / Orange (Tourian-only). Color indicates required weapon/state to open. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_doors_color_coded_6_types",
+  "source_progression_description": "Doors \u2014 6 color-coded door types: Basic (blue) / Orange (rockets) / Blue (rockets alt) / Pink (Samus Suitless) / Red (Ridley-only) / Orange (Tourian-only). Color indicates required weapon/state to open",
+  "nudges": []
+}

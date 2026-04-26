@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "items_and_effects",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of items_and_effects \u2014 a ui from 1995 chrono trigger. Items & Effects. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_items_and_effects",
+  "source_progression_description": "Items & Effects",
+  "nudges": []
+}

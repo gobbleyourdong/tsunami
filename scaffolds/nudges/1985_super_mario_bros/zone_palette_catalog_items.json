@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "zone_palette_catalog_items",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of zone_palette_catalog_items \u2014 a ui from 1985 super mario bros. Documentation block \u2014 all item/object/pipe/block tiles shown in all 4 zone palettes (Overworld / Underground / Castle / Underwater) with hex codes for Nestopia/Nesen + FCEUX emulator variants. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_zone_palette_catalog_items",
+  "source_progression_description": "Documentation block \u2014 all item/object/pipe/block tiles shown in all 4 zone palettes (Overworld / Underground / Castle / Underwater) with hex codes for Nestopia/Nesen + FCEUX emulator variants",
+  "nudges": []
+}

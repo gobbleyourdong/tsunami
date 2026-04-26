@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "space_travel_cutscenes",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 12,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of space_travel_cutscenes \u2014 a ui from 1991 final fantasy iv. Space-travel cutscenes \u2014 Earth-to-Moon transit with Big Whale. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_space_travel_cutscenes",
+  "source_progression_description": "Space-travel cutscenes \u2014 Earth-to-Moon transit with Big Whale",
+  "nudges": []
+}

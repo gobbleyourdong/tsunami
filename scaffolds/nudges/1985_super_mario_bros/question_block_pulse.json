@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "question_block_pulse",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of question_block_pulse \u2014 a tile from 1985 super mario bros. '?' glyph brightens from dim orange to full yellow and back. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_question_block_pulse",
+  "source_progression_description": "4-frame color-pulse cycle \u2014 '?' glyph brightens from dim orange to full yellow and back; plays continuously while block is active (pre-hit)",
+  "nudges": []
+}

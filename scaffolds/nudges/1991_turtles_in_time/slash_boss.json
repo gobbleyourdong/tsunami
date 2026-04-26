@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "slash_boss",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of slash_boss \u2014 a character (boss) from 1991 turtles in time. Slash \u2014 evil-turtle boss. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_slash_boss",
+  "source_progression_description": "Slash \u2014 evil-turtle boss",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "warp_zone_welcome_text",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of warp_zone_welcome_text \u2014 a ui from 1985 super mario bros. 'WELCOME TO WARP ZONE!' text rendered over starry-black background \u2014 appears after entering vine / secret pipe leading to warp area. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_warp_zone_welcome_text",
+  "source_progression_description": "'WELCOME TO WARP ZONE!' text rendered over starry-black background \u2014 appears after entering vine / secret pipe leading to warp area; static, not animated",
+  "nudges": []
+}

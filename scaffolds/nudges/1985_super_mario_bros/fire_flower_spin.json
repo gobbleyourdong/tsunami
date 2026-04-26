@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "fire_flower_spin",
+  "kind": "pickup_item",
+  "sub_kind": "power_item",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of fire_flower_spin \u2014 a pickup_item (power_item) from 1985 super mario bros. fire-flower's petal shape rotates through 4 phases creating subtle spin-illusion. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_fire_flower_spin",
+  "source_progression_description": "4-frame petal-rotation \u2014 fire-flower's petal shape rotates through 4 phases creating subtle spin-illusion; palette cycles overworld-green \u2192 red \u2192 underworld-green \u2192 red palette per sheet note",
+  "nudges": []
+}

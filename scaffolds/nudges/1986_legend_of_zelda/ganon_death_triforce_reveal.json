@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "ganon_death_triforce_reveal",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ganon_death_triforce_reveal \u2014 a character (boss) from 1986 legend of zelda. Ganon death \u2014 4-frame explosion reveals Triforce of Power piece. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_ganon_death_triforce_reveal",
+  "source_progression_description": "Ganon death \u2014 4-frame explosion reveals Triforce of Power piece; Link picks up to complete Triforce and rescue Zelda",
+  "nudges": []
+}

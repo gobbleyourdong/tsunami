@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "zelda_captive_idle",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of zelda_captive_idle \u2014 a character (boss) from 1986 legend of zelda. Princess Zelda (rescued) \u2014 pink dress, crown. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_zelda_captive_idle",
+  "source_progression_description": "Princess Zelda (rescued) \u2014 pink dress, crown; appears in Level 9 Death Mountain inner chamber after Ganon defeat. Rescue-cutscene only",
+  "nudges": []
+}

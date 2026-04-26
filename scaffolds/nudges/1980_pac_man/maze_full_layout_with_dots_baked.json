@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "maze_full_layout_with_dots_baked",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of maze_full_layout_with_dots_baked \u2014 a tile (level_layout) from 1980 pac man. Complete Pac-Man maze rendered with dots baked in \u2014 used as reference composite. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_maze_full_layout_with_dots_baked",
+  "source_progression_description": "Complete Pac-Man maze rendered with dots baked in \u2014 used as reference composite; 28\u00d731 grid, black-and-checker background showing ground texture beneath dots. Pink/cherry blossom floor visible in void spaces",
+  "nudges": []
+}

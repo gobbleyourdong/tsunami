@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "lunarian_moon",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of lunarian_moon \u2014 a tile from 1991 final fantasy iv. Moon overworld \u2014 Lunarian civilization + Giant of Bab-il + Lunar Core. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_lunarian_moon",
+  "source_progression_description": "Moon overworld \u2014 Lunarian civilization + Giant of Bab-il + Lunar Core",
+  "nudges": []
+}

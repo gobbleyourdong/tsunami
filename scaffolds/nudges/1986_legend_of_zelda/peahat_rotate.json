@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "peahat_rotate",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of peahat_rotate \u2014 a character from 1986 legend of zelda. Peahat \u2014 flower-helicopter enemy. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_peahat_rotate",
+  "source_progression_description": "Peahat \u2014 flower-helicopter enemy; 2-frame blade-spin while flying. Invulnerable while spinning, vulnerable when landed",
+  "nudges": []
+}

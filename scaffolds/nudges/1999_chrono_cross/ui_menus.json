@@ -1,0 +1,12 @@
+{
+  "essence": "1999_chrono_cross",
+  "animation_name": "ui_menus",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 12,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of ui_menus \u2014 a ui (menu_screen) from 1999 chrono cross. Menu + equipment + element grid + stat UI. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1999_chrono_cross_ui_menus",
+  "source_progression_description": "Menu + equipment + element grid + stat UI",
+  "nudges": []
+}

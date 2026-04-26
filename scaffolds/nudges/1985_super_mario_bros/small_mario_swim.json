@@ -1,0 +1,25 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "small_mario_swim",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of small_mario_swim \u2014 a character (playable) from 1985 super mario bros. underwater-level stroke animation. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_small_mario_swim",
+  "source_progression_description": "3-frame swim cycle \u2014 underwater-level stroke animation; arms and legs kick in sequence",
+  "nudges": [
+    {
+      "delta": "next phase of swim cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of swim cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

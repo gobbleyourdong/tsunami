@@ -1,0 +1,12 @@
+{
+  "essence": "1994_darkstalkers",
+  "animation_name": "anakaris",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of anakaris \u2014 a character from 1994 darkstalkers. Anakaris \u2014 Egyptian pharaoh mummy. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_darkstalkers_anakaris",
+  "source_progression_description": "Anakaris \u2014 Egyptian pharaoh mummy; stretch-arm curses",
+  "nudges": []
+}

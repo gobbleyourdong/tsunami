@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "powerup_cross_screen_clear",
+  "kind": "pickup_item",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of powerup_cross_screen_clear \u2014 a pickup_item from 1986 castlevania. Cross \u2014 2-frame sparkle. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_powerup_cross_screen_clear",
+  "source_progression_description": "Cross \u2014 2-frame sparkle; clears all enemies on screen when collected",
+  "nudges": []
+}

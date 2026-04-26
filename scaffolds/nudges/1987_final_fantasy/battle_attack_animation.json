@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "battle_attack_animation",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of battle_attack_animation \u2014 a character from 1987 final fantasy. Battle-view attack swing \u2014 3-frame weapon-arc per class. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_battle_attack_animation",
+  "source_progression_description": "Battle-view attack swing \u2014 3-frame weapon-arc per class",
+  "nudges": []
+}

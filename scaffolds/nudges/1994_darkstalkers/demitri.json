@@ -1,0 +1,12 @@
+{
+  "essence": "1994_darkstalkers",
+  "animation_name": "demitri",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 80,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of demitri \u2014 a character (boss) from 1994 darkstalkers. Demitri Maximoff \u2014 vampire lead protagonist. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_darkstalkers_demitri",
+  "source_progression_description": "Demitri Maximoff \u2014 vampire lead protagonist; Chaos Flare + Midnight Bliss transform-foe-into-female",
+  "nudges": []
+}

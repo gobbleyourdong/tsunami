@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "map_popups",
+  "kind": "ui",
+  "sub_kind": "dialog",
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of map_popups \u2014 a ui (dialog) from 1988 super mario bros 3. World-map popup dialogs \u2014 'I won!', stage-name banner, King-transformed animal prompts. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_map_popups",
+  "source_progression_description": "World-map popup dialogs \u2014 'I won!', stage-name banner, King-transformed animal prompts",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "rydia_adult",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of rydia_adult \u2014 a character (playable) from 1991 final fantasy iv. Rydia (adult) \u2014 Summoner. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_rydia_adult",
+  "source_progression_description": "Rydia (adult) \u2014 Summoner; Mist-village survivor. Adult form after Feymarch growth",
+  "nudges": []
+}

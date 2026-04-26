@@ -1,0 +1,31 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "manhandla_rotate",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of manhandla_rotate \u2014 a character (boss) from 1986 legend of zelda. Manhandla \u2014 4-headed venus-flytrap. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_manhandla_rotate",
+  "source_progression_description": "Manhandla \u2014 4-headed venus-flytrap; boss of Level 3 (Manji). 4-frame rotation cycle of the 4 heads around central stalk; each head shoots fireballs. Defeat each head individually",
+  "nudges": [
+    {
+      "delta": "next phase of rotation cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of rotation cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of rotation cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

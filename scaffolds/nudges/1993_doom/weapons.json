@@ -1,0 +1,12 @@
+{
+  "essence": "1993_doom",
+  "animation_name": "weapons",
+  "kind": "projectile",
+  "sub_kind": "special_attack_proj",
+  "frame_count": 7,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of weapons \u2014 a projectile (special_attack_proj) from 1993 doom. 7 weapons \u2014 Fist/Pistol/Shotgun/Chaingun/Rocket Launcher/Plasma Rifle/BFG 9000 + firing animations. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_doom_weapons",
+  "source_progression_description": "7 weapons \u2014 Fist/Pistol/Shotgun/Chaingun/Rocket Launcher/Plasma Rifle/BFG 9000 + firing animations",
+  "nudges": []
+}

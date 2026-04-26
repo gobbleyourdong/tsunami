@@ -1,0 +1,19 @@
+{
+  "essence": "1997_final_fantasy_tactics",
+  "animation_name": "ramza_delita_agrias",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 40,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ramza_delita_agrias \u2014 a character (playable) from 1997 final fantasy tactics. Main story chars \u2014 Ramza Beoulve (protagonist), Delita Heiral (childhood friend / later King), Agrias Oaks (Holy Knight), Ovelia (princess). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_final_fantasy_tactics_ramza_delita_agrias",
+  "source_progression_description": "Main story chars \u2014 Ramza Beoulve (protagonist), Delita Heiral (childhood friend / later King), Agrias Oaks (Holy Knight), Ovelia (princess)",
+  "nudges": [
+    {
+      "delta": "later King), Agrias Oaks (Holy Knight), Ovelia (princess)",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

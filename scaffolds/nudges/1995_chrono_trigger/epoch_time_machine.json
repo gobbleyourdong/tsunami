@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "epoch_time_machine",
+  "kind": "character",
+  "sub_kind": "mount_or_vehicle",
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of epoch_time_machine \u2014 a character (mount_or_vehicle) from 1995 chrono trigger. Epoch time-machine airship (late-game unlock). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_epoch_time_machine",
+  "source_progression_description": "Epoch time-machine airship (late-game unlock)",
+  "nudges": []
+}

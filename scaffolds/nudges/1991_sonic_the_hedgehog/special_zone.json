@@ -1,0 +1,12 @@
+{
+  "essence": "1991_sonic_the_hedgehog",
+  "animation_name": "special_zone",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of special_zone \u2014 a tile from 1991 sonic the hedgehog. Special Zone \u2014 Chaos Emerald bonus stage (MS version). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_sonic_the_hedgehog_special_zone",
+  "source_progression_description": "Special Zone \u2014 Chaos Emerald bonus stage (MS version)",
+  "nudges": []
+}

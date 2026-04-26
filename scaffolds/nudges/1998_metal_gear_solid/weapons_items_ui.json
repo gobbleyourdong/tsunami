@@ -1,0 +1,12 @@
+{
+  "essence": "1998_metal_gear_solid",
+  "animation_name": "weapons_items_ui",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of weapons_items_ui \u2014 a ui from 1998 metal gear solid. Weapons (SOCOM/FAMAS/Nikita/Stinger/C4) + items (Box/Mine Detector/Thermal Goggles). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1998_metal_gear_solid_weapons_items_ui",
+  "source_progression_description": "Weapons (SOCOM/FAMAS/Nikita/Stinger/C4) + items (Box/Mine Detector/Thermal Goggles)",
+  "nudges": []
+}

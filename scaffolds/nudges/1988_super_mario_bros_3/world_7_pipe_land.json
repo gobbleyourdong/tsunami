@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "world_7_pipe_land",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of world_7_pipe_land \u2014 a tile (level_layout) from 1988 super mario bros 3. World 7 \u2014 Pipe Maze/Pipe Land. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_world_7_pipe_land",
+  "source_progression_description": "World 7 \u2014 Pipe Maze/Pipe Land; heavily pipe-based navigation",
+  "nudges": []
+}

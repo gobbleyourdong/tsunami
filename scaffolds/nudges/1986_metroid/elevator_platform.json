@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "elevator_platform",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of elevator_platform \u2014 a tile from 1986 metroid. Elevator platform \u2014 moves Samus between zones. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_elevator_platform",
+  "source_progression_description": "Elevator platform \u2014 moves Samus between zones; 8 palette variants: 1/2/3/4 for armor vs suitless \u00d7 normal/rocket. Elevators change color based on Samus's equipment",
+  "nudges": []
+}

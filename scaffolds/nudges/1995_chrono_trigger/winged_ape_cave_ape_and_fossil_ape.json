@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "winged_ape_cave_ape_and_fossil_ape",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of winged_ape_cave_ape_and_fossil_ape \u2014 a tile from 1995 chrono trigger. Winged Ape, Cave Ape, & Fossil Ape. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_winged_ape_cave_ape_and_fossil_ape",
+  "source_progression_description": "Winged Ape, Cave Ape, & Fossil Ape",
+  "nudges": []
+}

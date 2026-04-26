@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "namco_logo_label",
+  "kind": "ui",
+  "sub_kind": "logo",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of namco_logo_label \u2014 a ui (logo) from 1980 pac man. 'NAMCO' wordmark rendered in multiple palette colors (visible in red/yellow/white on sheet). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_namco_logo_label",
+  "source_progression_description": "'NAMCO' wordmark rendered in multiple palette colors (visible in red/yellow/white on sheet); used in attract-mode copyright line",
+  "nudges": []
+}

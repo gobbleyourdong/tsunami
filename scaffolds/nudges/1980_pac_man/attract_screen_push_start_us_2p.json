@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "attract_screen_push_start_us_2p",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of attract_screen_push_start_us_2p \u2014 a ui from 1980 pac man. USA 2-player variant \u2014 PUSH START BUTTON / 1 OR 2 PLAYERS / BONUS PAC-MAN FOR ___ PTS / \u00a9 1980 MIDWAY MFG. CO.. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_attract_screen_push_start_us_2p",
+  "source_progression_description": "USA 2-player variant \u2014 PUSH START BUTTON / 1 OR 2 PLAYERS / BONUS PAC-MAN FOR ___ PTS / \u00a9 1980 MIDWAY MFG. CO.",
+  "nudges": []
+}

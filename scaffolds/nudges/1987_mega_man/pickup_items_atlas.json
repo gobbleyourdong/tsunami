@@ -1,0 +1,12 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "pickup_items_atlas",
+  "kind": "pickup_item",
+  "sub_kind": "health_pickup",
+  "frame_count": 12,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of pickup_items_atlas \u2014 a pickup_item (health_pickup) from 1987 mega man. Pickups \u2014 Small/Large Energy capsule (E-tank precursor), Weapon Energy capsule, Extra Life (1UP), Score Ball, Magnet Beam (hidden weapon). 245\u00d7118 canvas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_pickup_items_atlas",
+  "source_progression_description": "Pickups \u2014 Small/Large Energy capsule (E-tank precursor), Weapon Energy capsule, Extra Life (1UP), Score Ball, Magnet Beam (hidden weapon). 245\u00d7118 canvas",
+  "nudges": []
+}

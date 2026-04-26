@@ -1,0 +1,12 @@
+{
+  "essence": "1996_pokemon_red_blue",
+  "animation_name": "kanto_overworld_maps",
+  "kind": "tile",
+  "sub_kind": "overworld_map",
+  "frame_count": 20,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of kanto_overworld_maps \u2014 a tile (overworld_map) from 1996 pokemon red blue. Kanto overworld + 20 routes + 8 cities (Pallet/Viridian/Pewter/Cerulean/Vermilion/Celadon/Fuchsia/Saffron/Cinnabar/Indigo Plateau). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_pokemon_red_blue_kanto_overworld_maps",
+  "source_progression_description": "Kanto overworld + 20 routes + 8 cities (Pallet/Viridian/Pewter/Cerulean/Vermilion/Celadon/Fuchsia/Saffron/Cinnabar/Indigo Plateau)",
+  "nudges": []
+}

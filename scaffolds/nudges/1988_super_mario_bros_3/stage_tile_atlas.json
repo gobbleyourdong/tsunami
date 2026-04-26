@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "stage_tile_atlas",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 400,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_tile_atlas \u2014 a tile (level_layout) from 1988 super mario bros 3. Master in-stage tile atlas \u2014 all 9 biomes' blocks/pipes/platforms/hazards. 2003\u00d71600 large. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_stage_tile_atlas",
+  "source_progression_description": "Master in-stage tile atlas \u2014 all 9 biomes' blocks/pipes/platforms/hazards. 2003\u00d71600 large",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "title",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of title \u2014 a ui (menu_screen) from 1991 street fighter ii. Street Fighter II title screen + attract mode. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_title",
+  "source_progression_description": "Street Fighter II title screen + attract mode",
+  "nudges": []
+}

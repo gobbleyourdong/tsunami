@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "fds_menu_save_load",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of fds_menu_save_load \u2014 a ui (menu_screen) from 1986 metroid. Famicom Disk System menu \u2014 save/load slots (FDS had battery-backed save via 3.5\" floppy, unlike NES password-only). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_fds_menu_save_load",
+  "source_progression_description": "Famicom Disk System menu \u2014 save/load slots (FDS had battery-backed save via 3.5\" floppy, unlike NES password-only)",
+  "nudges": []
+}

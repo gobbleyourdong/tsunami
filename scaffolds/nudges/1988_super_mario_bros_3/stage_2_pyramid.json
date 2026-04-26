@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "stage_2_pyramid",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_2_pyramid \u2014 a tile (level_layout) from 1988 super mario bros 3. World 2 Pyramid \u2014 angry-sun enemy section. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_stage_2_pyramid",
+  "source_progression_description": "World 2 Pyramid \u2014 angry-sun enemy section",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "luigi_variants",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 40,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of luigi_variants \u2014 a character (playable) from 1988 super mario bros 3. Luigi \u2014 palette-swap of all Mario forms (green cap + overalls). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_luigi_variants",
+  "source_progression_description": "Luigi \u2014 palette-swap of all Mario forms (green cap + overalls); same pose-set",
+  "nudges": []
+}

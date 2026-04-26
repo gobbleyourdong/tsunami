@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "large_enemies_atlas",
+  "kind": "character",
+  "sub_kind": "enemy_group",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of large_enemies_atlas \u2014 a character (enemy_group) from 1987 final fantasy. Large-enemy roster \u2014 T-rex/mindflayer/naga/hydra/giants. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_large_enemies_atlas",
+  "source_progression_description": "Large-enemy roster \u2014 T-rex/mindflayer/naga/hydra/giants",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "score_popups_eaten_ghosts",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of score_popups_eaten_ghosts \u2014 a ui (hud_readout) from 1980 pac man. Score-popup numbers for eaten ghosts in sequence during single frightened window: 200. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_score_popups_eaten_ghosts",
+  "source_progression_description": "Score-popup numbers for eaten ghosts in sequence during single frightened window: 200 \u2192 400 \u2192 800 \u2192 1600 (doubles each ghost eaten); cyan-text",
+  "nudges": []
+}

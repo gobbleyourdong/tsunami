@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "time_up_screen",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of time_up_screen \u2014 a ui from 1985 super mario bros. Time-expired screen \u2014 black background with centered 'TIME UP' text. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_time_up_screen",
+  "source_progression_description": "Time-expired screen \u2014 black background with centered 'TIME UP' text; triggers Mario die sequence after display",
+  "nudges": []
+}

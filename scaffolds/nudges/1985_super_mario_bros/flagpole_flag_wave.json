@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "flagpole_flag_wave",
+  "kind": "effect_layer",
+  "sub_kind": "atmospheric_vfx",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of flagpole_flag_wave \u2014 a effect_layer (atmospheric_vfx) from 1985 super mario bros. triangular flag at pole-top toggles between 2 wave positions. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_flagpole_flag_wave",
+  "source_progression_description": "2-frame flag alternation \u2014 triangular flag at pole-top toggles between 2 wave positions; plays continuously while level is active",
+  "nudges": []
+}

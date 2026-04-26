@@ -1,0 +1,19 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "reaper_float",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of reaper_float \u2014 a character from 1987 castlevania ii simons quest. Mini-reaper / death-mini \u2014 2-frame robe-wave. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_reaper_float",
+  "source_progression_description": "Mini-reaper / death-mini \u2014 2-frame robe-wave",
+  "nudges": [
+    {
+      "delta": "death-mini \u2014 2-frame robe-wave",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

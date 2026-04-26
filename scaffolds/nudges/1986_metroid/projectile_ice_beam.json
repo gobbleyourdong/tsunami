@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "projectile_ice_beam",
+  "kind": "projectile",
+  "sub_kind": "special_attack_proj",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of projectile_ice_beam \u2014 a projectile (special_attack_proj) from 1986 metroid. Ice Beam \u2014 4-frame cyan crystalline projectile. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_projectile_ice_beam",
+  "source_progression_description": "Ice Beam \u2014 4-frame cyan crystalline projectile; freezes enemies into platforms (required to defeat Metroids); can be combined with Wave in NAR (Non-Action-Replay?) variants",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "golbez",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of golbez \u2014 a character (playable) from 1991 final fantasy iv. Golbez \u2014 primary-antagonist mind-controlled by Zemus. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_golbez",
+  "source_progression_description": "Golbez \u2014 primary-antagonist mind-controlled by Zemus; revealed as Cecil's brother",
+  "nudges": []
+}

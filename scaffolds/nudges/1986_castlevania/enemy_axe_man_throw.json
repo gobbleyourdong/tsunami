@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "enemy_axe_man_throw",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemy_axe_man_throw \u2014 a character (playable) from 1986 castlevania. Axe-throwing knight \u2014 3-frame cycle: wind-up axe overhead / release / recovery. Axe arcs toward Simon. Harder variant of Black Knight. Levels 3, 6. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_enemy_axe_man_throw",
+  "source_progression_description": "Axe-throwing knight \u2014 3-frame cycle: wind-up axe overhead / release / recovery. Axe arcs toward Simon. Harder variant of Black Knight. Levels 3, 6",
+  "nudges": []
+}

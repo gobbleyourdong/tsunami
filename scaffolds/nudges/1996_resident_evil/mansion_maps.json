@@ -1,0 +1,12 @@
+{
+  "essence": "1996_resident_evil",
+  "animation_name": "mansion_maps",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of mansion_maps \u2014 a tile from 1996 resident evil. Spencer Mansion floor-maps (1F, 2F, 3F) + Guardhouse + Underground Lab. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_resident_evil_mansion_maps",
+  "source_progression_description": "Spencer Mansion floor-maps (1F, 2F, 3F) + Guardhouse + Underground Lab",
+  "nudges": []
+}

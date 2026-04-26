@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "octorok_walk_shoot",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of octorok_walk_shoot \u2014 a character from 1986 legend of zelda. Octorok \u2014 red/blue octopus creature. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_octorok_walk_shoot",
+  "source_progression_description": "Octorok \u2014 red/blue octopus creature; 2-frame walk + 1 shoot-stone-pose per direction. Fires stone projectile that hits 1 HP damage. Easiest overworld enemy",
+  "nudges": []
+}

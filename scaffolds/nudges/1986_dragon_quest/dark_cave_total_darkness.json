@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "dark_cave_total_darkness",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of dark_cave_total_darkness \u2014 a effect_layer from 1986 dragon quest. Full-black overlay \u2014 when no torch/radiant active. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_dark_cave_total_darkness",
+  "source_progression_description": "Full-black overlay \u2014 when no torch/radiant active; only party-cell visible",
+  "nudges": []
+}

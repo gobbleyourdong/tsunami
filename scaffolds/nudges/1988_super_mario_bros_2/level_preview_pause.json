@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_2",
+  "animation_name": "level_preview_pause",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of level_preview_pause \u2014 a ui (menu_screen) from 1988 super mario bros 2. Level-entry preview screen (shows world/level banner pre-stage) + pause-menu overlay. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_2_level_preview_pause",
+  "source_progression_description": "Level-entry preview screen (shows world/level banner pre-stage) + pause-menu overlay",
+  "nudges": []
+}

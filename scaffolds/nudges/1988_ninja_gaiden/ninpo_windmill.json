@@ -1,0 +1,12 @@
+{
+  "essence": "1988_ninja_gaiden",
+  "animation_name": "ninpo_windmill",
+  "kind": "projectile",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ninpo_windmill \u2014 a projectile from 1988 ninja gaiden. Windmill Throwing Star \u2014 boomerangs back to Ryu. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_ninja_gaiden_ninpo_windmill",
+  "source_progression_description": "Windmill Throwing Star \u2014 boomerangs back to Ryu",
+  "nudges": []
+}

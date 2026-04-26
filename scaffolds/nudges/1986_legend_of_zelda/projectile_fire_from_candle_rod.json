@@ -1,0 +1,19 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "projectile_fire_from_candle_rod",
+  "kind": "effect_layer",
+  "sub_kind": "spell_vfx",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of projectile_fire_from_candle_rod \u2014 a effect_layer (spell_vfx) from 1986 legend of zelda. Candle-flame / rod-magic projectile \u2014 small flame animation, travels short distance then dissipates. Reveals hidden rooms + burns some bushes. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_projectile_fire_from_candle_rod",
+  "source_progression_description": "Candle-flame / rod-magic projectile \u2014 small flame animation, travels short distance then dissipates. Reveals hidden rooms + burns some bushes",
+  "nudges": [
+    {
+      "delta": "rod-magic projectile \u2014 small flame animation, travels short distance then dissipates. Reveals hidden rooms + burns some bushes",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

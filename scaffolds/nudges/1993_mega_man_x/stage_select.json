@@ -1,0 +1,12 @@
+{
+  "essence": "1993_mega_man_x",
+  "animation_name": "stage_select",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_select \u2014 a ui (menu_screen) from 1993 mega man x. 8-Maverick stage-select grid (3\u00d73 with center). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1993_mega_man_x_stage_select",
+  "source_progression_description": "8-Maverick stage-select grid (3\u00d73 with center)",
+  "nudges": []
+}

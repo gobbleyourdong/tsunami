@@ -1,0 +1,12 @@
+{
+  "essence": "1996_resident_evil",
+  "animation_name": "inventory_items",
+  "kind": "pickup_item",
+  "sub_kind": "health_pickup",
+  "frame_count": 40,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of inventory_items \u2014 a pickup_item (health_pickup) from 1996 resident evil. Inventory item icons \u2014 Herbs (G/R/B + combined G+R, G+G+B, etc.) + keys + weapons icons + ink ribbons + documents. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_resident_evil_inventory_items",
+  "source_progression_description": "Inventory item icons \u2014 Herbs (G/R/B + combined G+R, G+G+B, etc.) + keys + weapons icons + ink ribbons + documents",
+  "nudges": []
+}

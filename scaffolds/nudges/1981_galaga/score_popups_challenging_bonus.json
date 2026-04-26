@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "score_popups_challenging_bonus",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of score_popups_challenging_bonus \u2014 a ui (hud_readout) from 1981 galaga. Score-popup values shown when hitting enemies: 150 / 400 / 800 / 1000 / 1500 / 3000 \u2014 pink text floats briefly at hit location before despawning. 1500 and 3000 reserved for Boss-Galaga + captured-Boss dual-hit rescue. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_score_popups_challenging_bonus",
+  "source_progression_description": "Score-popup values shown when hitting enemies: 150 / 400 / 800 / 1000 / 1500 / 3000 \u2014 pink text floats briefly at hit location before despawning. 1500 and 3000 reserved for Boss-Galaga + captured-Boss dual-hit rescue",
+  "nudges": []
+}

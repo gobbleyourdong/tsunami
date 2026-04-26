@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "enemy_white_skeleton_walk",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemy_white_skeleton_walk \u2014 a character from 1986 castlevania. White skeleton \u2014 2-frame walk. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_enemy_white_skeleton_walk",
+  "source_progression_description": "White skeleton \u2014 2-frame walk; weakest skeleton; dies to single whip hit. Appears in catacombs. Levels 5-6",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "vehicle_ship",
+  "kind": "character",
+  "sub_kind": "mount_or_vehicle",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of vehicle_ship \u2014 a character (mount_or_vehicle) from 1987 final fantasy. Pirate Ship \u2014 overworld sail-vehicle. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_vehicle_ship",
+  "source_progression_description": "Pirate Ship \u2014 overworld sail-vehicle; 4 directions (UP/LR/DN/SD labelled on sheet)",
+  "nudges": []
+}

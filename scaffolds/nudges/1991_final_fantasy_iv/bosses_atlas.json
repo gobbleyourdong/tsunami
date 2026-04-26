@@ -1,0 +1,12 @@
+{
+  "essence": "1991_final_fantasy_iv",
+  "animation_name": "bosses_atlas",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 24,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bosses_atlas \u2014 a character (final_boss) from 1991 final fantasy iv. Boss atlas \u2014 4 Elemental Archfiends (Scarmiglione/Cagnazzo/Barbariccia/Rubicante) + Lunar-arc bosses (CPU/Demon Wall/4-Crystals/Zeromus final). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_final_fantasy_iv_bosses_atlas",
+  "source_progression_description": "Boss atlas \u2014 4 Elemental Archfiends (Scarmiglione/Cagnazzo/Barbariccia/Rubicante) + Lunar-arc bosses (CPU/Demon Wall/4-Crystals/Zeromus final)",
+  "nudges": []
+}

@@ -1,0 +1,25 @@
+{
+  "essence": "1988_mega_man_2",
+  "animation_name": "walk",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of walk \u2014 a character from 1988 mega man 2. 3-frame walk cycle (faster than MM1 inch-walk). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_mega_man_2_walk",
+  "source_progression_description": "3-frame walk cycle (faster than MM1 inch-walk)",
+  "nudges": [
+    {
+      "delta": "next phase of walk cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of walk cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

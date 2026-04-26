@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "rock_soldier",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of rock_soldier \u2014 a character (boss) from 1991 turtles in time. Rock Soldier \u2014 Krang's elite Dimension-X troops. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_rock_soldier",
+  "source_progression_description": "Rock Soldier \u2014 Krang's elite Dimension-X troops",
+  "nudges": []
+}

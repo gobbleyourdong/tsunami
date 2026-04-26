@@ -1,0 +1,12 @@
+{
+  "essence": "1987_mega_man",
+  "animation_name": "stage_fire_man",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_fire_man \u2014 a tile (level_layout) from 1987 mega man. Fire Man stage \u2014 flame-factory. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_mega_man_stage_fire_man",
+  "source_progression_description": "Fire Man stage \u2014 flame-factory; rising fire-pillars",
+  "nudges": []
+}

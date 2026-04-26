@@ -1,0 +1,19 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "sniper_crouch",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of sniper_crouch \u2014 a character from 1987 contra. Blue-helm sniper \u2014 crouched, fires pistol rounds. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_sniper_crouch",
+  "source_progression_description": "Blue-helm sniper \u2014 crouched, fires pistol rounds",
+  "nudges": [
+    {
+      "delta": "fires pistol rounds",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    }
+  ]
+}

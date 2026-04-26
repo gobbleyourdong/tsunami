@@ -1,0 +1,19 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "bloober_swim",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bloober_swim \u2014 a character from 1985 super mario bros. squid-like body pulses contract/expand. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_bloober_swim",
+  "source_progression_description": "2-frame swim cycle \u2014 squid-like body pulses contract/expand; tentacles trail; vertical-chase AI underwater",
+  "nudges": [
+    {
+      "delta": "next phase of body pulses contract/expand",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

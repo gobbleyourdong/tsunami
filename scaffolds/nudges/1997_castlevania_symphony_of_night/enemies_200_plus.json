@@ -1,0 +1,12 @@
+{
+  "essence": "1997_castlevania_symphony_of_night",
+  "animation_name": "enemies_200_plus",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 140,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemies_200_plus \u2014 a character (boss) from 1997 castlevania symphony of night. ~140 enemies across normal + inverted castle \u2014 Skeletons/Zombies/Bone Pillars/Medusa Heads + unique SOTN additions (Scylla/Slogra/Gaibon/Succubus/Beelzebub/Death/Shaft/Dracula). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_castlevania_symphony_of_night_enemies_200_plus",
+  "source_progression_description": "~140 enemies across normal + inverted castle \u2014 Skeletons/Zombies/Bone Pillars/Medusa Heads + unique SOTN additions (Scylla/Slogra/Gaibon/Succubus/Beelzebub/Death/Shaft/Dracula)",
+  "nudges": []
+}

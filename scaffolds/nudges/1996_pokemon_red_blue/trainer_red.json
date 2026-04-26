@@ -1,0 +1,12 @@
+{
+  "essence": "1996_pokemon_red_blue",
+  "animation_name": "trainer_red",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of trainer_red \u2014 a character from 1996 pokemon red blue. Red \u2014 silent-protagonist trainer. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1996_pokemon_red_blue_trainer_red",
+  "source_progression_description": "Red \u2014 silent-protagonist trainer; overworld + battle-throw poses",
+  "nudges": []
+}

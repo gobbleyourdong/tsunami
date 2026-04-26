@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "title_logo_probotector",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of title_logo_probotector \u2014 a ui from 1987 contra. PAL-region Probotector title \u2014 Bill/Lance replaced with robot protagonists (European censorship). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_title_logo_probotector",
+  "source_progression_description": "PAL-region Probotector title \u2014 Bill/Lance replaced with robot protagonists (European censorship)",
+  "nudges": []
+}

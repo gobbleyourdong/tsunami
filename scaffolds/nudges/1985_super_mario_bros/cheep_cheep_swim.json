@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "cheep_cheep_swim",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of cheep_cheep_swim \u2014 a character from 1985 super mario bros. underwater swimming fish. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_cheep_cheep_swim",
+  "source_progression_description": "2-frame tail-flap cycle \u2014 underwater swimming fish; red (fast) + gray (slow) palette variants",
+  "nudges": []
+}

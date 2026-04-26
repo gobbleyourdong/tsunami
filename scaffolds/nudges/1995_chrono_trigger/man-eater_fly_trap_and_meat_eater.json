@@ -1,0 +1,12 @@
+{
+  "essence": "1995_chrono_trigger",
+  "animation_name": "man-eater_fly_trap_and_meat_eater",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 0,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of man-eater_fly_trap_and_meat_eater \u2014 a character from 1995 chrono trigger. Man-Eater, Fly Trap & Meat Eater. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1995_chrono_trigger_man-eater_fly_trap_and_meat_eater",
+  "source_progression_description": "Man-Eater, Fly Trap & Meat Eater",
+  "nudges": []
+}

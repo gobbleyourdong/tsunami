@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "fruit_bonus_cherry",
+  "kind": "pickup_item",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of fruit_bonus_cherry \u2014 a pickup_item from 1980 pac man. Cherry bonus \u2014 appears in front of ghost-pen at 70 + 170 dots remaining. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_fruit_bonus_cherry",
+  "source_progression_description": "Cherry bonus \u2014 appears in front of ghost-pen at 70 + 170 dots remaining; worth 100 points; levels 1-2",
+  "nudges": []
+}

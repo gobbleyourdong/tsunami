@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_2",
+  "animation_name": "enemies_atlas",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 40,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemies_atlas \u2014 a character (playable) from 1988 super mario bros 2. Enemy roster \u2014 Shy Guy (red/pink/blue/gray variants), Snifit (bullet-shooting Shy Guy), Ninji, Bob-omb, Pokey, Phanto (key-chaser), Tweeter (birdhop), Cobrat (snake), Albatoss, Autobomb, Beezo, Trouter, Pidgit (flying-carpet). 168\u00d7580 tall canvas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_2_enemies_atlas",
+  "source_progression_description": "Enemy roster \u2014 Shy Guy (red/pink/blue/gray variants), Snifit (bullet-shooting Shy Guy), Ninji, Bob-omb, Pokey, Phanto (key-chaser), Tweeter (birdhop), Cobrat (snake), Albatoss, Autobomb, Beezo, Trouter, Pidgit (flying-carpet). 168\u00d7580 tall canvas",
+  "nudges": []
+}

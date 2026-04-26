@@ -1,0 +1,12 @@
+{
+  "essence": "1991_puyo_puyo",
+  "animation_name": "playfield_ui",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of playfield_ui \u2014 a ui (hud_readout) from 1991 puyo puyo. Dual playfield (1P left vs 2P/CPU right) + score + next-piece preview. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_puyo_puyo_playfield_ui",
+  "source_progression_description": "Dual playfield (1P left vs 2P/CPU right) + score + next-piece preview",
+  "nudges": []
+}

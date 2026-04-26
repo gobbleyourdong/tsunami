@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "font_palette_red",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 36,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of font_palette_red \u2014 a ui (hud_readout) from 1980 pac man. Red-tinted font variant \u2014 used for 'HIGH SCORE' header and score digits on top HUD. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_font_palette_red",
+  "source_progression_description": "Red-tinted font variant \u2014 used for 'HIGH SCORE' header and score digits on top HUD",
+  "nudges": []
+}

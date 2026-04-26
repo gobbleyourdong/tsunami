@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "unused_sprite",
+  "kind": "pickup_item",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of unused_sprite \u2014 a pickup_item from 1986 castlevania. 'Unused' label \u2014 item-shaped sprite present in ROM but not placed in retail stages. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_unused_sprite",
+  "source_progression_description": "'Unused' label \u2014 item-shaped sprite present in ROM but not placed in retail stages",
+  "nudges": []
+}

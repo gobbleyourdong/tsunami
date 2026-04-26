@@ -1,0 +1,31 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "player_explosion",
+  "kind": "effect_layer",
+  "sub_kind": "explosion_vfx",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of player_explosion \u2014 a effect_layer (explosion_vfx) from 1981 galaga. small flash. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_player_explosion",
+  "source_progression_description": "4-frame death explosion \u2014 small flash \u2192 expanding fire cross \u2192 scattered debris \u2192 fade; plays on ship-destruction; life removed",
+  "nudges": [
+    {
+      "delta": "expanding fire cross",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "scattered debris",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "fade",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

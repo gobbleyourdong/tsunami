@@ -1,0 +1,12 @@
+{
+  "essence": "1997_final_fantasy_vii",
+  "animation_name": "limit_break_vfx",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 28,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of limit_break_vfx \u2014 a effect_layer from 1997 final fantasy vii. Limit-break VFX per character (Omnislash/Catastrophe/Final Heaven/etc.). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_final_fantasy_vii_limit_break_vfx",
+  "source_progression_description": "Limit-break VFX per character (Omnislash/Catastrophe/Final Heaven/etc.)",
+  "nudges": []
+}

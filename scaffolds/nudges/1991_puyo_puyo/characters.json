@@ -1,0 +1,12 @@
+{
+  "essence": "1991_puyo_puyo",
+  "animation_name": "characters",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of characters \u2014 a character (boss) from 1991 puyo puyo. Arle Nadja + opponents (Draco/Rulue/Schezo/Satan final) \u2014 boss-rush character portraits with emote-frames. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_puyo_puyo_characters",
+  "source_progression_description": "Arle Nadja + opponents (Draco/Rulue/Schezo/Satan final) \u2014 boss-rush character portraits with emote-frames",
+  "nudges": []
+}

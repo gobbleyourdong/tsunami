@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "fighter_knight",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of fighter_knight \u2014 a character from 1987 final fantasy. Fighter class + Knight class-change \u2014 4-pose overworld/battle set. Red armor palette. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_fighter_knight",
+  "source_progression_description": "Fighter class + Knight class-change \u2014 4-pose overworld/battle set. Red armor palette",
+  "nudges": []
+}

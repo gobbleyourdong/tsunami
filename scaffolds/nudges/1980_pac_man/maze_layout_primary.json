@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "maze_layout_primary",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of maze_layout_primary \u2014 a tile (level_layout) from 1980 pac man. Full arcade-cabinet maze \u2014 28\u00d731 tile grid (224\u00d7248 px at 8-px tiles). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_maze_layout_primary",
+  "source_progression_description": "Full arcade-cabinet maze \u2014 28\u00d731 tile grid (224\u00d7248 px at 8-px tiles); 4 corner-power-pellets, ~240 regular dots, ghost-pen at center with spawn gate, side-warp-tunnels mid-screen; blue wall outlines with black background",
+  "nudges": []
+}

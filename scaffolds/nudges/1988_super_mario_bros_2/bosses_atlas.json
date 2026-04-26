@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_2",
+  "animation_name": "bosses_atlas",
+  "kind": "character",
+  "sub_kind": "final_boss",
+  "frame_count": 16,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bosses_atlas \u2014 a character (final_boss) from 1988 super mario bros 2. World-end bosses atlas \u2014 Mouser (bomb-thrower World 1/3/5), Tryclyde (3-headed snake World 2/6), Fryguy (fire-boss World 4), Clawgrip (crab-boss World 5 only in US version), Wart (final-boss King Wart World 7). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_2_bosses_atlas",
+  "source_progression_description": "World-end bosses atlas \u2014 Mouser (bomb-thrower World 1/3/5), Tryclyde (3-headed snake World 2/6), Fryguy (fire-boss World 4), Clawgrip (crab-boss World 5 only in US version), Wart (final-boss King Wart World 7)",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_2",
+  "animation_name": "bonus_chance_slot",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of bonus_chance_slot \u2014 a ui from 1988 super mario bros 2. Bonus Chance slot-machine \u2014 cherries/mushrooms/flowers/Starmen. Triggered between levels by accumulating cherries. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_2_bonus_chance_slot",
+  "source_progression_description": "Bonus Chance slot-machine \u2014 cherries/mushrooms/flowers/Starmen. Triggered between levels by accumulating cherries",
+  "nudges": []
+}

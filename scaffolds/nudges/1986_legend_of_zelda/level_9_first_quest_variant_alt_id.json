@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "level_9_first_quest_variant_alt_id",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of level_9_first_quest_variant_alt_id \u2014 a tile (level_layout) from 1986 legend of zelda. Alternate/duplicate Level 9 sheet at different asset ID. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_level_9_first_quest_variant_alt_id",
+  "source_progression_description": "Alternate/duplicate Level 9 sheet at different asset ID; may be first/second quest variant or same-content duplicate",
+  "nudges": []
+}

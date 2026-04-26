@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "samus_suitless_idle_walk",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of samus_suitless_idle_walk \u2014 a character (playable) from 1986 metroid. Samus in Justin-Bailey / suitless mode \u2014 pink leotard + long orange hair (or green-swimsuit/bikini variants). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_samus_suitless_idle_walk",
+  "source_progression_description": "Samus in Justin-Bailey / suitless mode \u2014 pink leotard + long orange hair (or green-swimsuit/bikini variants); 3-frame walk cycle. Unlocked by password 'JUSTIN BAILEY' or by beating game under 1 hour",
+  "nudges": []
+}

@@ -1,0 +1,31 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "dracula_phase_1_teleport_idle",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of dracula_phase_1_teleport_idle \u2014 a character (boss) from 1986 castlevania. Dracula Phase 1 \u2014 count in red cape. 4-frame materialize-teleport-shoot-dematerialize cycle. Stands on platform, opens cape, throws 3-way red fireball spread, then teleports. 16 hits to expose phase 2. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_dracula_phase_1_teleport_idle",
+  "source_progression_description": "Dracula Phase 1 \u2014 count in red cape. 4-frame materialize-teleport-shoot-dematerialize cycle. Stands on platform, opens cape, throws 3-way red fireball spread, then teleports. 16 hits to expose phase 2",
+  "nudges": [
+    {
+      "delta": "opens cape",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "throws 3-way red fireball spread",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "then teleports. 16 hits to expose phase 2",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    }
+  ]
+}

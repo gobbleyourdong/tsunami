@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "ending_credits_cast_text_variants",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of ending_credits_cast_text_variants \u2014 a ui (menu_screen) from 1986 castlevania. Ending-credits screens \u2014 4 palette-color variants of the 'THE CAST' text showing Dracula/Death/Frankenstein/etc played by horror-movie-actor names (Christopher Bee = Christopher Lee, Belo Lugosi = Bela Lugosi, Boris Karloffice = Boris Karloff, Love Chaney Jr = Lon Chaney Jr, Barber Sherry, Mix Schrecks = Max Schreck). Classic Konami movie-credits homage. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_ending_credits_cast_text_variants",
+  "source_progression_description": "Ending-credits screens \u2014 4 palette-color variants of the 'THE CAST' text showing Dracula/Death/Frankenstein/etc played by horror-movie-actor names (Christopher Bee = Christopher Lee, Belo Lugosi = Bela Lugosi, Boris Karloffice = Boris Karloff, Love Chaney Jr = Lon Chaney Jr, Barber Sherry, Mix Schrecks = Max Schreck). Classic Konami movie-credits homage",
+  "nudges": []
+}

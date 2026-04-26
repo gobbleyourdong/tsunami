@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "ryu",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 80,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ryu \u2014 a character (playable) from 1991 street fighter ii. Ryu \u2014 Hadouken/Shoryuken/Tatsumaki Senpukyaku (roundhouse-kick tornado). Shoto-archetype founder. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_ryu",
+  "source_progression_description": "Ryu \u2014 Hadouken/Shoryuken/Tatsumaki Senpukyaku (roundhouse-kick tornado). Shoto-archetype founder",
+  "nudges": []
+}

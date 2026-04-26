@@ -1,0 +1,12 @@
+{
+  "essence": "1997_castlevania_symphony_of_night",
+  "animation_name": "richter_maria",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 60,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of richter_maria \u2014 a character (playable) from 1997 castlevania symphony of night. Richter Belmont (post-game playable \u2014 Vampire Killer whip + sub-weapons) + Maria Renard (DLC/Sega Saturn exclusive). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_castlevania_symphony_of_night_richter_maria",
+  "source_progression_description": "Richter Belmont (post-game playable \u2014 Vampire Killer whip + sub-weapons) + Maria Renard (DLC/Sega Saturn exclusive)",
+  "nudges": []
+}

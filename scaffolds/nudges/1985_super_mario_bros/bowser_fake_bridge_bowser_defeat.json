@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "bowser_fake_bridge_bowser_defeat",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bowser_fake_bridge_bowser_defeat \u2014 a effect_layer from 1985 super mario bros. Defeat animation \u2014 Bowser flips upside down and falls into lava after Mario hits axe. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_bowser_fake_bridge_bowser_defeat",
+  "source_progression_description": "Defeat animation \u2014 Bowser flips upside down and falls into lava after Mario hits axe; 2 frames spanning rotation + disappear",
+  "nudges": []
+}

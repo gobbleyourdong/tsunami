@@ -1,0 +1,12 @@
+{
+  "essence": "1994_earthbound",
+  "animation_name": "psi_spells_atlas",
+  "kind": "effect_layer",
+  "sub_kind": "aura_vfx",
+  "frame_count": 30,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of psi_spells_atlas \u2014 a effect_layer (aura_vfx) from 1994 earthbound. All PSI spell VFX \u2014 Fire \u03b1/\u03b2/\u03b3/\u03a9, Freeze \u03b1/\u03b2/\u03b3/\u03a9, Thunder \u03b1/\u03b2/\u03b3/\u03a9, Rockin \u03b1/\u03b2/\u03b3/\u03a9, Flash, Starstorm, Shield, Brainshock, Defense Down, + Shield Killer + Counter Unit. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_earthbound_psi_spells_atlas",
+  "source_progression_description": "All PSI spell VFX \u2014 Fire \u03b1/\u03b2/\u03b3/\u03a9, Freeze \u03b1/\u03b2/\u03b3/\u03a9, Thunder \u03b1/\u03b2/\u03b3/\u03a9, Rockin \u03b1/\u03b2/\u03b3/\u03a9, Flash, Starstorm, Shield, Brainshock, Defense Down, + Shield Killer + Counter Unit",
+  "nudges": []
+}

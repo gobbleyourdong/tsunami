@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "tourian_metroid_grab",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of tourian_metroid_grab \u2014 a character (playable) from 1986 metroid. Metroid \u2014 jellyfish energy-parasite (game namesake). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_tourian_metroid_grab",
+  "source_progression_description": "Metroid \u2014 jellyfish energy-parasite (game namesake); 4-frame: drift / fangs-open / lock-onto-Samus / drain-energy. Only Ice Beam + Missiles can kill; Ice freezes into platform-block that can be shattered by 5 missiles",
+  "nudges": []
+}

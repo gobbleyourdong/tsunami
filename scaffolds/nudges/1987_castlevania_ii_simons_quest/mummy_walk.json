@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "mummy_walk",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of mummy_walk \u2014 a character from 1987 castlevania ii simons quest. Mummy \u2014 2-frame shamble. Mansion enemy. Throws bandage projectiles. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_mummy_walk",
+  "source_progression_description": "Mummy \u2014 2-frame shamble. Mansion enemy. Throws bandage projectiles",
+  "nudges": []
+}

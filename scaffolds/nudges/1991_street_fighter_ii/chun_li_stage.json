@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "chun_li_stage",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of chun_li_stage \u2014 a tile from 1991 street fighter ii. Chun-Li's Hong Kong marketplace \u2014 live-chickens + fruit-stalls. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_chun_li_stage",
+  "source_progression_description": "Chun-Li's Hong Kong marketplace \u2014 live-chickens + fruit-stalls",
+  "nudges": []
+}

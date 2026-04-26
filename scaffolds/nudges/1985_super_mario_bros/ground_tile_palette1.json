@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "ground_tile_palette1",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of ground_tile_palette1 \u2014 a tile from 1985 super mario bros. Static ground-block tile using Palette 1 (Ground and Stone) \u2014 brown dirt with top grass-line highlight. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_ground_tile_palette1",
+  "source_progression_description": "Static ground-block tile using Palette 1 (Ground and Stone) \u2014 brown dirt with top grass-line highlight; appears in overworld / underground / castle / underwater zone variants via palette swap only",
+  "nudges": []
+}

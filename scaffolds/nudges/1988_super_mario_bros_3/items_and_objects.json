@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "items_and_objects",
+  "kind": "pickup_item",
+  "sub_kind": "currency",
+  "frame_count": 60,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of items_and_objects \u2014 a pickup_item (currency) from 1988 super mario bros 3. All power-ups + objects \u2014 Super Mushroom/Fire Flower/Super Leaf/Tanooki Suit/Frog Suit/Hammer Suit/Starman/Kuribo's Shoe/P-Wing/Anchor/Warp Whistle/Music Box/Cloud/Jugem's Cloud/Hammer/1UP/Coin + pipe/cannon/note-block/P-switch/warp-door. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_items_and_objects",
+  "source_progression_description": "All power-ups + objects \u2014 Super Mushroom/Fire Flower/Super Leaf/Tanooki Suit/Frog Suit/Hammer Suit/Starman/Kuribo's Shoe/P-Wing/Anchor/Warp Whistle/Music Box/Cloud/Jugem's Cloud/Hammer/1UP/Coin + pipe/cannon/note-block/P-switch/warp-door",
+  "nudges": []
+}

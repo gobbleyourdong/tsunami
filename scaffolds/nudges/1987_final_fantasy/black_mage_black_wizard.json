@@ -1,0 +1,12 @@
+{
+  "essence": "1987_final_fantasy",
+  "animation_name": "black_mage_black_wizard",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of black_mage_black_wizard \u2014 a character (playable) from 1987 final fantasy. Black Mage + Black Wizard \u2014 wide hat shadow-face caster. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_final_fantasy_black_mage_black_wizard",
+  "source_progression_description": "Black Mage + Black Wizard \u2014 wide hat shadow-face caster",
+  "nudges": []
+}

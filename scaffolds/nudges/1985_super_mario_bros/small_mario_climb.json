@@ -1,0 +1,19 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "small_mario_climb",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of small_mario_climb \u2014 a character (playable) from 1985 super mario bros. arms/legs alternate grab-positions on flagpole or vine. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_small_mario_climb",
+  "source_progression_description": "2-frame climbing cycle \u2014 arms/legs alternate grab-positions on flagpole or vine",
+  "nudges": [
+    {
+      "delta": "next phase of climbing cycle",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

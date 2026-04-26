@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "pac_man_death",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 11,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of pac_man_death \u2014 a character from 1980 pac man. Iconic 11-frame death animation \u2014 circle opens into a wider and wider wedge facing up, rotating clockwise. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_pac_man_death",
+  "source_progression_description": "Iconic 11-frame death animation \u2014 circle opens into a wider and wider wedge facing up, rotating clockwise; at peak, the shape collapses into a small triangle, then a flash-star, then vanishes. Played on ghost-contact; freezes game for ~1 second",
+  "nudges": []
+}

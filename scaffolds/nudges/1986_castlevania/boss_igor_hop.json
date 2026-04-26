@@ -1,0 +1,12 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "boss_igor_hop",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of boss_igor_hop \u2014 a character (boss) from 1986 castlevania. Hunchback Igor \u2014 2-frame hop. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_boss_igor_hop",
+  "source_progression_description": "Hunchback Igor \u2014 2-frame hop; accompanies Frankenstein at Level 4 boss fight, jumps around throwing orbs. Smaller secondary boss enemy",
+  "nudges": []
+}

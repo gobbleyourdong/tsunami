@@ -1,0 +1,12 @@
+{
+  "essence": "1997_final_fantasy_tactics",
+  "animation_name": "world_map",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of world_map \u2014 a ui from 1997 final fantasy tactics. Ivalice continent world-map with 40+ nodes. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_final_fantasy_tactics_world_map",
+  "source_progression_description": "Ivalice continent world-map with 40+ nodes",
+  "nudges": []
+}

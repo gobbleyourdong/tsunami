@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "attract_screen_title_galaga_score_legend",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of attract_screen_title_galaga_score_legend \u2014 a ui (hud_readout) from 1981 galaga. Title screen \u2014 'GALAGA / SCORE' with point-value legend for each enemy (Zako bee 50/80, Goei butterfly 100/160, Boss Galaga + captured variants) rendered beside their sprites. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_attract_screen_title_galaga_score_legend",
+  "source_progression_description": "Title screen \u2014 'GALAGA / SCORE' with point-value legend for each enemy (Zako bee 50/80, Goei butterfly 100/160, Boss Galaga + captured variants) rendered beside their sprites; '1UP HIGH SCORE 2UP' header. CRT portrait-rotated",
+  "nudges": []
+}

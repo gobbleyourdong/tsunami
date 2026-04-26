@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "run_aim_diagonal_down",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of run_aim_diagonal_down \u2014 a character from 1987 contra. Running while firing downward-diagonal \u2014 jump-spray maneuver. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_run_aim_diagonal_down",
+  "source_progression_description": "Running while firing downward-diagonal \u2014 jump-spray maneuver",
+  "nudges": []
+}

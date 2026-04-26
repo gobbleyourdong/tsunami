@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "chargin_chuck",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 24,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of chargin_chuck \u2014 a character from 1990 super mario world. Chargin' Chuck \u2014 football-player enemy with 8 variants (pitcher/kicker/digger/clapper/etc.). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_chargin_chuck",
+  "source_progression_description": "Chargin' Chuck \u2014 football-player enemy with 8 variants (pitcher/kicker/digger/clapper/etc.)",
+  "nudges": []
+}

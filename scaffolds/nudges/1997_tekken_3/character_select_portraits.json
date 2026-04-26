@@ -1,0 +1,12 @@
+{
+  "essence": "1997_tekken_3",
+  "animation_name": "character_select_portraits",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 23,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of character_select_portraits \u2014 a ui (menu_screen) from 1997 tekken 3. 23 character select portraits \u2014 Jin/Paul/Law/Hwoarang/Xiaoyu/Eddy/Lei/Yoshimitsu/King/Nina/Anna/Bryan/Kuma/Panda/Gon etc.. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1997_tekken_3_character_select_portraits",
+  "source_progression_description": "23 character select portraits \u2014 Jin/Paul/Law/Hwoarang/Xiaoyu/Eddy/Lei/Yoshimitsu/King/Nina/Anna/Bryan/Kuma/Panda/Gon etc.",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "goomba_bob_omb",
+  "kind": "character",
+  "sub_kind": "npc",
+  "frame_count": 8,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of goomba_bob_omb \u2014 a character (npc) from 1990 super mario world. Goombas (Galoomba variant \u2014 roll-on-back not squash-flat) + Bob-omb. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_goomba_bob_omb",
+  "source_progression_description": "Goombas (Galoomba variant \u2014 roll-on-back not squash-flat) + Bob-omb",
+  "nudges": []
+}

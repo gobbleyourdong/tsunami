@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "brick_block_after_hit",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of brick_block_after_hit \u2014 a tile from 1985 super mario bros. Post-hit brick (when it contained item) \u2014 converts to used-block (orange/yellow solid tile) after item emerges. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_brick_block_after_hit",
+  "source_progression_description": "Post-hit brick (when it contained item) \u2014 converts to used-block (orange/yellow solid tile) after item emerges; different from debris-shatter case",
+  "nudges": []
+}

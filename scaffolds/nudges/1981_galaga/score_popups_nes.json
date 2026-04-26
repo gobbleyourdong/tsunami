@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "score_popups_nes",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 7,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of score_popups_nes \u2014 a ui (hud_readout) from 1981 galaga. Score-popup values: 400 / 800 / 1000 / 1500 / 600 / 2000 / 3000 \u2014 pink text on NES. Slightly different set from arcade (has 600 which arcade doesn't. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_score_popups_nes",
+  "source_progression_description": "Score-popup values: 400 / 800 / 1000 / 1500 / 600 / 2000 / 3000 \u2014 pink text on NES. Slightly different set from arcade (has 600 which arcade doesn't; may reflect NES-specific scoring tweaks)",
+  "nudges": []
+}

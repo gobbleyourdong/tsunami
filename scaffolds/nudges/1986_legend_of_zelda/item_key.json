@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "item_key",
+  "kind": "pickup_item",
+  "sub_kind": "power_item",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of item_key \u2014 a pickup_item (power_item) from 1986 legend of zelda. Dungeon Key \u2014 opens locked doors. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_item_key",
+  "source_progression_description": "Dungeon Key \u2014 opens locked doors; one per door or magical key opens all",
+  "nudges": []
+}

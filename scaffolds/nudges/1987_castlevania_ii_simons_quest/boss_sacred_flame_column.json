@@ -1,0 +1,19 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "boss_sacred_flame_column",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of boss_sacred_flame_column \u2014 a effect_layer from 1987 castlevania ii simons quest. Sacred Flame / final-battle flame column \u2014 3-frame flame animation. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_boss_sacred_flame_column",
+  "source_progression_description": "Sacred Flame / final-battle flame column \u2014 3-frame flame animation; used for final-confrontation arena",
+  "nudges": [
+    {
+      "delta": "final-battle flame column \u2014 3-frame flame animation",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}

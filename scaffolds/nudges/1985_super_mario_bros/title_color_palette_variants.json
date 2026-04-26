@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "title_color_palette_variants",
+  "kind": "ui",
+  "sub_kind": "logo",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of title_color_palette_variants \u2014 a ui (logo) from 1985 super mario bros. Documentation section \u2014 'SUPER' word shown in 4 palette variants (Nestopia + FCEUX \u00d7 title-color-1 + title-color-2). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_title_color_palette_variants",
+  "source_progression_description": "Documentation section \u2014 'SUPER' word shown in 4 palette variants (Nestopia + FCEUX \u00d7 title-color-1 + title-color-2); not animated, reference-only",
+  "nudges": []
+}

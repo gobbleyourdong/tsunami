@@ -1,0 +1,12 @@
+{
+  "essence": "1988_mega_man_2",
+  "animation_name": "ending_cutscene",
+  "kind": "ui",
+  "sub_kind": "cutscene",
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of ending_cutscene \u2014 a ui (cutscene) from 1988 mega man 2. Ending \u2014 Mega Man walks through 4 seasons (spring/summer/autumn/winter) removing helmet. 648\u00d7565. Famously emotional MM ending. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_mega_man_2_ending_cutscene",
+  "source_progression_description": "Ending \u2014 Mega Man walks through 4 seasons (spring/summer/autumn/winter) removing helmet. 648\u00d7565. Famously emotional MM ending",
+  "nudges": []
+}

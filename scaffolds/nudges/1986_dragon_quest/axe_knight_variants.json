@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "axe_knight_variants",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of axe_knight_variants \u2014 a character from 1986 dragon quest. White axe-knight / Skeletal-warrior with sword. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_axe_knight_variants",
+  "source_progression_description": "White axe-knight / Skeletal-warrior with sword",
+  "nudges": []
+}

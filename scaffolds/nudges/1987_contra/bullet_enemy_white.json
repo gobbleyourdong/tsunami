@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "bullet_enemy_white",
+  "kind": "projectile",
+  "sub_kind": "gun_proj",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of bullet_enemy_white \u2014 a projectile (gun_proj) from 1987 contra. Generic white-dot enemy bullet. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_bullet_enemy_white",
+  "source_progression_description": "Generic white-dot enemy bullet",
+  "nudges": []
+}

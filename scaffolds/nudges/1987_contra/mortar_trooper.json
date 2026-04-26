@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "mortar_trooper",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of mortar_trooper \u2014 a character from 1987 contra. Mortar-launching enemy \u2014 angled-shot arc. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_mortar_trooper",
+  "source_progression_description": "Mortar-launching enemy \u2014 angled-shot arc",
+  "nudges": []
+}

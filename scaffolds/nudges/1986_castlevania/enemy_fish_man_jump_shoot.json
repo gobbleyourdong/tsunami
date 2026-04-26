@@ -1,0 +1,25 @@
+{
+  "essence": "1986_castlevania",
+  "animation_name": "enemy_fish_man_jump_shoot",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemy_fish_man_jump_shoot \u2014 a character from 1986 castlevania. Fish Man \u2014 3-frame cycle: leap-out-of-water, stand-and-spit (green fireball), dive-back. Appears in underground water-section (Level 4 Caverns). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_castlevania_enemy_fish_man_jump_shoot",
+  "source_progression_description": "Fish Man \u2014 3-frame cycle: leap-out-of-water, stand-and-spit (green fireball), dive-back. Appears in underground water-section (Level 4 Caverns)",
+  "nudges": [
+    {
+      "delta": "stand-and-spit (green fireball)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "dive-back. Appears in underground water-section (Level 4 Caverns)",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    }
+  ]
+}

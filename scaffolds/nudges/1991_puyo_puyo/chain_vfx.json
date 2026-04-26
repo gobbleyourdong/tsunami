@@ -1,0 +1,12 @@
+{
+  "essence": "1991_puyo_puyo",
+  "animation_name": "chain_vfx",
+  "kind": "effect_layer",
+  "sub_kind": null,
+  "frame_count": 12,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of chain_vfx \u2014 a effect_layer from 1991 puyo puyo. Chain-combo VFX \u2014 colored bursts scaling with chain-length. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_puyo_puyo_chain_vfx",
+  "source_progression_description": "Chain-combo VFX \u2014 colored bursts scaling with chain-length; 'FEVER' chain text",
+  "nudges": []
+}

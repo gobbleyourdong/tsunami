@@ -1,0 +1,25 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "bullet_flamethrower",
+  "kind": "projectile",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of bullet_flamethrower \u2014 a projectile from 1987 contra. Flamethrower burst \u2014 3-frame loop. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_bullet_flamethrower",
+  "source_progression_description": "Flamethrower burst \u2014 3-frame loop",
+  "nudges": [
+    {
+      "delta": "next phase of 3-frame loop",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "next phase of 3-frame loop",
+      "strength": 0.4,
+      "confidence": 0.55,
+      "strategy": "narrative"
+    }
+  ]
+}

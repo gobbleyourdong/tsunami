@@ -1,0 +1,12 @@
+{
+  "essence": "1992_super_mario_kart",
+  "animation_name": "no_sprite_clean_variants",
+  "kind": "tile",
+  "sub_kind": null,
+  "frame_count": 20,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of no_sprite_clean_variants \u2014 a tile from 1992 super mario kart. All 20 tracks + 4 arenas also ripped as 'No Sprites' clean tile-map versions (asset IDs 84993-85016) \u2014 useful for level-design reference. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1992_super_mario_kart_no_sprite_clean_variants",
+  "source_progression_description": "All 20 tracks + 4 arenas also ripped as 'No Sprites' clean tile-map versions (asset IDs 84993-85016) \u2014 useful for level-design reference",
+  "nudges": []
+}

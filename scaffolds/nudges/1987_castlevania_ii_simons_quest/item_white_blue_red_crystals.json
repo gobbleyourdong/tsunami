@@ -1,0 +1,12 @@
+{
+  "essence": "1987_castlevania_ii_simons_quest",
+  "animation_name": "item_white_blue_red_crystals",
+  "kind": "pickup_item",
+  "sub_kind": null,
+  "frame_count": 3,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of item_white_blue_red_crystals \u2014 a pickup_item from 1987 castlevania ii simons quest. White/Blue/Red crystals \u2014 magical gems. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_castlevania_ii_simons_quest_item_white_blue_red_crystals",
+  "source_progression_description": "White/Blue/Red crystals \u2014 magical gems; hold while in specific locations to unlock paths (White at cliff, Blue at lake, Red at grave). Essential progression items",
+  "nudges": []
+}

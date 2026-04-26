@@ -1,0 +1,12 @@
+{
+  "essence": "1986_legend_of_zelda",
+  "animation_name": "item_bow",
+  "kind": "pickup_item",
+  "sub_kind": "weapon_pickup",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of item_bow \u2014 a pickup_item (weapon_pickup) from 1986 legend of zelda. Bow \u2014 weapon item, uses bombs-slot-1. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_legend_of_zelda_item_bow",
+  "source_progression_description": "Bow \u2014 weapon item, uses bombs-slot-1; fires arrows from rupee-inventory",
+  "nudges": []
+}

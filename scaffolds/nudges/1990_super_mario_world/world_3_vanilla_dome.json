@@ -1,0 +1,12 @@
+{
+  "essence": "1990_super_mario_world",
+  "animation_name": "world_3_vanilla_dome",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of world_3_vanilla_dome \u2014 a tile (level_layout) from 1990 super mario world. Vanilla Dome \u2014 VD-1-4 + Vanilla Secret 1-3 + Vanilla Ghost House + Vanilla Fortress + Lemmy's Castle + Red Switch Palace. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1990_super_mario_world_world_3_vanilla_dome",
+  "source_progression_description": "Vanilla Dome \u2014 VD-1-4 + Vanilla Secret 1-3 + Vanilla Ghost House + Vanilla Fortress + Lemmy's Castle + Red Switch Palace",
+  "nudges": []
+}

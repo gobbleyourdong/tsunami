@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "map_tileset_atlas",
+  "kind": "tile",
+  "sub_kind": "tile_atlas",
+  "frame_count": 240,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of map_tileset_atlas \u2014 a tile (tile_atlas) from 1988 super mario bros 3. Master overworld-map tile atlas \u2014 all terrain types, nodes, paths. 2063\u00d7670 canvas. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_map_tileset_atlas",
+  "source_progression_description": "Master overworld-map tile atlas \u2014 all terrain types, nodes, paths. 2063\u00d7670 canvas",
+  "nudges": []
+}

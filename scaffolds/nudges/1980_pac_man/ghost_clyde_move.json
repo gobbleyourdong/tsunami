@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "ghost_clyde_move",
+  "kind": "character",
+  "sub_kind": null,
+  "frame_count": 2,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of ghost_clyde_move \u2014 a character from 1980 pac man. Orange ghost (Clyde / Pokey / Otoboko-Guzuta) \u2014 2-frame body-wave cycle, orange palette. AI: chases directly when far, scatters to corner when within 8 tiles (feigned). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_ghost_clyde_move",
+  "source_progression_description": "Orange ghost (Clyde / Pokey / Otoboko-Guzuta) \u2014 2-frame body-wave cycle, orange palette. AI: chases directly when far, scatters to corner when within 8 tiles (feigned)",
+  "nudges": []
+}

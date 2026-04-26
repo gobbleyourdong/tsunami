@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "samus_spinning_jump",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of samus_spinning_jump \u2014 a character (playable) from 1986 metroid. Samus curls into ball and rotates while mid-air. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_samus_spinning_jump",
+  "source_progression_description": "4-frame somersault spin \u2014 Samus curls into ball and rotates while mid-air; makes her invulnerable to some damage; iconic Metroid mechanic",
+  "nudges": []
+}

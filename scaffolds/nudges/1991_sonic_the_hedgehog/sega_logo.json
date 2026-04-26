@@ -1,0 +1,12 @@
+{
+  "essence": "1991_sonic_the_hedgehog",
+  "animation_name": "sega_logo",
+  "kind": "ui",
+  "sub_kind": "cutscene",
+  "frame_count": 2,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of sega_logo \u2014 a ui (cutscene) from 1991 sonic the hedgehog. SEGA logo chime \u2014 the iconic 'SEGAAAA' chime intro. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_sonic_the_hedgehog_sega_logo",
+  "source_progression_description": "SEGA logo chime \u2014 the iconic 'SEGAAAA' chime intro",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1989_final_fight",
+  "animation_name": "opening_cutscene",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 12,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of opening_cutscene \u2014 a ui from 1989 final fight. Opening story \u2014 Haggar becomes Mayor, Jessica kidnapped by Mad Gear, phone-call threat. 2056\u00d7566 composite. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1989_final_fight_opening_cutscene",
+  "source_progression_description": "Opening story \u2014 Haggar becomes Mayor, Jessica kidnapped by Mad Gear, phone-call threat. 2056\u00d7566 composite",
+  "nudges": []
+}

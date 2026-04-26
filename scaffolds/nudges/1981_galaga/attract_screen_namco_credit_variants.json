@@ -1,0 +1,12 @@
+{
+  "essence": "1981_galaga",
+  "animation_name": "attract_screen_namco_credit_variants",
+  "kind": "ui",
+  "sub_kind": "logo",
+  "frame_count": 3,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of attract_screen_namco_credit_variants \u2014 a ui (logo) from 1981 galaga. 3 copyright-line variants shown stacked: '\u00a9 1981 NAMCO LTD.' plain text / 'namco' logo + '\u00a9 1981 NAMCO LTD.' / '\u00a9 1981 MIDWAY MFG. CO.' Midway-licensed US release. Game cycles through these during attract. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1981_galaga_attract_screen_namco_credit_variants",
+  "source_progression_description": "3 copyright-line variants shown stacked: '\u00a9 1981 NAMCO LTD.' plain text / 'namco' logo + '\u00a9 1981 NAMCO LTD.' / '\u00a9 1981 MIDWAY MFG. CO.' Midway-licensed US release. Game cycles through these during attract",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1994_earthbound",
+  "animation_name": "enemies_towns_npcs_batch",
+  "kind": "character",
+  "sub_kind": "boss",
+  "frame_count": 100,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of enemies_towns_npcs_batch \u2014 a character (boss) from 1994 earthbound. Remaining ~100 sheets cover all enemies (Retro Hippie/Starman/Mr. Saturn/Slimy Pile/Giygas/Pokey/Runaway Dog/Sentry Robot/etc.) + all towns + all dungeons + NPCs (Mr. T clone/Tessie/Blue Blue Gang/Happy Happy Cult/etc.). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_earthbound_enemies_towns_npcs_batch",
+  "source_progression_description": "Remaining ~100 sheets cover all enemies (Retro Hippie/Starman/Mr. Saturn/Slimy Pile/Giygas/Pokey/Runaway Dog/Sentry Robot/etc.) + all towns + all dungeons + NPCs (Mr. T clone/Tessie/Blue Blue Gang/Happy Happy Cult/etc.)",
+  "nudges": []
+}

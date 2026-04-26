@@ -1,0 +1,12 @@
+{
+  "essence": "1987_contra",
+  "animation_name": "stage_layout_horizontal_long_b",
+  "kind": "tile",
+  "sub_kind": "level_layout",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of stage_layout_horizontal_long_b \u2014 a tile (level_layout) from 1987 contra. Side-scrolling long-stage \u2014 3840px wide (~15 screens). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1987_contra_stage_layout_horizontal_long_b",
+  "source_progression_description": "Side-scrolling long-stage \u2014 3840px wide (~15 screens)",
+  "nudges": []
+}

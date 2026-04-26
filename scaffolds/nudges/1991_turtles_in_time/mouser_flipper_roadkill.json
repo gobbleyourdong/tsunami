@@ -1,0 +1,12 @@
+{
+  "essence": "1991_turtles_in_time",
+  "animation_name": "mouser_flipper_roadkill",
+  "kind": "character",
+  "sub_kind": "minion",
+  "frame_count": 6,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of mouser_flipper_roadkill \u2014 a character (minion) from 1991 turtles in time. Mouser robots (from Baxter) + Flipper + Roadkill Rodney minions. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_turtles_in_time_mouser_flipper_roadkill",
+  "source_progression_description": "Mouser robots (from Baxter) + Flipper + Roadkill Rodney minions",
+  "nudges": []
+}

@@ -1,0 +1,25 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "small_mario_walk",
+  "kind": "character",
+  "sub_kind": "playable",
+  "frame_count": 3,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of small_mario_walk \u2014 a character (playable) from 1985 super mario bros. left-foot-forward stride, mid-stride neutral, right-foot-forward stride. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_small_mario_walk",
+  "source_progression_description": "3-frame walk cycle \u2014 left-foot-forward stride, mid-stride neutral, right-foot-forward stride; arms swing in counter-phase to legs",
+  "nudges": [
+    {
+      "delta": "mid-stride neutral",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    },
+    {
+      "delta": "right-foot-forward stride",
+      "strength": 0.4,
+      "confidence": 0.7,
+      "strategy": "narrative"
+    }
+  ]
+}

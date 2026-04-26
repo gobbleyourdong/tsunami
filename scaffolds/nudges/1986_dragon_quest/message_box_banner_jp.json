@@ -1,0 +1,12 @@
+{
+  "essence": "1986_dragon_quest",
+  "animation_name": "message_box_banner_jp",
+  "kind": "ui",
+  "sub_kind": "dialog",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of message_box_banner_jp \u2014 a ui (dialog) from 1986 dragon quest. Japanese '\u52c7\u8005\u9580\u60e1\u9f8d' (Yongzhe Menyouling = dragon-slaying hero) banner variant \u2014 localization for Chinese/JP region. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_dragon_quest_message_box_banner_jp",
+  "source_progression_description": "Japanese '\u52c7\u8005\u9580\u60e1\u9f8d' (Yongzhe Menyouling = dragon-slaying hero) banner variant \u2014 localization for Chinese/JP region",
+  "nudges": []
+}

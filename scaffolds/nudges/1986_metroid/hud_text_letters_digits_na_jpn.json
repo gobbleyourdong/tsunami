@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "hud_text_letters_digits_na_jpn",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 20,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of hud_text_letters_digits_na_jpn \u2014 a ui (hud_readout) from 1986 metroid. HUD text \u2014 '0123456789' digits + NA + JPN localization variants (latin + katakana glyphs). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_hud_text_letters_digits_na_jpn",
+  "source_progression_description": "HUD text \u2014 '0123456789' digits + NA + JPN localization variants (latin + katakana glyphs); used for ENERGY/MISSILE/TIME/LIFE counters",
+  "nudges": []
+}

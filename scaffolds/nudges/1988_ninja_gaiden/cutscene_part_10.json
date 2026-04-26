@@ -1,0 +1,12 @@
+{
+  "essence": "1988_ninja_gaiden",
+  "animation_name": "cutscene_part_10",
+  "kind": "ui",
+  "sub_kind": "cutscene",
+  "frame_count": 8,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of cutscene_part_10 \u2014 a ui (cutscene) from 1988 ninja gaiden. Act 6 intro \u2014 Temple of Demons. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_ninja_gaiden_cutscene_part_10",
+  "source_progression_description": "Act 6 intro \u2014 Temple of Demons",
+  "nudges": []
+}

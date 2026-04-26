@@ -1,0 +1,12 @@
+{
+  "essence": "1980_pac_man",
+  "animation_name": "font_atlas_uppercase_numbers",
+  "kind": "ui",
+  "sub_kind": "hud_readout",
+  "frame_count": 36,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of font_atlas_uppercase_numbers \u2014 a ui (hud_readout) from 1980 pac man. Uppercase-only pixel font \u2014 A-Z + 0-9 (36 glyphs) rendered as 8\u00d78 tiles. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1980_pac_man_font_atlas_uppercase_numbers",
+  "source_progression_description": "Uppercase-only pixel font \u2014 A-Z + 0-9 (36 glyphs) rendered as 8\u00d78 tiles; no lowercase. Used for HIGH SCORE / CREDIT / CHARACTER / NICKNAME / PUSH START BUTTON / NAMCO 1980 / MIDWAY MFG CO / GAME OVER / READY! / BONUS PUCKMAN / BONUS PAC-MAN and score digits",
+  "nudges": []
+}

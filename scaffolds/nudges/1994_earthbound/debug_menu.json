@@ -1,0 +1,12 @@
+{
+  "essence": "1994_earthbound",
+  "animation_name": "debug_menu",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of debug_menu \u2014 a ui (menu_screen) from 1994 earthbound. Debug menu \u2014 accessible via code. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1994_earthbound_debug_menu",
+  "source_progression_description": "Debug menu \u2014 accessible via code",
+  "nudges": []
+}

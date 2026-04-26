@@ -1,0 +1,12 @@
+{
+  "essence": "1986_metroid",
+  "animation_name": "intro_text_scroll_mission_briefing",
+  "kind": "ui",
+  "sub_kind": "cutscene",
+  "frame_count": 1,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of intro_text_scroll_mission_briefing \u2014 a ui (cutscene) from 1986 metroid. Mission-briefing scrolling text \u2014 'DESTROY THE METROIDS...'. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1986_metroid_intro_text_scroll_mission_briefing",
+  "source_progression_description": "Mission-briefing scrolling text \u2014 'DESTROY THE METROIDS...'; Samus's assignment detailed on intro screens",
+  "nudges": []
+}

@@ -1,0 +1,12 @@
+{
+  "essence": "1991_street_fighter_ii",
+  "animation_name": "continue_portraits_sst2",
+  "kind": "ui",
+  "sub_kind": "menu_screen",
+  "frame_count": 16,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of continue_portraits_sst2 \u2014 a ui (menu_screen) from 1991 street fighter ii. Super Turbo continue-screen portraits (post-KO crying faces). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1991_street_fighter_ii_continue_portraits_sst2",
+  "source_progression_description": "Super Turbo continue-screen portraits (post-KO crying faces)",
+  "nudges": []
+}

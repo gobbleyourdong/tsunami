@@ -1,0 +1,12 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "coin_spin",
+  "kind": "pickup_item",
+  "sub_kind": "currency",
+  "frame_count": 4,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of coin_spin \u2014 a pickup_item (currency) from 1985 super mario bros. front face / edge (narrow strip) / back face / edge (mirror). Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_coin_spin",
+  "source_progression_description": "4-frame coin rotation \u2014 front face / edge (narrow strip) / back face / edge (mirror); creates the iconic spinning-gold illusion",
+  "nudges": []
+}

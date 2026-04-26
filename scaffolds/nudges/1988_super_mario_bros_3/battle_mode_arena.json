@@ -1,0 +1,12 @@
+{
+  "essence": "1988_super_mario_bros_3",
+  "animation_name": "battle_mode_arena",
+  "kind": "ui",
+  "sub_kind": null,
+  "frame_count": 6,
+  "needs_animation": false,
+  "base_prompt": "Pixel-art sprite of battle_mode_arena \u2014 a ui from 1988 super mario bros 3. 2-Player Battle Mode mini-game \u2014 top-down arena with Mario vs Luigi. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1988_super_mario_bros_3_battle_mode_arena",
+  "source_progression_description": "2-Player Battle Mode mini-game \u2014 top-down arena with Mario vs Luigi; block-stomp gameplay",
+  "nudges": []
+}

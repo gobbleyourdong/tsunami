@@ -1,0 +1,31 @@
+{
+  "essence": "1985_super_mario_bros",
+  "animation_name": "fireball_burst_impact",
+  "kind": "effect_layer",
+  "sub_kind": "explosion_vfx",
+  "frame_count": 4,
+  "needs_animation": true,
+  "base_prompt": "Pixel-art sprite of fireball_burst_impact \u2014 a effect_layer (explosion_vfx) from 1985 super mario bros. dot. Centered on magenta (#FF00FF) background, 8-bit or 16-bit pixel-art aesthetic, no anti-aliasing, chunky pixels. Single canonical pose (frame 0 of animation).",
+  "base_seed_label": "1985_super_mario_bros_fireball_burst_impact",
+  "source_progression_description": "4-frame burst \u2014 dot \u2192 cross \u2192 star \u2192 fading ring; spawns at fireball's impact point on enemy or wall; composited over background, not attached to any actor",
+  "nudges": [
+    {
+      "delta": "cross",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "star",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    },
+    {
+      "delta": "fading ring",
+      "strength": 0.4,
+      "confidence": 0.85,
+      "strategy": "arrow_split"
+    }
+  ]
+}
