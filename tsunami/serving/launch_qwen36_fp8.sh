@@ -1,15 +1,31 @@
 #!/usr/bin/env bash
-# Launch Qwen3.5-27B-FP8 server inside the NVIDIA PyTorch container.
+# DEPRECATED 2026-04-25 — use launch_qwen36_27b_bf16.sh.
+#
+# Qwen3.6-27B (dense BF16, multimodal) shipped 2026-04-23 and is now the
+# default backend on tsunami's :8095 port. It loads in ~5 min vs ~12 min for
+# the 35B-A3B-FP8 MoE, has no expert-fusion gymnastics, and matches the
+# Qwen3.6 instruct sampling preset out of the box.
+#
+# This script is preserved for the case where you specifically need the MoE
+# FP8 build (e.g. comparing throughput at higher params, or a workload that
+# benefits from sparse-expert capacity). Pass FORCE_FP8=1 to actually run.
+#
 # GB10 Blackwell (compute cap 13.1) requires torch ≥ 2.11 built against
 # CUDA ≥ 13.x — only the nvcr.io/nvidia/pytorch:26.03-py3 image satisfies
 # that. Host venvs (comfyui-env) cap at CUDA 12.9 and produce numerical
 # garbage on Blackwell.
 #
 # Usage:
-#   ./launch_qwen36_fp8.sh                 # runs in foreground, port 8095
-#   ./launch_qwen36_fp8.sh --port 8096     # override port
-#   PORT=8096 ./launch_qwen36_fp8.sh       # same via env
+#   FORCE_FP8=1 ./launch_qwen36_fp8.sh                 # foreground, port 8095
+#   FORCE_FP8=1 ./launch_qwen36_fp8.sh --port 8096     # override port
+#   FORCE_FP8=1 PORT=8096 ./launch_qwen36_fp8.sh       # same via env
 set -euo pipefail
+
+if [ "${FORCE_FP8:-}" != "1" ]; then
+    echo "ERROR: launch_qwen36_fp8.sh is deprecated. Use launch_qwen36_27b_bf16.sh." >&2
+    echo "       Pass FORCE_FP8=1 to bypass this check and load the legacy MoE." >&2
+    exit 2
+fi
 
 PORT="${PORT:-8095}"
 MODEL="${MODEL:-Qwen/Qwen3.6-35B-A3B-FP8}"
@@ -34,7 +50,7 @@ exec docker run --rm --name "$NAME" \
     -p "${PORT}:${PORT}" \
     -v "$HF_CACHE":/root/.cache/huggingface \
     -v "$REPO":/workspace/CelebV-HQ \
-    -w /workspace/CelebV-HQ/ark/tsunami \
+    -w /workspace/CelebV-HQ/tsunami/serving \
     -e HF_HUB_ENABLE_HF_TRANSFER=1 \
     "$IMAGE" \
     bash -lc "

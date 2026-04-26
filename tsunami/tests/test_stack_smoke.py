@@ -8,7 +8,7 @@ Confirms the three-tier serving stack is wired correctly:
   :8090  tsunami proxy   (forwards /v1/chat → :8095, /v1/embeddings → :8093)
   :8092  ERNIE-Image     (health only — image-gen smoke is heavier, skipped)
   :8093  Qwen3-Embedding (last-token pool + L2 norm)
-  :8095  Qwen3.6-35B-A3B-FP8
+  :8095  Qwen3.6-27B     (dense BF16, multimodal — replaces 35B-A3B-FP8)
 
 And confirms the undertow QA harness can pull playwright levers end-to-end.
 """
@@ -72,7 +72,7 @@ def gen_chat_through_proxy() -> dict:
     r = httpx.post(
         "http://localhost:8090/v1/chat/completions",
         json={
-            "model": "Qwen/Qwen3.6-35B-A3B-FP8",
+            "model": "Qwen/Qwen3.6-27B",
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 32,
             "temperature": 0.0,

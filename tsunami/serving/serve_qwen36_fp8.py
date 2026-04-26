@@ -1,12 +1,28 @@
 #!/usr/bin/env python3
-"""Serve Qwen3.5-27B-FP8 via transformers — text + vision.
+"""Serve a Qwen3.5/3.6 family model via transformers — text + vision.
 
-Qwen3.5 is a hybrid-attention (linear + full) MoE with native FP8 weights
-(fine-grained block-128 quant). Runs on Blackwell GB10 through the
-nvcr.io/nvidia/pytorch:26.03-py3 container (torch 2.11 / CUDA 13.2).
+Filename keeps the `_fp8` suffix for git/import continuity (tests, monitor
+regex, host_bench all depend on it), but the script is dual-purpose:
+
+  * Qwen/Qwen3.6-27B          — dense BF16, multimodal. CURRENT DEFAULT.
+                                Launched via launch_qwen36_27b_bf16.sh.
+  * Qwen/Qwen3.6-35B-A3B-FP8  — hybrid-attention MoE, native FP8 weights
+                                (fine-grained block-128 quant). Legacy;
+                                launch_qwen36_fp8.sh is deprecated.
+
+`_load_model` detects MoE via `text_config.num_experts > 0` and routes:
+  * MoE path: in-memory expert fusion (gate/up packed across experts) +
+    state_dict assign-load to avoid the ~70 GB transient peak from a naive
+    duplicate-on-load. FP8 matmul shimmed through DeepSeek's Triton kernel.
+  * Dense path: plain `from_pretrained(dtype="auto")` — dtype comes from
+    the model's config (BF16 for 27B), no fusion, no shim.
+
+Runs on Blackwell GB10 through the nvcr.io/nvidia/pytorch:26.03-py3
+container (torch 2.11 / CUDA 13.2).
 
 Usage:
-  python3 serve_qwen36_fp8.py --model Qwen/Qwen3.6-35B-A3B-FP8 --port 8095
+  python3 serve_qwen36_fp8.py --model Qwen/Qwen3.6-27B --port 8095          # default
+  python3 serve_qwen36_fp8.py --model Qwen/Qwen3.6-35B-A3B-FP8 --port 8095  # legacy
 
 OpenAI-compatible endpoints (mirrors serve_transformers.py):
   POST /v1/chat/completions    — text + vision
@@ -145,19 +161,32 @@ def _unwrap_dict_mask(config, inputs_embeds, attention_mask=None, *args, **kwarg
 _mu.create_causal_mask = _unwrap_dict_mask
 # Also patch the re-export inside the model module (it imported at module
 # load, so reassigning in _mu alone doesn't catch it).
-import transformers.models.qwen3_5_moe.modeling_qwen3_5_moe as _q35moe_mod
-_q35moe_mod.create_causal_mask = _unwrap_dict_mask
+# Apply to BOTH the MoE module (Qwen3.6-35B-A3B-FP8) and the dense module
+# (Qwen3.6-27B). They share the hybrid linear+full attention layer pattern,
+# so both hit the same dict-mask issue under static cache. Either may be
+# absent in older transformers builds — guard with try/except so the script
+# still imports.
+def _patch_qwen35_module(module_path: str, text_model_class: str):
+    try:
+        import importlib
+        mod = importlib.import_module(module_path)
+        mod.create_causal_mask = _unwrap_dict_mask
+        cls = getattr(mod, text_model_class, None)
+        if cls is not None and hasattr(cls, "_update_linear_attn_mask"):
+            _orig = cls._update_linear_attn_mask
+            def _ulam_dict_aware(self, attention_mask, past_key_values, _orig=_orig):
+                if isinstance(attention_mask, dict):
+                    return attention_mask.get("linear_attention")
+                return _orig(self, attention_mask, past_key_values)
+            cls._update_linear_attn_mask = _ulam_dict_aware
+    except (ImportError, AttributeError) as _e:
+        # Module not present in this transformers build — skip silently.
+        pass
 
-# Sibling to the dict-unwrap above: _update_linear_attn_mask receives the same
-# {layer_pattern: mask} dict under static cache, and its `torch.all(mask == 1)`
-# check blows up on a dict (`dict == 1` → Python bool, `torch.all(bool)` → TypeError).
-# Pull the linear_attention entry out before delegating.
-_orig_ulam = _q35moe_mod.Qwen3_5MoeTextModel._update_linear_attn_mask
-def _ulam_dict_aware(self, attention_mask, past_key_values):
-    if isinstance(attention_mask, dict):
-        return attention_mask.get("linear_attention")
-    return _orig_ulam(self, attention_mask, past_key_values)
-_q35moe_mod.Qwen3_5MoeTextModel._update_linear_attn_mask = _ulam_dict_aware
+_patch_qwen35_module("transformers.models.qwen3_5_moe.modeling_qwen3_5_moe",
+                     "Qwen3_5MoeTextModel")
+_patch_qwen35_module("transformers.models.qwen3_5.modeling_qwen3_5",
+                     "Qwen3_5TextModel")
 
 # Also override the Triton fallback with DeepSeek's reference Triton FP8 GEMM.
 # The kernels-community/finegrained-fp8 kernel is generic and slow; DeepSeek's
@@ -286,7 +315,9 @@ class ChatRequest(BaseModel):
     # tasks" preset (temperature=0.7, top_p=0.8, top_k=20, min_p=0.0,
     # presence_penalty=1.5, repetition_penalty=1.0) — callers chasing the
     # thinking-mode or coding-mode presets should pass their own values.
-    model: str = "Qwen/Qwen3.6-35B-A3B-FP8"
+    # The `model` field here is a label echoed back to the caller; the
+    # actually-loaded model is whatever the launcher passed via --model.
+    model: str = "Qwen/Qwen3.6-27B"
     messages: list
     tools: list = []
     tool_choice: ToolChoice = "auto"
@@ -1153,6 +1184,11 @@ async def _chat_completions_stream(req: ChatRequest, user_sem: asyncio.Semaphore
     inputs = _apply_chat_template(messages, req.tools, req.enable_thinking,
                                    req.preserve_thinking)
     prompt_len = inputs["input_ids"].shape[1]
+    log.info(
+        f"{_utag}REQUEST: prompt_tokens={prompt_len} max_new={req.max_tokens} "
+        f"thinking={req.enable_thinking} preserve_thinking={req.preserve_thinking} "
+        f"n_messages={len(messages)} n_tools={len(req.tools or [])} n_images={len(_images)}"
+    )
 
     eos_ids: list[int] = []
     if tokenizer.eos_token_id is not None:
@@ -1274,6 +1310,11 @@ async def _chat_completions_impl(req: ChatRequest):
     inputs = _apply_chat_template(messages, req.tools, req.enable_thinking,
                                    req.preserve_thinking)
     prompt_len = inputs["input_ids"].shape[1]
+    log.info(
+        f"{_utag}REQUEST: prompt_tokens={prompt_len} max_new={req.max_tokens} "
+        f"thinking={req.enable_thinking} preserve_thinking={req.preserve_thinking} "
+        f"n_messages={len(messages)} n_tools={len(req.tools or [])} n_images={len(_images)}"
+    )
 
     # The Qwen3VLProcessor emits `mm_token_type_ids`, `pixel_values`,
     # `image_grid_thw`, etc. alongside the text ids. With the ConditionalGen
@@ -1887,8 +1928,10 @@ def _load_model(model_id: str, max_memory_gb: float | None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="Qwen/Qwen3.6-35B-A3B-FP8",
-                        help="HF repo id or local path (Qwen3.5 native FP8).")
+    parser.add_argument("--model", default="Qwen/Qwen3.6-27B",
+                        help="HF repo id or local path. Default is dense BF16 27B; "
+                             "Qwen/Qwen3.6-35B-A3B-FP8 still works for the legacy "
+                             "MoE FP8 path (auto-detected from the config).")
     parser.add_argument("--port", type=int, default=8095)
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--max-memory-gb", type=float, default=None,

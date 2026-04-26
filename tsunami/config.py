@@ -37,7 +37,7 @@ class TsunamiConfig:
     min_p: float = 0.0
     presence_penalty: float = 0.0
     repetition_penalty: float = 1.0
-    max_tokens: int = 6144
+    max_tokens: int = 8192
     client_id: str = ""  # set via TSUNAMI_USER env var; feeds the `user` field of
                          # /v1/chat/completions so the server can enforce per-user
                          # fairness. Leave empty on single-user setups — the server
