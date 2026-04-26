@@ -16,7 +16,7 @@
 
 ## the whole idea ♡
 
-a scaffold is a polished starting point with a locked component vocabulary. tsunami ships **21 of them** in `ark/scaffolds/` — landing pages, dashboards, data viz, fullstack CRUD, real-time chat, auth apps, chrome extensions, electron apps, REST APIs, web games, native game genres, CLI tools.
+a scaffold is a polished starting point with a locked component vocabulary. tsunami ships **21 of them** in `scaffolds/` — landing pages, dashboards, data viz, fullstack CRUD, real-time chat, auth apps, chrome extensions, electron apps, REST APIs, web games, native game genres, CLI tools.
 
 you don't get a blank canvas. you get a scaffold that already knows what it wants to be. ツNami's job is to **match your idea to the right scaffold**, fill it in, and verify the result by actually looking at it. nothing fancier than that.
 
@@ -89,7 +89,7 @@ eighteen **game genres** in `tsunami/genre_scaffolds/`.
 - **major refactor in flight (April 2026).** the local-LLM stack was retired; Claude is the new orchestrator. expect transitional state in `agent.py` / `model.py` / `config.py` until the swap PR lands.
 - **lightspeed development.** core files rewrite themselves within hours. expect rebases. the train has no brakes.
 
-if you're an instance dropped into the codebase: read [`ark/tsunami/CLAUDE.md`](tsunami/CLAUDE.md). it's the choose-your-own-adventure cold-start.
+if you're an instance dropped into the codebase: read [`tsunami/CLAUDE.md`](tsunami/CLAUDE.md). it's the choose-your-own-adventure cold-start.
 
 ---
 

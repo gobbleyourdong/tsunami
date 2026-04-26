@@ -1,6 +1,6 @@
 # tsunami — cold-start, choose your own adventure
 
-> You are an instance that just landed in `ark/tsunami/`. This file is the only thing
+> You are an instance that just landed in `tsunami/` (the agent-loop subdir of the repo). This file is the only thing
 > you have to read to know what to do. If after reading it you still can't answer
 > "user wants X, I match it to scaffold Y, I read these N files, I start building" —
 > the doc has failed. File a fix.
