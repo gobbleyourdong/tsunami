@@ -1,20 +1,24 @@
 <p align="center">
-  <img src="docs/banner.png?v=14" alt="ツNami — the agent that builds" width="800">
+  <img src="docs/banner.png?v=14" alt="ツNami" width="800">
 </p>
 
 <h1 align="center">tsunami</h1>
 <h2 align="center">ツNami ♡</h2>
 
-<p align="center"><b><i>an ai coding agent that lives on your computer.<br/>nothing leaves your machine. ever.</i></b></p>
+<p align="center"><b><i>tsunami is a scaffold.</i></b></p>
 
 <p align="center">
-  you type a prompt. <b>ツNami</b> scaffolds a project, writes the code, compiles it,<br/>
-  drives a real browser to QA the output, and hands you a working build.<br/>
-  on your GPU. no OpenAI. no Anthropic. no Google. no API keys. no telemetry.<br/>
-  no "unexpected usage" email at 2am.
+  ツNami picks the right one, fills it in, screenshots the result,<br/>
+  fixes what's wrong, ships.
 </p>
 
-<p align="center"><b>→ <a href="https://gobbleyourdong.github.io/tsunami/">see ツNami work live</a> ←</b></p>
+---
+
+## the whole idea ♡
+
+a scaffold is a polished starting point with a locked component vocabulary. tsunami ships **21 of them** in `ark/scaffolds/` — landing pages, dashboards, data viz, fullstack CRUD, real-time chat, auth apps, chrome extensions, electron apps, REST APIs, web games, native game genres, CLI tools.
+
+you don't get a blank canvas. you get a scaffold that already knows what it wants to be. ツNami's job is to **match your idea to the right scaffold**, fill it in, and verify the result by actually looking at it. nothing fancier than that.
 
 ---
 
@@ -25,116 +29,80 @@
 curl -sSL https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.sh | bash
 source ~/.bashrc && tsunami
 
-# Windows (PowerShell — not CMD, not Git Bash, not WSL)
+# Windows (PowerShell)
 iwr -useb https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
-# close/reopen PowerShell, then:
+# close/reopen, then:
 tsunami
 ```
 
-the installer clones the repo, detects your GPU, installs the Python inference stack (transformers + diffusers + playwright + supporting libs), and wires the `tsunami` shell alias. Model weights (~57 GB) pull lazily from HuggingFace on the first `tsu up` — no separate download step, HF cache handles re-use after that. Run `tsunami` again next time — same command, ツNami's waiting.
+set `ANTHROPIC_API_KEY` before first run. ツNami uses Claude as her brain.
 
 ---
 
-## meet ツNami ✿
-
-ツNami is the agent — a coder who happens to run on your hardware. when you ask her to build something she:
-
-- reads the brief, thinks about it, picks a scaffold
-- auto-grounds any reference image with computer vision before planning
-- writes code, auto-installs npm deps, iterates until the build compiles
-- drives a real headless browser to QA her own output
-- hands you a working build, not a story about one
-
-nothing leaves your box. not your code, not your prompt, not a single keystroke.
-
----
-
-## what's running under the hood ♡
-
-four processes, one command to light them all up.
-
-| tier | what | port |
-|---|---|---|
-| **LM** | Qwen3.6-35B-A3B-FP8 — hybrid MoE, native FP8, tool calling, vision, reasoning mode | `:8095` |
-| **image** | ERNIE-Image-Turbo (live-swappable to Base for keeper quality) | `:8092` |
-| **embed** | Qwen3-Embedding-0.6B | `:8093` |
-| **proxy** | OpenAI-compatible `/v1/chat` + `/v1/images` + `/v1/embeddings` passthrough | `:8090` |
-
-Blackwell (GB10, 5090, B100) is home base — FP8 tensor cores plus enough VRAM for the whole stack. Ada (40-series, L40) runs smaller configurations fine. macs with 64 GB+ unified memory use the same code path.
-
-**everything is native transformers.** no llama.cpp, no sd.cpp, no vendor SDKs. the proxy wraps real model servers, not black boxes wrapped in marketing.
-
----
-
-## how ツNami builds something ♡
+## how she builds ♡
 
 ```
-  prompt → ツNami reasons about intent, picks scaffold, plans
+   prompt → match scaffold → read its locked component vocab
               ↓
-   ✿ pre-build riptide: if the prompt has an image,
-     the system auto-grounds element positions before
-     ツNami plans any write
+          write code, run vite build, install npm deps as needed
               ↓
-   ✿ swell dispatches parallel workers (eddies) as needed
+          drive a real headless browser, screenshot the output
               ↓
-   ✿ ツNami writes code, auto-runs vite build after every
-     .tsx write, auto-installs missing npm packages
+          ask Claude vision: "does this match the intent?"
               ↓
-   ✿ post-build undertow: the system drives a real
-     headless browser, reads console errors, checks
-     the DOM, screenshots, grades the output
-              ↓
-   ✿ deliver when build + QA both pass.
-     iterate only on concrete failures.
+          if no → fix the specific thing → loop
+          if yes → ship
 ```
 
-the **system** decides when to call undertow and riptide. ツNami doesn't get to hand-wave a delivery — the gates are observable: `vite build` either compiles or it doesn't, playwright either finds the button or it doesn't.
+three things keep her honest:
+
+- **vision_gate** — Claude looks at the screenshot. opinion is concrete.
+- **undertow** — Playwright pulls the levers (clicks, keys, console reads). reality is concrete.
+- **circulation** — if she spirals (3+ identical fails, context overflow, infinite read), it catches her, cools her down, gives one recovery shot, then breaks cleanly.
+
+she wanders off the beaten path. if it gets too crazy, the system turns her around.
 
 ---
 
-## the 12-layer speed stack ✧
+## the catalog ✧
 
-small-model drones fail in predictable ways — they'll generate 11 images before writing a file, they'll prop-guess components without reading the source, they'll emit narrative text when they mean `project_init`. so we built twelve fingerprinted safeguards, one per failure mode. `python3 -m tsunami.speed_audit` exits `0` only if all twelve are wired. see `tsunami/speed_audit.py` for the layer map.
-
-**measured:** ~25 min → ~6 min wall clock on the same landing-page brief. the wins are permanent because every layer has a regression test.
-
----
-
-## what ツNami replaces ♡
-
-| instead of | ツNami gives you |
+| family | scaffolds |
 |---|---|
-| Cursor / Windsurf / Copilot | the same agentic loop, but your code stays on your disk |
-| ChatGPT / Claude for coding | no API fees, no rate limits, no "unexpected usage" dashboards |
-| v0 / bolt / lovable | a hosted template tree → a local agent that actually iterates |
-| LM Studio / Ollama wrappers | you get the build loop + QA + pipeline those don't ship |
+| **web (vision-gated)** | `react-app` · `landing` · `dashboard` · `data-viz` · `form-app` · `fullstack` · `realtime` · `ai-app` · `auth-app` |
+| **bespoke gate** | `api-only` · `chrome-extension` · `electron-app` |
+| **games** | `game` · `engine` (WebGPU) · `gamedev/{platformer, fighting, fps, jrpg, beat_em_up, racing, stealth, action_adventure, custom, cross}` |
+| **lighter** | `cli` · `mobile` · `infra` · `web` · `training` |
 
-ツNami runs the same-class model the hyperscalers run, on hardware you already own, with a pipeline designed for actual software engineering — not marketing-demo output.
+orthogonal **work-type plans** in `tsunami/plan_scaffolds/`: `refactor`, `replicator` (compositional inner-app-inside-outer-shell), `research`.
+
+eight **visual styles** in `tsunami/style_scaffolds/`, each paired with a matching `tsunami/undertow_scaffolds/<style>.md` QA approach.
+
+eighteen **game genres** in `tsunami/genre_scaffolds/`.
 
 ---
 
 ## the honest parts ✿
 
-- **60 GB+ unified memory** recommended for the full stack running at once (Qwen LM ~35 GB + ERNIE Turbo ~22 GB + embed ~1.2 GB + overhead). 40 GB works if you accept swapping the LM down when ERNIE is generating. less than 40 and you're in misery territory.
-- **~2 min cold start per tier** on first boot (weights download + warmup). subsequent boots read HF cache at `~/.cache/huggingface/hub` and take ~90s. once up, builds are real-time.
-- **QA is playwright-backed**, not vibes. false-positive rate is below what a model could generate from prose heuristics. false-negatives happen when the model writes code that compiles but renders wrong in edge cases we haven't levered yet.
-- **smaller drones ignore nudges.** some of the twelve layers are advisory; the hard ones (L7 turn-1 narration block, L9 image-ceiling enforce, asset-existence gate) reject at the exec site.
-- **this codebase is under lightspeed development.** core files rewrite themselves within hours. expect rebases. the train has no brakes.
+- **bring your own Claude key.** ツNami doesn't ship one, doesn't proxy, doesn't add a billing layer. usage shows up on your Anthropic console. cost is visible and yours.
+- **tsunami runs on your machine.** filesystem, vite build, Playwright, screenshots — all local. only the LLM call leaves the box.
+- **the scaffolds are the moat.** the agent loop is just an executor. swap Claude for a different LLM later and the scaffolds still work.
+- **major refactor in flight (April 2026).** the local-LLM stack was retired; Claude is the new orchestrator. expect transitional state in `agent.py` / `model.py` / `config.py` until the swap PR lands.
+- **lightspeed development.** core files rewrite themselves within hours. expect rebases. the train has no brakes.
+
+if you're an instance dropped into the codebase: read [`ark/tsunami/CLAUDE.md`](tsunami/CLAUDE.md). it's the choose-your-own-adventure cold-start.
 
 ---
 
-## install / run / stop ♡
+## try it ♡
 
 ```bash
-tsunami                # install + run everything
-tsu up                 # bring the 4-tier stack online (idempotent)
-tsu down               # SIGTERM → SIGKILL-after-20s graceful teardown
-tsu swap base          # switch ERNIE to keeper-quality mode (50 steps)
-tsu swap turbo         # switch back to fast Turbo (8 steps)
-```
+export ANTHROPIC_API_KEY="sk-ant-..."
+tsunami
 
-stack smoke test: `python3 tsunami/tests/test_stack_smoke.py` — 30s all-green check.
-end-to-end build eval: `python3 -m tsunami.tests.eval_tiered` — 5-tier build suite.
+> build me a landing page for a kombucha brand, deep dark theme
+> build me a dashboard with a sidebar and three Recharts graphs
+> build me a platformer with a red skeleton enemy
+```
 
 ---
 
@@ -142,20 +110,18 @@ end-to-end build eval: `python3 -m tsunami.tests.eval_tiered` — 5-tier build s
 
 **file an issue. don't open a PR.** (｡◕‿◕｡)
 
-one dev drives the train. the train has no brakes. core files rewrite themselves within hours, PRs conflict before reviewers can touch them, rebases eat weekends. an issue is the contract:
+one dev drives the train. core files rewrite within hours. PRs conflict before reviewers can touch them. an issue is the contract:
 
-- describe the feature or bug in one paragraph
-- attach a repro if it's a bug, a mock or sketch if it's a feature
-- tag it with the surface — `agent`, `undertow`, `ernie`, `scaffold/<name>`, `eval`
+- one paragraph: feature or bug
+- repro if it's a bug, mock or sketch if it's a feature
+- tag the surface — `agent`, `undertow`, `vision_gate`, `circulation`, `scaffold/<name>`
 
-good ideas get built. you get credit in the commit. if you genuinely need to ship code yourself, say so in the issue — we'll carve out a branch with a contract so the rebase pain lands on me, not you. ♡
+good ideas get built. you get credit in the commit. if you genuinely need to ship code yourself, say so — we'll carve out a branch with a contract so the rebase pain lands on me, not you. ♡
 
 ---
 
 ## license ✧
 
-**public domain.** ツNami is a utility service for the open web, not a product.
-
-released under [the Unlicense](https://unlicense.org/). fork it, ship it, sell it, rename it — there's no copyright to assign, no license to honour, no attribution clause to trip on. it belongs to everybody now.
+**public domain.** released under [the Unlicense](https://unlicense.org/). fork it, ship it, sell it, rename it. it belongs to everybody now.
 
 <p align="center"><sub>made with ♡ by one dev and a lot of coffee · ツNami 2026</sub></p>
