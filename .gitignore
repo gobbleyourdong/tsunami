@@ -63,6 +63,8 @@ SCRATCHPAD.md
 # Tsunami skills are canonical workflow blueprints — track them
 !tsunami/skills/**/SKILL.md
 !tsunami/skills/**/WAVEFORM.md
+# Tsunami cold-start scaffold — canonical onboarding for new instances
+!tsunami/CLAUDE.md
 
 # Misc
 *.log
