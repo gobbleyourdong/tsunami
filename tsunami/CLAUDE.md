@@ -198,16 +198,26 @@ Honorable mention:
 
 - **`deliver_gates.py`** — the cascading verification gates pattern. Add new
   gates here rather than scattering checks throughout the build flow.
-- **`target_layout.py`** — extracts UI element bboxes from a reference image
-  and returns ratio-based CSS. Useful when the user provides a visual mockup.
+- **`routing.py`** — pure-Python keyword routing utility (match_first /
+  match_keyword). Used by the scaffold pick functions; preserved as a
+  general-purpose utility. No orchestration deps.
+
+**Reference-image bbox extraction is currently dormant.** The two pieces
+of that pipeline (`target_layout.py` for ERNIE-generated reference layouts,
+`tools/riptide.py` for Qwen-VL bbox extraction) both depended on the
+deleted local image-gen + VLM endpoints. `target_layout.py` was nuked in
+iteration 15; `tools/riptide.py` was short-circuited in iteration 14 and
+returns a deferred-error with a Claude-vision re-enable hint. When
+image-gen returns ("Generations TBD"), wire `tools/riptide.py` to a
+Claude vision API call to re-enable the visual-clone skill.
 
 ## What's actually here (current surface, after the 2026-04-26 purge)
 
 The repo went from 200+ python files to ~56. The trimmed surface:
 
 - **`CLAUDE.md`** — this file (the cold-start scaffold)
-- **Top-level patterns (.py, 7 files)** — `vision_gate`, `target_layout`,
-  `undertow`, `circulation`, `deliver_gates`, `outbound_exfil`, `__init__`
+- **Top-level patterns (.py, 7 files)** — `vision_gate`, `undertow`,
+  `circulation`, `deliver_gates`, `outbound_exfil`, `routing`, `__init__`
 - **`tools/` (7 files)** — image processing + scaffold init utilities
   (`emit_design`, `pixel_extract`, `image_ops`, `riptide`, `project_init`,
   `project_init_gamedev`, `__init__`)
@@ -231,8 +241,10 @@ The repo went from 200+ python files to ~56. The trimmed surface:
   - `in-place-cwd/` — operating in the user's existing project dir vs. creating new
   - `iteration/` — iterating on an existing build (additive changes)
   - `qa-loop/` — QA-focused iteration when the build compiles but the QA fails
-  - `visual-clone/` — replicating a reference image (use with `target_layout.py`
-    + `tools/pixel_extract.py`)
+  - `visual-clone/` — replicating a reference image. **Currently
+    degraded** — the bbox-extraction half of this pipeline
+    (`tools/riptide.py`) is dormant until image-gen returns. Skill
+    still works for sprite/asset extraction via `tools/pixel_extract.py`.
 
 **Skill files use the legacy tsunami-agent tool API** — names like
 `shell_exec`, `file_write`, `file_read`, `file_edit`, `project_init`,
@@ -384,9 +396,11 @@ can't orient is the failure mode the whole thing is designed against.
      vision-gate fails on the same intent without progress, the pattern is
      to compress your context, try one different approach, then break
      cleanly rather than grind
-   - Practical fix path: re-read `target_layout.py` for ratio-based
-     positioning, regenerate the JSX with the corrected sidebar position
-     (the layout system is ratio-anchored — don't hard-code px), retry
+   - Practical fix path: regenerate the JSX with the corrected sidebar
+     position (use `flex-direction` / `grid-template-columns` rather than
+     hardcoded px so the layout is responsive), retry. Note: the previous
+     ratio-based positioning helper (`target_layout.py` + `tools/riptide.py`)
+     is dormant until image-gen returns.
 
 3. **`agent.py` (or `cli.py`, `model.py`, `config.py`, `eddy.py`, `server.py`,
    etc.) referenced but missing.**
@@ -412,3 +426,4 @@ This doc evolves. Each refresh adds a row.
 | 2026-04-26 | v3.2 | Second cold-test passed all 4 scenarios with exact ground-truth match (metroidvania flame-knight, brutalist photographer portfolio, broken vite-build recovery, vision_gate-fail-3-strikes). One minor v3.2 gap closed: Games table now opens with a one-line note pointing at `plan_scaffolds/gamedev.md` as the universal game-build plan (applies to every genre — covers data-driven scaffold flow + `data/*.json` editing + `vite build` emit). The 4 web-app rows have explicit per-row plans; the games rows did not. Now they do. |
 | 2026-04-26 | v3.3 | Audited `skills/*/SKILL.md` and found 83 references to the deleted agent-tool API (shell_exec, file_write, file_read, file_edit, project_init, generate_image, match_glob, message_chat, message_result). The skills are written for the dead tsunami-agent loop's tool registry; their workflow logic is still correct but the tool-call syntax is historical. Added a tool-API translation table to the skills section: `shell_exec` → Bash, `file_read` → Read, `file_write` → Write, `file_edit` → Edit, `match_glob` → Glob, `project_init` → no direct equivalent (copy + customize), `generate_image` → no direct equivalent (image-gen deferred), `message_result` → just respond in text, `message_chat` → NEVER (anti-pattern). Less invasive than rewriting 7 skill files; cold instance reads CLAUDE.md, sees the table, can interpret skills correctly. WAVEFORM.md mention removed from the skills bullet (no skills currently have one — the gitignore exception is precautionary). |
 | 2026-04-26 | v3.4 | Iteration-14 audit caught a major mis-categorization. `mesh/` (21 files / 392 KB) was kept across iterations 1-13 as "game-rendering 3D mesh utilities" based on the directory name. Reading its README revealed it's actually **MegaLAN — a decentralized compute mesh** for distributing tsunami agent jobs across networked nodes (P2P, identity / peer / ledger / discovery layers). With tsunami not invoked anymore + no agent jobs to distribute, the entire subsystem is dead orchestration infrastructure. Nuked the dir; verified no external dependents in the surviving codebase. CLAUDE.md mentions of `mesh/` removed from "What's actually here" + "Files NOT to touch" sections. Also short-circuited `tools/riptide.py` vision grounding (same pattern as `seed_from_image.py` in iteration 13 — was iterating through 3 dead localhost endpoints, now returns a deferred-error immediately with a re-enable hint pointing at Claude vision API). All 13 `core/<name>_probe.py` files audited and verified clean (zero broken imports, zero dead-endpoint refs, all import-test successfully). |
+| 2026-04-26 | v3.5 | Iteration-15 systematic docstring sweep across all surviving files (applying iteration-14's lesson: don't trust dir/file names). Caught one more mis-categorization: `target_layout.py` was described in CLAUDE.md across multiple sections as "extracts UI element bboxes from a reference image and returns ratio-based CSS" — this was wrong. The actual file is "Full-page ERNIE target-layout GENERATION" — calls the deleted ERNIE-Image endpoint at `localhost:8092` to GENERATE a reference image (the bbox EXTRACTION half is `tools/riptide.py`, which was already short-circuited in iter 14). Both halves of the visual-clone pipeline are now dormant until image-gen returns. Nuked `target_layout.py` (zero external imports — `vision_gate.py` only used the name as a parameter for a Path). Updated 4 CLAUDE.md mentions: removed from "Top-level patterns" enumeration, replaced the honorable-mention bullet with `routing.py` (was missing from that list anyway), updated `visual-clone` skill description to flag it as currently degraded, updated cold-instance test answer #2 to point at responsive flex/grid CSS instead of the dormant bbox helper. |
