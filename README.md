@@ -25,17 +25,18 @@ you don't get a blank canvas. you get a scaffold that already knows what it want
 ## install ♡
 
 ```bash
-# Mac / Linux
-curl -sSL https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.sh | bash
-source ~/.bashrc && tsunami
-
-# Windows (PowerShell)
-iwr -useb https://raw.githubusercontent.com/gobbleyourdong/tsunami/main/setup.ps1 | iex
-# close/reopen, then:
-tsunami
+git clone git@github.com:gobbleyourdong/tsunami.git
+cd tsunami
 ```
 
-set `ANTHROPIC_API_KEY` before first run. ツNami uses Claude as her brain.
+that's it. tsunami isn't a binary you run. it's a scaffold library — files an AI coding agent ([Claude Code](https://claude.com/claude-code), or any equivalent harness with tool use + filesystem access) reads and builds from. point your agent at the repo and ask it to make something.
+
+if you'll use the build harness end-to-end (vite, npm, screenshots), you'll also want:
+
+```bash
+pip install -r requirements.txt
+playwright install chromium
+```
 
 ---
 
@@ -83,26 +84,27 @@ eighteen **game genres** in `tsunami/genre_scaffolds/`.
 
 ## the honest parts ✿
 
-- **bring your own Claude key.** ツNami doesn't ship one, doesn't proxy, doesn't add a billing layer. usage shows up on your Anthropic console. cost is visible and yours.
-- **tsunami runs on your machine.** filesystem, vite build, Playwright, screenshots — all local. only the LLM call leaves the box.
-- **the scaffolds are the moat.** the agent loop is just an executor. swap Claude for a different LLM later and the scaffolds still work.
-- **major refactor in flight (April 2026).** the local-LLM stack was retired; Claude is the new orchestrator. expect transitional state in `agent.py` / `model.py` / `config.py` until the swap PR lands.
+- **tsunami doesn't run anywhere.** it's a library of files — scaffolds, patterns, locked component vocabularies, QA recipes. your AI agent runs locally, reads tsunami, and uses it. the only thing leaving your box is the agent's LLM call.
+- **bring your own Claude key.** tsunami doesn't ship one and never will. your agent (Claude Code or equivalent) bills directly to your Anthropic console.
+- **the scaffolds are the moat.** swap Claude for a different LLM later and the scaffolds still work. swap one agent harness for another and the scaffolds still work. tsunami is the resource pile; the agent is interchangeable.
+- **dead weight in the python.** `agent.py`, `model.py`, `config.py`, `observer.py`, the rest of the agent-loop code in `tsunami/` is residue from the local-LLM-orchestrator era when tsunami was invoked as a binary. nothing invokes it now. cleanup pending.
 - **lightspeed development.** core files rewrite themselves within hours. expect rebases. the train has no brakes.
 
-if you're an instance dropped into the codebase: read [`tsunami/CLAUDE.md`](tsunami/CLAUDE.md). it's the choose-your-own-adventure cold-start.
+if you're an AI agent (Claude Code or equivalent) dropped into this repo: read [`tsunami/CLAUDE.md`](tsunami/CLAUDE.md). it's the choose-your-own-adventure cold-start.
 
 ---
 
 ## try it ♡
 
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-tsunami
+drop your AI agent into the cloned repo. Claude Code reads `tsunami/CLAUDE.md` automatically; other harnesses you'd point at it manually. then ask:
 
+```
 > build me a landing page for a kombucha brand, deep dark theme
 > build me a dashboard with a sidebar and three Recharts graphs
 > build me a platformer with a red skeleton enemy
 ```
+
+the agent matches your idea to a scaffold, reads the locked component vocab, fills it in, screenshots, fixes what's wrong, ships.
 
 ---
 
