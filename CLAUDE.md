@@ -11,8 +11,10 @@ run.** Your cold-start orientation lives one directory deeper:
 
 ## Quick map of what's here
 
-- **`scaffolds/`** — 21 polished project templates with locked component
-  vocabularies (the catalog you'll pick from)
+- **`scaffolds/`** — 20 polished project templates with locked component
+  vocabularies (the catalog you'll pick from), plus `scaffolds/nudges/` —
+  the retro-game scrape reference catalog (Castlevania, Dragon Quest,
+  Mario, etc., 71 game dirs)
 - **`tsunami/`** — patterns + utilities the catalog references (vision_gate,
   undertow, circulation, deliver_gates, core probes, image processing, skills)
 - **`deliverables/`** — past builds (reference, not active work)
