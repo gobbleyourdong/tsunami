@@ -415,8 +415,8 @@ real scaffold-level change is needed:
 ## Where to dig deeper
 
 - `../README.md` — the public-facing tsunami pitch ("tsunami is a scaffold")
-- `../scaffolds/GAPS.md` — current scaffold-rollout status (10 closed, 3 open),
-  per-scaffold work shape, contention rules
+- `../scaffolds/GAPS.md` — catalog status reference (13 scaffolds, all
+  closed) + what shipped per scaffold + which probe verifies each
 - `../scaffolds/<name>/GAP.md` (open scaffolds only) — what's left for that scaffold
 - `../scaffolds/<name>/__fixtures__/drone_natural.tsx` — the locked prop vocab
   for that scaffold (the API surface you must use)
