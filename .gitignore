@@ -65,6 +65,8 @@ SCRATCHPAD.md
 !tsunami/skills/**/WAVEFORM.md
 # Tsunami cold-start scaffold — canonical onboarding for new instances
 !tsunami/CLAUDE.md
+# Repo-root pointer that orients AI agents at tsunami/CLAUDE.md
+!/CLAUDE.md
 
 # Misc
 *.log
