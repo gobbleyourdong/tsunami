@@ -476,10 +476,13 @@ real scaffold-level change is needed:
    broken / missing.
 2. The change should land as a single coherent commit with a
    "scaffold: <name>" prefix and explain the user-visible impact.
-3. Closed-status scaffolds (most React-family) have locked
-   `__fixtures__/drone_natural.tsx` — modifying that file changes
-   the API surface every drone build is expected to use, so it
-   needs to be intentional.
+3. The 9 closed React-shape scaffolds have a locked-contract
+   fixture — `__fixtures__/drone_natural.tsx` for the 7
+   self-contained ones, or `__fixtures__/auth_flow.tsx` /
+   `__fixtures__/chat_stream.tsx` for the 2 inheriting ones
+   (auth-app, ai-app). Modifying any of these changes the API
+   surface every drone build is expected to use, so it needs to be
+   intentional.
 
 ## Where to dig deeper
 
@@ -487,10 +490,22 @@ real scaffold-level change is needed:
 - `../scaffolds/GAPS.md` — catalog status reference (20 scaffolds, all
   closed) + what shipped per scaffold + which probe verifies each
 - `../scaffolds/<name>/GAP.md` (open scaffolds only) — what's left for that scaffold
-- `../scaffolds/<name>/__fixtures__/drone_natural.tsx` — the locked prop vocab
-  for that scaffold (the API surface you must use)
-- `../scaffolds/<name>/__fixtures__/<scaffold>_patterns.tsx` — domain-pattern
-  fixtures (e.g. `landing_dashboard_gallery.tsx` for layouts)
+- **Per-scaffold locked-contract fixture** — the API surface you must use.
+  Naming varies by scaffold tier (see build-pattern step 2):
+  - 7 self-contained React: `__fixtures__/drone_natural.tsx`
+  - 2 inheriting React: `auth-app/__fixtures__/auth_flow.tsx` (useAuth contract)
+    or `ai-app/__fixtures__/chat_stream.tsx` (useChat + parseSSE contract)
+  - 11 others (bespoke-gate / engine / game / gamedev / lighter): no
+    `__fixtures__/` dir; contract lives in `README.md` + `package.json` + `src/`
+- **Per-scaffold domain-pattern fixture** (only the 7 self-contained have one).
+  Naming is irregular — derived from the scaffold stem with hyphens dropped:
+  - `react-app/__fixtures__/landing_dashboard_gallery.tsx` (special name, not `*_patterns.tsx`)
+  - `landing/__fixtures__/landing_patterns.tsx`
+  - `dashboard/__fixtures__/dashboard_patterns.tsx`
+  - `data-viz/__fixtures__/dataviz_patterns.tsx` (hyphen dropped)
+  - `form-app/__fixtures__/form_patterns.tsx` (`-app` dropped)
+  - `fullstack/__fixtures__/fullstack_patterns.tsx`
+  - `realtime/__fixtures__/realtime_patterns.tsx`
 - `../scaffolds/<name>/scaffold.yaml` — auto-generated component prop
   contract (only present for React-shape scaffolds — the 9 vision-gated
   ones). Generated from `src/components/ui/*.tsx` via
