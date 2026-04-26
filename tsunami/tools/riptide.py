@@ -82,27 +82,18 @@ class Riptide(BaseTool):
         if not image_b64:
             return ToolResult(f"Failed to encode image: {p}", is_error=True)
 
-        # Try dedicated VL endpoint first, then eddy, then the main tsunami
-        # endpoint (Gemma-4 is multimodal — same pattern as undertow's
-        # _vlm_describe_screenshot). Every reasonable deployment has at least
-        # the main endpoint up, so this should always have a fallback.
-        fallbacks = [
-            VL_ENDPOINT,
-            os.environ.get("TSUNAMI_EDDY_ENDPOINT", "http://localhost:8092"),
-            os.environ.get("TSUNAMI_MODEL_ENDPOINT", "http://localhost:8090"),
-        ]
-        # Dedupe while preserving order
-        seen = set()
-        ordered = [e for e in fallbacks if not (e in seen or seen.add(e))]
-        for endpoint in ordered:
-            result = await _ground_elements(endpoint, image_b64, elements, str(p))
-            if result:
-                return ToolResult(result)
-
+        # Vision grounding via local VL endpoint is DEFERRED since
+        # 2026-04-26 — the localhost Qwen/Gemma endpoints (:8090 / :8092 /
+        # :8094) were retired with the rest of the local-LLM stack in
+        # c94b029. Re-enable by replacing _ground_elements() with a Claude
+        # vision API call (anthropic.Anthropic().messages.create with
+        # image content + the bbox prompt below). Until then, callers
+        # fall back to the same image_b64 + element-list payload — they
+        # can pass this through their own harness's vision endpoint.
         return ToolResult(
-            "Vision grounding unavailable — no VL model endpoint responding. "
-            "Start a vision model on port 8094, or ensure the main tsunami "
-            "endpoint is reachable (multimodal Gemma-4 handles grounding).",
+            "Vision grounding deferred — local VL endpoint retired 2026-04-26. "
+            "Re-enable by wiring _ground_elements() to your harness's vision API "
+            "(Claude vision via Anthropic SDK, or equivalent).",
             is_error=True,
         )
 
