@@ -1,0 +1,11 @@
+# AUTO-GENERATED — ai-app inherits UI from react-app
+# Regenerate with: python3 -m tsunami.scripts.regen_scaffold_yaml ai-app
+
+render_target: dom
+frame_cadence: event
+
+inherits_from: react-app  # see scaffolds/react-app/scaffold.yaml for UI components
+
+# Scaffold-specific contract lives in __fixtures__/drone_natural.tsx
+# (e.g. ai-app-specific hooks, providers, route guards).
+# Read that fixture FIRST for the locked API surface this scaffold adds.

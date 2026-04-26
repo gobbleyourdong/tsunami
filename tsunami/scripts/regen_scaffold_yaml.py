@@ -47,7 +47,28 @@ def regen(scaffold_name: str = "react-app") -> Path:
     scaffold_root = repo_root / "scaffolds" / scaffold_name
     ui_dir = scaffold_root / "src" / "components" / "ui"
     if not ui_dir.is_dir():
-        raise SystemExit(f"no ui dir at {ui_dir}")
+        # Inheriting scaffolds (auth-app, ai-app) re-export react-app's
+        # UI components from their __fixtures__/drone_natural.tsx and
+        # add scaffold-specific contracts (useAuth, useChat) — they
+        # don't have a self-contained src/components/ui/ to scan. Emit
+        # a small inheritance-marker scaffold.yaml so consumers know
+        # this scaffold's UI surface lives in the parent.
+        inherit_marker = scaffold_root / "scaffold.yaml"
+        inherit_marker.write_text(
+            f"# AUTO-GENERATED — {scaffold_name} inherits UI from react-app\n"
+            f"# Regenerate with: python3 -m tsunami.scripts.regen_scaffold_yaml {scaffold_name}\n"
+            f"\n"
+            f"render_target: dom\n"
+            f"frame_cadence: event\n"
+            f"\n"
+            f"inherits_from: react-app  # see scaffolds/react-app/scaffold.yaml for UI components\n"
+            f"\n"
+            f"# Scaffold-specific contract lives in __fixtures__/drone_natural.tsx\n"
+            f"# (e.g. {scaffold_name}-specific hooks, providers, route guards).\n"
+            f"# Read that fixture FIRST for the locked API surface this scaffold adds.\n"
+        )
+        print(f"Wrote {inherit_marker} (inheritance marker — no src/components/ui/)")
+        return inherit_marker
 
     lines = [
         f"# AUTO-GENERATED from {scaffold_name}/src/components/ui/*.tsx",
