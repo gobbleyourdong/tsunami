@@ -365,29 +365,8 @@ def emit_design(
         # Canonical shape: {stage, errors?, message?, ...}
         if payload.get("stage") == "validate":
             errors = payload.get("errors", [])
-            # One-shot auto-repair: deterministic patches for the known
-            # error classes (currently 14 across v1.0 + audio v1.1).
-            if auto_fix and design_obj is not None and errors:
-                try:
-                    from tsunami.error_fixer import fix_design_validation_errors
-                except Exception:
-                    fix_design_validation_errors = None  # type: ignore[assignment]
-                if fix_design_validation_errors is not None:
-                    patched, unresolved = fix_design_validation_errors(
-                        design_obj, errors,
-                    )
-                    if len(unresolved) < len(errors):
-                        retry = emit_design(
-                            patched,
-                            project_name=project_name,
-                            deliverables_dir=deliverables_dir,
-                            timeout_sec=timeout_sec,
-                            auto_fix=False,  # single pass only
-                        )
-                        retry["auto_fixed"] = retry.get("ok") is True
-                        if not retry.get("ok"):
-                            retry.setdefault("errors", unresolved)
-                        return retry
+            # Auto-fix path retired with error_fixer in c94b029.
+            # Caller now handles validation errors directly.
             return {"ok": False, "stage": "validate",
                     "errors": errors, "auto_fixed": False}
         # Stage=parse errors benefit from a character-context excerpt so

@@ -228,21 +228,6 @@ def pick_game_replica(task: str) -> str:
     Empty string on no match. First match wins."""
     from ..routing import match_first
     result = match_first(task, _GAME_SIGNALS, default="")
-    # F-C1 routing telemetry — best-effort, non-blocking.
-    try:
-        from ..routing_telemetry import log_pick
-        log_pick("game_replica", task, result, default="",
-                 match_source="default" if not result else "keyword")
-    except Exception:
-        pass
-    # F-E3 doctrine history — only when an essence actually matched
-    # (content directive will fire). Cold-start cohort counts from here.
-    if result:
-        try:
-            from ..doctrine_history import log_pick as _dh_log
-            _dh_log("game_replica", result)
-        except Exception:
-            pass
     return result
 
 

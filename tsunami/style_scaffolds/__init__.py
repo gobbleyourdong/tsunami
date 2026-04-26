@@ -176,26 +176,9 @@ def pick_style(task: str, scaffold: str = "", seed: int | None = None) -> tuple[
     # word-boundary + multi-word substring rules live in one place.
     from ..routing import match_first
     name = match_first(task, _KEYWORD_MAP, default="")
-    # F-C1 telemetry — logs even on non-match so the stall-report
-    # sees fall-through frequency for styles.
-    try:
-        from ..routing_telemetry import log_pick
-        log_pick("style", task, name, default="",
-                 match_source="default" if not name else "keyword")
-    except Exception:
-        pass
     if name:
         body = _load(name)
         if body:
-            # F-E3 doctrine-history wiring — only log if the style
-            # actually survived the body-load step (we're about to
-            # inject it). Output Quality Gradient cold-start cohort is
-            # counted from here.
-            try:
-                from ..doctrine_history import log_pick as _dh_log
-                _dh_log("style", name, scaffold=scaffold)
-            except Exception:
-                pass
             return name, body
 
     # Corpus-weighted random among applicable.
@@ -218,16 +201,6 @@ def pick_style(task: str, scaffold: str = "", seed: int | None = None) -> tuple[
     names = [a[0] for a in applicable]
     weights = [a[1] for a in applicable]
     chosen = rng.choices(names, weights=weights, k=1)[0]
-    # F-C1 telemetry + F-E3 doctrine history for the corpus-weighted
-    # random tier (otherwise style picks taken via this path never
-    # surface in the stall report or the cold-start cohort).
-    try:
-        from ..routing_telemetry import log_pick as _rt_log
-        _rt_log("style", task, chosen, default="", match_source="random")
-        from ..doctrine_history import log_pick as _dh_log
-        _dh_log("style", chosen, scaffold=scaffold)
-    except Exception:
-        pass
     return chosen, _load(chosen) or ""
 
 

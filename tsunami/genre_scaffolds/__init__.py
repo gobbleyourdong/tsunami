@@ -170,21 +170,11 @@ def pick_genre(task: str, scaffold: str = "", seed: int | None = None) -> tuple[
 
 
 def _log_pick(task: str, winner: str, source: str) -> None:
-    """Wire into routing_telemetry. Never raises."""
-    try:
-        from ..routing_telemetry import log_pick
-        log_pick("genre", task, winner, default="", match_source=source)
-    except Exception:
-        pass
+    """No-op since routing_telemetry was retired in c94b029."""
 
 
 def _log_doctrine(name: str, scaffold: str) -> None:
-    """Wire into doctrine_history for cold-start tracking."""
-    try:
-        from ..doctrine_history import log_pick as _dh
-        _dh("genre", name, scaffold=scaffold)
-    except Exception:
-        pass
+    """No-op since doctrine_history was retired in c94b029."""
 
 
 def format_genre_directive(name: str, body: str) -> str:
