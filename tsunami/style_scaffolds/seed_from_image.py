@@ -211,11 +211,25 @@ _VALID_DOCTRINES = {
 def vlm_probe(image_path: str,
               endpoint: str | None = None,
               timeout_s: int | None = None) -> dict:
-    """Call the local multimodal server for a mood classification.
+    """Multimodal mood classification — DEFERRED since 2026-04-26.
 
-    On failure (endpoint unreachable, timeout, malformed response) returns
-    {} and logs the reason — caller falls back to palette-only matching.
+    Originally called a local Qwen3.6-VL endpoint at localhost:8090 to
+    classify a reference image's mood (warm/cool/playful/serious/etc.).
+    That endpoint was retired with the local-LLM stack in c94b029, and
+    the Claude-vision-via-API replacement is part of the deferred
+    "Generations TBD" work. For now this returns {} immediately so
+    callers fall back to palette-only matching without burning a 20s
+    timeout per call.
+
+    Re-enabling: replace the urllib POST below with an Anthropic vision
+    API call (anthropic.Anthropic().messages.create with image content),
+    or whatever your harness provides. The _VLM_SYSTEM / _VLM_USER
+    prompts are preserved unchanged below for that future re-enablement.
     """
+    _log("vlm_probe: skipped (deferred until image-gen pipeline returns)")
+    return {}
+
+    # Preserved for future re-enablement — see docstring above.
     endpoint = endpoint or os.environ.get("TSUNAMI_VLM_ENDPOINT", "http://localhost:8090")
     timeout_s = timeout_s or int(os.environ.get("TSUNAMI_VLM_TIMEOUT_S", "20"))
 
