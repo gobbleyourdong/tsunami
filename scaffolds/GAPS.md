@@ -8,7 +8,7 @@
 > is now a simpler **catalog-status reference**: which scaffolds are in
 > the catalog, what shipped with each, and which gate verifies them.
 
-## Catalog (13 scaffolds, all closed)
+## Catalog (20 scaffolds, all closed)
 
 All scaffolds below have shipped. Their `GAP.md` rollout files have been
 deleted per the original convention ("when a gap closes, delete its
@@ -53,6 +53,7 @@ new bespoke-gate scaffold: see the META section in
 |---|---|---|
 | game | High-level game scaffold base | `../tsunami/core/gamedev_scaffold_probe.py` |
 | engine | WebGPU game engine + design stack (`tests/{frame_loop,score_system,keyboard_input,ecs_scene}.test.ts` 51/51 green) | (same — exercises `@engine/*` drone surface) |
+| gamedev | Data-driven gamedev scaffold parent. Holds 10 genre subdirs (`gamedev/{action_adventure, beat_em_up, cross, custom, fighting, fps, jrpg, platformer, racing, stealth}`). Builds emit `data/*.json` + edit `src/scenes/*.ts` per the genre_scaffolds plan. | `../tsunami/core/gamedev_scaffold_probe.py` |
 
 `scaffolds/gamedev/{action_adventure, beat_em_up, cross, custom,
 fighting, fps, jrpg, platformer, racing, stealth}/` are the 10 genre

@@ -130,10 +130,12 @@ you picked. Use them in addition to the scaffold-specific plan.
 ## Visual style — orthogonal to scaffold choice
 
 After picking a scaffold, pick a visual style (or let the user pick). Style is
-chosen from `style_scaffolds/`. Each style has a matching `undertow_scaffolds/`
-file with the QA approach for that aesthetic.
+chosen from `style_scaffolds/` (10 styles). Most styles have a same-name
+`undertow_scaffolds/` file with the QA approach for that aesthetic — but the
+pairing is NOT strict 1:1; see "Cross-cutting undertows" below for the
+domain-categorical undertows that apply across multiple styles.
 
-| Style | When to use | undertow_scaffold |
+| Style | When to use | matching undertow_scaffold |
 |---|---|---|
 | `atelier_warm.md` | Warm, hand-crafted, Etsy/maker brands | `undertow_scaffolds/atelier_warm.md` |
 | `brutalist_web.md` | Raw, structural, exposed-grid type-driven | `undertow_scaffolds/brutalist_web.md` |
@@ -143,6 +145,23 @@ file with the QA approach for that aesthetic.
 | `newsroom_editorial.md` | News site, dense above-the-fold | `undertow_scaffolds/newsroom_editorial.md` |
 | `photo_studio.md` | Portfolio, image-first, minimal chrome | `undertow_scaffolds/photo_studio.md` |
 | `playful_chromatic.md` | Bright, animated, motion-rich | `undertow_scaffolds/playful_chromatic.md` |
+| `shadcn_startup.md` | Modern SaaS startup look (shadcn/ui aesthetic) | (no same-name undertow — use `web_polish.md` or `vision_analysis.md`) |
+| `swiss_modern.md` | Helvetica-grid, restrained palette, classic Swiss | (no same-name undertow — use `web_polish.md` or `vision_analysis.md`) |
+
+### Cross-cutting undertow_scaffolds (apply across multiple styles)
+
+These 7 undertows are NOT tied to a specific style — they're QA categories you
+combine with whatever style you picked:
+
+| Undertow | When to apply |
+|---|---|
+| `web_polish.md` | General web-build polish pass (use for any web scaffold) |
+| `vision_analysis.md` | Vision-VLM critique of the rendered page (currently dormant — see CHANGELOG.md v3.6) |
+| `bug_finding.md` | Targeted bug-hunt undertow (functional regressions, not visual) |
+| `brand_consistency.md` | Verify brand colors / typography / voice consistency across pages |
+| `art_direction.md` | Higher-level art-direction QA (use with image-heavy scaffolds — landing, cinematic_display) |
+| `game_feel.md` | Game-specific QA (use with `gamedev/*` scaffolds — input responsiveness, hit feedback) |
+| `sprite_quality.md` | Pixel-art / sprite-asset QA (use with `gamedev/*` scaffolds + retro-game builds) |
 
 Default for React-app-family scaffolds: `react-app`'s baked-in atmospheric dark
 theme (Plus Jakarta Sans, deep palette). Only override when the user asks.
@@ -221,17 +240,14 @@ The repo went from 200+ python files to ~56. The trimmed surface:
 - **`tools/` (7 files)** — image processing + scaffold init utilities
   (`emit_design`, `pixel_extract`, `image_ops`, `riptide`, `project_init`,
   `project_init_gamedev`, `__init__`)
-- **`core/` (17 files)** — bespoke verification probes (one per non-vision
-  scaffold: api-only, electron, chrome-extension, mobile, cli, gamedev,
-  data-pipeline, docs, ws, sse, training, infra, server) plus
-  `dispatch.py` and `_probe_common.py`
+- **`core/` (17 files = 13 bespoke probes + dispatch.py + _probe_common.py + __init__.py + the gamedev_scaffold_probe)** — verification probes (one per non-vision scaffold: api-only, electron, chrome-extension, mobile, cli, gamedev, data-pipeline, docs, ws, sse, training, infra, server) plus the dispatch + shared-helper modules
 - **`animation/`, `game_content/`** — game-rendering primitives
 - **`vendor/BPAD/`** — image processing (edges, resize, pattern noise, denoise)
 - **`scripts/regen_scaffold_yaml.py`** — scaffold maintenance utility
 - **`plan_scaffolds/` (16 files)** — per-scaffold + work-type plan templates
-- **`style_scaffolds/` (9 files)** — visual style templates
-- **`undertow_scaffolds/` (9 files)** — QA approach templates matched to styles
-- **`genre_scaffolds/` (18 files)** — game-genre templates
+- **`style_scaffolds/` (10 files)** — visual style templates
+- **`undertow_scaffolds/` (17 files)** — QA approach templates: 10 same-name pairs with style_scaffolds + 7 cross-cutting (web_polish, vision_analysis, bug_finding, brand_consistency, art_direction, game_feel, sprite_quality)
+- **`genre_scaffolds/` (17 files)** — game-genre templates
 - **`skills/` (7 skills)** — canonical named workflows for common build situations.
   Each is a directory with a `SKILL.md`. Use them when their trigger fits —
   they encode hard-won patterns for the specific situation:
@@ -328,7 +344,7 @@ studies / sigma archives, they're historical. Don't try to use them.
 - **`../scaffolds/`** entirely — the catalog is the product. Modifying a scaffold
   changes every future build that uses it. If you need a new scaffold, propose
   it in `../scaffolds/GAPS.md` first.
-- **`../scaffolds/nudges/`** — the retro-game scrape catalog (71 game
+- **`../scaffolds/nudges/`** — the retro-game scrape catalog (69 game
   dirs / ~2K nudge JSON files). Castlevania, Dragon Quest, Mario, Metroid,
   Contra, Zelda, Final Fantasy, etc. Don't lose these. Lives at
   `scaffolds/nudges/` (NOT inside `scaffolds/.claude/nudges/` where it
@@ -369,9 +385,13 @@ the conventions are:
    `default_mode`, `applies_to`, `mood`, plus the body sections
    (Palette / Typography / Layout / etc. — see existing styles for
    the template).
-2. **Write the matching `undertow_scaffolds/<name>.md`** — REQUIRED.
-   The 1:1 pairing is strict. The undertow scaffold defines the QA
-   approach for that aesthetic (what to check via Playwright levers).
+2. **Optionally** write a same-name `undertow_scaffolds/<name>.md` if
+   the style needs a style-specific QA approach. This is NOT
+   required — most styles use one of the 7 cross-cutting undertows
+   (`web_polish`, `vision_analysis`, `art_direction`, etc.). Earlier
+   versions of this doc claimed strict 1:1 pairing — that was wrong;
+   `shadcn_startup` and `swiss_modern` ship without a same-name
+   undertow and that's fine.
 3. **No manifest update needed.** `style_scaffolds/manifest.py` is
    on-demand auto-discovery — it scans `*.md` at query time, so a
    new style file is automatically visible.
@@ -419,7 +439,7 @@ real scaffold-level change is needed:
 ## Where to dig deeper
 
 - `../README.md` — the public-facing tsunami pitch ("tsunami is a scaffold")
-- `../scaffolds/GAPS.md` — catalog status reference (13 scaffolds, all
+- `../scaffolds/GAPS.md` — catalog status reference (20 scaffolds, all
   closed) + what shipped per scaffold + which probe verifies each
 - `../scaffolds/<name>/GAP.md` (open scaffolds only) — what's left for that scaffold
 - `../scaffolds/<name>/__fixtures__/drone_natural.tsx` — the locked prop vocab

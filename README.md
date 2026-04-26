@@ -76,9 +76,9 @@ she wanders off the beaten path. if it gets too crazy, the system turns her arou
 
 orthogonal **work-type plans** in `tsunami/plan_scaffolds/`: `refactor`, `replicator` (compositional inner-app-inside-outer-shell), `research`.
 
-eight **visual styles** in `tsunami/style_scaffolds/`, each paired with a matching `tsunami/undertow_scaffolds/<style>.md` QA approach.
+ten **visual styles** in `tsunami/style_scaffolds/`. Most have a same-name `tsunami/undertow_scaffolds/<style>.md` QA approach, plus 7 additional cross-cutting undertows (web_polish, vision_analysis, bug_finding, brand_consistency, art_direction, game_feel, sprite_quality) — 17 undertows total.
 
-eighteen **game genres** in `tsunami/genre_scaffolds/`.
+seventeen **game genres** in `tsunami/genre_scaffolds/`.
 
 ---
 
