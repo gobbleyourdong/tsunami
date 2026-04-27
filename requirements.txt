@@ -14,7 +14,7 @@ pyyaml>=6.0
 # --- Browser automation (undertow QA pattern + delivery gates) ---
 playwright>=1.40.0
 
-# --- Image processing (vision_gate, target_layout, tools/, vendor/BPAD/) ---
+# --- Image processing (vision_gate, tools/) ---
 Pillow>=10.0
 numpy>=1.24
 scipy>=1.11

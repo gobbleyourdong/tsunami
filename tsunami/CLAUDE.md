@@ -313,7 +313,6 @@ The repo went from 200+ python files to ~56. The trimmed surface:
   `project_init_gamedev`, `__init__`)
 - **`core/` (17 files = 13 bespoke probes + dispatch.py + _probe_common.py + __init__.py + the gamedev_scaffold_probe)** — verification probes (one per non-vision scaffold: api-only, electron, chrome-extension, mobile, cli, gamedev, data-pipeline, docs, ws, sse, training, infra, server) plus the dispatch + shared-helper modules
 - **`animation/`, `game_content/`** — game-rendering primitives
-- **`vendor/BPAD/`** — image processing (edges, resize, pattern noise, denoise)
 - **`scripts/regen_scaffold_yaml.py`** — scaffold maintenance utility
 - **`plan_scaffolds/` (16 files)** — per-scaffold + work-type plan templates
 - **`style_scaffolds/` (10 files)** — visual style templates
@@ -437,7 +436,7 @@ studies / sigma archives, they're historical. Don't try to use them.
   Off-limits.
 - **`../deliverables/`** — past tsunami builds (chiptune-maker, crypto-tracker,
   hn-trend-dashboard, pomodoro-pro, pomodoro-timer). Reference material.
-- **`animation/`, `game_content/`, `vendor/BPAD/`** — game-rendering and
+- **`animation/`, `game_content/`** — game-rendering and
   image-processing primitives. Use as-is.
 
 ## Adding new probes / styles / skills (META work)
