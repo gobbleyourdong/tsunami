@@ -8,8 +8,8 @@
 <p align="center"><b><i>tsunami is a scaffold.</i></b></p>
 
 <p align="center">
-  ツNami picks the right one, fills it in, screenshots the result,<br/>
-  fixes what's wrong, ships.
+  match the request to the right scaffold, fill it in, screenshot the result,<br/>
+  fix what's wrong, ship.
 </p>
 
 ---
@@ -18,7 +18,7 @@
 
 a scaffold is a polished starting point with a locked component vocabulary. tsunami ships **20 of them** in `scaffolds/` — landing pages, dashboards, data viz, fullstack CRUD, real-time chat, auth apps, chrome extensions, electron apps, REST APIs, web games, native game genres, CLI tools. plus a sibling `scaffolds/nudges/` directory with a retro-game scrape reference catalog (Castlevania, Dragon Quest, Mario, Metroid, etc. — used as cross-reference for game builds).
 
-you don't get a blank canvas. you get a scaffold that already knows what it wants to be. ツNami's job is to **match your idea to the right scaffold**, fill it in, and verify the result by actually looking at it. nothing fancier than that.
+you don't get a blank canvas. you get a scaffold that already knows what it wants to be. tsunami's job is to **match your idea to the right scaffold**, fill it in, and verify the result by actually looking at it. nothing fancier than that.
 
 ---
 
@@ -40,7 +40,7 @@ playwright install chromium
 
 ---
 
-## how she builds ♡
+## how it builds ♡
 
 ```
    prompt → match scaffold → read its locked component vocab
@@ -55,13 +55,13 @@ playwright install chromium
           if yes → ship
 ```
 
-three things keep her honest:
+three things keep the build honest:
 
 - **vision_gate** — Claude looks at the screenshot. opinion is concrete.
 - **undertow** — Playwright pulls the levers (clicks, keys, console reads). reality is concrete.
-- **circulation** — if she spirals (3+ identical fails, context overflow, infinite read), it catches her, cools her down, gives one recovery shot, then breaks cleanly.
+- **circulation** — if the build spirals (3+ identical fails, context overflow, infinite read), the system catches it, cools it down, gives one recovery shot, then breaks cleanly.
 
-she wanders off the beaten path. if it gets too crazy, the system turns her around.
+the build wanders off the beaten path. if it gets too crazy, the system turns it around.
 
 ---
 
@@ -126,4 +126,4 @@ good ideas get built. you get credit in the commit. if you genuinely need to shi
 
 **public domain.** released under [the Unlicense](https://unlicense.org/). fork it, ship it, sell it, rename it. it belongs to everybody now.
 
-<p align="center"><sub>made with ♡ by one dev and a lot of coffee · ツNami 2026</sub></p>
+<p align="center"><sub>made with ♡ by one dev and a lot of coffee · tsunami 2026</sub></p>
