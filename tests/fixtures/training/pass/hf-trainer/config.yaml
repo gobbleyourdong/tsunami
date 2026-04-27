@@ -1,6 +1,0 @@
-model_name: bert-base-uncased
-output_dir: ./ckpts
-epochs: 3
-batch_size: 16
-learning_rate: 2e-5
-max_steps: 1000

@@ -1,6 +1,0 @@
-{
-  "name": "dangling-bin",
-  "bin": {
-    "ghost": "./bin/cli.js"
-  }
-}

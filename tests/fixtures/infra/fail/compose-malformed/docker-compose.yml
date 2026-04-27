@@ -1,7 +1,0 @@
-services:
-  web:
-    image: nginx:alpine
-    ports:
-      - "80:80
-  db:  # missing closing quote above, broken indentation here
-      image: postgres:16

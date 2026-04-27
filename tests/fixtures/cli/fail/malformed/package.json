@@ -1,6 +1,0 @@
-{
-  "name": "malformed-cli",
-  "bin": {
-    "bad": "./bin/cli.js"
-  ,
-}

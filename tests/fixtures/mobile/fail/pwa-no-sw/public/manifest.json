@@ -1,7 +1,0 @@
-{
-  "name": "Missing SW",
-  "short_name": "NoSW",
-  "start_url": "/",
-  "display": "standalone",
-  "icons": [{"src": "/icon.png", "sizes": "192x192", "type": "image/png"}]
-}
