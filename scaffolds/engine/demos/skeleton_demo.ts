@@ -23,10 +23,6 @@ import {
   extendRigWithBodyParts,
   extendLocalMatsWithBodyParts,
   DEFAULT_CAPE_PARTS,
-  DEFAULT_TAIL,
-  DEFAULT_WINGS,
-  DEFAULT_EXTRA_LIMBS,
-  DEFAULT_SNAKE_NECK,
   DEFAULT_BOB_HAIR,
   DEFAULT_LONG_HAIR,
   DEFAULT_HAIR_STRANDS,
@@ -235,10 +231,6 @@ async function main() {
           const bodyAndExtras = [
             ...DEFAULT_BODY_PARTS,
             ...DEFAULT_CAPE_PARTS,
-            ...DEFAULT_TAIL,
-            ...DEFAULT_WINGS,
-            ...DEFAULT_EXTRA_LIMBS,
-            ...DEFAULT_SNAKE_NECK,
             ...DEFAULT_GRENADE_BELT,
             ...allWardrobeParts,
           ]
@@ -560,40 +552,7 @@ async function main() {
         applyGroupScale(g, v)
       }
       if (currentExpression !== 'neutral') applyExpression(currentExpression)
-      // Re-apply hind retarget AFTER preset (preset clobbers per-bone scales).
-      applyHindRetarget()
       fitCameraToCharacter()
-      invalidateRaymarchCache()
-    }
-
-    /** Per-creature bone-scale overrides. Runs AFTER applyPreset (which
-     *  resets all scales). Each override zeroes specific bones to
-     *  collapse them out of the silhouette without modifying the rig.
-     *  Use 0.05 (not 0) to avoid degenerate columns in worldToLocal.
-     *
-     *  - quadrupedHind: zero shin scaleY → foot lands at knee.
-     *  - snakeNeck: zero Head + Neck scaleY → human head hides; the
-     *    snake-neck chain (parented to Neck) extends forward as the
-     *    new head/face.
-     *
-     *  NOTE: applyPreset's init-time call runs before `loadout` is
-     *  declared (TDZ). Guard via try/catch — first call no-ops, later
-     *  calls (after loadout init) apply the overrides. */
-    function applyHindRetarget() {
-      let l: typeof loadout
-      try { l = loadout } catch { return }
-      const lLegIdx = rig.findIndex((j) => j.name === 'LeftLeg')
-      const rLegIdx = rig.findIndex((j) => j.name === 'RightLeg')
-      if (l.quadrupedHind) {
-        if (lLegIdx >= 0) characterParams.scales[lLegIdx] = [1, 0.05, 1]
-        if (rLegIdx >= 0) characterParams.scales[rLegIdx] = [1, 0.05, 1]
-      }
-      if (l.snakeNeck) {
-        const headIdx2 = rig.findIndex((j) => j.name === 'Head')
-        if (headIdx2 >= 0) characterParams.scales[headIdx2] = [0.05, 0.05, 0.05]
-      }
-      // When toggled OFF, applyPreset restores the original scale via
-      // its full re-init pass, so no explicit "restore" needed here.
       invalidateRaymarchCache()
     }
 
@@ -642,20 +601,6 @@ async function main() {
         slider.oninput = () => {
           hairLengthScale = parseFloat(slider.value)
           if (valLabel) valLabel.textContent = hairLengthScale.toFixed(2)
-        }
-      }
-    }
-
-    // Tail length scalar — multiplies the per-segment drop in tail chain.
-    // 1.0 = default (4 segments × TAIL_SEG_DROP ~32cm), 0.5 = stub, 2.5 = drag.
-    let tailLengthScale = 1.0
-    {
-      const slider = document.getElementById('tail-length') as HTMLInputElement | null
-      const valLabel = document.getElementById('tail-length-val') as HTMLElement | null
-      if (slider) {
-        slider.oninput = () => {
-          tailLengthScale = parseFloat(slider.value)
-          if (valLabel) valLabel.textContent = tailLengthScale.toFixed(2)
         }
       }
     }
@@ -990,10 +935,6 @@ async function main() {
         bodyParts:   [
           ...DEFAULT_BODY_PARTS,
           ...(loadout.cape     ? DEFAULT_CAPE_PARTS   : []),
-          ...(loadout.tail     ? DEFAULT_TAIL         : []),
-          ...(loadout.wings    ? DEFAULT_WINGS        : []),
-          ...(loadout.extraLimbs ? DEFAULT_EXTRA_LIMBS : []),
-          ...(loadout.snakeNeck  ? DEFAULT_SNAKE_NECK  : []),
           ...(loadout.grenades ? DEFAULT_GRENADE_BELT : []),
           ...activeArmor,
         ],
@@ -1012,12 +953,6 @@ async function main() {
           spikesSideR: loadout.spikesSideR,
           spikesBack:  loadout.spikesBack,
           cape:        loadout.cape,
-          tail:        loadout.tail,
-          wings:       loadout.wings,
-          wingFlap:    loadout.wingFlap,
-          quadrupedHind: loadout.quadrupedHind,
-          extraLimbs:    loadout.extraLimbs,
-          snakeNeck:     loadout.snakeNeck,
           capePattern: loadout.capePattern,
           grenades:    loadout.grenades,
           expression:  currentExpression,
@@ -1101,12 +1036,6 @@ async function main() {
           loadout.bangsL = bangsOn; loadout.bangsR = bangsOn
         }
         if (typeof lo.cape === 'boolean')      loadout.cape = lo.cape
-        if (typeof lo.tail === 'boolean')      loadout.tail = lo.tail
-        if (typeof lo.wings === 'boolean')     loadout.wings = lo.wings
-        if (typeof lo.wingFlap === 'boolean')  loadout.wingFlap = lo.wingFlap
-        if (typeof lo.quadrupedHind === 'boolean') loadout.quadrupedHind = lo.quadrupedHind
-        if (typeof lo.extraLimbs === 'boolean')    loadout.extraLimbs = lo.extraLimbs
-        if (typeof lo.snakeNeck === 'boolean')     loadout.snakeNeck = lo.snakeNeck
         if (typeof lo.grenades === 'boolean')  loadout.grenades = lo.grenades
         if (typeof lo.capePattern === 'string' && lo.capePattern in CAPE_PATTERNS) {
           loadout.capePattern = lo.capePattern as typeof loadout.capePattern
@@ -1205,431 +1134,6 @@ async function main() {
     const lFootIdx = rig.findIndex((j) => j.name === 'LeftFoot')
     const rFootIdx = rig.findIndex((j) => j.name === 'RightFoot')
 
-    // Procedural extra-limb mapping: 4 phantom limbs that copy world
-    // rotation from human limb chains. (sourceUp, sourceLow, dstUp,
-    // dstLow, dstTip, lowOffsetY, tipOffsetY) — last two are bind-pose
-    // offsets matching DEFAULT_EXTRA_LIMBS_*. Indices cached once.
-    const EXTRA_LIMB_PAIRS: Array<{
-      srcUpIdx: number; srcLowIdx: number;
-      dstUpIdx: number; dstLowIdx: number; dstTipIdx: number;
-      lowOffY: number; tipOffY: number;
-      // Phase offset as a fraction 0..1 of the animation cycle. 0 = use
-      // current frame (in sync with source); 0.5 = half-cycle delay
-      // (anti-phase). Wave gait would be (0, 0.25, 0.5, 0.75); trot
-      // (diagonal pairs) is (0, 0.5, 0.5, 0) — FL+BR vs FR+BL.
-      phaseOffset: number
-    }> = []
-    // Default: trot gait — diagonal pairs (FL+BR, FR+BL) move together.
-    // Reads as a natural alternating quadruped/spider walk on most anims
-    // including cycle-driven crawls.
-    for (const cfg of [
-      { srcUp: 'LeftArm',     srcLow: 'LeftForeArm',  side: 'FL', phase: 0    },
-      { srcUp: 'RightArm',    srcLow: 'RightForeArm', side: 'FR', phase: 0.5  },
-      { srcUp: 'LeftUpLeg',   srcLow: 'LeftLeg',      side: 'BL', phase: 0.5  },
-      { srcUp: 'RightUpLeg',  srcLow: 'RightLeg',     side: 'BR', phase: 0    },
-    ]) {
-      const srcUpIdx  = rig.findIndex((j) => j.name === cfg.srcUp)
-      const srcLowIdx = rig.findIndex((j) => j.name === cfg.srcLow)
-      const dstUpIdx  = rig.findIndex((j) => j.name === `Extra${cfg.side}_Up`)
-      const dstLowIdx = rig.findIndex((j) => j.name === `Extra${cfg.side}_Low`)
-      const dstTipIdx = rig.findIndex((j) => j.name === `Extra${cfg.side}_Tip`)
-      if (srcUpIdx < 0 || srcLowIdx < 0 || dstUpIdx < 0 || dstLowIdx < 0 || dstTipIdx < 0) continue
-      EXTRA_LIMB_PAIRS.push({
-        srcUpIdx, srcLowIdx, dstUpIdx, dstLowIdx, dstTipIdx,
-        lowOffY: -0.18, tipOffY: -0.16,
-        phaseOffset: cfg.phase,
-      })
-    }
-    // Snake procedural slither — perturb the full snake chain (Spine →
-    // Neck → SnakeNeck0..3 → SnakeNeckHead) plus the Tail (Tail0..Tail4)
-    // with two sine waves: side (X-axis, lateral) and up (Y-axis,
-    // vertical). Phase shift along the chain creates a traveling wave
-    // from root to tip. The two waves run at different frequencies so
-    // the body curls in both planes — flat-ground slither + climb-arch.
-    //
-    // Each bone is perturbed independently in world space (additive on
-    // composer.worldMatrices). composer.update propagates parent → child
-    // BEFORE this hook fires, so a shift at Hips does NOT carry to Spine
-    // automatically — instead we shift every bone with its own (chain-
-    // position, time)-keyed phase so adjacent bones land on the sine
-    // curve at slightly offset phases. Net visual: a continuous wave.
-    // Three separate chains so we can fire the snake-neck wiggle on every
-    // snakeNeck creature (dragon too) but only fire the full-body slither
-    // on snake — dragon should NOT have its torso undulating, only its
-    // serpentine head extension.
-    const SNAKE_NECK_CHAIN: number[] = []   // SnakeNeck0..3 + SnakeNeckHead (head-extension only)
-    const SNAKE_TORSO_CHAIN: number[] = []  // Hips → Spine* → Neck (snake-only body wave)
-    const SNAKE_TAIL_CHAIN: number[] = []   // Tail0..Tail4 (snake-only tail wave)
-    {
-      const neckNames = ['SnakeNeck0', 'SnakeNeck1', 'SnakeNeck2', 'SnakeNeck3', 'SnakeNeckHead']
-      for (const n of neckNames) {
-        const idx = rig.findIndex((j) => j.name === n)
-        if (idx >= 0) SNAKE_NECK_CHAIN.push(idx)
-      }
-      const torsoNames = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck']
-      for (const n of torsoNames) {
-        const idx = rig.findIndex((j) => j.name === n)
-        if (idx >= 0) SNAKE_TORSO_CHAIN.push(idx)
-      }
-      const tailNames = ['Tail0', 'Tail1', 'Tail2', 'Tail3', 'Tail4']
-      for (const n of tailNames) {
-        const idx = rig.findIndex((j) => j.name === n)
-        if (idx >= 0) SNAKE_TAIL_CHAIN.push(idx)
-      }
-    }
-    // Slither parameters — shared between neck-only and full-body modes.
-    // Side: ~0.4 Hz, 6cm peak. Up: ~0.3 Hz, 3cm peak. Phase shifts of
-    // 1.0/0.7 rad per segment yield a wave that traverses the body in
-    // ~6 segments and gives the two channels different periods.
-    const SLITHER_SIDE_AMP = 0.06
-    const SLITHER_UP_AMP   = 0.03
-    const SLITHER_SIDE_PHASE = 1.0
-    const SLITHER_UP_PHASE   = 0.7
-    const slitherChain = (chain: number[], phaseStart: number, ampScale: (i: number) => number, wm: Float32Array) => {
-      const tSide = elapsed * 2.5
-      const tUp   = elapsed * 1.8
-      for (let i = 0; i < chain.length; i++) {
-        const idx = chain[i]
-        const a = ampScale(i)
-        const dx = Math.sin(tSide - (phaseStart + i * SLITHER_SIDE_PHASE)) * SLITHER_SIDE_AMP * a
-        const dy = Math.sin(tUp   - (phaseStart + i * SLITHER_UP_PHASE))   * SLITHER_UP_AMP   * a
-        wm[idx * 16 + 12] += dx
-        wm[idx * 16 + 13] += dy
-        device.queue.writeBuffer(vatHandle.buffer, idx * 64, wm.buffer, wm.byteOffset + idx * 16 * 4, 64)
-      }
-    }
-    // Snake-neck head wiggle — fires on every snakeNeck creature. Just
-    // perturbs the 5 head-extension bones; the dragon's body, wings,
-    // and legs are untouched.
-    const applySnakeNeckWeave = () => {
-      if (!composer || SNAKE_NECK_CHAIN.length === 0) return
-      slitherChain(SNAKE_NECK_CHAIN, 0, (i) => Math.min(1, (i + 1) / 3), composer.worldMatrices)
-      invalidateRaymarchCache()
-    }
-    // Full-body slither — torso (Hips → Neck) + tail. Snake-only; gated
-    // on currentCreature so dragon doesn't undulate its body. Amplitude
-    // ramps from root (small) to tip (full) so hips stay anchored while
-    // head/tail whip — anchored hips read as a snake with body weight
-    // on the ground.
-    const applySnakeBodySlither = () => {
-      if (!composer) return
-      const wm = composer.worldMatrices
-      slitherChain(SNAKE_TORSO_CHAIN, 0, (i) => Math.min(1, (i + 1) / 4), wm)
-      // Tail phase offset continues from the torso so the wave reads
-      // as one continuous traveling pulse from head through tail tip.
-      slitherChain(SNAKE_TAIL_CHAIN, SNAKE_TORSO_CHAIN.length * 0.6, (i) => Math.min(1, (i + 1) / 3), wm)
-      invalidateRaymarchCache()
-    }
-
-    // Wing-flap bone indices — cached once. WingL1/L2/L3 + WingR1/R2/R3
-    // (skip the L0/R0 ROOT bones; root stays anchored to the shoulder
-    // bind-pose). The perturbation amplitude scales linearly with chain
-    // position, so the tip flaps farther than the mid bone.
-    // Wing chain bone indices, full chain per side (root + 3 children).
-    // Root rotates around its bone-X axis by sin-driven flap angle;
-    // children's world matrices recompose via parent × child.local each
-    // frame. Reads better than the prior Y-translation hack because
-    // the cross-section frame rotates WITH the bend (cols 0/1/2 update
-    // through the chain) instead of staying at bind-pose orientation.
-    const WING_CHAIN_L: number[] = []
-    const WING_CHAIN_R: number[] = []
-    for (let i = 0; i < 4; i++) {
-      const lIdx = rig.findIndex((j) => j.name === `WingL${i}`)
-      const rIdx = rig.findIndex((j) => j.name === `WingR${i}`)
-      if (lIdx >= 0) WING_CHAIN_L.push(lIdx)
-      if (rIdx >= 0) WING_CHAIN_R.push(rIdx)
-    }
-    // child.world = parent.world × child.local (composition path mirroring
-    // composer.update — rot cols unchanged, col3 × scale).
-    const propagateChildMat = (parentOff: number, childOff: number, localOff: number, scale: [number, number, number]): void => {
-      const wm = composer!.worldMatrices
-      const lm = loadedVAT.localMats!
-      const c00 = lm[localOff + 0],  c01 = lm[localOff + 4],  c02 = lm[localOff + 8]
-      const c10 = lm[localOff + 1],  c11 = lm[localOff + 5],  c12 = lm[localOff + 9]
-      const c20 = lm[localOff + 2],  c21 = lm[localOff + 6],  c22 = lm[localOff + 10]
-      const t0 = lm[localOff + 12] * scale[0]
-      const t1 = lm[localOff + 13] * scale[1]
-      const t2 = lm[localOff + 14] * scale[2]
-      const p00 = wm[parentOff + 0],  p01 = wm[parentOff + 4],  p02 = wm[parentOff + 8]
-      const p10 = wm[parentOff + 1],  p11 = wm[parentOff + 5],  p12 = wm[parentOff + 9]
-      const p20 = wm[parentOff + 2],  p21 = wm[parentOff + 6],  p22 = wm[parentOff + 10]
-      const p03 = wm[parentOff + 12], p13 = wm[parentOff + 13], p23 = wm[parentOff + 14]
-      wm[childOff + 0]  = p00 * c00 + p01 * c10 + p02 * c20
-      wm[childOff + 1]  = p10 * c00 + p11 * c10 + p12 * c20
-      wm[childOff + 2]  = p20 * c00 + p21 * c10 + p22 * c20
-      wm[childOff + 3]  = 0
-      wm[childOff + 4]  = p00 * c01 + p01 * c11 + p02 * c21
-      wm[childOff + 5]  = p10 * c01 + p11 * c11 + p12 * c21
-      wm[childOff + 6]  = p20 * c01 + p21 * c11 + p22 * c21
-      wm[childOff + 7]  = 0
-      wm[childOff + 8]  = p00 * c02 + p01 * c12 + p02 * c22
-      wm[childOff + 9]  = p10 * c02 + p11 * c12 + p12 * c22
-      wm[childOff + 10] = p20 * c02 + p21 * c12 + p22 * c22
-      wm[childOff + 11] = 0
-      wm[childOff + 12] = p00 * t0 + p01 * t1 + p02 * t2 + p03
-      wm[childOff + 13] = p10 * t0 + p11 * t1 + p12 * t2 + p13
-      wm[childOff + 14] = p20 * t0 + p21 * t1 + p22 * t2 + p23
-      wm[childOff + 15] = 1
-    }
-    // Head 180° local-Y flip — applied per frame after composer.update so
-    // the face points backward. Used by spider so the round back-of-head
-    // reads as the abdomen rather than a screaming face on top of the
-    // body. Implemented as M_head ← M_head × R(Y, 180°), which in
-    // column-major terms negates cols 0 and 2 (X- and Z-axis) and
-    // leaves col 1 (Y, the bone's up) and col 3 (translation) untouched.
-    const applyHeadFlip180 = () => {
-      if (!composer) return
-      const headIdx = rig.findIndex((j) => j.name === 'Head')
-      if (headIdx < 0) return
-      const wm = composer.worldMatrices
-      const off = headIdx * 16
-      wm[off + 0] = -wm[off + 0]; wm[off + 1] = -wm[off + 1]; wm[off + 2] = -wm[off + 2]
-      wm[off + 8] = -wm[off + 8]; wm[off + 9] = -wm[off + 9]; wm[off + 10] = -wm[off + 10]
-      device.queue.writeBuffer(vatHandle.buffer, headIdx * 64, wm.buffer, wm.byteOffset + off * 4, 64)
-      invalidateRaymarchCache()
-    }
-
-    const applyWingFlap = () => {
-      if (!composer || !loadedVAT.localMats) return
-      if (WING_CHAIN_L.length < 1 && WING_CHAIN_R.length < 1) return
-      const wm = composer.worldMatrices
-      const numJoints = loadedVAT.numJoints
-      // Wing local matrices are time-invariant (added at extendLocalMats-
-      // WithBodyParts; identity rotation + bind-pose translation per
-      // frame). Sample frame 0.
-      const localBase = 0
-      // Flap: root rotates around its bone-X by sin angle. ~4Hz, ±0.4 rad
-      // (~23°). For mirror symmetry, both wings flap the same direction
-      // around their respective bone-local X axes — visually mirrored.
-      const flapAngle = Math.sin(elapsed * 4) * 0.4
-      const c = Math.cos(flapAngle), s = Math.sin(flapAngle)
-      for (const chain of [WING_CHAIN_L, WING_CHAIN_R]) {
-        if (chain.length < 1) continue
-        const rootOff = chain[0] * 16
-        // world × R_x(angle) — leaves col0 untouched, mixes col1+col2.
-        const c10 = wm[rootOff + 4], c11 = wm[rootOff + 5], c12 = wm[rootOff + 6]
-        const c20 = wm[rootOff + 8], c21 = wm[rootOff + 9], c22 = wm[rootOff + 10]
-        wm[rootOff + 4]  =  c * c10 + s * c20
-        wm[rootOff + 5]  =  c * c11 + s * c21
-        wm[rootOff + 6]  =  c * c12 + s * c22
-        wm[rootOff + 8]  = -s * c10 + c * c20
-        wm[rootOff + 9]  = -s * c11 + c * c21
-        wm[rootOff + 10] = -s * c12 + c * c22
-        // Propagate to chain children (each child = parent × child.local)
-        for (let i = 1; i < chain.length; i++) {
-          const parentOff = chain[i - 1] * 16
-          const childOff  = chain[i] * 16
-          const childLocalOff = localBase * numJoints * 16 + chain[i] * 16
-          const sChild = characterParams.scales[chain[i]] ?? [1, 1, 1]
-          propagateChildMat(parentOff, childOff, childLocalOff, sChild as [number, number, number])
-        }
-        // Upload all chain bones
-        for (const bIdx of chain) {
-          device.queue.writeBuffer(vatHandle.buffer, bIdx * 64, wm.buffer, wm.byteOffset + bIdx * 16 * 4, 64)
-        }
-      }
-      invalidateRaymarchCache()
-    }
-    // Phase-offset infrastructure: walk bone hierarchy at an arbitrary
-    // frame to compute a source bone's world matrix without touching the
-    // composer's current-frame state. Used for spider gait — back limbs
-    // copy front limbs at frame N + numFrames/2 (anti-phase) so the 8
-    // legs alternate instead of stepping in sync.
-    const _phaseTmpA = new Float32Array(16)
-    const _phaseTmpB = new Float32Array(16)
-    const _phaseSrcWorld = new Float32Array(16)
-    function mat4mulPh(out: Float32Array, a: Float32Array, b: Float32Array): void {
-      for (let col = 0; col < 4; col++) {
-        for (let row = 0; row < 4; row++) {
-          out[col * 4 + row] =
-            a[row]      * b[col * 4]     +
-            a[row + 4]  * b[col * 4 + 1] +
-            a[row + 8]  * b[col * 4 + 2] +
-            a[row + 12] * b[col * 4 + 3]
-        }
-      }
-    }
-    // Pre-compute root → bone chains for each source we'll phase-offset.
-    const SOURCE_BONE_CHAINS = new Map<number, number[]>()
-    for (const sourceName of ['LeftArm', 'LeftForeArm', 'RightArm', 'RightForeArm',
-                               'LeftUpLeg', 'LeftLeg', 'RightUpLeg', 'RightLeg']) {
-      const sIdx = rig.findIndex((j) => j.name === sourceName)
-      if (sIdx < 0) continue
-      const chain: number[] = []
-      let cur: number = sIdx
-      while (cur >= 0) {
-        chain.push(cur)
-        cur = rig[cur].parent
-      }
-      chain.reverse()
-      SOURCE_BONE_CHAINS.set(sIdx, chain)
-    }
-    function worldMatAtFrame(boneIdx: number, frame: number, dst: Float32Array): boolean {
-      const chain = SOURCE_BONE_CHAINS.get(boneIdx)
-      if (!chain) return false
-      const localMats = loadedVAT.localMats
-      if (!localMats) return false
-      const numJoints = loadedVAT.numJoints
-      const numFrames = loadedVAT.numFrames
-      const f = ((frame % numFrames) + numFrames) % numFrames
-      const base = f * numJoints * 16
-      // Identity
-      dst.fill(0); dst[0] = 1; dst[5] = 1; dst[10] = 1; dst[15] = 1
-      // Walk root → leaf, accumulating composition matrices. Composition
-      // = local with rotation cols unchanged + col3 (translation) × scale.
-      // This mirrors composer.update's "no scale cascade" composition
-      // path so children's world positions match.
-      for (const bone of chain) {
-        const localBase = base + bone * 16
-        const s = characterParams.scales[bone] ?? [1, 1, 1]
-        for (let i = 0; i < 12; i++) _phaseTmpA[i] = localMats[localBase + i]
-        _phaseTmpA[12] = localMats[localBase + 12] * s[0]
-        _phaseTmpA[13] = localMats[localBase + 13] * s[1]
-        _phaseTmpA[14] = localMats[localBase + 14] * s[2]
-        _phaseTmpA[15] = 1
-        mat4mulPh(_phaseTmpB, dst, _phaseTmpA)
-        for (let i = 0; i < 16; i++) dst[i] = _phaseTmpB[i]
-      }
-      // Apply leaf scale to columns (display path: composer scales col0/1/2
-      // by leaf's own s for the matrix actually fed to the SDF).
-      const sLeaf = characterParams.scales[boneIdx] ?? [1, 1, 1]
-      dst[0] *= sLeaf[0]; dst[1] *= sLeaf[0]; dst[2] *= sLeaf[0]
-      dst[4] *= sLeaf[1]; dst[5] *= sLeaf[1]; dst[6] *= sLeaf[1]
-      dst[8] *= sLeaf[2]; dst[9] *= sLeaf[2]; dst[10] *= sLeaf[2]
-      return true
-    }
-    // Orthonormalize a 3x3 rotation block (column-major: [c0x,c0y,c0z, c1x,c1y,c1z, c2x,c2y,c2z]).
-    // composer.worldMatrices is the DISPLAY matrix — its rotation columns
-    // are scaled by per-bone scale [s0,s1,s2]. When the spider's BL/BR
-    // limbs copy rotation from LeftLeg/RightLeg (scale [1, 0.05, 1] for
-    // the quadruped retarget), the Y column is ~5% of unit length and
-    // the procedural limb chain collapses. Rebuild a clean rotation:
-    // normalize each column, and if any column is degenerate (source bone
-    // collapsed along that axis) reconstruct it from the cross of the
-    // other two so the destination stays a proper SO(3) basis.
-    const _orthoRot = new Float32Array(9)
-    function orthonormalizeRot(
-      c0x: number, c0y: number, c0z: number,
-      c1x: number, c1y: number, c1z: number,
-      c2x: number, c2y: number, c2z: number,
-    ) {
-      const eps = 0.05
-      let l0 = Math.hypot(c0x, c0y, c0z)
-      let l1 = Math.hypot(c1x, c1y, c1z)
-      let l2 = Math.hypot(c2x, c2y, c2z)
-      if (l0 < eps && l1 >= eps && l2 >= eps) {
-        // Reconstruct col0 = col1 × col2.
-        const n1x = c1x / l1, n1y = c1y / l1, n1z = c1z / l1
-        const n2x = c2x / l2, n2y = c2y / l2, n2z = c2z / l2
-        c0x = n1y * n2z - n1z * n2y
-        c0y = n1z * n2x - n1x * n2z
-        c0z = n1x * n2y - n1y * n2x
-        l0 = 1
-      } else if (l1 < eps && l0 >= eps && l2 >= eps) {
-        const n0x = c0x / l0, n0y = c0y / l0, n0z = c0z / l0
-        const n2x = c2x / l2, n2y = c2y / l2, n2z = c2z / l2
-        c1x = n2y * n0z - n2z * n0y
-        c1y = n2z * n0x - n2x * n0z
-        c1z = n2x * n0y - n2y * n0x
-        l1 = 1
-      } else if (l2 < eps && l0 >= eps && l1 >= eps) {
-        const n0x = c0x / l0, n0y = c0y / l0, n0z = c0z / l0
-        const n1x = c1x / l1, n1y = c1y / l1, n1z = c1z / l1
-        c2x = n0y * n1z - n0z * n1y
-        c2y = n0z * n1x - n0x * n1z
-        c2z = n0x * n1y - n0y * n1x
-        l2 = 1
-      }
-      // Final normalization. eps_zero is much smaller than the recon
-      // threshold above — for the uniform-tiny-scale case (all axes
-      // collapsed to e.g. 0.01) every l_i is 0.01 < eps so none of the
-      // single-axis recon branches fired; here we just divide each col
-      // by its actual length to recover pure rotation. Only truly-zero
-      // cols (numerically near-machine-epsilon) get the safety l=1.
-      const eps_zero = 1e-6
-      if (l0 < eps_zero) l0 = 1
-      if (l1 < eps_zero) l1 = 1
-      if (l2 < eps_zero) l2 = 1
-      _orthoRot[0] = c0x / l0; _orthoRot[1] = c0y / l0; _orthoRot[2] = c0z / l0
-      _orthoRot[3] = c1x / l1; _orthoRot[4] = c1y / l1; _orthoRot[5] = c1z / l1
-      _orthoRot[6] = c2x / l2; _orthoRot[7] = c2y / l2; _orthoRot[8] = c2z / l2
-    }
-    const applyExtraLimbsCopy = (frameIdx: number) => {
-      if (!composer) return
-      const wm = composer.worldMatrices
-      const numFrames = loadedVAT.numFrames
-      for (const p of EXTRA_LIMB_PAIRS) {
-        const su = p.srcUpIdx * 16, sl = p.srcLowIdx * 16
-        const du = p.dstUpIdx * 16, dl = p.dstLowIdx * 16, dt = p.dstTipIdx * 16
-        // Per-limb phase offset: phase 0 → use current frame (in sync with
-        // source, no hierarchy walk needed). phase > 0 → sample source at
-        // frameIdx + numFrames × phase for that limb's gait position.
-        const offsetFrame = frameIdx + Math.floor(numFrames * p.phaseOffset)
-        const usePhaseOffset = p.phaseOffset > 0.001
-        let r0_0, r0_1, r0_2, r1_0, r1_1, r1_2, r2_0, r2_1, r2_2: number
-        let l0_0, l0_1, l0_2, l1_0, l1_1, l1_2, l2_0, l2_1, l2_2: number
-        if (usePhaseOffset && worldMatAtFrame(p.srcUpIdx, offsetFrame, _phaseSrcWorld)) {
-          orthonormalizeRot(
-            _phaseSrcWorld[0], _phaseSrcWorld[1], _phaseSrcWorld[2],
-            _phaseSrcWorld[4], _phaseSrcWorld[5], _phaseSrcWorld[6],
-            _phaseSrcWorld[8], _phaseSrcWorld[9], _phaseSrcWorld[10],
-          )
-        } else {
-          orthonormalizeRot(
-            wm[su + 0], wm[su + 1], wm[su + 2],
-            wm[su + 4], wm[su + 5], wm[su + 6],
-            wm[su + 8], wm[su + 9], wm[su + 10],
-          )
-        }
-        r0_0 = _orthoRot[0]; r0_1 = _orthoRot[1]; r0_2 = _orthoRot[2]
-        r1_0 = _orthoRot[3]; r1_1 = _orthoRot[4]; r1_2 = _orthoRot[5]
-        r2_0 = _orthoRot[6]; r2_1 = _orthoRot[7]; r2_2 = _orthoRot[8]
-        if (usePhaseOffset && worldMatAtFrame(p.srcLowIdx, offsetFrame, _phaseSrcWorld)) {
-          orthonormalizeRot(
-            _phaseSrcWorld[0], _phaseSrcWorld[1], _phaseSrcWorld[2],
-            _phaseSrcWorld[4], _phaseSrcWorld[5], _phaseSrcWorld[6],
-            _phaseSrcWorld[8], _phaseSrcWorld[9], _phaseSrcWorld[10],
-          )
-        } else {
-          orthonormalizeRot(
-            wm[sl + 0], wm[sl + 1], wm[sl + 2],
-            wm[sl + 4], wm[sl + 5], wm[sl + 6],
-            wm[sl + 8], wm[sl + 9], wm[sl + 10],
-          )
-        }
-        l0_0 = _orthoRot[0]; l0_1 = _orthoRot[1]; l0_2 = _orthoRot[2]
-        l1_0 = _orthoRot[3]; l1_1 = _orthoRot[4]; l1_2 = _orthoRot[5]
-        l2_0 = _orthoRot[6]; l2_1 = _orthoRot[7]; l2_2 = _orthoRot[8]
-        // Write to dst Up bone — translation untouched (composer set it).
-        wm[du + 0] = r0_0; wm[du + 1] = r0_1; wm[du + 2] = r0_2
-        wm[du + 4] = r1_0; wm[du + 5] = r1_1; wm[du + 6] = r1_2
-        wm[du + 8] = r2_0; wm[du + 9] = r2_1; wm[du + 10] = r2_2
-        // dst Low rotation
-        wm[dl + 0] = l0_0; wm[dl + 1] = l0_1; wm[dl + 2] = l0_2
-        wm[dl + 4] = l1_0; wm[dl + 5] = l1_1; wm[dl + 6] = l1_2
-        wm[dl + 8] = l2_0; wm[dl + 9] = l2_1; wm[dl + 10] = l2_2
-        // Recompute Low's translation: dst Up's translation + Up's Y axis × lowOffY.
-        const upY0 = wm[du + 4], upY1 = wm[du + 5], upY2 = wm[du + 6]
-        wm[dl + 12] = wm[du + 12] + upY0 * p.lowOffY
-        wm[dl + 13] = wm[du + 13] + upY1 * p.lowOffY
-        wm[dl + 14] = wm[du + 14] + upY2 * p.lowOffY
-        wm[dl + 15] = 1
-        // Tip: rotation = Low's, translation = Low + Low.Y axis × tipOffY.
-        wm[dt + 0] = wm[dl + 0]; wm[dt + 1] = wm[dl + 1]; wm[dt + 2] = wm[dl + 2]
-        wm[dt + 4] = wm[dl + 4]; wm[dt + 5] = wm[dl + 5]; wm[dt + 6] = wm[dl + 6]
-        wm[dt + 8] = wm[dl + 8]; wm[dt + 9] = wm[dl + 9]; wm[dt + 10] = wm[dl + 10]
-        const lwY0 = wm[dl + 4], lwY1 = wm[dl + 5], lwY2 = wm[dl + 6]
-        wm[dt + 12] = wm[dl + 12] + lwY0 * p.tipOffY
-        wm[dt + 13] = wm[dl + 13] + lwY1 * p.tipOffY
-        wm[dt + 14] = wm[dl + 14] + lwY2 * p.tipOffY
-        wm[dt + 15] = 1
-        // Upload the 3 modified bones to the VAT.
-        device.queue.writeBuffer(vatHandle.buffer, p.dstUpIdx  * 64, wm.buffer, wm.byteOffset + p.dstUpIdx  * 16 * 4, 64)
-        device.queue.writeBuffer(vatHandle.buffer, p.dstLowIdx * 64, wm.buffer, wm.byteOffset + p.dstLowIdx * 16 * 4, 64)
-        device.queue.writeBuffer(vatHandle.buffer, p.dstTipIdx * 64, wm.buffer, wm.byteOffset + p.dstTipIdx * 16 * 4, 64)
-      }
-      invalidateRaymarchCache()
-    }
     // 5-segment cape over 6 bones (Cape0..Cape5).
     const capeBoneIndices: number[] = []
     for (let i = 0; i < 6; i++) {
@@ -1724,29 +1228,6 @@ async function main() {
     const strandLChain: NodeParticle[] = STRAND_L_FULL ? makeStrandChain(STRAND_ANCHOR_OFFSET_L) : []
     const strandRChain: NodeParticle[] = STRAND_R_FULL ? makeStrandChain(STRAND_ANCHOR_OFFSET_R) : []
 
-    // Tail chain — Hips-anchored, 4-segment ribbon. Mirrors strand chain
-    // structure but with own anchor offset + slightly tighter segDrop.
-    // Only simulated when loadout.tail is on (otherwise the bones stay at
-    // bind pose and no primitive is emitted).
-    const TAIL_ANCHOR_OFFSET: [number, number, number] = [0, 0.00, -0.13]
-    const TAIL_SEG_DROP = 0.08
-    const tailBones: number[] = []
-    for (let i = 0; i < 5; i++) {
-      const idx = rig.findIndex((j) => j.name === `Tail${i}`)
-      if (idx >= 0) tailBones.push(idx)
-    }
-    const TAIL_FULL = tailBones.length === 5 && hipsIdx >= 0
-    const tailChain: NodeParticle[] = !TAIL_FULL ? [] : [
-      createNodeParticle({
-        parentRef: hipsIdx, parentKind: 'bone',
-        restOffset: TAIL_ANCHOR_OFFSET, restLength: Math.hypot(...TAIL_ANCHOR_OFFSET),
-      }),
-      createNodeParticle({ parentRef: 0, parentKind: 'particle', restOffset: [0, -TAIL_SEG_DROP, 0], restLength: TAIL_SEG_DROP }),
-      createNodeParticle({ parentRef: 1, parentKind: 'particle', restOffset: [0, -TAIL_SEG_DROP, 0], restLength: TAIL_SEG_DROP }),
-      createNodeParticle({ parentRef: 2, parentKind: 'particle', restOffset: [0, -TAIL_SEG_DROP, 0], restLength: TAIL_SEG_DROP }),
-      createNodeParticle({ parentRef: 3, parentKind: 'particle', restOffset: [0, -TAIL_SEG_DROP, 0], restLength: TAIL_SEG_DROP }),
-    ]
-
     // Scratch mat4s for per-frame invViewProj computation (point lights).
     const scratchVP   = mat4.create()
     const scratchInvVP = mat4.create()
@@ -1791,10 +1272,6 @@ async function main() {
     const bodyAndExtrasPrims = [
       ...DEFAULT_BODY_PARTS,
       ...DEFAULT_CAPE_PARTS,
-      ...DEFAULT_TAIL,
-      ...DEFAULT_WINGS,
-      ...DEFAULT_EXTRA_LIMBS,
-      ...DEFAULT_SNAKE_NECK,
       ...DEFAULT_GRENADE_BELT,
       ...outfitToBodyParts(WARDROBE.knight),
     ]
@@ -1987,26 +1464,7 @@ async function main() {
       spikesSideR: boolean
       spikesBack: boolean
       cape: boolean
-      tail: boolean
-      wings: boolean
-      wingFlap: boolean   // sin-driven up/down flap on wing chain bones
       grenades: boolean
-      // Per-bone scale override: zero out shin scaleY so the foot lands
-      // where the knee was → quadruped silhouette using humanoid rig.
-      // Combine with `crawling` or `running_crawl` anim for dog/cat look.
-      quadrupedHind: boolean
-      // Procedural extra limbs (4 phantom legs on Hips) for spider /
-      // insect silhouettes. Per-frame transform copy from the human
-      // limbs makes them animate in sync.
-      extraLimbs: boolean
-      // Snake-neck rig: replaces the human Head with a chain extending
-      // forward from Neck, tipped with a snake-head ellipsoid. When on,
-      // the Head bone gets scale-collapsed so the human face hides.
-      snakeNeck: boolean
-      // Rotate the Head bone 180° around its local Y per frame so the
-      // face points backward. Used by spider so the round back-of-head
-      // reads as the abdomen rather than a screaming face on the body.
-      headFlip180: boolean
       capePattern: CapePattern
       hands: string   // key into HAND_LIBRARY
       feet:  string   // key into FOOT_LIBRARY
@@ -2025,14 +1483,7 @@ async function main() {
       spikesSideR: false,
       spikesBack:  false,
       cape: true,
-      tail: false,
-      wings: false,
-      wingFlap: true,    // default on so when wings turn on they animate
       grenades: true,
-      quadrupedHind: false,
-      extraLimbs: false,
-      snakeNeck: false,
-      headFlip180: false,
       capePattern: 'stripes',
       hands: 'skin',
       feet:  'shoe',
@@ -2052,10 +1503,6 @@ async function main() {
       torso:   Record<string, TorsoTriple>
     } = { limbs: {}, anatomy: {}, torso: {} }
     let currentBuild: string = 'standard'
-    // Active creature name — gates per-frame procedural hooks (e.g. the
-    // full-body slither only fires on snake; dragon gets only the
-    // head-extension weave). Updated by applyCreaturePreset.
-    let currentCreature: string = 'human'
     function applyBuildPreset(name: string) {
       const preset = BUILD_PRESETS[name]
       if (!preset) return
@@ -2128,12 +1575,6 @@ async function main() {
           loadout.bangsL = bangsOn; loadout.bangsR = bangsOn
         }
         if (typeof data.cape === 'boolean')     loadout.cape = data.cape
-        if (typeof data.tail === 'boolean')     loadout.tail = data.tail
-        if (typeof data.wings === 'boolean')    loadout.wings = data.wings
-        if (typeof data.wingFlap === 'boolean') loadout.wingFlap = data.wingFlap
-        if (typeof data.quadrupedHind === 'boolean') loadout.quadrupedHind = data.quadrupedHind
-        if (typeof data.extraLimbs === 'boolean')    loadout.extraLimbs = data.extraLimbs
-        if (typeof data.snakeNeck === 'boolean')     loadout.snakeNeck = data.snakeNeck
         if (typeof data.grenades === 'boolean') loadout.grenades = data.grenades
         if (typeof data.capePattern === 'string' && data.capePattern in CAPE_PATTERNS) {
           loadout.capePattern = data.capePattern as CapePattern
@@ -2185,10 +1626,6 @@ async function main() {
       const bodyAndExtras = [
         ...DEFAULT_BODY_PARTS,
         ...(loadout.cape     ? DEFAULT_CAPE_PARTS     : []),
-        ...(loadout.tail     ? DEFAULT_TAIL           : []),
-        ...(loadout.wings    ? DEFAULT_WINGS          : []),
-        ...(loadout.extraLimbs ? DEFAULT_EXTRA_LIMBS  : []),
-        ...(loadout.snakeNeck  ? DEFAULT_SNAKE_NECK   : []),
         ...(loadout.grenades ? DEFAULT_GRENADE_BELT   : []),
         ...(armorOutfit ? outfitToBodyParts(armorOutfit) : []),
       ]
@@ -2285,12 +1722,9 @@ async function main() {
           p.colorFunc = capePatternFunc as RaymarchPrimitive['colorFunc']
         }
       }
-      // Hand flame VFX — only emit for humans. On animal creatures the
-      // flame floats next to a non-existent / non-humanoid hand, reads
-      // as a stray glow rather than a wielded effect. Gated on
-      // currentCreature so spider/dragon/snake/horse/bird don't carry
-      // the demo's character-class fireball.
-      if (rightHandIdx >= 0 && currentCreature === 'human') {
+      // Hand flame VFX — always emit on the right hand. Demo's
+      // character-class fireball; the wielding-hand glow.
+      if (rightHandIdx >= 0) {
         const baseSlot = material.namedSlots.fire_base ?? 12
         const tipSlot  = material.namedSlots.fire_tip  ?? 14
         next.push({
@@ -2303,30 +1737,11 @@ async function main() {
           unlit: true,
         })
       }
-      // Hand fist sphere suppression — chibiRaymarchPrimitives emits an
-      // unconditional 4.5cm type-0 sphere at LeftHand/RightHand as the
-      // base "fist" (mixamo_loader.ts:1624). HAND_LIBRARY entries are
-      // additive overrides via the attachments path; the fist itself
-      // emits regardless. When loadout.hands is 'none' (animal mode),
-      // post-filter those spheres so the lower-arm capsule terminates
-      // cleanly at the wrist with no protruding ball. Same path could
-      // be used for feet, but mixamo_loader skips foot prim emission
-      // (line 1669), so feet only come from FOOT_LIBRARY which is
-      // already empty for 'none'.
-      let prefiltered = next
-      if (loadout.hands === 'none') {
-        const handBones = new Set<number>()
-        const lhi = rig.findIndex((j) => j.name === 'LeftHand')
-        const rhi = rig.findIndex((j) => j.name === 'RightHand')
-        if (lhi >= 0) handBones.add(lhi)
-        if (rhi >= 0) handBones.add(rhi)
-        prefiltered = next.filter((p) => !(p.type === 0 && handBones.has(p.boneIdx)))
-      }
       // Mirror expansion — any prim with mirrorYZ:true gets a sibling
       // with X-flipped offsetInBone. Doubles the prim count for those
       // entries; lets authoring describe one side and get both. CPU
       // pass before upload, no shader-side cost.
-      const expanded = expandMirrors(prefiltered)
+      const expanded = expandMirrors(next)
       // Isolation filter — when active, drop every prim except those
       // matching the selected category. Camera + raymarch unchanged;
       // the accessory floats alone in the canvas. Animation is forced
@@ -2335,22 +1750,8 @@ async function main() {
       const isolated = loadout.isolate === 'none'
         ? expanded
         : expanded.filter((p) => categoryOf(p) === loadout.isolate)
-      // Bone-visibility filter — only hide a primitive when ALL THREE
-      // bone scale axes are tiny (universal "really gone" case). Earlier
-      // version checked scaleY specifically to hide bird/snake collapsed
-      // limbs, but that hid too much and the user reported "missing
-      // limbs i only see feet attachment." Conservative reverse: leave
-      // partially-collapsed limbs visible (they render as ~1-2cm stubs
-      // for collapsed-Y, which is a known-noted v2 cosmetic issue, but
-      // every body part stays visible by default).
-      const SCALE_HIDE_THRESHOLD = 0.05
-      const visible = isolated.filter((p) => {
-        if (p.boneIdx < 0 || p.boneIdx >= characterParams.scales.length) return true
-        const s = characterParams.scales[p.boneIdx]
-        return Math.max(Math.abs(s[0]), Math.abs(s[1]), Math.abs(s[2])) >= SCALE_HIDE_THRESHOLD
-      })
       persistentPrims.length = 0
-      for (const p of visible) persistentPrims.push(p)
+      for (const p of isolated) persistentPrims.push(p)
       // Persist the new loadout — every panel toggle / shuffle / load
       // funnels through here, so this is the canonical save site.
       saveLoadoutToStorage()
@@ -2444,28 +1845,6 @@ async function main() {
         (Object.keys(CAPE_PATTERNS) as CapePattern[]).map((p) => ({ value: p, text: p })),
         () => loadout.capePattern, (v) => { loadout.capePattern = v as CapePattern },
       )
-      makeRow('tail',
-        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
-        () => loadout.tail ? 'on' : 'off', (v) => { loadout.tail = v === 'on' },
-      )
-      makeRow('wings',
-        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
-        () => loadout.wings ? 'on' : 'off', (v) => { loadout.wings = v === 'on' },
-      )
-      makeRow('quad',
-        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
-        () => loadout.quadrupedHind ? 'on' : 'off',
-        (v) => { loadout.quadrupedHind = v === 'on'; applyPreset(currentProportion) },
-      )
-      makeRow('extras',
-        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
-        () => loadout.extraLimbs ? 'on' : 'off', (v) => { loadout.extraLimbs = v === 'on' },
-      )
-      makeRow('snake',
-        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
-        () => loadout.snakeNeck ? 'on' : 'off',
-        (v) => { loadout.snakeNeck = v === 'on'; applyPreset(currentProportion) },
-      )
       makeRow('grenades',
         [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
         () => loadout.grenades ? 'on' : 'off', (v) => { loadout.grenades = v === 'on' },
@@ -2553,262 +1932,8 @@ async function main() {
         }
         animRow.appendChild(animSel)
         host.appendChild(animRow)
-        // Expose the select so applyCreaturePreset can dim incompatible
-        // anim options as a soft UI hint without preventing manual picks.
         ;(window as unknown as { __animSel?: HTMLSelectElement }).__animSel = animSel
       }
-
-      // Creature presets — one-click silhouette transforms. Each preset
-      // composes loadout flags + bone-scale overrides + default anim.
-      // The whole creature builder reduces to these 7 button picks.
-      type ScaleVec = [number, number, number]
-      type CreatureSpec = {
-        bob?: boolean; ponytail?: boolean; bangsL?: boolean; bangsR?: boolean
-        spikesTop?: boolean; spikesSideL?: boolean; spikesSideR?: boolean; spikesBack?: boolean
-        cape?: boolean; tail?: boolean; wings?: boolean; grenades?: boolean
-        quadrupedHind?: boolean; extraLimbs?: boolean; snakeNeck?: boolean
-        // Rotate the Head bone 180° around its local Y so the face
-        // points backward. Used by spider so the round back-of-head
-        // reads as the abdomen-front rather than a screaming face.
-        headFlip180?: boolean
-        defaultAnim?: string
-        // Per-bone scale overrides (applied after applyPreset).
-        boneScales?: Record<string, ScaleVec>
-        // Hand / foot library override. Non-human presets set these to
-        // 'none' (empty AttachmentPart[] in the libraries) so no shoes /
-        // mitts emit at the now-tiny LeftHand / LeftFoot / etc bones —
-        // those attachments would otherwise float mid-air on creatures
-        // whose limbs we collapsed for the silhouette.
-        hands?: string
-        feet?: string
-        // Armor outfit + helm overrides. Animals get 'none' on both so
-        // no wardrobe pieces (knight plate, robes, gauntlets) and no
-        // helmet emit on bodies that are no longer humanoid-shaped.
-        armor?: ArmorOutfit
-        helm?: HelmStyle
-        // Anims that look reasonable for this creature. Used purely for
-        // soft UI hint — incompatible anims are dimmed in the anim
-        // dropdown when this creature is active. User can still pick any.
-        compatibleAnims?: string[]
-      }
-      const CREATURE_PRESETS: Record<string, CreatureSpec> = {
-        human: {
-          bob: true, ponytail: false, bangsL: false, bangsR: false,
-          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
-          cape: true, tail: false, wings: false, grenades: true,
-          quadrupedHind: false, extraLimbs: false, snakeNeck: false,
-          defaultAnim: 'idle',
-        },
-        spider: {
-          bob: false, ponytail: false, bangsL: false, bangsR: false,
-          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
-          cape: false, tail: false, wings: false, grenades: false,
-          quadrupedHind: false, extraLimbs: true, snakeNeck: false,
-          hands: 'none', feet: 'none', armor: 'none', helm: 'none',
-          headFlip180: true,
-          // Long lanky arms + legs read as 4 spider legs. X/Z compressed
-          // to ~18% (thin twigs), Y stretched to 1.5× (longer reach).
-          // Combined with the 4 procedural extras at hip quadrants →
-          // 8 long-thin legs total, true spider count.
-          //
-          // Hand/Foot bones MUST stay at full scale: the type-17 limb
-          // capsule reads jointA=upper, jointB=mid, jointC=terminal.
-          // Collapsing Hand/Foot scale collapses their LOCAL translation
-          // (composer scales col3 by own scale), pulling jointC onto
-          // jointB → bezier degenerates → "eliminated all the lower arm
-          // and leg geometry" report. The hand/foot ATTACHMENTS are
-          // already killed via hands:'none' / feet:'none', so no
-          // visible cosmetic cost to leaving the bones full-size.
-          boneScales: {
-            LeftArm:     [0.18, 1.5, 0.18], RightArm:     [0.18, 1.5, 0.18],
-            LeftForeArm: [0.18, 1.5, 0.18], RightForeArm: [0.18, 1.5, 0.18],
-            LeftUpLeg:   [0.18, 1.5, 0.18], RightUpLeg:   [0.18, 1.5, 0.18],
-            LeftLeg:     [0.18, 1.5, 0.18], RightLeg:     [0.18, 1.5, 0.18],
-          },
-          defaultAnim: 'crawl_backwards',
-          compatibleAnims: ['crawl_backwards', 'crawling', 'running_crawl', 'mutant_run'],
-        },
-        dragon: {
-          bob: false, ponytail: false, bangsL: false, bangsR: false,
-          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: true,
-          cape: false, tail: true, wings: true, grenades: false,
-          // No quadrupedHind — the human legs ARE the dragon's hind
-          // legs in the crawl pose. Collapsing scaleY makes the foot
-          // float mid-thigh because foot's own local Y offset is full.
-          quadrupedHind: false, extraLimbs: false, snakeNeck: true,
-          hands: 'none', feet: 'none', armor: 'none', helm: 'none',
-          defaultAnim: 'crawling',
-          compatibleAnims: ['crawling', 'running_crawl', 'crawl_backwards', 'mutant_run'],
-        },
-        bird: {
-          bob: false, ponytail: false, bangsL: false, bangsR: false,
-          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
-          cape: false, tail: true, wings: true, grenades: false,
-          quadrupedHind: false, extraLimbs: false, snakeNeck: false,
-          hands: 'none', feet: 'none', armor: 'none', helm: 'none',
-          defaultAnim: 'idle',
-          // Bird: arms become wings — collapse arm chains in ALL three
-          // axes so the visibility filter (max < 0.05) drops the type-17
-          // arm capsules entirely. (Y-only collapse left full-Y hand
-          // attachments floating at original wrist distance from the
-          // close-to-shoulder elbow.)
-          boneScales: {
-            LeftArm:     [0.01, 0.01, 0.01], RightArm:     [0.01, 0.01, 0.01],
-            LeftForeArm: [0.01, 0.01, 0.01], RightForeArm: [0.01, 0.01, 0.01],
-            LeftHand:    [0.01, 0.01, 0.01], RightHand:    [0.01, 0.01, 0.01],
-          },
-          compatibleAnims: ['idle', 'jumping', 'standing_torch_idle_01', 'great_sword_idle', 'rifle_idle', 'ninja_idle'],
-        },
-        horse: {
-          bob: true, ponytail: false, bangsL: false, bangsR: false,
-          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
-          cape: false, tail: true, wings: false, grenades: false,
-          // No quadrupedHind — the human legs ARE the horse's hind
-          // legs in the running_crawl pose. Collapsing scaleY makes
-          // the foot float mid-thigh ("floating limbs" report).
-          quadrupedHind: false, extraLimbs: false, snakeNeck: false,
-          hands: 'none', feet: 'none', armor: 'none', helm: 'none',
-          defaultAnim: 'running_crawl',
-          compatibleAnims: ['running_crawl', 'crawling', 'crawl_backwards', 'mutant_run'],
-        },
-        snake: {
-          bob: false, ponytail: false, bangsL: false, bangsR: false,
-          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
-          cape: false, tail: true, wings: false, grenades: false,
-          quadrupedHind: false, extraLimbs: false, snakeNeck: true,
-          hands: 'none', feet: 'none',
-          defaultAnim: 'crawling',
-          compatibleAnims: ['crawling', 'crawl_backwards'],
-          // Snake: spine rig + head only, no limbs at all. All limb
-          // bones (arms, legs, hands, feet) collapsed in ALL THREE axes
-          // so the visibility filter (max < 0.05) drops the limb
-          // capsules + the foot/hand attachments entirely. Previously
-          // we only collapsed Y, which left X+Z=1 → max=1 → visible
-          // stubs with floating feet at original ankle distance.
-          // Spine bones keep full Y (length) but get X+Z compressed so
-          // the humanoid trunk reads as a thin serpentine body. The
-          // crawling anim puts the spine horizontal; combined with
-          // snake-neck (forward) and tail (back), the silhouette is
-          // one continuous worm.
-          boneScales: {
-            LeftArm:  [0.01, 0.01, 0.01], RightArm:  [0.01, 0.01, 0.01],
-            LeftForeArm: [0.01, 0.01, 0.01], RightForeArm: [0.01, 0.01, 0.01],
-            LeftHand: [0.01, 0.01, 0.01], RightHand: [0.01, 0.01, 0.01],
-            LeftUpLeg: [0.01, 0.01, 0.01], RightUpLeg: [0.01, 0.01, 0.01],
-            LeftLeg:  [0.01, 0.01, 0.01], RightLeg:  [0.01, 0.01, 0.01],
-            LeftFoot: [0.01, 0.01, 0.01], RightFoot: [0.01, 0.01, 0.01],
-            Hips:   [0.40, 1, 0.40],
-            Spine:  [0.35, 1, 0.35],
-            Spine1: [0.35, 1, 0.35],
-            Spine2: [0.35, 1, 0.35],
-            Neck:   [0.40, 1, 0.40],
-          },
-        },
-      }
-      function applyCreaturePreset(name: string) {
-        const p = CREATURE_PRESETS[name]
-        if (!p) return
-        // Track the active creature so the per-frame slither hook knows
-        // whether to fire the full-body wave (snake) vs just the
-        // snake-neck head wiggle (dragon) vs nothing (humans, horse,
-        // bird, spider). Without this, my prior pass made dragon
-        // undulate its torso along with its serpentine head — wrong.
-        currentCreature = name
-        // Loadout flags. headFlip180 reset first because most presets
-        // don't specify it (default = false) and the per-key check below
-        // only writes when the spec sets a boolean — switching spider →
-        // anything else needs to clear the flip.
-        loadout.headFlip180 = false
-        const flagKeys = ['bob','ponytail','bangsL','bangsR','spikesTop','spikesSideL','spikesSideR','spikesBack','cape','tail','wings','grenades','quadrupedHind','extraLimbs','snakeNeck','headFlip180'] as const
-        for (const k of flagKeys) {
-          if (typeof p[k] === 'boolean') (loadout as Record<string, unknown>)[k] = p[k]
-        }
-        // Hand / foot library override. Non-human presets pass 'none' to
-        // suppress all attachment emission; human resets to 'skin'/'shoe'
-        // so switching back from creature → human restores the defaults.
-        loadout.hands = p.hands ?? 'skin'
-        loadout.feet  = p.feet  ?? 'shoe'
-        // Armor + helm. Animals get 'none' so wardrobe pieces, gauntlets,
-        // and helmets don't emit on creature bodies. Human defaults to
-        // 'knight'/'none' so switching back restores the wardrobe.
-        if (p.armor) loadout.armor = p.armor
-        else if (name === 'human') loadout.armor = 'knight'
-        if (p.helm) loadout.helm = p.helm
-        else if (name === 'human') loadout.helm = 'none'
-        // Reset proportions to current preset (clears stale per-bone scales),
-        // then apply creature-specific bone overrides on top.
-        applyPreset(currentProportion)
-        if (p.boneScales) {
-          for (const [boneName, scale] of Object.entries(p.boneScales)) {
-            const idx = rig.findIndex((j) => j.name === boneName)
-            if (idx >= 0) characterParams.scales[idx] = scale
-          }
-        }
-        // Suppress accessory-socket primitives on non-human creatures.
-        // DEFAULT_ACCESSORIES adds a RightWeapon bone parented to RightHand
-        // that emits a type-2 rounded-box preview cube; collapse its scale
-        // so the visibility filter (max < 0.05) drops the prim. The bone
-        // stays in the rig (other code references it) but no geometry
-        // emits at it. Reset to [1,1,1] for human so the preview cube
-        // returns when switching back.
-        const weaponBoneIdx = rig.findIndex((j) => j.name === 'RightWeapon')
-        if (weaponBoneIdx >= 0) {
-          characterParams.scales[weaponBoneIdx] = name === 'human'
-            ? [1, 1, 1]
-            : [0.01, 0.01, 0.01]
-        }
-        // Default animation
-        if (p.defaultAnim) {
-          const idx = animations.findIndex((a) => a.name === p.defaultAnim)
-          if (idx >= 0) switchAnimation(idx)
-        }
-        // Anim dropdown — humans get the full animation list; every
-        // other creature locks to its single defaultAnim. Most non-
-        // human anims look broken (humanoid running, jumping, etc.
-        // on a spider rig reads as a skittering glitch), so collapse
-        // the picker rather than rely on the dim-but-selectable hint.
-        const animSel = (window as unknown as { __animSel?: HTMLSelectElement }).__animSel
-        if (animSel) {
-          if (name === 'human') {
-            // Restore full list, full color, enabled.
-            for (let i = 0; i < animSel.options.length; i++) {
-              animSel.options[i].style.color = ''
-              animSel.options[i].style.display = ''
-            }
-            animSel.disabled = false
-          } else {
-            // Hide every option except the defaultAnim, disable the
-            // select. Hides via display:none rather than removing the
-            // <option> so flipping back to human just shows them again.
-            const lockTo = p.defaultAnim
-            for (let i = 0; i < animSel.options.length; i++) {
-              const opt = animSel.options[i]
-              const animName = animations[i]?.name
-              const keep = animName === lockTo
-              opt.style.display = keep ? '' : 'none'
-              opt.style.color = ''
-            }
-            animSel.disabled = true
-          }
-        }
-        rebuildPersistentPrims()
-        buildLoadoutUI()
-        invalidateRaymarchCache()
-      }
-      const creatureRow = document.createElement('div')
-      creatureRow.style.cssText = 'display:flex; gap:3px; flex-wrap:wrap; margin-top:4px;'
-      const creatureLbl = document.createElement('span')
-      creatureLbl.textContent = 'creature'
-      creatureLbl.style.cssText = 'width:54px; color:#9ab; font-size:11px;'
-      creatureRow.appendChild(creatureLbl)
-      for (const name of Object.keys(CREATURE_PRESETS)) {
-        const btn = document.createElement('button')
-        btn.textContent = name
-        btn.style.cssText = 'font-size:10px; padding:2px 5px; background:#1a2b4a; color:#cde; border:1px solid #345; border-radius:3px; cursor:pointer;'
-        btn.onclick = () => applyCreaturePreset(name)
-        creatureRow.appendChild(btn)
-      }
-      host.appendChild(creatureRow)
 
       // Shuffle + reset buttons — drive the panel state from the data
       // registries directly so the random values are always valid (no
@@ -2835,11 +1960,6 @@ async function main() {
         loadout.spikesBack  = Math.random() < 0.2
         loadout.cape        = Math.random() < 0.7
         loadout.capePattern = pick(patternKeys)
-        loadout.tail        = Math.random() < 0.2
-        loadout.wings       = Math.random() < 0.15
-        loadout.quadrupedHind = Math.random() < 0.15
-        loadout.extraLimbs  = Math.random() < 0.10
-        loadout.snakeNeck   = Math.random() < 0.10
         loadout.grenades    = Math.random() < 0.5
         applyPreset(pick(proportionKeys))
         if (expressionKeys.length > 0) applyExpression(pick(expressionKeys))
@@ -2861,11 +1981,6 @@ async function main() {
         loadout.spikesBack  = false
         loadout.cape        = true
         loadout.capePattern = 'stripes'
-        loadout.tail        = false
-        loadout.wings       = false
-        loadout.quadrupedHind = false
-        loadout.extraLimbs  = false
-        loadout.snakeNeck   = false
         loadout.grenades    = true
         applyPreset(currentProportion)   // restores per-bone scales after retarget reset
         rebuildPersistentPrims()
@@ -3233,19 +2348,6 @@ async function main() {
         } else {
           composer.update(frameIdx, characterParams)
         }
-        // Procedural extra limb sync — overrides world rotation columns
-        // of each Extra*_Up / Extra*_Low bone to match its source
-        // humanoid limb (LeftArm/RightArm/LeftUpLeg/RightUpLeg). Then
-        // recomputes child translations along the rotated bone's Y
-        // axis so the chain composes correctly. Result: 4 phantom legs
-        // bend in sync with the human limbs.
-        if (loadout.extraLimbs && composer) applyExtraLimbsCopy(frameIdx)
-        if (loadout.wings && loadout.wingFlap && composer) applyWingFlap()
-        if (loadout.snakeNeck && composer) applySnakeNeckWeave()
-        // Full-body slither: snake creature only. Dragon shares snakeNeck
-        // but its torso shouldn't undulate — only the head extension wiggles.
-        if (currentCreature === 'snake' && composer) applySnakeBodySlither()
-        if (loadout.headFlip180 && composer) applyHeadFlip180()
       }
 
       // Cape secondary motion — node particles drive cape bone positions
@@ -4070,8 +3172,7 @@ async function main() {
       // VAT upload. Anchor bone, anchor offset, segment drop, and ground
       // clamp are per-call. Body-fwd / torso-SDF state is built once
       // and shared across calls.
-      const tailActive = TAIL_FULL && loadout.tail
-      if (composer && (STRAND_L_FULL || STRAND_R_FULL || tailActive) && tickShouldRun) {
+      if (composer && (STRAND_L_FULL || STRAND_R_FULL) && tickShouldRun) {
         const wm = composer.worldMatrices
         const getBoneWorldPos = (boneIdx: number): [number, number, number] => [
           wm[boneIdx * 16 + 12], wm[boneIdx * 16 + 13], wm[boneIdx * 16 + 14],
@@ -4401,23 +3502,14 @@ async function main() {
         }
 
         // Floor for tail clamp — same construction as cape's ground.
-        const lFootY_t = lFootIdx >= 0 ? wm[lFootIdx * 16 + 13] : 0
-        const rFootY_t = rFootIdx >= 0 ? wm[rFootIdx * 16 + 13] : 0
-        const tailGroundY = Math.min(lFootY_t, rFootY_t) + 0.01
-
-        // Body buffer per chain. Strand: 0.10 — small cross-section in
-        // front of cape, doesn't need to clear it. Tail: 0.16 — must sit
-        // outside cape's outer face (cape buffer 0.075 + cape halfZ 0.025
-        // = 0.10 from torso; tail body-thickness ~0.045 + slop ~0.015 →
-        // 0.16 keeps tail OUTSIDE cape rather than coinciding).
-        // Bangs collide against a head sphere (radius matches head halfX/Z
-        // ≈ 0.165, +small clearance) so they don't tunnel through cheeks
-        // when head turns. Sphere center at head ellipsoid Y=0.12 in
-        // head-local. Tail has no extra sphere — torso SDF covers it.
+        // Body buffer: Strand 0.10 — small cross-section, doesn't need to
+        // clear cape. Bangs collide against a head sphere (radius matches
+        // head halfX/Z ≈ 0.165, +small clearance) so they don't tunnel
+        // through cheeks when head turns. Sphere center at head ellipsoid
+        // Y=0.12 in head-local.
         const headSphere = { boneIdx: headIdx, radius: 0.18, offsetLocal: [0, 0.12, 0] as [number, number, number] }
         if (STRAND_L_FULL) simulateRibbonChain(strandLChain, strandLBones, STRAND_ANCHOR_OFFSET_L, headIdx, STRAND_SEG_DROP * strandLengthScale, 0.10, false, null, headSphere, 0, null)
         if (STRAND_R_FULL) simulateRibbonChain(strandRChain, strandRBones, STRAND_ANCHOR_OFFSET_R, headIdx, STRAND_SEG_DROP * strandLengthScale, 0.10, false, null, headSphere, 0, null)
-        if (tailActive)    simulateRibbonChain(tailChain,    tailBones,    TAIL_ANCHOR_OFFSET,     hipsIdx,    TAIL_SEG_DROP * tailLengthScale, 0.16, true,  tailGroundY, null, 0, null)
         invalidateRaymarchCache()
       }
 

@@ -216,8 +216,6 @@ const CHIBI_SLOTS = {
   armor:     16,   // wardrobe armor pieces (helmet, plates, gauntlets)
   cloth:     17,   // mage robe, hood — soft fabric look (cooler/duller)
   leather:   18,   // light armor straps, barbarian pads — warm tan/brown
-  fur:       19,   // tail / animal-fur surfaces — warm brown by default
-  feather:   20,   // wings — distinct from cape so winged characters can recolor independently
 }
 
 /** Default chibi material: 6-slot palette, each visible body part bound
@@ -261,10 +259,6 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
     if (/Breast/.test(name)) return CHIBI_SLOTS.shirt
     if (/HipPad/.test(name)) return CHIBI_SLOTS.pants
     if (/^Cape/.test(name)) return CHIBI_SLOTS.cape
-    if (/^Tail/.test(name)) return CHIBI_SLOTS.fur
-    if (/^Wing/.test(name)) return CHIBI_SLOTS.feather   // dedicated feather palette
-    if (/^Extra(FL|FR|BL|BR)_/.test(name)) return CHIBI_SLOTS.skin   // procedural limbs read as flesh
-    if (/^SnakeNeck/.test(name)) return CHIBI_SLOTS.skin   // snake/dragon neck reads as skin/scale
     if (/^Grenade/.test(name)) return CHIBI_SLOTS.weapon
     // Wardrobe armor pieces — route by outfit prefix so each outfit can
     // pick its own palette family without rewriting paletteIndices at
@@ -314,8 +308,6 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
   setC(CHIBI_SLOTS.armor,     0.55, 0.58, 0.65)    // steel grey, faint cool tint
   setC(CHIBI_SLOTS.cloth,     0.30, 0.20, 0.45)    // mage robe — cool indigo
   setC(CHIBI_SLOTS.leather,   0.45, 0.28, 0.16)    // saddle leather — warm tan
-  setC(CHIBI_SLOTS.fur,       0.50, 0.32, 0.18)    // tail / fur — warm brown
-  setC(CHIBI_SLOTS.feather,   0.85, 0.80, 0.72)    // wings — soft cream / off-white feather
 
   return { paletteIndices, palette, namedSlots: { ...CHIBI_SLOTS } }
 }
@@ -594,105 +586,6 @@ export const DEFAULT_CAPE_PARTS: BodyPart[] = [
   { name: 'Cape3', parentName: 'Cape2',  offset: [0, -0.1854, 0.00], displaySize: [0.200, 0.13, 0.032] },
   { name: 'Cape4', parentName: 'Cape3',  offset: [0, -0.1854, 0.00], displaySize: [0.200, 0.13, 0.032] },
   { name: 'Cape5', parentName: 'Cape4',  offset: [0, -0.1854, 0.00], displaySize: [0.0, 0.0, 0.0] },
-]
-
-/** Wings — 4-bone ribbon chain per side, anchored to LeftShoulder /
- *  RightShoulder. Extends outward + slightly back from each shoulder
- *  to form a bird/dragon wing membrane. Cross-section: halfW = 8cm
- *  (broad membrane), halfThick = 5mm (thin). Type-23 ribbon emit;
- *  per-segment taper at runtime via params.w. Permaslot pattern —
- *  bones live in the rig at init; loadout.wings toggles emission.
- *  Use the wing palette slot (warm orange-brown by default; tweak
- *  per-character for white feathers, dark dragon, etc). */
-export const DEFAULT_WINGS_L: BodyPart[] = [
-  { name: 'WingL0', parentName: 'LeftShoulder', offset: [-0.05,  0.02, -0.05], displaySize: [0.08, 0.10, 0.008] },
-  { name: 'WingL1', parentName: 'WingL0',       offset: [-0.18, -0.03, -0.05], displaySize: [0.08, 0.10, 0.008] },
-  { name: 'WingL2', parentName: 'WingL1',       offset: [-0.18, -0.05, -0.02], displaySize: [0.08, 0.10, 0.008] },
-  { name: 'WingL3', parentName: 'WingL2',       offset: [-0.08, -0.04,  0.02], displaySize: [0.000, 0.00, 0.000] },
-]
-export const DEFAULT_WINGS_R: BodyPart[] = [
-  { name: 'WingR0', parentName: 'RightShoulder', offset: [ 0.05,  0.02, -0.05], displaySize: [0.08, 0.10, 0.008] },
-  { name: 'WingR1', parentName: 'WingR0',        offset: [ 0.18, -0.03, -0.05], displaySize: [0.08, 0.10, 0.008] },
-  { name: 'WingR2', parentName: 'WingR1',        offset: [ 0.18, -0.05, -0.02], displaySize: [0.08, 0.10, 0.008] },
-  { name: 'WingR3', parentName: 'WingR2',        offset: [ 0.08, -0.04,  0.02], displaySize: [0.000, 0.00, 0.000] },
-]
-export const DEFAULT_WINGS: BodyPart[] = [...DEFAULT_WINGS_L, ...DEFAULT_WINGS_R]
-
-/** Procedural extra limbs — 4 phantom legs that ride on Hips, used to
- *  build a spider/insect silhouette by copying world rotation from the
- *  4 humanoid limbs (LeftArm, RightArm, LeftUpLeg, RightUpLeg) at
- *  runtime. Each limb is a 3-bone chain (Up → Lower → Tip) that emits
- *  as a tapered type-23 ribbon, so it reads as a thin jointed leg.
- *  Anchor positions form a quadrant pattern around Hips: front-left
- *  and front-right between the human arms, back-left and back-right
- *  between the human legs.
- *
- *  Permaslot: bones live in the rig at init; loadout.extraLimbs toggles
- *  emission. The runtime hook (in skeleton_demo.ts) overrides each
- *  Up/Lower bone's world rotation columns to match its source limb,
- *  so when the human limb bends, the extra limb bends in sync. */
-export const DEFAULT_EXTRA_LIMBS_FL: BodyPart[] = [
-  { name: 'ExtraFL_Up',   parentName: 'Hips',          offset: [-0.13,  0.05,  0.08], displaySize: [0.025, 0.18, 0.025] },
-  { name: 'ExtraFL_Low',  parentName: 'ExtraFL_Up',    offset: [ 0.00, -0.18,  0.00], displaySize: [0.020, 0.16, 0.020] },
-  { name: 'ExtraFL_Tip',  parentName: 'ExtraFL_Low',   offset: [ 0.00, -0.16,  0.00], displaySize: [0.000, 0.00, 0.000] },
-]
-export const DEFAULT_EXTRA_LIMBS_FR: BodyPart[] = [
-  { name: 'ExtraFR_Up',   parentName: 'Hips',          offset: [ 0.13,  0.05,  0.08], displaySize: [0.025, 0.18, 0.025] },
-  { name: 'ExtraFR_Low',  parentName: 'ExtraFR_Up',    offset: [ 0.00, -0.18,  0.00], displaySize: [0.020, 0.16, 0.020] },
-  { name: 'ExtraFR_Tip',  parentName: 'ExtraFR_Low',   offset: [ 0.00, -0.16,  0.00], displaySize: [0.000, 0.00, 0.000] },
-]
-export const DEFAULT_EXTRA_LIMBS_BL: BodyPart[] = [
-  { name: 'ExtraBL_Up',   parentName: 'Hips',          offset: [-0.10, -0.05, -0.08], displaySize: [0.025, 0.18, 0.025] },
-  { name: 'ExtraBL_Low',  parentName: 'ExtraBL_Up',    offset: [ 0.00, -0.18,  0.00], displaySize: [0.020, 0.16, 0.020] },
-  { name: 'ExtraBL_Tip',  parentName: 'ExtraBL_Low',   offset: [ 0.00, -0.16,  0.00], displaySize: [0.000, 0.00, 0.000] },
-]
-export const DEFAULT_EXTRA_LIMBS_BR: BodyPart[] = [
-  { name: 'ExtraBR_Up',   parentName: 'Hips',          offset: [ 0.10, -0.05, -0.08], displaySize: [0.025, 0.18, 0.025] },
-  { name: 'ExtraBR_Low',  parentName: 'ExtraBR_Up',    offset: [ 0.00, -0.18,  0.00], displaySize: [0.020, 0.16, 0.020] },
-  { name: 'ExtraBR_Tip',  parentName: 'ExtraBR_Low',   offset: [ 0.00, -0.16,  0.00], displaySize: [0.000, 0.00, 0.000] },
-]
-export const DEFAULT_EXTRA_LIMBS: BodyPart[] = [
-  ...DEFAULT_EXTRA_LIMBS_FL, ...DEFAULT_EXTRA_LIMBS_FR,
-  ...DEFAULT_EXTRA_LIMBS_BL, ...DEFAULT_EXTRA_LIMBS_BR,
-]
-
-/** Snake-neck rig — 4-segment ribbon chain extending forward from Neck,
- *  with a head primitive at the tip. Used to replace the humanoid Head
- *  for snakes/dragons/etc. Combine with `loadout.snakeNeck` (also hides
- *  the human Head primitive via per-bone scale collapse).
- *
- *  Chain orientation: SnakeNeck0 has rotationDeg [90,0,0] so its +Y
- *  axis points forward (Neck-local +Z). Subsequent bones inherit that
- *  rotation through the hierarchy with identity local rotation, and
- *  each offset along its parent's +Y extends the chain forward.
- *  Cross-section frame: bone col0 (X) and col2 (-Y world after rotation)
- *  are both perpendicular to chain direction → ribbon SDF reads clean.
- *
- *  SnakeNeck0..3 are chain segments; SnakeNeckHead is the tip primitive
- *  (an ellipsoid for the head shape — could be replaced with a face
- *  stamp later). */
-export const DEFAULT_SNAKE_NECK: BodyPart[] = [
-  { name: 'SnakeNeck0',     parentName: 'Neck',         offset: [0, 0.00, 0.10], rotationDeg: [90, 0, 0], displaySize: [0.06, 0.10, 0.06] },
-  { name: 'SnakeNeck1',     parentName: 'SnakeNeck0',   offset: [0, 0.10, 0.00], displaySize: [0.05, 0.10, 0.05] },
-  { name: 'SnakeNeck2',     parentName: 'SnakeNeck1',   offset: [0, 0.10, 0.00], displaySize: [0.05, 0.10, 0.05] },
-  { name: 'SnakeNeck3',     parentName: 'SnakeNeck2',   offset: [0, 0.10, 0.00], displaySize: [0.04, 0.10, 0.04] },
-  { name: 'SnakeNeckHead',  parentName: 'SnakeNeck3',   offset: [0, 0.10, 0.00], displaySize: [0.10, 0.07, 0.08] },
-]
-
-/** Tail — 4-segment chain anchored to the lower back (Hips, slightly
- *  behind body surface). Same chain architecture as cape and side
- *  strands. Tapers thinner toward the tip. Empty by default — opt in
- *  via extendRigWithBodyParts. Slot reuses 'cape' palette entry so a
- *  tail and cape on the same character read as related accents. */
-export const DEFAULT_TAIL: BodyPart[] = [
-  // 5 bones (4 visible segments + zero-size tip endpoint). 32cm total
-  // drop, ~10cm back-tilt from anchor. Anchored at Hips local (0, 0, -0.13)
-  // — at hip height, just behind the body surface.
-  { name: 'Tail0', parentName: 'Hips',  offset: [0,  0.00, -0.13], displaySize: [0.045, 0.08, 0.045] },
-  { name: 'Tail1', parentName: 'Tail0', offset: [0, -0.08, -0.01], displaySize: [0.040, 0.08, 0.040] },
-  { name: 'Tail2', parentName: 'Tail1', offset: [0, -0.08, -0.01], displaySize: [0.035, 0.08, 0.035] },
-  { name: 'Tail3', parentName: 'Tail2', offset: [0, -0.08, -0.01], displaySize: [0.030, 0.08, 0.030] },
-  { name: 'Tail4', parentName: 'Tail3', offset: [0, -0.08, -0.01], displaySize: [0.000, 0.00, 0.000] },
 ]
 
 export function extendRigWithBodyParts(rig: Joint[], items: BodyPart[] = DEFAULT_BODY_PARTS): Joint[] {
@@ -1441,97 +1334,6 @@ export function chibiRaymarchPrimitives(
           paletteSlotB: slotB,
           colorExtent: 5,
         })
-      } else if (/^Tail/.test(name)) {
-        // Tail — type-23 ribbon-chain rooted at Tail0, walks Tail0..Tail4
-        // (4 segments + tip). Anchored to Hips lower back. Own blend group
-        // (15) so it doesn't smin with cape (9, wide flat fabric, would
-        // fuse weirdly with the narrow tail tube).
-        if (name !== 'Tail0') continue
-        const halfW     = bp.displaySize[0]
-        const halfThick = bp.displaySize[2]
-        const tailIndices: number[] = [j]
-        for (let k = 1; k < 5; k++) {
-          const idx = rig.findIndex((joint) => joint.name === `Tail${k}`)
-          if (idx >= 0) tailIndices.push(idx)
-        }
-        if (tailIndices.length < 2) continue
-        prims.push({
-          type: 23, paletteSlot: slot, boneIdx: j,
-          params: [tailIndices.length, halfW, halfThick, 0],
-          offsetInBone: [0, 0, 0],
-          blendGroup: 15, blendRadius: 0,
-        })
-      } else if (/^Wing(L|R)0$/.test(name)) {
-        // Wing — type-23 ribbon-chain rooted at WingL0/WingR0, walks 4
-        // chained bones (Wing{L,R}0..3). Tip-tapered (params.w = 0.15)
-        // so the wing reads as a feather/membrane that points to a tip.
-        // Own blend group (19) — distinct from cape/tail/hair so wings
-        // don't smin into other body extras.
-        const sideKey = /WingL/.test(name) ? 'L' : 'R'
-        const halfW     = bp.displaySize[0]
-        const halfThick = bp.displaySize[2]
-        const wingIndices: number[] = [j]
-        for (let k = 1; k < 4; k++) {
-          const idx = rig.findIndex((joint) => joint.name === `Wing${sideKey}${k}`)
-          if (idx >= 0) wingIndices.push(idx)
-        }
-        if (wingIndices.length < 2) continue
-        prims.push({
-          type: 23, paletteSlot: slot, boneIdx: j,
-          params: [wingIndices.length, halfW, halfThick, 0.15],
-          offsetInBone: [0, 0, 0],
-          blendGroup: 19, blendRadius: 0,
-        })
-      } else if (/^Wing/.test(name)) {
-        continue   // chain-only contributors emit via WingL0 / WingR0
-      } else if (/^Extra(FL|FR|BL|BR)_Up$/.test(name)) {
-        // Extra limb — type-23 ribbon-chain rooted at Extra*_Up, walks
-        // 3 chained bones (Up → Low → Tip). Tip-tapered to suggest a
-        // pointy spider/insect leg. Own blend group (20).
-        const sideKey = name.match(/^Extra(FL|FR|BL|BR)_/)![1]
-        const halfW     = bp.displaySize[0]
-        const halfThick = bp.displaySize[2]
-        const limbBoneIndices: number[] = [j]
-        for (const sub of ['Low', 'Tip'] as const) {
-          const idx = rig.findIndex((joint) => joint.name === `Extra${sideKey}_${sub}`)
-          if (idx >= 0) limbBoneIndices.push(idx)
-        }
-        if (limbBoneIndices.length < 2) continue
-        prims.push({
-          type: 23, paletteSlot: slot, boneIdx: j,
-          params: [limbBoneIndices.length, halfW, halfThick, 0.2],
-          offsetInBone: [0, 0, 0],
-          blendGroup: 20, blendRadius: 0,
-        })
-      } else if (/^Extra(FL|FR|BL|BR)_/.test(name)) {
-        continue   // Low/Tip contribute via the Up's chain primitive
-      } else if (name === 'SnakeNeck0') {
-        // Snake-neck body — type-23 ribbon chain walking SnakeNeck0..3.
-        // The head tip is emitted separately as an ellipsoid (below).
-        const halfW     = bp.displaySize[0]
-        const halfThick = bp.displaySize[2]
-        const snakeIndices: number[] = [j]
-        for (let k = 1; k < 4; k++) {
-          const idx = rig.findIndex((joint) => joint.name === `SnakeNeck${k}`)
-          if (idx >= 0) snakeIndices.push(idx)
-        }
-        if (snakeIndices.length < 2) continue
-        prims.push({
-          type: 23, paletteSlot: slot, boneIdx: j,
-          params: [snakeIndices.length, halfW, halfThick, 0.6],   // mild taper toward head
-          offsetInBone: [0, 0, 0],
-          blendGroup: 21, blendRadius: 0,
-        })
-      } else if (name === 'SnakeNeckHead') {
-        // Snake head — ellipsoid at the tip of the chain. Hard-min into
-        // scene (no blendGroup) so it reads as a discrete head shape.
-        prims.push({
-          type: 3, paletteSlot: slot, boneIdx: j,
-          params: [bp.displaySize[0], bp.displaySize[1], bp.displaySize[2], 0],
-          offsetInBone: [0, 0, 0],
-        })
-      } else if (/^SnakeNeck/.test(name)) {
-        continue   // SnakeNeck1/2/3 contribute via SnakeNeck0's chain primitive
       } else if (/^Grenade/.test(name)) {
         // Grenade — ellipsoid primitive so the same emission path covers
         // round (uniform halfX/Y/Z) AND can-shaped (elongated halfY)
