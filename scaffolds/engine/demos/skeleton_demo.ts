@@ -539,19 +539,20 @@ async function main() {
         bust: 0.0, hips: 0.0,
       },
       chibi: {
-        // Target proportions: head ≈ 50% of total height, torso wide
-        // enough to merge cleanly with the shoulders (no gap between
-        // torso ellipsoid and shoulder spheres), tiny legs.
-        // Iterated against user feedback "go smaller with the legs;
-        // torso doesn't fill to the shoulders, should be thicker and
-        // cover more". Torso X bumped 0.46 → 0.70 so the spine
-        // ellipsoid + scaled shoulder offsets stay within ~3cm of each
-        // other instead of leaving a 4cm air gap. Legs Y dropped 0.30
-        // → 0.20 for stubbier chibi proportions.
+        // Target proportions: head ≈ 50% of total height, torso width
+        // ≈ 60% of head width, tiny legs. Iterated multiple times
+        // against user feedback. Last bump: "body is 1/3 of head
+        // width, needs to be twice as thick" — torso X 0.70 → 1.40
+        // (and Z to 1.30) so the visible body silhouette doubles.
+        // Spine ellipsoid halfX is smaller than the shoulder offset,
+        // so the silhouette is shoulder-driven — scaling torso X also
+        // scales the shoulder offset (Spine + LeftShoulder share the
+        // torso group), so the chest opens up proportionally. Arms
+        // bumped to 0.65× from 0.55× to match the broader torso.
         head:  [1.70, 1.70, 1.70],
-        torso: [0.70, 0.45, 0.65],
-        arms:  [0.55, 0.45, 0.55],
-        legs:  [0.55, 0.20, 0.55],
+        torso: [1.40, 0.45, 1.30],
+        arms:  [0.65, 0.45, 0.65],
+        legs:  [0.65, 0.20, 0.65],
         bust: 0.0, hips: 0.0,
       },
     }
