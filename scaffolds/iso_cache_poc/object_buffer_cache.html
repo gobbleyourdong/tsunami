@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>object_buffer_cache — prebaked color+depth+normal, zero SDFs at render time</title>
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; background: #0a0c12; color: #d8dee9; font-family: ui-monospace, "JetBrains Mono", monospace; }
+  body { display: flex; flex-direction: column; align-items: center; padding: 16px; gap: 12px; }
+  h1 { margin: 0; font-size: 13px; font-weight: normal; color: #88c0d0; letter-spacing: 0.05em; }
+  canvas#main { background: #0d1018; image-rendering: pixelated; cursor: grab; box-shadow: 0 4px 24px rgba(0,0,0,0.5); display: block; }
+  canvas#main:active { cursor: grabbing; }
+  .row { display: flex; gap: 12px; max-width: 1240px; align-items: flex-start; }
+  .panel { background: #1e222c; border: 1px solid #2e3440; padding: 10px; border-radius: 4px; }
+  .panel h2 { margin: 0 0 8px; font-size: 11px; color: #88c0d0; font-weight: normal; letter-spacing: 0.05em; }
+  .obj-card { display: grid; grid-template-columns: 48px 48px 48px 1fr; gap: 6px; padding: 6px; margin-bottom: 4px; border-radius: 3px; border: 1px solid #2e3440; background: #11141c; align-items: center; }
+  .obj-card canvas { background: #0a0c12; display: block; }
+  .obj-card .thumbs-label { grid-column: 1 / span 3; display: grid; grid-template-columns: 48px 48px 48px; gap: 6px; font-size: 8px; color: #4c566a; text-align: center; }
+  .obj-meta { font-size: 10px; line-height: 1.3; color: #d8dee9; }
+  .obj-meta .name { color: #88c0d0; font-weight: bold; font-size: 11px; }
+  .obj-meta .flag-static { color: #5e81ac; }
+  .obj-meta .flag-translate { color: #5e81ac; }
+  .obj-meta .flag-rotate { color: #5e81ac; }
+  .obj-meta .flag-animating { color: #bf616a; }
+  .obj-meta .bakes { color: #a3be8c; }
+  #global { font-size: 11px; line-height: 1.7; min-width: 380px; }
+  #global .k { color: #81a1c1; }
+  #global .v { color: #a3be8c; font-weight: bold; }
+  #global .save { color: #ebcb8b; font-weight: bold; }
+  #global .zero { color: #88c0d0; font-weight: bold; }
+  .controls { display: flex; flex-wrap: wrap; gap: 6px; max-width: 1240px; }
+  button { background: #2e3440; color: #d8dee9; border: 1px solid #4c566a; padding: 6px 10px; font: inherit; font-size: 11px; cursor: pointer; border-radius: 3px; }
+  button:hover { background: #3b4252; border-color: #88c0d0; }
+  button.active { background: #3b4252; border-color: #a3be8c; }
+  #legend { font-size: 11px; color: #4c566a; max-width: 1240px; line-height: 1.55; }
+  #legend strong { color: #88c0d0; }
+  code { color: #d08770; }
+  .view-toggle { display: flex; gap: 4px; margin-bottom: 8px; }
+  .view-toggle button { padding: 4px 8px; font-size: 10px; }
+</style>
+</head>
+<body>
+  <h1>object_buffer_cache — SDFs run at init / cache-update only · runtime is pure pixel composite</h1>
+  <div class="row">
+    <div>
+      <div class="view-toggle">
+        <button id="view-color" class="active">color</button>
+        <button id="view-depth">depth</button>
+        <button id="view-normal">normal</button>
+      </div>
+      <canvas id="main" width="800" height="500"></canvas>
+    </div>
+    <div class="panel" style="width: 410px">
+      <h2>Per-object prebaked buffers (color · depth · normal)</h2>
+      <div id="obj-list"></div>
+    </div>
+    <div class="panel" style="align-self: stretch">
+      <h2>Cache stats</h2>
+      <div id="global"></div>
+    </div>
+  </div>
+  <div class="controls">
+    <button id="cam-reset">Reset camera</button>
+    <button id="toggle-translate">Toggle critter (walk + animate)</button>
+    <button id="toggle-rotate">Toggle rotate fan</button>
+    <button id="toggle-deform-full">Toggle heart (animate)</button>
+    <button id="toggle-deform-local">Toggle gear (animate)</button>
+    <button id="invalidate-all">Force cache update on ALL</button>
+    <button id="bomb-robot">💥 Bomb at robot</button>
+    <button id="reset-craters">Reset craters</button>
+  </div>
+  <div style="font-size: 10px; color: #88c0d0; max-width: 1240px;">Shift-click anywhere to blast a destruction circle. ALL archetypes that overlap (terrain, volcano, rock, balls, the gear, the robot) get only their intersecting sub-region marked dirty and re-baked from the SDF — the SDF is ground truth, the cache is just memo.</div>
+  <div id="legend">
+    <strong>Two clocks.</strong> Physics + translation run unlocked at the render rate (60 fps — buttery smooth motion). Rotation, scale, and SDF re-bakes lock to the <strong>12 fps animation tick</strong> (every <code>LOOP_TICK_INTERVAL_FRAMES = 5</code> render frames — chunky retro feel). The yellow border flashes every tick.
+    <br>
+    <strong>Two cache states.</strong> <code>static</code> = baked once at init, never touched again. <code>animating</code> = single buffer re-baked from the SDF on tick boundaries.
+    <br>
+    <strong>1-second loop quantization.</strong> Each animating archetype declares <code>loopFrames</code> ∈ {1,2,3,4,6,12} (must divide 12). The full loop always plays in <strong>exactly 1 second</strong>; each frame holds for <code>12 / loopFrames</code> anim ticks. So a 4-frame walk cycle is 4 fps (3 ticks per frame, very chunky), a 12-frame loop is 12 fps (1 tick per frame, smoothest). The re-bake fires only when the loop's frame index changes — a 4fps loop only bakes 4 times per second, not 12. Same loopTick offset → same buffer, deterministically.
+    <br>
+    Watch the critter slide smoothly across the screen (translation = per-frame) while its limbs snap into new walk poses on the tick (deformation = per-tick). Watch the fan rotate in 30° steps every tick, not buttery. The heart and gear pulse/wiggle on the same beat.
+    <br>
+    Per-frame work: pure <code>drawImage</code> from cached buffers + position update. SDF evals = 0 between ticks. On tick: re-bake every animating archetype. The HUD's "bakes last tick" is the exact count.
+    <br>
+    Toggle <em>depth</em> or <em>normal</em> to see the parallel channels baked alongside color — the renderer uses them for z-sorting and relighting without ever re-running the SDF.
+  </div>
+
+  <script type="module">
+  // ─────────────────────────────────────────────────────────────────
+  // ARCHITECTURE
+  //
+  // Each GameObject owns:
+  //   colorBuf:  HTMLCanvasElement   (RGBA, baked once)
+  //   depthBuf:  Float32Array        (per-pixel SDF distance / depth)
+  //   normalBuf: HTMLCanvasElement   (encoded normals for relighting)
+  //
+  // SDF fn is called ONLY in obj.bake(). After init, the render loop
+  // never calls it again unless a deform_* flag forces a cache-update.
+  //
+  // Transforms (translate, rotate, scale) apply at composite time via
+  // ctx.translate/rotate/scale + drawImage. They do NOT touch the buffer.
+  //
+  // Counter "SDF evaluations this frame" stays at 0 in steady state.
+  // ─────────────────────────────────────────────────────────────────
+
+  const W = 800, H = 500;
+  const main = document.getElementById('main');
+  const ctx = main.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  let frame = 0;
+  let cameraX = 0, cameraY = 0;
+  let sdfEvalsThisFrame = 0;
+  let cumulativeSdfEvals = 0;
+  let viewMode = 'color';
+
+  // Two clocks:
+  //  • Physics/translation: every render frame (smooth, 60fps).
+  //  • Animation tick (rotation + deformation re-bakes): 12 fps (every 5 render
+  //    frames at 60 Hz). This is the chunky retro animation look — limbs snap
+  //    on the beat, world translation is buttery.
+  const LOOP_TICK_INTERVAL_FRAMES = 5;   // 60 / 5 = 12 fps animation tick
+  let loopTick = 0;
+  let tickJustFired = false;
+  let lastTickFiredAtFrame = -999;
+  let bakesThisTick = 0;
+
+  // ─── GameObject ──────────────────────────────────────────────────
+  class GameObject {
+    constructor(opts) {
+      this.id = opts.id;
+      this.color = opts.color;
+      this.sdfFn = opts.sdfFn;            // (lx, ly, animPhase) → distance
+      this.localW = opts.localW;
+      this.localH = opts.localH;
+      this.worldX = opts.worldX;
+      this.worldY = opts.worldY;
+      this.rotation = 0;
+      this.scale = 1;
+      // z: composite order. Lower z draws first (deeper). Sort key for the
+      // compositor; future optimization is z-proximity grouping (collapse
+      // archetypes with similar z into a shared layer buffer).
+      this.z = opts.z !== undefined ? opts.z : 0;
+      this.animFlag = opts.animFlag;
+      this.animPhase = 0;
+      this.animEnabled = opts.animEnabled !== false;
+      this.translateVel = opts.translateVel || opts.velocity || [0, 0];
+      this.velocity = this.translateVel;             // alias; physics writes here
+      this.translateBox = opts.translateBox || null;
+      // Physics
+      this.useGravity = opts.useGravity || false;
+      this.bounceFactor = opts.bounceFactor !== undefined ? opts.bounceFactor : 0.7;
+      this.angularVelocity = opts.angularVelocity || 0;     // radians per tick
+      this.quantizeRotation = opts.quantizeRotation || false;
+      // Snap step for displayed rotation (radians). Default 45° = 8 directions.
+      // Use Math.PI / 6 for 30° = 12 dirs, Math.PI / 2 for 90° = 4 dirs, etc.
+      this.rotationStep = opts.rotationStep !== undefined ? opts.rotationStep : Math.PI / 4;
+      this.targetRotation = 0;                              // continuous; snapped on tick
+
+      // Prebaked triple buffer
+      this.colorBuf = document.createElement('canvas');
+      this.colorBuf.width = this.localW;
+      this.colorBuf.height = this.localH;
+      this.colorCtx = this.colorBuf.getContext('2d');
+
+      this.normalBuf = document.createElement('canvas');
+      this.normalBuf.width = this.localW;
+      this.normalBuf.height = this.localH;
+      this.normalCtx = this.normalBuf.getContext('2d');
+
+      this.depthBuf = new Float32Array(this.localW * this.localH);
+      // Pre-rendered depth visualisation (8-bit grayscale) for the depth view
+      this.depthVis = document.createElement('canvas');
+      this.depthVis.width = this.localW;
+      this.depthVis.height = this.localH;
+      this.depthVisCtx = this.depthVis.getContext('2d');
+
+      this.bakeCount = 0;
+      this.lastBakedAtFrame = -1;
+      this.lastBakePixels = 0;
+      this.dirty = true;
+      this.dirtyRegions = null; // null = whole buffer, else array of {x,y,w,h}
+      // Stateful per-archetype damage (in this archetype's local coords).
+      // Populated by destroyAt() — the carve follows the archetype's
+      // transform forever after.
+      this.localDamage = [];
+      this.sdfHandlesDamage = opts.sdfHandlesDamage || false;
+      // Settled-particle deposits painted onto this archetype's colorBuf.
+      // Persisted across re-bakes (re-painted within freshly baked regions).
+      this.deposits = [];
+
+      // Loop quantization. The anim tick is 12 fps; loops must complete in
+      // exactly 1 second; loopFrames must divide 12 so frames hold for an
+      // integer number of ticks. Allowed: 1, 2, 3, 4, 6, 12.
+      // ticksPerFrame = 12 / loopFrames.
+      // - 12 frames → re-bake every tick (12 fps animation)
+      // - 6 frames  → re-bake every 2 ticks (6 fps)
+      // - 4 frames  → re-bake every 3 ticks (4 fps, chunky retro walk)
+      // - 1 frame   → never re-bakes (effectively static)
+      this.loopFrames = opts.loopFrames || 12;
+      if (![1, 2, 3, 4, 6, 12].includes(this.loopFrames)) {
+        throw new Error('loopFrames must divide 12: 1, 2, 3, 4, 6, or 12 (got ' + this.loopFrames + ')');
+      }
+      this.ticksPerFrame = 12 / this.loopFrames;
+      this.currentLoopFrame = 0;
+    }
+
+    /** Inner pixel loop. Renders `regions` into the supplied target contexts. */
+    _bakeInto(colorCtx, normalCtx, depthVisCtx, depthBuf, regions, animPhase) {
+      let evals = 0;
+      const c = this.color;
+      for (const reg of regions) {
+        const colorImg = colorCtx.getImageData(reg.x, reg.y, reg.w, reg.h);
+        const normImg  = normalCtx.getImageData(reg.x, reg.y, reg.w, reg.h);
+        const depthImg = depthVisCtx.getImageData(reg.x, reg.y, reg.w, reg.h);
+        for (let py = 0; py < reg.h; py++) {
+          for (let px = 0; px < reg.w; px++) {
+            const lx = reg.x + px;
+            const ly = reg.y + py;
+            let d = this.sdfFn(lx, ly, animPhase, this.localDamage);
+            // Per-archetype local damage subtraction (default — SDFs that
+            // already consume the damage list inside themselves return a d
+            // that's already-carved, in which case localDamage is empty here).
+            if (this.localDamage && !this.sdfHandlesDamage) {
+              for (let k = 0; k < this.localDamage.length; k++) {
+                const c = this.localDamage[k];
+                const cd = Math.hypot(lx - c.x, ly - c.y) - c.r;
+                if (-cd > d) d = -cd;
+              }
+            }
+            const dx = this.sdfFn(lx + 1, ly,     animPhase) - d;
+            const dy = this.sdfFn(lx,     ly + 1, animPhase) - d;
+            const nLen = Math.hypot(dx, dy) || 1;
+            const nx = dx / nLen, ny = dy / nLen;
+            evals += 3;
+
+            const i = (py * reg.w + px) * 4;
+            const depthIdx = ly * this.localW + lx;
+            depthBuf[depthIdx] = d;
+
+            if (d < 0) {
+              const t = Math.min(1, -d / 30);
+              colorImg.data[i]     = c[0] * (0.55 + 0.45 * t);
+              colorImg.data[i + 1] = c[1] * (0.55 + 0.45 * t);
+              colorImg.data[i + 2] = c[2] * (0.55 + 0.45 * t);
+              colorImg.data[i + 3] = 255;
+              normImg.data[i]     = (0.5 + 0.5 * nx) * 255;
+              normImg.data[i + 1] = (0.5 + 0.5 * ny) * 255;
+              normImg.data[i + 2] = 200;
+              normImg.data[i + 3] = 255;
+              const depthShade = Math.max(0, Math.min(255, 180 + d * 4));
+              depthImg.data[i]     = depthShade;
+              depthImg.data[i + 1] = depthShade;
+              depthImg.data[i + 2] = depthShade;
+              depthImg.data[i + 3] = 255;
+            } else if (d < 1.5) {
+              const a = (1.5 - d) / 1.5;
+              colorImg.data[i]     = 230;
+              colorImg.data[i + 1] = 240;
+              colorImg.data[i + 2] = 255;
+              colorImg.data[i + 3] = 255 * a;
+              normImg.data[i + 3]  = 255 * a;
+              depthImg.data[i]     = 200;
+              depthImg.data[i + 1] = 200;
+              depthImg.data[i + 2] = 200;
+              depthImg.data[i + 3] = 255 * a;
+            } else {
+              colorImg.data[i + 3] = 0;
+              normImg.data[i + 3]  = 0;
+              depthImg.data[i + 3] = 0;
+            }
+          }
+        }
+        colorCtx.putImageData(colorImg,  reg.x, reg.y);
+        normalCtx.putImageData(normImg,  reg.x, reg.y);
+        depthVisCtx.putImageData(depthImg, reg.x, reg.y);
+      }
+      return evals;
+    }
+
+    /** Bake. If `this.dirtyRegions` is set, only those local-space rectangles
+     *  are re-baked (partial re-bake for event-driven changes like a crater
+     *  blast on terrain). Otherwise the whole buffer re-bakes. */
+    bake() {
+      const regions = (this.dirtyRegions && this.dirtyRegions.length)
+        ? this.dirtyRegions
+        : [{ x: 0, y: 0, w: this.localW, h: this.localH }];
+      const evals = this._bakeInto(
+        this.colorCtx, this.normalCtx, this.depthVisCtx, this.depthBuf,
+        regions, this.animPhase
+      );
+      // Re-paint deposits that fall within any just-baked region — they'd
+      // otherwise be cleared by the bake. Deposits are conserved mass.
+      if (this.deposits && this.deposits.length) {
+        for (let i = 0; i < this.deposits.length; i++) {
+          const dep = this.deposits[i];
+          for (let r = 0; r < regions.length; r++) {
+            const reg = regions[r];
+            if (dep.x >= reg.x && dep.x < reg.x + reg.w &&
+                dep.y >= reg.y && dep.y < reg.y + reg.h) {
+              this.colorCtx.fillStyle = 'rgb(' + (dep.r | 0) + ',' + (dep.g | 0) + ',' + (dep.b | 0) + ')';
+              this.colorCtx.fillRect(dep.x, dep.y, 1, 1);
+              break;
+            }
+          }
+        }
+      }
+      this.bakeCount++;
+      this.lastBakedAtFrame = frame;
+      this.lastBakePixels = evals / 3;
+      this.dirty = false;
+      this.dirtyRegions = null;
+      return evals;
+    }
+
+    /** Two clocks:
+     *  • Physics (translation, gravity, collision): every render frame, 60fps.
+     *  • Display rotation + scale + SDF re-bake: 12fps tick. Rotation snaps
+     *    to rotationStep increments (default 45°, 8 directions).
+     *  Angular velocity simulates continuously in targetRotation; the visible
+     *  rotation only updates on the tick and snaps to a discrete step. */
+    step() {
+      if (!this.animEnabled) return;
+
+      // ── Per-frame: physics ──
+      // Gravity → vy
+      if (this.useGravity) this.velocity[1] += 0.4;
+      // Apply velocity to position (smooth 60fps motion)
+      this.worldX += this.velocity[0];
+      this.worldY += this.velocity[1];
+      // Ground collision for gravity-affected bodies (bounce on hill surface)
+      if (this.useGravity) {
+        const surfaceY = hillHeight(this.worldX + this.localW / 2);
+        if (this.worldY + this.localH > surfaceY) {
+          this.worldY = surfaceY - this.localH;
+          if (this.velocity[1] > 0) {
+            this.velocity[1] = -this.velocity[1] * this.bounceFactor;
+            if (Math.abs(this.velocity[1]) < 0.4) this.velocity[1] = 0;
+          }
+          this.velocity[0] *= 0.96;          // ground friction
+        }
+      }
+      // Bounce within translateBox (e.g., critter wandering)
+      if (this.translateBox && !this.useGravity) {
+        const b = this.translateBox;
+        if (this.worldX < b.x || this.worldX + this.localW > b.x + b.w) this.velocity[0] *= -1;
+        if (this.worldY < b.y || this.worldY + this.localH > b.y + b.h) this.velocity[1] *= -1;
+      }
+      // Follow ground for non-physics archetypes (walking critter)
+      if (this.followGround) {
+        const cx = this.worldX + this.localW / 2;
+        this.worldY = hillHeight(cx) - this.localH + (this.groundOffset || 0);
+      }
+
+      // ── Per-tick: display rotation + animation re-bake ──
+      if (!tickJustFired) return;
+
+      // Rotation: targetRotation advances each tick; displayed rotation snaps.
+      const isRotating = this.angularVelocity !== 0 || this.animFlag === 'rotate';
+      if (isRotating) {
+        if (this.angularVelocity !== 0) {
+          this.targetRotation += this.angularVelocity;
+        } else {
+          // animFlag: 'rotate' default — advance one snap step per tick
+          this.targetRotation += this.rotationStep;
+        }
+        if (this.quantizeRotation || this.animFlag === 'rotate') {
+          this.rotation = Math.round(this.targetRotation / this.rotationStep) * this.rotationStep;
+        } else {
+          this.rotation = this.targetRotation;
+        }
+      }
+
+      // Animation re-bake (1-second loop quantization)
+      if (this.animFlag === 'animating') {
+        const newFrame = Math.floor(loopTick / this.ticksPerFrame) % this.loopFrames;
+        if (newFrame !== this.currentLoopFrame) {
+          this.currentLoopFrame = newFrame;
+          this.animPhase = (newFrame / this.loopFrames) * Math.PI * 2;
+          this.dirty = true;
+        }
+      }
+    }
+
+    /** Composite the appropriate buffer (color/depth/normal). */
+    composite(targetCtx, camX, camY, mode) {
+      const sx = this.worldX - camX;
+      const sy = this.worldY - camY;
+      if (sx + this.localW < 0 || sy + this.localH < 0 || sx > W || sy > H) return false;
+      const buf = mode === 'depth' ? this.depthVis
+                : mode === 'normal' ? this.normalBuf
+                : this.colorBuf;
+      if (this.rotation !== 0 || this.scale !== 1) {
+        targetCtx.save();
+        targetCtx.translate(sx + this.localW / 2, sy + this.localH / 2);
+        targetCtx.rotate(this.rotation);
+        targetCtx.scale(this.scale, this.scale);
+        targetCtx.drawImage(buf, -this.localW / 2, -this.localH / 2);
+        targetCtx.restore();
+      } else {
+        targetCtx.drawImage(buf, sx, sy);
+      }
+      return true;
+    }
+  }
+
+  // ─── SDFs (local space) ──────────────────────────────────────────
+  // Volcano: tall cone with a slowly pulsing peak (lava plume swelling).
+  // Big background archetype — animates with loop_frames so even huge BG
+  // objects don't need to re-bake every tick.
+  function sdfVolcano(lx, ly, phase) {
+    const cx = 200, peakY = 70, baseY = 280, halfBaseW = 180;
+    const peakPulse = 1 + 0.18 * Math.sin(phase);
+    const t = Math.max(0, Math.min(1, (ly - peakY) / (baseY - peakY)));
+    const expectedW = halfBaseW * t * peakPulse;
+    let d = Math.abs(lx - cx) - expectedW;
+    d = Math.max(d, peakY - ly);
+    d = Math.max(d, ly - baseY);
+    // Lava plume that bobs up from the peak (animates with phase)
+    const plumeH = 24 + 14 * Math.sin(phase * 2);
+    const plumeT = (peakY - ly) / Math.max(1, plumeH);
+    if (plumeT >= 0 && plumeT <= 1) {
+      const plumeW = 14 * (1 - plumeT * 0.6);
+      const plumeD = Math.abs(lx - cx) - plumeW;
+      d = Math.min(d, Math.max(plumeD, peakY - plumeH - ly, ly - peakY));
+    }
+    return d;
+  }
+
+  // Stateful per-archetype destruction. Each archetype has its own
+  // localDamage[] list in its local-coord space; carves follow the
+  // archetype's transform (rotation, translation, scale). The SDF is
+  // ground truth — the cache is just memoized output. We never use a
+  // global world-space destruction list; the world-vs-local choice is
+  // made implicit by the archetype's worldX/Y and rotation.
+  let terrainRef = null;     // set after objects are built; used by hillHeight()
+
+  // Hill surface profile — exposed so other archetypes (the walking robot,
+  // bouncing balls) can sample it and follow the hill shape.
+  function hillHeight(worldX) {
+    let h = 220
+      + 32 * Math.sin(worldX * 0.0085)
+      + 18 * Math.sin(worldX * 0.027 + 1.3)
+      + 9  * Math.sin(worldX * 0.052 + 2.4);
+    // Read terrain's localDamage (terrain.worldX=0 so local==world for it).
+    // Drop the surface to a crater's bottom chord where it intersects.
+    if (terrainRef && terrainRef.localDamage) {
+      for (const c of terrainRef.localDamage) {
+        const dx = worldX - c.x;
+        if (Math.abs(dx) >= c.r) continue;
+        const sag = Math.sqrt(c.r * c.r - dx * dx);
+        const cTop = c.y - sag, cBot = c.y + sag;
+        if (h >= cTop && h <= cBot) h = cBot;
+      }
+    }
+    return h;
+  }
+
+  // Ground: filled BELOW the hill surface (d < 0 = interior). Subtle depth
+  // shading via offset, plus a couple of water ponds carved out. Runtime
+  // destruction is applied uniformly inside _bakeInto, so it's not the
+  // archetype SDF's job.
+  function sdfTerrain(lx, ly) {
+    const h = hillHeight(lx);
+    let d = h - ly;
+    const ponds = [[420, 290, 26], [1100, 305, 32], [1750, 320, 24]];
+    for (const [px, py, pr] of ponds) {
+      const pd = Math.hypot(lx - px, ly - py) - pr;
+      d = Math.max(d, -pd);
+    }
+    return d;
+  }
+  // Bouncing ball (uniform sphere)
+  function sdfBall(lx, ly) {
+    return Math.hypot(lx - 16, ly - 16) - 13;
+  }
+
+  function sdfRock(lx, ly) {
+    return Math.hypot(lx - 30, ly - 22) - 18 + 3 * Math.sin(Math.atan2(ly - 22, lx - 30) * 5);
+  }
+  // Walker: 8-frame walk cycle. phase ∈ [0, 2π). Limbs swing, eyes blink each step.
+  function sdfWalker(lx, ly, phase) {
+    const headD = Math.hypot(lx - 24, ly - 14) - 10;
+    const bodyD = Math.hypot(lx - 24, ly - 30) - 12;
+    let d = Math.min(headD, bodyD);
+    // Eyes (subtract)
+    d = Math.max(d, -(Math.hypot(lx - 20, ly - 12) - 1.5));
+    d = Math.max(d, -(Math.hypot(lx - 28, ly - 12) - 1.5));
+    // Legs swing with phase
+    const swing = Math.sin(phase) * 5;
+    const lLegX = 20 - swing, rLegX = 28 + swing;
+    const lLeg = Math.max(Math.abs(lx - lLegX) - 2.5, ly - 50, 38 - ly);
+    const rLeg = Math.max(Math.abs(lx - rLegX) - 2.5, ly - 50, 38 - ly);
+    // Arms swing opposite
+    const aSwing = -Math.sin(phase) * 4;
+    const lArmX = 12 - aSwing, rArmX = 36 + aSwing;
+    const lArm = Math.max(Math.abs(lx - lArmX) - 2.5, ly - 36, 22 - ly);
+    const rArm = Math.max(Math.abs(lx - rArmX) - 2.5, ly - 36, 22 - ly);
+    return Math.min(d, lLeg, rLeg, lArm, rArm);
+  }
+  function sdfFan(lx, ly) {
+    const cx = 50, cy = 50;
+    const dx = lx - cx, dy = ly - cy;
+    const r = Math.hypot(dx, dy);
+    const a = Math.atan2(dy, dx);
+    let bladeD = Infinity;
+    for (let i = 0; i < 4; i++) {
+      const ang = a - i * Math.PI / 2;
+      const lxx = r * Math.cos(ang), lyy = r * Math.sin(ang);
+      const blade = Math.max(Math.abs(lyy) - 6, Math.max(-lxx, lxx - 38));
+      bladeD = Math.min(bladeD, blade);
+    }
+    return Math.min(bladeD, r - 8);
+  }
+  function sdfHeart(lx, ly, phase, damage) {
+    const cx = 40, cy = 42;
+    const pulse = 1 + 0.18 * Math.sin(phase);
+    const dx = (lx - cx) / pulse;
+    const dy = (ly - cy) / pulse;
+    const left  = Math.hypot(dx + 8, dy + 4) - 14;
+    const right = Math.hypot(dx - 8, dy + 4) - 14;
+    const triSides = Math.abs(dx) * 0.86 + (dy + 4) * 0.5 - 14;
+    const tri = Math.max(triSides, dy - 22, -dy - 4);
+    let d = Math.min(left, right, tri);
+    // Apply damage in pulse-deformed coords so carves scale with the pulse.
+    if (damage) {
+      for (let k = 0; k < damage.length; k++) {
+        const dam = damage[k];
+        const ddx = (dam.x - cx) / pulse;
+        const ddy = (dam.y - cy) / pulse;
+        const cd = Math.hypot(dx - ddx, dy - ddy) - dam.r / pulse;
+        if (-cd > d) d = -cd;
+      }
+    }
+    return d;
+  }
+  // Static gear silhouette — rotation is a composite-time transform, not an
+  // SDF deformation. The teeth are baked once at fixed angles; ctx.rotate
+  // handles spinning. Carves in localDamage live in the gear's local coords
+  // and rotate naturally with the buffer.
+  function sdfGear(lx, ly) {
+    const cx = 60, cy = 60;
+    const dx = lx - cx, dy = ly - cy;
+    const r = Math.hypot(dx, dy);
+    const a = Math.atan2(dy, dx);
+    const teeth = 12;
+    const wiggle = 4 * Math.cos(a * teeth);     // no phase — static rim
+    let d = r - 50 - wiggle;
+    d = Math.min(d, r - 36);
+    return d;
+  }
+
+  // ─── Build objects ───────────────────────────────────────────────
+  const TERRAIN_W = 2000, TERRAIN_H = 500;
+  const objects = [];
+
+  const terrain = new GameObject({
+    id: 'terrain', color: [60, 90, 70], sdfFn: sdfTerrain,
+    localW: TERRAIN_W, localH: TERRAIN_H, worldX: 0, worldY: 0,
+    animFlag: 'static',
+    z: 0,
+  });
+  objects.push(terrain);
+  terrainRef = terrain;                // hillHeight() reads terrain.localDamage
+  objects.push(new GameObject({
+    id: 'volcano', color: [160, 80, 60], sdfFn: sdfVolcano,
+    localW: 400, localH: 300, worldX: 250, worldY: 20,
+    animFlag: 'animating',
+    loopFrames: 3,
+    z: -1,                             // distant BG: ground draws over its base
+    cosmetic: { palette_cycle: { slots: ['lava_glow'], hz: 0.5 } },
+  }));
+  objects.push(new GameObject({
+    id: 'rock', color: [120, 120, 130], sdfFn: sdfRock,
+    localW: 60, localH: 44, worldX: 600, worldY: 180,
+    animFlag: 'static',
+    z: 2,
+  }));
+  const critter = new GameObject({
+    id: 'critter', color: [180, 100, 100], sdfFn: sdfWalker,
+    localW: 48, localH: 56, worldX: 200, worldY: 160,
+    animFlag: 'animating',
+    loopFrames: 4,                     // chunky 4fps walk cycle (3 anim ticks / frame)
+    translateVel: [1.5, 0],
+    translateBox: { x: 100, y: 0, w: 1800, h: 500 },   // x-bounce; y handled by followGround
+    z: 3,                              // foreground
+  });
+  critter.followGround = true;         // sample hillHeight() per frame
+  critter.groundOffset = 6;             // small fudge so feet sit on the surface
+  critter.indestructible = true;        // robot ignores world-space destruction
+  objects.push(critter);
+  objects.push(new GameObject({
+    id: 'fan', color: [180, 160, 100], sdfFn: sdfFan,
+    localW: 100, localH: 100, worldX: 950, worldY: 130,
+    animFlag: 'rotate',
+    angularVelocity: Math.PI / 8,        // 22.5°/tick — continuous physics
+    quantizeRotation: true,
+    rotationStep: Math.PI / 4,            // displayed in 45° (8-direction) steps
+    z: 2,
+  }));
+  // Bouncing balls — physics in real time, gravity-affected, bounce on hills.
+  [['ball1', 350, [230, 180, 100], 1.2],
+   ['ball2', 700, [180, 220, 150], -0.8],
+   ['ball3', 1200, [200, 150, 220], 1.6],
+  ].forEach(([id, x, color, vx]) => {
+    objects.push(new GameObject({
+      id, color, sdfFn: sdfBall,
+      localW: 32, localH: 32,
+      worldX: x, worldY: 40,
+      animFlag: 'static',                  // ball mesh never deforms
+      z: 2,
+      velocity: [vx, 0],
+      useGravity: true,
+      bounceFactor: 0.78,
+    }));
+  });
+  objects.push(new GameObject({
+    id: 'heart', color: [200, 80, 100], sdfFn: sdfHeart,
+    localW: 80, localH: 80, worldX: 1300, worldY: 160,
+    animFlag: 'animating',
+    loopFrames: 6,
+    sdfHandlesDamage: true,            // heart applies damage in pulse-deformed coords
+    z: 2,
+  }));
+  objects.push(new GameObject({
+    id: 'gear', color: [140, 180, 130], sdfFn: sdfGear,
+    localW: 120, localH: 120, worldX: 1600, worldY: 140,
+    animFlag: 'rotate',                          // rigid body — composite rotates the cached buffer
+    angularVelocity: Math.PI / 12,               // spins ~15°/tick
+    quantizeRotation: true,
+    rotationStep: (2 * Math.PI) / 12,            // snap to one-tooth (30°) increments
+    z: 2,
+  }));
+
+  // ─── Particles (conserved mass from destruction) ─────────────────
+  // Every pixel carved out of an archetype becomes a 1×1 colored particle
+  // that flies from the blast center, falls under gravity, bounces on the
+  // hill surface, and eventually settles. Cap globally at 6000 to keep the
+  // per-frame fillRect count sane; oldest live particles get evicted first.
+  const PARTICLE_CAP = 12000;
+  const particles = [];
+
+  function spawnParticles(wx, wy, r, color, count, sourceCanvas, sourceRect) {
+    // If a source canvas region is provided, sample real pixel colors from it
+    // so particles match the exact pixel they came from (depth shading,
+    // antialiasing, gradients) — not just the archetype's flat color.
+    let sourceData = null;
+    if (sourceCanvas && sourceRect && sourceRect.w > 0 && sourceRect.h > 0) {
+      sourceData = sourceCanvas.getContext('2d')
+        .getImageData(sourceRect.x, sourceRect.y, sourceRect.w, sourceRect.h).data;
+    }
+    for (let i = 0; i < count; i++) {
+      if (particles.length >= PARTICLE_CAP) particles.shift();
+      // Position: uniformly in the disc
+      const ang  = Math.random() * Math.PI * 2;
+      const dist = Math.sqrt(Math.random()) * r;
+      const px = wx + Math.cos(ang) * dist;
+      const py = wy + Math.sin(ang) * dist;
+      // Color: sample from source region (preferring opaque pixels) or fallback
+      let pr, pg, pb;
+      if (sourceData) {
+        for (let attempts = 5; attempts > 0; attempts--) {
+          const sx = Math.floor(Math.random() * sourceRect.w);
+          const sy = Math.floor(Math.random() * sourceRect.h);
+          const idx = (sy * sourceRect.w + sx) * 4;
+          if (sourceData[idx + 3] > 100) {
+            pr = sourceData[idx]; pg = sourceData[idx + 1]; pb = sourceData[idx + 2];
+            break;
+          }
+        }
+      }
+      if (pr === undefined) {
+        pr = Math.max(0, Math.min(255, color[0] + (Math.random() - 0.5) * 30));
+        pg = Math.max(0, Math.min(255, color[1] + (Math.random() - 0.5) * 30));
+        pb = Math.max(0, Math.min(255, color[2] + (Math.random() - 0.5) * 30));
+      }
+      // Velocity: outward radial + upward bias
+      const ox = px - wx, oy = py - wy;
+      const len = Math.hypot(ox, oy) || 1;
+      const speed = 5 + Math.random() * 9;
+      particles.push({
+        x: px, y: py,
+        vx: (ox / len) * speed + (Math.random() - 0.5) * 3,
+        vy: (oy / len) * speed - 5 - Math.random() * 4,
+        r: pr, g: pg, b: pb,
+        life: 600,
+        settled: false,
+      });
+    }
+  }
+
+  function stepParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      if (p.settled) {
+        if (--p.life <= 0) particles.splice(i, 1);
+        continue;
+      }
+      p.vy += 0.4;
+      p.x += p.vx;
+      p.y += p.vy;
+      const ground = hillHeight(p.x);
+      if (p.y >= ground) {
+        if (Math.abs(p.vy) > 1.5) {
+          p.y = ground;
+          p.vy = -p.vy * 0.35;
+          p.vx *= 0.6;
+        } else {
+          p.y = ground;
+          p.vx = 0; p.vy = 0;
+          p.settled = true;
+          p.life = 99999;          // settled deposits last; cleared by blast hit
+          // Deposit into terrain: paint pixel + record so re-bakes preserve it
+          if (terrainRef) {
+            const dx = Math.floor(p.x), dy = Math.floor(p.y);
+            terrainRef.deposits.push({ x: dx, y: dy, r: p.r, g: p.g, b: p.b });
+            terrainRef.colorCtx.fillStyle = 'rgb(' + (p.r | 0) + ',' + (p.g | 0) + ',' + (p.b | 0) + ')';
+            terrainRef.colorCtx.fillRect(dx, dy, 1, 1);
+          }
+        }
+      }
+      if (--p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  function renderParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      const sx = Math.floor(p.x - cameraX);
+      const sy = Math.floor(p.y - cameraY);
+      if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue;
+      ctx.fillStyle = 'rgb(' + (p.r | 0) + ',' + (p.g | 0) + ',' + (p.b | 0) + ')';
+      ctx.fillRect(sx, sy, 1, 1);
+    }
+  }
+
+  // ─── Stateful destruction: each archetype owns its own local damage ──
+  //
+  // For every archetype whose world bbox intersects the blast circle, we
+  // convert the world hit position into the archetype's local coords
+  // (un-rotate, un-scale) and append it to its localDamage[] list. The
+  // bake's per-pixel SDF subtraction reads localDamage in local coords,
+  // so the carve follows the archetype's transform — rotation, translation,
+  // even scale — forever after. The cache is stateful per archetype.
+  //
+  // Plus a blast impulse on physics bodies (gameplay, not cache).
+  function destroyAt(wx, wy, r) {
+    for (const o of objects) {
+      if (o.indestructible) continue;
+      const objL = o.worldX, objR = o.worldX + o.localW;
+      const objT = o.worldY, objB = o.worldY + o.localH;
+      if (wx + r < objL || wx - r > objR || wy + r < objT || wy - r > objB) continue;
+      // World → local hit position (invert rotation + scale around object center)
+      const cx = o.worldX + o.localW / 2;
+      const cy = o.worldY + o.localH / 2;
+      const sx = wx - cx, sy = wy - cy;
+      const cos = Math.cos(-o.rotation);
+      const sn  = Math.sin(-o.rotation);
+      const sc  = o.scale || 1;
+      const lx = o.localW / 2 + (sx * cos - sy * sn) / sc;
+      const ly = o.localH / 2 + (sx * sn + sy * cos) / sc;
+      const lr = r / sc;
+      o.localDamage.push({ x: lx, y: ly, r: lr });
+      // Local-space dirty rect (only this sub-region re-bakes)
+      const rect = {
+        x: Math.max(0, Math.floor(lx - lr - 1)),
+        y: Math.max(0, Math.floor(ly - lr - 1)),
+        w: Math.ceil(lr * 2 + 2),
+        h: Math.ceil(lr * 2 + 2),
+      };
+      rect.w = Math.min(rect.w, o.localW - rect.x);
+      rect.h = Math.min(rect.h, o.localH - rect.y);
+      if (!o.dirtyRegions) o.dirtyRegions = [];
+      o.dirtyRegions.push(rect);
+      o.dirty = true;
+      // True mass conservation: iterate every pixel in the carve sub-region.
+      // Spawn ONE particle per pixel that was actually solid (alpha > 0)
+      // AND falls within the destruction circle. No material → no particle.
+      // Each particle inherits the exact pixel color it came from.
+      const oldImg = o.colorCtx.getImageData(rect.x, rect.y, rect.w, rect.h);
+      const data = oldImg.data;
+      const cos = Math.cos(o.rotation);
+      const sn  = Math.sin(o.rotation);
+      const cxL = o.localW / 2, cyL = o.localH / 2;
+      const sc2 = o.scale || 1;
+      for (let py = 0; py < rect.h; py++) {
+        for (let px = 0; px < rect.w; px++) {
+          const i4 = (py * rect.w + px) * 4;
+          if (data[i4 + 3] < 100) continue;            // was empty — no material to transport
+          const lpx = rect.x + px;
+          const lpy = rect.y + py;
+          if (Math.hypot(lpx - lx, lpy - ly) > lr) continue; // outside the blast circle
+          // Local → world (account for rotation + scale)
+          const oxL = lpx - cxL, oyL = lpy - cyL;
+          const wpx = o.worldX + cxL + (oxL * cos - oyL * sn) * sc2;
+          const wpy = o.worldY + cyL + (oxL * sn + oyL * cos) * sc2;
+          if (particles.length >= PARTICLE_CAP) particles.shift();
+          const dx2 = wpx - wx, dy2 = wpy - wy;
+          const len = Math.hypot(dx2, dy2) || 1;
+          const speed = 5 + Math.random() * 9;
+          particles.push({
+            x: wpx, y: wpy,
+            vx: (dx2 / len) * speed + (Math.random() - 0.5) * 3,
+            vy: (dy2 / len) * speed - 4 - Math.random() * 4,
+            r: data[i4], g: data[i4 + 1], b: data[i4 + 2],
+            life: 600,
+            settled: false,
+          });
+        }
+      }
+      // Remove existing deposits within the blast area (they got re-blasted
+      // into airborne particles by the loop above)
+      if (o.deposits && o.deposits.length) {
+        o.deposits = o.deposits.filter(dep => {
+          const ddx = dep.x - lx, ddy = dep.y - ly;
+          return Math.hypot(ddx, ddy) > lr;
+        });
+      }
+    }
+    // Gameplay: blast impulse on physics bodies (3× damage radius)
+    const blastR = r * 3;
+    for (const o of objects) {
+      if (!o.useGravity) continue;
+      const ocx = o.worldX + o.localW / 2;
+      const ocy = o.worldY + o.localH / 2;
+      const dx = ocx - wx, dy = ocy - wy;
+      const dist = Math.hypot(dx, dy);
+      if (dist === 0 || dist >= blastR) continue;
+      const force = (1 - dist / blastR) * 14;
+      o.velocity[0] += (dx / dist) * force;
+      o.velocity[1] += (dy / dist) * force - 3;
+    }
+    // Wake any settled particles whose support just disappeared OR who are
+    // inside the blast radius. Gravity takes over from there.
+    const wakeR = r * 2;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      if (!p.settled) continue;
+      const pdx = p.x - wx, pdy = p.y - wy;
+      const pdist = Math.hypot(pdx, pdy);
+      const insideBlast = pdist < wakeR;
+      const newGround = hillHeight(p.x);
+      const lostSupport = newGround > p.y + 0.5;
+      if (!insideBlast && !lostSupport) continue;
+      // Un-settle
+      p.settled = false;
+      p.life = 600;
+      if (insideBlast) {
+        const denom = Math.max(pdist, 0.01);
+        const force = (1 - pdist / wakeR) * 9;
+        p.vx = (pdx / denom) * force + (Math.random() - 0.5) * 3;
+        p.vy = (pdy / denom) * force - 3 - Math.random() * 3;
+      } else {
+        // Just gave up support — small jolt, gravity will do the rest
+        p.vx = (Math.random() - 0.5) * 0.5;
+        p.vy = 0;
+      }
+    }
+  }
+
+  // ─── Collisions: robot kicks balls ───────────────────────────────
+  function aabbOverlap(a, b) {
+    return !(a.worldX + a.localW < b.worldX ||
+             b.worldX + b.localW < a.worldX ||
+             a.worldY + a.localH < b.worldY ||
+             b.worldY + b.localH < a.worldY);
+  }
+  function resolveCritterBallKicks() {
+    const robot = objects.find(o => o.id === 'critter');
+    if (!robot) return;
+    for (const ball of objects) {
+      if (!ball.id.startsWith('ball')) continue;
+      if (!aabbOverlap(robot, ball)) continue;
+      // Kick: forward velocity from robot's heading + upward pop
+      const dir = Math.sign(robot.velocity[0]) || 1;
+      ball.velocity[0] = dir * 5.5;
+      ball.velocity[1] = -8;
+      // Separate so the ball doesn't stay overlapped (avoids re-kicking forever)
+      if (dir > 0) ball.worldX = robot.worldX + robot.localW + 2;
+      else         ball.worldX = robot.worldX - ball.localW - 2;
+    }
+  }
+
+  // ─── Bake all dirty objects ──────────────────────────────────────
+  // Always bake when dirty. The win is just keeping characters as one buffer
+  // re-baked per tick (instead of N pre-cached frames) — visibility culling
+  // adds complexity for marginal gain since environments are cached at init
+  // and characters are cheap to bake.
+  function bakeDirty() {
+    sdfEvalsThisFrame = 0;
+    let bakedCount = 0;
+    for (const o of objects) {
+      if (!o.dirty) continue;
+      sdfEvalsThisFrame += o.bake();
+      bakedCount++;
+    }
+    cumulativeSdfEvals += sdfEvalsThisFrame;
+    if (tickJustFired) bakesThisTick = bakedCount;
+  }
+
+  // Initial bake (one-time SDF evaluation per pixel of every object)
+  bakeDirty();
+
+  // ─── Render ──────────────────────────────────────────────────────
+  function render() {
+    ctx.fillStyle = viewMode === 'normal' ? '#202020' : '#0d1018';
+    ctx.fillRect(0, 0, W, H);
+    let drawn = 0;
+    // Sort by z (back-to-front). Future optimization: cache the sorted order
+    // unless an object's z changes; further optimization is z-proximity grouping
+    // (collapse objects with similar z into a single layer atlas baked once).
+    const ordered = [...objects].sort((a, b) => a.z - b.z);
+    for (const obj of ordered) {
+      if (obj.composite(ctx, cameraX, cameraY, viewMode)) drawn++;
+    }
+    // Particles render above world objects, below HUD
+    renderParticles();
+    // Re-iterate for just-baked highlights (above the composite layer)
+    for (const obj of ordered) {
+      if (frame - obj.lastBakedAtFrame < 10) {
+        const sx = obj.worldX - cameraX;
+        const sy = obj.worldY - cameraY;
+        const a = 1 - (frame - obj.lastBakedAtFrame) / 10;
+        ctx.strokeStyle = `rgba(191, 97, 106, ${a})`;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(sx + 0.5, sy + 0.5, obj.localW, obj.localH);
+      }
+    }
+    const sinceTick = frame - lastTickFiredAtFrame;
+
+    // HUD
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(8, 8, 290, 106);
+    ctx.fillStyle = '#88c0d0';
+    ctx.font = '10px ui-monospace';
+    ctx.fillText('frame: ' + frame + '  view: ' + viewMode, 14, 22);
+    ctx.fillText('camera: (' + Math.round(cameraX) + ',' + Math.round(cameraY) + ')', 14, 36);
+    const tickColor = sinceTick < 4 ? '#ebcb8b' : '#5e81ac';
+    ctx.fillStyle = tickColor;
+    ctx.fillText('ANIM TICK ' + loopTick + (tickJustFired ? '  ◀ FIRED' : '  (12 fps · physics @ 60 fps)'), 14, 50);
+    const evColor = sdfEvalsThisFrame === 0 ? '#88c0d0' : '#ebcb8b';
+    ctx.fillStyle = evColor;
+    ctx.fillText('SDF evals this frame: ' + sdfEvalsThisFrame.toLocaleString(), 14, 64);
+    ctx.fillStyle = bakesThisTick > 0 ? '#bf616a' : '#5e81ac';
+    ctx.fillText('bakes last tick: ' + bakesThisTick + '  (objects re-raymarched)', 14, 78);
+    ctx.fillStyle = '#a3be8c';
+    ctx.fillText('drawn: ' + drawn + '/' + objects.length + '  (pure drawImage between ticks)', 14, 92);
+    ctx.fillStyle = '#d08770';
+    ctx.fillText('particles: ' + particles.length + ' / ' + PARTICLE_CAP + '  (mass conservation)', 14, 106);
+  }
+
+  // ─── Object thumbnail panel (no innerHTML) ───────────────────────
+  const objList = document.getElementById('obj-list');
+  const thumbCtx = {}; // {[id]: {color, depth, normal, bakesNode}}
+  for (const obj of objects) {
+    const card = document.createElement('div');
+    card.className = 'obj-card';
+    const cThumb = document.createElement('canvas'); cThumb.width = 48; cThumb.height = 48;
+    const dThumb = document.createElement('canvas'); dThumb.width = 48; dThumb.height = 48;
+    const nThumb = document.createElement('canvas'); nThumb.width = 48; nThumb.height = 48;
+    card.appendChild(cThumb);
+    card.appendChild(dThumb);
+    card.appendChild(nThumb);
+
+    const meta = document.createElement('div');
+    meta.className = 'obj-meta';
+    const nameNode = document.createElement('div');
+    nameNode.className = 'name';
+    nameNode.textContent = obj.id;
+    const flagNode = document.createElement('div');
+    flagNode.classList.add('flag-' + obj.animFlag);
+    flagNode.textContent = 'flag: ' + obj.animFlag;
+    const sizeNode = document.createElement('div');
+    sizeNode.textContent = obj.localW + '×' + obj.localH + ' px';
+    const loopNode = document.createElement('div');
+    if (obj.animFlag === 'animating') {
+      loopNode.textContent = obj.loopFrames + ' frames @ ' + obj.loopFrames + ' fps  (' + obj.ticksPerFrame + ' tick/frame)';
+    } else {
+      loopNode.textContent = '—';
+    }
+    loopNode.style.color = '#81a1c1';
+    const bakesNode = document.createElement('div');
+    bakesNode.className = 'bakes';
+    bakesNode.textContent = 'bakes: 1';
+    meta.appendChild(nameNode);
+    meta.appendChild(flagNode);
+    meta.appendChild(sizeNode);
+    meta.appendChild(loopNode);
+    meta.appendChild(bakesNode);
+    card.appendChild(meta);
+    objList.appendChild(card);
+
+    thumbCtx[obj.id] = {
+      color: cThumb.getContext('2d'),
+      depth: dThumb.getContext('2d'),
+      normal: nThumb.getContext('2d'),
+      bakesNode,
+    };
+    thumbCtx[obj.id].color.imageSmoothingEnabled = false;
+    thumbCtx[obj.id].depth.imageSmoothingEnabled = false;
+    thumbCtx[obj.id].normal.imageSmoothingEnabled = false;
+  }
+
+  function refreshThumbs() {
+    for (const obj of objects) {
+      const t = thumbCtx[obj.id];
+      const ar = obj.localW / obj.localH;
+      let dw = 48, dh = 48;
+      if (ar > 1) dh = 48 / ar; else dw = 48 * ar;
+      const ox = (48 - dw) / 2, oy = (48 - dh) / 2;
+      for (const [key, src] of [['color', obj.colorBuf], ['depth', obj.depthVis], ['normal', obj.normalBuf]]) {
+        t[key].fillStyle = key === 'normal' ? '#202020' : '#0a0c12';
+        t[key].fillRect(0, 0, 48, 48);
+        t[key].drawImage(src, 0, 0, obj.localW, obj.localH, ox, oy, dw, dh);
+      }
+      t.bakesNode.textContent = 'bakes: ' + obj.bakeCount + '  last @ frame ' + obj.lastBakedAtFrame + '  (' + obj.lastBakePixels.toLocaleString() + ' px)';
+    }
+  }
+
+  // ─── Global stats panel ──────────────────────────────────────────
+  const globalEl = document.getElementById('global');
+  const gRows = [
+    ['frame', 'gFrame'],
+    ['tick', 'gLoopTick'],
+    ['SDF evals this frame', 'gFrameP'],
+    ['cumulative SDF evals', 'gCumP'],
+    ['naive (re-SDF every visible px every frame)', 'gNaive'],
+    ['savings vs naive', 'gSav'],
+    ['static objects (cached forever)', 'gStatic'],
+    ['transform-only (translate/rotate, no re-bake)', 'gXform'],
+    ['animating objects (re-bake per tick)', 'gAnim'],
+  ];
+  const gSpans = {};
+  for (const [k, id] of gRows) {
+    const div = document.createElement('div');
+    const ks = document.createElement('span'); ks.className = 'k'; ks.textContent = k + ': ';
+    const vs = document.createElement('span');
+    vs.className = id === 'gSav' ? 'save' : (id === 'gFrameP' ? 'zero' : 'v');
+    vs.textContent = '0';
+    gSpans[id] = vs;
+    div.appendChild(ks); div.appendChild(vs);
+    globalEl.appendChild(div);
+  }
+  function updateGlobal() {
+    gSpans.gFrame.textContent = String(frame);
+    gSpans.gFrameP.textContent = sdfEvalsThisFrame.toLocaleString();
+    gSpans.gFrameP.className = sdfEvalsThisFrame === 0 ? 'zero' : 'save';
+    gSpans.gCumP.textContent = cumulativeSdfEvals.toLocaleString();
+    const visiblePxPerFrame = objects.reduce((s, o) => s + o.localW * o.localH, 0);
+    const naive = frame * visiblePxPerFrame * 3; // *3 because naive would also need normal
+    gSpans.gNaive.textContent = naive.toLocaleString();
+    if (naive > 0) {
+      const saved = naive - cumulativeSdfEvals;
+      const pct = (100 * saved / naive).toFixed(2);
+      gSpans.gSav.textContent = saved.toLocaleString() + '  (' + pct + '% avoided)';
+    }
+    gSpans.gLoopTick.textContent = String(loopTick) + ' (every ' + LOOP_TICK_INTERVAL_FRAMES + ' frames)';
+    gSpans.gStatic.textContent = String(objects.filter(o => o.animFlag === 'static').length);
+    gSpans.gXform.textContent = String(objects.filter(o => o.animFlag === 'translate' || o.animFlag === 'rotate').length);
+    gSpans.gAnim.textContent = String(objects.filter(o => o.animFlag === 'animating').length);
+  }
+
+  // ─── Camera drag ─────────────────────────────────────────────────
+  let dragging = false, dragStart = null;
+  main.addEventListener('mousedown', e => {
+    if (e.shiftKey) {
+      // Shift-click → blast a crater at the world position under cursor
+      const rect = main.getBoundingClientRect();
+      const sx = (e.clientX - rect.left) * (main.width / rect.width);
+      const sy = (e.clientY - rect.top)  * (main.height / rect.height);
+      const wx = sx + cameraX, wy = sy + cameraY;
+      destroyAt(wx, wy, 24 + Math.random() * 18);
+      e.preventDefault();
+      return;
+    }
+    dragging = true;
+    dragStart = { x: e.clientX, y: e.clientY, cx: cameraX, cy: cameraY };
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    cameraX = dragStart.cx - (e.clientX - dragStart.x);
+    cameraY = dragStart.cy - (e.clientY - dragStart.y);
+  });
+  window.addEventListener('mouseup', () => { dragging = false; });
+
+  // ─── Buttons ─────────────────────────────────────────────────────
+  function findObj(id) { return objects.find(o => o.id === id); }
+  function bindToggle(btnId, objId, label) {
+    const btn = document.getElementById(btnId);
+    const obj = findObj(objId);
+    function refresh() {
+      btn.classList.toggle('active', obj.animEnabled);
+      btn.textContent = label + (obj.animEnabled ? ' [ON]' : ' [OFF]');
+    }
+    btn.addEventListener('click', () => { obj.animEnabled = !obj.animEnabled; refresh(); });
+    refresh();
+  }
+  bindToggle('toggle-translate', 'critter', 'Walk-loop critter');
+  bindToggle('toggle-rotate', 'fan', 'Rotate fan');
+  bindToggle('toggle-deform-full', 'heart', 'Pulse heart');
+  bindToggle('toggle-deform-local', 'gear', 'Wiggle gear teeth');
+
+  document.getElementById('cam-reset').addEventListener('click', () => { cameraX = 0; cameraY = 0; });
+  document.getElementById('invalidate-all').addEventListener('click', () => {
+    for (const o of objects) { o.dirty = true; o.dirtyRegions = null; }
+  });
+  document.getElementById('bomb-robot').addEventListener('click', () => {
+    const robot = objects.find(o => o.id === 'critter');
+    if (!robot) return;
+    destroyAt(robot.worldX + robot.localW / 2,
+              hillHeight(robot.worldX + robot.localW / 2) + 6,
+              28 + Math.random() * 14);
+  });
+  document.getElementById('reset-craters').addEventListener('click', () => {
+    particles.length = 0;
+    for (const o of objects) {
+      o.localDamage.length = 0;
+      o.deposits.length = 0;
+      o.dirty = true;
+      o.dirtyRegions = null;
+    }
+  });
+
+  function bindView(btnId, mode) {
+    const btn = document.getElementById(btnId);
+    btn.addEventListener('click', () => {
+      viewMode = mode;
+      for (const id of ['view-color', 'view-depth', 'view-normal']) {
+        document.getElementById(id).classList.toggle('active', id === btnId);
+      }
+    });
+  }
+  bindView('view-color', 'color');
+  bindView('view-depth', 'depth');
+  bindView('view-normal', 'normal');
+
+  // ─── Loop ────────────────────────────────────────────────────────
+  let thumbTick = 0;
+  function tick() {
+    frame++;
+    // Global tick: ALL animation advances on this beat.
+    tickJustFired = (frame % LOOP_TICK_INTERVAL_FRAMES) === 0;
+    if (tickJustFired) {
+      loopTick++;
+      lastTickFiredAtFrame = frame;
+    }
+    for (const o of objects) o.step();
+    resolveCritterBallKicks();
+    stepParticles();
+    bakeDirty();          // only fires when an obj.dirty=true was set on the tick
+    render();             // pure drawImage; never calls any SDF
+    if ((thumbTick++ % 4) === 0) refreshThumbs();
+    updateGlobal();
+    requestAnimationFrame(tick);
+  }
+  refreshThumbs();
+  requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+--- a/scaffolds/engine/src/design/schema.ts
++++ b/scaffolds/engine/src/design/schema.ts
+@@ -103,17 +103,72 @@
+ export type ComponentSpec = string
+ 
+ export interface Archetype {
++  // LEGACY substrate (kept during SDF-pivot migration; see UNIFICATION_PLAN.md)
+   mesh?: MeshName
++  sprite_ref?: string                              // v1.1 sprites — pre-pivot 2d sprite manifest entry
++  // NEW SDF substrate (post-pivot 2026-04-27):
++  // sdf is the primitive composition; render_contexts maps scene-context
++  // names to (camera, scale, anims, directions) for the pose-cache.
++  // pixel-grid stamps (face/shirt/overhead) overlay on the cached SDF tile.
++  sdf?: SdfSpec
++  render_contexts?: Record<string, RenderContext>
++  face_pixels?: PixelGridRef
++  shirt_pixels?: PixelGridRef
++  overhead_pixels?: PixelGridRef                   // alert "!", "?" UI etc.
++  // Design layer (preserved across pivot):
+   controller?: ControllerName
+   ai?: AiName
+   trigger?: TriggerSpec | string                   // string = sugar for {kind: string}
+   components: ComponentSpec[]
+   tags: string[]
+-  // v1.1 sprites extension — id of an entry in public/sprites/
+-  // manifest.json (authored as scaffolds/<game>/assets.manifest.json,
+-  // compiled by tools/build_sprites.py). In 2d mode sprite_ref takes
+-  // precedence over mesh; in 3d mode it's rendered as a billboard.
+-  sprite_ref?: string
++}
++
++// ───────── SDF substrate types (new 2026-04-27) ─────────
++
++export interface SdfSpec {
++  primitives: SdfPrimitive[]
++  blendGroups?: Record<string, { blend: number }>
++  palette?: Record<string, string>                 // slot name → hex color (e.g. "skin": "#fdb89e")
++}
++
++export type SdfPrimitiveType =
++  | 'sphere' | 'box' | 'capsule' | 'cone' | 'ellipsoid' | 'rounded_box'
++
++export interface SdfPrimitive {
++  type: SdfPrimitiveType
++  // Shape parameters (varies by type):
++  radius?: number                                  // sphere/capsule/cone
++  height?: number                                  // capsule/cone
++  halfExtents?: [number, number, number]           // box/rounded_box/ellipsoid
++  halfAngleSin?: number; halfAngleCos?: number     // cone
++  // Common:
++  offset: [number, number, number]
++  rotation?: [number, number, number, number]      // quaternion [x,y,z,w]
++  paletteSlot: string                              // key into SdfSpec.palette
++  blendGroup?: string                              // key into SdfSpec.blendGroups (smin within group, min across)
++  colorFunc?: 'flat' | 'gradientY' | 'pulsate' | 'radialFade' | 'stripes' | 'dots' | 'checker'
++}
++
++export type RenderContextCamera =
++  | 'iso'                       // top-down 26.57° dimetric (action_adventure, jrpg-overworld, stealth)
++  | 'side'                      // pure side-view (platformer, fighting)
++  | 'side_25d'                  // side-view + faux-Z depth (beat_em_up)
++  | 'side_view'                 // jrpg battle (large battler facing right)
++  | 'front'                     // portrait / dialogue head crop
++  | 'perspective_billboard'     // first-person FPS, 8-direction Doom-style
++
++export interface RenderContext {
++  camera: RenderContextCamera
++  directions: 1 | 2 | 4 | 8                        // pose-cache directional bins
++  anims: string[]                                  // anim names (idle/walk/attack/...)
++  stances?: string[]                               // optional, e.g. stealth's [stand|crouch|prone]
++  scale?: number                                   // default 1.0
++}
++
++export interface PixelGridRef {
++  preset?: string                                  // e.g. "knight_neutral_face" — looked up in pixel-grid library
++  inline?: number[][]                              // 2D array of palette indices (alternative to preset)
++  palette?: string[]                               // 7-slot palette per face_pixels.ts pattern
+ }
+ 
+ // NEW v1 — directional trigger (note_003, our tweak: contact_side instead of from_dir)
