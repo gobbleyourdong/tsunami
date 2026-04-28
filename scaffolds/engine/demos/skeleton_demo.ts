@@ -2158,22 +2158,19 @@ async function main() {
       const isolated = loadout.isolate === 'none'
         ? expanded
         : expanded.filter((p) => categoryOf(p) === loadout.isolate)
-      // Bone-visibility filter — drop any primitive whose bone has been
-      // collapsed along its primary (Y, length) axis. Used for creature
-      // presets that zero out limb chains. Most chain primitives in this
-      // engine (capsules, arm/leg ellipsoids, ribbon chains) are Y-aligned;
-      // their length comes from scale.y. Bird preset sets arm scale to
-      // [1, 0.05, 1] — scaleY < threshold → hide. Snake preset compresses
-      // spine X+Z to [0.35, 1, 0.35] — scaleY stays 1 → visible (we want
-      // the spine to read as the snake's body). Hides if the bone is
-      // collapsed in ALL three axes too (universal "really gone" case).
-      const SCALE_HIDE_THRESHOLD = 0.1
+      // Bone-visibility filter — only hide a primitive when ALL THREE
+      // bone scale axes are tiny (universal "really gone" case). Earlier
+      // version checked scaleY specifically to hide bird/snake collapsed
+      // limbs, but that hid too much and the user reported "missing
+      // limbs i only see feet attachment." Conservative reverse: leave
+      // partially-collapsed limbs visible (they render as ~1-2cm stubs
+      // for collapsed-Y, which is a known-noted v2 cosmetic issue, but
+      // every body part stays visible by default).
+      const SCALE_HIDE_THRESHOLD = 0.05
       const visible = isolated.filter((p) => {
         if (p.boneIdx < 0 || p.boneIdx >= characterParams.scales.length) return true
         const s = characterParams.scales[p.boneIdx]
-        const ax = Math.abs(s[0]), ay = Math.abs(s[1]), az = Math.abs(s[2])
-        // Hide if Y-axis (length) collapsed OR if all three axes are tiny.
-        return ay >= SCALE_HIDE_THRESHOLD && Math.max(ax, ay, az) >= SCALE_HIDE_THRESHOLD
+        return Math.max(Math.abs(s[0]), Math.abs(s[1]), Math.abs(s[2])) >= SCALE_HIDE_THRESHOLD
       })
       persistentPrims.length = 0
       for (const p of visible) persistentPrims.push(p)
