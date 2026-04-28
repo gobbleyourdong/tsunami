@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "cosmetics": [
+    {
+      "name": "wings_feathered",
+      "category": "wings",
+      "url": "/wings_feathered.cos.json"
+    }
+  ]
+}
