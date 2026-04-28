@@ -144,7 +144,7 @@ export const NOSE_LIBRARY: Record<string, AttachmentPart[]> = {
       jointName: 'NoseBridge',
       type: 0,
       params: [0.022, 0, 0, 0],
-      offsetInBone: [0, -0.020, 0.012],   // slightly below + forward of bridge
+      offsetInBone: [0, -0.020, 0.005],   // slightly below + tucked closer to face
       paletteSlot: 'nose',
       blendGroup: 14, blendRadius: 0.012,
     },
@@ -166,15 +166,14 @@ export const NOSE_LIBRARY: Record<string, AttachmentPart[]> = {
   ],
   moustache: [
     // Horizontal box just below the bridge — Mario / handlebar feel.
-    // z=0 so it sits flush on the face plane (NoseBridge is on the
-    // bind face surface). Earlier z=0.025 floated 2.5cm in front of
-    // the face — visually disconnected.
+    // Y dropped + flattened halfZ + slight negative Z so the moustache
+    // hugs the upper-lip line instead of bulging out forward.
     {
       name: 'mustache',
       jointName: 'NoseBridge',
       type: 2,
-      params: [0.045, 0.012, 0.020, 0.010],
-      offsetInBone: [0, -0.025, 0],
+      params: [0.045, 0.012, 0.010, 0.005],   // halfZ 0.020 → 0.010 (flatter)
+      offsetInBone: [0, -0.038, -0.004],      // y lower, z just inside face
       paletteSlot: 'hair',
       blendGroup: 14, blendRadius: 0.005,
     },
@@ -191,7 +190,7 @@ export const NOSE_LIBRARY: Record<string, AttachmentPart[]> = {
       jointName: 'NoseBridge',
       type: 6,
       params: [0.024, 0.005, 0, 0],       // ring r=2.4cm, tube r=0.5cm
-      offsetInBone: [-0.030, 0.025, 0],
+      offsetInBone: [-0.030, 0.010, 0],
       rotation: [Math.SQRT1_2, 0, 0, Math.SQRT1_2],
       paletteSlot: 'leather',
       blendGroup: 14, blendRadius: 0,
@@ -201,7 +200,7 @@ export const NOSE_LIBRARY: Record<string, AttachmentPart[]> = {
       jointName: 'NoseBridge',
       type: 6,
       params: [0.024, 0.005, 0, 0],
-      offsetInBone: [0.030, 0.025, 0],
+      offsetInBone: [0.030, 0.010, 0],
       rotation: [Math.SQRT1_2, 0, 0, Math.SQRT1_2],
       paletteSlot: 'leather',
       blendGroup: 14, blendRadius: 0,
@@ -212,7 +211,7 @@ export const NOSE_LIBRARY: Record<string, AttachmentPart[]> = {
       jointName: 'NoseBridge',
       type: 1,
       params: [0.012, 0.003, 0.005, 0],
-      offsetInBone: [0, 0.025, 0],
+      offsetInBone: [0, 0.010, 0],
       paletteSlot: 'leather',
       blendGroup: 14, blendRadius: 0,
     },
@@ -223,7 +222,7 @@ export const NOSE_LIBRARY: Record<string, AttachmentPart[]> = {
       jointName: 'NoseBridge',
       type: 6,
       params: [0.026, 0.004, 0, 0],
-      offsetInBone: [0.034, 0.027, 0],
+      offsetInBone: [0.034, 0.012, 0],
       rotation: [Math.SQRT1_2, 0, 0, Math.SQRT1_2],
       paletteSlot: 'weapon',          // cool steel rim
       blendGroup: 14, blendRadius: 0,
