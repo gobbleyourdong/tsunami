@@ -104,32 +104,34 @@ async function main() {
 
   // ---------- Camera ----------
   // Orbit around origin. Ortho projection sized to fit ~1m creature.
-  const camera = new Camera()
-  camera.orthoSize = 0.8
-  camera.aspect = canvas.width / canvas.height
-  let yaw = 0.4, pitch = 0.25
+  // Camera class drives view/projection from position/target/orthoSize
+  // + a single update() call; no separate lookAt/updateProjection.
+  const camera = new Camera({
+    mode: 'orthographic',
+    orthoSize: 0.8,
+    position: [2, 0.6, 2],
+    target: [0, 0.1, 0],
+    near: 0.01,
+    far: 100,
+    controls: 'orbit',
+  })
+  camera.setAspect(canvas.width, canvas.height)
   let zoom = 0.8
   const updateCamera = () => {
-    const r = 2.0
-    const cx = Math.cos(pitch) * Math.sin(yaw) * r
-    const cy = Math.sin(pitch) * r
-    const cz = Math.cos(pitch) * Math.cos(yaw) * r
-    camera.lookAt([cx, cy, cz], [0, 0.1, 0], [0, 1, 0])
     camera.orthoSize = zoom
-    camera.updateProjection()
+    camera.update()
   }
   updateCamera()
 
-  // Drag to orbit, wheel to zoom.
+  // Drag to orbit, wheel to zoom. Camera's orbit yaw/pitch are private —
+  // use orbitRotate(deltaYaw, deltaPitch).
   let dragging = false
   let dragX = 0, dragY = 0
   canvas.addEventListener('pointerdown', (e) => { dragging = true; dragX = e.clientX; dragY = e.clientY })
   window.addEventListener('pointerup',   () => { dragging = false })
   window.addEventListener('pointermove', (e) => {
     if (!dragging) return
-    yaw   -= (e.clientX - dragX) * 0.005
-    pitch += (e.clientY - dragY) * 0.005
-    pitch = Math.max(-Math.PI * 0.45, Math.min(Math.PI * 0.45, pitch))
+    camera.orbitRotate(-(e.clientX - dragX) * 0.005, (e.clientY - dragY) * 0.005)
     dragX = e.clientX; dragY = e.clientY
     updateCamera()
   })
@@ -211,7 +213,7 @@ async function main() {
 
     // Raymarch: render into the cache framebuffer (orthonormal pass).
     const eye: [number, number, number] = [
-      camera.view[12], camera.view[13], camera.view[14],
+      camera.position[0], camera.position[1], camera.position[2],
     ]
     const pxPerM = canvas.height / (2 * camera.orthoSize)
     raymarch.setTime(performance.now() * 0.001)
