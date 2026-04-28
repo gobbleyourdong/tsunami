@@ -166,7 +166,7 @@ each. Like the gear it's `rotate` so it bakes once.
 **Commit subject:** `iso_cache_poc: 3D port phase 7 — fan archetype is 3D`
 
 ### Phase 8 — Convert CRITTER (walking robot) to 3D
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Walker = sphere head + capsule body + 2 capsule arms
 + 2 capsule legs. Limbs swing with `animPhase`. The critter is
@@ -251,7 +251,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 | 5     | COMPLETE — heart uses sdfFn3dFactory (per-tick rebuild) = 2 spheres + stretched ellipsoid; cone fallback noted |
 | 6     | COMPLETE — gear = disk + 12 teeth boxes + hub bump (union, not smoothUnion); ~22ms/1000 raymarches |
 | 7     | COMPLETE — fan = Z-axis hub cylinder + 4 box blades at 0/90/180/270°; smoke test 6/8 expected |
-| 8     | PENDING |
+| 8     | COMPLETE — walker = sphere head + capsule body + 2 capsule legs + 2 capsule arms; limbs swing per phase via factory |
 | 9     | PENDING |
 | 10    | PENDING |
 | 11    | PENDING |

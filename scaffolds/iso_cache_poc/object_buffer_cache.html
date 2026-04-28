@@ -654,6 +654,31 @@
     const rArm = Math.max(Math.abs(lx - rArmX) - 2.5, ly - 36, 22 - ly);
     return Math.min(d, lLeg, rLeg, lArm, rArm);
   }
+  // ── 3D walker (Phase 8 of PLAN_3D_PORT.md) ──────────────────
+  // Robot character: spherical head, capsule body, two capsule arms,
+  // two capsule legs. Limbs swing with animPhase (legs forward/back,
+  // arms opposite). Eyes are skipped at this resolution. Returned by
+  // factory each tick because phase changes every loopFrame.
+  function makeWalker3D(phase) {
+    const head = R3.translate([0, 0.20, 0], R3.sphere(0.10));
+    const body = R3.translate([0, 0.02, 0], R3.capsule(0.09, 0.16));
+    const swing  =  Math.sin(phase) * 0.05;
+    const aSwing = -Math.sin(phase) * 0.04;
+    const lLeg = R3.translate([-0.04 - swing, -0.20, 0], R3.capsule(0.035, 0.14));
+    const rLeg = R3.translate([ 0.04 + swing, -0.20, 0], R3.capsule(0.035, 0.14));
+    const lArm = R3.translate([-0.13 - aSwing, 0.04, 0], R3.capsule(0.035, 0.12));
+    const rArm = R3.translate([ 0.13 + aSwing, 0.04, 0], R3.capsule(0.035, 0.12));
+    return R3.smoothUnion(
+      R3.smoothUnion(
+        R3.smoothUnion(head, body, 0.04),
+        R3.union(lLeg, rLeg),
+        0.03,
+      ),
+      R3.union(lArm, rArm),
+      0.03,
+    );
+  }
+
   function sdfFan(lx, ly) {
     const cx = 50, cy = 50;
     const dx = lx - cx, dy = ly - cy;
@@ -782,13 +807,15 @@
     z: 2,
   }));
   const critter = new GameObject({
-    id: 'critter', color: [180, 100, 100], sdfFn: sdfWalker,
+    id: 'critter', color: [180, 100, 100],
+    sdfFn3dFactory: makeWalker3D,      // 3D path: limbs swing per phase
+    metersPerPixel: 0.011,             // 48×56 buf → ~0.53×0.62m world
     localW: 48, localH: 56, worldX: 200, worldY: 160,
     animFlag: 'animating',
     loopFrames: 4,                     // chunky 4fps walk cycle (3 anim ticks / frame)
     translateVel: [1.5, 0],
-    translateBox: { x: 100, y: 0, w: 1800, h: 500 },   // x-bounce; y handled by followGround
-    z: 3,                              // foreground
+    translateBox: { x: 100, y: 0, w: 1800, h: 500 },
+    z: 3,
   });
   critter.followGround = true;         // sample hillHeight() per frame
   critter.groundOffset = 6;             // small fudge so feet sit on the surface
