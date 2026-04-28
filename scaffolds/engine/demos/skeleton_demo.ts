@@ -1263,23 +1263,90 @@ async function main() {
     // (skip the L0/R0 ROOT bones; root stays anchored to the shoulder
     // bind-pose). The perturbation amplitude scales linearly with chain
     // position, so the tip flaps farther than the mid bone.
-    const WING_FLAP_BONES: { idx: number; t: number }[] = []
-    for (const side of ['L', 'R'] as const) {
-      for (let i = 1; i <= 3; i++) {
-        const idx = rig.findIndex((j) => j.name === `Wing${side}${i}`)
-        if (idx >= 0) WING_FLAP_BONES.push({ idx, t: i / 3 })
-      }
+    // Wing chain bone indices, full chain per side (root + 3 children).
+    // Root rotates around its bone-X axis by sin-driven flap angle;
+    // children's world matrices recompose via parent × child.local each
+    // frame. Reads better than the prior Y-translation hack because
+    // the cross-section frame rotates WITH the bend (cols 0/1/2 update
+    // through the chain) instead of staying at bind-pose orientation.
+    const WING_CHAIN_L: number[] = []
+    const WING_CHAIN_R: number[] = []
+    for (let i = 0; i < 4; i++) {
+      const lIdx = rig.findIndex((j) => j.name === `WingL${i}`)
+      const rIdx = rig.findIndex((j) => j.name === `WingR${i}`)
+      if (lIdx >= 0) WING_CHAIN_L.push(lIdx)
+      if (rIdx >= 0) WING_CHAIN_R.push(rIdx)
+    }
+    // child.world = parent.world × child.local (composition path mirroring
+    // composer.update — rot cols unchanged, col3 × scale).
+    const propagateChildMat = (parentOff: number, childOff: number, localOff: number, scale: [number, number, number]): void => {
+      const wm = composer!.worldMatrices
+      const lm = loadedVAT.localMats!
+      const c00 = lm[localOff + 0],  c01 = lm[localOff + 4],  c02 = lm[localOff + 8]
+      const c10 = lm[localOff + 1],  c11 = lm[localOff + 5],  c12 = lm[localOff + 9]
+      const c20 = lm[localOff + 2],  c21 = lm[localOff + 6],  c22 = lm[localOff + 10]
+      const t0 = lm[localOff + 12] * scale[0]
+      const t1 = lm[localOff + 13] * scale[1]
+      const t2 = lm[localOff + 14] * scale[2]
+      const p00 = wm[parentOff + 0],  p01 = wm[parentOff + 4],  p02 = wm[parentOff + 8]
+      const p10 = wm[parentOff + 1],  p11 = wm[parentOff + 5],  p12 = wm[parentOff + 9]
+      const p20 = wm[parentOff + 2],  p21 = wm[parentOff + 6],  p22 = wm[parentOff + 10]
+      const p03 = wm[parentOff + 12], p13 = wm[parentOff + 13], p23 = wm[parentOff + 14]
+      wm[childOff + 0]  = p00 * c00 + p01 * c10 + p02 * c20
+      wm[childOff + 1]  = p10 * c00 + p11 * c10 + p12 * c20
+      wm[childOff + 2]  = p20 * c00 + p21 * c10 + p22 * c20
+      wm[childOff + 3]  = 0
+      wm[childOff + 4]  = p00 * c01 + p01 * c11 + p02 * c21
+      wm[childOff + 5]  = p10 * c01 + p11 * c11 + p12 * c21
+      wm[childOff + 6]  = p20 * c01 + p21 * c11 + p22 * c21
+      wm[childOff + 7]  = 0
+      wm[childOff + 8]  = p00 * c02 + p01 * c12 + p02 * c22
+      wm[childOff + 9]  = p10 * c02 + p11 * c12 + p12 * c22
+      wm[childOff + 10] = p20 * c02 + p21 * c12 + p22 * c22
+      wm[childOff + 11] = 0
+      wm[childOff + 12] = p00 * t0 + p01 * t1 + p02 * t2 + p03
+      wm[childOff + 13] = p10 * t0 + p11 * t1 + p12 * t2 + p13
+      wm[childOff + 14] = p20 * t0 + p21 * t1 + p22 * t2 + p23
+      wm[childOff + 15] = 1
     }
     const applyWingFlap = () => {
-      if (!composer || WING_FLAP_BONES.length === 0) return
+      if (!composer || !loadedVAT.localMats) return
+      if (WING_CHAIN_L.length < 1 && WING_CHAIN_R.length < 1) return
       const wm = composer.worldMatrices
-      // ~4Hz flap frequency, ~8cm tip amplitude. Perturbs world Y only —
-      // cheap chain bend without recomputing the whole rig. Cross-section
-      // frame stays correct since only col3 (translation) changes.
-      const flapPhase = Math.sin(elapsed * 4) * 0.08
-      for (const b of WING_FLAP_BONES) {
-        wm[b.idx * 16 + 13] += flapPhase * b.t
-        device.queue.writeBuffer(vatHandle.buffer, b.idx * 64, wm.buffer, wm.byteOffset + b.idx * 16 * 4, 64)
+      const numJoints = loadedVAT.numJoints
+      // Wing local matrices are time-invariant (added at extendLocalMats-
+      // WithBodyParts; identity rotation + bind-pose translation per
+      // frame). Sample frame 0.
+      const localBase = 0
+      // Flap: root rotates around its bone-X by sin angle. ~4Hz, ±0.4 rad
+      // (~23°). For mirror symmetry, both wings flap the same direction
+      // around their respective bone-local X axes — visually mirrored.
+      const flapAngle = Math.sin(elapsed * 4) * 0.4
+      const c = Math.cos(flapAngle), s = Math.sin(flapAngle)
+      for (const chain of [WING_CHAIN_L, WING_CHAIN_R]) {
+        if (chain.length < 1) continue
+        const rootOff = chain[0] * 16
+        // world × R_x(angle) — leaves col0 untouched, mixes col1+col2.
+        const c10 = wm[rootOff + 4], c11 = wm[rootOff + 5], c12 = wm[rootOff + 6]
+        const c20 = wm[rootOff + 8], c21 = wm[rootOff + 9], c22 = wm[rootOff + 10]
+        wm[rootOff + 4]  =  c * c10 + s * c20
+        wm[rootOff + 5]  =  c * c11 + s * c21
+        wm[rootOff + 6]  =  c * c12 + s * c22
+        wm[rootOff + 8]  = -s * c10 + c * c20
+        wm[rootOff + 9]  = -s * c11 + c * c21
+        wm[rootOff + 10] = -s * c12 + c * c22
+        // Propagate to chain children (each child = parent × child.local)
+        for (let i = 1; i < chain.length; i++) {
+          const parentOff = chain[i - 1] * 16
+          const childOff  = chain[i] * 16
+          const childLocalOff = localBase * numJoints * 16 + chain[i] * 16
+          const sChild = characterParams.scales[chain[i]] ?? [1, 1, 1]
+          propagateChildMat(parentOff, childOff, childLocalOff, sChild as [number, number, number])
+        }
+        // Upload all chain bones
+        for (const bIdx of chain) {
+          device.queue.writeBuffer(vatHandle.buffer, bIdx * 64, wm.buffer, wm.byteOffset + bIdx * 16 * 4, 64)
+        }
       }
       invalidateRaymarchCache()
     }
