@@ -134,32 +134,35 @@ export function buildCreature(spec: CreatureSpec): BuiltCreature {
   rig.push({ name: 'HeadAnchor', parent: -1, offset: [0, 0, 0] })
   const headAnchorIdx = rig.length - 1
 
-  // Body bones BodySeg0..BodySegN, each offset by segLen along its
-  // parent's +Y. HeadAnchor's bind rotation puts +Y along world -Z so
-  // the chain extends backward. Every body bone — including BodySeg0
-  // — uses [0, segLen, 0]: BodySeg0 sits one segment-length behind
-  // HeadAnchor (NOT at HeadAnchor's position, which would collapse
-  // the head→body capsule into a sphere).
+  // Body bones extend DOWNWARD from HeadAnchor (negative Y). With
+  // HeadAnchor at identity rotation, this puts the head on top and
+  // the body below — natural bird/spider/snake orientation. The body
+  // bones inherit identity local rotation, so their +Y axis still
+  // points world +Y; the ribbon-chain SDF uses (curPos - prevPos) as
+  // the tangent so it doesn't care about bone +Y orientation.
   const bodyBoneIdxs: number[] = []
   for (let i = 0; i < segCount + 1; i++) {
     const parent = i === 0 ? headAnchorIdx : rig.length - 1
     rig.push({
       name: `BodySeg${i}`,
       parent,
-      offset: [0, segLen, 0],
+      offset: [0, -segLen, 0],
     })
     bodyBoneIdxs.push(rig.length - 1)
   }
 
   // -------------------- Head primitive --------------------
-  // Ellipsoid at HeadAnchor, offset slightly forward (world +Z, which is
-  // HeadAnchor's local -Y given our backward-pointing convention).
+  // Ellipsoid at HeadAnchor, centered ~half its height above the bone
+  // origin. The body's top edge lands a bit above the bone too (body
+  // ellipsoid centered at +segLen/2 with halfY = halfExtents.y), so
+  // the two overlap a few cm — fuses them visually instead of leaving
+  // a floating-head gap.
   prims.push({
-    type: 3, // sdEllipsoid
+    type: 3,
     paletteSlot: spec.head.paletteSlot,
     boneIdx: headAnchorIdx,
     params: [spec.head.size[0], spec.head.size[1], spec.head.size[2], 0],
-    offsetInBone: [0, -spec.head.size[1] * 0.6, 0],
+    offsetInBone: [0, spec.head.size[1] * 0.5, 0],
   })
 
   // -------------------- Body --------------------
@@ -180,7 +183,11 @@ export function buildCreature(spec: CreatureSpec): BuiltCreature {
       paletteSlot: spec.body.paletteSlot,
       boneIdx: bodyBoneIdxs[0],
       params: [hx, hy, hz, 0],
-      offsetInBone: [0, -segLen * 0.5, 0],   // center between head & tail
+      // Center the ellipsoid halfway between HeadAnchor and BodySeg0
+      // (which is at -segLen below HeadAnchor). Offset is in BodySeg0's
+      // local frame; +Y here is world +Y, so +segLen/2 puts the
+      // ellipsoid center halfway up between BodySeg0 and HeadAnchor.
+      offsetInBone: [0, segLen * 0.5, 0],
     })
   } else {
     const allBodyBones = [headAnchorIdx, ...bodyBoneIdxs]
@@ -214,9 +221,9 @@ export function buildCreature(spec: CreatureSpec): BuiltCreature {
     const attachBoneIdx = bodyBoneIdxs[Math.round(idxF)]
 
     for (const side of ['L', 'R'] as const) {
-      const sign = side === 'L' ? 1 : -1
-      // 1. Anchor bone — sideways offset off the body, with bind-pose
-      //    rotation pointing limb +Y outward+down.
+      // L = viewer's left = world -X; R = +X. Anchor sits sideways
+      // off the body bone in this direction.
+      const sign = side === 'L' ? -1 : 1
       const anchorIdx = rig.length
       rig.push({
         name: `LimbP${p}${side}_Anchor`,
@@ -290,17 +297,6 @@ function computeBindPoseWorldMats(rig: Joint[]): Float32Array {
     localMat[13] = joint.offset[1]
     localMat[14] = joint.offset[2]
 
-    // HeadAnchor specifically: rotate +Y to point along world -Z so the
-    // body chain extends backward. Identified by parent === -1.
-    if (joint.parent < 0 && joint.name === 'HeadAnchor') {
-      // Rotation that maps local +Y → world -Z (and +Z → +Y so the
-      // creature is "standing" with Z up still). 90° around X axis.
-      mat4FromEulerXYZ(localMat, Math.PI * 0.5, 0, 0)
-      localMat[12] = joint.offset[0]
-      localMat[13] = joint.offset[1]
-      localMat[14] = joint.offset[2]
-    }
-
     if (joint.parent < 0) {
       // Root → world = local
       for (let i = 0; i < 16; i++) out[j * 16 + i] = localMat[i]
@@ -319,20 +315,28 @@ function computeBindPoseWorldMats(rig: Joint[]): Float32Array {
 // ============================================================================
 
 function limbAnchorRotation(spread: number, down: number, sign: number): Vec3 {
-  // Limb anchor bind-pose: rotate so the limb's +Y points sideways and
-  // down. Body bone +Y points backward (world -Z), so the anchor frame
-  // is parented in that. We want anchor's +Y in world to be:
-  //   side = sign * sin(spread) along X
-  //   down = -sin(down) along Y (world Y is up)
-  //   forward/backward = small Z component (mostly perpendicular)
+  // Body bones now have identity rotation (no HeadAnchor X-rotation
+  // hack), so anchor's parent frame is world-axis aligned. We want
+  // anchor +Y to point sideways (world ±X) for wings or downward
+  // (world -Y) for legs.
   //
-  // Encoding as Euler XYZ: rotate around Z to spread sideways, then
-  // around X to droop down. Sign flips on the X rotation for the
-  // mirrored side so both legs droop the same way relative to the body.
-  // In the parent (body) frame, X axis points sideways (world X for a
-  // forward-facing creature). So Z rotation in local frame swings the
-  // anchor in the XY plane (sideways), and X rotation drops it.
-  return [down, 0, sign * spread]
+  // Euler XYZ applies Rx then Ry then Rz to local axes. To rotate
+  // local +Y → ±X: use Rz. Rz(angle) maps +Y → (-sin, cos, 0). So
+  // Rz(-π/2) maps +Y → (+1, 0, 0) = +X (right). For sign=+1 (R),
+  // anchor at +X, want chain in +X → rz = -π/2. For sign=-1 (L),
+  // anchor at -X, want chain in -X → rz = +π/2. So rz = -sign * spread.
+  //
+  // For droop (down angle), rotate around X (Rx) which moves +Y in
+  // the YZ plane. But after Rz, what was +Y is now +X (sideways) —
+  // so Rx wouldn't droop the chain anymore. To droop a sideways
+  // chain, rotate around the FORWARD axis (Z) by the down angle.
+  // This is equivalent to: do down-rotation FIRST (around Z), then
+  // spread-rotation. In Euler XYZ that's Rz(-sign * spread + sign * down)?
+  // Actually simpler: combine into single Z rotation since both
+  // operate in the X-Y plane. spread rotates +Y away from up, down
+  // rotates further past horizontal toward -Y.
+  const totalZ = -sign * (spread + down)
+  return [0, 0, totalZ]
 }
 
 function mat4Identity(out: Float32Array) {
@@ -392,36 +396,38 @@ const LEATHER_SLOT  = 10
 export const CREATURE_PRESETS: Record<string, CreatureSpec> = {
   bird: {
     name: 'bird',
-    // Plump egg body, big head, FLAT membrane wings (halfW>>halfThick
-    // ribbon — same look as the back-hair / ponytail chain).
     body: {
-      segments: 0, totalLength: 0.18, radius: 0.10, paletteSlot: FEATHER_SLOT,
-      halfExtents: [0.075, 0.10, 0.085],     // egg ellipsoid
+      segments: 0, totalLength: 0.16, radius: 0.10, paletteSlot: FEATHER_SLOT,
+      halfExtents: [0.085, 0.10, 0.090],
     },
-    head: { size: [0.08, 0.08, 0.09], paletteSlot: FEATHER_SLOT },
+    head: { size: [0.08, 0.08, 0.085], paletteSlot: FEATHER_SLOT },
     limbPairs: [
-      // Wings — flat 2-segment ribbon, wide × thin like a feather.
+      // Wings — sized so they actually read at 48² sprite res. At
+      // ortho 0.36 the cache is ~67 px/m, so halfThick=0.012 is ~1px
+      // thick (the minimum visible). halfW=0.06 = 4px tall flat face.
+      // segmentCount=2 × segmentLength=0.10 → 20cm chain extending
+      // sideways from the body.
       {
-        attachT: 0.2,
-        spreadAngle: Math.PI * 0.45,
-        downAngle: 0.05,
+        attachT: 0.0,
+        spreadAngle: Math.PI * 0.50,    // straight sideways
+        downAngle: 0.0,
         paletteSlot: FEATHER_SLOT,
-        segmentCount: 2, segmentLength: 0.07,
-        halfW: 0.045, halfThick: 0.005,    // FLAT — like back hair
+        segmentCount: 2, segmentLength: 0.10,
+        halfW: 0.060, halfThick: 0.012,
         tipTaper: 0.4,
       },
-      // Legs — twig pair under the body. Thin chain.
+      // Legs — twig pair under the body, drooping straight down.
       {
-        attachT: 0.6,
-        spreadAngle: 0.15,
-        downAngle: Math.PI * 0.50,
+        attachT: 1.0,
+        spreadAngle: Math.PI * 0.10,    // slight sideways stance
+        downAngle: Math.PI * 0.40,      // mostly down
         paletteSlot: LEATHER_SLOT,
-        segmentCount: 1, segmentLength: 0.08,
-        halfW: 0.012, halfThick: 0.012,
+        segmentCount: 1, segmentLength: 0.10,
+        halfW: 0.014, halfThick: 0.014,
         tipTaper: 0.6,
       },
     ],
-    camera: { orthoSize: 0.28, target: [0, 0.0, 0] },
+    camera: { orthoSize: 0.36, target: [0, -0.05, 0] },
   },
   spider: {
     name: 'spider',
