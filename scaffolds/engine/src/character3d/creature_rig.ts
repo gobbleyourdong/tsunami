@@ -53,22 +53,25 @@ export interface CreatureSpec {
 }
 
 export interface BodySpec {
-  /** Number of articulation joints in the spine BETWEEN head and tail.
-   *  0 = single capsule (bird). N = N+1 capsules (snake/centipede). */
+  /** Number of subdivision joints between the two ribbon endpoints.
+   *  0 = single ribbon segment (HeadEnd → TailEnd). N = N+1 segments
+   *  (HeadEnd, N intermediate joints, TailEnd). Subdivisions don't
+   *  change total body length — they just give limbs more attach
+   *  points along the spine and let the chain bend in animation. */
   segments: number
-  /** Total length head-to-tail in meters. Distributed evenly across
-   *  segments, so each capsule = totalLength / (segments + 1). */
+  /** Total length head-to-tail in meters. Each ribbon segment is
+   *  totalLength / (segments + 1) long. */
   totalLength: number
-  /** Cross-section radius in meters. Future: per-segment taper. */
-  radius: number
   paletteSlot: number
-  /** Optional ellipsoid override — when set AND segments === 0, the
-   *  body emits as a single type-3 ellipsoid at BodySeg0 instead of a
-   *  type-15 capsule chain. Half-extents in body-local frame:
-   *  [X = side, Y = head-to-tail, Z = depth]. Use this for round /
-   *  egg-shaped bodies (bird, spider) where a degenerate single
-   *  capsule would render as a perfect sphere. */
-  halfExtents?: [number, number, number]
+  /** Ribbon cross-section. Same params as LimbPairSpec — halfW is the
+   *  broad direction (X in body-local), halfThick is the narrow
+   *  direction (Z). Round-bodied creatures set halfW ≈ halfThick;
+   *  flat creatures set halfW >> halfThick. */
+  halfW: number
+  halfThick: number
+  /** Cross-section scale at the tail end. 1 = no taper, 0.5 = halves
+   *  toward tail (snake), 1.0 (default) for uniform body. */
+  tipTaper: number
 }
 
 export interface HeadSpec {
@@ -125,22 +128,25 @@ export function buildCreature(spec: CreatureSpec): BuiltCreature {
   const prims: RaymarchPrimitive[] = []
 
   // -------------------- Body chain --------------------
-  // HeadAnchor at world origin. Body extends along world -Z (so the
-  // creature faces +Z). HeadAnchor itself has no display geometry; it's
-  // a logical attachment point for the head ellipsoid + the body chain.
+  // The body is a single type-23 ribbon walking through every body
+  // bone. HeadAnchor (rig root) is the chain's HEAD END; BodySegN is
+  // the TAIL END. `segments` adds intermediate subdivision joints
+  // BETWEEN those endpoints — so segments=0 gives 2 bones (1 segment),
+  // segments=N gives N+2 bones (N+1 segments). All bones share identity
+  // local rotation and offset [0, -segLen, 0] from their parent, so
+  // the chain hangs straight down from HeadAnchor. The ribbon's
+  // tangent comes from (curPos - prevPos) — bone +Y orientation
+  // doesn't affect chain direction, only the cross-section frame
+  // (col0 = halfW direction, col2 = halfThick direction).
   const segCount = Math.max(0, spec.body.segments)
   const segLen   = spec.body.totalLength / (segCount + 1)
 
   rig.push({ name: 'HeadAnchor', parent: -1, offset: [0, 0, 0] })
   const headAnchorIdx = rig.length - 1
 
-  // Body bones extend DOWNWARD from HeadAnchor (negative Y). With
-  // HeadAnchor at identity rotation, this puts the head on top and
-  // the body below — natural bird/spider/snake orientation. The body
-  // bones inherit identity local rotation, so their +Y axis still
-  // points world +Y; the ribbon-chain SDF uses (curPos - prevPos) as
-  // the tangent so it doesn't care about bone +Y orientation.
-  const bodyBoneIdxs: number[] = []
+  // Subdivision joints: BodySeg0..BodySegN (N+1 of them) so the
+  // total chain is HeadAnchor + (N+1) body bones = N+2 chain bones.
+  const bodyBoneIdxs: number[] = [headAnchorIdx]
   for (let i = 0; i < segCount + 1; i++) {
     const parent = i === 0 ? headAnchorIdx : rig.length - 1
     rig.push({
@@ -165,44 +171,18 @@ export function buildCreature(spec: CreatureSpec): BuiltCreature {
     offsetInBone: [0, spec.head.size[1] * 0.5, 0],
   })
 
-  // -------------------- Body --------------------
-  // Two emit modes:
-  //   (a) ellipsoid override (BodySpec.halfExtents set, segments=0):
-  //       single type-3 ellipsoid at BodySeg0, centered between
-  //       HeadAnchor and BodySeg0 by an offset of -segLen/2 along
-  //       bone-Y so the lump spans head → tail.
-  //   (b) capsule chain: one type-15 round capsule per (i, i+1) bone
-  //       pair walking HeadAnchor → BodySeg0 → ... → BodySegN.
-  // Capsule chain is the right call for snake/centipede where
-  // segments matter for animation; ellipsoid is the right call for
-  // bird/spider where the body is a single rounded lump.
-  if (spec.body.halfExtents && segCount === 0) {
-    const [hx, hy, hz] = spec.body.halfExtents
-    prims.push({
-      type: 3,
-      paletteSlot: spec.body.paletteSlot,
-      boneIdx: bodyBoneIdxs[0],
-      params: [hx, hy, hz, 0],
-      // Center the ellipsoid halfway between HeadAnchor and BodySeg0
-      // (which is at -segLen below HeadAnchor). Offset is in BodySeg0's
-      // local frame; +Y here is world +Y, so +segLen/2 puts the
-      // ellipsoid center halfway up between BodySeg0 and HeadAnchor.
-      offsetInBone: [0, segLen * 0.5, 0],
-    })
-  } else {
-    const allBodyBones = [headAnchorIdx, ...bodyBoneIdxs]
-    for (let i = 0; i + 1 < allBodyBones.length; i++) {
-      const aIdx = allBodyBones[i]
-      const bIdx = allBodyBones[i + 1]
-      prims.push({
-        type: 15,
-        paletteSlot: spec.body.paletteSlot,
-        boneIdx: aIdx,
-        params: [spec.body.radius, spec.body.radius, bIdx, segLen],
-        offsetInBone: [0, 0, 0],
-      })
-    }
-  }
+  // -------------------- Body ribbon --------------------
+  // Single type-23 ribbon walking every body bone. count = total bone
+  // count in bodyBoneIdxs (HeadAnchor + N+1 BodySeg bones = N+2).
+  // The bones are CONSECUTIVE in the rig (we just pushed them) so
+  // sdRibbonChain reads them by sequential index from startBone.
+  prims.push({
+    type: 23,
+    paletteSlot: spec.body.paletteSlot,
+    boneIdx: bodyBoneIdxs[0],
+    params: [bodyBoneIdxs.length, spec.body.halfW, spec.body.halfThick, spec.body.tipTaper],
+    offsetInBone: [0, 0, 0],
+  })
 
   // -------------------- Limb pairs (ribbon-chain) --------------------
   // Each limb is a single type-23 ribbon-chain primitive walking N+1
@@ -216,8 +196,12 @@ export function buildCreature(spec: CreatureSpec): BuiltCreature {
   for (let p = 0; p < spec.limbPairs.length; p++) {
     const pair = spec.limbPairs[p]
     if (pair.segmentCount <= 0) continue
+    // Snap attachT to nearest body bone. bodyBoneIdxs has segCount+2
+    // bones spread evenly along the body — index 0 is head end
+    // (HeadAnchor), last is tail end. attachT=0.5 → middle bone
+    // (assumes spec.body.segments was set so a midpoint exists).
     const tClamped = Math.max(0, Math.min(1, pair.attachT))
-    const idxF = tClamped * segCount
+    const idxF = tClamped * (bodyBoneIdxs.length - 1)
     const attachBoneIdx = bodyBoneIdxs[Math.round(idxF)]
 
     for (const side of ['L', 'R'] as const) {
@@ -228,7 +212,7 @@ export function buildCreature(spec: CreatureSpec): BuiltCreature {
       rig.push({
         name: `LimbP${p}${side}_Anchor`,
         parent: attachBoneIdx,
-        offset: [sign * spec.body.radius * 0.7, 0, 0],
+        offset: [sign * spec.body.halfW * 0.7, 0, 0],
         preRotation: limbAnchorRotation(pair.spreadAngle, pair.downAngle, sign),
       })
 
@@ -396,31 +380,30 @@ const LEATHER_SLOT  = 10
 export const CREATURE_PRESETS: Record<string, CreatureSpec> = {
   bird: {
     name: 'bird',
+    // Body ribbon = 1 subdivision (segments=1) → 3 chain bones at
+    // attachT 0, 0.5, 1. Wings attach at the midpoint, head sits at
+    // the head end (the start of the ribbon).
     body: {
-      segments: 0, totalLength: 0.16, radius: 0.10, paletteSlot: FEATHER_SLOT,
-      halfExtents: [0.085, 0.10, 0.090],
+      segments: 1, totalLength: 0.16, paletteSlot: FEATHER_SLOT,
+      halfW: 0.085, halfThick: 0.080, tipTaper: 0.7,
     },
     head: { size: [0.08, 0.08, 0.085], paletteSlot: FEATHER_SLOT },
     limbPairs: [
-      // Wings — sized so they actually read at 48² sprite res. At
-      // ortho 0.36 the cache is ~67 px/m, so halfThick=0.012 is ~1px
-      // thick (the minimum visible). halfW=0.06 = 4px tall flat face.
-      // segmentCount=2 × segmentLength=0.10 → 20cm chain extending
-      // sideways from the body.
+      // Wings at body midpoint, straight sideways flat ribbon.
       {
-        attachT: 0.0,
-        spreadAngle: Math.PI * 0.50,    // straight sideways
+        attachT: 0.5,
+        spreadAngle: Math.PI * 0.50,
         downAngle: 0.0,
         paletteSlot: FEATHER_SLOT,
         segmentCount: 2, segmentLength: 0.10,
         halfW: 0.060, halfThick: 0.012,
         tipTaper: 0.4,
       },
-      // Legs — twig pair under the body, drooping straight down.
+      // Legs at tail end (attachT 1), drooping mostly straight down.
       {
         attachT: 1.0,
-        spreadAngle: Math.PI * 0.10,    // slight sideways stance
-        downAngle: Math.PI * 0.40,      // mostly down
+        spreadAngle: Math.PI * 0.10,
+        downAngle: Math.PI * 0.40,
         paletteSlot: LEATHER_SLOT,
         segmentCount: 1, segmentLength: 0.10,
         halfW: 0.014, halfThick: 0.014,
@@ -432,8 +415,8 @@ export const CREATURE_PRESETS: Record<string, CreatureSpec> = {
   spider: {
     name: 'spider',
     body: {
-      segments: 0, totalLength: 0.13, radius: 0.085, paletteSlot: FUR_SLOT,
-      halfExtents: [0.075, 0.085, 0.075],   // round-ish lump
+      segments: 1, totalLength: 0.13, paletteSlot: FUR_SLOT,
+      halfW: 0.075, halfThick: 0.075, tipTaper: 0.85,
     },
     head: { size: [0.045, 0.045, 0.045], paletteSlot: FUR_SLOT },
     limbPairs: spiderLegs(),
@@ -441,15 +424,21 @@ export const CREATURE_PRESETS: Record<string, CreatureSpec> = {
   },
   snake: {
     name: 'snake',
-    body:    { segments: 10, totalLength: 0.70, radius: 0.035, paletteSlot: SKIN_SLOT },
-    head:    { size: [0.05, 0.04, 0.05], paletteSlot: SKIN_SLOT },
+    body: {
+      segments: 10, totalLength: 0.70, paletteSlot: SKIN_SLOT,
+      halfW: 0.035, halfThick: 0.035, tipTaper: 0.4,
+    },
+    head: { size: [0.05, 0.04, 0.05], paletteSlot: SKIN_SLOT },
     limbPairs: [],
     camera: { orthoSize: 0.40, target: [0, 0.0, -0.20] },
   },
   centipede: {
     name: 'centipede',
-    body:    { segments: 12, totalLength: 0.60, radius: 0.030, paletteSlot: SKIN_SLOT },
-    head:    { size: [0.040, 0.035, 0.040], paletteSlot: SKIN_SLOT },
+    body: {
+      segments: 12, totalLength: 0.60, paletteSlot: SKIN_SLOT,
+      halfW: 0.030, halfThick: 0.030, tipTaper: 0.6,
+    },
+    head: { size: [0.040, 0.035, 0.040], paletteSlot: SKIN_SLOT },
     limbPairs: centipedeLegs(),
     camera: { orthoSize: 0.38, target: [0, -0.02, -0.18] },
   },
