@@ -91,7 +91,7 @@ JS one for the no-build demo to consume.
 **Commit subject:** `iso_cache_poc: 3D port phase 2 — CPU raymarcher + shader`
 
 ### Phase 3 — `sdfFn3d` route in GameObject.bake
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Modify `object_buffer_cache.html` so:
 - `GameObject` accepts `opts.sdfFn3d` (a 3D SDF: Vec3 → number) and
@@ -246,7 +246,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 |------:|:-------|
 | 1     | COMPLETE — raymarch3d_cpu.js with primitives + compose + transforms; node --check clean |
 | 2     | COMPLETE — raymarchPixel + shadeHit; smoke test (sphere hit + shade) passes |
-| 3     | PENDING |
+| 3     | COMPLETE — `sdfFn3d`/`metersPerPixel` on GameObject; `_bakeInto` raymarches when set; existing 2D archetypes untouched |
 | 4     | PENDING |
 | 5     | PENDING |
 | 6     | PENDING |

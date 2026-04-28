@@ -86,6 +86,11 @@
   </div>
 
   <script type="module">
+  // 3D raymarch helpers (Phase 3 of PLAN_3D_PORT.md). Archetypes can opt
+  // in by passing `sdfFn3d` + `metersPerPixel`; bake() then routes through
+  // a per-pixel CPU raymarch instead of the 2D SDF eval.
+  import * as R3 from './raymarch3d_cpu.js';
+
   // ─────────────────────────────────────────────────────────────────
   // ARCHITECTURE
   //
@@ -130,7 +135,14 @@
     constructor(opts) {
       this.id = opts.id;
       this.color = opts.color;
-      this.sdfFn = opts.sdfFn;            // (lx, ly, animPhase) → distance
+      this.sdfFn = opts.sdfFn;            // (lx, ly, animPhase) → distance (2D path)
+      // 3D path (Phase 3): if sdfFn3d is set, _bakeInto raymarches each
+      // pixel through this 3D SDF instead of evaluating the 2D one.
+      // metersPerPixel scales the buffer's pixel grid into the SDF's
+      // world units (so a 60×44 buffer with mPP=0.01 covers 0.6×0.44m).
+      this.sdfFn3d = opts.sdfFn3d || null;
+      this.metersPerPixel = opts.metersPerPixel || 0.01;
+      this.lightDir = opts.lightDir || [0.4, 0.7, 0.6];
       this.localW = opts.localW;
       this.localH = opts.localH;
       this.worldX = opts.worldX;
@@ -207,10 +219,22 @@
       this.currentLoopFrame = 0;
     }
 
-    /** Inner pixel loop. Renders `regions` into the supplied target contexts. */
+    /** Inner pixel loop. Renders `regions` into the supplied target contexts.
+     *
+     *  Two paths:
+     *  - 2D: this.sdfFn(lx, ly, animPhase) gives signed distance directly.
+     *  - 3D: this.sdfFn3d(p) — a 3D SDF; we raymarch a ray per pixel,
+     *        compute normal via gradient, and shade with shadeHit().
+     *  The 3D path also respects this.localDamage (hard circle mask) so
+     *  destruction works identically to the 2D path.
+     */
     _bakeInto(colorCtx, normalCtx, depthVisCtx, depthBuf, regions, animPhase) {
       let evals = 0;
       const c = this.color;
+      const use3d = !!this.sdfFn3d;
+      const mPP = this.metersPerPixel;
+      const halfW = this.localW / 2;
+      const halfH = this.localH / 2;
       for (const reg of regions) {
         const colorImg = colorCtx.getImageData(reg.x, reg.y, reg.w, reg.h);
         const normImg  = normalCtx.getImageData(reg.x, reg.y, reg.w, reg.h);
@@ -219,6 +243,66 @@
           for (let px = 0; px < reg.w; px++) {
             const lx = reg.x + px;
             const ly = reg.y + py;
+
+            // ── 3D PATH ──────────────────────────────────────────
+            if (use3d) {
+              // Hard-mask local damage in screen space (same rule as 2D)
+              if (this.localDamage && this.localDamage.length) {
+                let masked = false;
+                for (let k = 0; k < this.localDamage.length; k++) {
+                  const c2 = this.localDamage[k];
+                  const cd = Math.hypot(lx - c2.x, ly - c2.y) - c2.r;
+                  if (cd < 0) { masked = true; break; }
+                }
+                if (masked) {
+                  const i = (py * reg.w + px) * 4;
+                  colorImg.data[i + 3] = 0;
+                  normImg.data[i + 3] = 0;
+                  depthImg.data[i + 3] = 0;
+                  continue;
+                }
+              }
+              const wx = (lx - halfW) * mPP;
+              const wy = -(ly - halfH) * mPP;
+              const hit = R3.raymarchPixel(this.sdfFn3d, wx, wy);
+              evals += 1 + (hit.steps || 0);
+              const i = (py * reg.w + px) * 4;
+              if (hit.hit) {
+                const rgb = R3.shadeHit(hit.normal, c, this.lightDir);
+                colorImg.data[i]     = rgb[0];
+                colorImg.data[i + 1] = rgb[1];
+                colorImg.data[i + 2] = rgb[2];
+                colorImg.data[i + 3] = 255;
+                // Normals encoded RGB
+                normImg.data[i]     = (0.5 + 0.5 * hit.normal[0]) * 255;
+                normImg.data[i + 1] = (0.5 + 0.5 * hit.normal[1]) * 255;
+                normImg.data[i + 2] = (0.5 + 0.5 * hit.normal[2]) * 255;
+                normImg.data[i + 3] = 255;
+                // Depth from ray-z. SDF z range typically ~[-1.5, 1.5];
+                // map +Z (close to camera) → bright, -Z → dark.
+                const dShade = Math.max(0, Math.min(255, 128 + hit.p[2] * 60));
+                depthImg.data[i]     = dShade;
+                depthImg.data[i + 1] = dShade;
+                depthImg.data[i + 2] = dShade;
+                depthImg.data[i + 3] = 255;
+                // Also write a representative depth into depthBuf (negative
+                // distance from "surface" — used by physics/sort consumers).
+                const depthIdx = ly * this.localW + lx;
+                depthBuf[depthIdx] = -1;
+              } else {
+                colorImg.data[i]     = 0;
+                colorImg.data[i + 1] = 0;
+                colorImg.data[i + 2] = 0;
+                colorImg.data[i + 3] = 0;
+                normImg.data[i + 3]  = 0;
+                depthImg.data[i + 3] = 0;
+                const depthIdx = ly * this.localW + lx;
+                depthBuf[depthIdx] = 2;
+              }
+              continue;
+            }
+
+            // ── 2D PATH (existing) ──────────────────────────────
             let d = this.sdfFn(lx, ly, animPhase, this.localDamage);
             // Per-archetype local damage as a HARD MASK. Pixels strictly
             // inside any carve circle get cleared (forced outside the SDF);
