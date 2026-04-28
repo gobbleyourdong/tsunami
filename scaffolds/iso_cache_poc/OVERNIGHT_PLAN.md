@@ -127,7 +127,7 @@ ambiguous; orbit shows depth).
 ---
 
 ### Phase D — JSON loader for sdf_modeling_research/primitives/PRESETS
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Load 1-2 PRESET JSON files (start with `chest.wood_iron_banded.json`
 or a scene like `examples/scenes/sword_on_anvil.json`) and convert them to
@@ -247,7 +247,7 @@ be shift-clicked to destroy normally; commit.
 | A     | COMPLETE — TS port of sdf.ts done, files in raymarch3d/ |
 | B     | COMPLETE — pipeline.ts + main.ts; tsc clean; vite serves /raymarch3d/ 200 |
 | C     | COMPLETE — Y-axis orbit @ 0.3 rad/s, 0.35 rad elevation; switcher landed in B |
-| D     | PENDING |
+| D     | COMPLETE — loader.ts handles shape:* parts; 2 scene JSONs copied + wired into switcher |
 | E     | PENDING |
 | F     | PENDING |
 | G     | PENDING (stretch) |

@@ -1,0 +1,27 @@
+{
+  "scene_name": "sword_on_anvil",
+  "summary": "A sword resting on top of an anvil — sword anchored to anvil's top.",
+  "objects": [
+    {
+      "place_at": [0, 0, 0],
+      "spec": {"name": "smithy_anvil",
+               "archetype": "chest", "scale_meters": 0.55,
+               "palette": {"iron": [0.18, 0.18, 0.20]},
+               "parts": [
+                 {"id": "base", "type": "shape:rounded_box",
+                  "params": {"half": [0.18, 0.04, 0.10], "corner_r": 0.008},
+                  "material": "iron"},
+                 {"id": "top", "type": "shape:rounded_box",
+                  "params": {"half": [0.20, 0.04, 0.07], "corner_r": 0.005},
+                  "translate": [0, 0.10, 0],
+                  "material": "iron"}
+               ]}
+    },
+    {
+      "place_at_anchor": "smithy_anvil.top",
+      "offset": [0, 0.05, 0],
+      "spec": {"name": "resting_sword", "extends": "sword.knight_longsword",
+               "overrides": {"scale_meters": 0.85}}
+    }
+  ]
+}

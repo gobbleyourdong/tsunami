@@ -8,6 +8,7 @@ import {
   packPrimitives,
   type GPUPrim,
 } from './assets.ts';
+import { loadSceneJSON, SCENE_URLS } from './loader.ts';
 
 // ─────────── Status helper (writes to #status div) ───────────
 
@@ -247,6 +248,7 @@ function renderFrame(r: Renderer, time: number): void {
 // ─────────── Asset switcher UI ───────────
 
 function buildAssetButtons(r: Renderer, container: HTMLElement, defaultName: string): void {
+  // Built-in inline assets
   for (const name of Object.keys(ASSETS)) {
     const btn = document.createElement('button');
     btn.textContent = name;
@@ -254,10 +256,32 @@ function buildAssetButtons(r: Renderer, container: HTMLElement, defaultName: str
     btn.addEventListener('click', () => {
       const prims = ASSETS[name]();
       uploadPrimitives(r, prims);
-      // Highlight active
       for (const b of container.querySelectorAll('button')) b.classList.remove('active');
       btn.classList.add('active');
       setStatus(`Loaded asset "${name}" — ${prims.length} primitives.`);
+    });
+    container.appendChild(btn);
+  }
+  // JSON scene loaders (async)
+  for (const name of Object.keys(SCENE_URLS)) {
+    const btn = document.createElement('button');
+    btn.textContent = name;
+    btn.addEventListener('click', async () => {
+      setStatus(`Loading "${name}"…`);
+      try {
+        const prims = await loadSceneJSON(SCENE_URLS[name]);
+        if (prims.length === 0) {
+          setStatus(`"${name}" loaded but produced 0 primitives (all objects extend presets).`, true);
+          return;
+        }
+        uploadPrimitives(r, prims);
+        for (const b of container.querySelectorAll('button')) b.classList.remove('active');
+        btn.classList.add('active');
+        setStatus(`Loaded scene "${name}" — ${prims.length} primitives.`);
+      } catch (err: unknown) {
+        setStatus(`Failed to load "${name}": ${String(err)}`, true);
+        console.error(err);
+      }
     });
     container.appendChild(btn);
   }

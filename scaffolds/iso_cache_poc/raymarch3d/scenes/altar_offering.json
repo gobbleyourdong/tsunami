@@ -1,0 +1,35 @@
+{
+  "scene_name": "altar_offering",
+  "summary": "A crystal cluster on top of a stone chest, with a lantern beside it.",
+  "objects": [
+    {
+      "place_at": [0, 0, 0],
+      "spec": {"name": "altar_chest", "extends": "chest.wood_iron_banded",
+               "overrides": {"scale_meters": 0.65,
+                            "palette": {"wood": [0.45, 0.45, 0.48], "wood_dark": [0.28, 0.28, 0.30]},
+                            "parts": {"gold_pile": null, "lid": {"rotate": {"pitch": 0}}}}}
+    },
+    {
+      "place_at_anchor": "altar_chest.top",
+      "offset": [0, 0, 0],
+      "spec": {"name": "offering_crystals", "extends": "rock_crystal.small_amethyst_cluster",
+               "overrides": {"scale_meters": 0.30}}
+    },
+    {
+      "place_at_anchor": "altar_chest.right",
+      "offset": [0.15, 0, 0],
+      "spec": {"name": "ritual_lantern",
+               "archetype": "chest", "scale_meters": 0.30,
+               "palette": {"iron": [0.22, 0.20, 0.18], "glass": [1.0, 0.85, 0.5]},
+               "parts": [
+                 {"id": "base", "type": "shape:cylinder",
+                  "params": {"radius": 0.07, "height": 0.025},
+                  "material": "iron"},
+                 {"id": "glass_body", "type": "shape:rounded_box",
+                  "params": {"half": [0.055, 0.085, 0.055], "corner_r": 0.005},
+                  "translate": [0, 0.085, 0],
+                  "material": "glass"}
+               ]}
+    }
+  ]
+}
