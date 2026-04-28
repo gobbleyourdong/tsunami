@@ -400,12 +400,15 @@ export const CREATURE_PRESETS: Record<string, CreatureSpec> = {
         tipTaper: 0.4,
       },
       // Legs at tail end (attachT 1), drooping mostly straight down.
+      // spread + down = total angle from vertical (+Y). 0 = up,
+      // π/2 = sideways, π = straight down. 0.95π gives a slight
+      // outward stance (5° from vertical) instead of splayed sideways.
       {
         attachT: 1.0,
-        spreadAngle: Math.PI * 0.10,
-        downAngle: Math.PI * 0.40,
+        spreadAngle: Math.PI * 0.05,
+        downAngle: Math.PI * 0.90,
         paletteSlot: LEATHER_SLOT,
-        segmentCount: 1, segmentLength: 0.10,
+        segmentCount: 1, segmentLength: 0.08,
         halfW: 0.014, halfThick: 0.014,
         tipTaper: 0.6,
       },
