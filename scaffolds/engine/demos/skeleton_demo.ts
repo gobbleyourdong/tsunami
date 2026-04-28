@@ -570,33 +570,31 @@ async function main() {
         applyGroupScale(g, v)
       }
       if (currentExpression !== 'neutral') applyExpression(currentExpression)
-      applyNoseScale()
       fitCameraToCharacter()
       invalidateRaymarchCache()
     }
 
-    /** Sets the NoseBridge bone scale to head-group base × loadout.noseScale.
-     *  Idempotent — reads the head-preset scale fresh each call rather
-     *  than multiplying onto whatever is in characterParams (so dragging
-     *  the slider doesn't compound). Drives every NOSE_LIBRARY prim
-     *  size since they all read NoseBridge's display matrix.
+    /** Per-attachment scale for the NOSE_LIBRARY ensemble. Scaling the
+     *  NoseBridge bone instead would move the bridge AWAY from the head
+     *  (the bone's local translation scales with its own scale), which
+     *  is what the user reported when noseScale was wired to the bone.
+     *  This helper instead clones each AttachmentPart and multiplies
+     *  its length-based params + offsetInBone by k. The bridge bone
+     *  itself stays anchored at the head-group scale only.
      *
-     *  TDZ guard: applyPreset's init-time call (before `loadout` is
-     *  declared, see applyHindRetarget elsewhere for the same pattern)
-     *  reaches this function before loadout exists. The try/catch
-     *  no-ops the first call; later calls (after loadout init) apply
-     *  the multiplier on top of whatever applyGroupScale just wrote. */
-    function applyNoseScale() {
-      const idx = rig.findIndex((j) => j.name === 'NoseBridge')
-      if (idx < 0) return
-      let k: number
-      try { k = loadout.noseScale } catch { return }
-      const headPreset = BODY_PRESETS[currentProportion].head
-      const base: [number, number, number] = typeof headPreset === 'number'
-        ? [headPreset, headPreset, headPreset]
-        : [headPreset[0], headPreset[1], headPreset[2]]
-      characterParams.scales[idx] = [base[0] * k, base[1] * k, base[2] * k]
-      invalidateRaymarchCache()
+     *  Per-type param scaling: types 0/1/2/3/6 are all length-based;
+     *  type 12 (cone) has params [sinHalfAngle, cosHalfAngle, height,
+     *  _], so only params[2] scales. offsetInBone is always length. */
+    function scaleNoseAttachment(a: AttachmentPart, k: number): AttachmentPart {
+      const p = a.params
+      const scaled: [number, number, number, number] = a.type === 12
+        ? [p[0], p[1], p[2] * k, p[3]]
+        : [p[0] * k, p[1] * k, p[2] * k, p[3] * k]
+      return {
+        ...a,
+        params: scaled,
+        offsetInBone: [a.offsetInBone[0] * k, a.offsetInBone[1] * k, a.offsetInBone[2] * k],
+      }
     }
 
     /** Proportion and resolution are independent axes. Same CT-class cell
@@ -1103,7 +1101,6 @@ async function main() {
         }
         if (typeof lo.noseScale === 'number' && isFinite(lo.noseScale)) {
           loadout.noseScale = Math.max(0.1, Math.min(5, lo.noseScale))
-          applyNoseScale()
         }
         if (typeof lo.helm === 'string' && (HELM_STYLES as readonly string[]).includes(lo.helm)) {
           loadout.helm = lo.helm as HelmStyle
@@ -1642,7 +1639,6 @@ async function main() {
         const ns = (data as { noseScale?: unknown }).noseScale
         if (typeof ns === 'number' && isFinite(ns)) {
           loadout.noseScale = Math.max(0.1, Math.min(5, ns))
-          applyNoseScale()
         }
         if (typeof data.helm  === 'string' && (HELM_STYLES as readonly string[]).includes(data.helm)) loadout.helm = data.helm as HelmStyle
         if (typeof data.isolate === 'string' && (ISOLATE_CATEGORIES as readonly string[]).includes(data.isolate)) loadout.isolate = data.isolate as IsolateCategory
@@ -1737,10 +1733,16 @@ async function main() {
       // Nose-bridge attachments — multiple variant keys can be active at
       // once (loadout.nose is a string array) so e.g. "moustache" + "glasses"
       // compose for a Mario silhouette. Empty / 'none' contributes nothing.
+      // Each entry is cloned and scaled by loadout.noseScale so the
+      // slider grows the prim itself (and the offset spread for paired
+      // entries like glasses rings) without moving the bridge bone.
       const noseList: AttachmentPart[] = []
+      const ns = loadout.noseScale
       for (const key of loadout.nose) {
         const variant = NOSE_LIBRARY[key]
-        if (variant) noseList.push(...variant)
+        if (variant) {
+          for (const part of variant) noseList.push(scaleNoseAttachment(part, ns))
+        }
       }
       const effectiveAttachments = [...handsList, ...feetList, ...noseList].filter(
         (a) => !occludedJoints.has(a.jointName),
@@ -1980,7 +1982,7 @@ async function main() {
         range.oninput = () => {
           loadout.noseScale = parseFloat(range.value)
           val.textContent = loadout.noseScale.toFixed(2)
-          applyNoseScale()
+          rebuildPersistentPrims()
           saveLoadoutToStorage()
         }
         row.append(range, val)
