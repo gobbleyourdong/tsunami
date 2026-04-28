@@ -1213,12 +1213,14 @@ async function main() {
       srcUpIdx: number; srcLowIdx: number;
       dstUpIdx: number; dstLowIdx: number; dstTipIdx: number;
       lowOffY: number; tipOffY: number;
+      phaseOffset: boolean   // true = sample source at frame + numFrames/2
     }> = []
     for (const cfg of [
-      { srcUp: 'LeftArm',     srcLow: 'LeftForeArm',  side: 'FL' },
-      { srcUp: 'RightArm',    srcLow: 'RightForeArm', side: 'FR' },
-      { srcUp: 'LeftUpLeg',   srcLow: 'LeftLeg',      side: 'BL' },
-      { srcUp: 'RightUpLeg',  srcLow: 'RightLeg',     side: 'BR' },
+      { srcUp: 'LeftArm',     srcLow: 'LeftForeArm',  side: 'FL', phase: false },
+      { srcUp: 'RightArm',    srcLow: 'RightForeArm', side: 'FR', phase: false },
+      // Back limbs phase-offset by half cycle so spider gait alternates.
+      { srcUp: 'LeftUpLeg',   srcLow: 'LeftLeg',      side: 'BL', phase: true  },
+      { srcUp: 'RightUpLeg',  srcLow: 'RightLeg',     side: 'BR', phase: true  },
     ]) {
       const srcUpIdx  = rig.findIndex((j) => j.name === cfg.srcUp)
       const srcLowIdx = rig.findIndex((j) => j.name === cfg.srcLow)
@@ -1229,6 +1231,7 @@ async function main() {
       EXTRA_LIMB_PAIRS.push({
         srcUpIdx, srcLowIdx, dstUpIdx, dstLowIdx, dstTipIdx,
         lowOffY: -0.18, tipOffY: -0.16,
+        phaseOffset: cfg.phase,
       })
     }
     // Snake-neck idle weave — perturb each chain bone's world X position
@@ -1280,21 +1283,111 @@ async function main() {
       }
       invalidateRaymarchCache()
     }
-    const applyExtraLimbsCopy = () => {
+    // Phase-offset infrastructure: walk bone hierarchy at an arbitrary
+    // frame to compute a source bone's world matrix without touching the
+    // composer's current-frame state. Used for spider gait — back limbs
+    // copy front limbs at frame N + numFrames/2 (anti-phase) so the 8
+    // legs alternate instead of stepping in sync.
+    const _phaseTmpA = new Float32Array(16)
+    const _phaseTmpB = new Float32Array(16)
+    const _phaseSrcWorld = new Float32Array(16)
+    function mat4mulPh(out: Float32Array, a: Float32Array, b: Float32Array): void {
+      for (let col = 0; col < 4; col++) {
+        for (let row = 0; row < 4; row++) {
+          out[col * 4 + row] =
+            a[row]      * b[col * 4]     +
+            a[row + 4]  * b[col * 4 + 1] +
+            a[row + 8]  * b[col * 4 + 2] +
+            a[row + 12] * b[col * 4 + 3]
+        }
+      }
+    }
+    // Pre-compute root → bone chains for each source we'll phase-offset.
+    const SOURCE_BONE_CHAINS = new Map<number, number[]>()
+    for (const sourceName of ['LeftArm', 'LeftForeArm', 'RightArm', 'RightForeArm',
+                               'LeftUpLeg', 'LeftLeg', 'RightUpLeg', 'RightLeg']) {
+      const sIdx = rig.findIndex((j) => j.name === sourceName)
+      if (sIdx < 0) continue
+      const chain: number[] = []
+      let cur: number = sIdx
+      while (cur >= 0) {
+        chain.push(cur)
+        cur = rig[cur].parent
+      }
+      chain.reverse()
+      SOURCE_BONE_CHAINS.set(sIdx, chain)
+    }
+    function worldMatAtFrame(boneIdx: number, frame: number, dst: Float32Array): boolean {
+      const chain = SOURCE_BONE_CHAINS.get(boneIdx)
+      if (!chain) return false
+      const localMats = loadedVAT.localMats
+      if (!localMats) return false
+      const numJoints = loadedVAT.numJoints
+      const numFrames = loadedVAT.numFrames
+      const f = ((frame % numFrames) + numFrames) % numFrames
+      const base = f * numJoints * 16
+      // Identity
+      dst.fill(0); dst[0] = 1; dst[5] = 1; dst[10] = 1; dst[15] = 1
+      // Walk root → leaf, accumulating composition matrices. Composition
+      // = local with rotation cols unchanged + col3 (translation) × scale.
+      // This mirrors composer.update's "no scale cascade" composition
+      // path so children's world positions match.
+      for (const bone of chain) {
+        const localBase = base + bone * 16
+        const s = characterParams.scales[bone] ?? [1, 1, 1]
+        for (let i = 0; i < 12; i++) _phaseTmpA[i] = localMats[localBase + i]
+        _phaseTmpA[12] = localMats[localBase + 12] * s[0]
+        _phaseTmpA[13] = localMats[localBase + 13] * s[1]
+        _phaseTmpA[14] = localMats[localBase + 14] * s[2]
+        _phaseTmpA[15] = 1
+        mat4mulPh(_phaseTmpB, dst, _phaseTmpA)
+        for (let i = 0; i < 16; i++) dst[i] = _phaseTmpB[i]
+      }
+      // Apply leaf scale to columns (display path: composer scales col0/1/2
+      // by leaf's own s for the matrix actually fed to the SDF).
+      const sLeaf = characterParams.scales[boneIdx] ?? [1, 1, 1]
+      dst[0] *= sLeaf[0]; dst[1] *= sLeaf[0]; dst[2] *= sLeaf[0]
+      dst[4] *= sLeaf[1]; dst[5] *= sLeaf[1]; dst[6] *= sLeaf[1]
+      dst[8] *= sLeaf[2]; dst[9] *= sLeaf[2]; dst[10] *= sLeaf[2]
+      return true
+    }
+    const applyExtraLimbsCopy = (frameIdx: number) => {
       if (!composer) return
       const wm = composer.worldMatrices
+      const offsetFrame = frameIdx + Math.floor(loadedVAT.numFrames / 2)
       for (const p of EXTRA_LIMB_PAIRS) {
         const su = p.srcUpIdx * 16, sl = p.srcLowIdx * 16
         const du = p.dstUpIdx * 16, dl = p.dstLowIdx * 16, dt = p.dstTipIdx * 16
-        // Copy source Up bone's rotation columns (0/1/2) to dst Up.
-        // Translation column (3) stays at composer-computed Hips × offset.
-        wm[du + 0] = wm[su + 0]; wm[du + 1] = wm[su + 1]; wm[du + 2] = wm[su + 2]
-        wm[du + 4] = wm[su + 4]; wm[du + 5] = wm[su + 5]; wm[du + 6] = wm[su + 6]
-        wm[du + 8] = wm[su + 8]; wm[du + 9] = wm[su + 9]; wm[du + 10] = wm[su + 10]
-        // Copy source Low bone's rotation columns to dst Low.
-        wm[dl + 0] = wm[sl + 0]; wm[dl + 1] = wm[sl + 1]; wm[dl + 2] = wm[sl + 2]
-        wm[dl + 4] = wm[sl + 4]; wm[dl + 5] = wm[sl + 5]; wm[dl + 6] = wm[sl + 6]
-        wm[dl + 8] = wm[sl + 8]; wm[dl + 9] = wm[sl + 9]; wm[dl + 10] = wm[sl + 10]
+        // Source rotation cols: from current-frame wm OR from offset-frame
+        // walked-hierarchy world matrix (for back-limb anti-phase gait).
+        let r0_0, r0_1, r0_2, r1_0, r1_1, r1_2, r2_0, r2_1, r2_2: number
+        let l0_0, l0_1, l0_2, l1_0, l1_1, l1_2, l2_0, l2_1, l2_2: number
+        if (p.phaseOffset && worldMatAtFrame(p.srcUpIdx, offsetFrame, _phaseSrcWorld)) {
+          r0_0 = _phaseSrcWorld[0]; r0_1 = _phaseSrcWorld[1]; r0_2 = _phaseSrcWorld[2]
+          r1_0 = _phaseSrcWorld[4]; r1_1 = _phaseSrcWorld[5]; r1_2 = _phaseSrcWorld[6]
+          r2_0 = _phaseSrcWorld[8]; r2_1 = _phaseSrcWorld[9]; r2_2 = _phaseSrcWorld[10]
+        } else {
+          r0_0 = wm[su + 0]; r0_1 = wm[su + 1]; r0_2 = wm[su + 2]
+          r1_0 = wm[su + 4]; r1_1 = wm[su + 5]; r1_2 = wm[su + 6]
+          r2_0 = wm[su + 8]; r2_1 = wm[su + 9]; r2_2 = wm[su + 10]
+        }
+        if (p.phaseOffset && worldMatAtFrame(p.srcLowIdx, offsetFrame, _phaseSrcWorld)) {
+          l0_0 = _phaseSrcWorld[0]; l0_1 = _phaseSrcWorld[1]; l0_2 = _phaseSrcWorld[2]
+          l1_0 = _phaseSrcWorld[4]; l1_1 = _phaseSrcWorld[5]; l1_2 = _phaseSrcWorld[6]
+          l2_0 = _phaseSrcWorld[8]; l2_1 = _phaseSrcWorld[9]; l2_2 = _phaseSrcWorld[10]
+        } else {
+          l0_0 = wm[sl + 0]; l0_1 = wm[sl + 1]; l0_2 = wm[sl + 2]
+          l1_0 = wm[sl + 4]; l1_1 = wm[sl + 5]; l1_2 = wm[sl + 6]
+          l2_0 = wm[sl + 8]; l2_1 = wm[sl + 9]; l2_2 = wm[sl + 10]
+        }
+        // Write to dst Up bone — translation untouched (composer set it).
+        wm[du + 0] = r0_0; wm[du + 1] = r0_1; wm[du + 2] = r0_2
+        wm[du + 4] = r1_0; wm[du + 5] = r1_1; wm[du + 6] = r1_2
+        wm[du + 8] = r2_0; wm[du + 9] = r2_1; wm[du + 10] = r2_2
+        // dst Low rotation
+        wm[dl + 0] = l0_0; wm[dl + 1] = l0_1; wm[dl + 2] = l0_2
+        wm[dl + 4] = l1_0; wm[dl + 5] = l1_1; wm[dl + 6] = l1_2
+        wm[dl + 8] = l2_0; wm[dl + 9] = l2_1; wm[dl + 10] = l2_2
         // Recompute Low's translation: dst Up's translation + Up's Y axis × lowOffY.
         const upY0 = wm[du + 4], upY1 = wm[du + 5], upY2 = wm[du + 6]
         wm[dl + 12] = wm[du + 12] + upY0 * p.lowOffY
@@ -2757,7 +2850,7 @@ async function main() {
         // recomputes child translations along the rotated bone's Y
         // axis so the chain composes correctly. Result: 4 phantom legs
         // bend in sync with the human limbs.
-        if (loadout.extraLimbs && composer) applyExtraLimbsCopy()
+        if (loadout.extraLimbs && composer) applyExtraLimbsCopy(frameIdx)
         if (loadout.wings && loadout.wingFlap && composer) applyWingFlap()
         if (loadout.snakeNeck && composer) applySnakeNeckWeave()
       }
