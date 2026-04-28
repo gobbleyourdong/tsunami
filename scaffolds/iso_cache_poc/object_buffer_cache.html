@@ -147,6 +147,9 @@
       this.sdfFn3dFactory = opts.sdfFn3dFactory || null;
       this.metersPerPixel = opts.metersPerPixel || 0.01;
       this.lightDir = opts.lightDir || [0.4, 0.7, 0.6];
+      // Per-archetype bake tuning. Big buffers (volcano, terrain) get a
+      // lower step count so the per-tick re-bake stays in budget.
+      this.bakeMaxSteps = opts.bakeMaxSteps || 48;
       this.localW = opts.localW;
       this.localH = opts.localH;
       this.worldX = opts.worldX;
@@ -273,7 +276,7 @@
               }
               const wx = (lx - halfW) * mPP;
               const wy = -(ly - halfH) * mPP;
-              const hit = R3.raymarchPixel(sdfNow, wx, wy);
+              const hit = R3.raymarchPixel(sdfNow, wx, wy, { maxSteps: this.bakeMaxSteps });
               evals += 1 + (hit.steps || 0);
               const i = (py * reg.w + px) * 4;
               if (hit.hit) {
@@ -521,6 +524,21 @@
       d = Math.min(d, Math.max(plumeD, peakY - plumeH - ly, ly - peakY));
     }
     return d;
+  }
+
+  // ── 3D volcano (Phase 9 of PLAN_3D_PORT.md) ──────────────────
+  // Stretched ellipsoid for the mountain body (cone primitive bug
+  // workaround) + a sphere on top for the lava plume that bobs and
+  // breathes with animPhase. Big buffer (400×300) → 24-step march
+  // budget so the per-tick re-bake stays cheap.
+  function makeVolcano3D(phase) {
+    // Body — wide rounded mountain. Centered slightly low so the buffer
+    // top has room for the plume.
+    const body = R3.translate([0, -0.20, 0], R3.ellipsoid([1.55, 1.10, 1.40]));
+    const plumeY = 0.92 + 0.08 * Math.sin(phase * 2);
+    const plumeR = 0.20 + 0.05 * Math.sin(phase);
+    const plume = R3.translate([0, plumeY, 0], R3.sphere(plumeR));
+    return R3.smoothUnion(body, plume, 0.10);
   }
 
   // Stateful per-archetype destruction. Each archetype has its own
@@ -790,12 +808,15 @@
   terrainRef = terrain;                // hillHeight() reads terrain.localDamage
   initTopY();                           // build per-column physics surface
   objects.push(new GameObject({
-    id: 'volcano', color: [160, 80, 60], sdfFn: sdfVolcano,
+    id: 'volcano', color: [160, 80, 60],
+    sdfFn3dFactory: makeVolcano3D,     // 3D path: body + animated plume
+    metersPerPixel: 0.011,             // 400×300 buf → ~4.4×3.3m world
+    bakeMaxSteps: 24,                  // huge buffer → halve march budget
     localW: 400, localH: 300, worldX: 250, worldY: 20,
     animFlag: 'animating',
-    loopFrames: 3,
-    z: -1,                             // distant BG: ground draws over its base
-    material: E_LAVA,                  // carving the volcano spawns LAVA particles
+    loopFrames: 2,                     // 2 bakes/s — 3D bake is heavy on this big buf
+    z: -1,
+    material: E_LAVA,
     cosmetic: { palette_cycle: { slots: ['lava_glow'], hz: 0.5 } },
   }));
   objects.push(new GameObject({

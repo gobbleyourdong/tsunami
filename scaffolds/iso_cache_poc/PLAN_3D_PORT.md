@@ -180,7 +180,7 @@ POC; can downscale buffer if needed.
 **Commit subject:** `iso_cache_poc: 3D port phase 8 — critter archetype is 3D`
 
 ### Phase 9 — Convert VOLCANO (large BG)
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Volcano = cone + animated sphere lava plume on top.
 animPhase modulates the plume. Volcano is `animating` with
@@ -252,7 +252,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 | 6     | COMPLETE — gear = disk + 12 teeth boxes + hub bump (union, not smoothUnion); ~22ms/1000 raymarches |
 | 7     | COMPLETE — fan = Z-axis hub cylinder + 4 box blades at 0/90/180/270°; smoke test 6/8 expected |
 | 8     | COMPLETE — walker = sphere head + capsule body + 2 capsule legs + 2 capsule arms; limbs swing per phase via factory |
-| 9     | PENDING |
+| 9     | COMPLETE — volcano = stretched ellipsoid body + animated plume sphere; bakeMaxSteps=24 + loopFrames=2 to manage 120k px buf |
 | 10    | PENDING |
 | 11    | PENDING |
 | 12    | PENDING |
