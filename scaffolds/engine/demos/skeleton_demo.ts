@@ -2008,8 +2008,8 @@ async function main() {
       raymarch.rebind(vatHandle)
       invalidateRaymarchCache()
       elapsed = 0
-      // Sync the dropdown so creature-preset auto-pick (and the M-key
-      // cycle) is visible in the UI. Without this the dropdown lies.
+      // Sync the dropdown so the M-key cycle is visible in the UI.
+      // Without this the dropdown lies after a keyboard switch.
       const animSelEl = (window as unknown as { __animSel?: HTMLSelectElement }).__animSel
       if (animSelEl) animSelEl.value = String(animIdx)
     }

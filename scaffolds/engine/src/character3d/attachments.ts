@@ -133,10 +133,6 @@ export const DEFAULT_ATTACHMENTS: AttachmentPart[] = [...DEFAULT_HANDS, ...DEFAU
  *           (reads as a dark talon / reptile claw).
  */
 export const HAND_LIBRARY: Record<string, AttachmentPart[]> = {
-  /** Empty entry — non-human creatures (snake, dragon, spider, bird,
-   *  horse) want no hand primitives at all. Used by the creature
-   *  presets to suppress emission cleanly. */
-  none: [],
   skin: DEFAULT_HANDS,
   mitt: [
     {
@@ -196,10 +192,6 @@ export const HAND_LIBRARY: Record<string, AttachmentPart[]> = {
  *   boot  = chunkier wedge in leather palette for adventurer builds.
  */
 export const FOOT_LIBRARY: Record<string, AttachmentPart[]> = {
-  /** Empty entry — non-human creatures (snake, dragon, spider, bird,
-   *  horse) want no foot primitives at all. Used by the creature
-   *  presets to suppress emission cleanly. */
-  none: [],
   shoe: DEFAULT_FEET,
   bare: [
     {
