@@ -86,17 +86,21 @@ export const DEFAULT_HANDS: AttachmentPart[] = [
  * cartoon round shoe, reptile claw, etc.)
  */
 export const DEFAULT_FEET: AttachmentPart[] = [
-  // Wedge — flat sharp-edged box, half the length of the old boot shape
-  // and zero corner-rounding. Reads as a foot-shape in pixel art without
-  // the boot mass. Foot bone is no longer in the legs scale group, so
-  // the offset is at its natural (unscaled) value — keep it small so
-  // the wedge sits close to the ankle on chibi-squashed legs.
+  // Wedge — flat sharp-edged box, sized to BOTH cover the lower-leg
+  // capsule's tapered tip at the ankle AND read as a chunky shoe in
+  // chibi proportions. Halved-length wedge looked like a stub when the
+  // chibi head ratio inflated; extending the heel side lets the wedge
+  // wrap around the ankle hemisphere instead of leaving exposed skin
+  // behind it ("I see the ankle skin" + "wedge is extremely small" in
+  // chibi). halfY=0.06 + offset=0.030 → wedge spans y∈[-0.030, 0.090]
+  // in foot-local frame: 3cm behind the ankle through 9cm toe-forward.
+  // Wider sole (halfX=0.040) and taller (halfZ=0.035) for proportion.
   {
     name: 'foot_skin_L',
     jointName: 'LeftFoot',
     type: 1,
-    params: [0.030, 0.045, 0.025, 0],   // halfX sole, halfY length (toe-dir), halfZ height
-    offsetInBone: [0, 0.045, 0],
+    params: [0.040, 0.060, 0.035, 0],   // halfX sole, halfY length (toe-dir), halfZ height
+    offsetInBone: [0, 0.030, 0],
     paletteSlot: 'shoes',
     blendGroup: 4, blendRadius: 0.04,
   },
@@ -104,8 +108,8 @@ export const DEFAULT_FEET: AttachmentPart[] = [
     name: 'foot_skin_R',
     jointName: 'RightFoot',
     type: 1,
-    params: [0.030, 0.045, 0.025, 0],
-    offsetInBone: [0, 0.045, 0],
+    params: [0.040, 0.060, 0.035, 0],
+    offsetInBone: [0, 0.030, 0],
     paletteSlot: 'shoes',
     blendGroup: 5, blendRadius: 0.04,
   },
