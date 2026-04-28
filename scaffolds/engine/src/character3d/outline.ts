@@ -112,6 +112,8 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let checker = vec4f(shadeView, shadeView, shadeView, 1.0);
 
   // NORMAL VIEW: show the normal map as color (xyz encoded in [0,1]).
+  // (Note: modeler_demo.ts has its own lit pass that overrides this for
+  // screenshotView; this branch only fires for outline.ts's lit pipeline.)
   if (u.viewMode > 1.5) {
     let d = textureLoad(depthTex, pxClamp, 0);
     let a = textureLoad(sceneTex, pxClamp, 0).a;

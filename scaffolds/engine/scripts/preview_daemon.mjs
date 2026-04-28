@@ -55,15 +55,46 @@ await page.evaluate(() => window.modeler.setMode('agent'))
 console.log(`[preview-daemon] every ${intervalSec}s → ${outPath}`)
 console.log('[preview-daemon] Ctrl-C to stop')
 
+// Render mode: 'atlas' (default — 4-view 2x2 grid), or one of the named
+// single views: 'front' | 'side' | 'top' | 'iso'. Single views render at
+// full canvas size — 4× the pixels per view for inspecting artifacts.
+// Set via env var: PREVIEW_VIEW=iso node preview_daemon.mjs
+const previewView = process.env.PREVIEW_VIEW ?? 'atlas'
+// Optionally capture debug views alongside the main color render.
+// PREVIEW_DEBUG accepts a comma-separated list of view modes:
+//   normal | depth | silhouette | curvature | persurface
+// Each requested mode produces a parallel preview_<mode>.png file.
+// e.g. PREVIEW_DEBUG=normal,depth captures both preview_normal.png and
+// preview_depth.png each tick. Useful for auditing SDF gradient + surface
+// distance simultaneously without restarting the daemon.
+const debugModes = (process.env.PREVIEW_DEBUG ?? '')
+  .split(',').map((s) => s.trim()).filter(Boolean)
+console.log(`[preview-daemon] view mode: ${previewView}${debugModes.length ? ', debug=' + debugModes.join('+') : ''}`)
+
+const debugOutPaths = Object.fromEntries(
+  debugModes.map((m) => [m, outPath.replace(/\.png$/, `_${m}.png`)]),
+)
+
 let frame = 0
 const tick = async () => {
   try {
-    const dataUrl = await page.evaluate(() => window.modeler.screenshotAtlas())
+    const dataUrl = await page.evaluate((mode) => {
+      if (mode === 'atlas') return window.modeler.screenshotAtlas()
+      return window.modeler.screenshotView(mode)
+    }, previewView)
     writeFileSync(outPath, Buffer.from(dataUrl.split(',')[1], 'base64'))
+    if (previewView !== 'atlas') {
+      for (const m of debugModes) {
+        const debugUrl = await page.evaluate(({ v, mode }) => {
+          return window.modeler.screenshotView(v, mode)
+        }, { v: previewView, mode: m })
+        writeFileSync(debugOutPaths[m], Buffer.from(debugUrl.split(',')[1], 'base64'))
+      }
+    }
     frame++
     if (frame % 10 === 0) {
       const spec = await page.evaluate(() => window.modeler.getSpec())
-      console.log(`[preview-daemon] frame ${frame}, spec="${spec.name}"`)
+      console.log(`[preview-daemon] frame ${frame}, spec="${spec.name}", view=${previewView}`)
     }
   } catch (err) {
     console.error('[preview-daemon] capture failed:', err.message)

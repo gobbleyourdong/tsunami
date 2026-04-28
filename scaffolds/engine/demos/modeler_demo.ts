@@ -80,6 +80,19 @@ interface ModelerPrim {
   repeats?: Array<
     | { kind?: 'linear'; axis: 'x' | 'y' | 'z'; count: number; spacing: number }
     | { kind: 'rotational'; axis: 'x' | 'y' | 'z'; count: number }
+    | { kind: 'brickGrid'; rowAxis: 'x' | 'y' | 'z'; colAxis: 'x' | 'y' | 'z';
+        rows: number; cols: number; rowSpacing: number; colSpacing: number;
+        /** Per-row offset along colAxis. Default = colSpacing * 0.5 (running-bond half-brick stagger). */
+        stagger?: number }
+    | { kind: 'linkChain'; axis: 'x' | 'y' | 'z'; count: number; spacing: number }
+    | { kind: 'chainLinkGrid'; rowAxis: 'x' | 'y' | 'z'; colAxis: 'x' | 'y' | 'z';
+        rotAxis: 'x' | 'y' | 'z'; rows: number; cols: number;
+        rowSpacing: number; colSpacing: number }
+    | { kind: 'spline'; controlPoints: [number, number, number][]; count: number;
+        /** Scale at last copy; first copy is always 1.0. Linear interp between. Default 1.0 (no taper). */
+        taper?: number;
+        /** Which prim-local axis aligns with the spline tangent. Default 'x'. */
+        alignAxis?: 'x' | 'y' | 'z' }
   >
   /** FBM noise amplitude (m) — perturbs the SHADING normal only, not the
    *  silhouette. 0 = smooth. ~0.002–0.005 reads as "weathered / wood grain /
@@ -218,6 +231,98 @@ interface ModelerPrim {
    *  to deviate from a named preset. Explicit rdFeed/rdKill override the
    *  preset's mapping at any time. */
   rdPreset?: 'coral' | 'brain' | 'zebra' | 'leopard' | 'spots' | 'chaos' | 'fingerprint' | 'flower'
+  /** Terrain heightmap deformer depth (m). When > 0, surface is displaced
+   *  by a CPU-baked heightmap field (FBM by default; ridged/eroded options
+   *  via terrainGen). High value = elevated peak. Bilinear-sampled in WGSL
+   *  for smooth slope shading. Field is shared scene-wide (one bake) — see
+   *  rdDepth for the same one-field-per-scene constraint. */
+  terrainDepth?: number
+  /** Terrain density (tiles-per-meter). Default 12 ≈ one full 256-cell
+   *  tile per ~80mm. Lower = larger terrain features per surface area. */
+  terrainDensity?: number
+  /** Terrain generator.
+   *    'fbm'             = standard fractal Brownian motion, soft rolling hills (default)
+   *    'ridged'          = ridged multifractal, sharp peaks
+   *    'eroded-fbm'      = FBM + thermal erosion
+   *    'eroded-ridged'   = ridged + thermal erosion
+   *    'diamond-square'  = classic recursive midpoint displacement, continental landmass
+   *    'eroded-diamond'  = diamond-square + thermal erosion
+   *    'voronoi'         = peaks at seed points, plate-like topology
+   *  Pick eroded-* for naturalistic biomes, raw for stylized. */
+  terrainGen?: 'fbm' | 'ridged' | 'eroded-fbm' | 'eroded-ridged' | 'diamond-square' | 'eroded-diamond' | 'voronoi'
+  /** FBM octaves. Default 5. More octaves = finer detail at the cost of
+   *  bake time (roughly linear). */
+  terrainOctaves?: number
+  /** FBM persistence (per-octave amplitude decay). Default 0.5 — each
+   *  octave half the amplitude of the previous. Lower = smoother. */
+  terrainPersistence?: number
+  /** FBM lacunarity (per-octave frequency multiplier). Default 2.0 —
+   *  each octave doubles the frequency. */
+  terrainLacunarity?: number
+  /** Initial-condition seed. Same seed = same heightmap. Default 1. */
+  terrainSeed?: number
+  /** Voronoi-only: number of seed points (peaks). 4-8 = wide open island
+   *  pattern; 16-30 = scattered hills; 40+ = densely packed bumps.
+   *  Default 18. */
+  voronoiSeedCount?: number
+  /** Thermal erosion iterations (eroded-* generators only). Each iteration
+   *  redistributes material from steep slopes toward valleys. ~50-200 is
+   *  a usable range. Default 50. */
+  terrainErosionIters?: number
+  /** Scene-wide water level in heightmap [0, 1] units. Cells of the
+   *  terrain heightmap below this altitude get a flat water surface
+   *  (basins fill — this is the natural pooling-at-the-bottom-of-hills
+   *  visualization) and palette slot 3 (water blue, by convention).
+   *  0 = no water (default); 1 = entire terrain submerged. */
+  terrainWaterLevel?: number
+  /** River-channel carving depth (m). When > 0, the flow-accumulation
+   *  field (computed alongside the heightmap via the D8 algorithm) carves
+   *  channels into the terrain surface. Cells where many upstream cells
+   *  drain through them get cut deeper, so natural river networks emerge
+   *  from the heightmap geometry. ~0.5-1.5× of terrainDepth produces
+   *  visible-but-not-overwhelming river beds. Default 0 (no carving). */
+  terrainFlowDepth?: number
+  /** Wind-erosion iteration count. When > 0, runs N passes of upwind-
+   *  biased smoothing AFTER any thermal erosion. Each pass shifts each
+   *  cell's height a fraction of the way toward its upwind neighbour
+   *  height — visually produces streaked, dune-like terrain. Default 0
+   *  (no wind). 50-200 is a usable range. */
+  terrainWindIters?: number
+  /** Wind direction in XY plane (degrees, 0 = +X, 90 = +Y). Default 45°. */
+  terrainWindAngle?: number
+  /** Per-iteration wind blend strength [0, 1]. 0 = no shift, 1 = full
+   *  replacement with upwind sample (terrain becomes constant after a
+   *  few iters). Default 0.15. Higher values combined with high iters
+   *  produce extreme smearing — useful for sand-blasted desert looks. */
+  terrainWindStrength?: number
+  /** Cloud deformer depth (m). Applied to a base sphere/ellipsoid prim;
+   *  iterated-domain-warp billow noise carves out the characteristic
+   *  cumulus "fluff" silhouette. ~30-60% of prim radius is a usable
+   *  range. Authors get fluffier clouds by raising depth + density. */
+  cloudDepth?: number
+  /** Cloud noise density (cycles per meter). Lower = larger billows,
+   *  higher = finer puffs. Default 12. */
+  cloudDensity?: number
+  /** Hydraulic erosion droplet count. Each droplet spawns at a random
+   *  position, picks up sediment as it flows downhill, deposits when
+   *  it slows or reverses. ~5000-15000 produces visible canyons on
+   *  256². Default 0 (no hydraulic erosion). Runs AFTER thermal+wind. */
+  terrainHydraulicDroplets?: number
+  /** Hydraulic erosion droplet life (max steps). Each step is one cell-
+   *  width of travel (bilinear). Default 30 steps. Higher values let
+   *  droplets travel further before evaporating, carving longer rivers
+   *  but at proportionally more compute cost. */
+  terrainHydraulicSteps?: number
+  /** Vegetation scatter count. When > 0, that many small sphere prims
+   *  are placed on the terrain at random (x, y) within the slab,
+   *  filtered to grass zone (above water, below snow line, slope < 0.08).
+   *  Sphere palette slot 5 (forest green by default). Reads as scattered
+   *  trees / grass tufts depending on size. Default 0. */
+  terrainScatterCount?: number
+  /** Vegetation scatter prim radius (m). Default 0.002 (2mm — reads as
+   *  grass tuft on a 100mm slab). Bump up to 0.005-0.010 for tree-sized
+   *  blobs. */
+  terrainScatterRadius?: number
   /** RD iteration count. ~1500-3000 is the settled-pattern range; lower
    *  values give half-formed transient patterns (sometimes more interesting
    *  than steady-state). Default 2000. */
@@ -608,6 +713,63 @@ function isIdentityRotation(deg: Vec3): boolean {
  *  current set of N primitives and multiplies it by `count`, offsetting each
  *  copy by spacing along the axis. Repeats are centered on the original.
  *  Multiple entries compose: 5x along X then 3 along Z = 15 final copies. */
+/** Catmull-Rom spline position at parameter t in [0,1] across the inner
+ *  segments (control points 1..n-2 are interpolated; first and last act
+ *  as tangent guides). Returns position only. */
+function catmullRomSample(
+  cps: [number, number, number][],
+  tGlobal: number,
+): { pos: [number, number, number]; tan: [number, number, number] } {
+  const n = cps.length
+  const segs = n - 3
+  const tSeg = tGlobal * segs
+  const i = Math.min(Math.floor(tSeg), segs - 1)
+  const t = tSeg - i
+  const p0 = cps[i], p1 = cps[i + 1], p2 = cps[i + 2], p3 = cps[i + 3]
+  const t2 = t * t, t3 = t2 * t
+  const pos: [number, number, number] = [0, 0, 0]
+  const tan: [number, number, number] = [0, 0, 0]
+  for (let k = 0; k < 3; k++) {
+    pos[k] = 0.5 * (
+      (2 * p1[k]) +
+      (-p0[k] + p2[k]) * t +
+      (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 +
+      (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3
+    )
+    tan[k] = 0.5 * (
+      (-p0[k] + p2[k]) +
+      (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * 2 * t +
+      (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * 3 * t2
+    )
+  }
+  return { pos, tan }
+}
+
+/** Quaternion that rotates `from` (unit) to `to` (unit). */
+function quatFromTo(from: [number, number, number], to: [number, number, number]): [number, number, number, number] {
+  const dot = from[0]*to[0] + from[1]*to[1] + from[2]*to[2]
+  if (dot > 0.999999) return [0, 0, 0, 1]
+  if (dot < -0.999999) {
+    // 180° — pick a perpendicular axis
+    const axis: [number, number, number] = Math.abs(from[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]
+    const cross: [number, number, number] = [
+      from[1]*axis[2] - from[2]*axis[1],
+      from[2]*axis[0] - from[0]*axis[2],
+      from[0]*axis[1] - from[1]*axis[0],
+    ]
+    const m = Math.sqrt(cross[0]**2 + cross[1]**2 + cross[2]**2)
+    return [cross[0]/m, cross[1]/m, cross[2]/m, 0]
+  }
+  const cross: [number, number, number] = [
+    from[1]*to[2] - from[2]*to[1],
+    from[2]*to[0] - from[0]*to[2],
+    from[0]*to[1] - from[1]*to[0],
+  ]
+  const w = 1 + dot
+  const n = Math.sqrt(cross[0]**2 + cross[1]**2 + cross[2]**2 + w*w)
+  return [cross[0]/n, cross[1]/n, cross[2]/n, w/n]
+}
+
 function applyRepeats(
   prim: RaymarchPrimitive,
   repeats: NonNullable<ModelerPrim['repeats']> | undefined,
@@ -615,10 +777,116 @@ function applyRepeats(
   if (!repeats || !repeats.length) return [prim]
   let current: RaymarchPrimitive[] = [prim]
   for (const r of repeats) {
-    if (!r || r.count < 2) continue
-    const axisIdx = r.axis === 'x' ? 0 : r.axis === 'y' ? 1 : 2
+    if (!r) continue
     const next: RaymarchPrimitive[] = []
-    if ((r as { kind?: string }).kind === 'rotational') {
+    if ((r as { kind?: string }).kind === 'spline') {
+      // Spline-based positioning. Place `count` copies along a Catmull-Rom
+      // spline through controlPoints (need ≥4: first+last are tangent
+      // guides). Each copy: position from spline, rotation aligns the
+      // prim's chosen local axis with the spline tangent, params scaled
+      // by linear taper from 1.0 (first) to taper (last).
+      const sp = r as { controlPoints: [number, number, number][]; count: number; taper?: number; alignAxis?: 'x'|'y'|'z' }
+      if (sp.controlPoints.length < 4 || sp.count < 1) { current = next; continue }
+      const taperEnd = sp.taper ?? 1.0
+      const alignAxis = sp.alignAxis ?? 'x'
+      const localAxis: [number, number, number] = alignAxis === 'x' ? [1,0,0] : alignAxis === 'y' ? [0,1,0] : [0,0,1]
+      for (const p of current) {
+        for (let i = 0; i < sp.count; i++) {
+          const tGlobal = sp.count === 1 ? 0.5 : i / (sp.count - 1)
+          const { pos, tan } = catmullRomSample(sp.controlPoints, tGlobal)
+          const tlen = Math.sqrt(tan[0]**2 + tan[1]**2 + tan[2]**2) || 1
+          const tanU: [number, number, number] = [tan[0]/tlen, tan[1]/tlen, tan[2]/tlen]
+          const scale = 1 + (taperEnd - 1) * tGlobal
+          const newPrim: RaymarchPrimitive = {
+            ...p,
+            offsetInBone: [
+              p.offsetInBone[0] + pos[0],
+              p.offsetInBone[1] + pos[1],
+              p.offsetInBone[2] + pos[2],
+            ],
+            params: [p.params[0] * scale, p.params[1] * scale, p.params[2] * scale, p.params[3]],
+            rotation: quatFromTo(localAxis, tanU),
+          }
+          next.push(newPrim)
+        }
+      }
+      current = next
+      continue
+    }
+    if ((r as { kind?: string }).kind === 'chainLinkGrid') {
+      // 2D grid of rings with alternating rotation around rotAxis on each
+      // (row+col) parity → interlock pattern (real chain-link fence).
+      const cl = r as { rowAxis: 'x'|'y'|'z'; colAxis: 'x'|'y'|'z'; rotAxis: 'x'|'y'|'z';
+        rows: number; cols: number; rowSpacing: number; colSpacing: number }
+      if (cl.rows < 1 || cl.cols < 1) continue
+      const rowIdx = cl.rowAxis === 'x' ? 0 : cl.rowAxis === 'y' ? 1 : 2
+      const colIdx = cl.colAxis === 'x' ? 0 : cl.colAxis === 'y' ? 1 : 2
+      const rotIdx = cl.rotAxis === 'x' ? 0 : cl.rotAxis === 'y' ? 1 : 2
+      const half = Math.PI / 4
+      const sinH = Math.sin(half), cosH = Math.cos(half)
+      const rotQuat: [number, number, number, number] = [0, 0, 0, cosH]
+      rotQuat[rotIdx] = sinH
+      for (const p of current) {
+        for (let row = 0; row < cl.rows; row++) {
+          const rowOffset = (row - (cl.rows - 1) / 2) * cl.rowSpacing
+          for (let col = 0; col < cl.cols; col++) {
+            const colOffset = (col - (cl.cols - 1) / 2) * cl.colSpacing
+            const o: [number, number, number] = [p.offsetInBone[0], p.offsetInBone[1], p.offsetInBone[2]]
+            o[rowIdx] += rowOffset
+            o[colIdx] += colOffset
+            const newPrim: RaymarchPrimitive = { ...p, offsetInBone: o }
+            if ((row + col) % 2 === 1) newPrim.rotation = rotQuat
+            next.push(newPrim)
+          }
+        }
+      }
+      current = next
+      continue
+    }
+    if ((r as { kind?: string }).kind === 'brickGrid') {
+      const br = r as { rowAxis: 'x'|'y'|'z'; colAxis: 'x'|'y'|'z';
+        rows: number; cols: number; rowSpacing: number; colSpacing: number; stagger?: number }
+      if (br.rows < 1 || br.cols < 1) continue
+      const rowIdx = br.rowAxis === 'x' ? 0 : br.rowAxis === 'y' ? 1 : 2
+      const colIdx = br.colAxis === 'x' ? 0 : br.colAxis === 'y' ? 1 : 2
+      const stagger = br.stagger ?? br.colSpacing * 0.5
+      for (const p of current) {
+        for (let row = 0; row < br.rows; row++) {
+          const rowOffset = (row - (br.rows - 1) / 2) * br.rowSpacing
+          const rowStagger = (row % 2 === 1) ? stagger : 0
+          for (let col = 0; col < br.cols; col++) {
+            const colOffset = (col - (br.cols - 1) / 2) * br.colSpacing + rowStagger
+            const o: [number, number, number] = [p.offsetInBone[0], p.offsetInBone[1], p.offsetInBone[2]]
+            o[rowIdx] += rowOffset
+            o[colIdx] += colOffset
+            next.push({ ...p, offsetInBone: o })
+          }
+        }
+      }
+      current = next
+      continue
+    }
+    if (r.count < 2) continue
+    const axisIdx = r.axis === 'x' ? 0 : r.axis === 'y' ? 1 : 2
+    if ((r as { kind?: string }).kind === 'linkChain') {
+      // Chain: alternating 90° rotation around chain axis so adjacent
+      // links interlock (real metal chain topology).
+      const lc = r as { axis: 'x'|'y'|'z'; count: number; spacing: number }
+      const half = Math.PI / 4
+      const sinH = Math.sin(half), cosH = Math.cos(half)
+      const rotQuat: [number, number, number, number] = [0, 0, 0, cosH]
+      rotQuat[axisIdx] = sinH
+      for (const p of current) {
+        for (let i = 0; i < lc.count; i++) {
+          const offset = (i - (lc.count - 1) / 2) * lc.spacing
+          const o: [number, number, number] = [p.offsetInBone[0], p.offsetInBone[1], p.offsetInBone[2]]
+          o[axisIdx] += offset
+          const newPrim: RaymarchPrimitive = { ...p, offsetInBone: o }
+          if (i % 2 === 1) newPrim.rotation = rotQuat
+          next.push(newPrim)
+        }
+      }
+    } else if ((r as { kind?: string }).kind === 'rotational') {
       // Rotational: each copy's offset rotates around `axis` by i*(2π/count).
       // The prim itself stays in its original orientation — only the position
       // sweeps around the axis.
@@ -1450,6 +1718,7 @@ function bakeReactionDiffusion(opts: RDBakeOpts): Float32Array {
   return V
 }
 
+
 // --- Spec -> prims --------------------------------------------------------
 
 function specToPrims(spec: ModelerSpec): RaymarchPrimitive[] {
@@ -1590,6 +1859,22 @@ function specToPrims(spec: ModelerSpec): RaymarchPrimitive[] {
       prim.detailAmplitude = p.rdDepth
       prim.paletteSlotB = p.accentSlot ?? 2
       prim.colorExtent = p.rdDensity ?? 12
+    } else if (p.cloudDepth && p.cloudDepth > 0) {
+      // cloud (colorFunc=29) — pure white puff, slot B for shadowed cracks
+      prim.colorFunc = 29
+      prim.detailAmplitude = p.cloudDepth
+      prim.paletteSlotB = p.accentSlot ?? 1
+      prim.colorExtent = p.cloudDensity ?? 12
+    } else if (p.terrainDepth && p.terrainDepth > 0) {
+      // terrain heightmap (colorFunc=28) — RAISED peaks. Snow/peak slot
+      // for high altitudes; one shared field per scene.
+      prim.colorFunc = 28
+      prim.detailAmplitude = p.terrainDepth
+      prim.paletteSlotB = p.accentSlot ?? 2
+      prim.colorExtent = p.terrainDensity ?? 12
+      if (typeof p.terrainFlowDepth === 'number' && p.terrainFlowDepth > 0) {
+        prim.terrainFlowDepth = p.terrainFlowDepth
+      }
     }
     // Secondary wear deformer (optional, runs AFTER the primary).
     if (p.wearDeformer && p.wearDeformer.depth > 0) {
@@ -1714,6 +1999,7 @@ struct U {
   keyDir:  vec4f,   // xyz = direction TO key light, w = intensity
   fillDir: vec4f,   // xyz = direction TO fill light, w = intensity
   ambient: vec4f,   // rgb ambient floor, w = rim strength
+  cameraDir: vec4f, // xyz = direction subject→camera (view direction), w unused
 }
 
 @group(0) @binding(0) var sceneTex:  texture_2d<f32>;
@@ -1777,8 +2063,21 @@ fn fs_main(in: VsOut) -> @location(0) vec4f {
 
   if (u.viewMode == 1u) { return vec4f(nEnc.xyz, 1.0); }
   if (u.viewMode == 2u) {
-    let d = clamp(dEnc.r, 0.0, 1.0);
-    return vec4f(vec3f(1.0 - d), 1.0);
+    // Depth view: Sobel-of-depth highlights surface curvature + edges
+    // directly, sidestepping the saturation problem (raw d.r clusters
+    // at one end of [0,1]). Sobel shows WHERE of depth-discontinuities
+    // (silhouette edges, ridges, SDF kinks) without needing an absolute
+    // range. Uses textureLoad (no sampler) to satisfy WGSL's uniform-
+    // control-flow requirement on conditional branches.
+    let dim = vec2i(textureDimensions(sceneTex));
+    let px = vec2i(in.uv * vec2f(dim));
+    let dN = textureLoad(depthTex, clamp(px + vec2i( 0, -1), vec2i(0), dim - vec2i(1)), 0).r;
+    let dS = textureLoad(depthTex, clamp(px + vec2i( 0,  1), vec2i(0), dim - vec2i(1)), 0).r;
+    let dE = textureLoad(depthTex, clamp(px + vec2i( 1,  0), vec2i(0), dim - vec2i(1)), 0).r;
+    let dW = textureLoad(depthTex, clamp(px + vec2i(-1,  0), vec2i(0), dim - vec2i(1)), 0).r;
+    let grad = abs(dE - dW) + abs(dN - dS);
+    let g = clamp(grad * 200.0, 0.0, 1.0);
+    return vec4f(vec3f(g), 1.0);
   }
   if (u.viewMode == 4u) {
     return vec4f(vec3f(curv), 1.0);
@@ -1791,6 +2090,12 @@ fn fs_main(in: VsOut) -> @location(0) vec4f {
     return vec4f(r, g, b, 1.0);
   }
 
+  // Unlit pixels (sky, VFX with own emissive, anything raymarch flagged)
+  // pass their albedo through unmodified. depth.g = 1 packed by raymarch.
+  if (dEnc.g > 0.5) {
+    return vec4f(scene.rgb, 1.0);
+  }
+
   // Lit composite. Smooth Lambert key + half-Lambert wrap fill so back-
   // facing surfaces aren't pure black — keeps detail visible from any
   // panel's camera.
@@ -1799,11 +2104,41 @@ fn fs_main(in: VsOut) -> @location(0) vec4f {
   let nDotK = max(dot(n, kDir), 0.0);
   let nDotF = dot(n, fDir) * 0.5 + 0.5;   // wrap to [0,1] across the sphere
 
-  let lit = u.ambient.rgb
-          + vec3f(nDotK * u.keyDir.w)
-          + vec3f(nDotF * u.fillDir.w);
+  // Physically-plausible colored lights:
+  //   Key (sun): warm yellow — direct sunlight near 5500K
+  //   Fill (sky bounce): cool blue — Rayleigh scatter from sky dome
+  // Ambient stays neutral. Together they produce golden-hour
+  // atmospheric shading characteristic of real outdoor terrain.
+  // G-buffer occlusion channels:
+  //   depth.b = directVis  (sun shadow × cloud) — blocks KEY only
+  //   depth.a = aoFactor   (local AO)            — blocks ambient + fill
+  // AO never touches direct light; a crevice can still be sunlit from
+  // the open side. Sun shadow never touches indirect light; sky-bounce
+  // fill still reaches the shaded ground. Defaults 1.0 for non-terrain.
+  let directVis = clamp(dEnc.b, 0.0, 1.0);
+  let aoFactor  = clamp(dEnc.a, 0.0, 1.0);
+  let keyColor  = vec3f(1.00, 0.92, 0.78);
+  let fillColor = vec3f(0.55, 0.72, 0.95);
+  let lit = u.ambient.rgb * aoFactor
+          + keyColor  * (nDotK * u.keyDir.w  * directVis)
+          + fillColor * (nDotF * u.fillDir.w * aoFactor);
 
   var rgb = scene.rgb * lit;
+
+  // Specular highlight on shiny surfaces (water, polished prims). Reads
+  // shinyOut from normal.a packed by the raymarch pass — 1 = shiny, 0
+  // = matte. Blinn-Phong with TRUE view direction (passed as uniform
+  // by JS each frame; was previously approximated as +Z which only
+  // worked for panel cameras looking down -Z). Highlight tint is the
+  // warm key color (sun reflection); narrow specular peak (pow 64).
+  let shinyW = nEnc.a;
+  if (shinyW > 0.01) {
+    let viewDir = normalize(u.cameraDir.xyz);
+    let halfDir = normalize(kDir + viewDir);
+    let specBase = max(dot(n, halfDir), 0.0);
+    let spec = pow(specBase, 64.0) * shinyW * u.keyDir.w;
+    rgb = rgb + keyColor * spec * 0.85;
+  }
 
   // Soft rim — boosts silhouette clarity for the VLM. Pulls light from
   // grazing angles (1 - n·v). Cheap and reads as a halo effect.
@@ -1830,6 +2165,7 @@ interface LitPass {
   setKeyLight(dir: Vec3, intensity: number): void
   setFillLight(dir: Vec3, intensity: number): void
   setAmbient(rgb: Vec3, rim: number): void
+  setCameraDir(dir: Vec3): void
 }
 
 function createLitPass(
@@ -1851,10 +2187,10 @@ function createLitPass(
   })
 
   const ubo = device.createBuffer({
-    size: 16 * 4,   // U is 16 floats
+    size: 20 * 4,   // U is 20 floats (was 16; +1 vec4 for cameraDir)
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  const uData   = new Float32Array(16)
+  const uData   = new Float32Array(20)
   const uDataU  = new Uint32Array(uData.buffer)
   // viewMode = 0 (lit). pads in [1..3].
   uDataU[0] = 0
@@ -1863,6 +2199,9 @@ function createLitPass(
   uData[4]  = -0.4; uData[5]  = 0.7; uData[6]  = 0.6;  uData[7]  = 0.85   // key
   uData[8]  =  0.5; uData[9]  = 0.3; uData[10] = -0.7; uData[11] = 0.30   // fill
   uData[12] = 0.18; uData[13] = 0.20; uData[14] = 0.24; uData[15] = 0.25  // ambient + rim
+  // cameraDir default — points roughly into scene from a default camera
+  // angle. JS overrides each frame via setCameraDir before lit.run().
+  uData[16] = -0.5; uData[17] = -0.4; uData[18] = -0.7; uData[19] = 0.0
 
   let curScene = scene, curNormal = normal, curDepth = depth
   let bindGroup = makeBindGroup()
@@ -1920,6 +2259,9 @@ function createLitPass(
     setAmbient(rgb, rim) {
       uData[12] = rgb[0]; uData[13] = rgb[1]; uData[14] = rgb[2]; uData[15] = rim
     },
+    setCameraDir(dir) {
+      uData[16] = dir[0]; uData[17] = dir[1]; uData[18] = dir[2]; uData[19] = 0
+    },
   }
 }
 
@@ -1969,14 +2311,65 @@ async function main() {
   initialPalette[2 * 4 + 0] = Math.min(1, MATERIAL_RGB[0] * 1.45)
   initialPalette[2 * 4 + 1] = Math.min(1, MATERIAL_RGB[1] * 1.45)
   initialPalette[2 * 4 + 2] = Math.min(1, MATERIAL_RGB[2] * 1.45)
+  // Slot 3 = water-blue, by convention used by the terrain deformer
+  // (colorFunc=28) when a cell's heightmap altitude is below the
+  // scene-wide terrainWaterLevel uniform. Authors override slot 3 to
+  // get different water colors (lava red, acid green, etc.).
+  initialPalette[3 * 4 + 0] = 0.20
+  initialPalette[3 * 4 + 1] = 0.45
+  initialPalette[3 * 4 + 2] = 0.65
+  // Slot 4 = rock-grey, by convention used by colorFunc=28 when a cell
+  // exceeds the slope threshold (steep — exposed rock face, no soil).
+  // Slightly darker and warmer than the base material.
+  initialPalette[4 * 4 + 0] = 0.42
+  initialPalette[4 * 4 + 1] = 0.40
+  initialPalette[4 * 4 + 2] = 0.38
+  // Slot 5 = forest-green, by convention used by terrain vegetation
+  // scatter prims. Authors override slot 5 to get autumn (orange),
+  // pine (dark green), savanna (yellow), or alien (purple) foliage.
+  initialPalette[5 * 4 + 0] = 0.18
+  initialPalette[5 * 4 + 1] = 0.36
+  initialPalette[5 * 4 + 2] = 0.16
+  // Slot 6 = foam white, by convention used by terrain colorFunc=28 in
+  // the thin band right around waterLevel. Coastlines and shores read
+  // as a bright halo separating water from land. Authors override for
+  // sandy shore (yellow-tan) or muddy delta (brown).
+  initialPalette[6 * 4 + 0] = 0.92
+  initialPalette[6 * 4 + 1] = 0.94
+  initialPalette[6 * 4 + 2] = 0.97
+  // Slot 7 = shallow water teal (lighter + greener than slot 3 deep
+  // water). Used by terrain colorFunc=28 in the shallow zone (cells
+  // 0.05-0.15 below waterLevel — between the foam band and deep water).
+  // Gives real depth gradient: pale teal near shore → deep blue offshore.
+  initialPalette[7 * 4 + 0] = 0.34
+  initialPalette[7 * 4 + 1] = 0.62
+  initialPalette[7 * 4 + 2] = 0.70
+  // Slot 8 = dark pine green. Used by vegetation scatter for variety —
+  // 18% of scatter prims pick this slot to break the uniform forest.
+  initialPalette[8 * 4 + 0] = 0.10
+  initialPalette[8 * 4 + 1] = 0.24
+  initialPalette[8 * 4 + 2] = 0.10
+  // Slot 9 = olive / yellow-green. Used by vegetation scatter — 8% of
+  // prims; reads as autumn or arid grass.
+  initialPalette[9 * 4 + 0] = 0.40
+  initialPalette[9 * 4 + 1] = 0.40
+  initialPalette[9 * 4 + 2] = 0.18
+  // Slot 10 = brown/dead. Used by vegetation scatter — 4% of prims;
+  // reads as bare branches, dead trees, dirt patches.
+  initialPalette[10 * 4 + 0] = 0.30
+  initialPalette[10 * 4 + 1] = 0.20
+  initialPalette[10 * 4 + 2] = 0.12
+  // Slot 11 = cloud-underside light gray-blue. Used by colorFunc=29
+  // when the billow density dips below the dither-shadow threshold —
+  // gives clouds a subtle shadowed look instead of harsh dark-grey.
+  initialPalette[11 * 4 + 0] = 0.78
+  initialPalette[11 * 4 + 1] = 0.83
+  initialPalette[11 * 4 + 2] = 0.90
   const placeholder: RaymarchPrimitive[] = [{
     type: 0, paletteSlot: 0, boneIdx: 0,
     params: [0.0001, 0, 0, 0], offsetInBone: [0, -1000, 0],
   }]
-  // maxSteps 32 for the modeler — convex/simple shapes converge in well under
-  // 32 steps. Engine default is 48 for the rigged-character pipeline where
-  // limbs and curves need more. Save ~33% per pixel.
-  const raymarch = createRaymarchRenderer(device, format, placeholder, initialPalette, vat, { maxSteps: 32 })
+  const raymarch = createRaymarchRenderer(device, format, placeholder, initialPalette, vat, { maxSteps: 96 })
 
   // Mode: agent (default, 2x2 ortho atlas) or human (single orbiting view).
   // Agent first because authoring is mostly LLM-driven; human mode toggles
@@ -1985,11 +2378,10 @@ async function main() {
   let displayMode: DisplayMode = 'agent'
 
   // Per-panel resolution. Atlas (agent mode) is 2×renderRes × 2×renderRes.
-  // 384 → 768² atlas. Headless GB10 has plenty of GPU headroom, and the
-  // sharper render makes pixel-scale features (brick mortar, T-junction
-  // joints, fine cracks) actually readable. Drop to 192/128 via the res
-  // buttons in the sidebar if running on older hardware.
-  let renderRes = 384
+  // Single-view (human mode, used by screenshotView) renders at renderRes.
+  // 256 → 512² atlas / 256² single. Cheap enough that the daemon does not
+  // contend hard for the GPU.
+  let renderRes = 256
 
   /** Per-frame view+proj matrices for the agent atlas. Computed each frame
    *  because scene bounds (and thus distance) can change as the spec is
@@ -2217,6 +2609,30 @@ async function main() {
         norm.fishscaleDepth = p.fishscaleDepth
         if (typeof p.fishscaleDensity === 'number') norm.fishscaleDensity = p.fishscaleDensity
       }
+      if (typeof p.cloudDepth === 'number' && p.cloudDepth > 0) {
+        norm.cloudDepth = p.cloudDepth
+        if (typeof p.cloudDensity === 'number') norm.cloudDensity = p.cloudDensity
+      }
+      if (typeof p.terrainDepth === 'number' && p.terrainDepth > 0) {
+        norm.terrainDepth = p.terrainDepth
+        if (typeof p.terrainDensity === 'number') norm.terrainDensity = p.terrainDensity
+        if (p.terrainGen === 'fbm' || p.terrainGen === 'ridged' || p.terrainGen === 'eroded-fbm' || p.terrainGen === 'eroded-ridged' || p.terrainGen === 'diamond-square' || p.terrainGen === 'eroded-diamond' || p.terrainGen === 'voronoi') norm.terrainGen = p.terrainGen
+        if (typeof p.voronoiSeedCount === 'number') norm.voronoiSeedCount = p.voronoiSeedCount | 0
+        if (typeof p.terrainOctaves === 'number') norm.terrainOctaves = p.terrainOctaves | 0
+        if (typeof p.terrainPersistence === 'number') norm.terrainPersistence = p.terrainPersistence
+        if (typeof p.terrainLacunarity === 'number') norm.terrainLacunarity = p.terrainLacunarity
+        if (typeof p.terrainSeed === 'number') norm.terrainSeed = p.terrainSeed | 0
+        if (typeof p.terrainErosionIters === 'number') norm.terrainErosionIters = p.terrainErosionIters | 0
+        if (typeof p.terrainWaterLevel === 'number') norm.terrainWaterLevel = p.terrainWaterLevel
+        if (typeof p.terrainFlowDepth === 'number') norm.terrainFlowDepth = p.terrainFlowDepth
+        if (typeof p.terrainWindIters === 'number') norm.terrainWindIters = p.terrainWindIters | 0
+        if (typeof p.terrainWindAngle === 'number') norm.terrainWindAngle = p.terrainWindAngle
+        if (typeof p.terrainWindStrength === 'number') norm.terrainWindStrength = p.terrainWindStrength
+        if (typeof p.terrainHydraulicDroplets === 'number') norm.terrainHydraulicDroplets = p.terrainHydraulicDroplets | 0
+        if (typeof p.terrainHydraulicSteps === 'number') norm.terrainHydraulicSteps = p.terrainHydraulicSteps | 0
+        if (typeof p.terrainScatterCount === 'number') norm.terrainScatterCount = p.terrainScatterCount | 0
+        if (typeof p.terrainScatterRadius === 'number') norm.terrainScatterRadius = p.terrainScatterRadius
+      }
       if (typeof p.rdDepth === 'number' && p.rdDepth > 0) {
         norm.rdDepth = p.rdDepth
         if (typeof p.rdDensity === 'number') norm.rdDensity = p.rdDensity
@@ -2290,13 +2706,64 @@ async function main() {
         }
       }
       if (p.repeats && Array.isArray(p.repeats)) {
+        const axisOK = (a: unknown): a is 'x'|'y'|'z' => a === 'x' || a === 'y' || a === 'z'
         norm.repeats = p.repeats
-          .filter((r) => r && (r.axis === 'x' || r.axis === 'y' || r.axis === 'z') && r.count > 1)
-          .map((r) => {
-            if ((r as { kind?: string }).kind === 'rotational') {
-              return { kind: 'rotational' as const, axis: r.axis, count: Math.max(2, r.count|0) }
+          .filter((r): r is NonNullable<ModelerPrim['repeats']>[number] => {
+            if (!r) return false
+            if ((r as { kind?: string }).kind === 'brickGrid') {
+              const br = r as { rowAxis?: unknown; colAxis?: unknown; rows?: number; cols?: number }
+              return axisOK(br.rowAxis) && axisOK(br.colAxis) && (br.rows ?? 0) >= 1 && (br.cols ?? 0) >= 1
             }
-            return { axis: r.axis, count: Math.max(2, r.count|0), spacing: (r as { spacing?: number }).spacing || 0.01 }
+            if ((r as { kind?: string }).kind === 'chainLinkGrid') {
+              const cl = r as { rowAxis?: unknown; colAxis?: unknown; rotAxis?: unknown; rows?: number; cols?: number }
+              return axisOK(cl.rowAxis) && axisOK(cl.colAxis) && axisOK(cl.rotAxis) && (cl.rows ?? 0) >= 1 && (cl.cols ?? 0) >= 1
+            }
+            if ((r as { kind?: string }).kind === 'spline') {
+              const sp = r as { controlPoints?: unknown; count?: number }
+              return Array.isArray(sp.controlPoints) && sp.controlPoints.length >= 4 && (sp.count ?? 0) >= 1
+            }
+            return axisOK((r as { axis?: unknown }).axis) && (r as { count?: number }).count! > 1
+          })
+          .map((r) => {
+            if ((r as { kind?: string }).kind === 'brickGrid') {
+              const br = r as { rowAxis: 'x'|'y'|'z'; colAxis: 'x'|'y'|'z';
+                rows: number; cols: number; rowSpacing?: number; colSpacing?: number; stagger?: number }
+              return {
+                kind: 'brickGrid' as const,
+                rowAxis: br.rowAxis, colAxis: br.colAxis,
+                rows: Math.max(1, br.rows|0), cols: Math.max(1, br.cols|0),
+                rowSpacing: br.rowSpacing ?? 0.01, colSpacing: br.colSpacing ?? 0.01,
+                ...(typeof br.stagger === 'number' ? { stagger: br.stagger } : {}),
+              }
+            }
+            if ((r as { kind?: string }).kind === 'chainLinkGrid') {
+              const cl = r as { rowAxis: 'x'|'y'|'z'; colAxis: 'x'|'y'|'z'; rotAxis: 'x'|'y'|'z';
+                rows: number; cols: number; rowSpacing?: number; colSpacing?: number }
+              return {
+                kind: 'chainLinkGrid' as const,
+                rowAxis: cl.rowAxis, colAxis: cl.colAxis, rotAxis: cl.rotAxis,
+                rows: Math.max(1, cl.rows|0), cols: Math.max(1, cl.cols|0),
+                rowSpacing: cl.rowSpacing ?? 0.01, colSpacing: cl.colSpacing ?? 0.01,
+              }
+            }
+            if ((r as { kind?: string }).kind === 'spline') {
+              const sp = r as { controlPoints: [number, number, number][]; count: number; taper?: number; alignAxis?: 'x'|'y'|'z' }
+              return {
+                kind: 'spline' as const,
+                controlPoints: sp.controlPoints.map((p): [number, number, number] => [p[0], p[1], p[2]]),
+                count: Math.max(1, sp.count|0),
+                ...(typeof sp.taper === 'number' ? { taper: sp.taper } : {}),
+                ...(sp.alignAxis ? { alignAxis: sp.alignAxis } : {}),
+              }
+            }
+            const lr = r as { axis: 'x'|'y'|'z'; count: number; spacing?: number; kind?: string }
+            if (lr.kind === 'rotational') {
+              return { kind: 'rotational' as const, axis: lr.axis, count: Math.max(2, lr.count|0) }
+            }
+            if (lr.kind === 'linkChain') {
+              return { kind: 'linkChain' as const, axis: lr.axis, count: Math.max(2, lr.count|0), spacing: lr.spacing || 0.01 }
+            }
+            return { axis: lr.axis, count: Math.max(2, lr.count|0), spacing: lr.spacing || 0.01 }
           })
         if (!norm.repeats.length) delete norm.repeats
       }
@@ -2318,6 +2785,14 @@ async function main() {
     // (F, k, iterations, seed). One field shared scene-wide. Skipped (no
     // upload) when no RD prims exist — the renderer's default-zero buffer
     // keeps the binding valid.
+    const terrainPrim = spec.primitives.find((p) => typeof p.terrainDepth === 'number' && p.terrainDepth > 0)
+    if (terrainPrim) {
+      raymarch.setTerrainWaterLevel(terrainPrim.terrainWaterLevel ?? 0)
+      raymarch.setBgMode('sky')
+    } else {
+      raymarch.setTerrainWaterLevel(0)
+      raymarch.setBgMode('transparent')
+    }
     const rdPrim = spec.primitives.find((p) => typeof p.rdDepth === 'number' && p.rdDepth > 0)
     if (rdPrim) {
       // Resolve preset → (F, k); explicit rdFeed/rdKill always win over preset.
@@ -2648,6 +3123,33 @@ async function main() {
       lit!.setViewMode(prevView)
       return url
     },
+    /** Render a SINGLE view at full canvas size. Pick angle by viewName
+     *  ('front' | 'side' | 'top' | 'iso') and channel by viewMode
+     *  ('color' | 'normal' | 'depth' | 'silhouette' | 'curvature' |
+     *  'persurface'). Use 'normal' to inspect normal-vector continuity —
+     *  any visible artifacts in normal-mode are SDF gradient discontinuities. */
+    async screenshotView(viewName: 'front' | 'side' | 'top' | 'iso', viewMode: 'color' | 'normal' | 'depth' | 'silhouette' | 'curvature' | 'persurface' = 'color'): Promise<string> {
+      const prevMode = displayMode
+      const prevView = (document.querySelector('button[data-vmode].on')?.getAttribute('data-vmode') ?? 'color') as 'color' | 'normal' | 'depth'
+      const prevAuto = autoOrbit
+      const prevAngles = camera.getOrbitAngles()
+      const view = ATLAS_VIEWS.find((v) => v.name === viewName) ?? ATLAS_VIEWS[3]
+      autoOrbit = false
+      camera.setOrbitAngles(view.yaw, view.pitch)
+      displayMode = 'human'
+      lit!.setViewMode(viewMode)
+      // 4 rAFs to let canvas resize, camera reorient, MRT rebuild, render.
+      await new Promise((res) => requestAnimationFrame(() => res(null)))
+      await new Promise((res) => requestAnimationFrame(() => res(null)))
+      await new Promise((res) => requestAnimationFrame(() => res(null)))
+      await new Promise((res) => requestAnimationFrame(() => res(null)))
+      const url = canvas.toDataURL('image/png')
+      displayMode = prevMode
+      autoOrbit = prevAuto
+      camera.setOrbitAngles(prevAngles.yaw, prevAngles.pitch)
+      lit!.setViewMode(prevView)
+      return url
+    },
     /** Render an atlas-of-MRTs: a 2x2 of (color / normal / depth / depth-as-greyscale).
      *  Same panels as screenshotAtlas but with full G-buffer signals. Returns
      *  one PNG dataURL per channel — VLM can be fed all three or pick one. */
@@ -2924,6 +3426,14 @@ async function main() {
         [camera.position[0], camera.position[1], camera.position[2]],
         null, false,
       )
+      // Camera direction = subject→camera = view direction toward eye.
+      // Used by the lit pass for accurate Blinn-Phong specular. Computed
+      // each frame because orbit can move the camera continuously.
+      const dx = camera.position[0] - camera.target[0]
+      const dy = camera.position[1] - camera.target[1]
+      const dz = camera.position[2] - camera.target[2]
+      const dlen = Math.hypot(dx, dy, dz) || 1
+      lit!.setCameraDir([dx / dlen, dy / dlen, dz / dlen])
       lit!.run(enc, swap)
       device.queue.submit([enc.finish()])
     } else {
@@ -2946,6 +3456,16 @@ async function main() {
           [tiles[i][0], tiles[i][1], r, r], i > 0)
         device.queue.submit([penc.finish()])
       }
+      // Atlas tiles each have different camera directions; lit pass runs
+      // once over the whole atlas with a single cameraDir uniform. Set it
+      // to the iso panel's direction since that's the headline view —
+      // other panels' specular will be approximate but visible glints
+      // mostly happen when the iso panel reads water/shiny.
+      const isoView = ATLAS_VIEWS[3]
+      const isoEye = eyeFromOrbit(target, isoView.yaw, isoView.pitch, dist)
+      const idx = isoEye[0] - target[0], idy = isoEye[1] - target[1], idz = isoEye[2] - target[2]
+      const ilen = Math.hypot(idx, idy, idz) || 1
+      lit!.setCameraDir([idx / ilen, idy / ilen, idz / ilen])
       const oenc = device.createCommandEncoder({ label: 'modeler-outline' })
       lit!.run(oenc, swap)
       device.queue.submit([oenc.finish()])

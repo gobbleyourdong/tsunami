@@ -99,10 +99,15 @@ async function main() {
   const statusEl = document.getElementById('status-banner')!
   const errorEl = document.getElementById('error')!
 
+  // Cap raymarch buffer at 512×512 — anything larger tanks for no visual
+  // gain at typical viewing distance and squanders shader-compile budget.
+  const MAX_RAY_BUF = 512
   function fitCanvas() {
     const dpr = Math.min(2, window.devicePixelRatio || 1)
-    canvas.width  = Math.floor(canvas.clientWidth  * dpr)
-    canvas.height = Math.floor(canvas.clientHeight * dpr)
+    const w = Math.min(MAX_RAY_BUF, Math.floor(canvas.clientWidth  * dpr))
+    const h = Math.min(MAX_RAY_BUF, Math.floor(canvas.clientHeight * dpr))
+    canvas.width  = w
+    canvas.height = h
   }
   fitCanvas()
 
@@ -144,6 +149,11 @@ async function main() {
   }]
 
   const raymarch = createRaymarchRenderer(device, format, initialPrims, initialPalette, vat, { maxSteps: 64 })
+  // sdf_modeler has no lit/composite pass — what raymarch writes lands
+  // directly on the swap chain. Atmospheric sky on miss is what the demo
+  // has always shown; without it, alpha=0 misses leave the page bg visible
+  // through the canvas (indistinguishable from "nothing rendering").
+  raymarch.setBgMode('sky')
 
   // MRT throwaway textures. Raymarch writes 3 attachments; only color
   // (palette tint) lands on the swap chain. Normal+depthViz are discarded.
@@ -239,6 +249,21 @@ async function main() {
   }
 
   function applySpec(spec: ArkSpec, source: string) {
+    // Schema sanity check — sdf_modeler.html consumes ArkSpec (numeric
+    // type, centerWorld, rotation quat). modeler_demo.html consumes a
+    // different ModelerSpec (string type, pos, rotationDeg). They share
+    // the same /sdf_modeler/inbox.ark.json path so it is easy to wire
+    // them up incorrectly. Detect and bail early with a clear message
+    // rather than blowing up downstream on undefined property access.
+    const first = spec.primitives?.[0] as Partial<ArkPrim> & { pos?: unknown; rotationDeg?: unknown; type?: unknown }
+    if (first && (typeof first.type === 'string' || (first as { pos?: unknown }).pos !== undefined)) {
+      showError('JSON looks like ModelerSpec (string type / pos field). sdf_modeler expects ArkSpec — emit via sdf_modeling_research/compiler/ark_emit.py, or open this file in modeler_demo.html instead.')
+      return
+    }
+    if (first && (first.rotation === undefined || first.centerWorld === undefined)) {
+      showError('JSON missing required ArkSpec fields (centerWorld / rotation). Was the file emitted by ark_emit.py?')
+      return
+    }
     const rgb = spec.palette_rgb ?? []
     for (let i = 0; i < Math.min(rgb.length, MAX_PALETTE_SLOTS); i++) {
       const [r, g, b] = rgb[i]
@@ -451,7 +476,8 @@ async function main() {
   loop.onRender = (stats) => {
     const w = canvas.clientWidth, h = canvas.clientHeight
     const dpr = Math.min(2, window.devicePixelRatio || 1)
-    const tw = Math.floor(w * dpr), th = Math.floor(h * dpr)
+    const tw = Math.min(MAX_RAY_BUF, Math.floor(w * dpr))
+    const th = Math.min(MAX_RAY_BUF, Math.floor(h * dpr))
     if (tw !== canvas.width || th !== canvas.height) {
       canvas.width = tw; canvas.height = th
       camera.setAspect(tw, th)
