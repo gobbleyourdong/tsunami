@@ -55,7 +55,7 @@ For each phase, after editing, the verification can be:
 ## Phases
 
 ### Phase 1 — JS 3D-SDF library (CPU)
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** A new `raymarch3d_cpu.js` ES module exporting 3D SDF
 primitives (sphere, box, roundedBox, ellipsoid, cylinder, capsule, torus,
@@ -244,7 +244,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 
 | Phase | Status |
 |------:|:-------|
-| 1     | PENDING |
+| 1     | COMPLETE — raymarch3d_cpu.js with primitives + compose + transforms; node --check clean |
 | 2     | PENDING |
 | 3     | PENDING |
 | 4     | PENDING |
