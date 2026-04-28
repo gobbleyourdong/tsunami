@@ -1213,14 +1213,20 @@ async function main() {
       srcUpIdx: number; srcLowIdx: number;
       dstUpIdx: number; dstLowIdx: number; dstTipIdx: number;
       lowOffY: number; tipOffY: number;
-      phaseOffset: boolean   // true = sample source at frame + numFrames/2
+      // Phase offset as a fraction 0..1 of the animation cycle. 0 = use
+      // current frame (in sync with source); 0.5 = half-cycle delay
+      // (anti-phase). Wave gait would be (0, 0.25, 0.5, 0.75); trot
+      // (diagonal pairs) is (0, 0.5, 0.5, 0) — FL+BR vs FR+BL.
+      phaseOffset: number
     }> = []
+    // Default: trot gait — diagonal pairs (FL+BR, FR+BL) move together.
+    // Reads as a natural alternating quadruped/spider walk on most anims
+    // including cycle-driven crawls.
     for (const cfg of [
-      { srcUp: 'LeftArm',     srcLow: 'LeftForeArm',  side: 'FL', phase: false },
-      { srcUp: 'RightArm',    srcLow: 'RightForeArm', side: 'FR', phase: false },
-      // Back limbs phase-offset by half cycle so spider gait alternates.
-      { srcUp: 'LeftUpLeg',   srcLow: 'LeftLeg',      side: 'BL', phase: true  },
-      { srcUp: 'RightUpLeg',  srcLow: 'RightLeg',     side: 'BR', phase: true  },
+      { srcUp: 'LeftArm',     srcLow: 'LeftForeArm',  side: 'FL', phase: 0    },
+      { srcUp: 'RightArm',    srcLow: 'RightForeArm', side: 'FR', phase: 0.5  },
+      { srcUp: 'LeftUpLeg',   srcLow: 'LeftLeg',      side: 'BL', phase: 0.5  },
+      { srcUp: 'RightUpLeg',  srcLow: 'RightLeg',     side: 'BR', phase: 0    },
     ]) {
       const srcUpIdx  = rig.findIndex((j) => j.name === cfg.srcUp)
       const srcLowIdx = rig.findIndex((j) => j.name === cfg.srcLow)
@@ -1421,15 +1427,18 @@ async function main() {
     const applyExtraLimbsCopy = (frameIdx: number) => {
       if (!composer) return
       const wm = composer.worldMatrices
-      const offsetFrame = frameIdx + Math.floor(loadedVAT.numFrames / 2)
+      const numFrames = loadedVAT.numFrames
       for (const p of EXTRA_LIMB_PAIRS) {
         const su = p.srcUpIdx * 16, sl = p.srcLowIdx * 16
         const du = p.dstUpIdx * 16, dl = p.dstLowIdx * 16, dt = p.dstTipIdx * 16
-        // Source rotation cols: from current-frame wm OR from offset-frame
-        // walked-hierarchy world matrix (for back-limb anti-phase gait).
+        // Per-limb phase offset: phase 0 → use current frame (in sync with
+        // source, no hierarchy walk needed). phase > 0 → sample source at
+        // frameIdx + numFrames × phase for that limb's gait position.
+        const offsetFrame = frameIdx + Math.floor(numFrames * p.phaseOffset)
+        const usePhaseOffset = p.phaseOffset > 0.001
         let r0_0, r0_1, r0_2, r1_0, r1_1, r1_2, r2_0, r2_1, r2_2: number
         let l0_0, l0_1, l0_2, l1_0, l1_1, l1_2, l2_0, l2_1, l2_2: number
-        if (p.phaseOffset && worldMatAtFrame(p.srcUpIdx, offsetFrame, _phaseSrcWorld)) {
+        if (usePhaseOffset && worldMatAtFrame(p.srcUpIdx, offsetFrame, _phaseSrcWorld)) {
           r0_0 = _phaseSrcWorld[0]; r0_1 = _phaseSrcWorld[1]; r0_2 = _phaseSrcWorld[2]
           r1_0 = _phaseSrcWorld[4]; r1_1 = _phaseSrcWorld[5]; r1_2 = _phaseSrcWorld[6]
           r2_0 = _phaseSrcWorld[8]; r2_1 = _phaseSrcWorld[9]; r2_2 = _phaseSrcWorld[10]
@@ -1438,7 +1447,7 @@ async function main() {
           r1_0 = wm[su + 4]; r1_1 = wm[su + 5]; r1_2 = wm[su + 6]
           r2_0 = wm[su + 8]; r2_1 = wm[su + 9]; r2_2 = wm[su + 10]
         }
-        if (p.phaseOffset && worldMatAtFrame(p.srcLowIdx, offsetFrame, _phaseSrcWorld)) {
+        if (usePhaseOffset && worldMatAtFrame(p.srcLowIdx, offsetFrame, _phaseSrcWorld)) {
           l0_0 = _phaseSrcWorld[0]; l0_1 = _phaseSrcWorld[1]; l0_2 = _phaseSrcWorld[2]
           l1_0 = _phaseSrcWorld[4]; l1_1 = _phaseSrcWorld[5]; l1_2 = _phaseSrcWorld[6]
           l2_0 = _phaseSrcWorld[8]; l2_1 = _phaseSrcWorld[9]; l2_2 = _phaseSrcWorld[10]
