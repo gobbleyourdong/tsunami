@@ -30,22 +30,24 @@
       font-size: 13px; line-height: 1.6; z-index: 10; white-space: pre;
     }
     #props {
-      position: fixed; top: 12px; right: 12px;
-      background: rgba(0,0,0,0.7); padding: 12px 14px; border-radius: 4px;
-      color: #cde; font-size: 12px; z-index: 10;
+      position: fixed; top: 6px; right: 6px;
+      background: rgba(0,0,0,0.7); padding: 6px 8px; border-radius: 4px;
+      color: #cde; font-size: 11px; z-index: 10;
       min-width: 220px;
+      max-height: calc(100vh - 12px);
+      overflow: hidden;
     }
-    #props h3 { margin: 0 0 8px; font-size: 13px; color: #fc4; font-weight: normal; }
-    #props label { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-family: monospace; }
+    #props h3 { margin: 0 0 4px; font-size: 12px; color: #fc4; font-weight: normal; }
+    #props label { display: flex; align-items: center; gap: 6px; margin: 2px 0; font-family: monospace; }
     #props .lbl { display: inline-block; width: 54px; }
-    #props .val { display: inline-block; width: 36px; text-align: right; color: #9cf; }
-    #props input[type="range"] { flex: 1; }
-    #props input[type="color"] { width: 36px; height: 18px; border: 1px solid #334; background: transparent; padding: 0; cursor: pointer; }
-    #props button { margin-top: 8px; background: #1a2b4a; color: #cde; border: 1px solid #345; padding: 4px 10px; font-size: 11px; cursor: pointer; border-radius: 3px; }
+    #props .val { display: inline-block; width: 32px; text-align: right; color: #9cf; }
+    #props input[type="range"] { flex: 1; height: 14px; }
+    #props input[type="color"] { width: 28px; height: 14px; border: 1px solid #334; background: transparent; padding: 0; cursor: pointer; }
+    #props button { margin-top: 4px; background: #1a2b4a; color: #cde; border: 1px solid #345; padding: 2px 6px; font-size: 10px; cursor: pointer; border-radius: 3px; }
     #props button:hover { background: #263a5c; }
-    #props hr { border: 0; border-top: 1px solid #233; margin: 10px 0 6px; }
-    #props .palette-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-family: monospace; font-size: 11px; }
-    #props .palette-row .slot-lbl { width: 70px; color: #9ab; }
+    #props hr { border: 0; border-top: 1px solid #233; margin: 4px 0 2px; }
+    #props .palette-row { display: flex; align-items: center; gap: 6px; margin: 2px 0; font-family: monospace; font-size: 10px; }
+    #props .palette-row .slot-lbl { width: 64px; color: #9ab; }
     #error {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
       background: #1a0000; border: 1px solid #660000; padding: 24px; border-radius: 8px;
@@ -58,32 +60,56 @@
   <div id="stats"></div>
   <div id="props">
     <h3>Character</h3>
-    <div style="font-size: 11px; color: #9ab; margin-bottom: 4px;">resolution</div>
+    <div style="font-size: 10px; color: #9ab; margin-bottom: 2px;">resolution</div>
     <div style="font-size: 11px; color: #9ab; margin-bottom: 6px;">
       1 · 24² (Zelda / sm. Mario) &nbsp; 2 · 32² (lg. Mario) &nbsp; 3 · 48² (CT / Alucard) &nbsp; 4 · 128² (debug)
     </div>
-    <div style="font-size: 11px; color: #9ab; margin-bottom: 4px;">proportion</div>
+    <div style="font-size: 10px; color: #9ab; margin-bottom: 2px;">proportion</div>
     <div style="display: flex; gap: 4px; flex-wrap: wrap;">
       <button id="preset-chibi">chibi</button>
       <button id="preset-stylized">stylized</button>
       <button id="preset-realistic">realistic</button>
     </div>
     <hr>
-    <div style="font-size: 11px; color: #9ab; margin-bottom: 4px;">loadout</div>
+    <div style="font-size: 10px; color: #9ab; margin-bottom: 2px;">loadout</div>
     <div id="loadout-panel" style="display: flex; flex-direction: column; gap: 4px;"></div>
     <hr>
-    <div style="font-size: 11px; color: #9ab; margin-bottom: 4px;">cape length</div>
-    <label style="display: flex; align-items: center; gap: 8px; margin: 4px 0;">
+    <div style="font-size: 10px; color: #9ab; margin-bottom: 2px;">cape length</div>
+    <label style="display: flex; align-items: center; gap: 6px; margin: 2px 0;">
       <input type="range" id="cape-length" min="0.3" max="5.0" step="0.05" value="1.0" style="flex: 1;">
       <span class="val" id="cape-length-val">1.00</span>
     </label>
     <hr>
-    <div style="font-size: 11px; color: #9ab; margin-bottom: 4px;">expression</div>
+    <div style="font-size: 10px; color: #9ab; margin-bottom: 2px;">hair length</div>
+    <label style="display: flex; align-items: center; gap: 6px; margin: 2px 0;">
+      <input type="range" id="hair-length" min="0.3" max="3.0" step="0.05" value="1.0" style="flex: 1;">
+      <span class="val" id="hair-length-val">1.00</span>
+    </label>
+    <hr>
+    <div style="font-size: 10px; color: #9ab; margin-bottom: 2px;">tail length</div>
+    <label style="display: flex; align-items: center; gap: 6px; margin: 2px 0;">
+      <input type="range" id="tail-length" min="0.3" max="3.0" step="0.05" value="1.0" style="flex: 1;">
+      <span class="val" id="tail-length-val">1.00</span>
+    </label>
+    <hr>
+    <div style="font-size: 10px; color: #9ab; margin-bottom: 2px;">strand length</div>
+    <label style="display: flex; align-items: center; gap: 6px; margin: 2px 0;">
+      <input type="range" id="strand-length" min="0.3" max="3.0" step="0.05" value="1.0" style="flex: 1;">
+      <span class="val" id="strand-length-val">1.00</span>
+    </label>
+    <hr>
+    <div style="font-size: 10px; color: #9ab; margin-bottom: 2px;">spike scale</div>
+    <label style="display: flex; align-items: center; gap: 6px; margin: 2px 0;">
+      <input type="range" id="spike-scale" min="0.5" max="2.5" step="0.05" value="1.0" style="flex: 1;">
+      <span class="val" id="spike-scale-val">1.00</span>
+    </label>
+    <hr>
+    <div style="font-size: 10px; color: #9ab; margin-bottom: 2px;">expression</div>
     <div id="expression-row" style="display: flex; gap: 4px; flex-wrap: wrap;"></div>
     <hr>
     <div id="palette-list"></div>
     <hr>
-    <div style="font-size: 11px; color: #9ab; margin-bottom: 4px;">face pixels</div>
+    <div style="font-size: 10px; color: #9ab; margin-bottom: 2px;">face pixels</div>
     <div id="face-pixel-editor" style="font-size: 10px;"></div>
     <hr>
     <div style="display: flex; gap: 6px; flex-wrap: wrap;">

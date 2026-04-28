@@ -23,6 +23,20 @@
       "fps": 30
     },
     {
+      "tag": "crawl_backwards",
+      "url": "/mixamo_crawl_backwards.vat",
+      "numFrames": 119,
+      "durationSec": 3.9666669368743896,
+      "fps": 30
+    },
+    {
+      "tag": "crawling",
+      "url": "/mixamo_crawling.vat",
+      "numFrames": 54,
+      "durationSec": 1.7999999523162842,
+      "fps": 30
+    },
+    {
       "tag": "defeated",
       "url": "/mixamo_defeated.vat",
       "numFrames": 202,
@@ -55,6 +69,13 @@
       "url": "/mixamo_jumping.vat",
       "numFrames": 57,
       "durationSec": 1.899999976158142,
+      "fps": 30
+    },
+    {
+      "tag": "mutant_run",
+      "url": "/mixamo_mutant_run.vat",
+      "numFrames": 26,
+      "durationSec": 0.8666669726371765,
       "fps": 30
     },
     {
@@ -93,10 +114,24 @@
       "fps": 30
     },
     {
+      "tag": "running_crawl",
+      "url": "/mixamo_running_crawl.vat",
+      "numFrames": 20,
+      "durationSec": 0.6666669845581055,
+      "fps": 30
+    },
+    {
       "tag": "spell_cast",
       "url": "/mixamo_spell_cast.vat",
       "numFrames": 34,
       "durationSec": 1.1333329677581787,
+      "fps": 30
+    },
+    {
+      "tag": "standing_block",
+      "url": "/mixamo_standing_block.vat",
+      "numFrames": 60,
+      "durationSec": 2.0,
       "fps": 30
     },
     {

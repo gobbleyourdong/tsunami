@@ -216,6 +216,7 @@ const CHIBI_SLOTS = {
   armor:     16,   // wardrobe armor pieces (helmet, plates, gauntlets)
   cloth:     17,   // mage robe, hood — soft fabric look (cooler/duller)
   leather:   18,   // light armor straps, barbarian pads — warm tan/brown
+  fur:       19,   // tail / animal-fur surfaces — warm brown by default
 }
 
 /** Default chibi material: 6-slot palette, each visible body part bound
@@ -259,6 +260,9 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
     if (/Breast/.test(name)) return CHIBI_SLOTS.shirt
     if (/HipPad/.test(name)) return CHIBI_SLOTS.pants
     if (/^Cape/.test(name)) return CHIBI_SLOTS.cape
+    if (/^Tail/.test(name)) return CHIBI_SLOTS.fur
+    if (/^Wing/.test(name)) return CHIBI_SLOTS.cape   // wings reuse cape palette (membrane material)
+    if (/^Extra(FL|FR|BL|BR)_/.test(name)) return CHIBI_SLOTS.skin   // procedural limbs read as flesh
     if (/^Grenade/.test(name)) return CHIBI_SLOTS.weapon
     // Wardrobe armor pieces — route by outfit prefix so each outfit can
     // pick its own palette family without rewriting paletteIndices at
@@ -308,6 +312,7 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
   setC(CHIBI_SLOTS.armor,     0.55, 0.58, 0.65)    // steel grey, faint cool tint
   setC(CHIBI_SLOTS.cloth,     0.30, 0.20, 0.45)    // mage robe — cool indigo
   setC(CHIBI_SLOTS.leather,   0.45, 0.28, 0.16)    // saddle leather — warm tan
+  setC(CHIBI_SLOTS.fur,       0.50, 0.32, 0.18)    // tail / fur — warm brown
 
   return { paletteIndices, palette, namedSlots: { ...CHIBI_SLOTS } }
 }
@@ -415,11 +420,11 @@ export const DEFAULT_LONG_HAIR: HairPart[] = [
   // anchored to Head. Cross-section halfW = 0.045 (9cm wide), halfT =
   // 0.030 (6cm thick) reads as a thick braid; for "flat hair flowing
   // back" make halfW > halfT (e.g., 0.10 × 0.025).
-  { name: 'HairLong0', parentName: 'Head',      offset: [0,  0.04, -0.13], displaySize: [0.045, 0.10, 0.030] },
-  { name: 'HairLong1', parentName: 'HairLong0', offset: [0, -0.10,  0.00], displaySize: [0.045, 0.10, 0.030] },
-  { name: 'HairLong2', parentName: 'HairLong1', offset: [0, -0.10,  0.00], displaySize: [0.045, 0.10, 0.030] },
-  { name: 'HairLong3', parentName: 'HairLong2', offset: [0, -0.10,  0.00], displaySize: [0.045, 0.10, 0.030] },
-  { name: 'HairLong4', parentName: 'HairLong3', offset: [0, -0.10,  0.00], displaySize: [0.045, 0.10, 0.030] },
+  { name: 'HairLong0', parentName: 'Head',      offset: [0,  0.10, -0.13], displaySize: [0.10, 0.10, 0.018] },
+  { name: 'HairLong1', parentName: 'HairLong0', offset: [0, -0.10,  0.00], displaySize: [0.10, 0.10, 0.018] },
+  { name: 'HairLong2', parentName: 'HairLong1', offset: [0, -0.10,  0.00], displaySize: [0.10, 0.10, 0.018] },
+  { name: 'HairLong3', parentName: 'HairLong2', offset: [0, -0.10,  0.00], displaySize: [0.10, 0.10, 0.018] },
+  { name: 'HairLong4', parentName: 'HairLong3', offset: [0, -0.10,  0.00], displaySize: [0.10, 0.10, 0.018] },
   // HairLong5 — positional-only endpoint joint for last segment's B side.
   { name: 'HairLong5', parentName: 'HairLong4', offset: [0, -0.10,  0.00], displaySize: [0.0, 0.0, 0.0] },
 ]
@@ -430,42 +435,129 @@ export const DEFAULT_LONG_HAIR: HairPart[] = [
  *  the Head bone for jiggle on quick head moves. Wider than the head
  *  in X/Z, slightly shorter in Y so the lower face stays exposed. */
 export const DEFAULT_BOB_HAIR: HairPart[] = [
-  { name: 'HairBob', parentName: 'Head', offset: [0, 0.16, 0], displaySize: [0.22, 0.16, 0.22] },
+  // Forward-tilted hemisphere covering crown + forehead-front. Diagonal
+  // hairline silhouette in profile (yarmulke pulled forward 25°).
+  { name: 'HairBob',     parentName: 'Head', offset: [0, 0.23, -0.02], rotationDeg: [-25, 0, 0], displaySize: [0.19, 0.12, 0.19] },
+  // Back-of-head dome.
+  { name: 'HairBobBack', parentName: 'Head', offset: [0, 0.10, -0.05],                          displaySize: [0.18, 0.18, 0.16] },
+  // Temple panels — drape the bob down at the FRONT-sides where the
+  // back dome doesn't reach (HairBobBack at offset Z=-0.05 doesn't
+  // extend to Z=+0.10, the temple region). Centered at temple-line:
+  // X=±0.15 (just outside head halfX=0.165), Y=0.08 (ear-top), Z=+0.02
+  // (slightly forward to wrap the temples). Bigger halfX/halfZ than
+  // before so the panel is actually OUTBOARD of HairBobBack rather
+  // than nested inside it. halfY=0.10 covers ear-top (Y=-0.02) up to
+  // mid-head (Y=+0.18).
+  { name: 'HairBobSideL', parentName: 'Head', offset: [-0.15, 0.16, -0.02],                       displaySize: [0.05, 0.10, 0.16] },
+  { name: 'HairBobSideR', parentName: 'Head', offset: [ 0.15, 0.16, -0.02],                       displaySize: [0.05, 0.10, 0.16] },
 ]
 
-/** Hair strands — short individual chunks (capsules) sprouting from the
- *  cranium. Each strand is its own bone parented to Head with a baked
- *  rotation so the bone's +Y axis points along the strand. Per-frame
- *  spring displacement (in skeleton_demo.ts) jiggles each tip
- *  independently for an anime "wisps catch the wind" look without a
- *  full chain.
+/** Hair strands — face-framing side bangs. Two 3-segment ribbon chains,
+ *  one per side, anchored to Spine2 (upper torso) at chest-front-shoulder
+ *  height. Drapes straight DOWN with chain physics, framing the face
+ *  from the sides. Anchored to torso rather than head so head rotation
+ *  doesn't fling the bangs around — they hang relative to the body.
  *
- *  displaySize: [radius, halfLen, _].
- *  rotationDeg: euler XYZ in degrees — sets the strand's bone-local
- *               +Y axis direction relative to Head's +Y.
+ *  Was: six independent type-14 bent capsules (top tufts, front fringe,
+ *  sideburns) with per-strand springs. Replaced with this chain layout
+ *  because the bent-capsule version never read as actual hair — the
+ *  capsules clipped the head and the spring jiggle was too local. Same
+ *  emit slot (HairStrand* names) so loadout entries / saved-character
+ *  files keep working.
  *
- *  Layout: front fringe ×2, top tufts ×2, sideburns ×2.
+ *  Anchor: X = ±0.10 (ear-line), Y = +0.10 (toward neck), Z = +0.13
+ *  (forward of body surface). 30cm total drape (3 segments × 0.10m).
  */
-export const DEFAULT_HAIR_STRANDS: HairPart[] = [
-  // Top tufts — sticking straight up, slightly tilted left/right. Sizes
-  // are intentionally over-scaled vs. anatomical realism so strands
-  // actually read at SNES sprite resolutions (32-48px tall character).
-  // 0.07m radius × 0.10m halfLen → 0.20m total length ≈ 4-6 px wide.
-  { name: 'HairStrand0', parentName: 'Head', offset: [-0.06, 0.18,  0.00], rotationDeg: [0, 0,  10], displaySize: [0.045, 0.10, 0.045] },
-  { name: 'HairStrand1', parentName: 'Head', offset: [ 0.06, 0.18,  0.00], rotationDeg: [0, 0, -10], displaySize: [0.045, 0.10, 0.045] },
-  // Front fringe — lean forward over the forehead.
-  { name: 'HairStrand2', parentName: 'Head', offset: [-0.05, 0.14,  0.11], rotationDeg: [-30, 0,  10], displaySize: [0.038, 0.085, 0.038] },
-  { name: 'HairStrand3', parentName: 'Head', offset: [ 0.05, 0.14,  0.11], rotationDeg: [-30, 0, -10], displaySize: [0.038, 0.085, 0.038] },
-  // Sideburns — drop down past the ears.
-  { name: 'HairStrand4', parentName: 'Head', offset: [-0.14, 0.04,  0.02], rotationDeg: [0, 0,  170], displaySize: [0.040, 0.090, 0.040] },
-  { name: 'HairStrand5', parentName: 'Head', offset: [ 0.14, 0.04,  0.02], rotationDeg: [0, 0, -170], displaySize: [0.040, 0.090, 0.040] },
+export const DEFAULT_HAIR_STRAND_L: HairPart[] = [
+  // Left side strand — 3 visible segments + tip endpoint. Head-anchored
+  // (same socket as HairLong ponytail) so bangs follow head rotation.
+  // Anchor at temple-line: X just past head halfX (0.165), Y ear-level
+  // (above head bone origin which sits near the jaw), Z just behind face.
+  { name: 'HairStrandL0', parentName: 'Head',         offset: [-0.16,  0.15,  0.05], displaySize: [0.045, 0.13, 0.032] },
+  { name: 'HairStrandL1', parentName: 'HairStrandL0', offset: [ 0.00, -0.13,  0.00], displaySize: [0.045, 0.13, 0.032] },
+  { name: 'HairStrandL2', parentName: 'HairStrandL1', offset: [ 0.00, -0.13,  0.00], displaySize: [0.045, 0.13, 0.032] },
+  { name: 'HairStrandL3', parentName: 'HairStrandL2', offset: [ 0.00, -0.13,  0.00], displaySize: [0.000, 0.00, 0.000] },
+]
+export const DEFAULT_HAIR_STRAND_R: HairPart[] = [
+  { name: 'HairStrandR0', parentName: 'Head',         offset: [ 0.16,  0.15,  0.05], displaySize: [0.045, 0.13, 0.032] },
+  { name: 'HairStrandR1', parentName: 'HairStrandR0', offset: [ 0.00, -0.13,  0.00], displaySize: [0.045, 0.13, 0.032] },
+  { name: 'HairStrandR2', parentName: 'HairStrandR1', offset: [ 0.00, -0.13,  0.00], displaySize: [0.045, 0.13, 0.032] },
+  { name: 'HairStrandR3', parentName: 'HairStrandR2', offset: [ 0.00, -0.13,  0.00], displaySize: [0.000, 0.00, 0.000] },
+]
+/** Combined L+R strand set — used for rig extension (all bones present)
+ *  and as legacy fallback when both bangs toggle on together. */
+export const DEFAULT_HAIR_STRANDS: HairPart[] = [...DEFAULT_HAIR_STRAND_L, ...DEFAULT_HAIR_STRAND_R]
+
+/** Spike-hair sets — Crono / DBZ-style cone clusters. Four independent
+ *  groups so each axis (top, sides, back) can toggle on its own and
+ *  combine for asymmetric silhouettes. Type-12 cone SDF where
+ *  displaySize.x = base radius and displaySize.y = spike length.
+ *  Permaslots: all bones live in the rig at init; loadout flags toggle
+ *  emission. */
+
+/** Compute the rotationDeg that aims a spike's bone +Y axis radially
+ *  outward from the cranium center. Without this, hand-authored Euler
+ *  values made every spike look like it pointed straight up in T-pose
+ *  regardless of where it was anchored.
+ *
+ *  Math: target_dir = normalize(offset - head_center). Build a Z-then-X
+ *  rotation that takes (0,1,0) to target_dir:
+ *    γ (Z roll)   = -asin(dx)   — tilts +Y in the XY plane
+ *    α (X pitch)  =  atan2(dz, dy) — tilts +Y in the YZ plane
+ *  Y angle stays 0 (no twist around the spike's own axis). */
+const HEAD_CENTER_LOCAL: [number, number, number] = [0, 0.12, 0]
+function radialSpikeRot(offset: [number, number, number]): [number, number, number] {
+  const dx = offset[0] - HEAD_CENTER_LOCAL[0]
+  const dy = offset[1] - HEAD_CENTER_LOCAL[1]
+  const dz = offset[2] - HEAD_CENTER_LOCAL[2]
+  const mag = Math.hypot(dx, dy, dz) || 1
+  const Dx = dx / mag, Dy = dy / mag, Dz = dz / mag
+  const gamma = -Math.asin(Math.max(-1, Math.min(1, Dx))) * 180 / Math.PI
+  const alpha =  Math.atan2(Dz, Dy) * 180 / Math.PI
+  return [alpha, 0, gamma]
+}
+
+export const DEFAULT_SPIKE_TOP: HairPart[] = [
+  // Anchors sunk into the cranium (Y values lower than the surface so the
+  // cone base sits inside the bob ellipsoid; only the upper portion of
+  // each cone emerges through the bob — the spike "grows through" rather
+  // than perching on top). rotationDeg computed radially outward.
+  { name: 'HairSpike0', parentName: 'Head', offset: [ 0.00, 0.20, -0.04], rotationDeg: radialSpikeRot([ 0.00, 0.20, -0.04]), displaySize: [0.050, 0.26, 0] },
+  { name: 'HairSpike1', parentName: 'Head', offset: [-0.07, 0.20, -0.04], rotationDeg: radialSpikeRot([-0.07, 0.20, -0.04]), displaySize: [0.045, 0.24, 0] },
+  { name: 'HairSpike2', parentName: 'Head', offset: [ 0.07, 0.20, -0.04], rotationDeg: radialSpikeRot([ 0.07, 0.20, -0.04]), displaySize: [0.045, 0.24, 0] },
+  { name: 'HairSpike3', parentName: 'Head', offset: [-0.09, 0.16, -0.10], rotationDeg: radialSpikeRot([-0.09, 0.16, -0.10]), displaySize: [0.040, 0.22, 0] },
+  { name: 'HairSpike4', parentName: 'Head', offset: [ 0.09, 0.16, -0.10], rotationDeg: radialSpikeRot([ 0.09, 0.16, -0.10]), displaySize: [0.040, 0.22, 0] },
+]
+/** Side spikes — 3 cones per side stacked vertically along the temple,
+ *  pointing radially outward. */
+export const DEFAULT_SPIKE_SIDE_L: HairPart[] = [
+  { name: 'HairSpikeSideL0', parentName: 'Head', offset: [-0.10, 0.20, -0.02], rotationDeg: radialSpikeRot([-0.10, 0.20, -0.02]), displaySize: [0.035, 0.16, 0] },
+  { name: 'HairSpikeSideL1', parentName: 'Head', offset: [-0.10, 0.13, -0.02], rotationDeg: radialSpikeRot([-0.10, 0.13, -0.02]), displaySize: [0.035, 0.16, 0] },
+  { name: 'HairSpikeSideL2', parentName: 'Head', offset: [-0.10, 0.06, -0.04], rotationDeg: radialSpikeRot([-0.10, 0.06, -0.04]), displaySize: [0.032, 0.14, 0] },
+]
+export const DEFAULT_SPIKE_SIDE_R: HairPart[] = [
+  { name: 'HairSpikeSideR0', parentName: 'Head', offset: [ 0.10, 0.20, -0.02], rotationDeg: radialSpikeRot([ 0.10, 0.20, -0.02]), displaySize: [0.035, 0.16, 0] },
+  { name: 'HairSpikeSideR1', parentName: 'Head', offset: [ 0.10, 0.13, -0.02], rotationDeg: radialSpikeRot([ 0.10, 0.13, -0.02]), displaySize: [0.035, 0.16, 0] },
+  { name: 'HairSpikeSideR2', parentName: 'Head', offset: [ 0.10, 0.06, -0.04], rotationDeg: radialSpikeRot([ 0.10, 0.06, -0.04]), displaySize: [0.032, 0.14, 0] },
+]
+/** Back spikes — 5 cones across the rear of the cranium (1 top center,
+ *  2 upper L+R, 2 lower L+R), pointing radially outward. */
+export const DEFAULT_SPIKE_BACK: HairPart[] = [
+  { name: 'HairSpikeBack0', parentName: 'Head', offset: [ 0.00, 0.20, -0.10], rotationDeg: radialSpikeRot([ 0.00, 0.20, -0.10]), displaySize: [0.045, 0.22, 0] },
+  { name: 'HairSpikeBack1', parentName: 'Head', offset: [-0.07, 0.18, -0.10], rotationDeg: radialSpikeRot([-0.07, 0.18, -0.10]), displaySize: [0.040, 0.20, 0] },
+  { name: 'HairSpikeBack2', parentName: 'Head', offset: [ 0.07, 0.18, -0.10], rotationDeg: radialSpikeRot([ 0.07, 0.18, -0.10]), displaySize: [0.040, 0.20, 0] },
+  { name: 'HairSpikeBack3', parentName: 'Head', offset: [-0.05, 0.08, -0.10], rotationDeg: radialSpikeRot([-0.05, 0.08, -0.10]), displaySize: [0.038, 0.20, 0] },
+  { name: 'HairSpikeBack4', parentName: 'Head', offset: [ 0.05, 0.08, -0.10], rotationDeg: radialSpikeRot([ 0.05, 0.08, -0.10]), displaySize: [0.038, 0.20, 0] },
 ]
 
 /** Grenade belt — two small spheres on the Hips, driven by per-grenade
  *  springs (jiggle on running). Use weapon palette slot. */
 export const DEFAULT_GRENADE_BELT: BodyPart[] = [
-  { name: 'GrenadeL', parentName: 'Hips', offset: [ 0.110, -0.020, 0.090], displaySize: [0.026, 0.026, 0.026] },
-  { name: 'GrenadeR', parentName: 'Hips', offset: [-0.110, -0.020, 0.090], displaySize: [0.026, 0.026, 0.026] },
+  // Round grenade — sphere-shaped, classic baseball form.
+  { name: 'GrenadeL', parentName: 'Hips', offset: [ 0.115, -0.025, 0.095], displaySize: [0.060, 0.060, 0.060] },
+  // Can grenade — elongated cylinder/pill (smoke-bomb style). Same SDF
+  // type (ellipsoid via primitive emission) but elongated in Y.
+  { name: 'GrenadeR', parentName: 'Hips', offset: [-0.115, -0.025, 0.095], displaySize: [0.050, 0.085, 0.050] },
 ]
 
 /** Cape — three-segment chain hanging behind Spine2. Each segment is a
@@ -499,6 +591,82 @@ export const DEFAULT_CAPE_PARTS: BodyPart[] = [
   { name: 'Cape3', parentName: 'Cape2',  offset: [0, -0.1854, 0.00], displaySize: [0.200, 0.13, 0.032] },
   { name: 'Cape4', parentName: 'Cape3',  offset: [0, -0.1854, 0.00], displaySize: [0.200, 0.13, 0.032] },
   { name: 'Cape5', parentName: 'Cape4',  offset: [0, -0.1854, 0.00], displaySize: [0.0, 0.0, 0.0] },
+]
+
+/** Wings — 4-bone ribbon chain per side, anchored to LeftShoulder /
+ *  RightShoulder. Extends outward + slightly back from each shoulder
+ *  to form a bird/dragon wing membrane. Cross-section: halfW = 8cm
+ *  (broad membrane), halfThick = 5mm (thin). Type-23 ribbon emit;
+ *  per-segment taper at runtime via params.w. Permaslot pattern —
+ *  bones live in the rig at init; loadout.wings toggles emission.
+ *  Use the wing palette slot (warm orange-brown by default; tweak
+ *  per-character for white feathers, dark dragon, etc). */
+export const DEFAULT_WINGS_L: BodyPart[] = [
+  { name: 'WingL0', parentName: 'LeftShoulder', offset: [-0.05,  0.02, -0.05], displaySize: [0.08, 0.10, 0.008] },
+  { name: 'WingL1', parentName: 'WingL0',       offset: [-0.18, -0.03, -0.05], displaySize: [0.08, 0.10, 0.008] },
+  { name: 'WingL2', parentName: 'WingL1',       offset: [-0.18, -0.05, -0.02], displaySize: [0.08, 0.10, 0.008] },
+  { name: 'WingL3', parentName: 'WingL2',       offset: [-0.08, -0.04,  0.02], displaySize: [0.000, 0.00, 0.000] },
+]
+export const DEFAULT_WINGS_R: BodyPart[] = [
+  { name: 'WingR0', parentName: 'RightShoulder', offset: [ 0.05,  0.02, -0.05], displaySize: [0.08, 0.10, 0.008] },
+  { name: 'WingR1', parentName: 'WingR0',        offset: [ 0.18, -0.03, -0.05], displaySize: [0.08, 0.10, 0.008] },
+  { name: 'WingR2', parentName: 'WingR1',        offset: [ 0.18, -0.05, -0.02], displaySize: [0.08, 0.10, 0.008] },
+  { name: 'WingR3', parentName: 'WingR2',        offset: [ 0.08, -0.04,  0.02], displaySize: [0.000, 0.00, 0.000] },
+]
+export const DEFAULT_WINGS: BodyPart[] = [...DEFAULT_WINGS_L, ...DEFAULT_WINGS_R]
+
+/** Procedural extra limbs — 4 phantom legs that ride on Hips, used to
+ *  build a spider/insect silhouette by copying world rotation from the
+ *  4 humanoid limbs (LeftArm, RightArm, LeftUpLeg, RightUpLeg) at
+ *  runtime. Each limb is a 3-bone chain (Up → Lower → Tip) that emits
+ *  as a tapered type-23 ribbon, so it reads as a thin jointed leg.
+ *  Anchor positions form a quadrant pattern around Hips: front-left
+ *  and front-right between the human arms, back-left and back-right
+ *  between the human legs.
+ *
+ *  Permaslot: bones live in the rig at init; loadout.extraLimbs toggles
+ *  emission. The runtime hook (in skeleton_demo.ts) overrides each
+ *  Up/Lower bone's world rotation columns to match its source limb,
+ *  so when the human limb bends, the extra limb bends in sync. */
+export const DEFAULT_EXTRA_LIMBS_FL: BodyPart[] = [
+  { name: 'ExtraFL_Up',   parentName: 'Hips',          offset: [-0.13,  0.05,  0.08], displaySize: [0.025, 0.18, 0.025] },
+  { name: 'ExtraFL_Low',  parentName: 'ExtraFL_Up',    offset: [ 0.00, -0.18,  0.00], displaySize: [0.020, 0.16, 0.020] },
+  { name: 'ExtraFL_Tip',  parentName: 'ExtraFL_Low',   offset: [ 0.00, -0.16,  0.00], displaySize: [0.000, 0.00, 0.000] },
+]
+export const DEFAULT_EXTRA_LIMBS_FR: BodyPart[] = [
+  { name: 'ExtraFR_Up',   parentName: 'Hips',          offset: [ 0.13,  0.05,  0.08], displaySize: [0.025, 0.18, 0.025] },
+  { name: 'ExtraFR_Low',  parentName: 'ExtraFR_Up',    offset: [ 0.00, -0.18,  0.00], displaySize: [0.020, 0.16, 0.020] },
+  { name: 'ExtraFR_Tip',  parentName: 'ExtraFR_Low',   offset: [ 0.00, -0.16,  0.00], displaySize: [0.000, 0.00, 0.000] },
+]
+export const DEFAULT_EXTRA_LIMBS_BL: BodyPart[] = [
+  { name: 'ExtraBL_Up',   parentName: 'Hips',          offset: [-0.10, -0.05, -0.08], displaySize: [0.025, 0.18, 0.025] },
+  { name: 'ExtraBL_Low',  parentName: 'ExtraBL_Up',    offset: [ 0.00, -0.18,  0.00], displaySize: [0.020, 0.16, 0.020] },
+  { name: 'ExtraBL_Tip',  parentName: 'ExtraBL_Low',   offset: [ 0.00, -0.16,  0.00], displaySize: [0.000, 0.00, 0.000] },
+]
+export const DEFAULT_EXTRA_LIMBS_BR: BodyPart[] = [
+  { name: 'ExtraBR_Up',   parentName: 'Hips',          offset: [ 0.10, -0.05, -0.08], displaySize: [0.025, 0.18, 0.025] },
+  { name: 'ExtraBR_Low',  parentName: 'ExtraBR_Up',    offset: [ 0.00, -0.18,  0.00], displaySize: [0.020, 0.16, 0.020] },
+  { name: 'ExtraBR_Tip',  parentName: 'ExtraBR_Low',   offset: [ 0.00, -0.16,  0.00], displaySize: [0.000, 0.00, 0.000] },
+]
+export const DEFAULT_EXTRA_LIMBS: BodyPart[] = [
+  ...DEFAULT_EXTRA_LIMBS_FL, ...DEFAULT_EXTRA_LIMBS_FR,
+  ...DEFAULT_EXTRA_LIMBS_BL, ...DEFAULT_EXTRA_LIMBS_BR,
+]
+
+/** Tail — 4-segment chain anchored to the lower back (Hips, slightly
+ *  behind body surface). Same chain architecture as cape and side
+ *  strands. Tapers thinner toward the tip. Empty by default — opt in
+ *  via extendRigWithBodyParts. Slot reuses 'cape' palette entry so a
+ *  tail and cape on the same character read as related accents. */
+export const DEFAULT_TAIL: BodyPart[] = [
+  // 5 bones (4 visible segments + zero-size tip endpoint). 32cm total
+  // drop, ~10cm back-tilt from anchor. Anchored at Hips local (0, 0, -0.13)
+  // — at hip height, just behind the body surface.
+  { name: 'Tail0', parentName: 'Hips',  offset: [0,  0.00, -0.13], displaySize: [0.045, 0.08, 0.045] },
+  { name: 'Tail1', parentName: 'Tail0', offset: [0, -0.08, -0.01], displaySize: [0.040, 0.08, 0.040] },
+  { name: 'Tail2', parentName: 'Tail1', offset: [0, -0.08, -0.01], displaySize: [0.035, 0.08, 0.035] },
+  { name: 'Tail3', parentName: 'Tail2', offset: [0, -0.08, -0.01], displaySize: [0.030, 0.08, 0.030] },
+  { name: 'Tail4', parentName: 'Tail3', offset: [0, -0.08, -0.01], displaySize: [0.000, 0.00, 0.000] },
 ]
 
 export function extendRigWithBodyParts(rig: Joint[], items: BodyPart[] = DEFAULT_BODY_PARTS): Joint[] {
@@ -1115,10 +1283,15 @@ export function chibiRaymarchPrimitives(
     const hp = hairByName.get(name)
     if (hp) {
       if (/^HairBob/.test(name)) {
+        // Group 16 = bob ensemble (HairBob cap + HairBobBack panel).
+        // 4cm blend radius so the two pieces fuse into one continuous
+        // hair surface across the cranium, with the trapezoidal-taper
+        // silhouette emerging from their union.
         prims.push({
           type: 3, paletteSlot: slot, boneIdx: j,
           params: [hp.displaySize[0], hp.displaySize[1], hp.displaySize[2], 0],
           offsetInBone: [0, 0, 0],
+          blendGroup: 16, blendRadius: 0.07,
         })
       } else if (/^HairLong/.test(name)) {
         // Long hair — single type-23 ribbon-chain primitive walks
@@ -1143,24 +1316,48 @@ export function chibiRaymarchPrimitives(
           offsetInBone: [0, 0, 0],
           blendGroup: 12, blendRadius: 0,
         })
-      } else if (/^HairStrand/.test(name)) {
-        // Bent capsule (type 14) along the bone's +Y axis. The bone
-        // matrix is NOT re-aimed per frame; instead the strand bone
-        // keeps its rest orientation and the SDF curves the body of
-        // the capsule toward `tipDelta`. Quadratic falloff means the
-        // tip carries the most bend.
-        // displaySize.x = radius, displaySize.y = halfLen.
-        // Slot 4 is repurposed as tipDelta — RaymarchPrimitive.rotation
-        // stays at the [0,0,0,0] sentinel here; the demo mutates the
-        // persistent prim's rotation field each frame and the next
-        // setPrimitives upload picks it up.
+      } else if (/^HairSpike/.test(name)) {
+        // Spike — type-12 cone primitive. Default cone is tip-at-origin
+        // extending in -Y direction; offsetInBone shifts up by `height`
+        // so the BASE sits at the bone origin (scalp anchor) and the
+        // TIP extends up along the bone's +Y axis (rotated outward by
+        // rotationDeg). Per-spike rotation does the radial flare.
+        // displaySize.x = base radius, displaySize.y = spike length.
+        const baseR  = hp.displaySize[0]
+        const height = hp.displaySize[1]
+        const len    = Math.hypot(baseR, height) || 1
         prims.push({
-          type: 14, paletteSlot: slot, boneIdx: j,
-          params: [hp.displaySize[0], hp.displaySize[1], 0, 0],
-          offsetInBone: [0, hp.displaySize[1], 0],   // root at -h, tip at +h
-          blendGroup: 13, blendRadius: 0.025,
-          rotation: [0, 0, 0, 0],   // tipDelta=0 at boot; CPU updates each frame
+          type: 12, paletteSlot: slot, boneIdx: j,
+          params: [baseR / len, height / len, height, 0],
+          offsetInBone: [0, height, 0],
+          // Own blend group, no smin — each spike stays distinctly pointy.
+          blendGroup: 18, blendRadius: 0,
         })
+      } else if (/^HairStrand(L|R)0$/.test(name)) {
+        // Side strands (face-framing bangs) — type-23 ribbon-chain. Own
+        // blend group (17) so the bangs layer ADDITIVELY over the bob
+        // shell + ponytail rather than smin'ing into them. params.w =
+        // tipScale (0.3 = bangs taper to 30% width at the tip). Other
+        // ribbon callers pass 0 → no taper.
+        const sideKey = /HairStrandL/.test(name) ? 'L' : 'R'
+        const halfW     = hp.displaySize[0]
+        const halfThick = hp.displaySize[2]
+        const sideIndices: number[] = [j]
+        for (let k = 1; k < 4; k++) {
+          const idx = rig.findIndex((joint) => joint.name === `HairStrand${sideKey}${k}`)
+          if (idx >= 0) sideIndices.push(idx)
+        }
+        if (sideIndices.length < 2) continue
+        prims.push({
+          type: 23, paletteSlot: slot, boneIdx: j,
+          params: [sideIndices.length, halfW, halfThick, 0.3],
+          offsetInBone: [0, 0, 0],
+          blendGroup: 17, blendRadius: 0,
+        })
+      } else if (/^HairStrand/.test(name)) {
+        // Non-root strand segments contribute via the chain primitive
+        // emitted at HairStrandL0/R0 — skip standalone primitive.
+        continue
       } else {
         prims.push({
           type: 2, paletteSlot: slot, boneIdx: j,
@@ -1218,13 +1415,78 @@ export function chibiRaymarchPrimitives(
           paletteSlotB: slotB,
           colorExtent: 5,
         })
-      } else if (/^Grenade/.test(name)) {
-        // Grenades — sphere primitive, radius from displaySize[0]. No
-        // blend group: each grenade is a discrete prop, no fusion with
-        // belt or other grenades.
+      } else if (/^Tail/.test(name)) {
+        // Tail — type-23 ribbon-chain rooted at Tail0, walks Tail0..Tail4
+        // (4 segments + tip). Anchored to Hips lower back. Own blend group
+        // (15) so it doesn't smin with cape (9, wide flat fabric, would
+        // fuse weirdly with the narrow tail tube).
+        if (name !== 'Tail0') continue
+        const halfW     = bp.displaySize[0]
+        const halfThick = bp.displaySize[2]
+        const tailIndices: number[] = [j]
+        for (let k = 1; k < 5; k++) {
+          const idx = rig.findIndex((joint) => joint.name === `Tail${k}`)
+          if (idx >= 0) tailIndices.push(idx)
+        }
+        if (tailIndices.length < 2) continue
         prims.push({
-          type: 0, paletteSlot: slot, boneIdx: j,
-          params: [bp.displaySize[0], 0, 0, 0],
+          type: 23, paletteSlot: slot, boneIdx: j,
+          params: [tailIndices.length, halfW, halfThick, 0],
+          offsetInBone: [0, 0, 0],
+          blendGroup: 15, blendRadius: 0,
+        })
+      } else if (/^Wing(L|R)0$/.test(name)) {
+        // Wing — type-23 ribbon-chain rooted at WingL0/WingR0, walks 4
+        // chained bones (Wing{L,R}0..3). Tip-tapered (params.w = 0.15)
+        // so the wing reads as a feather/membrane that points to a tip.
+        // Own blend group (19) — distinct from cape/tail/hair so wings
+        // don't smin into other body extras.
+        const sideKey = /WingL/.test(name) ? 'L' : 'R'
+        const halfW     = bp.displaySize[0]
+        const halfThick = bp.displaySize[2]
+        const wingIndices: number[] = [j]
+        for (let k = 1; k < 4; k++) {
+          const idx = rig.findIndex((joint) => joint.name === `Wing${sideKey}${k}`)
+          if (idx >= 0) wingIndices.push(idx)
+        }
+        if (wingIndices.length < 2) continue
+        prims.push({
+          type: 23, paletteSlot: slot, boneIdx: j,
+          params: [wingIndices.length, halfW, halfThick, 0.15],
+          offsetInBone: [0, 0, 0],
+          blendGroup: 19, blendRadius: 0,
+        })
+      } else if (/^Wing/.test(name)) {
+        continue   // chain-only contributors emit via WingL0 / WingR0
+      } else if (/^Extra(FL|FR|BL|BR)_Up$/.test(name)) {
+        // Extra limb — type-23 ribbon-chain rooted at Extra*_Up, walks
+        // 3 chained bones (Up → Low → Tip). Tip-tapered to suggest a
+        // pointy spider/insect leg. Own blend group (20).
+        const sideKey = name.match(/^Extra(FL|FR|BL|BR)_/)![1]
+        const halfW     = bp.displaySize[0]
+        const halfThick = bp.displaySize[2]
+        const limbBoneIndices: number[] = [j]
+        for (const sub of ['Low', 'Tip'] as const) {
+          const idx = rig.findIndex((joint) => joint.name === `Extra${sideKey}_${sub}`)
+          if (idx >= 0) limbBoneIndices.push(idx)
+        }
+        if (limbBoneIndices.length < 2) continue
+        prims.push({
+          type: 23, paletteSlot: slot, boneIdx: j,
+          params: [limbBoneIndices.length, halfW, halfThick, 0.2],
+          offsetInBone: [0, 0, 0],
+          blendGroup: 20, blendRadius: 0,
+        })
+      } else if (/^Extra(FL|FR|BL|BR)_/.test(name)) {
+        continue   // Low/Tip contribute via the Up's chain primitive
+      } else if (/^Grenade/.test(name)) {
+        // Grenade — ellipsoid primitive so the same emission path covers
+        // round (uniform halfX/Y/Z) AND can-shaped (elongated halfY)
+        // grenades. displaySize[0..2] are the three half-extents. No
+        // blend group: each grenade is a discrete prop.
+        prims.push({
+          type: 3, paletteSlot: slot, boneIdx: j,
+          params: [bp.displaySize[0], bp.displaySize[1], bp.displaySize[2], 0],
           offsetInBone: [0, 0, 0],
         })
       } else if (/^WP_/.test(name)) {

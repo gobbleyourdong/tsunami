@@ -23,9 +23,18 @@ import {
   extendRigWithBodyParts,
   extendLocalMatsWithBodyParts,
   DEFAULT_CAPE_PARTS,
+  DEFAULT_TAIL,
+  DEFAULT_WINGS,
+  DEFAULT_EXTRA_LIMBS,
   DEFAULT_BOB_HAIR,
   DEFAULT_LONG_HAIR,
   DEFAULT_HAIR_STRANDS,
+  DEFAULT_HAIR_STRAND_L,
+  DEFAULT_HAIR_STRAND_R,
+  DEFAULT_SPIKE_TOP,
+  DEFAULT_SPIKE_SIDE_L,
+  DEFAULT_SPIKE_SIDE_R,
+  DEFAULT_SPIKE_BACK,
   DEFAULT_GRENADE_BELT,
   DEFAULT_FACE,
   DEFAULT_HAIR,
@@ -204,7 +213,10 @@ async function main() {
           vat.numJoints = vat.rig.length
           // Bob hair shipped with the engine; characters can override by
           // passing a different list. Spring-driven jiggle applied below.
-          const allHair = [...DEFAULT_BOB_HAIR, ...DEFAULT_LONG_HAIR, ...DEFAULT_HAIR_STRANDS]
+          const allHair = [
+            ...DEFAULT_BOB_HAIR, ...DEFAULT_LONG_HAIR, ...DEFAULT_HAIR_STRANDS,
+            ...DEFAULT_SPIKE_TOP, ...DEFAULT_SPIKE_SIDE_L, ...DEFAULT_SPIKE_SIDE_R, ...DEFAULT_SPIKE_BACK,
+          ]
           vat.rig = extendRigWithHair(vat.rig, allHair)
           vat.localMats = extendLocalMatsWithHair(vat.localMats, vat.numFrames, vat.numJoints, allHair)
           vat.numJoints = vat.rig.length
@@ -222,6 +234,9 @@ async function main() {
           const bodyAndExtras = [
             ...DEFAULT_BODY_PARTS,
             ...DEFAULT_CAPE_PARTS,
+            ...DEFAULT_TAIL,
+            ...DEFAULT_WINGS,
+            ...DEFAULT_EXTRA_LIMBS,
             ...DEFAULT_GRENADE_BELT,
             ...allWardrobeParts,
           ]
@@ -303,7 +318,10 @@ async function main() {
       head: new RegExp(
         '^(' +
           'Head|HeadTop_End|Neck|LeftEye|RightEye|LeftPupil|RightPupil|Mouth|Nose|' +
-          'Hair[A-Za-z0-9]*|' +                            // every hair variant (Bob, Long*, Strand*, etc.)
+          // Head-anchored hair: bob ensemble + ponytail + side strands.
+          // All three sit on the cranium and follow head rotation +
+          // head-proportion scale.
+          'HairBob[A-Za-z0-9]*|HairLong[0-9]+|HairStrand[LR][0-9]+|HairSpike[0-9]+|' +
           'WP_Helmet|' +                                   // legacy knight head armor
           'WP_[A-Za-z]+_(Hood|Mask|Cap|Helmet)' +          // outfit-prefixed head armor
         ')$',
@@ -311,7 +329,7 @@ async function main() {
       torso: new RegExp(
         '^(' +
           'Spine|Spine1|Spine2|Hips|LeftShoulder|RightShoulder|' +
-          'Cape[0-9]+|Grenade[LR]|' +                      // body extras parented to spine/hips
+          'Cape[0-9]+|Tail[0-9]+|Grenade[LR]|' +           // body extras parented to spine/hips
           'WP_(ChestPlate|BackPlate|Belt|Pauldron[LR])|' + // legacy knight torso/shoulder armor
           'WP_[A-Za-z]+_(ChestPlate|BackPlate|Belt|Pauldron[LR]|RobeChest|RobeSkirt|Sash[LR]|LoinFront|LoinBack)' +
         ')$',
@@ -540,7 +558,31 @@ async function main() {
         applyGroupScale(g, v)
       }
       if (currentExpression !== 'neutral') applyExpression(currentExpression)
+      // Re-apply hind retarget AFTER preset (preset clobbers per-bone scales).
+      applyHindRetarget()
       fitCameraToCharacter()
+      invalidateRaymarchCache()
+    }
+
+    /** Quadruped hind: zero shin scaleY so the foot lands where the knee
+     *  was. Translation column unaffected by scale → bone hierarchy
+     *  composes Foot world position to Knee position automatically.
+     *  Use 0.05 (not 0) to avoid degenerate columns in worldToLocal.
+     *
+     *  NOTE: applyPreset's init-time call runs before `loadout` is
+     *  declared (TDZ). Guard via try/catch — first call no-ops, later
+     *  calls (after loadout init) apply the override. */
+    function applyHindRetarget() {
+      let isOn = false
+      try { isOn = loadout.quadrupedHind } catch { return }
+      const lLegIdx = rig.findIndex((j) => j.name === 'LeftLeg')
+      const rLegIdx = rig.findIndex((j) => j.name === 'RightLeg')
+      if (isOn) {
+        if (lLegIdx >= 0) characterParams.scales[lLegIdx] = [1, 0.05, 1]
+        if (rLegIdx >= 0) characterParams.scales[rLegIdx] = [1, 0.05, 1]
+      }
+      // When toggled OFF, applyPreset restores the original scale via
+      // its full re-init pass, so no explicit "restore" needed here.
       invalidateRaymarchCache()
     }
 
@@ -577,6 +619,77 @@ async function main() {
           if (valLabel) valLabel.textContent = capeLengthScale.toFixed(2)
         }
       }
+    }
+
+    // Hair length scalar — multiplies the per-segment drop in long-hair chain.
+    // 1.0 = default (5 segments × HAIR_SEG_DROP), 0.4 = bobbed, 2.0+ = floor-length.
+    let hairLengthScale = 1.0
+    {
+      const slider = document.getElementById('hair-length') as HTMLInputElement | null
+      const valLabel = document.getElementById('hair-length-val') as HTMLElement | null
+      if (slider) {
+        slider.oninput = () => {
+          hairLengthScale = parseFloat(slider.value)
+          if (valLabel) valLabel.textContent = hairLengthScale.toFixed(2)
+        }
+      }
+    }
+
+    // Tail length scalar — multiplies the per-segment drop in tail chain.
+    // 1.0 = default (4 segments × TAIL_SEG_DROP ~32cm), 0.5 = stub, 2.5 = drag.
+    let tailLengthScale = 1.0
+    {
+      const slider = document.getElementById('tail-length') as HTMLInputElement | null
+      const valLabel = document.getElementById('tail-length-val') as HTMLElement | null
+      if (slider) {
+        slider.oninput = () => {
+          tailLengthScale = parseFloat(slider.value)
+          if (valLabel) valLabel.textContent = tailLengthScale.toFixed(2)
+        }
+      }
+    }
+
+    // Strand length scalar — multiplies STRAND_SEG_DROP for both side
+    // strand chains. 1.0 = default (3 segments × 0.13m = ~39cm), 0.4 =
+    // chin-length, 2.0+ = waist-length.
+    let strandLengthScale = 1.0
+    {
+      const slider = document.getElementById('strand-length') as HTMLInputElement | null
+      const valLabel = document.getElementById('strand-length-val') as HTMLElement | null
+      if (slider) {
+        slider.oninput = () => {
+          strandLengthScale = parseFloat(slider.value)
+          if (valLabel) valLabel.textContent = strandLengthScale.toFixed(2)
+        }
+      }
+    }
+
+    // Spike scale slider — uniform-scales every HairSpike* bone via the
+    // proportion-style characterParams.scales[boneIdx]. The cone SDF
+    // primitive's worldToLocal undoes bone scale, so a 1.5× bone scale
+    // results in a 1.5× visible cone (without changing the cone's anchor
+    // position on the head).
+    let spikeScale = 1.0
+    {
+      const slider = document.getElementById('spike-scale') as HTMLInputElement | null
+      const valLabel = document.getElementById('spike-scale-val') as HTMLElement | null
+      const SPIKE_BONE_RE = /^HairSpike/
+      const applySpikeScale = () => {
+        for (let j = 0; j < rig.length; j++) {
+          if (SPIKE_BONE_RE.test(rig[j].name)) {
+            characterParams.scales[j] = [spikeScale, spikeScale, spikeScale]
+          }
+        }
+        invalidateRaymarchCache()
+      }
+      if (slider) {
+        slider.oninput = () => {
+          spikeScale = parseFloat(slider.value)
+          if (valLabel) valLabel.textContent = spikeScale.toFixed(2)
+          applySpikeScale()
+        }
+      }
+      applySpikeScale()   // initialize at 1.0 (no-op but lays the bones down right)
     }
 
     let vatHandle = {
@@ -840,12 +953,16 @@ async function main() {
       // spec so a saved character is self-contained — even if the
       // module defaults change in a future engine version, this file
       // still re-creates the same silhouette.
-      const activeHair = loadout.hair === 'bob'           ? DEFAULT_BOB_HAIR
-                       : loadout.hair === 'long'          ? DEFAULT_LONG_HAIR
-                       : loadout.hair === 'strands'       ? DEFAULT_HAIR_STRANDS
-                       : loadout.hair === 'bob+strands'   ? [...DEFAULT_BOB_HAIR,  ...DEFAULT_HAIR_STRANDS]
-                       : loadout.hair === 'long+strands'  ? [...DEFAULT_LONG_HAIR, ...DEFAULT_HAIR_STRANDS]
-                       : []
+      const activeHair = [
+        ...(loadout.bob         ? DEFAULT_BOB_HAIR        : []),
+        ...(loadout.ponytail    ? DEFAULT_LONG_HAIR       : []),
+        ...(loadout.bangsL      ? DEFAULT_HAIR_STRAND_L   : []),
+        ...(loadout.bangsR      ? DEFAULT_HAIR_STRAND_R   : []),
+        ...(loadout.spikesTop   ? DEFAULT_SPIKE_TOP       : []),
+        ...(loadout.spikesSideL ? DEFAULT_SPIKE_SIDE_L    : []),
+        ...(loadout.spikesSideR ? DEFAULT_SPIKE_SIDE_R    : []),
+        ...(loadout.spikesBack  ? DEFAULT_SPIKE_BACK      : []),
+      ]
       // Pack the active armor outfit's pieces into bodyParts too so the
       // exported character is self-describing without needing the
       // engine to ship the same WARDROBE registry.
@@ -862,6 +979,9 @@ async function main() {
         bodyParts:   [
           ...DEFAULT_BODY_PARTS,
           ...(loadout.cape     ? DEFAULT_CAPE_PARTS   : []),
+          ...(loadout.tail     ? DEFAULT_TAIL         : []),
+          ...(loadout.wings    ? DEFAULT_WINGS        : []),
+          ...(loadout.extraLimbs ? DEFAULT_EXTRA_LIMBS : []),
           ...(loadout.grenades ? DEFAULT_GRENADE_BELT : []),
           ...activeArmor,
         ],
@@ -871,8 +991,19 @@ async function main() {
         // hair style, cape pattern, expression).
         loadout: {
           armor:       loadout.armor,
-          hair:        loadout.hair,
+          bob:         loadout.bob,
+          ponytail:    loadout.ponytail,
+          bangsL:      loadout.bangsL,
+          bangsR:      loadout.bangsR,
+          spikesTop:   loadout.spikesTop,
+          spikesSideL: loadout.spikesSideL,
+          spikesSideR: loadout.spikesSideR,
+          spikesBack:  loadout.spikesBack,
           cape:        loadout.cape,
+          tail:        loadout.tail,
+          wings:       loadout.wings,
+          quadrupedHind: loadout.quadrupedHind,
+          extraLimbs:    loadout.extraLimbs,
           capePattern: loadout.capePattern,
           grenades:    loadout.grenades,
           expression:  currentExpression,
@@ -933,11 +1064,33 @@ async function main() {
         if (typeof lo.armor === 'string' && (lo.armor === 'none' || lo.armor in WARDROBE)) {
           loadout.armor = lo.armor as typeof loadout.armor
         }
+        // Hair: prefer the new per-layer booleans; fall back to legacy
+        // 'hair' string mapping for older saved files.
+        if (typeof lo.bob === 'boolean')         loadout.bob = lo.bob
+        if (typeof lo.ponytail === 'boolean')    loadout.ponytail = lo.ponytail
+        if (typeof lo.bangsL === 'boolean')      loadout.bangsL = lo.bangsL
+        if (typeof lo.bangsR === 'boolean')      loadout.bangsR = lo.bangsR
+        if (typeof lo.spikesTop === 'boolean')   loadout.spikesTop = lo.spikesTop
+        if (typeof lo.spikesSideL === 'boolean') loadout.spikesSideL = lo.spikesSideL
+        if (typeof lo.spikesSideR === 'boolean') loadout.spikesSideR = lo.spikesSideR
+        if (typeof lo.spikesBack === 'boolean')  loadout.spikesBack = lo.spikesBack
+        // Legacy compat — single 'bangs' / 'spikes' booleans light both sides
+        // (bangs) or just the top set (spikes).
+        if (typeof lo.bangs === 'boolean')       { loadout.bangsL = lo.bangs; loadout.bangsR = lo.bangs }
+        if (typeof lo.spikes === 'boolean')      loadout.spikesTop = lo.spikes
         if (typeof lo.hair === 'string' &&
-            ['none','bob','long','strands','bob+strands','long+strands'].includes(lo.hair)) {
-          loadout.hair = lo.hair as typeof loadout.hair
+            ['none','bob','long','strands','bob+strands','long+strands'].includes(lo.hair) &&
+            typeof lo.bob !== 'boolean' && typeof lo.ponytail !== 'boolean' && typeof lo.bangsL !== 'boolean' && typeof lo.bangsR !== 'boolean') {
+          loadout.bob      = lo.hair === 'bob'  || lo.hair === 'bob+strands'
+          loadout.ponytail = lo.hair === 'long' || lo.hair === 'long+strands'
+          const bangsOn    = lo.hair === 'strands' || lo.hair === 'bob+strands' || lo.hair === 'long+strands'
+          loadout.bangsL = bangsOn; loadout.bangsR = bangsOn
         }
         if (typeof lo.cape === 'boolean')      loadout.cape = lo.cape
+        if (typeof lo.tail === 'boolean')      loadout.tail = lo.tail
+        if (typeof lo.wings === 'boolean')     loadout.wings = lo.wings
+        if (typeof lo.quadrupedHind === 'boolean') loadout.quadrupedHind = lo.quadrupedHind
+        if (typeof lo.extraLimbs === 'boolean')    loadout.extraLimbs = lo.extraLimbs
         if (typeof lo.grenades === 'boolean')  loadout.grenades = lo.grenades
         if (typeof lo.capePattern === 'string' && lo.capePattern in CAPE_PATTERNS) {
           loadout.capePattern = lo.capePattern as typeof loadout.capePattern
@@ -1035,6 +1188,70 @@ async function main() {
     const rShoulderIdx = rig.findIndex((j) => j.name === 'RightShoulder')
     const lFootIdx = rig.findIndex((j) => j.name === 'LeftFoot')
     const rFootIdx = rig.findIndex((j) => j.name === 'RightFoot')
+
+    // Procedural extra-limb mapping: 4 phantom limbs that copy world
+    // rotation from human limb chains. (sourceUp, sourceLow, dstUp,
+    // dstLow, dstTip, lowOffsetY, tipOffsetY) — last two are bind-pose
+    // offsets matching DEFAULT_EXTRA_LIMBS_*. Indices cached once.
+    const EXTRA_LIMB_PAIRS: Array<{
+      srcUpIdx: number; srcLowIdx: number;
+      dstUpIdx: number; dstLowIdx: number; dstTipIdx: number;
+      lowOffY: number; tipOffY: number;
+    }> = []
+    for (const cfg of [
+      { srcUp: 'LeftArm',     srcLow: 'LeftForeArm',  side: 'FL' },
+      { srcUp: 'RightArm',    srcLow: 'RightForeArm', side: 'FR' },
+      { srcUp: 'LeftUpLeg',   srcLow: 'LeftLeg',      side: 'BL' },
+      { srcUp: 'RightUpLeg',  srcLow: 'RightLeg',     side: 'BR' },
+    ]) {
+      const srcUpIdx  = rig.findIndex((j) => j.name === cfg.srcUp)
+      const srcLowIdx = rig.findIndex((j) => j.name === cfg.srcLow)
+      const dstUpIdx  = rig.findIndex((j) => j.name === `Extra${cfg.side}_Up`)
+      const dstLowIdx = rig.findIndex((j) => j.name === `Extra${cfg.side}_Low`)
+      const dstTipIdx = rig.findIndex((j) => j.name === `Extra${cfg.side}_Tip`)
+      if (srcUpIdx < 0 || srcLowIdx < 0 || dstUpIdx < 0 || dstLowIdx < 0 || dstTipIdx < 0) continue
+      EXTRA_LIMB_PAIRS.push({
+        srcUpIdx, srcLowIdx, dstUpIdx, dstLowIdx, dstTipIdx,
+        lowOffY: -0.18, tipOffY: -0.16,
+      })
+    }
+    const applyExtraLimbsCopy = () => {
+      if (!composer) return
+      const wm = composer.worldMatrices
+      for (const p of EXTRA_LIMB_PAIRS) {
+        const su = p.srcUpIdx * 16, sl = p.srcLowIdx * 16
+        const du = p.dstUpIdx * 16, dl = p.dstLowIdx * 16, dt = p.dstTipIdx * 16
+        // Copy source Up bone's rotation columns (0/1/2) to dst Up.
+        // Translation column (3) stays at composer-computed Hips × offset.
+        wm[du + 0] = wm[su + 0]; wm[du + 1] = wm[su + 1]; wm[du + 2] = wm[su + 2]
+        wm[du + 4] = wm[su + 4]; wm[du + 5] = wm[su + 5]; wm[du + 6] = wm[su + 6]
+        wm[du + 8] = wm[su + 8]; wm[du + 9] = wm[su + 9]; wm[du + 10] = wm[su + 10]
+        // Copy source Low bone's rotation columns to dst Low.
+        wm[dl + 0] = wm[sl + 0]; wm[dl + 1] = wm[sl + 1]; wm[dl + 2] = wm[sl + 2]
+        wm[dl + 4] = wm[sl + 4]; wm[dl + 5] = wm[sl + 5]; wm[dl + 6] = wm[sl + 6]
+        wm[dl + 8] = wm[sl + 8]; wm[dl + 9] = wm[sl + 9]; wm[dl + 10] = wm[sl + 10]
+        // Recompute Low's translation: dst Up's translation + Up's Y axis × lowOffY.
+        const upY0 = wm[du + 4], upY1 = wm[du + 5], upY2 = wm[du + 6]
+        wm[dl + 12] = wm[du + 12] + upY0 * p.lowOffY
+        wm[dl + 13] = wm[du + 13] + upY1 * p.lowOffY
+        wm[dl + 14] = wm[du + 14] + upY2 * p.lowOffY
+        wm[dl + 15] = 1
+        // Tip: rotation = Low's, translation = Low + Low.Y axis × tipOffY.
+        wm[dt + 0] = wm[dl + 0]; wm[dt + 1] = wm[dl + 1]; wm[dt + 2] = wm[dl + 2]
+        wm[dt + 4] = wm[dl + 4]; wm[dt + 5] = wm[dl + 5]; wm[dt + 6] = wm[dl + 6]
+        wm[dt + 8] = wm[dl + 8]; wm[dt + 9] = wm[dl + 9]; wm[dt + 10] = wm[dl + 10]
+        const lwY0 = wm[dl + 4], lwY1 = wm[dl + 5], lwY2 = wm[dl + 6]
+        wm[dt + 12] = wm[dl + 12] + lwY0 * p.tipOffY
+        wm[dt + 13] = wm[dl + 13] + lwY1 * p.tipOffY
+        wm[dt + 14] = wm[dl + 14] + lwY2 * p.tipOffY
+        wm[dt + 15] = 1
+        // Upload the 3 modified bones to the VAT.
+        device.queue.writeBuffer(vatHandle.buffer, p.dstUpIdx  * 64, wm.buffer, wm.byteOffset + p.dstUpIdx  * 16 * 4, 64)
+        device.queue.writeBuffer(vatHandle.buffer, p.dstLowIdx * 64, wm.buffer, wm.byteOffset + p.dstLowIdx * 16 * 4, 64)
+        device.queue.writeBuffer(vatHandle.buffer, p.dstTipIdx * 64, wm.buffer, wm.byteOffset + p.dstTipIdx * 16 * 4, 64)
+      }
+      invalidateRaymarchCache()
+    }
     // 5-segment cape over 6 bones (Cape0..Cape5).
     const capeBoneIndices: number[] = []
     for (let i = 0; i < 6; i++) {
@@ -1070,7 +1287,7 @@ async function main() {
     // (tip). Cape architecture port — same locked-root + node-particle
     // chain. restOffset / restLength values match DEFAULT_LONG_HAIR so the
     // bind-pose chain geometry equals what the rig was set up with.
-    const HAIR_ANCHOR_OFFSET: [number, number, number] = [0, 0.04, -0.13]   // Head → HairLong0 (back of cranium)
+    const HAIR_ANCHOR_OFFSET: [number, number, number] = [0, 0.10, -0.13]   // Head → HairLong0 (upper back of cranium)
     const HAIR_SEG_DROP = 0.10                                              // Y drop per segment
     const hairBoneIndices: number[] = []
     for (let i = 0; i < 6; i++) {
@@ -1091,34 +1308,66 @@ async function main() {
       createNodeParticle({ parentRef: 4, parentKind: 'particle', restOffset: [0, -HAIR_SEG_DROP, 0], restLength: HAIR_SEG_DROP }),
     ]
 
-    // Hair strands — N independent capsule chunks attached to Head, each
-    // a self-contained strand with its OWN spring on the tip. No chain
-    // between strands. Per-frame the bone matrix is rewritten so the
-    // bone's +Y axis points (root → spring-tip), bending the strand
-    // toward wherever the tip wants to swing.
-    interface StrandEntry {
-      boneIdx: number
-      halfLen: number
-      spring: SecondarySpring
-      /** Index into persistentPrims for the strand's primitive. Updated
-       *  by rebuildPersistentPrims; used to mutate the prim's rotation
-       *  slot (= tipDelta for type 14) without scanning the prim list
-       *  every frame. -1 = strand's primitive isn't currently emitted
-       *  (hair style != strands / bob+strands / long+strands). */
-      primIdx: number
+    // Hair strands (face-framing side bangs) — two 3-segment chains
+    // anchored to Spine2 chest-front-shoulder (X=±0.10, Y=+0.10, Z=+0.13
+    // local). Chain architecture mirrors HairLong: locked root particle
+    // at Spine2 + offset, three more particles in chain physics with
+    // rest target along world-down. Per-tick simulation runs as a sibling
+    // block to the hair physics and uses the same torso SDF push.
+    // Bangs anchor in HEAD-local: temple-line. Different "socket" from
+    // the back hair (HairLong) which anchors at back of cranium — bangs
+    // rotate around the temple, ponytail rotates around the back. Both
+    // Head-parented so they share head rotation but pivot at distinct
+    // positions on the cranium.
+    const STRAND_ANCHOR_OFFSET_L: [number, number, number] = [-0.16, 0.15, 0.05]
+    const STRAND_ANCHOR_OFFSET_R: [number, number, number] = [ 0.16, 0.15, 0.05]
+    const STRAND_SEG_DROP = 0.13
+    const findStrandIndices = (side: 'L' | 'R'): number[] => {
+      const out: number[] = []
+      for (let i = 0; i < 4; i++) {
+        const idx = rig.findIndex((j) => j.name === `HairStrand${side}${i}`)
+        if (idx >= 0) out.push(idx)
+      }
+      return out
     }
-    const strandEntries: StrandEntry[] = []
-    for (const hp of DEFAULT_HAIR_STRANDS) {
-      const idx = rig.findIndex((j) => j.name === hp.name)
-      if (idx < 0) continue
-      // Snappier spring than grenades — strands are light + low-mass.
-      strandEntries.push({
-        boneIdx: idx,
-        halfLen: hp.displaySize[1],
-        spring: createSecondarySpring([0, 0, 0], { stiffness: 22, damping: 0.88 }),
-        primIdx: -1,
-      })
+    const strandLBones = findStrandIndices('L')
+    const strandRBones = findStrandIndices('R')
+    const STRAND_L_FULL = strandLBones.length === 4 && headIdx >= 0
+    const STRAND_R_FULL = strandRBones.length === 4 && headIdx >= 0
+    const makeStrandChain = (anchor: [number, number, number]): NodeParticle[] => [
+      createNodeParticle({
+        parentRef: headIdx, parentKind: 'bone',
+        restOffset: anchor, restLength: Math.hypot(...anchor),
+      }),
+      createNodeParticle({ parentRef: 0, parentKind: 'particle', restOffset: [0, -STRAND_SEG_DROP, 0], restLength: STRAND_SEG_DROP }),
+      createNodeParticle({ parentRef: 1, parentKind: 'particle', restOffset: [0, -STRAND_SEG_DROP, 0], restLength: STRAND_SEG_DROP }),
+      createNodeParticle({ parentRef: 2, parentKind: 'particle', restOffset: [0, -STRAND_SEG_DROP, 0], restLength: STRAND_SEG_DROP }),
+    ]
+    const strandLChain: NodeParticle[] = STRAND_L_FULL ? makeStrandChain(STRAND_ANCHOR_OFFSET_L) : []
+    const strandRChain: NodeParticle[] = STRAND_R_FULL ? makeStrandChain(STRAND_ANCHOR_OFFSET_R) : []
+
+    // Tail chain — Hips-anchored, 4-segment ribbon. Mirrors strand chain
+    // structure but with own anchor offset + slightly tighter segDrop.
+    // Only simulated when loadout.tail is on (otherwise the bones stay at
+    // bind pose and no primitive is emitted).
+    const TAIL_ANCHOR_OFFSET: [number, number, number] = [0, 0.00, -0.13]
+    const TAIL_SEG_DROP = 0.08
+    const tailBones: number[] = []
+    for (let i = 0; i < 5; i++) {
+      const idx = rig.findIndex((j) => j.name === `Tail${i}`)
+      if (idx >= 0) tailBones.push(idx)
     }
+    const TAIL_FULL = tailBones.length === 5 && hipsIdx >= 0
+    const tailChain: NodeParticle[] = !TAIL_FULL ? [] : [
+      createNodeParticle({
+        parentRef: hipsIdx, parentKind: 'bone',
+        restOffset: TAIL_ANCHOR_OFFSET, restLength: Math.hypot(...TAIL_ANCHOR_OFFSET),
+      }),
+      createNodeParticle({ parentRef: 0, parentKind: 'particle', restOffset: [0, -TAIL_SEG_DROP, 0], restLength: TAIL_SEG_DROP }),
+      createNodeParticle({ parentRef: 1, parentKind: 'particle', restOffset: [0, -TAIL_SEG_DROP, 0], restLength: TAIL_SEG_DROP }),
+      createNodeParticle({ parentRef: 2, parentKind: 'particle', restOffset: [0, -TAIL_SEG_DROP, 0], restLength: TAIL_SEG_DROP }),
+      createNodeParticle({ parentRef: 3, parentKind: 'particle', restOffset: [0, -TAIL_SEG_DROP, 0], restLength: TAIL_SEG_DROP }),
+    ]
 
     // Scratch mat4s for per-frame invViewProj computation (point lights).
     const scratchVP   = mat4.create()
@@ -1133,13 +1382,30 @@ async function main() {
     // feel without needing a chain.
     const grenadeLIdx = rig.findIndex((j) => j.name === 'GrenadeL')
     const grenadeRIdx = rig.findIndex((j) => j.name === 'GrenadeR')
-    type SpringEntry = { boneIdx: number; spring: SecondarySpring }
-    const springEntries: SpringEntry[] = []
-    // Hair (HairBob) is now LOCKED to the head — single-primitive bob has
-    // no "tip" to swing, so we keep it rigidly attached. Future longer-
-    // hair chains will revisit with root-locked + tip-springs.
-    if (grenadeLIdx >= 0) springEntries.push({ boneIdx: grenadeLIdx, spring: createSecondarySpring([0,0,0], { stiffness: 14, damping: 0.93 }) })
-    if (grenadeRIdx >= 0) springEntries.push({ boneIdx: grenadeRIdx, spring: createSecondarySpring([0,0,0], { stiffness: 14, damping: 0.93 }) })
+    // Grenade pendulum chains — one NodeParticle per grenade, parented
+    // to Hips with belt-relative rest offset. Each tick the particle
+    // swings toward (Hips world position + rotated rest offset) with
+    // one-frame-stale parent reads, then gets pushed out of the torso
+    // SDF so it can't penetrate the hip / leg geometry. Replaces the
+    // prior spring system which had no body collision.
+    type GrenadeEntry = { boneIdx: number; particle: NodeParticle; restOffsetLocal: [number, number, number] }
+    const grenadeEntries: GrenadeEntry[] = []
+    const GRENADE_L_OFFSET: [number, number, number] = [ 0.110, -0.020, 0.090]
+    const GRENADE_R_OFFSET: [number, number, number] = [-0.110, -0.020, 0.090]
+    if (grenadeLIdx >= 0 && hipsIdx >= 0) {
+      grenadeEntries.push({
+        boneIdx: grenadeLIdx,
+        particle: createNodeParticle({ parentRef: hipsIdx, parentKind: 'bone', restOffset: GRENADE_L_OFFSET, restLength: Math.hypot(...GRENADE_L_OFFSET) }),
+        restOffsetLocal: GRENADE_L_OFFSET,
+      })
+    }
+    if (grenadeRIdx >= 0 && hipsIdx >= 0) {
+      grenadeEntries.push({
+        boneIdx: grenadeRIdx,
+        particle: createNodeParticle({ parentRef: hipsIdx, parentKind: 'bone', restOffset: GRENADE_R_OFFSET, restLength: Math.hypot(...GRENADE_R_OFFSET) }),
+        restOffsetLocal: GRENADE_R_OFFSET,
+      })
+    }
     // Pass the SAME hair / bodyParts lists we used to extend the rig.
     // The emitter uses these to build its lookup maps; without them,
     // virtual joints (HairBob, Cape*, Grenade*) live in the rig but no
@@ -1147,10 +1413,16 @@ async function main() {
     const bodyAndExtrasPrims = [
       ...DEFAULT_BODY_PARTS,
       ...DEFAULT_CAPE_PARTS,
+      ...DEFAULT_TAIL,
+      ...DEFAULT_WINGS,
+      ...DEFAULT_EXTRA_LIMBS,
       ...DEFAULT_GRENADE_BELT,
       ...outfitToBodyParts(WARDROBE.knight),
     ]
-    const allHairPrims = [...DEFAULT_BOB_HAIR, ...DEFAULT_LONG_HAIR, ...DEFAULT_HAIR_STRANDS]
+    const allHairPrims = [
+      ...DEFAULT_BOB_HAIR, ...DEFAULT_LONG_HAIR, ...DEFAULT_HAIR_STRANDS,
+      ...DEFAULT_SPIKE_TOP, ...DEFAULT_SPIKE_SIDE_L, ...DEFAULT_SPIKE_SIDE_R, ...DEFAULT_SPIKE_BACK,
+    ]
     const faceRaymarchPrims: RaymarchPrimitive[] =
       chibiRaymarchPrimitives(
         rig, material,
@@ -1322,9 +1594,31 @@ async function main() {
     ]
     interface Loadout {
       armor: ArmorOutfit
+      // Hair layers — independent toggles. Each is its own additive layer
+      // (distinct blendGroup) and can be mixed freely with the others.
+      // 'hair' string is kept for legacy save/load only (mapped → booleans
+      // on load, not authored anymore).
       hair:  HairStyle
+      bob:        boolean
+      ponytail:   boolean
+      bangsL:     boolean
+      bangsR:     boolean
+      spikesTop:  boolean
+      spikesSideL: boolean
+      spikesSideR: boolean
+      spikesBack: boolean
       cape: boolean
+      tail: boolean
+      wings: boolean
       grenades: boolean
+      // Per-bone scale override: zero out shin scaleY so the foot lands
+      // where the knee was → quadruped silhouette using humanoid rig.
+      // Combine with `crawling` or `running_crawl` anim for dog/cat look.
+      quadrupedHind: boolean
+      // Procedural extra limbs (4 phantom legs on Hips) for spider /
+      // insect silhouettes. Per-frame transform copy from the human
+      // limbs makes them animate in sync.
+      extraLimbs: boolean
       capePattern: CapePattern
       hands: string   // key into HAND_LIBRARY
       feet:  string   // key into FOOT_LIBRARY
@@ -1334,8 +1628,20 @@ async function main() {
     const loadout: Loadout = {
       armor: 'knight',
       hair: 'bob',
+      bob:         true,
+      ponytail:    false,
+      bangsL:      false,
+      bangsR:      false,
+      spikesTop:   false,
+      spikesSideL: false,
+      spikesSideR: false,
+      spikesBack:  false,
       cape: true,
+      tail: false,
+      wings: false,
       grenades: true,
+      quadrupedHind: false,
+      extraLimbs: false,
       capePattern: 'stripes',
       hands: 'skin',
       feet:  'shoe',
@@ -1406,11 +1712,31 @@ async function main() {
         if (typeof data.armor === 'string' && (data.armor === 'none' || data.armor in WARDROBE)) {
           loadout.armor = data.armor as ArmorOutfit
         }
+        // Hair: prefer the new per-layer booleans; fall back to legacy
+        // 'hair' string mapping for older saved files.
+        if (typeof data.bob === 'boolean')         loadout.bob = data.bob
+        if (typeof data.ponytail === 'boolean')    loadout.ponytail = data.ponytail
+        if (typeof data.bangsL === 'boolean')      loadout.bangsL = data.bangsL
+        if (typeof data.bangsR === 'boolean')      loadout.bangsR = data.bangsR
+        if (typeof data.spikesTop === 'boolean')   loadout.spikesTop = data.spikesTop
+        if (typeof data.spikesSideL === 'boolean') loadout.spikesSideL = data.spikesSideL
+        if (typeof data.spikesSideR === 'boolean') loadout.spikesSideR = data.spikesSideR
+        if (typeof data.spikesBack === 'boolean')  loadout.spikesBack = data.spikesBack
+        if (typeof data.bangs === 'boolean')       { loadout.bangsL = data.bangs; loadout.bangsR = data.bangs }
+        if (typeof data.spikes === 'boolean')      loadout.spikesTop = data.spikes
         if (typeof data.hair === 'string' &&
-            ['none','bob','long','strands','bob+strands','long+strands'].includes(data.hair)) {
-          loadout.hair = data.hair as HairStyle
+            ['none','bob','long','strands','bob+strands','long+strands'].includes(data.hair) &&
+            typeof data.bob !== 'boolean' && typeof data.ponytail !== 'boolean' && typeof data.bangsL !== 'boolean' && typeof data.bangsR !== 'boolean') {
+          loadout.bob      = data.hair === 'bob'  || data.hair === 'bob+strands'
+          loadout.ponytail = data.hair === 'long' || data.hair === 'long+strands'
+          const bangsOn    = data.hair === 'strands' || data.hair === 'bob+strands' || data.hair === 'long+strands'
+          loadout.bangsL = bangsOn; loadout.bangsR = bangsOn
         }
         if (typeof data.cape === 'boolean')     loadout.cape = data.cape
+        if (typeof data.tail === 'boolean')     loadout.tail = data.tail
+        if (typeof data.wings === 'boolean')    loadout.wings = data.wings
+        if (typeof data.quadrupedHind === 'boolean') loadout.quadrupedHind = data.quadrupedHind
+        if (typeof data.extraLimbs === 'boolean')    loadout.extraLimbs = data.extraLimbs
         if (typeof data.grenades === 'boolean') loadout.grenades = data.grenades
         if (typeof data.capePattern === 'string' && data.capePattern in CAPE_PATTERNS) {
           loadout.capePattern = data.capePattern as CapePattern
@@ -1462,15 +1788,25 @@ async function main() {
       const bodyAndExtras = [
         ...DEFAULT_BODY_PARTS,
         ...(loadout.cape     ? DEFAULT_CAPE_PARTS     : []),
+        ...(loadout.tail     ? DEFAULT_TAIL           : []),
+        ...(loadout.wings    ? DEFAULT_WINGS          : []),
+        ...(loadout.extraLimbs ? DEFAULT_EXTRA_LIMBS  : []),
         ...(loadout.grenades ? DEFAULT_GRENADE_BELT   : []),
         ...(armorOutfit ? outfitToBodyParts(armorOutfit) : []),
       ]
-      const hairList = loadout.hair === 'bob'           ? DEFAULT_BOB_HAIR
-                     : loadout.hair === 'long'          ? DEFAULT_LONG_HAIR
-                     : loadout.hair === 'strands'       ? DEFAULT_HAIR_STRANDS
-                     : loadout.hair === 'bob+strands'   ? [...DEFAULT_BOB_HAIR,  ...DEFAULT_HAIR_STRANDS]
-                     : loadout.hair === 'long+strands'  ? [...DEFAULT_LONG_HAIR, ...DEFAULT_HAIR_STRANDS]
-                     : []
+      // Hair layers compose additively from the three booleans — bob,
+      // ponytail, bangs — each with its own blendGroup so they don't
+      // smin into each other. Mix freely.
+      const hairList = [
+        ...(loadout.bob         ? DEFAULT_BOB_HAIR        : []),
+        ...(loadout.ponytail    ? DEFAULT_LONG_HAIR       : []),
+        ...(loadout.bangsL      ? DEFAULT_HAIR_STRAND_L   : []),
+        ...(loadout.bangsR      ? DEFAULT_HAIR_STRAND_R   : []),
+        ...(loadout.spikesTop   ? DEFAULT_SPIKE_TOP       : []),
+        ...(loadout.spikesSideL ? DEFAULT_SPIKE_SIDE_L    : []),
+        ...(loadout.spikesSideR ? DEFAULT_SPIKE_SIDE_R    : []),
+        ...(loadout.spikesBack  ? DEFAULT_SPIKE_BACK      : []),
+      ]
       // Apply anatomy profile overrides — clone DEFAULT_ANATOMY with
       // any character-specific profile from `profiles.anatomy` substituted.
       // Partial maps; missing entries fall back to DEFAULT_ANATOMY's profile.
@@ -1579,16 +1915,6 @@ async function main() {
         : expanded.filter((p) => categoryOf(p) === loadout.isolate)
       persistentPrims.length = 0
       for (const p of isolated) persistentPrims.push(p)
-      // Refresh strand → prim index mapping. Each strand bone is unique
-      // in the rig so the boneIdx → primIdx lookup is one-to-one for
-      // type 14 prims.
-      for (const e of strandEntries) e.primIdx = -1
-      for (let i = 0; i < persistentPrims.length; i++) {
-        const p = persistentPrims[i]
-        if (p.type !== 14) continue
-        const e = strandEntries.find((s) => s.boneIdx === p.boneIdx)
-        if (e) e.primIdx = i
-      }
       // Persist the new loadout — every panel toggle / shuffle / load
       // funnels through here, so this is the canonical save site.
       saveLoadoutToStorage()
@@ -1642,16 +1968,37 @@ async function main() {
       const armorOpts: { value: string; text: string }[] = [{ value: 'none', text: 'none' }]
       for (const k of Object.keys(WARDROBE) as ArmorOutfit[]) armorOpts.push({ value: k, text: k })
       makeRow('armor', armorOpts, () => loadout.armor, (v) => { loadout.armor = v as ArmorOutfit })
-      makeRow('hair',
-        [
-          { value: 'none', text: 'none' },
-          { value: 'bob', text: 'bob' },
-          { value: 'long', text: 'long' },
-          { value: 'strands', text: 'strands' },
-          { value: 'bob+strands', text: 'bob+s' },
-          { value: 'long+strands', text: 'long+s' },
-        ],
-        () => loadout.hair, (v) => { loadout.hair = v as HairStyle },
+      makeRow('bob',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.bob ? 'on' : 'off', (v) => { loadout.bob = v === 'on' },
+      )
+      makeRow('ponytail',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.ponytail ? 'on' : 'off', (v) => { loadout.ponytail = v === 'on' },
+      )
+      makeRow('bangL',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.bangsL ? 'on' : 'off', (v) => { loadout.bangsL = v === 'on' },
+      )
+      makeRow('bangR',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.bangsR ? 'on' : 'off', (v) => { loadout.bangsR = v === 'on' },
+      )
+      makeRow('spkTop',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.spikesTop ? 'on' : 'off', (v) => { loadout.spikesTop = v === 'on' },
+      )
+      makeRow('spkSdL',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.spikesSideL ? 'on' : 'off', (v) => { loadout.spikesSideL = v === 'on' },
+      )
+      makeRow('spkSdR',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.spikesSideR ? 'on' : 'off', (v) => { loadout.spikesSideR = v === 'on' },
+      )
+      makeRow('spkBack',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.spikesBack ? 'on' : 'off', (v) => { loadout.spikesBack = v === 'on' },
       )
       makeRow('cape',
         [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
@@ -1660,6 +2007,23 @@ async function main() {
       makeRow('pattern',
         (Object.keys(CAPE_PATTERNS) as CapePattern[]).map((p) => ({ value: p, text: p })),
         () => loadout.capePattern, (v) => { loadout.capePattern = v as CapePattern },
+      )
+      makeRow('tail',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.tail ? 'on' : 'off', (v) => { loadout.tail = v === 'on' },
+      )
+      makeRow('wings',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.wings ? 'on' : 'off', (v) => { loadout.wings = v === 'on' },
+      )
+      makeRow('quad',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.quadrupedHind ? 'on' : 'off',
+        (v) => { loadout.quadrupedHind = v === 'on'; applyPreset(currentProportion) },
+      )
+      makeRow('extras',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.extraLimbs ? 'on' : 'off', (v) => { loadout.extraLimbs = v === 'on' },
       )
       makeRow('grenades',
         [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
@@ -1760,15 +2124,25 @@ async function main() {
       shuffleBtn.style.fontSize = '11px'
       shuffleBtn.onclick = () => {
         const armorKeys: ArmorOutfit[] = ['none', ...(Object.keys(WARDROBE) as Array<keyof typeof WARDROBE>)]
-        const hairKeys: HairStyle[]    = ['none', 'bob', 'long', 'strands', 'bob+strands', 'long+strands']
         const patternKeys              = Object.keys(CAPE_PATTERNS) as CapePattern[]
         const proportionKeys: PresetKey[] = ['chibi', 'stylized', 'realistic']
         const expressionKeys           = Object.keys(EXPRESSIONS)
         const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]
         loadout.armor       = pick(armorKeys)
-        loadout.hair        = pick(hairKeys)
+        loadout.bob         = Math.random() < 0.6
+        loadout.ponytail    = Math.random() < 0.5
+        loadout.bangsL      = Math.random() < 0.5
+        loadout.bangsR      = Math.random() < 0.5
+        loadout.spikesTop   = Math.random() < 0.3
+        loadout.spikesSideL = Math.random() < 0.2
+        loadout.spikesSideR = Math.random() < 0.2
+        loadout.spikesBack  = Math.random() < 0.2
         loadout.cape        = Math.random() < 0.7
         loadout.capePattern = pick(patternKeys)
+        loadout.tail        = Math.random() < 0.2
+        loadout.wings       = Math.random() < 0.15
+        loadout.quadrupedHind = Math.random() < 0.15
+        loadout.extraLimbs  = Math.random() < 0.10
         loadout.grenades    = Math.random() < 0.5
         applyPreset(pick(proportionKeys))
         if (expressionKeys.length > 0) applyExpression(pick(expressionKeys))
@@ -1780,10 +2154,22 @@ async function main() {
       resetBtn.style.fontSize = '11px'
       resetBtn.onclick = () => {
         loadout.armor       = 'knight'
-        loadout.hair        = 'bob'
+        loadout.bob         = true
+        loadout.ponytail    = false
+        loadout.bangsL      = false
+        loadout.bangsR      = false
+        loadout.spikesTop   = false
+        loadout.spikesSideL = false
+        loadout.spikesSideR = false
+        loadout.spikesBack  = false
         loadout.cape        = true
         loadout.capePattern = 'stripes'
+        loadout.tail        = false
+        loadout.wings       = false
+        loadout.quadrupedHind = false
+        loadout.extraLimbs  = false
         loadout.grenades    = true
+        applyPreset(currentProportion)   // restores per-bone scales after retarget reset
         rebuildPersistentPrims()
         buildLoadoutUI()
       }
@@ -2145,6 +2531,13 @@ async function main() {
         } else {
           composer.update(frameIdx, characterParams)
         }
+        // Procedural extra limb sync — overrides world rotation columns
+        // of each Extra*_Up / Extra*_Low bone to match its source
+        // humanoid limb (LeftArm/RightArm/LeftUpLeg/RightUpLeg). Then
+        // recomputes child translations along the rotated bone's Y
+        // axis so the chain composes correctly. Result: 4 phantom legs
+        // bend in sync with the human limbs.
+        if (loadout.extraLimbs && composer) applyExtraLimbsCopy()
       }
 
       // Cape secondary motion — node particles drive cape bone positions
@@ -2642,6 +3035,25 @@ async function main() {
           v[0] * hX[2] + v[1] * hY[2] + v[2] * hZ[2],
         ]
 
+        // Body-forward axis (yaw-only horizontal) — same construction as
+        // the cape's sZ. Used for anti-tunneling in the torso SDF push:
+        // hair particles correctly behind the body project negatively
+        // onto this axis (relative to a body-anchor origin), and the SDF
+        // push lets gravity drape them naturally. Particles that have
+        // tunneled to the FRONT of the body project positively, and we
+        // reflect the gradient sideways to wrap them back around instead
+        // of letting the chest-front gradient push them further forward.
+        const bodyRotIdx = (hipsIdx >= 0 ? hipsIdx : (spine1Idx >= 0 ? spine1Idx : spine2Idx))
+        let bodyFwdX = 0, bodyFwdZ = 1
+        if (bodyRotIdx >= 0) {
+          const bm = bodyRotIdx * 16
+          bodyFwdX = wm[bm + 8]
+          bodyFwdZ = wm[bm + 10]
+          const bLen = Math.hypot(bodyFwdX, bodyFwdZ)
+          if (bLen < 1e-4) { bodyFwdX = 0; bodyFwdZ = 1 } else { bodyFwdX /= bLen; bodyFwdZ /= bLen }
+        }
+        const bodyFwd: [number, number, number] = [bodyFwdX, 0, bodyFwdZ]
+
         // Wind: weaker than the cape (hair is lighter but closer to head,
         // so big sideways drift looks wrong). Slight DOWN bias keeps the
         // strands flowing earthward instead of flying horizontal.
@@ -2649,6 +3061,19 @@ async function main() {
         const hairWindAngle = elapsed * 0.85 + Math.sin(elapsed * 0.5) * 0.4
         const hairWindX = Math.cos(hairWindAngle) * hairWindStrength
         const hairWindZ = Math.sin(hairWindAngle) * hairWindStrength
+
+        // Per-tick segment drop. Auto-scales with head proportion so chibi
+        // characters don't get adult-length hair, then user overrides via
+        // the hair-length slider. Re-derive minLength/maxLength every tick
+        // so the chain physics actually reaches the new spacing (otherwise
+        // the original constraints clamp it back to default — same gotcha
+        // the cape hit, see CAPE_SEG_DROP scaling above).
+        const headYScale = currentScales.head
+        const hairSegDrop = HAIR_SEG_DROP * headYScale * hairLengthScale
+        for (let i = 1; i < hairChain.length; i++) {
+          hairChain[i].minLength = hairSegDrop * 0.95
+          hairChain[i].maxLength = hairSegDrop * 1.05
+        }
 
         // ROOT: lock HairLong0 to Head world position + head-rotated offset.
         {
@@ -2663,12 +3088,33 @@ async function main() {
           hairChain[0].initialised = true
         }
 
-        // MID + TIP: chain physics with head-rotated offsets + wind. The
-        // tip sees the most wind drift; root segments stay closer to their
-        // rest direction.
+        // MID + TIP: chain physics with head-rotated offsets + wind.
+        // Rest direction has a backward (-Z head-local) bias so the chain
+        // pokes OUT from the back of the cranium instead of dangling
+        // straight down through it. Tip drape blends toward world-down so
+        // the strand tips always relax with gravity (mirrors cape drape):
+        // when the head looks up sharply, root segments still hug the
+        // skull but distal segments fall earthward instead of trailing
+        // horizontally back. Together with head-SDF push-out below, the
+        // chain naturally fans around the cranium curve.
+        const HAIR_BACK_TILT_COS = 0.94      // cos(20°) — gentle back-tilt
+        const HAIR_BACK_TILT_SIN = 0.34      // sin(20°)
         for (let i = 1; i < hairChain.length; i++) {
           const baseOff = hairChain[i].restOffset
-          const rotatedOff = rotByHead(baseOff)
+          const yScaled = (baseOff[1] / HAIR_SEG_DROP) * hairSegDrop
+          const headLocalOff: [number, number, number] = [
+            baseOff[0],
+            yScaled * HAIR_BACK_TILT_COS,
+            -hairSegDrop * HAIR_BACK_TILT_SIN,
+          ]
+          const bodyOff = rotByHead(headLocalOff)
+          const drape = Math.min(0.7, (i / hairChain.length) * 0.85)
+          const worldOff: [number, number, number] = [0, yScaled, 0]
+          const rotatedOff: [number, number, number] = [
+            bodyOff[0] * (1 - drape) + worldOff[0] * drape,
+            bodyOff[1] * (1 - drape) + worldOff[1] * drape,
+            bodyOff[2] * (1 - drape) + worldOff[2] * drape,
+          ]
           const k = (i + 1) / hairChain.length
           const offsetWithWind: [number, number, number] = [
             rotatedOff[0] + hairWindX * k,
@@ -2678,28 +3124,143 @@ async function main() {
           tickNodeParticle(hairChain[i], hairChain, getBoneWorldPos, offsetWithWind)
         }
 
-        // Body collision: head sphere (so hair doesn't tunnel through the
-        // cranium during quick rotations) + shoulder spheres (so falling
-        // strands rest naturally over the shoulders rather than passing
-        // through them). Skip root (i=0) — it's locked to a clean spot.
-        const hairCollisionList: { bone: number; r: number }[] = [
-          { bone: headIdx, r: 0.18 },
-        ]
-        if (lShoulderIdx >= 0) hairCollisionList.push({ bone: lShoulderIdx, r: 0.07 })
-        if (rShoulderIdx >= 0) hairCollisionList.push({ bone: rShoulderIdx, r: 0.07 })
-        for (let i = 1; i < hairChain.length; i++) {
-          const cp = hairChain[i].position
-          for (const col of hairCollisionList) {
-            const cb = getBoneWorldPos(col.bone)
-            const dx = cp[0] - cb[0]
-            const dy = cp[1] - cb[1]
-            const dz = cp[2] - cb[2]
+        // Head collision — single sphere attached to the Head bone, with
+        // its center lifted in head-local Y to sit at the cranium center
+        // rather than at the bone origin (mixamo's Head joint sits roughly
+        // at chin/jaw level). Lifting it puts the cranium ball where it
+        // belongs and lets the chin/jaw be handled by gravity + the torso
+        // SDF below. Cheaper than a multi-prim head SDF and tracks
+        // proportion presets via headYScale-modulated radius.
+        const HEAD_COL_LIFT_LOCAL = 0.05
+        const HEAD_COL_RADIUS = 0.18 * headYScale
+        {
+          const headPos = getBoneWorldPos(headIdx)
+          const lift = rotByHead([0, HEAD_COL_LIFT_LOCAL, 0])
+          const cx = headPos[0] + lift[0]
+          const cy = headPos[1] + lift[1]
+          const cz = headPos[2] + lift[2]
+          for (let i = 1; i < hairChain.length; i++) {
+            const cp = hairChain[i].position
+            const dx = cp[0] - cx
+            const dy = cp[1] - cy
+            const dz = cp[2] - cz
             const dist = Math.hypot(dx, dy, dz)
-            if (dist > 1e-6 && dist < col.r) {
-              const k2 = col.r / dist
-              cp[0] = cb[0] + dx * k2
-              cp[1] = cb[1] + dy * k2
-              cp[2] = cb[2] + dz * k2
+            if (dist > 1e-6 && dist < HEAD_COL_RADIUS) {
+              const k2 = HEAD_COL_RADIUS / dist
+              cp[0] = cx + dx * k2
+              cp[1] = cy + dy * k2
+              cp[2] = cz + dz * k2
+            }
+          }
+        }
+
+        // Torso SDF push-out for long hair — same architecture as the
+        // cape's body collision, but with a THICKER buffer so the hair
+        // sits OUTSIDE the cape rather than coinciding with it. Cape
+        // buffer is 0.075 (particle 7.5cm from torso surface), cape
+        // geometry extends ±0.025 along its Z axis, so cape outer face
+        // is at +0.10m. Hair half-cross-section is ~0.045 + visible
+        // clearance ~0.015 → HAIR_BODY_BUFFER = 0.16. Shoulders live
+        // in blend group 6 so this push handles over-shoulder draping
+        // for long hair without needing separate shoulder spheres.
+        const HAIR_BODY_BUFFER = 0.16
+        const TORSO_GROUP = 6
+        const torsoCollPrims = persistentPrims.filter(
+          p => p.blendGroup === TORSO_GROUP &&
+               (p.type === 0 || p.type === 1 || p.type === 3),
+        )
+        const worldToLocalH = (boneMatStart: number, wx: number, wy: number, wz: number): [number, number, number] => {
+          const c0x = wm[boneMatStart],     c0y = wm[boneMatStart + 1], c0z = wm[boneMatStart + 2]
+          const c1x = wm[boneMatStart + 4], c1y = wm[boneMatStart + 5], c1z = wm[boneMatStart + 6]
+          const c2x = wm[boneMatStart + 8], c2y = wm[boneMatStart + 9], c2z = wm[boneMatStart + 10]
+          const tx  = wm[boneMatStart + 12], ty  = wm[boneMatStart + 13], tz  = wm[boneMatStart + 14]
+          const s0sq = Math.max(c0x*c0x + c0y*c0y + c0z*c0z, 1e-10)
+          const s1sq = Math.max(c1x*c1x + c1y*c1y + c1z*c1z, 1e-10)
+          const s2sq = Math.max(c2x*c2x + c2y*c2y + c2z*c2z, 1e-10)
+          const dx = wx - tx, dy = wy - ty, dz = wz - tz
+          return [
+            (c0x * dx + c0y * dy + c0z * dz) / s0sq,
+            (c1x * dx + c1y * dy + c1z * dz) / s1sq,
+            (c2x * dx + c2y * dy + c2z * dz) / s2sq,
+          ]
+        }
+        const sminH = (a: number, b: number, k: number): number => {
+          const kk = Math.max(k, 1e-6)
+          const h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / kk))
+          return (b * (1 - h) + a * h) - kk * h * (1 - h)
+        }
+        const torsoSDFForHair = (wx: number, wy: number, wz: number): number => {
+          let d = 1e9
+          for (const p of torsoCollPrims) {
+            const baseM = p.boneIdx * 16
+            const lp = worldToLocalH(baseM, wx, wy, wz)
+            const off = p.offsetInBone
+            const lx = lp[0] - off[0], ly = lp[1] - off[1], lz = lp[2] - off[2]
+            let primD: number
+            if (p.type === 0) {
+              primD = Math.hypot(lx, ly, lz) - p.params[0]
+            } else if (p.type === 1) {
+              const qx = Math.abs(lx) - p.params[0]
+              const qy = Math.abs(ly) - p.params[1]
+              const qz = Math.abs(lz) - p.params[2]
+              const outX = Math.max(qx, 0), outY = Math.max(qy, 0), outZ = Math.max(qz, 0)
+              primD = Math.hypot(outX, outY, outZ) + Math.min(Math.max(qx, qy, qz), 0)
+            } else {
+              const rx = Math.max(p.params[0], 1e-4)
+              const ry = Math.max(p.params[1], 1e-4)
+              const rz = Math.max(p.params[2], 1e-4)
+              const k0 = Math.hypot(lx / rx, ly / ry, lz / rz)
+              primD = (k0 - 1) * Math.min(rx, ry, rz)
+            }
+            const br = (p.blendRadius && p.blendRadius > 0) ? p.blendRadius : 0.07
+            d = sminH(d, primD, br)
+          }
+          return d
+        }
+        if (torsoCollPrims.length > 0) {
+          const eps = 0.005
+          const anchorPos = hairChain[0].position
+          for (let i = 1; i < hairChain.length; i++) {
+            const cp = hairChain[i].position
+            for (let iter = 0; iter < 2; iter++) {
+              const d = torsoSDFForHair(cp[0], cp[1], cp[2])
+              if (d >= HAIR_BODY_BUFFER) break
+              const dxp = torsoSDFForHair(cp[0] + eps, cp[1], cp[2])
+              const dxn = torsoSDFForHair(cp[0] - eps, cp[1], cp[2])
+              const dyp = torsoSDFForHair(cp[0], cp[1] + eps, cp[2])
+              const dyn = torsoSDFForHair(cp[0], cp[1] - eps, cp[2])
+              const dzp = torsoSDFForHair(cp[0], cp[1], cp[2] + eps)
+              const dzn = torsoSDFForHair(cp[0], cp[1], cp[2] - eps)
+              let gx = dxp - dxn, gy = dyp - dyn, gz = dzp - dzn
+              const gLen = Math.hypot(gx, gy, gz)
+              if (gLen < 1e-6) break
+              gx /= gLen; gy /= gLen; gz /= gLen
+              // Anti-tunneling — same as cape. If the particle has crossed
+              // to the FRONT side of the back-of-head anchor (anchorFwd > 0)
+              // and the SDF gradient also points forward (dotFwd > 0), the
+              // particle has tunneled through the body and the chest-front
+              // gradient would push it further forward forever. Reflect the
+              // gradient across the body-forward axis so the push wraps
+              // sideways instead, returning the particle to the back of
+              // the body. Particles legitimately behind the body have
+              // anchorFwd < 0 and skip reflection — gravity drape works.
+              const anchorFwd = (cp[0] - anchorPos[0]) * bodyFwd[0]
+                              + (cp[1] - anchorPos[1]) * bodyFwd[1]
+                              + (cp[2] - anchorPos[2]) * bodyFwd[2]
+              if (anchorFwd > 0) {
+                const dotFwd = gx * bodyFwd[0] + gy * bodyFwd[1] + gz * bodyFwd[2]
+                if (dotFwd > 0) {
+                  gx -= 2 * dotFwd * bodyFwd[0]
+                  gy -= 2 * dotFwd * bodyFwd[1]
+                  gz -= 2 * dotFwd * bodyFwd[2]
+                  const gLen2 = Math.hypot(gx, gy, gz)
+                  if (gLen2 > 1e-6) { gx /= gLen2; gy /= gLen2; gz /= gLen2 }
+                }
+              }
+              const push = HAIR_BODY_BUFFER - d
+              cp[0] += gx * push
+              cp[1] += gy * push
+              cp[2] += gz * push
             }
           }
         }
@@ -2736,7 +3297,7 @@ async function main() {
           const here: [number, number, number] = hairChain[i].position
           const next: [number, number, number] = (i + 1 < hairChain.length)
             ? hairChain[i + 1].position
-            : [here[0], here[1] - HAIR_SEG_DROP, here[2]]
+            : [here[0], here[1] - hairSegDrop, here[2]]
           let uy0 = next[0] - here[0]
           let uy1 = next[1] - here[1]
           let uy2 = next[2] - here[2]
@@ -2795,154 +3356,468 @@ async function main() {
         invalidateRaymarchCache()
       }
 
-      // Hair strand secondary motion — each strand is independent. The
-      // bone matrix STAYS at its rest orientation (composer left it
-      // alone). Spring tip lives in WORLD; we transform the world-space
-      // delta back into PRIMITIVE-LOCAL space and upload it to the
-      // strand's slot-4 (tipDelta). The shader's bent_capsule SDF
-      // (type 14) curves the strand body quadratically toward this
-      // delta — the BEND comes from the SDF, not from re-aiming the
-      // bone frame, which keeps the rest envelope clean.
-      if (composer && strandEntries.length > 0 && tickShouldRun) {
+      // Ribbon-chain physics — generic chain simulator used for both
+      // side strands and the tail. Locked root + chain particles + torso
+      // SDF push (with anti-tunneling) + hinge + parallel transport +
+      // VAT upload. Anchor bone, anchor offset, segment drop, and ground
+      // clamp are per-call. Body-fwd / torso-SDF state is built once
+      // and shared across calls.
+      const tailActive = TAIL_FULL && loadout.tail
+      if (composer && (STRAND_L_FULL || STRAND_R_FULL || tailActive) && tickShouldRun) {
         const wm = composer.worldMatrices
-        const dt = tickDt
-        const sWindStrength = 0.015
-        const sWindAngle = elapsed * 1.1 + Math.sin(elapsed * 0.7) * 0.4
-        const sWindX = Math.cos(sWindAngle) * sWindStrength
-        const sWindZ = Math.sin(sWindAngle) * sWindStrength
-
-        const headBase = headIdx >= 0 ? headIdx * 16 : -1
-        for (let i = 0; i < strandEntries.length; i++) {
-          const e = strandEntries[i]
-          const off = e.boneIdx * 16
-          const rootX = wm[off + 12]
-          const rootY = wm[off + 13]
-          const rootZ = wm[off + 14]
-          // Bone +Y in world (rest direction).
-          const restYx = wm[off + 4], restYy = wm[off + 5], restYz = wm[off + 6]
-          const tipLen = 2 * e.halfLen
-          // Rest tip world position + breeze applied to the rest target.
-          const restTipX = rootX + restYx * tipLen + sWindX
-          const restTipY = rootY + restYy * tipLen
-          const restTipZ = rootZ + restYz * tipLen + sWindZ
-          if (!e.spring.initialised) {
-            e.spring.position[0] = restTipX
-            e.spring.position[1] = restTipY
-            e.spring.position[2] = restTipZ
-            e.spring.initialised = true
-          }
-          tickSpring(e.spring, [restTipX, restTipY, restTipZ], dt)
-          // Body collision: push spring tip out of the head sphere.
-          if (headBase >= 0) {
-            const cx = wm[headBase + 12], cy = wm[headBase + 13], cz = wm[headBase + 14]
-            const dx = e.spring.position[0] - cx
-            const dy = e.spring.position[1] - cy
-            const dz = e.spring.position[2] - cz
-            const dist = Math.hypot(dx, dy, dz)
-            const HEAD_R = 0.18
-            if (dist > 1e-6 && dist < HEAD_R) {
-              const k = HEAD_R / dist
-              e.spring.position[0] = cx + dx * k
-              e.spring.position[1] = cy + dy * k
-              e.spring.position[2] = cz + dz * k
-            }
-          }
-          // World tipDelta = springTip - restTipNoWind.
-          // (Wind already moved the rest target; spring follows. We
-          // want the bend to read TIP - REST_OF_BONE not TIP - REST_OF_TARGET,
-          // so subtract the un-windified rest tip here.)
-          const restTipNoWindX = rootX + restYx * tipLen
-          const restTipNoWindY = rootY + restYy * tipLen
-          const restTipNoWindZ = rootZ + restYz * tipLen
-          const wDx = e.spring.position[0] - restTipNoWindX
-          const wDy = e.spring.position[1] - restTipNoWindY
-          const wDz = e.spring.position[2] - restTipNoWindZ
-          // Inverse-rotate world delta into primitive-local frame.
-          // Bone matrix is orthonormal (no scaling on strand bones), so
-          // M^T equals M^-1 for the rotation block.
-          const bX0 = wm[off + 0], bX1 = wm[off + 1], bX2 = wm[off + 2]
-          const bY0 = wm[off + 4], bY1 = wm[off + 5], bY2 = wm[off + 6]
-          const bZ0 = wm[off + 8], bZ1 = wm[off + 9], bZ2 = wm[off + 10]
-          const localX = bX0 * wDx + bX1 * wDy + bX2 * wDz
-          const localY = bY0 * wDx + bY1 * wDy + bY2 * wDz
-          const localZ = bZ0 * wDx + bZ1 * wDy + bZ2 * wDz
-          // Cap the bend magnitude — runaway tipDelta breaks the SDF
-          // approximation. 1.5× halfLen is a safe upper bound: the
-          // tip can move sideways up to 1.5 × strand length.
-          const MAX_BEND = e.halfLen * 1.5
-          const blen = Math.hypot(localX, localY, localZ)
-          let bx = localX, by = localY, bz = localZ
-          if (blen > MAX_BEND) {
-            const k = MAX_BEND / blen
-            bx *= k; by *= k; bz *= k
-          }
-          if (e.primIdx >= 0) {
-            // Mutate the persistent prim's slot-4 in place — the next
-            // setPrimitives upload (driven by invalidateRaymarchCache
-            // below) will carry the fresh tipDelta. Saves a partial
-            // GPU write at the cost of repacking the whole buffer.
-            const rot = persistentPrims[e.primIdx].rotation
-            if (rot) { rot[0] = bx; rot[1] = by; rot[2] = bz; rot[3] = 0 }
-            else persistentPrims[e.primIdx].rotation = [bx, by, bz, 0]
-          }
+        const getBoneWorldPos = (boneIdx: number): [number, number, number] => [
+          wm[boneIdx * 16 + 12], wm[boneIdx * 16 + 13], wm[boneIdx * 16 + 14],
+        ]
+        // Body-forward axis from Hips (yaw-only horizontal) — same as cape.
+        const bodyRotIdx = (hipsIdx >= 0 ? hipsIdx : (spine1Idx >= 0 ? spine1Idx : spine2Idx))
+        let bodyFwdX = 0, bodyFwdZ = 1
+        if (bodyRotIdx >= 0) {
+          const bm = bodyRotIdx * 16
+          bodyFwdX = wm[bm + 8]; bodyFwdZ = wm[bm + 10]
+          const bLen = Math.hypot(bodyFwdX, bodyFwdZ)
+          if (bLen < 1e-4) { bodyFwdX = 0; bodyFwdZ = 1 } else { bodyFwdX /= bLen; bodyFwdZ /= bLen }
         }
-        invalidateRaymarchCache()
-      }
+        const bodyFwd: [number, number, number] = [bodyFwdX, 0, bodyFwdZ]
+        const bodyRight: [number, number, number] = [bodyFwdZ, 0, -bodyFwdX]   // up × forward
 
-      // Spring-jiggle: each entry's spring follows its bone's world
-      // position with lag + overshoot. Read the composer-computed rest
-      // target, tick the spring, override translation, re-upload that
-      // bone slot. Rotation stays untouched so spheres / ellipsoids
-      // inherit the parent bone's orientation.
-      if (composer && springEntries.length > 0 && tickShouldRun) {
-        const wm = composer.worldMatrices
-        const dt = tickDt
-        // Body collision spheres for spring-jiggle elements (grenades,
-        // future jiggle bones). After spring integration each pixel-
-        // can-only-deform-AWAY-from-body push: project particle out of
-        // any sphere it's penetrating. Spheres come from Hips + Spine1
-        // + Spine2 bone world centres.
-        const springCollisionList: { bone: number; r: number }[] = []
-        if (hipsIdx   >= 0) springCollisionList.push({ bone: hipsIdx,   r: 0.17 })
-        if (spine2Idx >= 0) springCollisionList.push({ bone: spine2Idx, r: 0.16 })
-        for (const entry of springEntries) {
-          const off = entry.boneIdx * 16
-          const restTarget: [number, number, number] = [wm[off + 12], wm[off + 13], wm[off + 14]]
-          tickSpring(entry.spring, restTarget, dt)
-          // Push out of body bounding spheres (grenades, etc only deform
-          // OUTWARD from the body — never let the spring carry them
-          // inside the torso).
-          for (const col of springCollisionList) {
-            const cb: [number, number, number] = [
-              wm[col.bone * 16 + 12],
-              wm[col.bone * 16 + 13],
-              wm[col.bone * 16 + 14],
-            ]
-            const dx = entry.spring.position[0] - cb[0]
-            const dy = entry.spring.position[1] - cb[1]
-            const dz = entry.spring.position[2] - cb[2]
-            const dist = Math.hypot(dx, dy, dz)
-            if (dist > 1e-6 && dist < col.r) {
-              const k = col.r / dist
-              entry.spring.position[0] = cb[0] + dx * k
-              entry.spring.position[1] = cb[1] + dy * k
-              entry.spring.position[2] = cb[2] + dz * k
-              // Kill velocity component pointing into the sphere so
-              // the spring doesn't keep accelerating into the body.
-              const vDotN = (entry.spring.velocity[0] * dx + entry.spring.velocity[1] * dy + entry.spring.velocity[2] * dz) / dist
-              if (vDotN < 0) {
-                entry.spring.velocity[0] -= (vDotN * dx) / dist
-                entry.spring.velocity[1] -= (vDotN * dy) / dist
-                entry.spring.velocity[2] -= (vDotN * dz) / dist
+        // (Per-anchor rotation columns are built inside simulateRibbonChain
+        // from the call's anchorBoneIdx — no need to pre-compute here.)
+
+        // Torso SDF — shared between all chains in this block. Build
+        // once per tick. Per-call body buffer is passed into the helper.
+        const TORSO_GROUP = 6
+        const torsoCollPrims = persistentPrims.filter(
+          p => p.blendGroup === TORSO_GROUP &&
+               (p.type === 0 || p.type === 1 || p.type === 3),
+        )
+        const worldToLocalS = (boneMatStart: number, wx: number, wy: number, wz: number): [number, number, number] => {
+          const c0x = wm[boneMatStart],     c0y = wm[boneMatStart + 1], c0z = wm[boneMatStart + 2]
+          const c1x = wm[boneMatStart + 4], c1y = wm[boneMatStart + 5], c1z = wm[boneMatStart + 6]
+          const c2x = wm[boneMatStart + 8], c2y = wm[boneMatStart + 9], c2z = wm[boneMatStart + 10]
+          const tx  = wm[boneMatStart + 12], ty  = wm[boneMatStart + 13], tz  = wm[boneMatStart + 14]
+          const s0sq = Math.max(c0x*c0x + c0y*c0y + c0z*c0z, 1e-10)
+          const s1sq = Math.max(c1x*c1x + c1y*c1y + c1z*c1z, 1e-10)
+          const s2sq = Math.max(c2x*c2x + c2y*c2y + c2z*c2z, 1e-10)
+          const dx = wx - tx, dy = wy - ty, dz = wz - tz
+          return [
+            (c0x * dx + c0y * dy + c0z * dz) / s0sq,
+            (c1x * dx + c1y * dy + c1z * dz) / s1sq,
+            (c2x * dx + c2y * dy + c2z * dz) / s2sq,
+          ]
+        }
+        const sminS = (a: number, b: number, k: number): number => {
+          const kk = Math.max(k, 1e-6)
+          const h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / kk))
+          return (b * (1 - h) + a * h) - kk * h * (1 - h)
+        }
+        const torsoSDF = (wx: number, wy: number, wz: number): number => {
+          let d = 1e9
+          for (const p of torsoCollPrims) {
+            const baseM = p.boneIdx * 16
+            const lp = worldToLocalS(baseM, wx, wy, wz)
+            const off = p.offsetInBone
+            const lx = lp[0] - off[0], ly = lp[1] - off[1], lz = lp[2] - off[2]
+            let primD: number
+            if (p.type === 0) {
+              primD = Math.hypot(lx, ly, lz) - p.params[0]
+            } else if (p.type === 1) {
+              const qx = Math.abs(lx) - p.params[0]
+              const qy = Math.abs(ly) - p.params[1]
+              const qz = Math.abs(lz) - p.params[2]
+              const outX = Math.max(qx, 0), outY = Math.max(qy, 0), outZ = Math.max(qz, 0)
+              primD = Math.hypot(outX, outY, outZ) + Math.min(Math.max(qx, qy, qz), 0)
+            } else {
+              const rx = Math.max(p.params[0], 1e-4)
+              const ry = Math.max(p.params[1], 1e-4)
+              const rz = Math.max(p.params[2], 1e-4)
+              const k0 = Math.hypot(lx / rx, ly / ry, lz / rz)
+              primD = (k0 - 1) * Math.min(rx, ry, rz)
+            }
+            const br = (p.blendRadius && p.blendRadius > 0) ? p.blendRadius : 0.07
+            d = sminS(d, primD, br)
+          }
+          return d
+        }
+
+        // Generic ribbon-chain simulator. Anchor bone determines the
+        // rotation source for rest-offset rotation; ground-clamp Y is
+        // null for floating chains (strands) or a world-Y floor for
+        // ground-aware chains (tail dragging). bodyBuffer is per-call
+        // because tail must clear the cape (larger), while strands hang
+        // in front of cape (smaller). anchorOnBack flips the
+        // anti-tunneling test: cape/tail anchor behind body so tunneled
+        // = forward (anchorFwd > 0); strand anchor in front so tunneled
+        // = backward (anchorFwd < 0).
+        const simulateRibbonChain = (
+          chain: NodeParticle[], bones: number[],
+          anchorOffset: [number, number, number],
+          anchorBoneIdx: number,
+          segDrop: number,
+          bodyBuffer: number,
+          anchorOnBack: boolean,
+          groundClampY: number | null,
+          extraSphere: { boneIdx: number; radius: number; offsetLocal: [number, number, number] } | null,
+          // Back-tilt of the rest direction in anchor-local frame. 0 = pure
+          // -Y (straight down). Positive value tilts the rest direction
+          // toward anchor-local -Z (away from face) so the chain "pokes
+          // outward" instead of dangling against the back of the head.
+          restTiltSin: number,
+          // Optional wind. World-space X/Z offset applied to each chain
+          // particle's rest target, scaled by chain index (tip gets the
+          // most drift). Pass {x: 0, z: 0} or null for no wind.
+          wind: { x: number; z: number } | null,
+        ) => {
+          if (chain.length === 0 || anchorBoneIdx < 0) return
+          // Per-tick segDrop rebuild — without this the chain's min/max
+          // length constraints clamp particles to their original spacing,
+          // and the length slider's segDrop change has no effect (same
+          // gotcha cape + HairLong solved earlier).
+          for (let i = 1; i < chain.length; i++) {
+            chain[i].minLength = segDrop * 0.95
+            chain[i].maxLength = segDrop * 1.05
+          }
+          // Build rotation columns for the anchor bone — used to rotate
+          // rest offsets from anchor-local into world.
+          const am = anchorBoneIdx * 16
+          const aX: [number, number, number] = [wm[am + 0], wm[am + 1], wm[am + 2]]
+          const aY: [number, number, number] = [wm[am + 4], wm[am + 5], wm[am + 6]]
+          const aZ: [number, number, number] = [wm[am + 8], wm[am + 9], wm[am + 10]]
+          const rotByAnchor = (v: [number, number, number]): [number, number, number] => [
+            v[0] * aX[0] + v[1] * aY[0] + v[2] * aZ[0],
+            v[0] * aX[1] + v[1] * aY[1] + v[2] * aZ[1],
+            v[0] * aX[2] + v[1] * aY[2] + v[2] * aZ[2],
+          ]
+          // Anchor lock — anchor bone position + rotated offset every frame.
+          const anchorBonePos = getBoneWorldPos(anchorBoneIdx)
+          const rotatedAnchor = rotByAnchor(anchorOffset)
+          chain[0].position[0] = anchorBonePos[0] + rotatedAnchor[0]
+          chain[0].position[1] = anchorBonePos[1] + rotatedAnchor[1]
+          chain[0].position[2] = anchorBonePos[2] + rotatedAnchor[2]
+          chain[0].prevParentPos[0] = anchorBonePos[0]
+          chain[0].prevParentPos[1] = anchorBonePos[1]
+          chain[0].prevParentPos[2] = anchorBonePos[2]
+          chain[0].initialised = true
+
+          // Mid+tip — rest target rotated by anchor-bone frame, blended
+          // toward world-down at the tip so quick body lean doesn't fling
+          // segments horizontally.
+          // restTiltSin = 0 → straight down (default). Positive value
+          // tilts the rest direction toward anchor-local -Z (back-tilt
+          // for ponytails so they poke outward from the cranium).
+          const tiltSin = restTiltSin
+          const tiltCos = Math.sqrt(Math.max(0, 1 - tiltSin * tiltSin))
+          for (let i = 1; i < chain.length; i++) {
+            const baseOff = chain[i].restOffset
+            // Apply tilt: y component scaled by cos, add -Z component
+            // proportional to |y| × sin. baseOff usually [0, -segDrop, 0].
+            const tiltedOff: [number, number, number] = tiltSin > 1e-4
+              ? [baseOff[0], baseOff[1] * tiltCos, baseOff[2] - Math.abs(baseOff[1]) * tiltSin]
+              : baseOff
+            const bodyOff = rotByAnchor(tiltedOff)
+            const drape = Math.min(0.6, (i / chain.length) * 0.75)
+            const worldOff: [number, number, number] = [0, baseOff[1], 0]
+            let rx = bodyOff[0] * (1 - drape) + worldOff[0] * drape
+            let ry = bodyOff[1] * (1 - drape) + worldOff[1] * drape
+            let rz = bodyOff[2] * (1 - drape) + worldOff[2] * drape
+            if (wind) {
+              const k = (i + 1) / chain.length
+              rx += wind.x * k
+              rz += wind.z * k
+            }
+            tickNodeParticle(chain[i], chain, getBoneWorldPos, [rx, ry, rz])
+          }
+
+          // Torso SDF push-out + anti-tunneling. Anchor reference uses
+          // chain[0] (chest-front), so particles legitimately in front of
+          // the body have anchorFwd ≈ 0 and skip reflection — only when
+          // they wrap PAST the body (anchorFwd > 0 in body-forward sense
+          // from chain[0]) does the reflect activate.
+          if (torsoCollPrims.length > 0) {
+            const eps = 0.005
+            const anchorPos = chain[0].position
+            for (let i = 1; i < chain.length; i++) {
+              const cp = chain[i].position
+              for (let iter = 0; iter < 2; iter++) {
+                const d = torsoSDF(cp[0], cp[1], cp[2])
+                if (d >= bodyBuffer) break
+                const dxp = torsoSDF(cp[0] + eps, cp[1], cp[2])
+                const dxn = torsoSDF(cp[0] - eps, cp[1], cp[2])
+                const dyp = torsoSDF(cp[0], cp[1] + eps, cp[2])
+                const dyn = torsoSDF(cp[0], cp[1] - eps, cp[2])
+                const dzp = torsoSDF(cp[0], cp[1], cp[2] + eps)
+                const dzn = torsoSDF(cp[0], cp[1], cp[2] - eps)
+                let gx = dxp - dxn, gy = dyp - dyn, gz = dzp - dzn
+                const gLen = Math.hypot(gx, gy, gz)
+                if (gLen < 1e-6) break
+                gx /= gLen; gy /= gLen; gz /= gLen
+                // Tunneling test depends on anchor side. anchorOnBack
+                // (cape/tail): tunneled = forward of back = anchorFwd > 0;
+                // gradient sign reversal triggers when grad pushes further
+                // forward (dotFwd > 0). !anchorOnBack (strands at chest-
+                // front): tunneled = behind front = anchorFwd < 0; reflect
+                // when grad pushes further backward.
+                const anchorFwd = (cp[0] - anchorPos[0]) * bodyFwd[0]
+                                + (cp[1] - anchorPos[1]) * bodyFwd[1]
+                                + (cp[2] - anchorPos[2]) * bodyFwd[2]
+                const tunneled = anchorOnBack ? (anchorFwd > 0) : (anchorFwd < 0)
+                if (tunneled) {
+                  const dotFwd = gx * bodyFwd[0] + gy * bodyFwd[1] + gz * bodyFwd[2]
+                  const wrongDir = anchorOnBack ? (dotFwd > 0) : (dotFwd < 0)
+                  if (wrongDir) {
+                    gx -= 2 * dotFwd * bodyFwd[0]
+                    gy -= 2 * dotFwd * bodyFwd[1]
+                    gz -= 2 * dotFwd * bodyFwd[2]
+                    const gLen2 = Math.hypot(gx, gy, gz)
+                    if (gLen2 > 1e-6) { gx /= gLen2; gy /= gLen2; gz /= gLen2 }
+                  }
+                }
+                const push = bodyBuffer - d
+                cp[0] += gx * push; cp[1] += gy * push; cp[2] += gz * push
               }
             }
           }
-          wm[off + 12] = entry.spring.position[0]
-          wm[off + 13] = entry.spring.position[1]
-          wm[off + 14] = entry.spring.position[2]
+
+          // Optional supplementary sphere collider — used for bangs to
+          // push out of the head when the head turns (the torso SDF
+          // doesn't catch the cranium). offsetLocal is in the sphere
+          // bone's local frame; multiplied by the bone rotation columns
+          // each frame so the sphere center tracks the bone.
+          if (extraSphere && extraSphere.boneIdx >= 0) {
+            const ebm = extraSphere.boneIdx * 16
+            // Column-major: col0=X axis, col1=Y axis, col2=Z axis.
+            const cX: [number, number, number] = [wm[ebm + 0], wm[ebm + 1], wm[ebm + 2]]
+            const cY: [number, number, number] = [wm[ebm + 4], wm[ebm + 5], wm[ebm + 6]]
+            const cZ: [number, number, number] = [wm[ebm + 8], wm[ebm + 9], wm[ebm + 10]]
+            const ePos = getBoneWorldPos(extraSphere.boneIdx)
+            const off = extraSphere.offsetLocal
+            const sx = ePos[0] + off[0] * cX[0] + off[1] * cY[0] + off[2] * cZ[0]
+            const sy = ePos[1] + off[0] * cX[1] + off[1] * cY[1] + off[2] * cZ[1]
+            const sz = ePos[2] + off[0] * cX[2] + off[1] * cY[2] + off[2] * cZ[2]
+            const r = extraSphere.radius
+            for (let i = 1; i < chain.length; i++) {
+              const cp = chain[i].position
+              const dx = cp[0] - sx, dy = cp[1] - sy, dz = cp[2] - sz
+              const dist = Math.hypot(dx, dy, dz)
+              if (dist > 1e-6 && dist < r) {
+                const k = r / dist
+                cp[0] = sx + dx * k; cp[1] = sy + dy * k; cp[2] = sz + dz * k
+              }
+            }
+          }
+
+          // Hinge — confine to the body's fwd-up plane (perpendicular to
+          // bodyRight). Chain swings forward/back/down, never sideways.
+          for (let i = 1; i < chain.length; i++) {
+            const cp = chain[i].position
+            const dx = cp[0] - chain[0].position[0]
+            const dy = cp[1] - chain[0].position[1]
+            const dz = cp[2] - chain[0].position[2]
+            const dotR = dx * bodyRight[0] + dy * bodyRight[1] + dz * bodyRight[2]
+            cp[0] -= dotR * bodyRight[0]
+            cp[1] -= dotR * bodyRight[1]
+            cp[2] -= dotR * bodyRight[2]
+          }
+
+          // Ground clamp — particles can't sink below the floor. Used by
+          // tail (drags floor when long); strands skip this since they
+          // hang above the ground anyway.
+          if (groundClampY !== null) {
+            for (let i = 1; i < chain.length; i++) {
+              if (chain[i].position[1] < groundClampY) {
+                chain[i].position[1] = groundClampY
+              }
+            }
+          }
+
+          // Parallel-transport joint frame encoding — same as HairLong.
+          let prevTang_x = 0, prevTang_y = -1, prevTang_z = 0
+          let prevR_x = bodyRight[0], prevR_y = bodyRight[1], prevR_z = bodyRight[2]
+          for (let i = 0; i < bones.length; i++) {
+            const off = bones[i] * 16
+            const here: [number, number, number] = chain[i].position
+            const next: [number, number, number] = (i + 1 < chain.length)
+              ? chain[i + 1].position
+              : [here[0], here[1] - segDrop, here[2]]
+            let uy0 = next[0] - here[0], uy1 = next[1] - here[1], uy2 = next[2] - here[2]
+            const ulen = Math.hypot(uy0, uy1, uy2) || 1
+            uy0 /= ulen; uy1 /= ulen; uy2 /= ulen
+            let rx0: number, rx1: number, rx2: number
+            if (i === 0) {
+              const upDotR = uy0 * bodyRight[0] + uy1 * bodyRight[1] + uy2 * bodyRight[2]
+              rx0 = bodyRight[0] - uy0 * upDotR
+              rx1 = bodyRight[1] - uy1 * upDotR
+              rx2 = bodyRight[2] - uy2 * upDotR
+              const rlen = Math.hypot(rx0, rx1, rx2) || 1
+              rx0 /= rlen; rx1 /= rlen; rx2 /= rlen
+            } else {
+              const cosA = prevTang_x * uy0 + prevTang_y * uy1 + prevTang_z * uy2
+              if (cosA > 0.9999) {
+                rx0 = prevR_x; rx1 = prevR_y; rx2 = prevR_z
+              } else {
+                const ax = prevTang_y * uy2 - prevTang_z * uy1
+                const ay = prevTang_z * uy0 - prevTang_x * uy2
+                const az = prevTang_x * uy1 - prevTang_y * uy0
+                const aLen = Math.hypot(ax, ay, az) || 1
+                const axn = ax / aLen, ayn = ay / aLen, azn = az / aLen
+                const sinA = aLen
+                const dotAR = axn * prevR_x + ayn * prevR_y + azn * prevR_z
+                const crX = ayn * prevR_z - azn * prevR_y
+                const crY = azn * prevR_x - axn * prevR_z
+                const crZ = axn * prevR_y - ayn * prevR_x
+                const oneMC = 1 - cosA
+                rx0 = prevR_x * cosA + crX * sinA + axn * dotAR * oneMC
+                rx1 = prevR_y * cosA + crY * sinA + ayn * dotAR * oneMC
+                rx2 = prevR_z * cosA + crZ * sinA + azn * dotAR * oneMC
+                const rlen2 = Math.hypot(rx0, rx1, rx2) || 1
+                rx0 /= rlen2; rx1 /= rlen2; rx2 /= rlen2
+              }
+            }
+            prevTang_x = uy0; prevTang_y = uy1; prevTang_z = uy2
+            prevR_x = rx0; prevR_y = rx1; prevR_z = rx2
+            const fz0 = rx1 * uy2 - rx2 * uy1
+            const fz1 = rx2 * uy0 - rx0 * uy2
+            const fz2 = rx0 * uy1 - rx1 * uy0
+            wm[off + 0]  = rx0; wm[off + 1]  = rx1; wm[off + 2]  = rx2; wm[off + 3]  = 0
+            wm[off + 4]  = uy0; wm[off + 5]  = uy1; wm[off + 6]  = uy2; wm[off + 7]  = 0
+            wm[off + 8]  = fz0; wm[off + 9]  = fz1; wm[off + 10] = fz2; wm[off + 11] = 0
+            wm[off + 12] = here[0]; wm[off + 13] = here[1]; wm[off + 14] = here[2]; wm[off + 15] = 1
+          }
+          // VAT upload for this side's contiguous bones.
           device.queue.writeBuffer(
             vatHandle.buffer,
-            entry.boneIdx * 64,
+            bones[0] * 64,
+            wm.buffer,
+            wm.byteOffset + bones[0] * 16 * 4,
+            16 * bones.length * 4,
+          )
+        }
+
+        // Floor for tail clamp — same construction as cape's ground.
+        const lFootY_t = lFootIdx >= 0 ? wm[lFootIdx * 16 + 13] : 0
+        const rFootY_t = rFootIdx >= 0 ? wm[rFootIdx * 16 + 13] : 0
+        const tailGroundY = Math.min(lFootY_t, rFootY_t) + 0.01
+
+        // Body buffer per chain. Strand: 0.10 — small cross-section in
+        // front of cape, doesn't need to clear it. Tail: 0.16 — must sit
+        // outside cape's outer face (cape buffer 0.075 + cape halfZ 0.025
+        // = 0.10 from torso; tail body-thickness ~0.045 + slop ~0.015 →
+        // 0.16 keeps tail OUTSIDE cape rather than coinciding).
+        // Bangs collide against a head sphere (radius matches head halfX/Z
+        // ≈ 0.165, +small clearance) so they don't tunnel through cheeks
+        // when head turns. Sphere center at head ellipsoid Y=0.12 in
+        // head-local. Tail has no extra sphere — torso SDF covers it.
+        const headSphere = { boneIdx: headIdx, radius: 0.18, offsetLocal: [0, 0.12, 0] as [number, number, number] }
+        if (STRAND_L_FULL) simulateRibbonChain(strandLChain, strandLBones, STRAND_ANCHOR_OFFSET_L, headIdx, STRAND_SEG_DROP * strandLengthScale, 0.10, false, null, headSphere, 0, null)
+        if (STRAND_R_FULL) simulateRibbonChain(strandRChain, strandRBones, STRAND_ANCHOR_OFFSET_R, headIdx, STRAND_SEG_DROP * strandLengthScale, 0.10, false, null, headSphere, 0, null)
+        if (tailActive)    simulateRibbonChain(tailChain,    tailBones,    TAIL_ANCHOR_OFFSET,     hipsIdx,    TAIL_SEG_DROP * tailLengthScale, 0.16, true,  tailGroundY, null, 0, null)
+        invalidateRaymarchCache()
+      }
+
+      // (Strand-tip spring system removed — replaced by chain-driven
+      // side strands above.)
+
+      // Grenade pendulum chains — replaces the prior spring system. Each
+      // grenade is a single NodeParticle parented (chain-wise) to Hips
+      // with a belt-relative rest offset rotated by Hips' frame, so the
+      // grenade swings naturally with body lean / hip rotation. After
+      // chain integration we push each grenade out of the torso SDF
+      // (group 6) so it can't penetrate the body during fast motion.
+      if (composer && grenadeEntries.length > 0 && tickShouldRun) {
+        const wm = composer.worldMatrices
+        const getBoneWorldPosG = (boneIdx: number): [number, number, number] => [
+          wm[boneIdx * 16 + 12], wm[boneIdx * 16 + 13], wm[boneIdx * 16 + 14],
+        ]
+        // Hips rotation columns — rest offsets live in Hips-local.
+        const hm = hipsIdx * 16
+        const hX0 = wm[hm + 0], hY0 = wm[hm + 4], hZ0 = wm[hm + 8]
+        const hX1 = wm[hm + 1], hY1 = wm[hm + 5], hZ1 = wm[hm + 9]
+        const hX2 = wm[hm + 2], hY2 = wm[hm + 6], hZ2 = wm[hm + 10]
+        const rotByHips = (v: [number, number, number]): [number, number, number] => [
+          v[0] * hX0 + v[1] * hY0 + v[2] * hZ0,
+          v[0] * hX1 + v[1] * hY1 + v[2] * hZ1,
+          v[0] * hX2 + v[1] * hY2 + v[2] * hZ2,
+        ]
+        // Build a one-off torso SDF for grenade collision. Reuses blendGroup
+        // 6 (torso + shoulders + hips). Buffer is small — grenades sit ON
+        // the belt at ~10cm Hips offset, just clearing hip/leg surfaces.
+        const torsoCollPrimsG = persistentPrims.filter(
+          p => p.blendGroup === 6 && (p.type === 0 || p.type === 1 || p.type === 3),
+        )
+        const w2lG = (mStart: number, wx: number, wy: number, wz: number): [number, number, number] => {
+          const c0x = wm[mStart],     c0y = wm[mStart + 1], c0z = wm[mStart + 2]
+          const c1x = wm[mStart + 4], c1y = wm[mStart + 5], c1z = wm[mStart + 6]
+          const c2x = wm[mStart + 8], c2y = wm[mStart + 9], c2z = wm[mStart + 10]
+          const tx  = wm[mStart + 12], ty  = wm[mStart + 13], tz  = wm[mStart + 14]
+          const s0sq = Math.max(c0x*c0x + c0y*c0y + c0z*c0z, 1e-10)
+          const s1sq = Math.max(c1x*c1x + c1y*c1y + c1z*c1z, 1e-10)
+          const s2sq = Math.max(c2x*c2x + c2y*c2y + c2z*c2z, 1e-10)
+          const dx = wx - tx, dy = wy - ty, dz = wz - tz
+          return [
+            (c0x * dx + c0y * dy + c0z * dz) / s0sq,
+            (c1x * dx + c1y * dy + c1z * dz) / s1sq,
+            (c2x * dx + c2y * dy + c2z * dz) / s2sq,
+          ]
+        }
+        const sminG = (a: number, b: number, k: number): number => {
+          const kk = Math.max(k, 1e-6)
+          const h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / kk))
+          return (b * (1 - h) + a * h) - kk * h * (1 - h)
+        }
+        const torsoSDFG = (wx: number, wy: number, wz: number): number => {
+          let d = 1e9
+          for (const p of torsoCollPrimsG) {
+            const baseM = p.boneIdx * 16
+            const lp = w2lG(baseM, wx, wy, wz)
+            const off = p.offsetInBone
+            const lx = lp[0] - off[0], ly = lp[1] - off[1], lz = lp[2] - off[2]
+            let primD: number
+            if (p.type === 0) primD = Math.hypot(lx, ly, lz) - p.params[0]
+            else if (p.type === 1) {
+              const qx = Math.abs(lx) - p.params[0], qy = Math.abs(ly) - p.params[1], qz = Math.abs(lz) - p.params[2]
+              primD = Math.hypot(Math.max(qx, 0), Math.max(qy, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qy, qz), 0)
+            } else {
+              const rx = Math.max(p.params[0], 1e-4), ry = Math.max(p.params[1], 1e-4), rz = Math.max(p.params[2], 1e-4)
+              primD = (Math.hypot(lx / rx, ly / ry, lz / rz) - 1) * Math.min(rx, ry, rz)
+            }
+            const br = (p.blendRadius && p.blendRadius > 0) ? p.blendRadius : 0.07
+            d = sminG(d, primD, br)
+          }
+          return d
+        }
+        const GRENADE_BODY_BUFFER = 0.04
+        const eps = 0.005
+        for (const e of grenadeEntries) {
+          // Tick the pendulum particle. parentRef=hipsIdx, rest target =
+          // Hips world + rotByHips(restOffsetLocal). NodeParticle handles
+          // one-frame-stale parent reads + distance clamp.
+          tickNodeParticle(e.particle, [], getBoneWorldPosG, rotByHips(e.restOffsetLocal))
+          // Body SDF push-out — grenade can't penetrate the torso.
+          const cp = e.particle.position
+          for (let iter = 0; iter < 2; iter++) {
+            const d = torsoSDFG(cp[0], cp[1], cp[2])
+            if (d >= GRENADE_BODY_BUFFER) break
+            const dxp = torsoSDFG(cp[0] + eps, cp[1], cp[2])
+            const dxn = torsoSDFG(cp[0] - eps, cp[1], cp[2])
+            const dyp = torsoSDFG(cp[0], cp[1] + eps, cp[2])
+            const dyn = torsoSDFG(cp[0], cp[1] - eps, cp[2])
+            const dzp = torsoSDFG(cp[0], cp[1], cp[2] + eps)
+            const dzn = torsoSDFG(cp[0], cp[1], cp[2] - eps)
+            let gx = dxp - dxn, gy = dyp - dyn, gz = dzp - dzn
+            const gLen = Math.hypot(gx, gy, gz)
+            if (gLen < 1e-6) break
+            gx /= gLen; gy /= gLen; gz /= gLen
+            const push = GRENADE_BODY_BUFFER - d
+            cp[0] += gx * push; cp[1] += gy * push; cp[2] += gz * push
+          }
+          // Override the bone's world translation. Rotation untouched —
+          // primitive stays aligned with Hips' orientation.
+          const off = e.boneIdx * 16
+          wm[off + 12] = cp[0]
+          wm[off + 13] = cp[1]
+          wm[off + 14] = cp[2]
+          device.queue.writeBuffer(
+            vatHandle.buffer,
+            e.boneIdx * 64,
             wm.buffer,
             wm.byteOffset + off * 4,
             64,

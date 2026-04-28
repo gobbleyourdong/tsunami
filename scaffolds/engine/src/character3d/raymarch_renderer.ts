@@ -633,10 +633,17 @@ fn sdRibbonChainSeg(p: vec3f, prevPos: vec3f, curPos: vec3f,
 // rounds the wedge corners at vertices into a smooth fillet — visible
 // continuity without the bulge/distortion that a large smin produces.
 fn sdRibbonChain(p: vec3f, startBone: u32, count: u32,
-                 halfW: f32, halfT: f32) -> f32 {
+                 halfW: f32, halfT: f32, tipScale: f32) -> f32 {
   if (count < 2u) { return 1e9; }
   var d: f32 = 1e9;
   let segSmin: f32 = 0.030;
+  // tipScale ≤ 0 means "no taper" (legacy callers); positive value is the
+  // cross-section scale at the tip end of the chain. Cross-section
+  // interpolates linearly from 1.0 at the root to tipScale at the tip,
+  // varying ALONG segments (not just between them) so the silhouette
+  // reads as a smooth taper rather than stepped discs.
+  let endScale = select(1.0, tipScale, tipScale > 0.001);
+  let denom = f32(max(1u, count - 1u));
   for (var i: u32 = 0u; i < count - 1u; i = i + 1u) {
     let mat0 = readMat4((u.frameIdx * u.numJoints + startBone + i) * 4u);
     let mat1 = readMat4((u.frameIdx * u.numJoints + startBone + i + 1u) * 4u);
@@ -656,7 +663,17 @@ fn sdRibbonChain(p: vec3f, startBone: u32, count: u32,
     let lx = dot(diff, R);
     let ly = dot(diff, tang);
     let lz = dot(diff, F);
-    let q = vec3f(abs(lx) - halfW, abs(ly) - abLen * 0.5, abs(lz) - halfT);
+    // Per-axial-position scale: lerp from segment-start scale to
+    // segment-end scale based on the point's projection onto the
+    // segment axis. Each segment occupies (i .. i+1) of the chain's
+    // 0..(count-1) parameter, so its endpoints' scales are:
+    let scaleStart = mix(1.0, endScale, f32(i)        / denom);
+    let scaleEnd   = mix(1.0, endScale, f32(i + 1u)   / denom);
+    let segT = clamp((ly + abLen * 0.5) / abLen, 0.0, 1.0);
+    let scaleAtP = mix(scaleStart, scaleEnd, segT);
+    let halfW_i = halfW * scaleAtP;
+    let halfT_i = halfT * scaleAtP;
+    let q = vec3f(abs(lx) - halfW_i, abs(ly) - abLen * 0.5, abs(lz) - halfT_i);
     let outer = length(max(q, vec3f(0.0)));
     let inner = min(max(q.x, max(q.y, q.z)), 0.0);
     let segD = outer + inner;
@@ -1137,7 +1154,7 @@ fn evalPrim(primIdx: u32, pWorld: vec3f) -> f32 {
   //   params.w = unused
   if (primType == 23u) {
     let count = bitcast<u32>(params.x);
-    return sdRibbonChain(pWorld, boneIdx, count, params.y, params.z);
+    return sdRibbonChain(pWorld, boneIdx, count, params.y, params.z, params.w);
   }
   if (primType == 17u || primType == 20u) {
     let boneAWorld = readMat4((u.frameIdx * u.numJoints + boneIdx) * 4u);
