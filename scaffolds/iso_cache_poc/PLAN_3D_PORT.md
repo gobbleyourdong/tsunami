@@ -109,7 +109,7 @@ JS one for the no-build demo to consume.
 **Commit subject:** `iso_cache_poc: 3D port phase 3 — sdfFn3d path in GameObject.bake`
 
 ### Phase 4 — Convert ROCK to 3D
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Replace `sdfRock` with a 3D SDF (smoothUnion of a box
 and a displaced sphere; same shape concept). Wire the rock archetype
@@ -247,7 +247,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 | 1     | COMPLETE — raymarch3d_cpu.js with primitives + compose + transforms; node --check clean |
 | 2     | COMPLETE — raymarchPixel + shadeHit; smoke test (sphere hit + shade) passes |
 | 3     | COMPLETE — `sdfFn3d`/`metersPerPixel` on GameObject; `_bakeInto` raymarches when set; existing 2D archetypes untouched |
-| 4     | PENDING |
+| 4     | COMPLETE — rock archetype uses sdfFn3d=smoothUnion(box, sphere) with mPP=0.01; smoke test confirms hits + normals |
 | 5     | PENDING |
 | 6     | PENDING |
 | 7     | PENDING |

@@ -599,6 +599,15 @@
   function sdfRock(lx, ly) {
     return Math.hypot(lx - 30, ly - 22) - 18 + 3 * Math.sin(Math.atan2(ly - 22, lx - 30) * 5);
   }
+  // ── 3D rock (Phase 4 of PLAN_3D_PORT.md) ──────────────────────
+  // Same shape concept as sdfRock above (lumpy stone) but built from
+  // 3D primitives so the bake produces shaded silhouettes with depth.
+  // Buffer is 60×44; metersPerPixel ≈ 0.01 covers a ~0.6×0.44m extent.
+  const sdfRock3D = R3.smoothUnion(
+    R3.box([0.20, 0.12, 0.16]),
+    R3.translate([0.05, 0.04, 0.02], R3.sphere(0.13)),
+    0.10,
+  );
   // Walker: 8-frame walk cycle. phase ∈ [0, 2π). Limbs swing, eyes blink each step.
   function sdfWalker(lx, ly, phase) {
     const headD = Math.hypot(lx - 24, ly - 14) - 10;
@@ -694,7 +703,9 @@
     cosmetic: { palette_cycle: { slots: ['lava_glow'], hz: 0.5 } },
   }));
   objects.push(new GameObject({
-    id: 'rock', color: [120, 120, 130], sdfFn: sdfRock,
+    id: 'rock', color: [120, 120, 130],
+    sdfFn3d: sdfRock3D,                  // 3D path: per-pixel raymarch
+    metersPerPixel: 0.01,                // 60×44 buf → 0.6×0.44m world
     localW: 60, localH: 44, worldX: 600, worldY: 180,
     animFlag: 'static',
     z: 2,
