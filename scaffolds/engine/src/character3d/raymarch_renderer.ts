@@ -2019,7 +2019,25 @@ fn fs_main(in: VsOut) -> FsOut {
     let invScaleY = 1.0 / max(sqrt(s1sq), 0.05);
     let capMargin = 0.09 * invScaleY;
     let coverFull = (colorExtent >= 1.0);
-    let coverM = select(colorExtent * boneAxisLen, boneAxisLen + capMargin, coverFull);
+    // boneAxisLen is the bind-pose distance jointA→jointB in METERS.
+    // pBoneLocal.y at the segment END is worldDistance / decalBone.scaleY.
+    // When jointB and decalBone share the same scale group, worldDistance
+    // equals boneAxisLen × scaleY and the two cancel → pBoneLocal.y at
+    // end = boneAxisLen. But when jointB is OUTSIDE decalBone's scale
+    // group (e.g. lower leg LeftLeg→LeftFoot — LeftFoot.scaleY stays
+    // at 1.0 in chibi while LeftLeg.scaleY = 0.55), pBoneLocal.y at end
+    // = boneAxisLen / scaleY ≠ boneAxisLen. The fix: read jointB's actual
+    // world position from params.z (the segment SDF stores it there),
+    // project into decalBone-local, and use that as the segment-end
+    // local-Y. Handles both cases without breaking partial sleeves on
+    // same-group segments. params.z is bitcast as u32 (jointB index).
+    let segJointBIdx = bitcast<u32>(prims[base + 1u].z);
+    let segJointBWorld = readMat4((u.frameIdx * u.numJoints + segJointBIdx) * 4u);
+    let segEndLocal = worldToLocal(decalBoneWorld, segJointBWorld[3].xyz);
+    let segLenLocal = max(abs(segEndLocal.y), 0.05);
+    let coverM = select(colorExtent * segLenLocal,
+                        segLenLocal + capMargin,
+                        coverFull);
     let alphaDecal = smoothstep(coverM + 0.02, coverM - 0.02, pBoneLocal.y);
     if (alphaDecal > 0.5) { slot = slotB; }
   }

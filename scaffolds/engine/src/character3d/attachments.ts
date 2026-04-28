@@ -86,32 +86,31 @@ export const DEFAULT_HANDS: AttachmentPart[] = [
  * cartoon round shoe, reptile claw, etc.)
  */
 export const DEFAULT_FEET: AttachmentPart[] = [
-  // Wedge — flat sharp-edged box, sized to BOTH cover the lower-leg
-  // capsule's tapered tip at the ankle AND read as a chunky shoe in
-  // chibi proportions. Halved-length wedge looked like a stub when the
-  // chibi head ratio inflated; extending the heel side lets the wedge
-  // wrap around the ankle hemisphere instead of leaving exposed skin
-  // behind it ("I see the ankle skin" + "wedge is extremely small" in
-  // chibi). halfY=0.06 + offset=0.030 → wedge spans y∈[-0.030, 0.090]
-  // in foot-local frame: 3cm behind the ankle through 9cm toe-forward.
-  // Wider sole (halfX=0.040) and taller (halfZ=0.035) for proportion.
+  // Boot — chunky roundedBox built off the FOOT_LIBRARY 'boot' geometry,
+  // promoted to the default after user feedback that the thinner wedge
+  // shoe and the bare-foot variants didn't read cleanly. Same shape
+  // works across realistic / stylized / chibi proportions.
+  // halfX=0.045 sole, halfY=0.085 toe-direction, halfZ=0.050 height,
+  // cornerR=0.020 rounding. offset.y=0.020 → boot spans y∈[-0.065,
+  // 0.105] in foot-local: 6.5cm behind the ankle (over the lower-leg
+  // capsule's tapered tip) through 10.5cm toe-forward.
   {
     name: 'foot_skin_L',
     jointName: 'LeftFoot',
-    type: 1,
-    params: [0.040, 0.060, 0.035, 0],   // halfX sole, halfY length (toe-dir), halfZ height
-    offsetInBone: [0, 0.030, 0],
+    type: 2,
+    params: [0.045, 0.085, 0.050, 0.020],
+    offsetInBone: [0, 0.020, 0],
     paletteSlot: 'shoes',
-    blendGroup: 4, blendRadius: 0.04,
+    blendGroup: 4, blendRadius: 0.06,
   },
   {
     name: 'foot_skin_R',
     jointName: 'RightFoot',
-    type: 1,
-    params: [0.040, 0.060, 0.035, 0],
-    offsetInBone: [0, 0.030, 0],
+    type: 2,
+    params: [0.045, 0.085, 0.050, 0.020],
+    offsetInBone: [0, 0.020, 0],
     paletteSlot: 'shoes',
-    blendGroup: 5, blendRadius: 0.04,
+    blendGroup: 5, blendRadius: 0.06,
   },
 ]
 
