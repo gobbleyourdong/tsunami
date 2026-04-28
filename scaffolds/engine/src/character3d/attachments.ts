@@ -86,23 +86,28 @@ export const DEFAULT_HANDS: AttachmentPart[] = [
  * cartoon round shoe, reptile claw, etc.)
  */
 export const DEFAULT_FEET: AttachmentPart[] = [
+  // Wedge — flat sharp-edged box, half the length of the old boot shape
+  // and zero corner-rounding. Reads as a foot-shape in pixel art without
+  // the boot mass. Foot bone is no longer in the legs scale group, so
+  // the offset is at its natural (unscaled) value — keep it small so
+  // the wedge sits close to the ankle on chibi-squashed legs.
   {
     name: 'foot_skin_L',
     jointName: 'LeftFoot',
-    type: 2,
-    params: [0.036, 0.085, 0.040, 0.018],   // halfX, halfY, halfZ, cornerR
-    offsetInBone: [0, 0.085, 0],
+    type: 1,
+    params: [0.030, 0.045, 0.025, 0],   // halfX sole, halfY length (toe-dir), halfZ height
+    offsetInBone: [0, 0.045, 0],
     paletteSlot: 'shoes',
-    blendGroup: 4, blendRadius: 0.07,
+    blendGroup: 4, blendRadius: 0.04,
   },
   {
     name: 'foot_skin_R',
     jointName: 'RightFoot',
-    type: 2,
-    params: [0.036, 0.085, 0.040, 0.018],
-    offsetInBone: [0, 0.085, 0],
+    type: 1,
+    params: [0.030, 0.045, 0.025, 0],
+    offsetInBone: [0, 0.045, 0],
     paletteSlot: 'shoes',
-    blendGroup: 5, blendRadius: 0.07,
+    blendGroup: 5, blendRadius: 0.04,
   },
 ]
 

@@ -399,10 +399,9 @@ export interface BodyPart {
 }
 
 export const DEFAULT_BODY_PARTS: BodyPart[] = [
-  { name: 'LeftBreast',  parentName: 'Spine2', offset: [ 0.045, 0.035, 0.10], displaySize: [0.050, 0.045, 0.055] },
-  { name: 'RightBreast', parentName: 'Spine2', offset: [-0.045, 0.035, 0.10], displaySize: [0.050, 0.045, 0.055] },
-  { name: 'LeftHipPad',  parentName: 'Hips',   offset: [ 0.095, 0.010, 0.00], displaySize: [0.040, 0.055, 0.070] },
-  { name: 'RightHipPad', parentName: 'Hips',   offset: [-0.095, 0.010, 0.00], displaySize: [0.040, 0.055, 0.070] },
+  // Secondary characteristics (breasts / hipPads) retired for now.
+  // Re-introduce when the archetype system is rebuilt — they should
+  // ride on a per-character body-shape spec, not on a baseline default.
 ]
 
 /** Long hair — 5-segment chain hanging down from the back of the head.
@@ -411,11 +410,18 @@ export const DEFAULT_BODY_PARTS: BodyPart[] = [
  *  stale parent reads with distance clamp; body collision pushes
  *  particles out of head + shoulder bounding spheres. */
 export const DEFAULT_LONG_HAIR: HairPart[] = [
-  { name: 'HairLong0', parentName: 'Head',      offset: [0,  0.04, -0.13], displaySize: [0.10, 0.09, 0.04] },
-  { name: 'HairLong1', parentName: 'HairLong0', offset: [0, -0.13,  0.00], displaySize: [0.11, 0.09, 0.04] },
-  { name: 'HairLong2', parentName: 'HairLong1', offset: [0, -0.13,  0.00], displaySize: [0.11, 0.09, 0.04] },
-  { name: 'HairLong3', parentName: 'HairLong2', offset: [0, -0.13,  0.00], displaySize: [0.10, 0.09, 0.04] },
-  { name: 'HairLong4', parentName: 'HairLong3', offset: [0, -0.13,  0.00], displaySize: [0.09, 0.09, 0.04] },
+  // Ponytail-style: 6 bones, narrow rectangular cross-section. Same
+  // ribbon-chain primitive as the cape (type 23), just smaller and
+  // anchored to Head. Cross-section halfW = 0.045 (9cm wide), halfT =
+  // 0.030 (6cm thick) reads as a thick braid; for "flat hair flowing
+  // back" make halfW > halfT (e.g., 0.10 × 0.025).
+  { name: 'HairLong0', parentName: 'Head',      offset: [0,  0.04, -0.13], displaySize: [0.045, 0.10, 0.030] },
+  { name: 'HairLong1', parentName: 'HairLong0', offset: [0, -0.10,  0.00], displaySize: [0.045, 0.10, 0.030] },
+  { name: 'HairLong2', parentName: 'HairLong1', offset: [0, -0.10,  0.00], displaySize: [0.045, 0.10, 0.030] },
+  { name: 'HairLong3', parentName: 'HairLong2', offset: [0, -0.10,  0.00], displaySize: [0.045, 0.10, 0.030] },
+  { name: 'HairLong4', parentName: 'HairLong3', offset: [0, -0.10,  0.00], displaySize: [0.045, 0.10, 0.030] },
+  // HairLong5 — positional-only endpoint joint for last segment's B side.
+  { name: 'HairLong5', parentName: 'HairLong4', offset: [0, -0.10,  0.00], displaySize: [0.0, 0.0, 0.0] },
 ]
 
 /** Bob hair — ellipsoid sitting on top of the cranium. Centred above
@@ -483,11 +489,16 @@ export const DEFAULT_CAPE_PARTS: BodyPart[] = [
   // (each side). Blend group 9 with radius 0.08 fuses them into one cloth
   // volume. Without enough overlap, smin can't bridge the seam and the
   // cape reads as discrete stacked blocks.
-  { name: 'Cape0', parentName: 'Spine2', offset: [0,  0.10, -0.20], displaySize: [0.150, 0.13, 0.012] },
-  { name: 'Cape1', parentName: 'Cape0',  offset: [0, -0.18,  0.00], displaySize: [0.165, 0.13, 0.012] },
-  { name: 'Cape2', parentName: 'Cape1',  offset: [0, -0.18,  0.00], displaySize: [0.180, 0.13, 0.012] },
-  { name: 'Cape3', parentName: 'Cape2',  offset: [0, -0.18,  0.00], displaySize: [0.190, 0.13, 0.012] },
-  { name: 'Cape4', parentName: 'Cape3',  offset: [0, -0.18,  0.00], displaySize: [0.195, 0.13, 0.012] },
+  // 5-segment cape (Cape0..Cape5). halfW = 0.20 (40cm wide),
+  // halfT = 0.032 (6.4cm thick), spacing 0.1854m per segment (+3%).
+  // Anchor at Spine2 local (0, 0.05, -0.13) — slightly higher toward
+  // the neck and a touch closer to the body's back surface.
+  { name: 'Cape0', parentName: 'Spine2', offset: [0,  0.05, -0.13], displaySize: [0.200, 0.13, 0.032] },
+  { name: 'Cape1', parentName: 'Cape0',  offset: [0, -0.1854, 0.00], displaySize: [0.200, 0.13, 0.032] },
+  { name: 'Cape2', parentName: 'Cape1',  offset: [0, -0.1854, 0.00], displaySize: [0.200, 0.13, 0.032] },
+  { name: 'Cape3', parentName: 'Cape2',  offset: [0, -0.1854, 0.00], displaySize: [0.200, 0.13, 0.032] },
+  { name: 'Cape4', parentName: 'Cape3',  offset: [0, -0.1854, 0.00], displaySize: [0.200, 0.13, 0.032] },
+  { name: 'Cape5', parentName: 'Cape4',  offset: [0, -0.1854, 0.00], displaySize: [0.0, 0.0, 0.0] },
 ]
 
 export function extendRigWithBodyParts(rig: Joint[], items: BodyPart[] = DEFAULT_BODY_PARTS): Joint[] {
@@ -820,17 +831,28 @@ export const CHIBI_CENTERED_SIZE: Record<string, [number, number, number]> = {
   //   Y = top-to-bottom half-height (taller for elongated face)
   //   Z = face-forward half-depth (slightly forward of X)
   Head:    [0.165, 0.20, 0.17],
-  Neck:    [0.045, 0.06, 0.045],
+  Neck:    [0.022, 0.06, 0.022],
   // Spine column. Both procedural (Hips → Spine1 → Spine2 → Head) and
   // Mixamo (Hips → Spine → Spine1 → Spine2 → Neck → Head) rigs emit
   // intermediate spine joints with ~0.3m offsets — if we only rendered
   // Spine1, the torso read as two disconnected oblate disks. We now
   // stamp an ellipsoid on every spine bone so blend group 6 has a
   // continuous column to smin across.
-  Spine:   [0.16, 0.10, 0.11],
-  Spine1:  [0.17, 0.15, 0.12],
-  Spine2:  [0.17, 0.12, 0.11],
-  Hips:    [0.15, 0.07, 0.12],
+  // Skinny uniform column — torso is treated as one more "limb" for now,
+  // not a sculpted barrel. All four sack-core bones share roughly the
+  // same X/Z so smin produces a smooth tapered cylinder rather than a
+  // staircase of barrels. Archetype-specific torso shaping is queued
+  // for the rebuild; this is the baseline silhouette in the meantime.
+  // Lozenge: narrow at hips (taper into upper-leg roots, no saddle
+  // bags), narrow waist, wide mid, wide upper (taper out to meet the
+  // shoulder spheres so they smin into the torso instead of sitting
+  // off to the side as separate blobs). Y unchanged.
+  Hips:    [0.135, 0.08, 0.110],   // wide enough to MEET the upper-leg cylinders
+                                   // at their inner side — no smin across groups,
+                                   // just visual contact at the groin seam
+  Spine:   [0.137, 0.10, 0.117],   // waist
+  Spine1:  [0.186, 0.15, 0.156],   // mid-torso bulge
+  Spine2:  [0.176, 0.10, 0.137],   // upper — reaches shoulder balls
 }
 export const CHIBI_CENTERED_OFFSET: Record<string, [number, number, number]> = {
   Head: [0, 0.12, 0],
@@ -897,6 +919,85 @@ export function chibiRaymarchPrimitives(
     if (core) {
       const off = CHIBI_CENTERED_OFFSET[name] ?? [0, 0, 0]
       const isSackCore = name === 'Spine' || name === 'Spine1' || name === 'Spine2' || name === 'Hips'
+      // PHASE B — torso segment migration. Replace the 4 sack-core
+      // ellipsoids (Hips, Spine, Spine1, Spine2) with 3 oval segments
+      // between consecutive joints, using the existing per-bone X/Z
+      // half-extents as cross-section radii. Same blendGroup=6, same
+      // smin → torso reads as one continuous oval column instead of a
+      // stack of disjoint ellipsoids.
+      // Torso segments DISABLED — per-bone segment SDFs in bone-A-local
+      // frames don't compose well under heavy animation (backflip etc).
+      // Adjacent segments' cross-section ellipses live in different
+      // bone-local orientations and the smin between them produces
+      // joint kinks / explosions. Reverted to the ellipsoid stack which
+      // is small-per-bone and bends gracefully under animation.
+      // Kept the segment infrastructure (type 16/18 SDFs, decal layer)
+      // for future use when bone-aware multi-segment skinning lands.
+      const TORSO_SEGMENTS_ENABLED = false
+      if (TORSO_SEGMENTS_ENABLED && (name === 'Spine' || name === 'Spine1' || name === 'Spine2' || name === 'Neck')) continue
+      if (TORSO_SEGMENTS_ENABLED && name === 'Hips') {
+        // Explicit per-segment cross-section profiles. Decoupled from
+        // CHIBI_CENTERED_SIZE so the silhouette can express anatomy
+        // (hips → narrow waist → broad chest) rather than just inherit
+        // each bone's bounding ellipsoid. (raX, raZ) at A end + (rbX, rbZ)
+        // at B end. Linear interp along t.
+        // Each segment carries (raX, rbX) X radii + (rZpos, rZneg) per
+        // end. raZpos = front-Z radius (chest/belly side), raZneg = back-Z
+        // radius (spine side). Symmetric segments set rZpos = rZneg.
+        // Anatomy migrates here: pec swell on Spine1→Spine2 (raZpos >
+        // raZneg), glute on Hips→Spine (raZneg > raZpos at A end =
+        // backward bulk at the hips).
+        type TorsoSeg = {
+          a: string; b: string;
+          aRX: number; aZpos: number; aZneg: number;
+          bRX: number; bZpos: number; bZneg: number;
+          slot: number;
+        }
+        // Asymmetry tuned down — at strong spine bends (backflip mid-arc)
+        // adjacent segments' directional-Z cross-sections don't align,
+        // and smin between them produces visible bulge artifacts at the
+        // joint. Keeping subtle Zpos/Zneg differences only at SEGMENT
+        // INTERIORS, with symmetric ends for stable smin transitions.
+        // Wider blendRadius (0.07 → 0.11) further softens joint kinks
+        // under heavy animation.
+        const torsoSegments: TorsoSeg[] = [
+          { a: 'Hips',   b: 'Spine',
+            aRX: 0.125, aZpos: 0.095, aZneg: 0.105,
+            bRX: 0.095, bZpos: 0.078, bZneg: 0.078,
+            slot: CHIBI_SLOTS.pants },
+          { a: 'Spine',  b: 'Spine1',
+            aRX: 0.095, aZpos: 0.078, aZneg: 0.078,
+            bRX: 0.115, bZpos: 0.090, bZneg: 0.090,
+            slot: CHIBI_SLOTS.shirt },
+          { a: 'Spine1', b: 'Spine2',
+            aRX: 0.115, aZpos: 0.090, aZneg: 0.090,
+            bRX: 0.140, bZpos: 0.115, bZneg: 0.100,
+            slot: CHIBI_SLOTS.shirt },
+          { a: 'Spine2', b: 'Neck',
+            aRX: 0.135, aZpos: 0.105, aZneg: 0.100,
+            bRX: 0.050, bZpos: 0.050, bZneg: 0.050,
+            slot: CHIBI_SLOTS.shirt },
+          { a: 'Neck',   b: 'Head',
+            aRX: 0.045, aZpos: 0.045, aZneg: 0.045,
+            bRX: 0.050, bZpos: 0.050, bZneg: 0.050,
+            slot: CHIBI_SLOTS.skin },
+        ]
+        for (const seg of torsoSegments) {
+          const aIdx = rig.findIndex((rj) => rj.name === seg.a)
+          const bIdx = rig.findIndex((rj) => rj.name === seg.b)
+          if (aIdx < 0 || bIdx < 0) continue
+          const bOff = rig[bIdx].offset
+          const segLen = Math.hypot(bOff[0], bOff[1], bOff[2])
+          prims.push({
+            type: 18, paletteSlot: seg.slot, boneIdx: aIdx,
+            params: [seg.aRX, seg.bRX, bIdx, segLen],
+            offsetInBone: [0, 0, 0],
+            blendGroup: 6, blendRadius: 0.11,
+            rotation: [seg.aZpos, seg.aZneg, seg.bZpos, seg.bZneg],
+          })
+        }
+        continue
+      }
       // Head is now an ELLIPSOID (taller than wide). Earlier the head
       // was a uniform sphere, which made every face read identical
       // across characters and across proportions. The ellipsoid lets
@@ -1020,11 +1121,27 @@ export function chibiRaymarchPrimitives(
           offsetInBone: [0, 0, 0],
         })
       } else if (/^HairLong/.test(name)) {
+        // Long hair — single type-23 ribbon-chain primitive walks
+        // HairLong0..HairLong5 as a polyline. Same architecture as
+        // cape, just anchored to Head with narrower cross-section.
+        // Emit only for HairLong0; other bones contribute as chain
+        // points but don't host their own primitive. Skip HairLong5
+        // (positional-only endpoint joint).
+        if (name !== 'HairLong0') continue
+        const halfW     = hp.displaySize[0]
+        const halfThick = hp.displaySize[2]
+        const hairIndices: number[] = [j]
+        for (let k = 1; k < 6; k++) {
+          const idx = rig.findIndex((joint) => joint.name === `HairLong${k}`)
+          if (idx >= 0) hairIndices.push(idx)
+        }
+        if (hairIndices.length < 2) continue
+        const chainCount = hairIndices.length
         prims.push({
-          type: 2, paletteSlot: slot, boneIdx: j,
-          params: [hp.displaySize[0], hp.displaySize[1], hp.displaySize[2], 0.015],
+          type: 23, paletteSlot: slot, boneIdx: j,
+          params: [chainCount, halfW, halfThick, 0],
           offsetInBone: [0, 0, 0],
-          blendGroup: 12, blendRadius: 0.06,
+          blendGroup: 12, blendRadius: 0,
         })
       } else if (/^HairStrand/.test(name)) {
         // Bent capsule (type 14) along the bone's +Y axis. The bone
@@ -1060,36 +1177,46 @@ export function chibiRaymarchPrimitives(
     const bp = bodyByName.get(name)
     if (bp) {
       if (/Breast/.test(name)) {
+        // Group 6 (torso) so the breast ellipsoid smin's with Spine2 +
+        // shoulder spheres into ONE continuous chest surface — no seam
+        // where breast meets ribcage. Same blend radius as the other
+        // torso ellipsoids.
         prims.push({
           type: 3, paletteSlot: slot, boneIdx: j,
           params: [bp.displaySize[0], bp.displaySize[1], bp.displaySize[2], 0],
           offsetInBone: [0, 0, 0],
+          blendGroup: 6, blendRadius: 0.05,
         })
       } else if (/^Cape/.test(name)) {
-        // Cape segment — group 9 (cape's own blend group). Adjacent
-        // segments smin together for one continuous cloth volume; cross-
-        // group min against body keeps the cape silhouette distinct.
-        // BlendRadius 0.08 (was 0.04): the segments now overlap ~0.08m
-        // on each side, so smin needs an equal-scale band to dissolve
-        // the seam smoothly.
-        //
-        // Default cape pattern: world-Y stripes (colorFunc 8). Stripes
-        // tile continuously across the 5-segment chain — sampling on
-        // world Y instead of primitive-local Y means each segment
-        // contributes its slice of one shared striped pattern, instead
-        // of each segment showing its own self-centred stripe set
-        // (which would visibly jump at the smin seam).
-        // Per-character WardrobeSpec can override colorFunc / colorExtent
-        // / paletteSlotB for different heraldry (checker, dots, chevron).
+        // Boxy lizard tail — type-23 ribbon-chain primitive. SDF is now
+        // a proper 3D box per segment (not infinite tube) so endpoints
+        // cap correctly and adjacent segments fuse at vertices instead
+        // of exploding outward along their tangents.
+        if (name !== 'Cape0') continue
         const slotB = (material.namedSlots.accent ?? 11)
+        const halfW     = bp.displaySize[0]
+        const halfThick = bp.displaySize[2]
+        const capeIndices: number[] = [j]
+        for (let k = 1; k < 6; k++) {
+          const idx = rig.findIndex((joint) => joint.name === `Cape${k}`)
+          if (idx >= 0) capeIndices.push(idx)
+        }
+        if (capeIndices.length < 2) continue
+        const chainCount = capeIndices.length
+        const b1 = capeIndices[1] ?? 0
+        const b2 = capeIndices[2] ?? capeIndices[capeIndices.length - 1]
+        const b3 = capeIndices[3] ?? capeIndices[capeIndices.length - 1]
+        const b4 = capeIndices[4] ?? capeIndices[capeIndices.length - 1]
+        const b5 = capeIndices[5] ?? capeIndices[capeIndices.length - 1]
         prims.push({
-          type: 2, paletteSlot: slot, boneIdx: j,
-          params: [bp.displaySize[0], bp.displaySize[1], bp.displaySize[2], 0.015],
+          type: 23, paletteSlot: slot, boneIdx: j,
+          params: [chainCount, halfW, halfThick, b1],
+          rotation: [b2, b3, b4, b5],
           offsetInBone: [0, 0, 0],
-          blendGroup: 9, blendRadius: 0.08,
-          colorFunc: 8,                    // world-Y stripes — continuous across segments
+          blendGroup: 9, blendRadius: 0,
+          colorFunc: 8,
           paletteSlotB: slotB,
-          colorExtent: 5,                  // stripes per metre — moderate density
+          colorExtent: 5,
         })
       } else if (/^Grenade/.test(name)) {
         // Grenades — sphere primitive, radius from displaySize[0]. No
@@ -1125,10 +1252,14 @@ export function chibiRaymarchPrimitives(
           })
         }
       } else {
+        // Generic body-part fallback — e.g., HipPads. Lands in torso
+        // group 6 so it merges into the body surface (Hips ellipsoid)
+        // rather than appearing as a stuck-on cube.
         prims.push({
           type: 2, paletteSlot: slot, boneIdx: j,
           params: [bp.displaySize[0], bp.displaySize[1], bp.displaySize[2], 0.02],
           offsetInBone: [0, 0, 0],
+          blendGroup: 6, blendRadius: 0.05,
         })
       }
       continue
@@ -1153,29 +1284,35 @@ export function chibiRaymarchPrimitives(
     // sockets. Arm's upper capsule still overlaps the shoulder sphere,
     // so the arm-to-body join remains connected (hard min at the seam).
     if (name === 'LeftShoulder' || name === 'RightShoulder') {
+      // Shoulder ball is the bridge between Spine2 and the upper-arm
+      // capsule. Arm and torso live in different blend groups (limb
+      // swappability), so the only thing that can smin into Spine2
+      // is THIS sphere — it has to reach far enough out that the arm
+      // capsule's hard-min seam lands inside it visually. 7.5cm radius
+      // covers the gap from LeftShoulder joint to LeftArm joint.
       prims.push({
         type: 0, paletteSlot: slot, boneIdx: j,
-        params: [0.065, 0, 0, 0],     // 6.5cm sphere — matches upper arm radius
+        params: [0.075, 0, 0, 0],
         offsetInBone: [0, 0, 0],
         blendGroup: 6,
-        blendRadius: 0.07,
+        blendRadius: 0.050,
       })
       continue
     }
 
-    // 5.6) Hands — sphere at the Hand joint, joined to the arm's own
-    // blend chain (group 2 / 3) so the fist fuses with the forearm cap.
-    // Radius slightly smaller than forearm so the hand reads as a
-    // distinct bulb rather than a continuation of the tube. Palette
-    // slot is forced to skin (not via paletteIndices) so a stale
-    // material build can't render the fist black.
+    // 5.6) Hands — sphere at the Hand joint, treated as an ATTACHMENT
+    // (hard-min into scene, not part of the arm blend chain). This keeps
+    // arm-flex bends clean (forearm bezier doesn't smear into the hand
+    // when the arm crosses the torso) and lets the hand be swapped out
+    // freely (skin/mitt/fist/claw/robot/etc.) the same way feet and
+    // helmets work.
     if (name === 'LeftHand' || name === 'RightHand') {
       prims.push({
         type: 0, paletteSlot: CHIBI_SLOTS.skin, boneIdx: j,
         params: [0.045, 0, 0, 0],     // 4.5cm sphere — the fist
         offsetInBone: [0, 0, 0],
-        blendGroup: name === 'LeftHand' ? 2 : 3,
-        blendRadius: 0.04,
+        blendGroup: 0,    // 0 = standalone, hard-min into scene
+        blendRadius: 0,
       })
       continue
     }
@@ -1230,24 +1367,59 @@ export function chibiRaymarchPrimitives(
     if (jointCIdx < 0) continue
 
     const radius = (thickness[0] + thickness[1]) * 0.5
+    // Per-bone segments. Arms = type-15 round (no anatomy asymmetry
+    // needed for biceps; future). Legs = type-18 directional-Z so the
+    // upper segment can express glute mass on -Z (back) and a thicker
+    // X for hipFlare. Lower segment = symmetric.
+    const isArm = name === 'LeftArm' || name === 'RightArm'
+    const isLeg = name === 'LeftUpLeg' || name === 'RightUpLeg'
+    const groupId = CHIBI_LIMB_BLEND_GROUP[name] ?? 0
+    // Blend radius dissolves the elbow/knee crease where the upper and
+    // lower segments bend. Sized to ~60-70% of the SMALLER segment
+    // radius at the joint so smin produces a tight fillet, not a
+    // swelling meniscus. Earlier 0.085 across the board inflated arm
+    // joints (1.8× arm radius → visible bulge); per-limb tuning lets
+    // legs keep more rounding (knees) while arms stay slim.
+    //   arm forearm radius ≈ 0.046 → 0.030 fillet
+    //   leg shin radius   ≈ 0.060 → 0.040 fillet
+    const blendR = groupId ? (isArm ? 0.030 : 0.040) : 0
+    const decalSlotB = isArm ? CHIBI_SLOTS.shirt : (isLeg ? CHIBI_SLOTS.pants : CHIBI_SLOTS.bg)
+    const decalCutoff = isArm ? 1.0 : (isLeg ? 1.0 : 0.0)
+    const useDecal = isArm || isLeg
+    const baseSlot = useDecal ? CHIBI_SLOTS.skin : slot
+    const decalExtras = useDecal ? {
+      colorFunc: 30 as const,
+      paletteSlotB: decalSlotB,
+      colorExtent: decalCutoff,
+    } : {}
+    const elbowOff = rig[jointBIdx].offset
+    const wristOff = rig[jointCIdx].offset
+    const upperLen = Math.hypot(elbowOff[0], elbowOff[1], elbowOff[2])
+    const lowerLen = Math.hypot(wristOff[0], wristOff[1], wristOff[2])
+
+    // Round-only (type 15) for both arms and legs. Directional-Z (type
+    // 18) was unstable under animation — bone-local Z orientation
+    // doesn't ride with the bone correctly when chained segments bend
+    // sharply. Round capsules are rotation-invariant and bend cleanly.
+    const segUpperR0 = isArm ? 0.062 : 0.085
+    const segUpperR1 = isArm ? 0.046 : 0.060
+    const segLowerR0 = isArm ? 0.046 : 0.060
+    const segLowerR1 = isArm ? 0.040 : 0.055
     prims.push({
-      type: 17, paletteSlot: slot, boneIdx: j,
-      // params.x = jointBIdx, params.y = jointCIdx (both bitcast u32);
-      // .z, .w currently unused — slot reserved for future per-limb
-      // tuning (bend influence, taper bias).
-      params: [jointBIdx, jointCIdx, 0, 0],
+      type: 15, paletteSlot: baseSlot, boneIdx: j,
+      params: [segUpperR0, segUpperR1, jointBIdx, upperLen],
       offsetInBone: [0, 0, 0],
-      blendGroup: CHIBI_LIMB_BLEND_GROUP[name] ?? 0,
-      blendRadius: CHIBI_LIMB_BLEND_GROUP[name] ? 0.055 : 0,
-      // Profile curve control points r0..r3 (cubic Bezier of radii)
-      // sampled along the limb. Default = "standard human" muscle
-      // taper — narrow at the joints (shoulder + wrist, hip + ankle),
-      // 12% wider at the bone midpoints (bicep belly, calf belly).
-      // Reads as visible bicep / calf bulges with one line of profile
-      // authoring. Anatomy library (separate pec / glute / hip flare
-      // prims that smin onto these limbs) lands on later ticks.
-      rotation: [radius * 0.88, radius * 1.12, radius * 1.12, radius * 0.88],
+      blendGroup: groupId, blendRadius: blendR,
+      ...decalExtras,
     })
+    prims.push({
+      type: 15, paletteSlot: baseSlot, boneIdx: jointBIdx,
+      params: [segLowerR0, segLowerR1, jointCIdx, lowerLen],
+      offsetInBone: [0, 0, 0],
+      blendGroup: groupId, blendRadius: blendR,
+      ...decalExtras,
+    })
+    void radius
   }
   // 6b) Attachments — hand / foot meshes that plug into the limb's
   // terminal joint. Default = skin spheres on wrists; replaceable
@@ -1481,10 +1653,14 @@ export function chibiRaymarchPrimitives(
  *  Shoulder joins the arm chain so the arm smoothly meets a ball at
  *  the shoulder, closing the gap between torso box and arm start. */
 const CHIBI_LIMB_BLEND_GROUP: Record<string, number> = {
-  LeftShoulder: 2, LeftArm: 2,    LeftForeArm: 2,    LeftHand: 2,
-  RightShoulder: 3, RightArm: 3,   RightForeArm: 3,   RightHand: 3,
-  LeftUpLeg: 4,    LeftLeg: 4,    LeftFoot: 4,
-  RightUpLeg: 5,   RightLeg: 5,   RightFoot: 5,
+  // Hands and feet are ATTACHMENTS (blendGroup=0, hard-min) — swappable
+  // independent of the arm/leg primitive. Shoulders are reassigned to
+  // the torso group inside the centered-bone emission path so they fuse
+  // into the body mass rather than starting the arm chain.
+  LeftArm: 2,  LeftForeArm: 2,
+  RightArm: 3, RightForeArm: 3,
+  LeftUpLeg: 4,  LeftLeg: 4,
+  RightUpLeg: 5, RightLeg: 5,
 }
 
 /** Chibi character display: only a handful of Mixamo bones render as chunky
@@ -1520,7 +1696,7 @@ export function chibiBoneDisplayMats(
   }
   const CENTERED_SIZE: Record<string, [number, number, number]> = {
     Head:    [0.19, 0.21, 0.19],    // GIANT head
-    Neck:    [0.045, 0.06, 0.045],  // small pillar so the head doesn't merge with the torso
+    Neck:    [0.022, 0.06, 0.022],  // small pillar so the head doesn't merge with the torso
     Spine1:  [0.17, 0.15, 0.12],    // torso
     Hips:    [0.15, 0.07, 0.12],    // hips
   }

@@ -85,7 +85,7 @@ const SPRITE_MODES = {
   sz24:  { label: '24² Zelda LTTP / small Mario',    w: 24,  h: 24  },
   sz32:  { label: '32² large Mario',                  w: 32,  h: 32  },
   sz48:  { label: '48² Chrono Trigger / Alucard',     w: 48,  h: 48  },
-  debug: { label: '256² debug / SNES full',           w: 256, h: 256 },
+  debug: { label: '128² debug / SNES full',           w: 128, h: 128 },
 } as const
 type SpriteMode = keyof typeof SPRITE_MODES
 
@@ -101,13 +101,13 @@ async function main() {
     const gpu = await initGPU(canvas)
     const { device, format } = gpu
 
-    let spriteMode: SpriteMode = 'sz32'
+    let spriteMode: SpriteMode = 'sz48'
     // Preview framing: 'scene' canvases at SNES full-res (256²) and
     // centers the sprite cell in it — you see the sprite at its pixel
     // size against screen context. 'framed' canvases match the cache
     // size so all render pixels are visible.
     type PreviewMode = 'scene' | 'framed'
-    let previewMode: PreviewMode = 'scene'
+    let previewMode: PreviewMode = 'framed'
     const SNES_SCREEN = 256
     // Animation overflow pad: raymarch cache is CELL + 2×PAD_PX per dim
     // so jump/crouch/reach animations can extend beyond the logical
@@ -247,6 +247,41 @@ async function main() {
     let loadedVAT = animations[animIdx].vat
     let composer = animations[animIdx].composer
     const rig = loadedVAT.rig!   // rig is shared across all Mixamo anims — take from first
+
+    // T-pose rest pose override. Bone OFFSETS alone don't define arm
+    // direction (they're just lengths along local-Y for Mixamo); the
+    // shoulder's LOCAL-MATRIX ROTATION is what orients the arm in world
+    // space. So we need T-Pose.dae's frame-0 local matrices, NOT just
+    // its bone offsets. Build a runtime-joint-indexed Float32Array
+    // (numJoints × 16 floats) of local mats, defaulting to identity for
+    // joints not present in the T-pose source (face/cape virtuals).
+    let tposeLocalOverride: Float32Array | null = null
+    try {
+      const tposeVat = await loadVATBinary(device, '/mixamo_tpose.vat')
+      if (tposeVat.isLocal && tposeVat.localMats && tposeVat.rig) {
+        tposeLocalOverride = new Float32Array(loadedVAT.numJoints * 16)
+        // Default all entries to identity.
+        for (let j = 0; j < loadedVAT.numJoints; j++) {
+          const o = j * 16
+          tposeLocalOverride[o + 0] = 1; tposeLocalOverride[o + 5] = 1
+          tposeLocalOverride[o + 10] = 1; tposeLocalOverride[o + 15] = 1
+        }
+        // For each runtime joint that exists by name in T-pose, copy
+        // its frame-0 local mat into the runtime joint's slot.
+        const tNameToIdx = new Map(tposeVat.rig.map((j, i) => [j.name, i] as const))
+        let overrides = 0
+        for (let j = 0; j < rig.length; j++) {
+          const tIdx = tNameToIdx.get(rig[j].name)
+          if (tIdx === undefined) continue
+          const src = tIdx * 16
+          const dst = j * 16
+          for (let k = 0; k < 16; k++) tposeLocalOverride[dst + k] = tposeVat.localMats[src + k]
+          overrides++
+        }
+        console.log(`T-pose locals: ${overrides}/${rig.length} joints overridden from /mixamo_tpose.vat`)
+      }
+    } catch (e) { console.warn('T-pose VAT fetch failed:', e) }
+
     const hipsIdx = rig.findIndex((j) => j.name === 'Hips')
     const characterParams = defaultCharacterParams(loadedVAT.numJoints)
 
@@ -283,18 +318,20 @@ async function main() {
       ),
       arms: new RegExp(
         '(' +
-          'LeftArm|RightArm|LeftForeArm|RightForeArm|LeftHand|RightHand|' +
-          'WP_(Vambrace[LR]|Gauntlet[LR])|' +              // legacy knight arm armor
-          'WP_[A-Za-z]+_(Vambrace[LR]|Gauntlet[LR]|Wrap[LR]|Bracer[LR]|Sleeve[LR])|' +
-          'RightWeapon' +                                   // weapon socket
-        ')',
+          // Chain bones only — Hand and Weapon are terminal/attachment
+          // bones whose meshes (hand sphere, weapon prop, gauntlet)
+          // should keep their natural size. Chain shortening on
+          // Arm/ForeArm already moves them inward; scaling the
+          // attachment bones themselves squashes their hosted meshes.
+          'LeftArm|RightArm|LeftForeArm|RightForeArm' +
+        ')$',
       ),
       legs: new RegExp(
         '(' +
-          'LeftUpLeg|LeftLeg|LeftFoot|RightUpLeg|RightLeg|RightFoot|LeftToe|RightToe|' +
-          'WP_(Greave[LR]|Boot[LR])|' +                    // legacy knight leg armor
-          'WP_[A-Za-z]+_(Greave[LR]|Boot[LR])' +
-        ')',
+          // Chain bones only — Foot, Toe, and any boot/greave are
+          // attachment bones; same rule as arms.
+          'LeftUpLeg|LeftLeg|RightUpLeg|RightLeg' +
+        ')$',
       ),
       // Secondary-sex-characteristic virtual joints; default slider = 0
       // so they're invisible unless a preset or slider enables them.
@@ -462,12 +499,13 @@ async function main() {
     type Scale = number | [number, number, number]
     type PresetKey = 'realistic' | 'stylized' | 'chibi'
     const BODY_PRESETS: Record<PresetKey, Record<string, Scale>> = {
-      // Proportion presets follow ONE rule: the only dials are HEAD
-      // (uniform scale) and LEGS (Y-only scale, propagates through the
-      // whole leg chain — UpLeg → Leg → Foot → Toe). Torso, arms, and
-      // any other group always stay at identity. Earlier presets that
-      // touched torso/arms/X+Z bled the silhouette in ways that read as
-      // distortion rather than proportional change.
+      // Proportion presets dial HEAD (uniform), LEGS (Y-only), and ARMS
+      // (Y-only). Torso always stays at identity — squashing the torso
+      // bleeds the silhouette into distortion. Arms and legs scale
+      // together so chibi reads as "short limbs all around" rather than
+      // a kid with long monkey arms. Y-only on arms propagates through
+      // the whole arm chain (UpperArm → ForeArm → Hand) just like legs
+      // (UpLeg → Leg → Foot → Toe).
       realistic: {
         head:  [1.0, 1.0, 1.0],
         torso: [1.0, 1.0, 1.0],
@@ -478,15 +516,15 @@ async function main() {
       stylized: {
         head:  [1.15, 1.15, 1.15],
         torso: [1.0, 1.0, 1.0],
-        arms:  [1.0, 1.0, 1.0],
-        legs:  [1.0, 0.85, 1.0],
+        arms:  [1.0, 0.92, 1.0],   // arms stay closer to natural —
+        legs:  [1.0, 0.85, 1.0],   // a subtle squash, not "short ape"
         bust: 0.0, hips: 0.0,
       },
       chibi: {
         head:  [1.40, 1.40, 1.40],
         torso: [1.0, 1.0, 1.0],
-        arms:  [1.0, 1.0, 1.0],
-        legs:  [1.0, 0.55, 1.0],
+        arms:  [1.0, 0.75, 1.0],   // arms shorten less than legs so the
+        legs:  [1.0, 0.55, 1.0],   // silhouette reads kid-like, not stubby
         bust: 0.0, hips: 0.0,
       },
     }
@@ -527,6 +565,20 @@ async function main() {
       if (btn) btn.onclick = () => applyPreset(key)
     }
 
+    // Cape length scalar — multiplies the per-segment drop in cape physics.
+    // 1.0 = default cape length, 0.4 = stubby, 2.0 = floor-dragger.
+    let capeLengthScale = 1.0
+    {
+      const slider = document.getElementById('cape-length') as HTMLInputElement | null
+      const valLabel = document.getElementById('cape-length-val') as HTMLElement | null
+      if (slider) {
+        slider.oninput = () => {
+          capeLengthScale = parseFloat(slider.value)
+          if (valLabel) valLabel.textContent = capeLengthScale.toFixed(2)
+        }
+      }
+    }
+
     let vatHandle = {
       buffer: loadedVAT.buffer,
       numInstances: loadedVAT.numJoints,
@@ -539,6 +591,10 @@ async function main() {
     // the sprite snaps at 8-12Hz, which reads as the cape "floating"
     // across body poses instead of moving in sync.
     let lastSecondaryFrame = -1
+    let capeCollisionDebugged = false
+    let capeDistDebugged = false
+    let capeMatDebugged = false
+    let capePtDebugged = false
     let lastSecondaryElapsed = 0
     let lastSecondaryRestPose = false
 
@@ -828,10 +884,13 @@ async function main() {
         // Anatomy profile overrides — only emitted when at least one
         // entry is set, so default characters round-trip without a
         // bloated `profiles` block.
-        ...((Object.keys(profiles.limbs).length > 0 || Object.keys(profiles.anatomy).length > 0)
+        ...((Object.keys(profiles.limbs).length > 0
+             || Object.keys(profiles.anatomy).length > 0
+             || Object.keys(profiles.torso).length > 0)
           ? { profiles: {
               ...(Object.keys(profiles.limbs).length   > 0 ? { limbs:   { ...profiles.limbs   } } : {}),
               ...(Object.keys(profiles.anatomy).length > 0 ? { anatomy: { ...profiles.anatomy } } : {}),
+              ...(Object.keys(profiles.torso).length   > 0 ? { torso:   { ...profiles.torso   } } : {}),
             } }
           : {}),
       })
@@ -908,9 +967,12 @@ async function main() {
       if (spec.profiles) {
         const isProfile = (v: unknown): v is ProfileTuple =>
           Array.isArray(v) && v.length === 4 && v.every((n) => typeof n === 'number' && Number.isFinite(n))
+        const isTorso = (v: unknown): v is [number, number, number] =>
+          Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === 'number' && Number.isFinite(n))
         // Reset before applying so a load fully replaces prior overrides.
         for (const k of Object.keys(profiles.limbs))   delete profiles.limbs[k]
         for (const k of Object.keys(profiles.anatomy)) delete profiles.anatomy[k]
+        for (const k of Object.keys(profiles.torso))   delete profiles.torso[k]
         if (spec.profiles.limbs) {
           for (const [k, v] of Object.entries(spec.profiles.limbs)) {
             if (isProfile(v)) profiles.limbs[k] = [v[0], v[1], v[2], v[3]]
@@ -919,6 +981,11 @@ async function main() {
         if (spec.profiles.anatomy) {
           for (const [k, v] of Object.entries(spec.profiles.anatomy)) {
             if (isProfile(v)) profiles.anatomy[k] = [v[0], v[1], v[2], v[3]]
+          }
+        }
+        if (spec.profiles.torso) {
+          for (const [k, v] of Object.entries(spec.profiles.torso)) {
+            if (isTorso(v)) profiles.torso[k] = [v[0], v[1], v[2]]
           }
         }
         rebuildPersistentPrims()
@@ -963,17 +1030,19 @@ async function main() {
     const rightHandIdx = rig.findIndex((j) => j.name === 'RightHand')
     const headIdx = rig.findIndex((j) => j.name === 'Head')
     const spine2Idx = rig.findIndex((j) => j.name === 'Spine2')
+    const spine1Idx = rig.findIndex((j) => j.name === 'Spine1')
     const lShoulderIdx = rig.findIndex((j) => j.name === 'LeftShoulder')
     const rShoulderIdx = rig.findIndex((j) => j.name === 'RightShoulder')
-    // 5-segment cape: Cape0 (locked anchor at shoulder) → Cape4 (tip).
-    // Each particle index matches the bone index in capeBoneIndices.
+    const lFootIdx = rig.findIndex((j) => j.name === 'LeftFoot')
+    const rFootIdx = rig.findIndex((j) => j.name === 'RightFoot')
+    // 5-segment cape over 6 bones (Cape0..Cape5).
     const capeBoneIndices: number[] = []
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       const idx = rig.findIndex((j) => j.name === `Cape${i}`)
       if (idx >= 0) capeBoneIndices.push(idx)
     }
-    const CAPE_SEG_DROP = 0.18   // Y drop per segment (matches DEFAULT_CAPE_PARTS)
-    const CAPE_HAS_FULL_CHAIN = capeBoneIndices.length === 5 && spine2Idx >= 0
+    const CAPE_SEG_DROP = 0.1854   // matches DEFAULT_CAPE_PARTS spacing (+3%)
+    const CAPE_HAS_FULL_CHAIN = capeBoneIndices.length === 6 && spine2Idx >= 0
 
     // Particle 0 is the LOCKED anchor at the shoulder (Spine2 + rotated
     // offset). Particles 1..4 chain via node-particle physics (one-frame-
@@ -982,17 +1051,19 @@ async function main() {
     // anchor, eliminating the awkward up-bend the previous architecture
     // had between Spine2 and Cape0.
     const capeChain: NodeParticle[] = !CAPE_HAS_FULL_CHAIN ? [] : [
-      // Cape0 — locked anchor. restOffset is matched in the lock code below.
+      // Cape0 — locked anchor (read from Cape0 bone matrix, which is
+      // Spine2 × bind-pose offset, every tick).
       createNodeParticle({
         parentRef: spine2Idx, parentKind: 'bone',
         restOffset: [0, 0.10, -0.20],
         restLength: 0.22,
       }),
-      // Cape1..4 — chain physics, hanging straight down from previous.
+      // Cape1..Cape5 — chain physics, hanging straight down from previous.
       createNodeParticle({ parentRef: 0, parentKind: 'particle', restOffset: [0, -CAPE_SEG_DROP, 0], restLength: CAPE_SEG_DROP }),
       createNodeParticle({ parentRef: 1, parentKind: 'particle', restOffset: [0, -CAPE_SEG_DROP, 0], restLength: CAPE_SEG_DROP }),
       createNodeParticle({ parentRef: 2, parentKind: 'particle', restOffset: [0, -CAPE_SEG_DROP, 0], restLength: CAPE_SEG_DROP }),
       createNodeParticle({ parentRef: 3, parentKind: 'particle', restOffset: [0, -CAPE_SEG_DROP, 0], restLength: CAPE_SEG_DROP }),
+      createNodeParticle({ parentRef: 4, parentKind: 'particle', restOffset: [0, -CAPE_SEG_DROP, 0], restLength: CAPE_SEG_DROP }),
     ]
 
     // 5-segment long hair: HairLong0 (locked to back of head) → HairLong4
@@ -1000,13 +1071,13 @@ async function main() {
     // chain. restOffset / restLength values match DEFAULT_LONG_HAIR so the
     // bind-pose chain geometry equals what the rig was set up with.
     const HAIR_ANCHOR_OFFSET: [number, number, number] = [0, 0.04, -0.13]   // Head → HairLong0 (back of cranium)
-    const HAIR_SEG_DROP = 0.13                                              // Y drop per segment
+    const HAIR_SEG_DROP = 0.10                                              // Y drop per segment
     const hairBoneIndices: number[] = []
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       const idx = rig.findIndex((j) => j.name === `HairLong${i}`)
       if (idx >= 0) hairBoneIndices.push(idx)
     }
-    const HAIR_HAS_FULL_CHAIN = hairBoneIndices.length === 5 && headIdx >= 0
+    const HAIR_HAS_FULL_CHAIN = hairBoneIndices.length === 6 && headIdx >= 0
     const hairChain: NodeParticle[] = !HAIR_HAS_FULL_CHAIN ? [] : [
       createNodeParticle({
         parentRef: headIdx, parentKind: 'bone',
@@ -1017,6 +1088,7 @@ async function main() {
       createNodeParticle({ parentRef: 1, parentKind: 'particle', restOffset: [0, -HAIR_SEG_DROP, 0], restLength: HAIR_SEG_DROP }),
       createNodeParticle({ parentRef: 2, parentKind: 'particle', restOffset: [0, -HAIR_SEG_DROP, 0], restLength: HAIR_SEG_DROP }),
       createNodeParticle({ parentRef: 3, parentKind: 'particle', restOffset: [0, -HAIR_SEG_DROP, 0], restLength: HAIR_SEG_DROP }),
+      createNodeParticle({ parentRef: 4, parentKind: 'particle', restOffset: [0, -HAIR_SEG_DROP, 0], restLength: HAIR_SEG_DROP }),
     ]
 
     // Hair strands — N independent capsule chunks attached to Head, each
@@ -1105,7 +1177,12 @@ async function main() {
       faceRaymarchPrims,
       material.palette,
       vatHandle,
-      { maxSteps: 32 },   // tuned: per-primitive occlusion closes hits fast
+      { maxSteps: 64 },   // bumped from 32 to fix grazing-angle precision
+                          // on the cape — thin shapes (cross-section
+                          // ~9cm) return tiny SDF values when the ray
+                          // skims along their length, so the marcher
+                          // needs more steps to traverse a meter-long
+                          // primitive at glancing angles.
     )
     // Cache is cell + pad × 2 per dimension — gives animation room.
     {
@@ -1165,7 +1242,7 @@ async function main() {
         material.palette[s * 4 + 2],
       ]
     })
-    let nudeMode = true
+    let nudeMode = false
     function applyNudeMode() {
       const skinSlot = material.namedSlots.skin
       const sr = material.palette[skinSlot * 4 + 0]
@@ -1271,10 +1348,12 @@ async function main() {
     // sex-characteristic dials (pec/glute/hipFlare/...). Empty by
     // default; spec.profiles populates these on load.
     type ProfileTuple = [number, number, number, number]
+    type TorsoTriple  = [number, number, number]
     const profiles: {
       limbs:   Record<string, ProfileTuple>
       anatomy: Record<string, ProfileTuple>
-    } = { limbs: {}, anatomy: {} }
+      torso:   Record<string, TorsoTriple>
+    } = { limbs: {}, anatomy: {}, torso: {} }
     let currentBuild: string = 'standard'
     function applyBuildPreset(name: string) {
       const preset = BUILD_PRESETS[name]
@@ -1284,6 +1363,7 @@ async function main() {
       // "strong" to "skinny" actually drops the strong overrides.
       for (const k of Object.keys(profiles.limbs))   delete profiles.limbs[k]
       for (const k of Object.keys(profiles.anatomy)) delete profiles.anatomy[k]
+      for (const k of Object.keys(profiles.torso))   delete profiles.torso[k]
       if (preset.limbs) {
         for (const [k, v] of Object.entries(preset.limbs)) {
           profiles.limbs[k] = [v[0], v[1], v[2], v[3]]
@@ -1292,6 +1372,11 @@ async function main() {
       if (preset.anatomy) {
         for (const [k, v] of Object.entries(preset.anatomy)) {
           profiles.anatomy[k] = [v[0], v[1], v[2], v[3]]
+        }
+      }
+      if (preset.torso) {
+        for (const [k, v] of Object.entries(preset.torso)) {
+          profiles.torso[k] = [v[0], v[1], v[2]]
         }
       }
       rebuildPersistentPrims()
@@ -1436,6 +1521,24 @@ async function main() {
         if (!limbName) continue
         const o = profiles.limbs[limbName]
         if (o) p.rotation = [o[0], o[1], o[2], o[3]]
+      }
+      // Torso shape override — chibiRaymarchPrimitives emits a type-3
+      // (ellipsoid) prim per sack-core bone (Hips/Spine/Spine1/Spine2)
+      // with params = [hx, hy, hz, 0]. The build preset can override
+      // those half-extents per bone to give skinny / strong / hourglass
+      // distinct silhouettes (waist taper, shoulder breadth, hip flare)
+      // instead of all reading as the same round potato.
+      const torsoBoneByIdx: Record<number, string> = {}
+      for (const torsoName of ['Hips', 'Spine', 'Spine1', 'Spine2']) {
+        const idx = rig.findIndex((j) => j.name === torsoName)
+        if (idx >= 0) torsoBoneByIdx[idx] = torsoName
+      }
+      for (const p of next) {
+        if (p.type !== 3) continue
+        const torsoName = torsoBoneByIdx[p.boneIdx]
+        if (!torsoName) continue
+        const o = profiles.torso[torsoName]
+        if (o) p.params = [o[0], o[1], o[2], 0]
       }
       // Apply cape pattern override — find prims whose bone is a Cape
       // segment and rewrite their colorFunc. Default emission picked
@@ -2000,8 +2103,17 @@ async function main() {
       // where N = renderFps / animFps.
       const animFps = SPRITE_MODE_ANIM_FPS[spriteMode]
       const tickSec = 1 / animFps
-      const quantElapsed = Math.floor(elapsed / tickSec) * tickSec
-      const frameIdx = Math.floor((quantElapsed / loadedVAT.durationSec) * loadedVAT.numFrames) % loadedVAT.numFrames
+      // Cap every animation to MAX_LOOP_FRAMES distinct poses regardless
+      // of native VAT length. Source frames are sampled evenly across
+      // the original — a 32-frame walk plays as 16 frames spaced at
+      // every 2nd source. At 12fps this gives a 1.33s loop. Animations
+      // shorter than the cap play their full source — the min() handles
+      // that case.
+      const MAX_LOOP_FRAMES = 16
+      const effectiveFrames = Math.min(loadedVAT.numFrames, MAX_LOOP_FRAMES)
+      const tickIndex = Math.floor(elapsed / tickSec)
+      const loopTick = ((tickIndex % effectiveFrames) + effectiveFrames) % effectiveFrames
+      const frameIdx = Math.floor((loopTick * loadedVAT.numFrames) / effectiveFrames) % loadedVAT.numFrames
 
       // Retargeting compose: overwrite vat.buffer's FIRST frame slot with
       // the current frame's composed world matrices (local × scale →
@@ -2027,8 +2139,12 @@ async function main() {
         effectiveRestPose !== lastSecondaryRestPose
       const tickDt = tickShouldRun ? Math.max(elapsed - lastSecondaryElapsed, 1 / 60) : 0
       if (composer && tickShouldRun) {
-        if (effectiveRestPose) composer.applyRestPose(characterParams)
-        else                   composer.update(frameIdx, characterParams)
+        if (effectiveRestPose) {
+          if (tposeLocalOverride) composer.applyPoseFromLocals(tposeLocalOverride, characterParams)
+          else                    composer.applyRestPose(characterParams)
+        } else {
+          composer.update(frameIdx, characterParams)
+        }
       }
 
       // Cape secondary motion — node particles drive cape bone positions
@@ -2044,13 +2160,24 @@ async function main() {
           wm[boneIdx * 16 + 13],
           wm[boneIdx * 16 + 14],
         ]
-        // Read Spine2's world rotation columns so we can transform the
-        // cape's local-frame offsets into world space — without this
-        // the cape stays in world axes and doesn't follow body rotation.
-        const s2 = spine2Idx * 16
-        const sX: [number, number, number] = [wm[s2 + 0], wm[s2 + 1], wm[s2 + 2]]
-        const sY: [number, number, number] = [wm[s2 + 4], wm[s2 + 5], wm[s2 + 6]]
-        const sZ: [number, number, number] = [wm[s2 + 8], wm[s2 + 9], wm[s2 + 10]]
+        // YAW-ONLY rotation reference. Read Hips' forward axis but
+        // project onto the world horizontal plane and renormalize —
+        // strips out pitch, roll, AND upper-body twist. The cape's
+        // "behind" axis becomes a function of horizontal facing only
+        // (which way the character is pointed in the world), so spine
+        // twists, body lean, and animation tumbles don't reorient the
+        // cape. Up = world +Y, Right = up × forward (right-hand rule).
+        // Falls back to identity if hips axis is degenerate vertical.
+        const sRotIdx = (hipsIdx >= 0 ? hipsIdx : (spine1Idx >= 0 ? spine1Idx : spine2Idx))
+        const s2 = sRotIdx * 16
+        let fwdHX = wm[s2 + 8]
+        let fwdHZ = wm[s2 + 10]
+        let fwdHLen = Math.hypot(fwdHX, fwdHZ)
+        if (fwdHLen < 1e-4) { fwdHX = 0; fwdHZ = 1; fwdHLen = 1 }
+        fwdHX /= fwdHLen; fwdHZ /= fwdHLen
+        const sX: [number, number, number] = [ fwdHZ, 0, -fwdHX ]   // right = up × forward
+        const sY: [number, number, number] = [ 0, 1, 0 ]            // up = world Y
+        const sZ: [number, number, number] = [ fwdHX, 0, fwdHZ ]    // forward (horizontal)
         const rotByS2 = (v: [number, number, number]): [number, number, number] => [
           v[0] * sX[0] + v[1] * sY[0] + v[2] * sZ[0],
           v[0] * sX[1] + v[1] * sY[1] + v[2] * sZ[1],
@@ -2064,59 +2191,91 @@ async function main() {
         // Smin between segments smoothly fuses the now-overlapping
         // chunks into one continuous shorter cape.
         const bodyYScale = (currentScales.torso + currentScales.legs) * 0.5
-        const segDrop    = CAPE_SEG_DROP * bodyYScale
+        const segDrop    = CAPE_SEG_DROP * bodyYScale * capeLengthScale
+        // Each particle has min/maxLength constraints baked at creation
+        // time (originally ±5% of CAPE_SEG_DROP = 0.18m). At runtime when
+        // capeLengthScale or bodyYScale change, those constraints would
+        // clamp the chain back to the original spacing — so even with
+        // larger restOffset targets the cape stays bunched up. Re-derive
+        // them every tick so the chain physics actually reaches the new
+        // segDrop. Skip the locked root (i=0) — it doesn't use these.
+        for (let i = 1; i < capeChain.length; i++) {
+          capeChain[i].minLength = segDrop * 0.95
+          capeChain[i].maxLength = segDrop * 1.05
+        }
 
-        // Wind in WORLD space — drift the cape sideways regardless of body
-        // facing. Slow swirl + small secondary oscillation = light breeze.
-        const windStrength = 0.04
-        const windAngle = elapsed * 0.7 + Math.sin(elapsed * 0.4) * 0.3
-        const windX = Math.cos(windAngle) * windStrength
-        const windZ = Math.sin(windAngle) * windStrength
+        // Wind disabled — keep cape physics minimal (just gravity +
+        // torso SDF collision + ground clamp) until cape behavior is
+        // dialed in. Re-enable later with a windStrength slider if
+        // breeze sway is desired.
+        const windX = 0
+        const windZ = 0
 
-        // ROOT (i=0): LOCKED. Anchor at the LINE BETWEEN THE SHOULDERS
-        // (midpoint of LeftShoulder + RightShoulder world positions),
-        // not at Spine2. Spine2's centre drifts off the shoulder line
-        // when the torso twists, which made the cape look like it was
-        // sticking out of one shoulder. The shoulder midpoint moves
-        // with the actual collarbone level no matter how the body
-        // rotates. Rotation is still derived from Spine2 (cape
-        // "behind" axis follows torso facing). Offset Z=-0.10 pushes
-        // anchor slightly behind the shoulders so cape clears the
-        // upper-back without sitting on top of it.
+        // ROOT (i=0): LOCKED. Read Cape0's bone WORLD position directly.
+        // Cape0 is rigged as a child of Spine2 with a local offset of
+        // [0, 0.10, -0.28] (set in DEFAULT_CAPE_PARTS), so its world
+        // matrix is automatically Spine2.world × Cape0.local — it
+        // RIDES with the chest's full transform (yaw, pitch, roll).
+        // When the character hunches forward, the anchor follows the
+        // chest forward; when they lean back, the anchor follows back.
+        // No manual offset math, no shoulder-midpoint averaging — same
+        // architecture the plate armor uses.
         {
-          const sMidX = (lShoulderIdx >= 0 && rShoulderIdx >= 0)
-            ? (wm[lShoulderIdx * 16 + 12] + wm[rShoulderIdx * 16 + 12]) * 0.5
-            : wm[spine2Idx * 16 + 12]
-          const sMidY = (lShoulderIdx >= 0 && rShoulderIdx >= 0)
-            ? (wm[lShoulderIdx * 16 + 13] + wm[rShoulderIdx * 16 + 13]) * 0.5
-            : wm[spine2Idx * 16 + 13]
-          const sMidZ = (lShoulderIdx >= 0 && rShoulderIdx >= 0)
-            ? (wm[lShoulderIdx * 16 + 14] + wm[rShoulderIdx * 16 + 14]) * 0.5
-            : wm[spine2Idx * 16 + 14]
-          // Smaller back-offset since shoulder midpoint is already at
-          // shoulder level (no need for the +Y bump the Spine2 attach
-          // had). Just push slightly back so cape clears the body.
-          const rotatedOff = rotByS2([0, 0, -0.10])
-          capeChain[0].position[0] = sMidX + rotatedOff[0]
-          capeChain[0].position[1] = sMidY + rotatedOff[1]
-          capeChain[0].position[2] = sMidZ + rotatedOff[2]
-          capeChain[0].prevParentPos[0] = sMidX
-          capeChain[0].prevParentPos[1] = sMidY
-          capeChain[0].prevParentPos[2] = sMidZ
+          const cape0Bone = capeBoneIndices[0] * 16
+          const ax = wm[cape0Bone + 12]
+          const ay = wm[cape0Bone + 13]
+          const az = wm[cape0Bone + 14]
+          capeChain[0].position[0] = ax
+          capeChain[0].position[1] = ay
+          capeChain[0].position[2] = az
+          capeChain[0].prevParentPos[0] = ax
+          capeChain[0].prevParentPos[1] = ay
+          capeChain[0].prevParentPos[2] = az
           capeChain[0].initialised = true
         }
 
-        // MID + TIP: chain physics with rotated offsets + wind. All
-        // segments rotate with body so cape follows torso facing.
-        // baseOff is normalized by CAPE_SEG_DROP so we can re-scale by
-        // segDrop here without re-creating the particles.
+        // MID + TIP: chain physics with rest target along Cape0's
+        // (= Spine2's) local -Y axis, NOT world-down. When the body
+        // bends forward, Cape0's -Y rotates forward too, so the chain
+        // hangs from the chest along the spine axis instead of going
+        // straight down through the bent-forward body. This is what
+        // makes the cape behave like it's actually rigged to the spine
+        // bone — same as the user's plate-armor reference. Without it
+        // the chain rest is world-down from a moving anchor, which
+        // drags particles through the body whenever the spine bends.
+        const cape0Mat = capeBoneIndices[0] * 16
+        const c0X: [number, number, number] = [wm[cape0Mat + 0], wm[cape0Mat + 1], wm[cape0Mat + 2]]
+        const c0Y: [number, number, number] = [wm[cape0Mat + 4], wm[cape0Mat + 5], wm[cape0Mat + 6]]
+        const c0Z: [number, number, number] = [wm[cape0Mat + 8], wm[cape0Mat + 9], wm[cape0Mat + 10]]
+        // Normalize Cape0 basis (in case Spine2 has scale baked in).
+        const c0XL = Math.hypot(...c0X) || 1
+        const c0YL = Math.hypot(...c0Y) || 1
+        const c0ZL = Math.hypot(...c0Z) || 1
+        const c0Xn = [c0X[0]/c0XL, c0X[1]/c0XL, c0X[2]/c0XL] as [number, number, number]
+        const c0Yn = [c0Y[0]/c0YL, c0Y[1]/c0YL, c0Y[2]/c0YL] as [number, number, number]
+        const c0Zn = [c0Z[0]/c0ZL, c0Z[1]/c0ZL, c0Z[2]/c0ZL] as [number, number, number]
+        const rotByCape0 = (v: [number, number, number]): [number, number, number] => [
+          v[0] * c0Xn[0] + v[1] * c0Yn[0] + v[2] * c0Zn[0],
+          v[0] * c0Xn[1] + v[1] * c0Yn[1] + v[2] * c0Zn[1],
+          v[0] * c0Xn[2] + v[1] * c0Yn[2] + v[2] * c0Zn[2],
+        ]
         for (let i = 1; i < capeChain.length; i++) {
           const baseOff = capeChain[i].restOffset
-          const rotatedOff = rotByS2([
-            baseOff[0],
-            (baseOff[1] / CAPE_SEG_DROP) * segDrop,
-            baseOff[2],
-          ])
+          // Rest offset in Cape0's local frame (= Spine2's frame). Top
+          // of chain follows body axis; tail blends toward world-down
+          // for natural drape — long capes that just point along the
+          // bent spine read as stiff. Drape factor ramps from 0 at
+          // the anchor to ~0.6 at the tail, so the tail particles
+          // gravitationally relax even when the body bends forward.
+          const yScaled = (baseOff[1] / CAPE_SEG_DROP) * segDrop
+          const bodyOff = rotByCape0([baseOff[0], yScaled, baseOff[2]])
+          const worldOff: [number, number, number] = [0, yScaled, 0]
+          const drape = Math.min(0.85, (i / capeChain.length) * 1.0)
+          const rotatedOff: [number, number, number] = [
+            bodyOff[0] * (1 - drape) + worldOff[0] * drape,
+            bodyOff[1] * (1 - drape) + worldOff[1] * drape,
+            bodyOff[2] * (1 - drape) + worldOff[2] * drape,
+          ]
           const k = (i + 1) / capeChain.length
           const offsetWithWind: [number, number, number] = [
             rotatedOff[0] + windX * k,
@@ -2126,81 +2285,330 @@ async function main() {
           tickNodeParticle(capeChain[i], capeChain, getBoneWorldPos, offsetWithWind)
         }
 
-        // Body collision — push cape particles out of bounding spheres
-        // around the spine. Stops the cape from passing through the
-        // torso when it swings forward in wind / motion.
-        const collisionList: { bone: number; r: number }[] = []
-        if (spine2Idx >= 0) collisionList.push({ bone: spine2Idx, r: 0.16 })
-        if (hipsIdx   >= 0) collisionList.push({ bone: hipsIdx,   r: 0.17 })
+        // Body collision — REAL SDF query against the torso's actual
+        // primitives. Walk the persistent prim list, filter to blend
+        // group 6 (torso sack-core: Hips/Spine/Spine1/Spine2 ellipsoids
+        // + LeftShoulder/RightShoulder spheres), and smin them together
+        // exactly like the shader does. Push each cape particle outward
+        // along the SDF gradient until distance >= BODY_BUFFER. This
+        // tracks any body shape change (proportions, archetypes, future
+        // segment-bezier torso) without re-authoring colliders, and
+        // handles the shoulder/upper-body region the spheres missed.
+        // Buffer is larger than naive cape-radius-from-body because the
+        // cape SEGMENT ellipsoid extends ±halfZ (0.025m) along its
+        // forward axis, which points into the body when the cape is
+        // hanging straight down behind. Different blend groups hard-min
+        // with no smoothing, so any geometric overlap reads as a clip.
+        // 0.12m = 0.025 cape thickness + 0.095 visible clearance. Looks
+        // generous but the torso ellipsoids' max half-extents are big
+        // (Spine1 Z = 0.156) so the cape needs real distance to clear.
+        const BODY_BUFFER = 0.075
+        const TORSO_BLEND_GROUP = 6
+        const torsoCollisionPrims = persistentPrims.filter(
+          p => p.blendGroup === TORSO_BLEND_GROUP &&
+               (p.type === 0 || p.type === 1 || p.type === 3),
+        )
+        // One-time debug — see what prims are getting picked up so we can
+        // diagnose if collision isn't firing. Logs once per second of
+        // elapsed sim time so the console doesn't spam.
+        if (!capeCollisionDebugged && torsoCollisionPrims.length > 0) {
+          console.log(`[cape-collision] ${torsoCollisionPrims.length} torso prims:`,
+            torsoCollisionPrims.map(p => ({
+              type: p.type, bone: rig[p.boneIdx]?.name, params: Array.from(p.params),
+              br: p.blendRadius,
+            })))
+          capeCollisionDebugged = true
+        }
+        // worldToLocal — JS port of the shader function. Returns p in
+        // bone-local where each axis is normalized by its world basis
+        // magnitude (so non-unit scale on the bone is undone).
+        const worldToLocalJS = (boneMatStart: number, wx: number, wy: number, wz: number): [number, number, number] => {
+          const c0x = wm[boneMatStart],     c0y = wm[boneMatStart + 1], c0z = wm[boneMatStart + 2]
+          const c1x = wm[boneMatStart + 4], c1y = wm[boneMatStart + 5], c1z = wm[boneMatStart + 6]
+          const c2x = wm[boneMatStart + 8], c2y = wm[boneMatStart + 9], c2z = wm[boneMatStart + 10]
+          const tx  = wm[boneMatStart + 12], ty  = wm[boneMatStart + 13], tz  = wm[boneMatStart + 14]
+          const s0sq = Math.max(c0x*c0x + c0y*c0y + c0z*c0z, 1e-10)
+          const s1sq = Math.max(c1x*c1x + c1y*c1y + c1z*c1z, 1e-10)
+          const s2sq = Math.max(c2x*c2x + c2y*c2y + c2z*c2z, 1e-10)
+          const dx = wx - tx, dy = wy - ty, dz = wz - tz
+          return [
+            (c0x * dx + c0y * dy + c0z * dz) / s0sq,
+            (c1x * dx + c1y * dy + c1z * dz) / s1sq,
+            (c2x * dx + c2y * dy + c2z * dz) / s2sq,
+          ]
+        }
+        // Polynomial smin matching shader's smin_k.
+        const smin_k = (a: number, b: number, k: number): number => {
+          const kk = Math.max(k, 1e-6)
+          const h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / kk))
+          return (b * (1 - h) + a * h) - kk * h * (1 - h)
+        }
+        // SDF eval at a world point. Returns distance to torso surface
+        // (negative inside, positive outside).
+        const torsoSDF = (wx: number, wy: number, wz: number): number => {
+          let d = 1e9
+          for (const p of torsoCollisionPrims) {
+            const baseM = p.boneIdx * 16
+            const lp = worldToLocalJS(baseM, wx, wy, wz)
+            const off = p.offsetInBone
+            const lx = lp[0] - off[0], ly = lp[1] - off[1], lz = lp[2] - off[2]
+            let primD: number
+            if (p.type === 0) {
+              // Sphere: params[0] = radius
+              primD = Math.hypot(lx, ly, lz) - p.params[0]
+            } else if (p.type === 1) {
+              // Box: params[0..2] = half-extents
+              const qx = Math.abs(lx) - p.params[0]
+              const qy = Math.abs(ly) - p.params[1]
+              const qz = Math.abs(lz) - p.params[2]
+              const outX = Math.max(qx, 0), outY = Math.max(qy, 0), outZ = Math.max(qz, 0)
+              const outerLen = Math.hypot(outX, outY, outZ)
+              const inner = Math.min(Math.max(qx, qy, qz), 0)
+              primD = outerLen + inner
+            } else {
+              // Ellipsoid (type 3, IQ bound). The exact IQ formula
+              // k0*(k0-1)/k1 is NaN at p=origin (both k0 and k1 go to 0).
+              // Use the simpler bound (k0 - 1) * min(r) — slightly less
+              // tight at very oblong shapes but always finite.
+              const rx = Math.max(p.params[0], 1e-4)
+              const ry = Math.max(p.params[1], 1e-4)
+              const rz = Math.max(p.params[2], 1e-4)
+              const k0 = Math.hypot(lx / rx, ly / ry, lz / rz)
+              primD = (k0 - 1) * Math.min(rx, ry, rz)
+            }
+            // Use each prim's OWN blendRadius so the smin matches what
+            // the shader is computing. Falls back to 0.07 if missing.
+            const br = (p.blendRadius && p.blendRadius > 0) ? p.blendRadius : 0.07
+            d = smin_k(d, primD, br)
+          }
+          return d
+        }
         // Skip root (i=0) — it's already locked to a sensible position.
-        for (let i = 1; i < capeChain.length; i++) {
-          const cp = capeChain[i].position
-          for (const col of collisionList) {
-            const cb = getBoneWorldPos(col.bone)
-            const dx = cp[0] - cb[0]
-            const dy = cp[1] - cb[1]
-            const dz = cp[2] - cb[2]
-            const dist = Math.hypot(dx, dy, dz)
-            if (dist > 1e-6 && dist < col.r) {
-              const k2 = col.r / dist
-              cp[0] = cb[0] + dx * k2
-              cp[1] = cb[1] + dy * k2
-              cp[2] = cb[2] + dz * k2
+        if (torsoCollisionPrims.length > 0) {
+          const eps = 0.005
+          // One-shot debug — log SDF distance for each cape particle so
+          // we can see if (a) particles are clipping (d < buffer) or
+          // (b) the SDF is returning wrong values.
+          if (!capeDistDebugged) {
+            const dists: number[] = []
+            for (let i = 0; i < capeChain.length; i++) {
+              const cp = capeChain[i].position
+              dists.push(torsoSDF(cp[0], cp[1], cp[2]))
+            }
+            console.log('[cape-collision] particle distances to torso SDF:',
+              dists.map((d, i) => `[${i}]=${d.toFixed(3)}m @ (${capeChain[i].position.map(v => v.toFixed(2)).join(',')})`).join(' '))
+            capeDistDebugged = true
+          }
+          for (let i = 1; i < capeChain.length; i++) {
+            const cp = capeChain[i].position
+            // 2 push iterations — one query+gradient is usually enough,
+            // but a second pass cleans up cases where the first push
+            // landed on the buffer boundary at an oblique angle.
+            for (let iter = 0; iter < 2; iter++) {
+              const d = torsoSDF(cp[0], cp[1], cp[2])
+              if (d >= BODY_BUFFER) break
+              // Finite-difference gradient
+              const dxp = torsoSDF(cp[0] + eps, cp[1], cp[2])
+              const dxn = torsoSDF(cp[0] - eps, cp[1], cp[2])
+              const dyp = torsoSDF(cp[0], cp[1] + eps, cp[2])
+              const dyn = torsoSDF(cp[0], cp[1] - eps, cp[2])
+              const dzp = torsoSDF(cp[0], cp[1], cp[2] + eps)
+              const dzn = torsoSDF(cp[0], cp[1], cp[2] - eps)
+              let gx = dxp - dxn, gy = dyp - dyn, gz = dzp - dzn
+              const gLen = Math.hypot(gx, gy, gz)
+              if (gLen < 1e-6) break
+              gx /= gLen; gy /= gLen; gz /= gLen
+              // Anti-tunneling: only reflect the gradient when the
+              // particle is on the FRONT side of the anchor plane —
+              // i.e., it has actually tunneled through the body.
+              // Particles correctly behind the body have anchorFwd < 0
+              // and skip reflection, so the cape falls naturally with
+              // gravity. Reflecting on every forward-pointing gradient
+              // (regardless of which side the particle is on) caused
+              // small sideways/down nudges that compounded into a curl-
+              // under-body artifact.
+              const anchorFwd = (cp[0] - capeChain[0].position[0]) * sZ[0]
+                              + (cp[1] - capeChain[0].position[1]) * sZ[1]
+                              + (cp[2] - capeChain[0].position[2]) * sZ[2]
+              if (anchorFwd > 0) {
+                const dotFwd = gx * sZ[0] + gy * sZ[1] + gz * sZ[2]
+                if (dotFwd > 0) {
+                  gx -= 2 * dotFwd * sZ[0]
+                  gy -= 2 * dotFwd * sZ[1]
+                  gz -= 2 * dotFwd * sZ[2]
+                  const gLen2 = Math.hypot(gx, gy, gz)
+                  if (gLen2 > 1e-6) { gx /= gLen2; gy /= gLen2; gz /= gLen2 }
+                }
+              }
+              // Push outward by exactly the deficit so we land on the buffer surface.
+              const push = BODY_BUFFER - d
+              cp[0] += gx * push
+              cp[1] += gy * push
+              cp[2] += gz * push
             }
           }
         }
+        // HINGE constraint — confine all cape particles to the body's
+        // vertical plane perpendicular to sX (body's right axis). With
+        // halfW along R = body's right, this means the cape can only
+        // bend in the (forward, up) plane perpendicular to its width,
+        // which makes the cross-section's wide axis ALWAYS the hinge
+        // axis. Result: pure hinge motion at every joint, no twisting.
+        // Real fabric only folds along its thin axis — this matches.
+        {
+          const anchorPos = capeChain[0].position
+          for (let i = 1; i < capeChain.length; i++) {
+            const cp = capeChain[i].position
+            const dx = cp[0] - anchorPos[0]
+            const dy = cp[1] - anchorPos[1]
+            const dz = cp[2] - anchorPos[2]
+            const dotR = dx * sX[0] + dy * sX[1] + dz * sX[2]
+            cp[0] -= dotR * sX[0]
+            cp[1] -= dotR * sX[1]
+            cp[2] -= dotR * sX[2]
+          }
+        }
+        // Ground-plane collision — cape can't sink below the character's
+        // local ground. Use the lower of the two feet's world Y (or 0
+        // if feet are missing) as the floor; clamp particles to >= floor.
+        // When the cape is long enough to drag, this is what makes it
+        // pile up at the feet instead of disappearing into the floor.
+        {
+          const lFootY = lFootIdx >= 0 ? wm[lFootIdx * 16 + 13] : 0
+          const rFootY = rFootIdx >= 0 ? wm[rFootIdx * 16 + 13] : 0
+          const groundY = Math.min(lFootY, rFootY) + 0.01   // 1cm above sole
+          for (let i = 1; i < capeChain.length; i++) {
+            const cp = capeChain[i].position
+            if (cp[1] < groundY) cp[1] = groundY
+          }
+        }
+        // Parallel-transport R down the chain so adjacent cape bones share
+        // the same R/F frame at their shared vertex (no twist around the
+        // tangent axis). Without parallel transport, each bone projects
+        // sX independently → adjacent bones' R values differ by the
+        // segment-tangent angle, producing visible kinks where rotated
+        // boxes meet at vertices. Parallel transport propagates R via
+        // minimum rotation between consecutive tangents (Rodrigues), so
+        // the chain "arcs only, never twists" — exactly the geometric
+        // constraint we want for cloth.
+        let prevTang_x = 0, prevTang_y = -1, prevTang_z = 0
+        let prevR_x = sX[0], prevR_y = sX[1], prevR_z = sX[2]
         for (let i = 0; i < capeBoneIndices.length; i++) {
           const boneIdx = capeBoneIndices[i]
           const off = boneIdx * 16
-          // bone[i]'s segment spans particle[i] (TOP) → particle[i+1] (BOTTOM).
-          // For the LAST bone (no next particle) the segment extrapolates a
-          // tail of CAPE_SEG_DROP straight down so the cape has a clean
-          // bottom edge instead of cutting off mid-segment.
-          const top: [number, number, number] = capeChain[i].position
-          const bottom: [number, number, number] = (i + 1 < capeChain.length)
+          const here: [number, number, number] = capeChain[i].position
+          const next: [number, number, number] = (i + 1 < capeChain.length)
             ? capeChain[i + 1].position
-            : [top[0], top[1] - segDrop, top[2]]
-          // Up vector = direction from segment bottom to top (bone +Y).
-          let uy0 = top[0] - bottom[0]
-          let uy1 = top[1] - bottom[1]
-          let uy2 = top[2] - bottom[2]
+            : [here[0], here[1] - segDrop, here[2]]
+          let uy0 = next[0] - here[0]
+          let uy1 = next[1] - here[1]
+          let uy2 = next[2] - here[2]
           const ulen = Math.hypot(uy0, uy1, uy2) || 1
           uy0 /= ulen; uy1 /= ulen; uy2 /= ulen
-          // Right vector = world X projected onto plane perpendicular to up.
-          // Falls back to world Z if up is too close to world X.
-          const upDotX = uy0
-          let rx0 = 1 - uy0 * upDotX
-          let rx1 = -uy1 * upDotX
-          let rx2 = -uy2 * upDotX
-          let rlen = Math.hypot(rx0, rx1, rx2)
-          if (rlen < 0.05) {
-            // Up is near-parallel to world X — switch reference axis to world Z.
-            const upDotZ = uy2
-            rx0 = -uy0 * upDotZ
-            rx1 = -uy1 * upDotZ
-            rx2 = 1 - uy2 * upDotZ
-            rlen = Math.hypot(rx0, rx1, rx2) || 1
+
+          let rx0: number, rx1: number, rx2: number
+          if (i === 0) {
+            // First bone: project sX perpendicular to tangent.
+            const upDotR = uy0 * sX[0] + uy1 * sX[1] + uy2 * sX[2]
+            rx0 = sX[0] - uy0 * upDotR
+            rx1 = sX[1] - uy1 * upDotR
+            rx2 = sX[2] - uy2 * upDotR
+            let rlen = Math.hypot(rx0, rx1, rx2)
+            if (rlen < 0.05) {
+              const upDotF = uy0 * sZ[0] + uy1 * sZ[1] + uy2 * sZ[2]
+              rx0 = sZ[0] - uy0 * upDotF
+              rx1 = sZ[1] - uy1 * upDotF
+              rx2 = sZ[2] - uy2 * upDotF
+              rlen = Math.hypot(rx0, rx1, rx2) || 1
+            }
+            rx0 /= rlen; rx1 /= rlen; rx2 /= rlen
+          } else {
+            // Parallel-transport prevR from prevTang to current tangent.
+            // Rodrigues: R' = R*c + (axis × R)*s + axis*(axis · R)*(1-c)
+            const cosA = prevTang_x * uy0 + prevTang_y * uy1 + prevTang_z * uy2
+            if (cosA > 0.9999) {
+              // Tangent unchanged — keep R.
+              rx0 = prevR_x; rx1 = prevR_y; rx2 = prevR_z
+            } else {
+              const ax = prevTang_y * uy2 - prevTang_z * uy1
+              const ay = prevTang_z * uy0 - prevTang_x * uy2
+              const az = prevTang_x * uy1 - prevTang_y * uy0
+              const aLen = Math.hypot(ax, ay, az) || 1
+              const axn = ax / aLen, ayn = ay / aLen, azn = az / aLen
+              const sinA = aLen   // |cross(unit, unit)| = sin(angle)
+              const dotAR = axn * prevR_x + ayn * prevR_y + azn * prevR_z
+              const crX = ayn * prevR_z - azn * prevR_y
+              const crY = azn * prevR_x - axn * prevR_z
+              const crZ = axn * prevR_y - ayn * prevR_x
+              const oneMC = 1 - cosA
+              rx0 = prevR_x * cosA + crX * sinA + axn * dotAR * oneMC
+              rx1 = prevR_y * cosA + crY * sinA + ayn * dotAR * oneMC
+              rx2 = prevR_z * cosA + crZ * sinA + azn * dotAR * oneMC
+              // Renormalize against tiny numerical drift.
+              const rlen2 = Math.hypot(rx0, rx1, rx2) || 1
+              rx0 /= rlen2; rx1 /= rlen2; rx2 /= rlen2
+            }
           }
-          rx0 /= rlen; rx1 /= rlen; rx2 /= rlen
-          // Forward (Z axis) = right × up.
+          prevTang_x = uy0; prevTang_y = uy1; prevTang_z = uy2
+          prevR_x = rx0; prevR_y = rx1; prevR_z = rx2
+          // Forward (Z axis) = right × up — perpendicular to both.
           const fz0 = rx1 * uy2 - rx2 * uy1
           const fz1 = rx2 * uy0 - rx0 * uy2
           const fz2 = rx0 * uy1 - rx1 * uy0
-          // Translation = midpoint between top and bottom (segment center).
-          const cx = (top[0] + bottom[0]) * 0.5
-          const cy = (top[1] + bottom[1]) * 0.5
-          const cz = (top[2] + bottom[2]) * 0.5
-          // Column-major mat4: col0=right, col1=up, col2=forward, col3=center.
+          // Translation = `here` (this joint's world position). For
+          // type-16, the segment spans bone[i].translation → bone[i+1]
+          // .translation; encoding the joint at the particle position
+          // makes that span correct automatically. Length is derived
+          // from the actual particle-to-particle distance, so the
+          // capeLengthScale slider works through segDrop alone — no
+          // bone-axis stretch needed (which was a hack for the old
+          // ellipsoid emission).
+          // Debug: log first 3 bones' R values to verify parallel transport.
+          // R values should be smoothly related (rotated together with tangent)
+          // not independently projected.
+          if (!capePtDebugged && i < 4) {
+            console.log(
+              `[cape-pt] bone${i} tang=(${uy0.toFixed(3)},${uy1.toFixed(3)},${uy2.toFixed(3)}) ` +
+              `R=(${rx0.toFixed(3)},${rx1.toFixed(3)},${rx2.toFixed(3)}) ` +
+              `R·tang=${(rx0 * uy0 + rx1 * uy1 + rx2 * uy2).toFixed(4)}`
+            )
+            if (i === 3) capePtDebugged = true
+          }
+          // Column-major mat4: col0=right, col1=up, col2=forward, col3=here.
           wm[off + 0]  = rx0; wm[off + 1]  = rx1; wm[off + 2]  = rx2; wm[off + 3]  = 0
           wm[off + 4]  = uy0; wm[off + 5]  = uy1; wm[off + 6]  = uy2; wm[off + 7]  = 0
           wm[off + 8]  = fz0; wm[off + 9]  = fz1; wm[off + 10] = fz2; wm[off + 11] = 0
-          wm[off + 12] = cx;  wm[off + 13] = cy;  wm[off + 14] = cz;  wm[off + 15] = 1
+          wm[off + 12] = here[0]; wm[off + 13] = here[1]; wm[off + 14] = here[2]; wm[off + 15] = 1
         }
         // Re-upload the contiguous cape-bone range. Cape0..N are appended
         // in order to the rig so their world matrices live in consecutive
         // slots in the matrix buffer.
         const cape0Idx = capeBoneIndices[0]
         const startFloat = cape0Idx * 16
+        // DEBUG one-shot: dump every cape bone's translation column to
+        // verify what the GPU buffer contains. Compare to where the cape
+        // visually appears.
+        if (!capeMatDebugged) {
+          for (let k = 0; k < capeBoneIndices.length; k++) {
+            const bi = capeBoneIndices[k]
+            const o = bi * 16
+            console.log(
+              `[cape-mat] bone${k} idx=${bi} pos=(` +
+              `${wm[o + 12].toFixed(3)},${wm[o + 13].toFixed(3)},${wm[o + 14].toFixed(3)}) ` +
+              `X=(${wm[o + 0].toFixed(2)},${wm[o + 1].toFixed(2)},${wm[o + 2].toFixed(2)}) ` +
+              `Y=(${wm[o + 4].toFixed(2)},${wm[o + 5].toFixed(2)},${wm[o + 6].toFixed(2)})`
+            )
+          }
+          // Also log Spine2 for comparison.
+          if (spine2Idx >= 0) {
+            const o = spine2Idx * 16
+            console.log(
+              `[cape-mat] Spine2 idx=${spine2Idx} pos=(` +
+              `${wm[o + 12].toFixed(3)},${wm[o + 13].toFixed(3)},${wm[o + 14].toFixed(3)})`
+            )
+          }
+          capeMatDebugged = true
+        }
         device.queue.writeBuffer(
           vatHandle.buffer,
           cape0Idx * 64,
@@ -2296,43 +2704,84 @@ async function main() {
           }
         }
 
-        // Render: bone[i] segment spans particle[i] (TOP) → particle[i+1]
-        // (BOTTOM); last bone extrapolates straight down for a clean tail.
+        // Hinge constraint — confine hair particles to the plane
+        // perpendicular to the head's right axis so hair only swings
+        // forward/back/up/down, never sideways. Pure hinge motion at
+        // each joint (same architecture as cape).
+        {
+          const anchorPos = hairChain[0].position
+          const hXLen = Math.hypot(hX[0], hX[1], hX[2]) || 1
+          const hXn: [number, number, number] = [hX[0]/hXLen, hX[1]/hXLen, hX[2]/hXLen]
+          for (let i = 1; i < hairChain.length; i++) {
+            const cp = hairChain[i].position
+            const dx = cp[0] - anchorPos[0]
+            const dy = cp[1] - anchorPos[1]
+            const dz = cp[2] - anchorPos[2]
+            const dotR = dx * hXn[0] + dy * hXn[1] + dz * hXn[2]
+            cp[0] -= dotR * hXn[0]
+            cp[1] -= dotR * hXn[1]
+            cp[2] -= dotR * hXn[2]
+          }
+        }
+        // Joint-frame encoding (matching cape ribbon-chain): each bone's
+        // matrix has translation = particle position, Y axis = direction
+        // to next particle, X axis = parallel-transported R.
+        const hXLen = Math.hypot(hX[0], hX[1], hX[2]) || 1
+        const hXn: [number, number, number] = [hX[0]/hXLen, hX[1]/hXLen, hX[2]/hXLen]
+        let prevTangH_x = 0, prevTangH_y = -1, prevTangH_z = 0
+        let prevRH_x = hXn[0], prevRH_y = hXn[1], prevRH_z = hXn[2]
         for (let i = 0; i < hairBoneIndices.length; i++) {
           const boneIdx = hairBoneIndices[i]
           const off = boneIdx * 16
-          const top: [number, number, number] = hairChain[i].position
-          const bottom: [number, number, number] = (i + 1 < hairChain.length)
+          const here: [number, number, number] = hairChain[i].position
+          const next: [number, number, number] = (i + 1 < hairChain.length)
             ? hairChain[i + 1].position
-            : [top[0], top[1] - HAIR_SEG_DROP, top[2]]
-          let uy0 = top[0] - bottom[0]
-          let uy1 = top[1] - bottom[1]
-          let uy2 = top[2] - bottom[2]
+            : [here[0], here[1] - HAIR_SEG_DROP, here[2]]
+          let uy0 = next[0] - here[0]
+          let uy1 = next[1] - here[1]
+          let uy2 = next[2] - here[2]
           const ulen = Math.hypot(uy0, uy1, uy2) || 1
           uy0 /= ulen; uy1 /= ulen; uy2 /= ulen
-          const upDotX = uy0
-          let rx0 = 1 - uy0 * upDotX
-          let rx1 = -uy1 * upDotX
-          let rx2 = -uy2 * upDotX
-          let rlen = Math.hypot(rx0, rx1, rx2)
-          if (rlen < 0.05) {
-            const upDotZ = uy2
-            rx0 = -uy0 * upDotZ
-            rx1 = -uy1 * upDotZ
-            rx2 = 1 - uy2 * upDotZ
-            rlen = Math.hypot(rx0, rx1, rx2) || 1
+          let rx0: number, rx1: number, rx2: number
+          if (i === 0) {
+            const upDotR = uy0 * hXn[0] + uy1 * hXn[1] + uy2 * hXn[2]
+            rx0 = hXn[0] - uy0 * upDotR
+            rx1 = hXn[1] - uy1 * upDotR
+            rx2 = hXn[2] - uy2 * upDotR
+            const rlen = Math.hypot(rx0, rx1, rx2) || 1
+            rx0 /= rlen; rx1 /= rlen; rx2 /= rlen
+          } else {
+            const cosA = prevTangH_x * uy0 + prevTangH_y * uy1 + prevTangH_z * uy2
+            if (cosA > 0.9999) {
+              rx0 = prevRH_x; rx1 = prevRH_y; rx2 = prevRH_z
+            } else {
+              const ax = prevTangH_y * uy2 - prevTangH_z * uy1
+              const ay = prevTangH_z * uy0 - prevTangH_x * uy2
+              const az = prevTangH_x * uy1 - prevTangH_y * uy0
+              const aLen = Math.hypot(ax, ay, az) || 1
+              const axn = ax / aLen, ayn = ay / aLen, azn = az / aLen
+              const sinA = aLen
+              const dotAR = axn * prevRH_x + ayn * prevRH_y + azn * prevRH_z
+              const crX = ayn * prevRH_z - azn * prevRH_y
+              const crY = azn * prevRH_x - axn * prevRH_z
+              const crZ = axn * prevRH_y - ayn * prevRH_x
+              const oneMC = 1 - cosA
+              rx0 = prevRH_x * cosA + crX * sinA + axn * dotAR * oneMC
+              rx1 = prevRH_y * cosA + crY * sinA + ayn * dotAR * oneMC
+              rx2 = prevRH_z * cosA + crZ * sinA + azn * dotAR * oneMC
+              const rlen2 = Math.hypot(rx0, rx1, rx2) || 1
+              rx0 /= rlen2; rx1 /= rlen2; rx2 /= rlen2
+            }
           }
-          rx0 /= rlen; rx1 /= rlen; rx2 /= rlen
+          prevTangH_x = uy0; prevTangH_y = uy1; prevTangH_z = uy2
+          prevRH_x = rx0; prevRH_y = rx1; prevRH_z = rx2
           const fz0 = rx1 * uy2 - rx2 * uy1
           const fz1 = rx2 * uy0 - rx0 * uy2
           const fz2 = rx0 * uy1 - rx1 * uy0
-          const cx = (top[0] + bottom[0]) * 0.5
-          const cy = (top[1] + bottom[1]) * 0.5
-          const cz = (top[2] + bottom[2]) * 0.5
           wm[off + 0]  = rx0; wm[off + 1]  = rx1; wm[off + 2]  = rx2; wm[off + 3]  = 0
           wm[off + 4]  = uy0; wm[off + 5]  = uy1; wm[off + 6]  = uy2; wm[off + 7]  = 0
           wm[off + 8]  = fz0; wm[off + 9]  = fz1; wm[off + 10] = fz2; wm[off + 11] = 0
-          wm[off + 12] = cx;  wm[off + 13] = cy;  wm[off + 14] = cz;  wm[off + 15] = 1
+          wm[off + 12] = here[0]; wm[off + 13] = here[1]; wm[off + 14] = here[2]; wm[off + 15] = 1
         }
         // HairLong0..4 are appended contiguously at extendRigWithHair time.
         const hair0Idx = hairBoneIndices[0]
@@ -2760,7 +3209,7 @@ async function main() {
         `Sprite size: ${mode.label}`,
         `  canvas buffer: ${canvas.width}×${canvas.height} (CSS upscaled to window)`,
         ``,
-        `[1] 24²   [2] 32²   [3] 48²   [4] debug 256²   proportion: ${currentProportion}`,
+        `[1] 24²   [2] 32²   [3] 48²   [4] debug 128²   proportion: ${currentProportion}`,
         `[V] view: ${viewMode}   [D] depth outline: ${depthOutlineOn ? 'on' : 'off'}   [L] lighting: ${lightingMode ? 'on' : 'off'}   [T] rest pose: ${restPose ? 'on' : 'off'}   [K] naked: ${nudeMode ? 'on' : 'off'}`,
         `expression: ${currentExpression}   [ / ] eye spacing: ${eyeSpacingPx}px   [J] eye style: ${eyeStyleOverride ?? '(emotion)'}`,
         `drag = orbit   [T] rest pose`,

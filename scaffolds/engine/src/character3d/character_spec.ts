@@ -91,6 +91,10 @@ export interface CharacterSpecV2 {
   profiles?: {
     limbs?:   Record<string, [number, number, number, number]>
     anatomy?: Record<string, [number, number, number, number]>
+    /** Torso ellipsoid half-extents per sack-core bone (Hips/Spine/
+     *  Spine1/Spine2). Drives the body silhouette — waist taper,
+     *  shoulder breadth, hip flare — independently of limb girth. */
+    torso?:   Record<string, [number, number, number]>
   }
 }
 

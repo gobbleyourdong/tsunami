@@ -468,6 +468,13 @@ export interface RetargetComposer {
    *  Proportion scales still apply via the same scaled-col3 +
    *  diagonal-scale path as update(). */
   applyRestPose(params: CharacterParams): void
+  /** Like applyRestPose but uses provided per-joint local matrices for
+   *  rotations (e.g., a baked T-pose). `localOverride` is laid out
+   *  flat: numJoints × 16 floats column-major. Joints whose 16-float
+   *  block contains an identity matrix fall through to the structural
+   *  offset path; otherwise the override mat is used as-is.
+   *  Useful for displaying a real T-pose vs Mixamo's arms-down rest. */
+  applyPoseFromLocals(localOverride: Float32Array, params: CharacterParams): void
   buffer: GPUBuffer
   numInstances: number
   numFrames: number
@@ -576,6 +583,61 @@ export function createRetargetComposer(
         displayMat[13] = comp[13]
         displayMat[14] = comp[14]
         displayMat[15] = comp[15]
+        worldData.set(displayMat, j * 16)
+      }
+      device.queue.writeBuffer(vat.buffer, 0, worldData)
+    },
+    applyPoseFromLocals(localOverride, params) {
+      // Compose using provided per-joint local matrices instead of
+      // identity rotations. Proportion scales applied the same way as
+      // update() (col3 = scaled translation, display = composed × diag-s).
+      // Joints with a near-identity override block fall back to the
+      // structural-offset path so virtual joints (face/cape) keep their
+      // existing behavior.
+      for (let j = 0; j < numJoints; j++) {
+        const s = params.scales[j] ?? [1, 1, 1]
+        const parent = rig[j].parent
+        const isRoot = parent < 0
+        const off = rig[j].offset
+        const baseOff = j * 16
+        const m00 = localOverride[baseOff + 0],  m01 = localOverride[baseOff + 1]
+        const m02 = localOverride[baseOff + 2],  m04 = localOverride[baseOff + 4]
+        const m05 = localOverride[baseOff + 5],  m06 = localOverride[baseOff + 6]
+        const m08 = localOverride[baseOff + 8],  m09 = localOverride[baseOff + 9]
+        const m10 = localOverride[baseOff + 10]
+        const isIdent =
+          m00 === 1 && m05 === 1 && m10 === 1 &&
+          m01 === 0 && m02 === 0 && m04 === 0 && m06 === 0 && m08 === 0 && m09 === 0
+        if (isIdent) {
+          // No override for this joint — use structural rest pose.
+          scaledLocal[0]  = 1; scaledLocal[1]  = 0; scaledLocal[2]  = 0; scaledLocal[3]  = 0
+          scaledLocal[4]  = 0; scaledLocal[5]  = 1; scaledLocal[6]  = 0; scaledLocal[7]  = 0
+          scaledLocal[8]  = 0; scaledLocal[9]  = 0; scaledLocal[10] = 1; scaledLocal[11] = 0
+          scaledLocal[12] = isRoot ? off[0] : off[0] * s[0]
+          scaledLocal[13] = isRoot ? off[1] : off[1] * s[1]
+          scaledLocal[14] = isRoot ? off[2] : off[2] * s[2]
+          scaledLocal[15] = 1
+        } else {
+          // Use the override local matrix. Apply scale to col3 only,
+          // matching update()'s convention (rotations preserved).
+          for (let k = 0; k < 16; k++) scaledLocal[k] = localOverride[baseOff + k]
+          if (!isRoot) {
+            scaledLocal[12] = scaledLocal[12] * s[0]
+            scaledLocal[13] = scaledLocal[13] * s[1]
+            scaledLocal[14] = scaledLocal[14] * s[2]
+          }
+        }
+        const comp = compositionMats[j]
+        if (isRoot) comp.set(scaledLocal)
+        else mul(comp, compositionMats[parent], scaledLocal)
+        displayMat[0]  = comp[0]  * s[0]; displayMat[1]  = comp[1]  * s[0]
+        displayMat[2]  = comp[2]  * s[0]; displayMat[3]  = comp[3]  * s[0]
+        displayMat[4]  = comp[4]  * s[1]; displayMat[5]  = comp[5]  * s[1]
+        displayMat[6]  = comp[6]  * s[1]; displayMat[7]  = comp[7]  * s[1]
+        displayMat[8]  = comp[8]  * s[2]; displayMat[9]  = comp[9]  * s[2]
+        displayMat[10] = comp[10] * s[2]; displayMat[11] = comp[11] * s[2]
+        displayMat[12] = comp[12]; displayMat[13] = comp[13]
+        displayMat[14] = comp[14]; displayMat[15] = comp[15]
         worldData.set(displayMat, j * 16)
       }
       device.queue.writeBuffer(vat.buffer, 0, worldData)
