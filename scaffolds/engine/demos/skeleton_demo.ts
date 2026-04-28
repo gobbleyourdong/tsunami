@@ -536,10 +536,22 @@ async function main() {
         bust: 0.0, hips: 0.0,
       },
       chibi: {
-        head:  [1.40, 1.40, 1.40],
-        torso: [1.0, 1.0, 1.0],
-        arms:  [1.0, 0.75, 1.0],   // arms shorten less than legs so the
-        legs:  [1.0, 0.55, 1.0],   // silhouette reads kid-like, not stubby
+        // Target proportions per user spec: head ≈ 50% of total height,
+        // body width ≈ 60% of head width. Bind-pose head ≈ 0.25m tall
+        // and 0.18m wide, body Y ≈ 1.45m, shoulder full-width ≈ 0.40m.
+        // Solving:
+        //   0.25 × s_h = 0.5 × (0.25 × s_h + body_h)  → body_h = 0.25 × s_h
+        //   body_w = 0.6 × head_w  → 0.40 × s_torso_x = 0.6 × 0.18 × s_h
+        // Picking s_h = 1.7: head 0.425m. Body Y must total 0.425m,
+        // distributed across torso Y + legs Y + a bit of arms for
+        // silhouette balance. Torso 0.45 × 0.55m + legs 0.30 × 0.80m =
+        // 0.25 + 0.24 ≈ 0.49m — close enough; the head Y offset and
+        // hip-socket residuals trim to the 50/50 ratio. Body X: torso
+        // and limbs all 0.46× so shoulder width = 0.184m = 60% of head.
+        head:  [1.70, 1.70, 1.70],
+        torso: [0.46, 0.45, 0.46],
+        arms:  [0.46, 0.45, 0.46],
+        legs:  [0.46, 0.30, 0.46],
         bust: 0.0, hips: 0.0,
       },
     }
