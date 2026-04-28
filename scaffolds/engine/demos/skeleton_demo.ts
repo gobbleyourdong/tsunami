@@ -1240,28 +1240,67 @@ async function main() {
         phaseOffset: cfg.phase,
       })
     }
-    // Snake-neck idle weave — perturb each chain bone's world X position
-    // with a sin wave + per-bone phase offset, producing a peristaltic
-    // wave along the snake body. Tip weaves more than root.
-    const SNAKE_WEAVE_BONES: { idx: number; t: number; phase: number }[] = []
+    // Snake procedural slither — perturb the full snake chain (Spine →
+    // Neck → SnakeNeck0..3 → SnakeNeckHead) plus the Tail (Tail0..Tail4)
+    // with two sine waves: side (X-axis, lateral) and up (Y-axis,
+    // vertical). Phase shift along the chain creates a traveling wave
+    // from root to tip. The two waves run at different frequencies so
+    // the body curls in both planes — flat-ground slither + climb-arch.
+    //
+    // Each bone is perturbed independently in world space (additive on
+    // composer.worldMatrices). composer.update propagates parent → child
+    // BEFORE this hook fires, so a shift at Hips does NOT carry to Spine
+    // automatically — instead we shift every bone with its own (chain-
+    // position, time)-keyed phase so adjacent bones land on the sine
+    // curve at slightly offset phases. Net visual: a continuous wave.
+    const SNAKE_BODY_CHAIN: number[] = []   // Hips → Spine* → Neck → SnakeNeck* → Head
+    const SNAKE_TAIL_CHAIN: number[] = []   // Tail0..Tail4 (extends from Hips backward)
     {
-      const names = ['SnakeNeck0', 'SnakeNeck1', 'SnakeNeck2', 'SnakeNeck3', 'SnakeNeckHead']
-      for (let i = 0; i < names.length; i++) {
-        const idx = rig.findIndex((j) => j.name === names[i])
-        if (idx >= 0) SNAKE_WEAVE_BONES.push({ idx, t: i / (names.length - 1), phase: i * 0.6 })
+      const bodyNames = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck',
+                         'SnakeNeck0', 'SnakeNeck1', 'SnakeNeck2', 'SnakeNeck3', 'SnakeNeckHead']
+      for (const n of bodyNames) {
+        const idx = rig.findIndex((j) => j.name === n)
+        if (idx >= 0) SNAKE_BODY_CHAIN.push(idx)
+      }
+      const tailNames = ['Tail0', 'Tail1', 'Tail2', 'Tail3', 'Tail4']
+      for (const n of tailNames) {
+        const idx = rig.findIndex((j) => j.name === n)
+        if (idx >= 0) SNAKE_TAIL_CHAIN.push(idx)
       }
     }
     const applySnakeNeckWeave = () => {
-      if (!composer || SNAKE_WEAVE_BONES.length === 0) return
+      if (!composer) return
+      if (SNAKE_BODY_CHAIN.length === 0 && SNAKE_TAIL_CHAIN.length === 0) return
       const wm = composer.worldMatrices
-      // ~1.2Hz weave, ~5cm peak amplitude at the tip. Phase shift along
-      // chain creates a wave that travels from root to tip.
-      const baseT = elapsed * 2.0
-      for (const b of SNAKE_WEAVE_BONES) {
-        const offset = Math.sin(baseT + b.phase) * 0.05 * b.t
-        wm[b.idx * 16 + 12] += offset    // perturb world X (side-to-side)
-        device.queue.writeBuffer(vatHandle.buffer, b.idx * 64, wm.buffer, wm.byteOffset + b.idx * 16 * 4, 64)
+      // Side slither: ~0.4 Hz, 6 cm peak amplitude, phase shift 1.0 rad
+      // per chain segment → wave traverses the body in ~6 segments.
+      // Up slither: ~0.3 Hz, 3 cm peak, phase shift 0.7 rad per segment
+      // → slower, smaller secondary undulation in vertical.
+      const tSide = elapsed * 2.5
+      const tUp   = elapsed * 1.8
+      const sideAmp = 0.06
+      const upAmp   = 0.03
+      const sidePhasePerSeg = 1.0
+      const upPhasePerSeg   = 0.7
+      const slither = (chain: number[], phaseStart: number, ampScale: (i: number) => number) => {
+        for (let i = 0; i < chain.length; i++) {
+          const idx = chain[i]
+          const a = ampScale(i)
+          const dx = Math.sin(tSide - (phaseStart + i * sidePhasePerSeg)) * sideAmp * a
+          const dy = Math.sin(tUp   - (phaseStart + i * upPhasePerSeg))   * upAmp   * a
+          wm[idx * 16 + 12] += dx
+          wm[idx * 16 + 13] += dy
+          device.queue.writeBuffer(vatHandle.buffer, idx * 64, wm.buffer, wm.byteOffset + idx * 16 * 4, 64)
+        }
       }
+      // Body: amplitude ramps up smoothly from root (small) to head (full)
+      // so the head whips while the hips stay near-anchored — anchored
+      // hips read as a snake with body weight on the ground.
+      slither(SNAKE_BODY_CHAIN, 0, (i) => Math.min(1, (i + 1) / 4))
+      // Tail: phase continues backward from hips, amplitude ramps from
+      // small (near hips) to full (tail tip). Independent chain so the
+      // wave reads as continuing through the body.
+      slither(SNAKE_TAIL_CHAIN, SNAKE_BODY_CHAIN.length * 0.6, (i) => Math.min(1, (i + 1) / 3))
       invalidateRaymarchCache()
     }
 
@@ -2456,6 +2495,13 @@ async function main() {
         defaultAnim?: string
         // Per-bone scale overrides (applied after applyPreset).
         boneScales?: Record<string, ScaleVec>
+        // Hand / foot library override. Non-human presets set these to
+        // 'none' (empty AttachmentPart[] in the libraries) so no shoes /
+        // mitts emit at the now-tiny LeftHand / LeftFoot / etc bones —
+        // those attachments would otherwise float mid-air on creatures
+        // whose limbs we collapsed for the silhouette.
+        hands?: string
+        feet?: string
         // Anims that look reasonable for this creature. Used purely for
         // soft UI hint — incompatible anims are dimmed in the anim
         // dropdown when this creature is active. User can still pick any.
@@ -2474,6 +2520,7 @@ async function main() {
           spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
           cape: false, tail: false, wings: false, grenades: false,
           quadrupedHind: true, extraLimbs: true, snakeNeck: false,
+          hands: 'none', feet: 'none',
           defaultAnim: 'crawl_backwards',
           compatibleAnims: ['crawl_backwards', 'crawling', 'running_crawl', 'mutant_run'],
         },
@@ -2485,6 +2532,7 @@ async function main() {
           // legs in the crawl pose. Collapsing scaleY makes the foot
           // float mid-thigh because foot's own local Y offset is full.
           quadrupedHind: false, extraLimbs: false, snakeNeck: true,
+          hands: 'none', feet: 'none',
           defaultAnim: 'crawling',
           compatibleAnims: ['crawling', 'running_crawl', 'crawl_backwards', 'mutant_run'],
         },
@@ -2493,11 +2541,17 @@ async function main() {
           spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
           cape: false, tail: true, wings: true, grenades: false,
           quadrupedHind: false, extraLimbs: false, snakeNeck: false,
+          hands: 'none', feet: 'none',
           defaultAnim: 'idle',
-          // Bird: arms become wings — collapse human arm chains.
+          // Bird: arms become wings — collapse arm chains in ALL three
+          // axes so the visibility filter (max < 0.05) drops the type-17
+          // arm capsules entirely. (Y-only collapse left full-Y hand
+          // attachments floating at original wrist distance from the
+          // close-to-shoulder elbow.)
           boneScales: {
-            LeftArm: [1, 0.05, 1], RightArm: [1, 0.05, 1],
-            LeftForeArm: [1, 0.05, 1], RightForeArm: [1, 0.05, 1],
+            LeftArm:     [0.01, 0.01, 0.01], RightArm:     [0.01, 0.01, 0.01],
+            LeftForeArm: [0.01, 0.01, 0.01], RightForeArm: [0.01, 0.01, 0.01],
+            LeftHand:    [0.01, 0.01, 0.01], RightHand:    [0.01, 0.01, 0.01],
           },
           compatibleAnims: ['idle', 'jumping', 'standing_torch_idle_01', 'great_sword_idle', 'rifle_idle', 'ninja_idle'],
         },
@@ -2509,6 +2563,7 @@ async function main() {
           // legs in the running_crawl pose. Collapsing scaleY makes
           // the foot float mid-thigh ("floating limbs" report).
           quadrupedHind: false, extraLimbs: false, snakeNeck: false,
+          hands: 'none', feet: 'none',
           defaultAnim: 'running_crawl',
           compatibleAnims: ['running_crawl', 'crawling', 'crawl_backwards', 'mutant_run'],
         },
@@ -2517,19 +2572,27 @@ async function main() {
           spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
           cape: false, tail: true, wings: false, grenades: false,
           quadrupedHind: false, extraLimbs: false, snakeNeck: true,
+          hands: 'none', feet: 'none',
           defaultAnim: 'crawling',
           compatibleAnims: ['crawling', 'crawl_backwards'],
-          // Snake: no limbs, AND compress the spine + hips ellipsoid
-          // cross-section so the humanoid spine reads as a long thin
-          // snake body. The crawling anim puts the spine roughly
-          // horizontal, so combined with snake-neck (forward) and tail
-          // (back), the total silhouette is one long serpentine body.
-          // X+Z dimensions go to 30-40%; Y (length) stays full.
+          // Snake: spine rig + head only, no limbs at all. All limb
+          // bones (arms, legs, hands, feet) collapsed in ALL THREE axes
+          // so the visibility filter (max < 0.05) drops the limb
+          // capsules + the foot/hand attachments entirely. Previously
+          // we only collapsed Y, which left X+Z=1 → max=1 → visible
+          // stubs with floating feet at original ankle distance.
+          // Spine bones keep full Y (length) but get X+Z compressed so
+          // the humanoid trunk reads as a thin serpentine body. The
+          // crawling anim puts the spine horizontal; combined with
+          // snake-neck (forward) and tail (back), the silhouette is
+          // one continuous worm.
           boneScales: {
-            LeftArm: [1, 0.05, 1], RightArm: [1, 0.05, 1],
-            LeftForeArm: [1, 0.05, 1], RightForeArm: [1, 0.05, 1],
-            LeftUpLeg: [1, 0.05, 1], RightUpLeg: [1, 0.05, 1],
-            LeftLeg: [1, 0.05, 1], RightLeg: [1, 0.05, 1],
+            LeftArm:  [0.01, 0.01, 0.01], RightArm:  [0.01, 0.01, 0.01],
+            LeftForeArm: [0.01, 0.01, 0.01], RightForeArm: [0.01, 0.01, 0.01],
+            LeftHand: [0.01, 0.01, 0.01], RightHand: [0.01, 0.01, 0.01],
+            LeftUpLeg: [0.01, 0.01, 0.01], RightUpLeg: [0.01, 0.01, 0.01],
+            LeftLeg:  [0.01, 0.01, 0.01], RightLeg:  [0.01, 0.01, 0.01],
+            LeftFoot: [0.01, 0.01, 0.01], RightFoot: [0.01, 0.01, 0.01],
             Hips:   [0.40, 1, 0.40],
             Spine:  [0.35, 1, 0.35],
             Spine1: [0.35, 1, 0.35],
@@ -2546,6 +2609,11 @@ async function main() {
         for (const k of flagKeys) {
           if (typeof p[k] === 'boolean') (loadout as Record<string, unknown>)[k] = p[k]
         }
+        // Hand / foot library override. Non-human presets pass 'none' to
+        // suppress all attachment emission; human resets to 'skin'/'shoe'
+        // so switching back from creature → human restores the defaults.
+        loadout.hands = p.hands ?? 'skin'
+        loadout.feet  = p.feet  ?? 'shoe'
         // Reset proportions to current preset (clears stale per-bone scales),
         // then apply creature-specific bone overrides on top.
         applyPreset(currentProportion)
