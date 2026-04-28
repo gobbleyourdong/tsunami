@@ -34,7 +34,7 @@ async function main() {
   // × prims × pixels) so dropping pixel count an order of magnitude
   // is the difference between 12fps and 60fps.
   const CACHE_W = 48
-  const CACHE_H = 80
+  const CACHE_H = 48
 
   // ---------- Palette ----------
   // 32 slots × RGBA. Just enough for skin / fur / feather / leather.
@@ -114,6 +114,9 @@ async function main() {
     targets.sceneView!, targets.normalView!, targets.depthVizView!,
     CACHE_W, CACHE_H,
   )
+  // Deferred lighting on (raymarch fills normalView; outline shader
+  // does the cel/ramp pass). Default mode is 0 = unlit; switch to 1.
+  outline.setLighting(1)
 
   // ---------- Camera ----------
   // Orbit around origin. Ortho projection sized to fit ~1m creature.
