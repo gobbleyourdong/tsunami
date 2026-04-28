@@ -23,6 +23,10 @@ models/
 bin/llama-server
 bin/sd-server
 
+# Per-machine path symlink — modeler agent-loop writes here from vite middleware;
+# points to a local research output dir outside the repo
+scaffolds/engine/public/sdf_modeler
+
 # Generated app outputs from agent runs — regenerable, not source
 deliverables/
 
