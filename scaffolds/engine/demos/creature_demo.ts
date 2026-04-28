@@ -26,6 +26,16 @@ async function main() {
   const { device, format } = gpu
   const SCENE_FORMAT: GPUTextureFormat = 'rgba8unorm'
 
+  // Sprite-cell size for the raymarch cache — matches skeleton_demo's
+  // "res 3" / sz48 mode. Raymarch only fills 48×80 = 3840 pixels per
+  // frame instead of canvas-sized hundreds-of-thousands; the cache
+  // blits up to canvas via CSS image-rendering: pixelated for that
+  // chunky sprite-art feel. Critical perf lever — SDF eval is O(steps
+  // × prims × pixels) so dropping pixel count an order of magnitude
+  // is the difference between 12fps and 60fps.
+  const CACHE_W = 48
+  const CACHE_H = 80
+
   // ---------- Palette ----------
   // 32 slots × RGBA. Just enough for skin / fur / feather / leather.
   // Slot indices match what creature_rig.ts emits (2/8/9/10).
@@ -69,7 +79,10 @@ async function main() {
     targets.depthVizView = targets.depthVizTex.createView()
     targets.sceneDepthView = targets.sceneDepth.createView()
   }
-  recreateTargets(canvas.width, canvas.height)
+  // MRT scene targets at sprite-cell size — outline pass reads them
+  // and writes to the canvas-sized final pass. Keeping MRT at sprite
+  // size means the outline shader processes 3840 pixels, not 147k.
+  recreateTargets(CACHE_W, CACHE_H)
 
   // ---------- VAT-shaped buffer for the static rig ----------
   // The raymarch renderer reads bone matrices from a GPU buffer using
@@ -92,14 +105,14 @@ async function main() {
     { buffer: bonesBuffer, numInstances: built.rig.length, numFrames: 1 },
     { maxSteps: 96 },
   )
-  raymarch.resizeCache(canvas.width, canvas.height)
+  raymarch.resizeCache(CACHE_W, CACHE_H)
   raymarch.setBgMode('transparent')
 
   // ---------- Outline pass ----------
   const outline = createOutlinePass(
     device, format,
     targets.sceneView!, targets.normalView!, targets.depthVizView!,
-    canvas.width, canvas.height,
+    CACHE_W, CACHE_H,
   )
 
   // ---------- Camera ----------
@@ -115,7 +128,7 @@ async function main() {
     far: 100,
     controls: 'orbit',
   })
-  camera.setAspect(canvas.width, canvas.height)
+  camera.setAspect(CACHE_W, CACHE_H)
   let zoom = 0.8
   const updateCamera = () => {
     camera.orthoSize = zoom
@@ -215,7 +228,10 @@ async function main() {
     const eye: [number, number, number] = [
       camera.position[0], camera.position[1], camera.position[2],
     ]
-    const pxPerM = canvas.height / (2 * camera.orthoSize)
+    // pxPerM uses the CACHE height (where the raymarch writes), not
+    // the canvas. Keeps the pixel-snap math consistent with the SDF
+    // eval grid.
+    const pxPerM = CACHE_H / (2 * camera.orthoSize)
     raymarch.setTime(performance.now() * 0.001)
     raymarch.setPxPerM(pxPerM)
     raymarch.marchIntoCache(encoder, camera.view, camera.projection, eye, 0)
