@@ -1424,6 +1424,55 @@ async function main() {
       dst[8] *= sLeaf[2]; dst[9] *= sLeaf[2]; dst[10] *= sLeaf[2]
       return true
     }
+    // Orthonormalize a 3x3 rotation block (column-major: [c0x,c0y,c0z, c1x,c1y,c1z, c2x,c2y,c2z]).
+    // composer.worldMatrices is the DISPLAY matrix — its rotation columns
+    // are scaled by per-bone scale [s0,s1,s2]. When the spider's BL/BR
+    // limbs copy rotation from LeftLeg/RightLeg (scale [1, 0.05, 1] for
+    // the quadruped retarget), the Y column is ~5% of unit length and
+    // the procedural limb chain collapses. Rebuild a clean rotation:
+    // normalize each column, and if any column is degenerate (source bone
+    // collapsed along that axis) reconstruct it from the cross of the
+    // other two so the destination stays a proper SO(3) basis.
+    const _orthoRot = new Float32Array(9)
+    function orthonormalizeRot(
+      c0x: number, c0y: number, c0z: number,
+      c1x: number, c1y: number, c1z: number,
+      c2x: number, c2y: number, c2z: number,
+    ) {
+      const eps = 0.05
+      let l0 = Math.hypot(c0x, c0y, c0z)
+      let l1 = Math.hypot(c1x, c1y, c1z)
+      let l2 = Math.hypot(c2x, c2y, c2z)
+      if (l0 < eps && l1 >= eps && l2 >= eps) {
+        // Reconstruct col0 = col1 × col2.
+        const n1x = c1x / l1, n1y = c1y / l1, n1z = c1z / l1
+        const n2x = c2x / l2, n2y = c2y / l2, n2z = c2z / l2
+        c0x = n1y * n2z - n1z * n2y
+        c0y = n1z * n2x - n1x * n2z
+        c0z = n1x * n2y - n1y * n2x
+        l0 = 1
+      } else if (l1 < eps && l0 >= eps && l2 >= eps) {
+        const n0x = c0x / l0, n0y = c0y / l0, n0z = c0z / l0
+        const n2x = c2x / l2, n2y = c2y / l2, n2z = c2z / l2
+        c1x = n2y * n0z - n2z * n0y
+        c1y = n2z * n0x - n2x * n0z
+        c1z = n2x * n0y - n2y * n0x
+        l1 = 1
+      } else if (l2 < eps && l0 >= eps && l1 >= eps) {
+        const n0x = c0x / l0, n0y = c0y / l0, n0z = c0z / l0
+        const n1x = c1x / l1, n1y = c1y / l1, n1z = c1z / l1
+        c2x = n0y * n1z - n0z * n1y
+        c2y = n0z * n1x - n0x * n1z
+        c2z = n0x * n1y - n0y * n1x
+        l2 = 1
+      }
+      if (l0 < eps) l0 = 1
+      if (l1 < eps) l1 = 1
+      if (l2 < eps) l2 = 1
+      _orthoRot[0] = c0x / l0; _orthoRot[1] = c0y / l0; _orthoRot[2] = c0z / l0
+      _orthoRot[3] = c1x / l1; _orthoRot[4] = c1y / l1; _orthoRot[5] = c1z / l1
+      _orthoRot[6] = c2x / l2; _orthoRot[7] = c2y / l2; _orthoRot[8] = c2z / l2
+    }
     const applyExtraLimbsCopy = (frameIdx: number) => {
       if (!composer) return
       const wm = composer.worldMatrices
@@ -1439,23 +1488,37 @@ async function main() {
         let r0_0, r0_1, r0_2, r1_0, r1_1, r1_2, r2_0, r2_1, r2_2: number
         let l0_0, l0_1, l0_2, l1_0, l1_1, l1_2, l2_0, l2_1, l2_2: number
         if (usePhaseOffset && worldMatAtFrame(p.srcUpIdx, offsetFrame, _phaseSrcWorld)) {
-          r0_0 = _phaseSrcWorld[0]; r0_1 = _phaseSrcWorld[1]; r0_2 = _phaseSrcWorld[2]
-          r1_0 = _phaseSrcWorld[4]; r1_1 = _phaseSrcWorld[5]; r1_2 = _phaseSrcWorld[6]
-          r2_0 = _phaseSrcWorld[8]; r2_1 = _phaseSrcWorld[9]; r2_2 = _phaseSrcWorld[10]
+          orthonormalizeRot(
+            _phaseSrcWorld[0], _phaseSrcWorld[1], _phaseSrcWorld[2],
+            _phaseSrcWorld[4], _phaseSrcWorld[5], _phaseSrcWorld[6],
+            _phaseSrcWorld[8], _phaseSrcWorld[9], _phaseSrcWorld[10],
+          )
         } else {
-          r0_0 = wm[su + 0]; r0_1 = wm[su + 1]; r0_2 = wm[su + 2]
-          r1_0 = wm[su + 4]; r1_1 = wm[su + 5]; r1_2 = wm[su + 6]
-          r2_0 = wm[su + 8]; r2_1 = wm[su + 9]; r2_2 = wm[su + 10]
+          orthonormalizeRot(
+            wm[su + 0], wm[su + 1], wm[su + 2],
+            wm[su + 4], wm[su + 5], wm[su + 6],
+            wm[su + 8], wm[su + 9], wm[su + 10],
+          )
         }
+        r0_0 = _orthoRot[0]; r0_1 = _orthoRot[1]; r0_2 = _orthoRot[2]
+        r1_0 = _orthoRot[3]; r1_1 = _orthoRot[4]; r1_2 = _orthoRot[5]
+        r2_0 = _orthoRot[6]; r2_1 = _orthoRot[7]; r2_2 = _orthoRot[8]
         if (usePhaseOffset && worldMatAtFrame(p.srcLowIdx, offsetFrame, _phaseSrcWorld)) {
-          l0_0 = _phaseSrcWorld[0]; l0_1 = _phaseSrcWorld[1]; l0_2 = _phaseSrcWorld[2]
-          l1_0 = _phaseSrcWorld[4]; l1_1 = _phaseSrcWorld[5]; l1_2 = _phaseSrcWorld[6]
-          l2_0 = _phaseSrcWorld[8]; l2_1 = _phaseSrcWorld[9]; l2_2 = _phaseSrcWorld[10]
+          orthonormalizeRot(
+            _phaseSrcWorld[0], _phaseSrcWorld[1], _phaseSrcWorld[2],
+            _phaseSrcWorld[4], _phaseSrcWorld[5], _phaseSrcWorld[6],
+            _phaseSrcWorld[8], _phaseSrcWorld[9], _phaseSrcWorld[10],
+          )
         } else {
-          l0_0 = wm[sl + 0]; l0_1 = wm[sl + 1]; l0_2 = wm[sl + 2]
-          l1_0 = wm[sl + 4]; l1_1 = wm[sl + 5]; l1_2 = wm[sl + 6]
-          l2_0 = wm[sl + 8]; l2_1 = wm[sl + 9]; l2_2 = wm[sl + 10]
+          orthonormalizeRot(
+            wm[sl + 0], wm[sl + 1], wm[sl + 2],
+            wm[sl + 4], wm[sl + 5], wm[sl + 6],
+            wm[sl + 8], wm[sl + 9], wm[sl + 10],
+          )
         }
+        l0_0 = _orthoRot[0]; l0_1 = _orthoRot[1]; l0_2 = _orthoRot[2]
+        l1_0 = _orthoRot[3]; l1_1 = _orthoRot[4]; l1_2 = _orthoRot[5]
+        l2_0 = _orthoRot[6]; l2_1 = _orthoRot[7]; l2_2 = _orthoRot[8]
         // Write to dst Up bone — translation untouched (composer set it).
         wm[du + 0] = r0_0; wm[du + 1] = r0_1; wm[du + 2] = r0_2
         wm[du + 4] = r1_0; wm[du + 5] = r1_1; wm[du + 6] = r1_2
@@ -2418,7 +2481,10 @@ async function main() {
           bob: false, ponytail: false, bangsL: false, bangsR: false,
           spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: true,
           cape: false, tail: true, wings: true, grenades: false,
-          quadrupedHind: true, extraLimbs: false, snakeNeck: true,
+          // No quadrupedHind — the human legs ARE the dragon's hind
+          // legs in the crawl pose. Collapsing scaleY makes the foot
+          // float mid-thigh because foot's own local Y offset is full.
+          quadrupedHind: false, extraLimbs: false, snakeNeck: true,
           defaultAnim: 'crawling',
           compatibleAnims: ['crawling', 'running_crawl', 'crawl_backwards', 'mutant_run'],
         },
@@ -2439,7 +2505,10 @@ async function main() {
           bob: true, ponytail: false, bangsL: false, bangsR: false,
           spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
           cape: false, tail: true, wings: false, grenades: false,
-          quadrupedHind: true, extraLimbs: false, snakeNeck: false,
+          // No quadrupedHind — the human legs ARE the horse's hind
+          // legs in the running_crawl pose. Collapsing scaleY makes
+          // the foot float mid-thigh ("floating limbs" report).
+          quadrupedHind: false, extraLimbs: false, snakeNeck: false,
           defaultAnim: 'running_crawl',
           compatibleAnims: ['running_crawl', 'crawling', 'crawl_backwards', 'mutant_run'],
         },
