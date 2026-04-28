@@ -33,6 +33,7 @@ import {
   DEFAULT_SPIKE_SIDE_R,
   DEFAULT_SPIKE_BACK,
   DEFAULT_GRENADE_BELT,
+  DEFAULT_NOSE_BRIDGE,
   DEFAULT_FACE,
   DEFAULT_HAIR,
   DEFAULT_BODY_PARTS,
@@ -56,7 +57,7 @@ import {
 import { createOutlinePass } from '../src/character3d/outline'
 import { WARDROBE, outfitToBodyParts } from '../src/character3d/wardrobe'
 import { DEFAULT_ANATOMY, BUILD_PRESETS } from '../src/character3d/anatomy'
-import { DEFAULT_ATTACHMENTS, HAND_LIBRARY, FOOT_LIBRARY } from '../src/character3d/attachments'
+import { DEFAULT_ATTACHMENTS, HAND_LIBRARY, FOOT_LIBRARY, NOSE_LIBRARY, type AttachmentPart } from '../src/character3d/attachments'
 import {
   EYE_STYLES as FACE_EYE_DATA,
   MOUTH_STYLES as FACE_MOUTH_DATA,
@@ -232,6 +233,7 @@ async function main() {
             ...DEFAULT_BODY_PARTS,
             ...DEFAULT_CAPE_PARTS,
             ...DEFAULT_GRENADE_BELT,
+            ...DEFAULT_NOSE_BRIDGE,
             ...allWardrobeParts,
           ]
           vat.rig = extendRigWithBodyParts(vat.rig, bodyAndExtras)
@@ -975,6 +977,7 @@ async function main() {
           proportion:  currentProportion,
           hands:       loadout.hands,
           feet:        loadout.feet,
+          nose:        [...loadout.nose],
           helm:        loadout.helm,
         },
         // Anatomy profile overrides — only emitted when at least one
@@ -1068,6 +1071,9 @@ async function main() {
         }
         if (typeof lo.feet === 'string' && lo.feet in FOOT_LIBRARY) {
           loadout.feet = lo.feet
+        }
+        if (Array.isArray(lo.nose)) {
+          loadout.nose = lo.nose.filter((k: unknown): k is string => typeof k === 'string' && k in NOSE_LIBRARY)
         }
         if (typeof lo.helm === 'string' && (HELM_STYLES as readonly string[]).includes(lo.helm)) {
           loadout.helm = lo.helm as HelmStyle
@@ -1289,6 +1295,7 @@ async function main() {
       ...DEFAULT_BODY_PARTS,
       ...DEFAULT_CAPE_PARTS,
       ...DEFAULT_GRENADE_BELT,
+      ...DEFAULT_NOSE_BRIDGE,
       ...outfitToBodyParts(WARDROBE.knight),
     ]
     const allHairPrims = [
@@ -1473,6 +1480,9 @@ async function main() {
       capePattern: CapePattern
       hands: string   // key into HAND_LIBRARY
       feet:  string   // key into FOOT_LIBRARY
+      // Active NOSE_LIBRARY entries — composed (e.g. ['glasses','moustache']
+      // for Mario). Empty array = nothing on the bridge.
+      nose:  string[]
       helm:  HelmStyle   // SUP + CHAMFER + mirrorYZ helmet (Tier-1 demo)
       isolate: IsolateCategory   // accessory inspector — filter to one category
     }
@@ -1492,6 +1502,7 @@ async function main() {
       capePattern: 'stripes',
       hands: 'skin',
       feet:  'shoe',
+      nose:  ['sphere'],
       helm:  'none',
       isolate: 'none' as IsolateCategory,
     }
@@ -1586,6 +1597,11 @@ async function main() {
         }
         if (typeof data.hands === 'string' && data.hands in HAND_LIBRARY) loadout.hands = data.hands
         if (typeof data.feet  === 'string' && data.feet  in FOOT_LIBRARY) loadout.feet  = data.feet
+        if (Array.isArray((data as { nose?: unknown }).nose)) {
+          loadout.nose = ((data as { nose: unknown[] }).nose).filter(
+            (k: unknown): k is string => typeof k === 'string' && k in NOSE_LIBRARY,
+          )
+        }
         if (typeof data.helm  === 'string' && (HELM_STYLES as readonly string[]).includes(data.helm)) loadout.helm = data.helm as HelmStyle
         if (typeof data.isolate === 'string' && (ISOLATE_CATEGORIES as readonly string[]).includes(data.isolate)) loadout.isolate = data.isolate as IsolateCategory
         // Build preset — re-apply via applyBuildPreset so profiles
@@ -1632,6 +1648,7 @@ async function main() {
         ...DEFAULT_BODY_PARTS,
         ...(loadout.cape     ? DEFAULT_CAPE_PARTS     : []),
         ...(loadout.grenades ? DEFAULT_GRENADE_BELT   : []),
+        ...DEFAULT_NOSE_BRIDGE,
         ...(armorOutfit ? outfitToBodyParts(armorOutfit) : []),
       ]
       // Hair layers compose additively from the three booleans — bob,
@@ -1675,7 +1692,15 @@ async function main() {
       // joints. Library miss falls back to the 'skin'/'shoe' defaults.
       const handsList = HAND_LIBRARY[loadout.hands] ?? HAND_LIBRARY.skin
       const feetList  = FOOT_LIBRARY[loadout.feet]  ?? FOOT_LIBRARY.shoe
-      const effectiveAttachments = [...handsList, ...feetList].filter(
+      // Nose-bridge attachments — multiple variant keys can be active at
+      // once (loadout.nose is a string array) so e.g. "moustache" + "glasses"
+      // compose for a Mario silhouette. Empty / 'none' contributes nothing.
+      const noseList: AttachmentPart[] = []
+      for (const key of loadout.nose) {
+        const variant = NOSE_LIBRARY[key]
+        if (variant) noseList.push(...variant)
+      }
+      const effectiveAttachments = [...handsList, ...feetList, ...noseList].filter(
         (a) => !occludedJoints.has(a.jointName),
       )
       const next = chibiRaymarchPrimitives(
@@ -1853,6 +1878,42 @@ async function main() {
         Object.keys(FOOT_LIBRARY).map((k) => ({ value: k, text: k })),
         () => loadout.feet, (v) => { loadout.feet = v },
       )
+      // Nose-bridge picker — multi-toggle. Variants compose so e.g.
+      // glasses + moustache stack on the same bridge bone. 'none' is
+      // implicit: clear everything by toggling the others off.
+      {
+        const row = document.createElement('div')
+        row.style.cssText = 'display:flex; gap:4px; align-items:center; flex-wrap:wrap;'
+        const lbl = document.createElement('span')
+        lbl.textContent = 'nose'
+        lbl.style.cssText = 'width:54px; color:#9ab; font-size:11px;'
+        row.appendChild(lbl)
+        const buttons: HTMLButtonElement[] = []
+        const refreshButtons = () => {
+          for (const bb of buttons) {
+            const v = bb.dataset.value!
+            bb.style.background = loadout.nose.includes(v) ? '#2a4070' : '#1a2b4a'
+          }
+        }
+        for (const key of Object.keys(NOSE_LIBRARY)) {
+          if (key === 'none') continue   // implicit (clear all toggles)
+          const b = document.createElement('button')
+          b.textContent = key
+          b.dataset.value = key
+          b.style.fontSize = '11px'
+          b.onclick = () => {
+            const i = loadout.nose.indexOf(key)
+            if (i >= 0) loadout.nose.splice(i, 1)
+            else        loadout.nose.push(key)
+            refreshButtons()
+            rebuildPersistentPrims()
+          }
+          buttons.push(b)
+          row.appendChild(b)
+        }
+        refreshButtons()
+        host.appendChild(row)
+      }
       // Helm picker — Tier-1 extractions demo (SUP + CHAMFER + mirrorYZ).
       //   kettle      = crown + chamfered brim
       //   horned      = same + mirrored horn pair

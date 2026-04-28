@@ -35,7 +35,7 @@ export interface AttachmentPart {
   rotation?: [number, number, number, number]
   /** Palette slot lookup key — resolved against material.namedSlots
    *  at emit time. Defaults to 'skin' for raw-flesh defaults. */
-  paletteSlot?: 'skin' | 'shirt' | 'pants' | 'shoes' | 'armor' | 'leather' | 'cloth'
+  paletteSlot?: 'skin' | 'shirt' | 'pants' | 'shoes' | 'armor' | 'leather' | 'cloth' | 'nose' | 'hair' | 'weapon'
   /** Smin blend group + radius. Default group = matches the limb the
    *  joint belongs to (arm group for Hand, leg group for Foot). */
   blendGroup?: number
@@ -118,6 +118,117 @@ export const DEFAULT_FEET: AttachmentPart[] = [
  *  explicit attachments list is passed. Loadout/wardrobe overrides
  *  build their own AttachmentPart[] and pass it in. */
 export const DEFAULT_ATTACHMENTS: AttachmentPart[] = [...DEFAULT_HANDS, ...DEFAULT_FEET]
+
+/**
+ * NOSE_LIBRARY — variants that hang off the NoseBridge bone.
+ *
+ * The bridge bone sits between the eyes (Head-local +Z forward, +Y up).
+ * Each variant is an AttachmentPart[] in the same shape as HAND_LIBRARY,
+ * so it plugs through the existing chibi attachment path. Ships:
+ *   none       — empty (no nose / no glasses)
+ *   sphere     — small skin sphere (round button nose)
+ *   cone       — pointier nose (witch / character)
+ *   moustache  — horizontal box under the bridge, hair palette
+ *   glasses    — two thick frame rings + a small bridge bar
+ *   monocle    — single ring (right side)
+ *
+ * Multiple variants compose by pre-merging their AttachmentPart[] arrays
+ * before passing to chibiRaymarchPrimitives — e.g., glasses + moustache
+ * for a Mario silhouette.
+ */
+export const NOSE_LIBRARY: Record<string, AttachmentPart[]> = {
+  none: [],
+  sphere: [
+    {
+      name: 'nose_sphere',
+      jointName: 'NoseBridge',
+      type: 0,
+      params: [0.022, 0, 0, 0],
+      offsetInBone: [0, -0.020, 0.012],   // slightly below + forward of bridge
+      paletteSlot: 'nose',
+      blendGroup: 14, blendRadius: 0.012,
+    },
+  ],
+  cone: [
+    // Cone tip (type 12) pointing along world +Z. quat = (0.7071, 0, 0,
+    // 0.7071) rotates +Y toward +Z. params = (sinHalfAngle, cosHalfAngle,
+    // height, _).
+    {
+      name: 'nose_cone',
+      jointName: 'NoseBridge',
+      type: 12,
+      params: [0.30, 0.954, 0.05, 0],     // 17° half-angle, 5cm length
+      offsetInBone: [0, -0.015, 0.05],
+      rotation: [Math.SQRT1_2, 0, 0, Math.SQRT1_2],
+      paletteSlot: 'nose',
+      blendGroup: 14, blendRadius: 0.010,
+    },
+  ],
+  moustache: [
+    // Horizontal box under the bridge — Mario / handlebar feel. halfX
+    // wide enough to span both sides of the upper lip; halfY thin
+    // (lip-line); halfZ medium (depth from face). type 2 roundedBox
+    // for soft edges.
+    {
+      name: 'mustache',
+      jointName: 'NoseBridge',
+      type: 2,
+      params: [0.045, 0.012, 0.020, 0.010],
+      offsetInBone: [0, -0.045, 0.025],
+      paletteSlot: 'hair',
+      blendGroup: 14, blendRadius: 0.005,
+    },
+  ],
+  glasses: [
+    // Two thick frame torus rings + a horizontal bar across the bridge.
+    // type 6 sdTorus: params.x = ring radius, params.y = tube radius.
+    // The torus faces along its bone-local Y axis by default; rotate
+    // 90° around X (quat 0.7071, 0, 0, 0.7071) so the ring faces +Z
+    // (the viewer). offsetInBone places each ring over an eye.
+    {
+      name: 'glasses_L',
+      jointName: 'NoseBridge',
+      type: 6,
+      params: [0.024, 0.005, 0, 0],       // ring r=2.4cm, tube r=0.5cm
+      offsetInBone: [-0.030, 0.010, 0.020],
+      rotation: [Math.SQRT1_2, 0, 0, Math.SQRT1_2],
+      paletteSlot: 'leather',
+      blendGroup: 14, blendRadius: 0,
+    },
+    {
+      name: 'glasses_R',
+      jointName: 'NoseBridge',
+      type: 6,
+      params: [0.024, 0.005, 0, 0],
+      offsetInBone: [0.030, 0.010, 0.020],
+      rotation: [Math.SQRT1_2, 0, 0, Math.SQRT1_2],
+      paletteSlot: 'leather',
+      blendGroup: 14, blendRadius: 0,
+    },
+    // Bridge bar — small box bridging the two rings.
+    {
+      name: 'glasses_bridge',
+      jointName: 'NoseBridge',
+      type: 1,
+      params: [0.012, 0.003, 0.005, 0],
+      offsetInBone: [0, 0.010, 0.020],
+      paletteSlot: 'leather',
+      blendGroup: 14, blendRadius: 0,
+    },
+  ],
+  monocle: [
+    {
+      name: 'monocle',
+      jointName: 'NoseBridge',
+      type: 6,
+      params: [0.026, 0.004, 0, 0],
+      offsetInBone: [0.034, 0.012, 0.020],
+      rotation: [Math.SQRT1_2, 0, 0, Math.SQRT1_2],
+      paletteSlot: 'weapon',          // cool steel rim
+      blendGroup: 14, blendRadius: 0,
+    },
+  ],
+}
 
 // ============================================================================
 // Variant libraries — keyed by style name. Loadout pickers select an entry.

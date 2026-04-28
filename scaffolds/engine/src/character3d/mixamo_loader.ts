@@ -545,6 +545,21 @@ export const DEFAULT_SPIKE_BACK: HairPart[] = [
   { name: 'HairSpikeBack4', parentName: 'Head', offset: [ 0.05, 0.08, -0.10], rotationDeg: radialSpikeRot([ 0.05, 0.08, -0.10]), displaySize: [0.038, 0.20, 0] },
 ]
 
+/** Nose-bridge attachment socket — single bone parented to Head,
+ *  positioned where the bridge of the nose sits. Used as the anchor
+ *  for SDF face accessories (nose itself, moustache, glasses, etc.)
+ *  via NOSE_LIBRARY in attachments.ts. Anchor only; emits no geometry
+ *  itself — the loadout's nose entry pushes the actual prims onto
+ *  this bone (same pattern as HAND_LIBRARY / FOOT_LIBRARY).
+ *
+ *  Offset is in Head-local meters: forward (+Z, face direction), small
+ *  upward bias (+Y) so the bridge sits between the eyes rather than
+ *  at chin height. Not under any chibi/realistic scale group — the
+ *  Head-group scale stretches it to match cranium size. */
+export const DEFAULT_NOSE_BRIDGE: BodyPart[] = [
+  { name: 'NoseBridge', parentName: 'Head', offset: [0, 0.04, 0.085], displaySize: [0, 0, 0] },
+]
+
 /** Grenade belt — two small spheres on the Hips, driven by per-grenade
  *  springs (jiggle on running). Use weapon palette slot. */
 export const DEFAULT_GRENADE_BELT: BodyPart[] = [
@@ -1334,6 +1349,10 @@ export function chibiRaymarchPrimitives(
           paletteSlotB: slotB,
           colorExtent: 5,
         })
+      } else if (name === 'NoseBridge') {
+        // Anchor bone — emits no geometry. The NOSE_LIBRARY entries
+        // attach prims here via the same path as HAND_LIBRARY /
+        // FOOT_LIBRARY (passed as `attachments` to chibiRaymarchPrimitives).
       } else if (/^Grenade/.test(name)) {
         // Grenade — ellipsoid primitive so the same emission path covers
         // round (uniform halfX/Y/Z) AND can-shaped (elongated halfY)
