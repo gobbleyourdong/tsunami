@@ -237,8 +237,11 @@ async function main() {
           vat.rig = extendRigWithBodyParts(vat.rig, bodyAndExtras)
           vat.localMats = extendLocalMatsWithBodyParts(vat.localMats, vat.numFrames, vat.numJoints, bodyAndExtras)
           vat.numJoints = vat.rig.length
-          vat.rig = extendRigWithAccessories(vat.rig)
-          vat.localMats = extendLocalMatsWithAccessories(vat.localMats, vat.numFrames, vat.numJoints)
+          // Weapon socket disabled for now — pass an empty accessory
+          // list so the RightWeapon preview cube doesn't emit on the
+          // hand. Reintroduce when the equipped-item system lands.
+          vat.rig = extendRigWithAccessories(vat.rig, [])
+          vat.localMats = extendLocalMatsWithAccessories(vat.localMats, vat.numFrames, vat.numJoints, [])
           vat.numJoints = vat.rig.length
         }
         animations.push({
@@ -1287,19 +1290,8 @@ async function main() {
         allHairPrims,
         bodyAndExtrasPrims,
       ) as RaymarchPrimitive[]
-    if (rightHandIdx >= 0) {
-      const baseSlot = material.namedSlots.fire_base ?? 12
-      const tipSlot  = material.namedSlots.fire_tip  ?? 14
-      faceRaymarchPrims.push({
-        type: 7, paletteSlot: baseSlot, boneIdx: rightHandIdx,
-        params: [0.05, 0.14, 0.03, 12.0],
-        offsetInBone: [0, 0.18, 0],
-        colorFunc: 1,
-        paletteSlotB: tipSlot,
-        colorExtent: 0.14,
-        unlit: true,    // flame is its own glow — bypass cel shading
-      })
-    }
+    // Hand flame VFX disabled — was a stray demo-class spell effect.
+    // Re-enable later as part of an equipped-spell / cosmetic system.
     const raymarch = createRaymarchRenderer(
       device, SCENE_FORMAT,
       faceRaymarchPrims,
@@ -1722,21 +1714,9 @@ async function main() {
           p.colorFunc = capePatternFunc as RaymarchPrimitive['colorFunc']
         }
       }
-      // Hand flame VFX — always emit on the right hand. Demo's
-      // character-class fireball; the wielding-hand glow.
-      if (rightHandIdx >= 0) {
-        const baseSlot = material.namedSlots.fire_base ?? 12
-        const tipSlot  = material.namedSlots.fire_tip  ?? 14
-        next.push({
-          type: 7, paletteSlot: baseSlot, boneIdx: rightHandIdx,
-          params: [0.05, 0.14, 0.03, 12.0],
-          offsetInBone: [0, 0.18, 0],
-          colorFunc: 1,
-          paletteSlotB: tipSlot,
-          colorExtent: 0.14,
-          unlit: true,
-        })
-      }
+      // Hand flame VFX disabled — re-enable later as an equipped spell
+      // effect when the cosmetics system lands. Same call site, just
+      // currently no prim push.
       // Mirror expansion — any prim with mirrorYZ:true gets a sibling
       // with X-flipped offsetInBone. Doubles the prim count for those
       // entries; lets authoring describe one side and get both. CPU
