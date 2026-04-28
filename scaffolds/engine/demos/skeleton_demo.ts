@@ -1505,9 +1505,16 @@ async function main() {
         c2z = n0x * n1y - n0y * n1x
         l2 = 1
       }
-      if (l0 < eps) l0 = 1
-      if (l1 < eps) l1 = 1
-      if (l2 < eps) l2 = 1
+      // Final normalization. eps_zero is much smaller than the recon
+      // threshold above — for the uniform-tiny-scale case (all axes
+      // collapsed to e.g. 0.01) every l_i is 0.01 < eps so none of the
+      // single-axis recon branches fired; here we just divide each col
+      // by its actual length to recover pure rotation. Only truly-zero
+      // cols (numerically near-machine-epsilon) get the safety l=1.
+      const eps_zero = 1e-6
+      if (l0 < eps_zero) l0 = 1
+      if (l1 < eps_zero) l1 = 1
+      if (l2 < eps_zero) l2 = 1
       _orthoRot[0] = c0x / l0; _orthoRot[1] = c0y / l0; _orthoRot[2] = c0z / l0
       _orthoRot[3] = c1x / l1; _orthoRot[4] = c1y / l1; _orthoRot[5] = c1z / l1
       _orthoRot[6] = c2x / l2; _orthoRot[7] = c2y / l2; _orthoRot[8] = c2z / l2
@@ -2519,8 +2526,20 @@ async function main() {
           bob: false, ponytail: false, bangsL: false, bangsR: false,
           spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
           cape: false, tail: false, wings: false, grenades: false,
-          quadrupedHind: true, extraLimbs: true, snakeNeck: false,
+          // quadrupedHind off — we don't need the Y-only retarget; the
+          // boneScales below collapse all 4 human limbs in ALL THREE
+          // axes so only the 4 procedural extra limbs remain visible.
+          // Cleaner read as a 4-legged bug.
+          quadrupedHind: false, extraLimbs: true, snakeNeck: false,
           hands: 'none', feet: 'none',
+          boneScales: {
+            LeftArm:  [0.01, 0.01, 0.01], RightArm:  [0.01, 0.01, 0.01],
+            LeftForeArm: [0.01, 0.01, 0.01], RightForeArm: [0.01, 0.01, 0.01],
+            LeftHand: [0.01, 0.01, 0.01], RightHand: [0.01, 0.01, 0.01],
+            LeftUpLeg: [0.01, 0.01, 0.01], RightUpLeg: [0.01, 0.01, 0.01],
+            LeftLeg:  [0.01, 0.01, 0.01], RightLeg:  [0.01, 0.01, 0.01],
+            LeftFoot: [0.01, 0.01, 0.01], RightFoot: [0.01, 0.01, 0.01],
+          },
           defaultAnim: 'crawl_backwards',
           compatibleAnims: ['crawl_backwards', 'crawling', 'running_crawl', 'mutant_run'],
         },
@@ -2744,6 +2763,10 @@ async function main() {
       raymarch.rebind(vatHandle)
       invalidateRaymarchCache()
       elapsed = 0
+      // Sync the dropdown so creature-preset auto-pick (and the M-key
+      // cycle) is visible in the UI. Without this the dropdown lies.
+      const animSelEl = (window as unknown as { __animSel?: HTMLSelectElement }).__animSel
+      if (animSelEl) animSelEl.value = String(animIdx)
     }
 
     function applySpriteMode(mode: SpriteMode) {
