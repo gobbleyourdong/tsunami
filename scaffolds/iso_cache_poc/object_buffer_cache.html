@@ -618,6 +618,31 @@
     }
     return d;
   }
+
+  // ── 3D terrain (Phase 10 of PLAN_3D_PORT.md) ─────────────────
+  // Heightfield slab. Buffer is 2000×500; mPP=0.01 → world extent
+  // 20×5m centered at origin. The terrain extends from the analytical
+  // hill surface down (in -Y) and through ±zThickness in Z, giving the
+  // raymarched view actual silhouettes with rounded shading.
+  //
+  // We re-use the existing hillHeight() (pixel-space) by mapping the
+  // SDF's world-meters X back to local pixels, then meter-flipping the
+  // returned surface Y. This keeps craters / topY physics consistent.
+  const TERRAIN_MPP = 0.01;
+  const TERRAIN_HALF_W = 1000;
+  const TERRAIN_HALF_H = 250;
+  const TERRAIN_Z_THICKNESS = 0.5;
+  function hillSurfaceMeters(worldX) {
+    const xPx = worldX / TERRAIN_MPP + TERRAIN_HALF_W;
+    const yPx = hillHeight(xPx);
+    return -(yPx - TERRAIN_HALF_H) * TERRAIN_MPP;
+  }
+  function sdfTerrain3D(p) {
+    const surfaceY = hillSurfaceMeters(p[0]);
+    const dy = p[1] - surfaceY;          // positive above surface
+    const dz = Math.abs(p[2]) - TERRAIN_Z_THICKNESS;
+    return Math.max(dy, dz);             // intersection of two half-spaces = slab
+  }
   // Bouncing ball (uniform sphere)
   function sdfBall(lx, ly) {
     return Math.hypot(lx - 16, ly - 16) - 13;
@@ -799,7 +824,10 @@
   const objects = [];
 
   const terrain = new GameObject({
-    id: 'terrain', color: [60, 90, 70], sdfFn: sdfTerrain,
+    id: 'terrain', color: [60, 90, 70],
+    sdfFn3d: sdfTerrain3D,                // 3D path: heightfield slab
+    metersPerPixel: TERRAIN_MPP,          // 2000×500 buf → 20×5m world
+    bakeMaxSteps: 12,                     // simple slab, fast convergence
     localW: TERRAIN_W, localH: TERRAIN_H, worldX: 0, worldY: 0,
     animFlag: 'static',
     z: 0,

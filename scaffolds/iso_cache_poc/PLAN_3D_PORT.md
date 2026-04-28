@@ -194,7 +194,7 @@ matters; may need to reduce `maxSteps` for volcano.
 **Commit subject:** `iso_cache_poc: 3D port phase 9 — volcano archetype is 3D`
 
 ### Phase 10 — Convert TERRAIN to 3D (heightfield)
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Terrain = max(plane(y - hillHeight(x)), -ponds, -craters).
 Treat it as a thick heightmap with depth in Z. The 3D path produces
@@ -253,7 +253,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 | 7     | COMPLETE — fan = Z-axis hub cylinder + 4 box blades at 0/90/180/270°; smoke test 6/8 expected |
 | 8     | COMPLETE — walker = sphere head + capsule body + 2 capsule legs + 2 capsule arms; limbs swing per phase via factory |
 | 9     | COMPLETE — volcano = stretched ellipsoid body + animated plume sphere; bakeMaxSteps=24 + loopFrames=2 to manage 120k px buf |
-| 10    | PENDING |
+| 10    | COMPLETE — terrain = slab heightfield via hillSurfaceMeters wrap; mPP=0.01, bakeMaxSteps=12; init ~3-4s, baked once |
 | 11    | PENDING |
 | 12    | PENDING |
 
