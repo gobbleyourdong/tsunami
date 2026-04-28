@@ -66,7 +66,7 @@ If `vite` errors at module resolution, check `node_modules` symlink is intact.
 ## Phases
 
 ### Phase B — WebGPU pipeline + main.ts
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Running POC at `/raymarch3d/` rendering ONE asset (sword).
 The shader, primitive list, palette upload to GPU; fullscreen draw produces
@@ -245,7 +245,7 @@ be shift-clicked to destroy normally; commit.
 | Phase | Status |
 |------:|:-------|
 | A     | COMPLETE — TS port of sdf.ts done, files in raymarch3d/ |
-| B     | PENDING |
+| B     | COMPLETE — pipeline.ts + main.ts; tsc clean; vite serves /raymarch3d/ 200 |
 | C     | PENDING |
 | D     | PENDING |
 | E     | PENDING |

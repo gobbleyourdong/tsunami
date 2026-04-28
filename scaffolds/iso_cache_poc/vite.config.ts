@@ -8,11 +8,8 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
-    rollupOptions: {
-      input: {
-        index: 'index.html',
-        raymarch3d: 'raymarch3d/index.html',
-      },
-    },
+    // No rollupOptions.input — vite picks up index.html automatically; the
+    // raymarch3d POC lives at raymarch3d/index.html and is reachable at
+    // /raymarch3d/ during dev.
   },
 });
