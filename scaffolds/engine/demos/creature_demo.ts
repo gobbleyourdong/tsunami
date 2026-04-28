@@ -158,10 +158,9 @@ async function main() {
     updateCamera()
   })
 
-  // ---------- Stats / preset / dial DOM ----------
+  // ---------- Stats / preset DOM ----------
   const statsEl = document.getElementById('stats') as HTMLDivElement
   const presetsEl = document.getElementById('presets') as HTMLDivElement
-  const dialsEl = document.getElementById('dials') as HTMLDivElement
 
   // ---------- Rebuild creature on preset change ----------
   function applySpec(spec: CreatureSpec) {
@@ -182,6 +181,13 @@ async function main() {
     device.queue.writeBuffer(bonesBuffer, 0, built.worldMats)
     raymarch.setPrimitives(expandMirrors(built.prims as RaymarchPrimitive[]))
     statsEl.textContent = `${spec.name}\n${built.rig.length} joints\n${built.prims.length} prims`
+    // Per-preset framing — orthoSize + look-at target. Without this
+    // the bird (0.20m) and snake (0.70m) would render at the same
+    // zoom and one of them is unreadable. Defaults if absent.
+    const cam = spec.camera ?? { orthoSize: 0.6, target: [0, 0.1, 0] as [number, number, number] }
+    zoom = cam.orthoSize
+    camera.target = [cam.target[0], cam.target[1], cam.target[2]]
+    updateCamera()
   }
 
   // ---------- UI buttons + dials ----------
@@ -196,28 +202,6 @@ async function main() {
     presetsEl.appendChild(btn)
   }
   ;(presetsEl.querySelector('button') as HTMLButtonElement | null)?.classList.add('active')
-
-  // Body-segment slider — overrides currentSpec.body.segments live.
-  const segRow = document.createElement('label')
-  const segLabel = document.createElement('span')
-  segLabel.style.width = '60px'
-  segLabel.textContent = 'segments'
-  const segRange = document.createElement('input')
-  segRange.type = 'range'
-  segRange.min = '0'
-  segRange.max = '30'
-  segRange.step = '1'
-  const segVal = document.createElement('span')
-  segVal.className = 'val'
-  segRow.append(segLabel, segRange, segVal)
-  dialsEl.appendChild(segRow)
-  segRange.value = String(currentSpec.body.segments)
-  segVal.textContent = String(currentSpec.body.segments)
-  segRange.oninput = () => {
-    const n = parseInt(segRange.value, 10)
-    segVal.textContent = String(n)
-    applySpec({ ...currentSpec, body: { ...currentSpec.body, segments: n } })
-  }
 
   applySpec(currentSpec)
 

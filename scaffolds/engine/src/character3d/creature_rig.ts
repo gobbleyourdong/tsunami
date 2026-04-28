@@ -45,6 +45,11 @@ export interface CreatureSpec {
    *  1 = tail end. Each pair generates 2 limbs (L + R) with the same
    *  segments, X-flipped at the anchor. */
   limbPairs: LimbPairSpec[]
+  /** Optional per-preset camera framing — orthoSize (smaller = zoomed
+   *  in) and look-at target. Demos read these on preset switch so a
+   *  bird at 0.30m doesn't render at the same zoom as a 1.20m snake.
+   *  Default if absent: orthoSize 0.6, target [0, 0.1, 0]. */
+  camera?: { orthoSize: number; target: [number, number, number] }
 }
 
 export interface BodySpec {
@@ -385,50 +390,56 @@ const LEATHER_SLOT  = 10
 export const CREATURE_PRESETS: Record<string, CreatureSpec> = {
   bird: {
     name: 'bird',
-    body:    { segments: 0, totalLength: 0.30, radius: 0.10, paletteSlot: FEATHER_SLOT },
-    head:    { size: [0.07, 0.07, 0.08], paletteSlot: FEATHER_SLOT },
+    // Plump round body, big head — chibi bird (think pixel chickadee).
+    body:    { segments: 0, totalLength: 0.20, radius: 0.10, paletteSlot: FEATHER_SLOT },
+    head:    { size: [0.08, 0.08, 0.09], paletteSlot: FEATHER_SLOT },
     limbPairs: [
-      // 1 wing pair attached at the front body bone, swept sideways.
+      // Wings — short stubby pair sticking out sideways.
       {
         attachT: 0.2,
-        spreadAngle: Math.PI * 0.45,
+        spreadAngle: Math.PI * 0.40,
         downAngle: 0.1,
         paletteSlot: FEATHER_SLOT,
         segments: [
-          { length: 0.12, radiusStart: 0.04, radiusEnd: 0.025 },
-          { length: 0.14, radiusStart: 0.025, radiusEnd: 0.005 },
+          { length: 0.10, radiusStart: 0.04, radiusEnd: 0.020 },
         ],
       },
-      // 1 leg pair (small, drooping under the body)
+      // Legs — twiggy, dropping straight down under the body.
       {
-        attachT: 0.7,
-        spreadAngle: 0.15,
-        downAngle: Math.PI * 0.45,
+        attachT: 0.6,
+        spreadAngle: 0.20,
+        downAngle: Math.PI * 0.50,
         paletteSlot: LEATHER_SLOT,
         segments: [
-          { length: 0.08, radiusStart: 0.012, radiusEnd: 0.010 },
-          { length: 0.06, radiusStart: 0.010, radiusEnd: 0.008 },
+          { length: 0.08, radiusStart: 0.012, radiusEnd: 0.008 },
         ],
       },
     ],
+    camera: { orthoSize: 0.28, target: [0, 0.0, 0] },
   },
   spider: {
     name: 'spider',
-    body:    { segments: 1, totalLength: 0.20, radius: 0.075, paletteSlot: FUR_SLOT },
-    head:    { size: [0.05, 0.05, 0.05], paletteSlot: FUR_SLOT },
+    // One round body lump, no segmentation. Head smaller than body.
+    body:    { segments: 0, totalLength: 0.15, radius: 0.085, paletteSlot: FUR_SLOT },
+    head:    { size: [0.045, 0.045, 0.045], paletteSlot: FUR_SLOT },
     limbPairs: spiderLegs(),
+    camera: { orthoSize: 0.32, target: [0, -0.05, 0] },
   },
   snake: {
     name: 'snake',
-    body:    { segments: 14, totalLength: 1.20, radius: 0.045, paletteSlot: SKIN_SLOT },
-    head:    { size: [0.05, 0.04, 0.04], paletteSlot: SKIN_SLOT },
+    // Long body — internal segments not exposed to UI; just chosen
+    // here to make it read as "long thin worm".
+    body:    { segments: 10, totalLength: 0.70, radius: 0.035, paletteSlot: SKIN_SLOT },
+    head:    { size: [0.05, 0.04, 0.05], paletteSlot: SKIN_SLOT },
     limbPairs: [],
+    camera: { orthoSize: 0.40, target: [0, 0.0, -0.20] },
   },
   centipede: {
     name: 'centipede',
-    body:    { segments: 20, totalLength: 0.80, radius: 0.030, paletteSlot: SKIN_SLOT },
-    head:    { size: [0.04, 0.03, 0.03], paletteSlot: SKIN_SLOT },
+    body:    { segments: 12, totalLength: 0.60, radius: 0.030, paletteSlot: SKIN_SLOT },
+    head:    { size: [0.040, 0.035, 0.040], paletteSlot: SKIN_SLOT },
     limbPairs: centipedeLegs(),
+    camera: { orthoSize: 0.38, target: [0, -0.02, -0.18] },
   },
 }
 
