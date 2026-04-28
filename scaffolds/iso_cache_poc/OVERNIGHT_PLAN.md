@@ -176,7 +176,7 @@ the morning reviewer can see both styles together.
 ---
 
 ### Phase F — Documentation
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Update `iso_cache_poc/README.md` to document the new
 `raymarch3d/` POC alongside the existing 2D demo. Diagram the architecture:
@@ -249,7 +249,7 @@ be shift-clicked to destroy normally; commit.
 | C     | COMPLETE — Y-axis orbit @ 0.3 rad/s, 0.35 rad elevation; switcher landed in B |
 | D     | COMPLETE — loader.ts handles shape:* parts; 2 scene JSONs copied + wired into switcher |
 | E     | COMPLETE — main.ts exports mountOn(); object_buffer_cache.html hosts a 3D panel below the 2D demo |
-| F     | PENDING |
+| F     | COMPLETE — README.md (workspace) updated with §raymarch3d + ASCII arch diagram; raymarch3d/README.md added |
 | G     | PENDING (stretch) |
 
 When all phases reach COMPLETE or BLOCKED, the loop should stop firing
