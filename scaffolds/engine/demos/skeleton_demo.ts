@@ -579,15 +579,22 @@ async function main() {
      *  Idempotent — reads the head-preset scale fresh each call rather
      *  than multiplying onto whatever is in characterParams (so dragging
      *  the slider doesn't compound). Drives every NOSE_LIBRARY prim
-     *  size since they all read NoseBridge's display matrix. */
+     *  size since they all read NoseBridge's display matrix.
+     *
+     *  TDZ guard: applyPreset's init-time call (before `loadout` is
+     *  declared, see applyHindRetarget elsewhere for the same pattern)
+     *  reaches this function before loadout exists. The try/catch
+     *  no-ops the first call; later calls (after loadout init) apply
+     *  the multiplier on top of whatever applyGroupScale just wrote. */
     function applyNoseScale() {
       const idx = rig.findIndex((j) => j.name === 'NoseBridge')
       if (idx < 0) return
+      let k: number
+      try { k = loadout.noseScale } catch { return }
       const headPreset = BODY_PRESETS[currentProportion].head
       const base: [number, number, number] = typeof headPreset === 'number'
         ? [headPreset, headPreset, headPreset]
         : [headPreset[0], headPreset[1], headPreset[2]]
-      const k = loadout.noseScale
       characterParams.scales[idx] = [base[0] * k, base[1] * k, base[2] * k]
       invalidateRaymarchCache()
     }
