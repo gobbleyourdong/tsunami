@@ -197,7 +197,7 @@ the morning reviewer can see both styles together.
 ---
 
 ### Phase G (stretch) — Bake 3D SDF output into a 2D archetype buffer
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Write a function that, given a `GPUPrim[]` asset, runs a
 one-time WebGPU bake to a fixed-size offscreen texture, reads back the
@@ -250,7 +250,9 @@ be shift-clicked to destroy normally; commit.
 | D     | COMPLETE — loader.ts handles shape:* parts; 2 scene JSONs copied + wired into switcher |
 | E     | COMPLETE — main.ts exports mountOn(); object_buffer_cache.html hosts a 3D panel below the 2D demo |
 | F     | COMPLETE — README.md (workspace) updated with §raymarch3d + ASCII arch diagram; raymarch3d/README.md added |
-| G     | PENDING (stretch) |
+| G     | COMPLETE (stretch) — bake_to_buffer.ts + window.add3DBakedArchetype bridge; rock_3d_baked archetype injected into the 2D demo on Vite |
+
+All phases (A–G) complete. The /loop should stop firing — see footer note. |
 
 When all phases reach COMPLETE or BLOCKED, the loop should stop firing
 and the task is done. The loop owner can review the commits in the

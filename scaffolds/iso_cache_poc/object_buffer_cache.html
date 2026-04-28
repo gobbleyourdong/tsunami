@@ -1585,6 +1585,33 @@
   }
   refreshThumbs();
   requestAnimationFrame(tick);
+
+  // ─── Phase G bridge: accept a baked RGBA image as a new archetype ──
+  // Exposed on window so a sibling <script type="module"> can hand us
+  // a buffer produced by raymarch3d/bake_to_buffer.ts. The new archetype
+  // is anim_flag='static' (never re-bakes) so it participates in the
+  // destruction + Voronoi + particle system without needing an SDF fn.
+  window.add3DBakedArchetype = function(rgbaBuf, w, h, opts) {
+    opts = opts || {};
+    const obj = new GameObject({
+      id: opts.id || ('baked_' + objects.length),
+      color: opts.color || [200, 200, 200],
+      sdfFn: function () { return 99; }, // never needs SDF — initial bake is overwritten
+      localW: w, localH: h,
+      worldX: opts.worldX || 600, worldY: opts.worldY || 100,
+      animFlag: 'static',
+      z: opts.z !== undefined ? opts.z : 3,
+    });
+    // Replace the canvas content with the supplied RGBA bytes.
+    const img = obj.colorCtx.createImageData(w, h);
+    img.data.set(rgbaBuf);
+    obj.colorCtx.putImageData(img, 0, 0);
+    obj.dirty = false;          // SDF re-bake would clobber the painted pixels
+    obj.bakeCount = 1;
+    objects.push(obj);
+    refreshThumbs();
+    return obj;
+  };
   </script>
 
   <!-- ─── 3D-SDF panel (Phase E of overnight plan) ──────────────────
@@ -1629,6 +1656,27 @@
       const status = document.getElementById('status3d');
       if (status) status.textContent = '3D panel inactive (raw HTTP server can\'t resolve .ts — use `npx vite --port 9124`)';
       console.warn('[3d-panel]', err);
+    }
+
+    // ─── Phase G: bake a 3D-SDF rock into a 2D archetype buffer ──
+    // After the main 2D demo is wired up, run a one-shot WebGPU bake of
+    // the rockChunk asset, then hand the RGBA bytes to the bridge added
+    // above. The new archetype participates in destruction/particles/
+    // Voronoi exactly like a normal one — but its pixels were painted
+    // by a 3D raymarcher.
+    try {
+      const baker = await import('./raymarch3d/bake_to_buffer.ts');
+      const assets = await import('./raymarch3d/assets.ts');
+      const rgba = await baker.bakeAssetToImageData(assets.rockChunk(7), { size: 96 });
+      if (rgba && typeof window.add3DBakedArchetype === 'function') {
+        window.add3DBakedArchetype(rgba, 96, 96, {
+          id: 'rock_3d_baked', worldX: 1100, worldY: 140,
+          color: [120, 120, 130],
+        });
+        console.log('[phase-G] baked rock_3d_baked (96×96 RGBA from WGSL raymarch)');
+      }
+    } catch (err) {
+      console.warn('[phase-G] bake bridge inactive:', err);
     }
   </script>
 </body>
