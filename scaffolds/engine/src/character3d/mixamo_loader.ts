@@ -1518,10 +1518,18 @@ export function chibiRaymarchPrimitives(
     // 18) was unstable under animation — bone-local Z orientation
     // doesn't ride with the bone correctly when chained segments bend
     // sharply. Round capsules are rotation-invariant and bend cleanly.
+    //
+    // Lower-leg foot-end (segLowerR1 for legs) tapers to a near-point
+    // (0.015) instead of the wrist-equivalent ~0.055. The forearm tip
+    // is hidden under the DEFAULT_HANDS sphere (5.5cm) at the wrist;
+    // the leg has no equivalent occluder at the ankle, so a 5.5cm ball
+    // poked out above the small DEFAULT_FEET wedge ("a wedge AND a
+    // foot ball" report). Tapering to 1.5cm lets the shoe wedge sit
+    // at the foot bone with no visible ankle ball.
     const segUpperR0 = isArm ? 0.062 : 0.085
     const segUpperR1 = isArm ? 0.046 : 0.060
     const segLowerR0 = isArm ? 0.046 : 0.060
-    const segLowerR1 = isArm ? 0.040 : 0.055
+    const segLowerR1 = isArm ? 0.040 : 0.015
     prims.push({
       type: 15, paletteSlot: baseSlot, boneIdx: j,
       params: [segUpperR0, segUpperR1, jointBIdx, upperLen],
