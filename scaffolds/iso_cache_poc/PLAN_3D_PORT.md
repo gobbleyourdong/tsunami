@@ -74,7 +74,7 @@ JS one for the no-build demo to consume.
 **Commit subject:** `iso_cache_poc: 3D port phase 1 — JS 3D-SDF library`
 
 ### Phase 2 — Raymarcher + shading
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Same JS module gains:
 - `raymarchPixel(sdfFn, worldX, worldY, opts)` → `{hit, p, normal}`.
@@ -245,7 +245,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 | Phase | Status |
 |------:|:-------|
 | 1     | COMPLETE — raymarch3d_cpu.js with primitives + compose + transforms; node --check clean |
-| 2     | PENDING |
+| 2     | COMPLETE — raymarchPixel + shadeHit; smoke test (sphere hit + shade) passes |
 | 3     | PENDING |
 | 4     | PENDING |
 | 5     | PENDING |

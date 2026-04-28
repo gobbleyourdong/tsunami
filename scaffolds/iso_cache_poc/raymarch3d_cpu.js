@@ -185,3 +185,63 @@ export function normalize(v) {
   if (l < 1e-12) return [0, 1, 0];
   return [v[0] / l, v[1] / l, v[2] / l];
 }
+
+// ─────────── RAYMARCHER + SHADING ───────────
+
+const DEFAULT_MAX_STEPS = 48;
+const DEFAULT_MAX_DIST = 5.0;
+const DEFAULT_HIT_EPS = 0.001;
+
+/**
+ * Side-view orthographic raymarch. Pixel (px, py) in a localW × localH
+ * buffer maps to world-space via the caller's `metersPerPixel`:
+ *   worldX =  (px - localW/2) * metersPerPixel
+ *   worldY = -(py - localH/2) * metersPerPixel    (flip — screen y is down)
+ *
+ * Returns { hit, p, normal, steps }. p and normal are [x,y,z] in world
+ * SDF space; hit=false means the ray exited without crossing the surface.
+ *
+ * opts: { startZ, endZ, maxSteps, eps, maxDist }
+ */
+export function raymarchPixel(sdfFn, worldX, worldY, opts = {}) {
+  const startZ = opts.startZ != null ? opts.startZ : 1.5;
+  const endZ = opts.endZ != null ? opts.endZ : -1.5;
+  const eps = opts.eps != null ? opts.eps : DEFAULT_HIT_EPS;
+  const maxSteps = opts.maxSteps != null ? opts.maxSteps : DEFAULT_MAX_STEPS;
+  const maxDist = opts.maxDist != null ? opts.maxDist : DEFAULT_MAX_DIST;
+  const p = [worldX, worldY, startZ];
+  for (let step = 0; step < maxSteps; step++) {
+    const d = sdfFn(p);
+    if (d < eps) {
+      return {
+        hit: true,
+        p: [p[0], p[1], p[2]],
+        normal: normalize(gradient(sdfFn, p, eps * 2)),
+        steps: step,
+      };
+    }
+    if (d > maxDist) break;
+    p[2] -= vmax(d, eps * 0.5);
+    if (p[2] < endZ) break;
+  }
+  return { hit: false, p: null, normal: null, steps: maxSteps };
+}
+
+/**
+ * Lambert + ambient + soft rim. Returns RGB triple [r, g, b] each 0-255.
+ * baseColor is also 0-255 ([60, 90, 70] etc.). lightDir defaults to a
+ * light biased to the upper-front-right.
+ */
+export function shadeHit(normal, baseColor, lightDir) {
+  const ld = normalize(lightDir != null ? lightDir : [0.4, 0.7, 0.6]);
+  const diffuse = vmax(0, normal[0] * ld[0] + normal[1] * ld[1] + normal[2] * ld[2]);
+  // Rim glow — pixels nearly perpendicular to camera (z≈0) get a slight boost
+  const rim = vmax(0, 0.6 - Math.abs(normal[2])) * 0.35;
+  const ambient = 0.32;
+  const k = vmin(1.5, ambient + diffuse * 0.55 + rim);
+  return [
+    vmin(255, baseColor[0] * k),
+    vmin(255, baseColor[1] * k),
+    vmin(255, baseColor[2] * k),
+  ];
+}
