@@ -2,20 +2,44 @@
   "meta": {
     "title": "Stealth Scaffold Seed",
     "shape": "action",
-    "vibe": ["mgs-era-stealth", "vision-cones", "patrol-paths", "hiding-spots", "light-dark-thief-blend"],
+    "vibe": [
+      "mgs-era-stealth",
+      "vision-cones",
+      "patrol-paths",
+      "hiding-spots",
+      "light-dark-thief-blend"
+    ],
     "target_session_sec": 1800
   },
   "config": {
     "mode": "2d",
     "camera": "orthographic",
-    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 64 } },
+    "playfield": {
+      "kind": "continuous",
+      "arena": {
+        "shape": "rect",
+        "size": 64
+      }
+    },
     "sandbox": false
   },
   "starting_level": "shadow_moses_heliport",
   "starting_inventory": [
-    { "item": "silenced_pistol", "ammo": { "9mm": 10 } },
-    { "item": "body_drag_action" },
-    { "item": "throw_rock", "ammo": { "rock": 5 } }
+    {
+      "item": "silenced_pistol",
+      "ammo": {
+        "9mm": 10
+      }
+    },
+    {
+      "item": "body_drag_action"
+    },
+    {
+      "item": "throw_rock",
+      "ammo": {
+        "rock": 5
+      }
+    }
   ],
   "starting_stance": "standing",
   "alarm_tolerance": 2,

@@ -22,7 +22,12 @@
       "Resource('key_yellow',0)",
       "Resource('key_red',0)"
     ],
-    "tags": ["player", "controllable", "damageable", "fps_shooter"],
+    "tags": [
+      "player",
+      "controllable",
+      "damageable",
+      "fps_shooter"
+    ],
     "sprite_ref": "sprites/hud/player_hud_face",
     "movement": {
       "walk_speed": 6.0,
@@ -33,7 +38,13 @@
       "strafe_enabled": true,
       "bunny_hop_allowed": true
     },
-    "starting_weapons": ["fists", "pistol"],
-    "starting_weapon_equipped": "pistol"
+    "starting_weapons": [
+      "fists",
+      "pistol"
+    ],
+    "starting_weapon_equipped": "pistol",
+    "anim_flag": "animating",
+    "loop_frames": 4,
+    "z": 5
   }
 }

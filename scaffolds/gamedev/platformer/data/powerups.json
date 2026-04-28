@@ -5,70 +5,186 @@
       "display_name": "Super Mushroom",
       "mesh": "sphere",
       "trigger": "pickup",
-      "components": ["Resource('state_transition','big')"],
-      "tags": ["pickup", "powerup", "size_up"],
+      "components": [
+        "Resource('state_transition','big')"
+      ],
+      "tags": [
+        "pickup",
+        "powerup",
+        "size_up"
+      ],
       "sprite_ref": "sprites/item_mushroom",
-      "effect": { "kind": "player_state_transition", "target_state": "big" },
+      "effect": {
+        "kind": "player_state_transition",
+        "target_state": "big"
+      },
       "emerges_from_tag": "question_block",
-      "score_reward": 1000
+      "score_reward": 1000,
+      "anim_flag": "static",
+      "cosmetic": {
+        "palette_cycle": {
+          "slots": [
+            "mushroom_glow"
+          ],
+          "hz": 1.5
+        }
+      },
+      "z": 3
     },
     "fire_flower": {
       "source_essence": "1985_super_mario_bros",
       "display_name": "Fire Flower",
       "mesh": "sphere",
       "trigger": "pickup",
-      "components": ["Resource('state_transition','fire')"],
-      "tags": ["pickup", "powerup", "weapon_grant"],
+      "components": [
+        "Resource('state_transition','fire')"
+      ],
+      "tags": [
+        "pickup",
+        "powerup",
+        "weapon_grant"
+      ],
       "sprite_ref": "sprites/item_fireflower",
-      "effect": { "kind": "player_state_transition", "target_state": "fire" },
+      "effect": {
+        "kind": "player_state_transition",
+        "target_state": "fire"
+      },
       "emerges_from_tag": "question_block",
-      "score_reward": 1000
+      "score_reward": 1000,
+      "anim_flag": "static",
+      "cosmetic": {
+        "palette_cycle": {
+          "slots": [
+            "fireflower_petals"
+          ],
+          "hz": 3.0
+        }
+      },
+      "z": 3
     },
     "star": {
       "source_essence": "1985_super_mario_bros",
       "display_name": "Super Star",
       "mesh": "sphere",
       "trigger": "pickup",
-      "components": ["Resource('invuln_frames',600)"],
-      "tags": ["pickup", "powerup", "timed_buff"],
+      "components": [
+        "Resource('invuln_frames',600)"
+      ],
+      "tags": [
+        "pickup",
+        "powerup",
+        "timed_buff"
+      ],
       "sprite_ref": "sprites/item_star",
-      "effect": { "kind": "timed_invincibility", "frames": 600 },
+      "effect": {
+        "kind": "timed_invincibility",
+        "frames": 600
+      },
       "emerges_from_tag": "question_block",
-      "score_reward": 1000
+      "score_reward": 1000,
+      "anim_flag": "static",
+      "cosmetic": {
+        "palette_cycle": {
+          "slots": [
+            "star_rainbow"
+          ],
+          "hz": 6.0
+        }
+      },
+      "z": 3
     },
     "one_up": {
       "source_essence": "1985_super_mario_bros",
       "display_name": "1-Up Mushroom",
       "mesh": "sphere",
       "trigger": "pickup",
-      "components": ["Resource('lives_delta',1)"],
-      "tags": ["pickup", "powerup", "life_grant"],
+      "components": [
+        "Resource('lives_delta',1)"
+      ],
+      "tags": [
+        "pickup",
+        "powerup",
+        "life_grant"
+      ],
       "sprite_ref": "sprites/item_1up",
-      "effect": { "kind": "grant_life", "amount": 1 },
-      "score_reward": 0
+      "effect": {
+        "kind": "grant_life",
+        "amount": 1
+      },
+      "score_reward": 0,
+      "anim_flag": "static",
+      "cosmetic": {
+        "palette_cycle": {
+          "slots": [
+            "1up_glow"
+          ],
+          "hz": 2.0
+        }
+      },
+      "z": 3
     },
     "coin": {
       "source_essence": "1985_super_mario_bros",
       "display_name": "Coin",
       "mesh": "sphere",
       "trigger": "pickup",
-      "components": ["Resource('coin_value',1)"],
-      "tags": ["pickup", "currency", "collectible"],
+      "components": [
+        "Resource('coin_value',1)"
+      ],
+      "tags": [
+        "pickup",
+        "currency",
+        "collectible"
+      ],
       "sprite_ref": "sprites/item_coin",
-      "effect": { "kind": "grant_currency", "field": "coins", "amount": 1 },
+      "effect": {
+        "kind": "grant_currency",
+        "field": "coins",
+        "amount": 1
+      },
       "every_100_grants_life": true,
-      "score_reward": 200
+      "score_reward": 200,
+      "anim_flag": "rotate",
+      "cosmetic": {
+        "palette_cycle": {
+          "slots": [
+            "coin_glint"
+          ],
+          "hz": 4.0
+        }
+      },
+      "z": 3
     },
     "energy_capsule": {
       "source_essence": "1988_mega_man_2",
       "display_name": "Energy Capsule",
       "mesh": "sphere",
       "trigger": "pickup",
-      "components": ["Resource('heal_amount',2)"],
-      "tags": ["pickup", "consumable", "health"],
+      "components": [
+        "Resource('heal_amount',2)"
+      ],
+      "tags": [
+        "pickup",
+        "consumable",
+        "health"
+      ],
       "sprite_ref": "sprites/item_energy_capsule",
-      "effect": { "kind": "heal", "amount": 2, "target": "player" },
-      "score_reward": 0
+      "effect": {
+        "kind": "heal",
+        "amount": 2,
+        "target": "player"
+      },
+      "score_reward": 0,
+      "anim_flag": "static",
+      "cosmetic": {
+        "palette_cycle": {
+          "slots": [
+            "capsule_pulse"
+          ],
+          "hz": 2.5
+        }
+      },
+      "z": 3
     }
   }
 }

@@ -6,9 +6,15 @@
       "params": {
         "target_tag": "player",
         "mode": "first_person_attach",
-        "head_offset": [0.0, 1.65, 0.0]
+        "head_offset": [
+          0.0,
+          1.65,
+          0.0
+        ]
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "weapon_attack_frames",
@@ -19,7 +25,9 @@
         "hitscan_resolution": "raycast_per_shot",
         "projectile_resolution": "simulated_entity"
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "enemy_projectile_patterns",
@@ -27,12 +35,24 @@
       "params": {
         "owner_tag": "projectile_attacker",
         "patterns": {
-          "fireball":      { "speed": 10.0, "kind": "straight_homing_weak" },
-          "lightning_ball":{ "speed": 12.0, "kind": "straight" },
-          "rocket":        { "speed": 20.0, "kind": "straight", "splash_radius": 2.5 }
+          "fireball": {
+            "speed": 10.0,
+            "kind": "straight_homing_weak"
+          },
+          "lightning_ball": {
+            "speed": 12.0,
+            "kind": "straight"
+          },
+          "rocket": {
+            "speed": 20.0,
+            "kind": "straight",
+            "splash_radius": 2.5
+          }
         }
       },
-      "requires_tags": ["projectile_attacker"]
+      "requires_tags": [
+        "projectile_attacker"
+      ]
     },
     {
       "id": "level_wave_spawner",
@@ -42,7 +62,9 @@
         "max_simultaneous_spawns": 12,
         "respawn_on_room_reenter": false
       },
-      "requires_tags": ["enemy"]
+      "requires_tags": [
+        "enemy"
+      ]
     },
     {
       "id": "pickup_loop",
@@ -52,14 +74,21 @@
         "owner_tag": "player",
         "by_effect_kind": true
       },
-      "requires_tags": ["pickup", "player"]
+      "requires_tags": [
+        "pickup",
+        "player"
+      ]
     },
     {
       "id": "weapon_item_use",
       "type": "ItemUse",
       "params": {
         "owner_tag": "player",
-        "slots": ["melee", "primary", "heavy"],
+        "slots": [
+          "melee",
+          "primary",
+          "heavy"
+        ],
         "starting_equipped": "pistol",
         "hotkey_number_mapping": {
           "1": "fists",
@@ -72,35 +101,79 @@
           "8": "bfg_9000"
         }
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "keycard_doors",
       "type": "LockAndKey",
       "params": {
         "locks": [
-          { "lock_tag": "locked_blue",   "key_field": "key_blue",   "level_any": true },
-          { "lock_tag": "locked_yellow", "key_field": "key_yellow", "level_any": true },
-          { "lock_tag": "locked_red",    "key_field": "key_red",    "level_any": true }
+          {
+            "lock_tag": "locked_blue",
+            "key_field": "key_blue",
+            "level_any": true
+          },
+          {
+            "lock_tag": "locked_yellow",
+            "key_field": "key_yellow",
+            "level_any": true
+          },
+          {
+            "lock_tag": "locked_red",
+            "key_field": "key_red",
+            "level_any": true
+          }
         ]
       },
-      "requires_tags": ["locked_blue", "locked_yellow", "locked_red"]
+      "requires_tags": [
+        "locked_blue",
+        "locked_yellow",
+        "locked_red"
+      ]
     },
     {
       "id": "fps_hud",
       "type": "HUD",
       "params": {
         "fields": [
-          { "archetype": "doom_marine_player", "component": "Health",       "label": "HP" },
-          { "archetype": "doom_marine_player", "component": "armor",        "label": "Armor" },
-          { "archetype": "doom_marine_player", "component": "ammo_bullet",  "label": "Bullets" },
-          { "archetype": "doom_marine_player", "component": "ammo_shell",   "label": "Shells" },
-          { "archetype": "doom_marine_player", "component": "ammo_rocket",  "label": "Rockets" },
-          { "archetype": "doom_marine_player", "component": "ammo_cell",    "label": "Cells" }
+          {
+            "archetype": "doom_marine_player",
+            "component": "Health",
+            "label": "HP"
+          },
+          {
+            "archetype": "doom_marine_player",
+            "component": "armor",
+            "label": "Armor"
+          },
+          {
+            "archetype": "doom_marine_player",
+            "component": "ammo_bullet",
+            "label": "Bullets"
+          },
+          {
+            "archetype": "doom_marine_player",
+            "component": "ammo_shell",
+            "label": "Shells"
+          },
+          {
+            "archetype": "doom_marine_player",
+            "component": "ammo_rocket",
+            "label": "Rockets"
+          },
+          {
+            "archetype": "doom_marine_player",
+            "component": "ammo_cell",
+            "label": "Cells"
+          }
         ],
         "layout": "bottom"
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "game_over_on_death",
@@ -110,7 +183,9 @@
         "field": "Health",
         "emit_condition": "player_died"
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     }
   ]
 }

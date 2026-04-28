@@ -2,63 +2,261 @@
   "levels": {
     "shadow_moses_heliport": {
       "source_essence": "1998_metal_gear_solid",
-      "display_name": "Shadow Moses — Heliport Exterior",
+      "display_name": "Shadow Moses \u2014 Heliport Exterior",
       "bg_sprite_ref": "sprites/bg/snow_heliport",
       "music_ref": "audio/bgm/mgs_infiltration",
       "width_tiles": 40,
       "height_tiles": 30,
-      "spawn_point": [3, 3],
-      "extraction_point": [37, 15],
-      "objective": { "kind": "reach_extraction_point", "target_pos": [37, 15] },
+      "spawn_point": [
+        3,
+        3
+      ],
+      "extraction_point": [
+        37,
+        15
+      ],
+      "objective": {
+        "kind": "reach_extraction_point",
+        "target_pos": [
+          37,
+          15
+        ]
+      },
       "waypoints": {
-        "wp_heli_north": [8, 5],
-        "wp_heli_south": [8, 25],
-        "wp_catwalk_east": [22, 10],
-        "wp_catwalk_west": [22, 20],
-        "wp_dock_exit": [36, 15]
+        "wp_heli_north": [
+          8,
+          5
+        ],
+        "wp_heli_south": [
+          8,
+          25
+        ],
+        "wp_catwalk_east": [
+          22,
+          10
+        ],
+        "wp_catwalk_west": [
+          22,
+          20
+        ],
+        "wp_dock_exit": [
+          36,
+          15
+        ]
       },
       "patrol_paths": {
-        "path_heliport_loop": { "waypoints": ["wp_heli_north", "wp_heli_south"], "mode": "back_and_forth", "pause_frames": 60 },
-        "path_catwalk_sweep": { "waypoints": ["wp_catwalk_east", "wp_catwalk_west"], "mode": "back_and_forth", "pause_frames": 90 }
+        "path_heliport_loop": {
+          "waypoints": [
+            "wp_heli_north",
+            "wp_heli_south"
+          ],
+          "mode": "back_and_forth",
+          "pause_frames": 60
+        },
+        "path_catwalk_sweep": {
+          "waypoints": [
+            "wp_catwalk_east",
+            "wp_catwalk_west"
+          ],
+          "mode": "back_and_forth",
+          "pause_frames": 90
+        }
       },
       "guards": [
-        { "id": "patrol_guard_standard", "pos": [8, 15], "patrol_path_ref": "path_heliport_loop" },
-        { "id": "patrol_guard_standard", "pos": [22, 15], "patrol_path_ref": "path_catwalk_sweep" },
-        { "id": "security_camera", "pos": [30, 5], "facing_deg": 180 },
-        { "id": "security_camera", "pos": [30, 25], "facing_deg": 180 }
+        {
+          "id": "patrol_guard_standard",
+          "pos": [
+            8,
+            15
+          ],
+          "patrol_path_ref": "path_heliport_loop"
+        },
+        {
+          "id": "patrol_guard_standard",
+          "pos": [
+            22,
+            15
+          ],
+          "patrol_path_ref": "path_catwalk_sweep"
+        },
+        {
+          "id": "security_camera",
+          "pos": [
+            30,
+            5
+          ],
+          "facing_deg": 180
+        },
+        {
+          "id": "security_camera",
+          "pos": [
+            30,
+            25
+          ],
+          "facing_deg": 180
+        }
       ],
-      "hiding_spots": [ { "pos": [12, 8], "kind": "cardboard_box" }, { "pos": [18, 22], "kind": "wall_corner" } ],
-      "objective_items": [ { "id": "keycard_level_1", "pos": [15, 15] } ],
-      "doors": [ { "pos": [36, 15], "to_level": "tank_hangar", "kind": "locked_keycard_1" } ]
+      "hiding_spots": [
+        {
+          "pos": [
+            12,
+            8
+          ],
+          "kind": "cardboard_box"
+        },
+        {
+          "pos": [
+            18,
+            22
+          ],
+          "kind": "wall_corner"
+        }
+      ],
+      "objective_items": [
+        {
+          "id": "keycard_level_1",
+          "pos": [
+            15,
+            15
+          ]
+        }
+      ],
+      "doors": [
+        {
+          "pos": [
+            36,
+            15
+          ],
+          "to_level": "tank_hangar",
+          "kind": "locked_keycard_1"
+        }
+      ]
     },
     "tank_hangar": {
       "source_essence": "1998_metal_gear_solid",
-      "display_name": "Shadow Moses — Tank Hangar",
+      "display_name": "Shadow Moses \u2014 Tank Hangar",
       "bg_sprite_ref": "sprites/bg/tank_hangar",
       "music_ref": "audio/bgm/mgs_discovery",
       "width_tiles": 50,
       "height_tiles": 40,
-      "spawn_point": [2, 20],
-      "extraction_point": [47, 20],
-      "objective": { "kind": "reach_extraction_point", "target_pos": [47, 20] },
+      "spawn_point": [
+        2,
+        20
+      ],
+      "extraction_point": [
+        47,
+        20
+      ],
+      "objective": {
+        "kind": "reach_extraction_point",
+        "target_pos": [
+          47,
+          20
+        ]
+      },
       "waypoints": {
-        "wp_hangar_nw": [10, 8],
-        "wp_hangar_ne": [40, 8],
-        "wp_hangar_sw": [10, 32],
-        "wp_hangar_se": [40, 32],
-        "wp_center": [25, 20]
+        "wp_hangar_nw": [
+          10,
+          8
+        ],
+        "wp_hangar_ne": [
+          40,
+          8
+        ],
+        "wp_hangar_sw": [
+          10,
+          32
+        ],
+        "wp_hangar_se": [
+          40,
+          32
+        ],
+        "wp_center": [
+          25,
+          20
+        ]
       },
       "patrol_paths": {
-        "path_hangar_perimeter": { "waypoints": ["wp_hangar_nw", "wp_hangar_ne", "wp_hangar_se", "wp_hangar_sw"], "mode": "loop_clockwise", "pause_frames": 45 }
+        "path_hangar_perimeter": {
+          "waypoints": [
+            "wp_hangar_nw",
+            "wp_hangar_ne",
+            "wp_hangar_se",
+            "wp_hangar_sw"
+          ],
+          "mode": "loop_clockwise",
+          "pause_frames": 45
+        }
       },
       "guards": [
-        { "id": "patrol_guard_standard", "pos": [10, 20], "patrol_path_ref": "path_hangar_perimeter" },
-        { "id": "patrol_guard_heavy",    "pos": [25, 20], "patrol_path_ref": null, "stance": "sentry_center" },
-        { "id": "stationary_sentry",     "pos": [45, 15], "facing_deg": 270 }
+        {
+          "id": "patrol_guard_standard",
+          "pos": [
+            10,
+            20
+          ],
+          "patrol_path_ref": "path_hangar_perimeter"
+        },
+        {
+          "id": "patrol_guard_heavy",
+          "pos": [
+            25,
+            20
+          ],
+          "patrol_path_ref": null,
+          "stance": "sentry_center"
+        },
+        {
+          "id": "stationary_sentry",
+          "pos": [
+            45,
+            15
+          ],
+          "facing_deg": 270
+        }
       ],
-      "hiding_spots": [ { "pos": [15, 15], "kind": "locker" }, { "pos": [30, 25], "kind": "tank_shadow" }, { "pos": [20, 35], "kind": "crate_stack" } ],
-      "objective_items": [ { "id": "keycard_level_2", "pos": [45, 8] } ],
-      "doors": [ { "pos": [47, 20], "to_level": "thief_cragscleft", "kind": "locked_keycard_2" } ]
+      "hiding_spots": [
+        {
+          "pos": [
+            15,
+            15
+          ],
+          "kind": "locker"
+        },
+        {
+          "pos": [
+            30,
+            25
+          ],
+          "kind": "tank_shadow"
+        },
+        {
+          "pos": [
+            20,
+            35
+          ],
+          "kind": "crate_stack"
+        }
+      ],
+      "objective_items": [
+        {
+          "id": "keycard_level_2",
+          "pos": [
+            45,
+            8
+          ]
+        }
+      ],
+      "doors": [
+        {
+          "pos": [
+            47,
+            20
+          ],
+          "to_level": "thief_cragscleft",
+          "kind": "locked_keycard_2"
+        }
+      ]
     },
     "thief_cragscleft": {
       "source_essence": "1998_thief_dark_project",
@@ -67,33 +265,175 @@
       "music_ref": "audio/bgm/thief_stealth",
       "width_tiles": 60,
       "height_tiles": 50,
-      "spawn_point": [5, 45],
-      "extraction_point": [55, 5],
-      "objective": { "kind": "exfiltrate_item", "item": "prison_loot_pouch", "to_pos": [55, 5] },
+      "spawn_point": [
+        5,
+        45
+      ],
+      "extraction_point": [
+        55,
+        5
+      ],
+      "objective": {
+        "kind": "exfiltrate_item",
+        "item": "prison_loot_pouch",
+        "to_pos": [
+          55,
+          5
+        ]
+      },
       "waypoints": {
-        "wp_cell_block_a": [15, 40],
-        "wp_cell_block_b": [30, 40],
-        "wp_guardroom": [35, 20],
-        "wp_chapel_hall": [45, 15],
-        "wp_exit_stairs": [55, 8]
+        "wp_cell_block_a": [
+          15,
+          40
+        ],
+        "wp_cell_block_b": [
+          30,
+          40
+        ],
+        "wp_guardroom": [
+          35,
+          20
+        ],
+        "wp_chapel_hall": [
+          45,
+          15
+        ],
+        "wp_exit_stairs": [
+          55,
+          8
+        ]
       },
       "patrol_paths": {
-        "path_cellblock_torch": { "waypoints": ["wp_cell_block_a", "wp_cell_block_b"], "mode": "back_and_forth", "pause_frames": 90 },
-        "path_chapel_circuit":  { "waypoints": ["wp_guardroom", "wp_chapel_hall"], "mode": "back_and_forth", "pause_frames": 75 }
+        "path_cellblock_torch": {
+          "waypoints": [
+            "wp_cell_block_a",
+            "wp_cell_block_b"
+          ],
+          "mode": "back_and_forth",
+          "pause_frames": 90
+        },
+        "path_chapel_circuit": {
+          "waypoints": [
+            "wp_guardroom",
+            "wp_chapel_hall"
+          ],
+          "mode": "back_and_forth",
+          "pause_frames": 75
+        }
       },
       "guards": [
-        { "id": "roaming_officer", "pos": [15, 40], "patrol_path_ref": "path_cellblock_torch" },
-        { "id": "roaming_officer", "pos": [35, 20], "patrol_path_ref": "path_chapel_circuit" },
-        { "id": "stationary_sentry", "pos": [50, 10], "facing_deg": 180 }
+        {
+          "id": "roaming_officer",
+          "pos": [
+            15,
+            40
+          ],
+          "patrol_path_ref": "path_cellblock_torch"
+        },
+        {
+          "id": "roaming_officer",
+          "pos": [
+            35,
+            20
+          ],
+          "patrol_path_ref": "path_chapel_circuit"
+        },
+        {
+          "id": "stationary_sentry",
+          "pos": [
+            50,
+            10
+          ],
+          "facing_deg": 180
+        }
       ],
-      "hiding_spots": [ { "pos": [20, 38], "kind": "dark_corner" }, { "pos": [40, 18], "kind": "pew_shadow" }, { "pos": [48, 12], "kind": "tapestry" } ],
+      "hiding_spots": [
+        {
+          "pos": [
+            20,
+            38
+          ],
+          "kind": "dark_corner"
+        },
+        {
+          "pos": [
+            40,
+            18
+          ],
+          "kind": "pew_shadow"
+        },
+        {
+          "pos": [
+            48,
+            12
+          ],
+          "kind": "tapestry"
+        }
+      ],
       "light_regions": [
-        { "aabb": [[10, 35], [25, 45]], "level": "lit", "source": "torch_cellblock" },
-        { "aabb": [[30, 15], [40, 25]], "level": "dim", "source": "lantern_guardroom" },
-        { "aabb": [[0, 0],   [60, 50]], "level": "dark", "source": "ambient_default" }
+        {
+          "aabb": [
+            [
+              10,
+              35
+            ],
+            [
+              25,
+              45
+            ]
+          ],
+          "level": "lit",
+          "source": "torch_cellblock"
+        },
+        {
+          "aabb": [
+            [
+              30,
+              15
+            ],
+            [
+              40,
+              25
+            ]
+          ],
+          "level": "dim",
+          "source": "lantern_guardroom"
+        },
+        {
+          "aabb": [
+            [
+              0,
+              0
+            ],
+            [
+              60,
+              50
+            ]
+          ],
+          "level": "dark",
+          "source": "ambient_default"
+        }
       ],
-      "objective_items": [ { "id": "prison_loot_pouch", "pos": [25, 30] } ],
-      "doors": [ { "pos": [55, 5], "to_level": "game_complete", "kind": "lockpickable", "difficulty": 2 } ]
+      "objective_items": [
+        {
+          "id": "prison_loot_pouch",
+          "pos": [
+            25,
+            30
+          ]
+        }
+      ],
+      "doors": [
+        {
+          "pos": [
+            55,
+            5
+          ],
+          "to_level": "game_complete",
+          "kind": "lockpickable",
+          "difficulty": 2
+        }
+      ]
     }
   },
   "starting_level": "shadow_moses_heliport"

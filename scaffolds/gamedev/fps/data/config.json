@@ -2,18 +2,36 @@
   "meta": {
     "title": "FPS Scaffold Seed",
     "shape": "action",
-    "vibe": ["doom-era-fps", "hitscan-and-projectile", "keycard-doors", "boss-arena"],
+    "vibe": [
+      "doom-era-fps",
+      "hitscan-and-projectile",
+      "keycard-doors",
+      "boss-arena"
+    ],
     "target_session_sec": 1200
   },
   "config": {
     "mode": "3d",
     "camera": "perspective",
-    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 64 } },
-    "gravity": [0.0, -9.81, 0.0],
+    "playfield": {
+      "kind": "continuous",
+      "arena": {
+        "shape": "rect",
+        "size": 64
+      }
+    },
+    "gravity": [
+      0.0,
+      -9.81,
+      0.0
+    ],
     "sandbox": false
   },
   "starting_level": "e1m1_hangar",
-  "starting_weapons": ["fists", "pistol"],
+  "starting_weapons": [
+    "fists",
+    "pistol"
+  ],
   "starting_weapon_equipped": "pistol",
   "starting_ammo": {
     "bullet": 50,
@@ -23,7 +41,13 @@
   },
   "crosshair_style": "plus",
   "difficulty": "hurt_me_plenty",
-  "difficulty_options": ["im_too_young_to_die", "hey_not_too_rough", "hurt_me_plenty", "ultra_violence", "nightmare"],
+  "difficulty_options": [
+    "im_too_young_to_die",
+    "hey_not_too_rough",
+    "hurt_me_plenty",
+    "ultra_violence",
+    "nightmare"
+  ],
   "win_condition": {
     "kind": "exit_switch_reached",
     "target_next_level": "game_complete"

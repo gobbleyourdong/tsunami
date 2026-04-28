@@ -36,7 +36,11 @@
       "moves_per_frame": 1,
       "throwable_weapons_consume_on_throw": true,
       "ground_pickups_have_1_use": true,
-      "grab_escape_via_mash": { "input": "wiggle_stick_or_mash_P", "required_mashes_min": 3, "required_mashes_max": 8 }
+      "grab_escape_via_mash": {
+        "input": "wiggle_stick_or_mash_P",
+        "required_mashes_min": 3,
+        "required_mashes_max": 8
+      }
     },
     "win_condition": {
       "kind": "defeat_final_boss_in_final_stage",

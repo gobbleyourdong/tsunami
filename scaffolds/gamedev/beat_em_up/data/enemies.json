@@ -7,8 +7,18 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:approach_and_jab",
-      "components": ["Health(80)", "Resource('stun',40)", "Resource('damage',8)"],
-      "tags": ["enemy", "damageable", "melee", "grunt", "low_tier"],
+      "components": [
+        "Health(80)",
+        "Resource('stun',40)",
+        "Resource('damage',8)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "melee",
+        "grunt",
+        "low_tier"
+      ],
       "sprite_ref": "sprites/enemies/bred",
       "attack_kind": "melee_jab",
       "attack_damage": 8,
@@ -17,10 +27,19 @@
       "combo_chain_vs_player": 2,
       "move_speed": 2.0,
       "drop_table": [
-        { "item": "coin_bag", "rate": 0.3 },
-        { "item": "chicken",  "rate": 0.05 }
+        {
+          "item": "coin_bag",
+          "rate": 0.3
+        },
+        {
+          "item": "chicken",
+          "rate": 0.05
+        }
       ],
-      "xp_reward": 10
+      "xp_reward": 10,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "el_gado_knife": {
       "source_essence": "1989_final_fight",
@@ -29,18 +48,37 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:keep_distance_throw_knife",
-      "components": ["Health(90)", "Resource('stun',40)", "Resource('damage',12)"],
-      "tags": ["enemy", "damageable", "ranged_thrower", "knife_wielder"],
+      "components": [
+        "Health(90)",
+        "Resource('stun',40)",
+        "Resource('damage',12)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "ranged_thrower",
+        "knife_wielder"
+      ],
       "sprite_ref": "sprites/enemies/el_gado",
       "attack_kind": "ranged_thrown_knife",
-      "projectile": { "kind": "knife", "speed": 8.0, "damage": 12 },
+      "projectile": {
+        "kind": "knife",
+        "speed": 8.0,
+        "damage": 12
+      },
       "melee_damage": 6,
       "attack_cooldown_frames": 60,
       "move_speed": 2.2,
       "drop_table": [
-        { "item": "knife", "rate": 0.8 }
+        {
+          "item": "knife",
+          "rate": 0.8
+        }
       ],
-      "xp_reward": 15
+      "xp_reward": 15,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "bill_bull_fatboy": {
       "source_essence": "1989_final_fight",
@@ -49,8 +87,18 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:body_slam_advance",
-      "components": ["Health(220)", "Resource('stun',60)", "Resource('damage',18)"],
-      "tags": ["enemy", "damageable", "melee", "heavy_armored", "body_slam"],
+      "components": [
+        "Health(220)",
+        "Resource('stun',60)",
+        "Resource('damage',18)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "melee",
+        "heavy_armored",
+        "body_slam"
+      ],
       "sprite_ref": "sprites/enemies/bill_bull",
       "attack_kind": "melee_body_slam",
       "attack_damage": 18,
@@ -59,10 +107,19 @@
       "hyperarmor_frames": 20,
       "move_speed": 1.4,
       "drop_table": [
-        { "item": "coin_bag", "rate": 0.5 },
-        { "item": "chicken",  "rate": 0.2 }
+        {
+          "item": "coin_bag",
+          "rate": 0.5
+        },
+        {
+          "item": "chicken",
+          "rate": 0.2
+        }
       ],
-      "xp_reward": 30
+      "xp_reward": 30,
+      "anim_flag": "animating",
+      "loop_frames": 6,
+      "z": 3
     },
     "hollywood_runner": {
       "source_essence": "1989_final_fight",
@@ -71,8 +128,17 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:steal_and_flee",
-      "components": ["Health(60)", "Resource('stun',30)", "Resource('damage',4)"],
-      "tags": ["enemy", "damageable", "fast", "thief"],
+      "components": [
+        "Health(60)",
+        "Resource('stun',30)",
+        "Resource('damage',4)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "fast",
+        "thief"
+      ],
       "sprite_ref": "sprites/enemies/hollywood",
       "attack_kind": "pickpocket_steal_pickup",
       "attack_damage": 4,
@@ -82,9 +148,15 @@
       "flee_after_steal": true,
       "move_speed": 3.2,
       "drop_table": [
-        { "item": "stolen_pickup_dropped_on_kill", "rate": 1.0 }
+        {
+          "item": "stolen_pickup_dropped_on_kill",
+          "rate": 1.0
+        }
       ],
-      "xp_reward": 12
+      "xp_reward": 12,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "andore_brother": {
       "source_essence": "1989_final_fight",
@@ -93,8 +165,18 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:giant_grab_and_piledriver",
-      "components": ["Health(300)", "Resource('stun',80)", "Resource('damage',24)"],
-      "tags": ["enemy", "damageable", "giant", "grappler", "elite"],
+      "components": [
+        "Health(300)",
+        "Resource('stun',80)",
+        "Resource('damage',24)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "giant",
+        "grappler",
+        "elite"
+      ],
       "sprite_ref": "sprites/enemies/andore",
       "attack_kind": "grab_piledriver",
       "attack_damage": 24,
@@ -104,10 +186,19 @@
       "hyperarmor_frames": 30,
       "move_speed": 1.6,
       "drop_table": [
-        { "item": "jewel", "rate": 0.3 },
-        { "item": "chicken", "rate": 0.25 }
+        {
+          "item": "jewel",
+          "rate": 0.3
+        },
+        {
+          "item": "chicken",
+          "rate": 0.25
+        }
       ],
-      "xp_reward": 50
+      "xp_reward": 50,
+      "anim_flag": "animating",
+      "loop_frames": 6,
+      "z": 3
     },
     "poison_flipkick": {
       "source_essence": "1989_final_fight",
@@ -116,8 +207,17 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:flip_kick_approach",
-      "components": ["Health(90)", "Resource('stun',40)", "Resource('damage',10)"],
-      "tags": ["enemy", "damageable", "acrobat", "fast"],
+      "components": [
+        "Health(90)",
+        "Resource('stun',40)",
+        "Resource('damage',10)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "acrobat",
+        "fast"
+      ],
       "sprite_ref": "sprites/enemies/poison",
       "attack_kind": "melee_flipkick",
       "attack_damage": 10,
@@ -126,9 +226,15 @@
       "jump_over_attack": true,
       "move_speed": 2.5,
       "drop_table": [
-        { "item": "coin_bag", "rate": 0.4 }
+        {
+          "item": "coin_bag",
+          "rate": 0.4
+        }
       ],
-      "xp_reward": 18
+      "xp_reward": 18,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "sodom_midboss": {
       "source_essence": "1989_final_fight",
@@ -137,8 +243,17 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:sodom_dual_katana",
-      "components": ["Health(600)", "Resource('stun',100)", "Resource('damage',28)"],
-      "tags": ["enemy", "damageable", "mid_boss", "katana_wielder"],
+      "components": [
+        "Health(600)",
+        "Resource('stun',100)",
+        "Resource('damage',28)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "mid_boss",
+        "katana_wielder"
+      ],
       "sprite_ref": "sprites/enemies/sodom",
       "attack_kind": "melee_dual_katana",
       "attack_damage": 28,
@@ -149,9 +264,15 @@
       "hyperarmor_frames": 25,
       "move_speed": 1.8,
       "drop_table": [
-        { "item": "katana", "rate": 1.0 }
+        {
+          "item": "katana",
+          "rate": 1.0
+        }
       ],
-      "xp_reward": 120
+      "xp_reward": 120,
+      "anim_flag": "animating",
+      "loop_frames": 6,
+      "z": 3
     },
     "belger_final_boss": {
       "source_essence": "1989_final_fight",
@@ -160,20 +281,43 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:belger_phase_machine",
-      "components": ["Health(1400)", "Resource('stun',120)", "Resource('damage',32)"],
-      "tags": ["enemy", "damageable", "boss", "final_boss", "wheelchair_phase"],
+      "components": [
+        "Health(1400)",
+        "Resource('stun',120)",
+        "Resource('damage',32)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "boss",
+        "final_boss",
+        "wheelchair_phase"
+      ],
       "sprite_ref": "sprites/enemies/belger",
       "phases": [
-        { "health_threshold": 1.0, "behavior": "bt:belger_phase1_wheelchair_crossbow" },
-        { "health_threshold": 0.4, "behavior": "bt:belger_phase2_escape_wheelchair_melee" }
+        {
+          "health_threshold": 1.0,
+          "behavior": "bt:belger_phase1_wheelchair_crossbow"
+        },
+        {
+          "health_threshold": 0.4,
+          "behavior": "bt:belger_phase2_escape_wheelchair_melee"
+        }
       ],
       "attack_kind": "ranged_crossbow_then_melee",
-      "projectile": { "kind": "crossbow_bolt", "speed": 10.0, "damage": 18 },
+      "projectile": {
+        "kind": "crossbow_bolt",
+        "speed": 10.0,
+        "damage": 18
+      },
       "melee_damage": 32,
       "attack_range": 2.0,
       "move_speed": 1.5,
       "drop_table": [],
-      "xp_reward": 0
+      "xp_reward": 0,
+      "anim_flag": "animating",
+      "loop_frames": 6,
+      "z": 3
     }
   }
 }

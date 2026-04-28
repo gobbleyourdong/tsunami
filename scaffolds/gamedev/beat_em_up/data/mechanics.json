@@ -8,9 +8,16 @@
         "movesets_ref": "moves.json#movesets",
         "combo_link_field": "combo_link_into",
         "link_window_frames_field": "link_window_frames",
-        "damage_scaling_per_link": [1.0, 1.1, 1.2, 1.5]
+        "damage_scaling_per_link": [
+          1.0,
+          1.1,
+          1.2,
+          1.5
+        ]
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "brawler_attack_frames",
@@ -22,7 +29,9 @@
         "knockdown_on_finisher": true,
         "hyperarmor_on_weapon_swing": false
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "stage_wave_spawner",
@@ -33,7 +42,9 @@
         "camera_advances_only_after_screen_clear": true,
         "max_simultaneous_enemies": 4
       },
-      "requires_tags": ["enemy"]
+      "requires_tags": [
+        "enemy"
+      ]
     },
     {
       "id": "brawler_camera_locked_forward",
@@ -43,11 +54,16 @@
         "mode": "side_scroll_advance_on_clear",
         "centroid_target_if_coop": true,
         "lerp": 0.15,
-        "deadzone": [1.5, 0.5],
+        "deadzone": [
+          1.5,
+          0.5
+        ],
         "lock_camera_x_on_screen_enter": true,
         "unlock_camera_x_on_screen_cleared": true
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "pickup_and_food_loop",
@@ -59,16 +75,31 @@
         "weapon_pickup_displaces_fists": true,
         "food_pickup_heals_immediate": true
       },
-      "requires_tags": ["pickup", "player"]
+      "requires_tags": [
+        "pickup",
+        "player"
+      ]
     },
     {
       "id": "brawler_hud",
       "type": "HUD",
       "params": {
         "fields": [
-          { "archetype": "haggar_grappler", "component": "Health", "label": "Haggar HP" },
-          { "archetype": "cody_balanced",   "component": "Health", "label": "Cody HP" },
-          { "archetype": "guy_speedfighter","component": "Health", "label": "Guy HP" }
+          {
+            "archetype": "haggar_grappler",
+            "component": "Health",
+            "label": "Haggar HP"
+          },
+          {
+            "archetype": "cody_balanced",
+            "component": "Health",
+            "label": "Cody HP"
+          },
+          {
+            "archetype": "guy_speedfighter",
+            "component": "Health",
+            "label": "Guy HP"
+          }
         ],
         "layout": "top",
         "show_per_player_lives": true,
@@ -76,18 +107,28 @@
         "show_score": true,
         "show_coop_name_tags": true
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "game_over_on_all_players_ko",
       "type": "LoseOnZero",
       "params": {
-        "archetype": { "any_of": ["haggar_grappler", "cody_balanced", "guy_speedfighter"] },
+        "archetype": {
+          "any_of": [
+            "haggar_grappler",
+            "cody_balanced",
+            "guy_speedfighter"
+          ]
+        },
         "field": "lives",
         "emit_condition": "all_players_ko_no_continues",
         "respects_continue_system": true
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "win_on_final_boss_defeat",
@@ -100,26 +141,28 @@
         "target_stages": 3,
         "emit_condition": "campaign_cleared_belger_defeated"
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "brawler_sfx_library",
       "type": "SfxLibrary",
       "params": {
         "events": {
-          "punch_connect":   "audio/sfx/punch_thud",
-          "kick_connect":    "audio/sfx/kick_thud",
-          "knockdown":       "audio/sfx/knockdown_grunt",
-          "grab_throw":      "audio/sfx/grab_hyaaa",
+          "punch_connect": "audio/sfx/punch_thud",
+          "kick_connect": "audio/sfx/kick_thud",
+          "knockdown": "audio/sfx/knockdown_grunt",
+          "grab_throw": "audio/sfx/grab_hyaaa",
           "spinning_piledriver_voice": "audio/sfx/haggar_whaaa",
-          "glass_shatter":   "audio/sfx/glass_shatter",
-          "barrel_smash":    "audio/sfx/barrel_smash",
-          "chicken_grab":    "audio/sfx/food_pickup",
-          "coin_pickup":     "audio/sfx/coin_chime",
-          "weapon_pickup":   "audio/sfx/metal_clink",
-          "enemy_death":     "audio/sfx/enemy_death_cry",
-          "round_start":     "audio/sfx/round_start_chime",
-          "stage_cleared":   "audio/sfx/stage_fanfare"
+          "glass_shatter": "audio/sfx/glass_shatter",
+          "barrel_smash": "audio/sfx/barrel_smash",
+          "chicken_grab": "audio/sfx/food_pickup",
+          "coin_pickup": "audio/sfx/coin_chime",
+          "weapon_pickup": "audio/sfx/metal_clink",
+          "enemy_death": "audio/sfx/enemy_death_cry",
+          "round_start": "audio/sfx/round_start_chime",
+          "stage_cleared": "audio/sfx/stage_fanfare"
         }
       },
       "requires_tags": []
@@ -128,7 +171,7 @@
   "proposed_but_unused": {
     "_comment": "These 3 MechanicTypes were proposed in JOB-Y's 1989_final_fight.md essence-write and consolidated in catalog_proposals.md. They are NOT yet registered in mechanics/_registry.ts. The beat-em-up scaffold currently approximates them with the close-mappings noted; if main promotes these in a future framework pass, this scaffold can be tightened.",
     "SideScrollBeatEmUpStage": {
-      "currently_approximated_by": "stage_wave_spawner (WaveSpawner) with `camera_advances_only_after_screen_clear: true` + brawler_camera_locked_forward (CameraFollow) with `lock_camera_x_on_screen_enter: true` — pair-of-mechanics gives equivalent screen-lock-clear-to-advance behavior.",
+      "currently_approximated_by": "stage_wave_spawner (WaveSpawner) with `camera_advances_only_after_screen_clear: true` + brawler_camera_locked_forward (CameraFollow) with `lock_camera_x_on_screen_enter: true` \u2014 pair-of-mechanics gives equivalent screen-lock-clear-to-advance behavior.",
       "what_promotion_would_unlock": "first-class side-scroll-stage primitive with single-param `length_pixels` + `screen_width_pixels` + `advance_on_clear_predicate` instead of 2-mechanic composition."
     },
     "CoopSharedScreen": {
@@ -136,7 +179,7 @@
       "what_promotion_would_unlock": "dedicated CoopSharedScreen mechanic with declarative max_players + friendly_fire_toggle + per_player_credit_pool instead of scattered flags across 3 files."
     },
     "ArcadeContinueTimer": {
-      "currently_approximated_by": "rules.json#continue_system (countdown on KO + consume-credit-to-continue) — equivalent behavior, but continues are declared as rules not a first-class mechanic.",
+      "currently_approximated_by": "rules.json#continue_system (countdown on KO + consume-credit-to-continue) \u2014 equivalent behavior, but continues are declared as rules not a first-class mechanic.",
       "what_promotion_would_unlock": "ArcadeContinueTimer mechanic with countdown_seconds + continue_input + on_timeout_action params; one-line declare instead of rules-block."
     },
     "SelfDamagingDesperation": {
@@ -144,7 +187,7 @@
       "what_promotion_would_unlock": "first-class desperation-attack mechanic with self_damage + aoe_radius + invuln_window params instead of move-list convention."
     },
     "BreakableEnvironmentObjects": {
-      "currently_approximated_by": "stages.json#breakable_props array + pickups.json#drop_spawns_in_breakable_props per-pickup. Runtime needs to implement breakable-prop destruction → pickup-spawn logic.",
+      "currently_approximated_by": "stages.json#breakable_props array + pickups.json#drop_spawns_in_breakable_props per-pickup. Runtime needs to implement breakable-prop destruction \u2192 pickup-spawn logic.",
       "what_promotion_would_unlock": "first-class breakable-prop mechanic with destructible_by_attack + destructible_by_throw + drop_resolver_ref params."
     }
   }

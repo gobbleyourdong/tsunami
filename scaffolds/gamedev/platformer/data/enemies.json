@@ -6,13 +6,28 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "patrol",
-      "components": ["Health(1)", "Resource('damage',1)"],
-      "tags": ["enemy", "damageable", "ground_patrol", "stompable"],
+      "components": [
+        "Health(1)",
+        "Resource('damage',1)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "ground_patrol",
+        "stompable"
+      ],
       "sprite_ref": "sprites/enemy_goomba",
-      "movement": { "walk_speed": 1.6, "reverse_on_edge": true, "reverse_on_wall": true },
+      "movement": {
+        "walk_speed": 1.6,
+        "reverse_on_edge": true,
+        "reverse_on_wall": true
+      },
       "trigger": "damage",
       "defeat_on_stomp": true,
-      "score_reward": 100
+      "score_reward": 100,
+      "anim_flag": "animating",
+      "loop_frames": 2,
+      "z": 3
     },
     "koopa_troopa": {
       "source_essence": "1985_super_mario_bros",
@@ -20,14 +35,30 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "patrol",
-      "components": ["Health(2)", "Resource('damage',1)"],
-      "tags": ["enemy", "damageable", "ground_patrol", "stompable", "shell_carrier"],
+      "components": [
+        "Health(2)",
+        "Resource('damage',1)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "ground_patrol",
+        "stompable",
+        "shell_carrier"
+      ],
       "sprite_ref": "sprites/enemy_koopa",
-      "movement": { "walk_speed": 1.4, "reverse_on_edge": false, "reverse_on_wall": true },
+      "movement": {
+        "walk_speed": 1.4,
+        "reverse_on_edge": false,
+        "reverse_on_wall": true
+      },
       "trigger": "damage",
       "stomp_state": "shell_idle",
       "shell_kick_speed": 7.0,
-      "score_reward": 200
+      "score_reward": 200,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "piranha_plant": {
       "source_essence": "1985_super_mario_bros",
@@ -35,12 +66,29 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "fsm:piranha_pipe_cycle",
-      "components": ["Health(1)", "Resource('damage',1)"],
-      "tags": ["enemy", "damageable", "stationary", "pipe_mounted", "not_stompable"],
+      "components": [
+        "Health(1)",
+        "Resource('damage',1)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "stationary",
+        "pipe_mounted",
+        "not_stompable"
+      ],
       "sprite_ref": "sprites/enemy_piranha",
-      "cycle_frames": { "hidden": 60, "rising": 20, "extended": 90, "retracting": 20 },
+      "cycle_frames": {
+        "hidden": 60,
+        "rising": 20,
+        "extended": 90,
+        "retracting": 20
+      },
       "trigger": "damage",
-      "score_reward": 200
+      "score_reward": 200,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "thwomp": {
       "source_essence": "1990_super_mario_world",
@@ -48,13 +96,24 @@
       "mesh": "box",
       "controller": "none",
       "ai": "fsm:thwomp_trigger_drop",
-      "components": ["Health(999)", "Resource('damage',2)"],
-      "tags": ["enemy", "invincible", "stationary", "crush_hazard"],
+      "components": [
+        "Health(999)",
+        "Resource('damage',2)"
+      ],
+      "tags": [
+        "enemy",
+        "invincible",
+        "stationary",
+        "crush_hazard"
+      ],
       "sprite_ref": "sprites/enemy_thwomp",
       "trigger_radius": 3.0,
       "drop_speed": 12.0,
       "rise_speed": 2.0,
-      "score_reward": 0
+      "score_reward": 0,
+      "anim_flag": "animating",
+      "loop_frames": 2,
+      "z": 3
     },
     "met": {
       "source_essence": "1987_mega_man",
@@ -62,13 +121,32 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "fsm:met_helmet_cycle",
-      "components": ["Health(1)", "Resource('damage',1)"],
-      "tags": ["enemy", "damageable", "ground_stationary", "helmet_invuln"],
+      "components": [
+        "Health(1)",
+        "Resource('damage',1)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "ground_stationary",
+        "helmet_invuln"
+      ],
       "sprite_ref": "sprites/enemy_met",
-      "cycle_frames": { "helmet_down_invuln": 50, "pop_up": 8, "fire_3way": 20, "helmet_retreat": 12 },
-      "shoots_projectile": { "kind": "pellet_3way", "speed": 4.5 },
+      "cycle_frames": {
+        "helmet_down_invuln": 50,
+        "pop_up": 8,
+        "fire_3way": 20,
+        "helmet_retreat": 12
+      },
+      "shoots_projectile": {
+        "kind": "pellet_3way",
+        "speed": 4.5
+      },
       "trigger": "damage",
-      "score_reward": 100
+      "score_reward": 100,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "sniper_joe": {
       "source_essence": "1987_mega_man",
@@ -76,13 +154,31 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "fsm:sniper_joe_shield_cycle",
-      "components": ["Health(3)", "Resource('damage',1)"],
-      "tags": ["enemy", "damageable", "ground_stationary", "shield_invuln"],
+      "components": [
+        "Health(3)",
+        "Resource('damage',1)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "ground_stationary",
+        "shield_invuln"
+      ],
       "sprite_ref": "sprites/enemy_sniper_joe",
-      "cycle_frames": { "shield_up_invuln": 60, "shield_down_fire": 20, "jump_dodge": 18 },
-      "shoots_projectile": { "kind": "pellet", "speed": 5.0 },
+      "cycle_frames": {
+        "shield_up_invuln": 60,
+        "shield_down_fire": 20,
+        "jump_dodge": 18
+      },
+      "shoots_projectile": {
+        "kind": "pellet",
+        "speed": 5.0
+      },
       "trigger": "damage",
-      "score_reward": 500
+      "score_reward": 500,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "robot_master_airman": {
       "source_essence": "1988_mega_man_2",
@@ -90,15 +186,33 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:robot_master_airman",
-      "components": ["Health(28)", "Resource('damage',3)"],
-      "tags": ["enemy", "damageable", "boss", "robot_master", "weakness_leaf_shield"],
+      "components": [
+        "Health(28)",
+        "Resource('damage',3)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "boss",
+        "robot_master",
+        "weakness_leaf_shield"
+      ],
       "sprite_ref": "sprites/boss_airman",
       "phases": [
-        { "health_threshold": 1.0, "behavior": "bt:airman_tornado_wave" },
-        { "health_threshold": 0.4, "behavior": "bt:airman_desperate" }
+        {
+          "health_threshold": 1.0,
+          "behavior": "bt:airman_tornado_wave"
+        },
+        {
+          "health_threshold": 0.4,
+          "behavior": "bt:airman_desperate"
+        }
       ],
       "weapon_drop_on_defeat": "air_shooter",
-      "score_reward": 5000
+      "score_reward": 5000,
+      "anim_flag": "animating",
+      "loop_frames": 6,
+      "z": 3
     }
   }
 }

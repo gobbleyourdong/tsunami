@@ -2,14 +2,29 @@
   "meta": {
     "title": "Platformer Scaffold Seed",
     "shape": "action",
-    "vibe": ["2d-platformer", "nes-to-snes", "mario-to-megaman-to-celeste-lineage", "precision-jumping"],
+    "vibe": [
+      "2d-platformer",
+      "nes-to-snes",
+      "mario-to-megaman-to-celeste-lineage",
+      "precision-jumping"
+    ],
     "target_session_sec": 1200
   },
   "config": {
     "mode": "2d",
     "camera": "orthographic",
-    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 32 } },
-    "gravity": [0.0, -20.0, 0.0],
+    "playfield": {
+      "kind": "continuous",
+      "arena": {
+        "shape": "rect",
+        "size": 32
+      }
+    },
+    "gravity": [
+      0.0,
+      -20.0,
+      0.0
+    ],
     "sandbox": false
   },
   "starting_level": "1-1",

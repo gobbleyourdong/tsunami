@@ -5,67 +5,125 @@
       "display_name": "Suzaku Castle (Ryu's Stage)",
       "bg_sprite_ref": "sprites/stages/suzaku_castle",
       "fg_sprite_ref": "sprites/stages/suzaku_castle_fg",
-      "boundary": { "left": -8.0, "right": 8.0, "floor": 0.0, "ceiling": 6.0 },
+      "boundary": {
+        "left": -8.0,
+        "right": 8.0,
+        "floor": 0.0,
+        "ceiling": 6.0
+      },
       "music_ref": "audio/bgm/ryu_theme",
       "ambient_sfx_ref": "audio/ambient/crowd_japanese",
       "palette": "sunset_orange",
-      "tags": ["japan", "2d", "crowd"]
+      "tags": [
+        "japan",
+        "2d",
+        "crowd"
+      ]
     },
     "usa_airbase": {
       "source_essence": "1991_street_fighter_ii",
       "display_name": "USA Airbase (Guile's Stage)",
       "bg_sprite_ref": "sprites/stages/usa_airbase",
       "fg_sprite_ref": "sprites/stages/usa_airbase_fg",
-      "boundary": { "left": -8.0, "right": 8.0, "floor": 0.0, "ceiling": 6.0 },
+      "boundary": {
+        "left": -8.0,
+        "right": 8.0,
+        "floor": 0.0,
+        "ceiling": 6.0
+      },
       "music_ref": "audio/bgm/guile_theme",
       "ambient_sfx_ref": "audio/ambient/jet_engines",
       "palette": "desert_tan",
-      "tags": ["usa", "2d", "military"]
+      "tags": [
+        "usa",
+        "2d",
+        "military"
+      ]
     },
     "china_market": {
       "source_essence": "1991_street_fighter_ii",
       "display_name": "China Market (Chun-Li's Stage)",
       "bg_sprite_ref": "sprites/stages/china_market",
       "fg_sprite_ref": "sprites/stages/china_market_fg",
-      "boundary": { "left": -8.0, "right": 8.0, "floor": 0.0, "ceiling": 6.0 },
+      "boundary": {
+        "left": -8.0,
+        "right": 8.0,
+        "floor": 0.0,
+        "ceiling": 6.0
+      },
       "music_ref": "audio/bgm/chunli_theme",
       "ambient_sfx_ref": "audio/ambient/marketplace_china",
       "palette": "lantern_red",
-      "tags": ["china", "2d", "marketplace"]
+      "tags": [
+        "china",
+        "2d",
+        "marketplace"
+      ]
     },
     "deadpool": {
       "source_essence": "1993_mortal_kombat_ii",
       "display_name": "The Dead Pool",
       "bg_sprite_ref": "sprites/stages/deadpool",
       "fg_sprite_ref": "sprites/stages/deadpool_fg",
-      "boundary": { "left": -8.0, "right": 8.0, "floor": 0.0, "ceiling": 6.0 },
+      "boundary": {
+        "left": -8.0,
+        "right": 8.0,
+        "floor": 0.0,
+        "ceiling": 6.0
+      },
       "music_ref": "audio/bgm/dead_pool_theme",
       "ambient_sfx_ref": "audio/ambient/acid_bubble",
       "palette": "toxic_green",
-      "tags": ["outworld", "acid-pool", "stage-fatality"],
-      "stage_fatality": { "input_sequence": "D+F+LP", "effect": "acid_dissolve" }
+      "tags": [
+        "outworld",
+        "acid-pool",
+        "stage-fatality"
+      ],
+      "stage_fatality": {
+        "input_sequence": "D+F+LP",
+        "effect": "acid_dissolve"
+      }
     },
     "living_forest": {
       "source_essence": "1993_mortal_kombat_ii",
       "display_name": "Living Forest",
       "bg_sprite_ref": "sprites/stages/living_forest",
       "fg_sprite_ref": "sprites/stages/living_forest_fg",
-      "boundary": { "left": -8.0, "right": 8.0, "floor": 0.0, "ceiling": 6.0 },
+      "boundary": {
+        "left": -8.0,
+        "right": 8.0,
+        "floor": 0.0,
+        "ceiling": 6.0
+      },
       "music_ref": "audio/bgm/living_forest_theme",
       "ambient_sfx_ref": "audio/ambient/tree_whispers",
       "palette": "shadow_purple",
-      "tags": ["outworld", "haunted", "tree-faces"]
+      "tags": [
+        "outworld",
+        "haunted",
+        "tree-faces"
+      ]
     },
     "tokyo_rooftop": {
       "source_essence": "1997_tekken_3",
       "display_name": "Tokyo Rooftop",
       "bg_sprite_ref": "sprites/stages/tokyo_rooftop",
       "fg_sprite_ref": "sprites/stages/tokyo_rooftop_fg",
-      "boundary": { "left": -10.0, "right": 10.0, "floor": 0.0, "ceiling": 10.0 },
+      "boundary": {
+        "left": -10.0,
+        "right": 10.0,
+        "floor": 0.0,
+        "ceiling": 10.0
+      },
       "music_ref": "audio/bgm/jin_theme",
       "ambient_sfx_ref": "audio/ambient/city_night",
       "palette": "neon_night",
-      "tags": ["japan", "3d", "rooftop", "infinite"]
+      "tags": [
+        "japan",
+        "3d",
+        "rooftop",
+        "infinite"
+      ]
     }
   }
 }

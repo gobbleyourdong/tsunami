@@ -13,8 +13,19 @@
       "fighter_sprite_ref": "sprites/fighters/ryu",
       "stage_affinity": "suzaku_castle",
       "move_list_ref": "ryu_moveset",
-      "components": ["Health(1000)", "Resource('stun',100)", "Resource('super_meter',0)"],
-      "tags": ["fighter", "shoto", "male"]
+      "components": [
+        "Health(1000)",
+        "Resource('stun',100)",
+        "Resource('super_meter',0)"
+      ],
+      "tags": [
+        "fighter",
+        "shoto",
+        "male"
+      ],
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "ken": {
       "source_essence": "1991_street_fighter_ii",
@@ -29,8 +40,19 @@
       "fighter_sprite_ref": "sprites/fighters/ken",
       "stage_affinity": "usa_airbase",
       "move_list_ref": "ken_moveset",
-      "components": ["Health(1000)", "Resource('stun',95)", "Resource('super_meter',0)"],
-      "tags": ["fighter", "shoto", "male"]
+      "components": [
+        "Health(1000)",
+        "Resource('stun',95)",
+        "Resource('super_meter',0)"
+      ],
+      "tags": [
+        "fighter",
+        "shoto",
+        "male"
+      ],
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "chun_li": {
       "source_essence": "1991_street_fighter_ii",
@@ -45,8 +67,19 @@
       "fighter_sprite_ref": "sprites/fighters/chun_li",
       "stage_affinity": "china_market",
       "move_list_ref": "chun_li_moveset",
-      "components": ["Health(950)", "Resource('stun',90)", "Resource('super_meter',0)"],
-      "tags": ["fighter", "rushdown", "female"]
+      "components": [
+        "Health(950)",
+        "Resource('stun',90)",
+        "Resource('super_meter',0)"
+      ],
+      "tags": [
+        "fighter",
+        "rushdown",
+        "female"
+      ],
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "scorpion": {
       "source_essence": "1993_mortal_kombat_ii",
@@ -61,8 +94,19 @@
       "fighter_sprite_ref": "sprites/fighters/scorpion",
       "stage_affinity": "deadpool",
       "move_list_ref": "scorpion_moveset",
-      "components": ["Health(1000)", "Resource('stun',100)", "Resource('super_meter',0)"],
-      "tags": ["fighter", "zoner", "ninja"]
+      "components": [
+        "Health(1000)",
+        "Resource('stun',100)",
+        "Resource('super_meter',0)"
+      ],
+      "tags": [
+        "fighter",
+        "zoner",
+        "ninja"
+      ],
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "raiden": {
       "source_essence": "1993_mortal_kombat_ii",
@@ -77,8 +121,19 @@
       "fighter_sprite_ref": "sprites/fighters/raiden",
       "stage_affinity": "living_forest",
       "move_list_ref": "raiden_moveset",
-      "components": ["Health(1000)", "Resource('stun',100)", "Resource('super_meter',0)"],
-      "tags": ["fighter", "zoner", "god"]
+      "components": [
+        "Health(1000)",
+        "Resource('stun',100)",
+        "Resource('super_meter',0)"
+      ],
+      "tags": [
+        "fighter",
+        "zoner",
+        "god"
+      ],
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "jin": {
       "source_essence": "1997_tekken_3",
@@ -93,8 +148,20 @@
       "fighter_sprite_ref": "sprites/fighters/jin",
       "stage_affinity": "tokyo_rooftop",
       "move_list_ref": "jin_moveset",
-      "components": ["Health(1000)", "Resource('stun',105)", "Resource('rage',0)"],
-      "tags": ["fighter", "mishima", "male", "3d"]
+      "components": [
+        "Health(1000)",
+        "Resource('stun',105)",
+        "Resource('rage',0)"
+      ],
+      "tags": [
+        "fighter",
+        "mishima",
+        "male",
+        "3d"
+      ],
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     }
   }
 }

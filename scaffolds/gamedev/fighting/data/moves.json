@@ -2,96 +2,779 @@
   "movesets": {
     "ryu_moveset": {
       "normals": [
-        { "name": "stand_light_punch", "input": "LP",  "damage": 30,  "startup_frames": 3, "active_frames": 2, "recovery_frames": 8,  "hitbox_spec": { "shape": "rect", "offset": [0.6, 1.4], "size": [0.7, 0.4] } },
-        { "name": "stand_heavy_punch", "input": "HP",  "damage": 110, "startup_frames": 8, "active_frames": 3, "recovery_frames": 18, "hitbox_spec": { "shape": "rect", "offset": [0.9, 1.3], "size": [1.0, 0.5] } },
-        { "name": "stand_light_kick",  "input": "LK",  "damage": 40,  "startup_frames": 5, "active_frames": 3, "recovery_frames": 10, "hitbox_spec": { "shape": "rect", "offset": [0.7, 1.0], "size": [0.8, 0.4] } },
-        { "name": "stand_heavy_kick",  "input": "HK",  "damage": 130, "startup_frames": 10,"active_frames": 4, "recovery_frames": 22, "hitbox_spec": { "shape": "rect", "offset": [1.1, 0.8], "size": [1.1, 0.5] } },
-        { "name": "crouch_heavy_kick", "input": "D+HK","damage": 120, "startup_frames": 9, "active_frames": 3, "recovery_frames": 24, "hitbox_spec": { "shape": "rect", "offset": [1.0, 0.2], "size": [1.2, 0.4] }, "knockdown": true }
+        {
+          "name": "stand_light_punch",
+          "input": "LP",
+          "damage": 30,
+          "startup_frames": 3,
+          "active_frames": 2,
+          "recovery_frames": 8,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.6,
+              1.4
+            ],
+            "size": [
+              0.7,
+              0.4
+            ]
+          }
+        },
+        {
+          "name": "stand_heavy_punch",
+          "input": "HP",
+          "damage": 110,
+          "startup_frames": 8,
+          "active_frames": 3,
+          "recovery_frames": 18,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.9,
+              1.3
+            ],
+            "size": [
+              1.0,
+              0.5
+            ]
+          }
+        },
+        {
+          "name": "stand_light_kick",
+          "input": "LK",
+          "damage": 40,
+          "startup_frames": 5,
+          "active_frames": 3,
+          "recovery_frames": 10,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.7,
+              1.0
+            ],
+            "size": [
+              0.8,
+              0.4
+            ]
+          }
+        },
+        {
+          "name": "stand_heavy_kick",
+          "input": "HK",
+          "damage": 130,
+          "startup_frames": 10,
+          "active_frames": 4,
+          "recovery_frames": 22,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.1,
+              0.8
+            ],
+            "size": [
+              1.1,
+              0.5
+            ]
+          }
+        },
+        {
+          "name": "crouch_heavy_kick",
+          "input": "D+HK",
+          "damage": 120,
+          "startup_frames": 9,
+          "active_frames": 3,
+          "recovery_frames": 24,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.0,
+              0.2
+            ],
+            "size": [
+              1.2,
+              0.4
+            ]
+          },
+          "knockdown": true
+        }
       ],
       "specials": [
-        { "name": "hadoken",        "input": "236P", "damage": 90,  "startup_frames": 14, "active_frames": 60, "recovery_frames": 30, "projectile": { "speed": 6.0, "lifetime_frames": 60 }, "hitbox_spec": { "shape": "rect", "offset": [1.2, 1.2], "size": [0.6, 0.5] } },
-        { "name": "shoryuken",      "input": "623P", "damage": 140, "startup_frames": 3,  "active_frames": 10, "recovery_frames": 35, "invuln_frames": [1, 6], "hitbox_spec": { "shape": "rect", "offset": [0.6, 2.0], "size": [0.7, 1.2] }, "knockdown": true },
-        { "name": "tatsumaki",      "input": "214K", "damage": 80,  "startup_frames": 6,  "active_frames": 18, "recovery_frames": 22, "airborne": true, "hitbox_spec": { "shape": "rect", "offset": [1.0, 1.3], "size": [1.5, 0.8] } }
+        {
+          "name": "hadoken",
+          "input": "236P",
+          "damage": 90,
+          "startup_frames": 14,
+          "active_frames": 60,
+          "recovery_frames": 30,
+          "projectile": {
+            "speed": 6.0,
+            "lifetime_frames": 60
+          },
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.2,
+              1.2
+            ],
+            "size": [
+              0.6,
+              0.5
+            ]
+          }
+        },
+        {
+          "name": "shoryuken",
+          "input": "623P",
+          "damage": 140,
+          "startup_frames": 3,
+          "active_frames": 10,
+          "recovery_frames": 35,
+          "invuln_frames": [
+            1,
+            6
+          ],
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.6,
+              2.0
+            ],
+            "size": [
+              0.7,
+              1.2
+            ]
+          },
+          "knockdown": true
+        },
+        {
+          "name": "tatsumaki",
+          "input": "214K",
+          "damage": 80,
+          "startup_frames": 6,
+          "active_frames": 18,
+          "recovery_frames": 22,
+          "airborne": true,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.0,
+              1.3
+            ],
+            "size": [
+              1.5,
+              0.8
+            ]
+          }
+        }
       ],
       "supers": [
-        { "name": "shinku_hadoken", "input": "236236P", "damage": 300, "meter_cost": 100, "startup_frames": 10, "active_frames": 40, "recovery_frames": 45, "projectile": { "speed": 8.5, "pierce": true, "lifetime_frames": 80 } }
+        {
+          "name": "shinku_hadoken",
+          "input": "236236P",
+          "damage": 300,
+          "meter_cost": 100,
+          "startup_frames": 10,
+          "active_frames": 40,
+          "recovery_frames": 45,
+          "projectile": {
+            "speed": 8.5,
+            "pierce": true,
+            "lifetime_frames": 80
+          }
+        }
       ]
     },
     "ken_moveset": {
       "normals": [
-        { "name": "stand_light_punch", "input": "LP", "damage": 30, "startup_frames": 3, "active_frames": 2, "recovery_frames": 8, "hitbox_spec": { "shape": "rect", "offset": [0.6, 1.4], "size": [0.7, 0.4] } },
-        { "name": "stand_heavy_kick",  "input": "HK", "damage": 135, "startup_frames": 10, "active_frames": 4, "recovery_frames": 22, "hitbox_spec": { "shape": "rect", "offset": [1.1, 0.8], "size": [1.1, 0.5] } }
+        {
+          "name": "stand_light_punch",
+          "input": "LP",
+          "damage": 30,
+          "startup_frames": 3,
+          "active_frames": 2,
+          "recovery_frames": 8,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.6,
+              1.4
+            ],
+            "size": [
+              0.7,
+              0.4
+            ]
+          }
+        },
+        {
+          "name": "stand_heavy_kick",
+          "input": "HK",
+          "damage": 135,
+          "startup_frames": 10,
+          "active_frames": 4,
+          "recovery_frames": 22,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.1,
+              0.8
+            ],
+            "size": [
+              1.1,
+              0.5
+            ]
+          }
+        }
       ],
       "specials": [
-        { "name": "hadoken",             "input": "236P", "damage": 85,  "startup_frames": 14, "active_frames": 60, "recovery_frames": 30, "projectile": { "speed": 6.0, "lifetime_frames": 60 }, "hitbox_spec": { "shape": "rect", "offset": [1.2, 1.2], "size": [0.6, 0.5] } },
-        { "name": "shoryuken_flame",     "input": "623P", "damage": 160, "startup_frames": 3,  "active_frames": 12, "recovery_frames": 36, "invuln_frames": [1, 6], "hitbox_spec": { "shape": "rect", "offset": [0.6, 2.0], "size": [0.8, 1.4] }, "knockdown": true, "status_effect": "burn" },
-        { "name": "tatsumaki_rekka",     "input": "214K", "damage": 85,  "startup_frames": 6,  "active_frames": 20, "recovery_frames": 20, "airborne": true, "hitbox_spec": { "shape": "rect", "offset": [1.0, 1.3], "size": [1.5, 0.8] } }
+        {
+          "name": "hadoken",
+          "input": "236P",
+          "damage": 85,
+          "startup_frames": 14,
+          "active_frames": 60,
+          "recovery_frames": 30,
+          "projectile": {
+            "speed": 6.0,
+            "lifetime_frames": 60
+          },
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.2,
+              1.2
+            ],
+            "size": [
+              0.6,
+              0.5
+            ]
+          }
+        },
+        {
+          "name": "shoryuken_flame",
+          "input": "623P",
+          "damage": 160,
+          "startup_frames": 3,
+          "active_frames": 12,
+          "recovery_frames": 36,
+          "invuln_frames": [
+            1,
+            6
+          ],
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.6,
+              2.0
+            ],
+            "size": [
+              0.8,
+              1.4
+            ]
+          },
+          "knockdown": true,
+          "status_effect": "burn"
+        },
+        {
+          "name": "tatsumaki_rekka",
+          "input": "214K",
+          "damage": 85,
+          "startup_frames": 6,
+          "active_frames": 20,
+          "recovery_frames": 20,
+          "airborne": true,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.0,
+              1.3
+            ],
+            "size": [
+              1.5,
+              0.8
+            ]
+          }
+        }
       ],
       "supers": [
-        { "name": "shoryu_reppa", "input": "236236P", "damage": 330, "meter_cost": 100, "startup_frames": 6, "active_frames": 30, "recovery_frames": 45, "invuln_frames": [1, 8], "knockdown": true }
+        {
+          "name": "shoryu_reppa",
+          "input": "236236P",
+          "damage": 330,
+          "meter_cost": 100,
+          "startup_frames": 6,
+          "active_frames": 30,
+          "recovery_frames": 45,
+          "invuln_frames": [
+            1,
+            8
+          ],
+          "knockdown": true
+        }
       ]
     },
     "chun_li_moveset": {
       "normals": [
-        { "name": "stand_light_kick", "input": "LK", "damage": 40, "startup_frames": 4, "active_frames": 3, "recovery_frames": 9, "hitbox_spec": { "shape": "rect", "offset": [0.7, 1.0], "size": [0.8, 0.4] } },
-        { "name": "neck_flip",        "input": "F+HK", "damage": 110, "startup_frames": 12, "active_frames": 6, "recovery_frames": 20, "hitbox_spec": { "shape": "rect", "offset": [1.0, 1.2], "size": [0.9, 0.6] }, "overhead": true }
+        {
+          "name": "stand_light_kick",
+          "input": "LK",
+          "damage": 40,
+          "startup_frames": 4,
+          "active_frames": 3,
+          "recovery_frames": 9,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.7,
+              1.0
+            ],
+            "size": [
+              0.8,
+              0.4
+            ]
+          }
+        },
+        {
+          "name": "neck_flip",
+          "input": "F+HK",
+          "damage": 110,
+          "startup_frames": 12,
+          "active_frames": 6,
+          "recovery_frames": 20,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.0,
+              1.2
+            ],
+            "size": [
+              0.9,
+              0.6
+            ]
+          },
+          "overhead": true
+        }
       ],
       "specials": [
-        { "name": "hyakuretsu_kyaku",  "input": "KKKK (mash)", "damage": 120, "startup_frames": 5,  "active_frames": 24, "recovery_frames": 18, "hitbox_spec": { "shape": "rect", "offset": [0.9, 1.0], "size": [0.8, 0.5] } },
-        { "name": "spinning_bird_kick","input": "[D]U+K",      "damage": 100, "startup_frames": 8,  "active_frames": 20, "recovery_frames": 22, "airborne": true, "hitbox_spec": { "shape": "rect", "offset": [0.0, 1.5], "size": [2.0, 0.8] } },
-        { "name": "kikoken",           "input": "[B]F+P",      "damage": 80,  "startup_frames": 16, "active_frames": 50, "recovery_frames": 32, "projectile": { "speed": 5.5, "lifetime_frames": 50 }, "hitbox_spec": { "shape": "rect", "offset": [1.2, 1.0], "size": [0.6, 0.5] } }
+        {
+          "name": "hyakuretsu_kyaku",
+          "input": "KKKK (mash)",
+          "damage": 120,
+          "startup_frames": 5,
+          "active_frames": 24,
+          "recovery_frames": 18,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.9,
+              1.0
+            ],
+            "size": [
+              0.8,
+              0.5
+            ]
+          }
+        },
+        {
+          "name": "spinning_bird_kick",
+          "input": "[D]U+K",
+          "damage": 100,
+          "startup_frames": 8,
+          "active_frames": 20,
+          "recovery_frames": 22,
+          "airborne": true,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.0,
+              1.5
+            ],
+            "size": [
+              2.0,
+              0.8
+            ]
+          }
+        },
+        {
+          "name": "kikoken",
+          "input": "[B]F+P",
+          "damage": 80,
+          "startup_frames": 16,
+          "active_frames": 50,
+          "recovery_frames": 32,
+          "projectile": {
+            "speed": 5.5,
+            "lifetime_frames": 50
+          },
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.2,
+              1.0
+            ],
+            "size": [
+              0.6,
+              0.5
+            ]
+          }
+        }
       ],
       "supers": [
-        { "name": "senretsu_kyaku", "input": "236236K", "damage": 310, "meter_cost": 100, "startup_frames": 8, "active_frames": 35, "recovery_frames": 40, "multi_hit": 16 }
+        {
+          "name": "senretsu_kyaku",
+          "input": "236236K",
+          "damage": 310,
+          "meter_cost": 100,
+          "startup_frames": 8,
+          "active_frames": 35,
+          "recovery_frames": 40,
+          "multi_hit": 16
+        }
       ]
     },
     "scorpion_moveset": {
       "normals": [
-        { "name": "stand_high_punch", "input": "HP", "damage": 90,  "startup_frames": 8, "active_frames": 3, "recovery_frames": 18, "hitbox_spec": { "shape": "rect", "offset": [0.9, 1.3], "size": [1.0, 0.5] } },
-        { "name": "sweep",            "input": "D+LK","damage": 100,"startup_frames": 9, "active_frames": 3, "recovery_frames": 22, "hitbox_spec": { "shape": "rect", "offset": [1.0, 0.2], "size": [1.2, 0.4] }, "knockdown": true }
+        {
+          "name": "stand_high_punch",
+          "input": "HP",
+          "damage": 90,
+          "startup_frames": 8,
+          "active_frames": 3,
+          "recovery_frames": 18,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.9,
+              1.3
+            ],
+            "size": [
+              1.0,
+              0.5
+            ]
+          }
+        },
+        {
+          "name": "sweep",
+          "input": "D+LK",
+          "damage": 100,
+          "startup_frames": 9,
+          "active_frames": 3,
+          "recovery_frames": 22,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.0,
+              0.2
+            ],
+            "size": [
+              1.2,
+              0.4
+            ]
+          },
+          "knockdown": true
+        }
       ],
       "specials": [
-        { "name": "spear",            "input": "236LP", "damage": 110, "startup_frames": 10, "active_frames": 20, "recovery_frames": 40, "projectile": { "speed": 7.0, "pulls_on_hit": true, "lifetime_frames": 40 }, "voice_callout": "get_over_here" },
-        { "name": "teleport_punch",   "input": "214HP", "damage": 130, "startup_frames": 18, "active_frames": 5, "recovery_frames": 28, "teleport": "behind_opponent", "hitbox_spec": { "shape": "rect", "offset": [-0.5, 1.2], "size": [0.8, 0.6] } }
+        {
+          "name": "spear",
+          "input": "236LP",
+          "damage": 110,
+          "startup_frames": 10,
+          "active_frames": 20,
+          "recovery_frames": 40,
+          "projectile": {
+            "speed": 7.0,
+            "pulls_on_hit": true,
+            "lifetime_frames": 40
+          },
+          "voice_callout": "get_over_here"
+        },
+        {
+          "name": "teleport_punch",
+          "input": "214HP",
+          "damage": 130,
+          "startup_frames": 18,
+          "active_frames": 5,
+          "recovery_frames": 28,
+          "teleport": "behind_opponent",
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              -0.5,
+              1.2
+            ],
+            "size": [
+              0.8,
+              0.6
+            ]
+          }
+        }
       ],
       "supers": [
-        { "name": "toasty_fatality", "input": "D+F+HP (near, low health)", "damage": 9999, "meter_cost": 0, "startup_frames": 30, "active_frames": 60, "recovery_frames": 0, "fatality": true, "finisher_only": true }
+        {
+          "name": "toasty_fatality",
+          "input": "D+F+HP (near, low health)",
+          "damage": 9999,
+          "meter_cost": 0,
+          "startup_frames": 30,
+          "active_frames": 60,
+          "recovery_frames": 0,
+          "fatality": true,
+          "finisher_only": true
+        }
       ]
     },
     "raiden_moveset": {
       "normals": [
-        { "name": "stand_high_kick",  "input": "HK", "damage": 100, "startup_frames": 10, "active_frames": 4, "recovery_frames": 22, "hitbox_spec": { "shape": "rect", "offset": [1.1, 1.4], "size": [1.0, 0.5] } }
+        {
+          "name": "stand_high_kick",
+          "input": "HK",
+          "damage": 100,
+          "startup_frames": 10,
+          "active_frames": 4,
+          "recovery_frames": 22,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.1,
+              1.4
+            ],
+            "size": [
+              1.0,
+              0.5
+            ]
+          }
+        }
       ],
       "specials": [
-        { "name": "torpedo",         "input": "[B]F+K", "damage": 140, "startup_frames": 12, "active_frames": 25, "recovery_frames": 35, "airborne": true, "hitbox_spec": { "shape": "rect", "offset": [1.5, 1.2], "size": [1.5, 0.6] } },
-        { "name": "teleport_behind", "input": "D+U",    "damage": 0,   "startup_frames": 20, "active_frames": 1,  "recovery_frames": 10, "teleport": "behind_opponent" },
-        { "name": "lightning_bolt",  "input": "[B]F+P", "damage": 100, "startup_frames": 14, "active_frames": 40, "recovery_frames": 30, "projectile": { "speed": 6.5, "lifetime_frames": 40 }, "status_effect": "shock" }
+        {
+          "name": "torpedo",
+          "input": "[B]F+K",
+          "damage": 140,
+          "startup_frames": 12,
+          "active_frames": 25,
+          "recovery_frames": 35,
+          "airborne": true,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.5,
+              1.2
+            ],
+            "size": [
+              1.5,
+              0.6
+            ]
+          }
+        },
+        {
+          "name": "teleport_behind",
+          "input": "D+U",
+          "damage": 0,
+          "startup_frames": 20,
+          "active_frames": 1,
+          "recovery_frames": 10,
+          "teleport": "behind_opponent"
+        },
+        {
+          "name": "lightning_bolt",
+          "input": "[B]F+P",
+          "damage": 100,
+          "startup_frames": 14,
+          "active_frames": 40,
+          "recovery_frames": 30,
+          "projectile": {
+            "speed": 6.5,
+            "lifetime_frames": 40
+          },
+          "status_effect": "shock"
+        }
       ],
       "supers": [
-        { "name": "electrocution", "input": "LP+BL+RN", "damage": 320, "meter_cost": 100, "startup_frames": 15, "active_frames": 30, "recovery_frames": 50, "multi_hit": 8, "status_effect": "shock" }
+        {
+          "name": "electrocution",
+          "input": "LP+BL+RN",
+          "damage": 320,
+          "meter_cost": 100,
+          "startup_frames": 15,
+          "active_frames": 30,
+          "recovery_frames": 50,
+          "multi_hit": 8,
+          "status_effect": "shock"
+        }
       ]
     },
     "jin_moveset": {
       "normals": [
-        { "name": "left_jab",      "input": "1", "damage": 25, "startup_frames": 10, "active_frames": 2, "recovery_frames": 14, "hitbox_spec": { "shape": "rect", "offset": [0.6, 1.5], "size": [0.7, 0.4] } },
-        { "name": "right_straight","input": "2", "damage": 35, "startup_frames": 13, "active_frames": 3, "recovery_frames": 18, "hitbox_spec": { "shape": "rect", "offset": [0.7, 1.5], "size": [0.8, 0.4] } },
-        { "name": "left_kick",     "input": "3", "damage": 30, "startup_frames": 12, "active_frames": 3, "recovery_frames": 16, "hitbox_spec": { "shape": "rect", "offset": [0.7, 0.9], "size": [0.8, 0.4] } },
-        { "name": "right_kick",    "input": "4", "damage": 40, "startup_frames": 15, "active_frames": 4, "recovery_frames": 20, "hitbox_spec": { "shape": "rect", "offset": [0.8, 0.9], "size": [0.9, 0.5] } }
+        {
+          "name": "left_jab",
+          "input": "1",
+          "damage": 25,
+          "startup_frames": 10,
+          "active_frames": 2,
+          "recovery_frames": 14,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.6,
+              1.5
+            ],
+            "size": [
+              0.7,
+              0.4
+            ]
+          }
+        },
+        {
+          "name": "right_straight",
+          "input": "2",
+          "damage": 35,
+          "startup_frames": 13,
+          "active_frames": 3,
+          "recovery_frames": 18,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.7,
+              1.5
+            ],
+            "size": [
+              0.8,
+              0.4
+            ]
+          }
+        },
+        {
+          "name": "left_kick",
+          "input": "3",
+          "damage": 30,
+          "startup_frames": 12,
+          "active_frames": 3,
+          "recovery_frames": 16,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.7,
+              0.9
+            ],
+            "size": [
+              0.8,
+              0.4
+            ]
+          }
+        },
+        {
+          "name": "right_kick",
+          "input": "4",
+          "damage": 40,
+          "startup_frames": 15,
+          "active_frames": 4,
+          "recovery_frames": 20,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              0.8,
+              0.9
+            ],
+            "size": [
+              0.9,
+              0.5
+            ]
+          }
+        }
       ],
       "specials": [
-        { "name": "demon_paw",     "input": "F+2",     "damage": 60,  "startup_frames": 17, "active_frames": 4, "recovery_frames": 24, "hitbox_spec": { "shape": "rect", "offset": [1.0, 1.4], "size": [1.0, 0.5] } },
-        { "name": "dragon_uppercut","input": "F+N+2",  "damage": 90,  "startup_frames": 16, "active_frames": 6, "recovery_frames": 32, "juggle_launcher": true, "invuln_frames": [1, 4] },
-        { "name": "demon_scissors","input": "F+F+3+4", "damage": 55,  "startup_frames": 20, "active_frames": 8, "recovery_frames": 28, "airborne": true }
+        {
+          "name": "demon_paw",
+          "input": "F+2",
+          "damage": 60,
+          "startup_frames": 17,
+          "active_frames": 4,
+          "recovery_frames": 24,
+          "hitbox_spec": {
+            "shape": "rect",
+            "offset": [
+              1.0,
+              1.4
+            ],
+            "size": [
+              1.0,
+              0.5
+            ]
+          }
+        },
+        {
+          "name": "dragon_uppercut",
+          "input": "F+N+2",
+          "damage": 90,
+          "startup_frames": 16,
+          "active_frames": 6,
+          "recovery_frames": 32,
+          "juggle_launcher": true,
+          "invuln_frames": [
+            1,
+            4
+          ]
+        },
+        {
+          "name": "demon_scissors",
+          "input": "F+F+3+4",
+          "damage": 55,
+          "startup_frames": 20,
+          "active_frames": 8,
+          "recovery_frames": 28,
+          "airborne": true
+        }
       ],
       "supers": [
-        { "name": "rage_art", "input": "1+2+3+4 (at low HP)", "damage": 280, "meter_cost": 0, "rage_only": true, "startup_frames": 10, "active_frames": 20, "recovery_frames": 60, "cinematic": true }
+        {
+          "name": "rage_art",
+          "input": "1+2+3+4 (at low HP)",
+          "damage": 280,
+          "meter_cost": 0,
+          "rage_only": true,
+          "startup_frames": 10,
+          "active_frames": 20,
+          "recovery_frames": 60,
+          "cinematic": true
+        }
       ]
     }
   },
   "input_notation_key": {
-    "arcade_numpad": { "1": "down-back", "2": "down", "3": "down-forward", "4": "back", "5": "neutral", "6": "forward", "7": "up-back", "8": "up", "9": "up-forward" },
-    "arcade_motions": { "236": "quarter-circle-forward (QCF)", "214": "quarter-circle-back (QCB)", "623": "dragon-punch (DP)", "41236": "half-circle-forward (HCF)", "63214": "half-circle-back (HCB)", "[B]F": "charge-back-forward", "[D]U": "charge-down-up" },
-    "buttons_sf_mk": { "LP": "light punch", "HP": "heavy punch", "LK": "light kick", "HK": "heavy kick", "BL": "block", "RN": "run" },
-    "buttons_tekken": { "1": "left punch", "2": "right punch", "3": "left kick", "4": "right kick" }
+    "arcade_numpad": {
+      "1": "down-back",
+      "2": "down",
+      "3": "down-forward",
+      "4": "back",
+      "5": "neutral",
+      "6": "forward",
+      "7": "up-back",
+      "8": "up",
+      "9": "up-forward"
+    },
+    "arcade_motions": {
+      "236": "quarter-circle-forward (QCF)",
+      "214": "quarter-circle-back (QCB)",
+      "623": "dragon-punch (DP)",
+      "41236": "half-circle-forward (HCF)",
+      "63214": "half-circle-back (HCB)",
+      "[B]F": "charge-back-forward",
+      "[D]U": "charge-down-up"
+    },
+    "buttons_sf_mk": {
+      "LP": "light punch",
+      "HP": "heavy punch",
+      "LK": "light kick",
+      "HK": "heavy kick",
+      "BL": "block",
+      "RN": "run"
+    },
+    "buttons_tekken": {
+      "1": "left punch",
+      "2": "right punch",
+      "3": "left kick",
+      "4": "right kick"
+    }
   }
 }

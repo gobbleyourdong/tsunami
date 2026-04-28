@@ -109,7 +109,7 @@
       "power": 0,
       "effect": "sleep",
       "duration_turns": 4,
-      "hit_rate": 0.70,
+      "hit_rate": 0.7,
       "animation_ref": "fx/sleep_cast",
       "source_essence": "1988_dragon_quest_iii"
     },

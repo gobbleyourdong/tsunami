@@ -12,18 +12,95 @@
       "camera_lock_on_screen_enter": true,
       "camera_advance_after_screen_clear": true,
       "wave_gates": [
-        { "x_pos": 200,  "spawns": [{ "enemy": "bred_grunt", "count": 2 }] },
-        { "x_pos": 800,  "spawns": [{ "enemy": "bred_grunt", "count": 1 }, { "enemy": "hollywood_runner", "count": 1 }] },
-        { "x_pos": 1400, "spawns": [{ "enemy": "el_gado_knife", "count": 1 }, { "enemy": "bred_grunt", "count": 2 }] },
-        { "x_pos": 2000, "spawns": [{ "enemy": "poison_flipkick", "count": 2 }] },
-        { "x_pos": 2600, "spawns": [{ "enemy": "bill_bull_fatboy", "count": 1 }, { "enemy": "bred_grunt", "count": 2 }] },
-        { "x_pos": 3100, "is_boss_gate": true, "spawns": [{ "enemy": "sodom_midboss", "count": 1 }] }
+        {
+          "x_pos": 200,
+          "spawns": [
+            {
+              "enemy": "bred_grunt",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "x_pos": 800,
+          "spawns": [
+            {
+              "enemy": "bred_grunt",
+              "count": 1
+            },
+            {
+              "enemy": "hollywood_runner",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "x_pos": 1400,
+          "spawns": [
+            {
+              "enemy": "el_gado_knife",
+              "count": 1
+            },
+            {
+              "enemy": "bred_grunt",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "x_pos": 2000,
+          "spawns": [
+            {
+              "enemy": "poison_flipkick",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "x_pos": 2600,
+          "spawns": [
+            {
+              "enemy": "bill_bull_fatboy",
+              "count": 1
+            },
+            {
+              "enemy": "bred_grunt",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "x_pos": 3100,
+          "is_boss_gate": true,
+          "spawns": [
+            {
+              "enemy": "sodom_midboss",
+              "count": 1
+            }
+          ]
+        }
       ],
       "breakable_props": [
-        { "x_pos": 600,  "kind": "barrel",      "drop": "knife" },
-        { "x_pos": 1200, "kind": "trash_can",   "drop": "chicken" },
-        { "x_pos": 1800, "kind": "phone_booth", "drop": "coin_bag" },
-        { "x_pos": 2400, "kind": "car_window",  "drop": "jewel" }
+        {
+          "x_pos": 600,
+          "kind": "barrel",
+          "drop": "knife"
+        },
+        {
+          "x_pos": 1200,
+          "kind": "trash_can",
+          "drop": "chicken"
+        },
+        {
+          "x_pos": 1800,
+          "kind": "phone_booth",
+          "drop": "coin_bag"
+        },
+        {
+          "x_pos": 2400,
+          "kind": "car_window",
+          "drop": "jewel"
+        }
       ],
       "stage_boss": "sodom_midboss",
       "next_stage": "stage_2_subway"
@@ -40,18 +117,95 @@
       "camera_lock_on_screen_enter": true,
       "camera_advance_after_screen_clear": true,
       "wave_gates": [
-        { "x_pos": 250,  "spawns": [{ "enemy": "bred_grunt", "count": 3 }] },
-        { "x_pos": 900,  "spawns": [{ "enemy": "el_gado_knife", "count": 1 }, { "enemy": "poison_flipkick", "count": 1 }] },
-        { "x_pos": 1600, "spawns": [{ "enemy": "andore_brother", "count": 1 }] },
-        { "x_pos": 2200, "spawns": [{ "enemy": "hollywood_runner", "count": 2 }, { "enemy": "bred_grunt", "count": 2 }] },
-        { "x_pos": 2900, "spawns": [{ "enemy": "andore_brother", "count": 1 }, { "enemy": "bill_bull_fatboy", "count": 1 }] },
-        { "x_pos": 3500, "is_boss_gate": true, "spawns": [{ "enemy": "sodom_midboss", "count": 1 }] }
+        {
+          "x_pos": 250,
+          "spawns": [
+            {
+              "enemy": "bred_grunt",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "x_pos": 900,
+          "spawns": [
+            {
+              "enemy": "el_gado_knife",
+              "count": 1
+            },
+            {
+              "enemy": "poison_flipkick",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "x_pos": 1600,
+          "spawns": [
+            {
+              "enemy": "andore_brother",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "x_pos": 2200,
+          "spawns": [
+            {
+              "enemy": "hollywood_runner",
+              "count": 2
+            },
+            {
+              "enemy": "bred_grunt",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "x_pos": 2900,
+          "spawns": [
+            {
+              "enemy": "andore_brother",
+              "count": 1
+            },
+            {
+              "enemy": "bill_bull_fatboy",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "x_pos": 3500,
+          "is_boss_gate": true,
+          "spawns": [
+            {
+              "enemy": "sodom_midboss",
+              "count": 1
+            }
+          ]
+        }
       ],
       "breakable_props": [
-        { "x_pos": 500,  "kind": "barrel",        "drop": "coin_bag" },
-        { "x_pos": 1100, "kind": "bench_bolt",    "drop": "pipe" },
-        { "x_pos": 1900, "kind": "turnstile_box", "drop": "chicken" },
-        { "x_pos": 2500, "kind": "subway_sign",   "drop": "knife" }
+        {
+          "x_pos": 500,
+          "kind": "barrel",
+          "drop": "coin_bag"
+        },
+        {
+          "x_pos": 1100,
+          "kind": "bench_bolt",
+          "drop": "pipe"
+        },
+        {
+          "x_pos": 1900,
+          "kind": "turnstile_box",
+          "drop": "chicken"
+        },
+        {
+          "x_pos": 2500,
+          "kind": "subway_sign",
+          "drop": "knife"
+        }
       ],
       "next_stage": "stage_3_warehouse"
     },
@@ -67,16 +221,78 @@
       "camera_lock_on_screen_enter": true,
       "camera_advance_after_screen_clear": true,
       "wave_gates": [
-        { "x_pos": 300,  "spawns": [{ "enemy": "bred_grunt", "count": 3 }, { "enemy": "poison_flipkick", "count": 1 }] },
-        { "x_pos": 1100, "spawns": [{ "enemy": "andore_brother", "count": 1 }, { "enemy": "andore_brother", "count": 1 }] },
-        { "x_pos": 1900, "spawns": [{ "enemy": "bill_bull_fatboy", "count": 2 }] },
-        { "x_pos": 2700, "spawns": [{ "enemy": "sodom_midboss", "count": 1, "variant": "ex" }] },
-        { "x_pos": 3700, "is_boss_gate": true, "spawns": [{ "enemy": "belger_final_boss", "count": 1 }] }
+        {
+          "x_pos": 300,
+          "spawns": [
+            {
+              "enemy": "bred_grunt",
+              "count": 3
+            },
+            {
+              "enemy": "poison_flipkick",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "x_pos": 1100,
+          "spawns": [
+            {
+              "enemy": "andore_brother",
+              "count": 1
+            },
+            {
+              "enemy": "andore_brother",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "x_pos": 1900,
+          "spawns": [
+            {
+              "enemy": "bill_bull_fatboy",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "x_pos": 2700,
+          "spawns": [
+            {
+              "enemy": "sodom_midboss",
+              "count": 1,
+              "variant": "ex"
+            }
+          ]
+        },
+        {
+          "x_pos": 3700,
+          "is_boss_gate": true,
+          "spawns": [
+            {
+              "enemy": "belger_final_boss",
+              "count": 1
+            }
+          ]
+        }
       ],
       "breakable_props": [
-        { "x_pos": 700,  "kind": "crate",         "drop": "chicken" },
-        { "x_pos": 1500, "kind": "forklift_pallet","drop": "tires_bonus" },
-        { "x_pos": 2300, "kind": "oil_drum",      "drop": "katana" }
+        {
+          "x_pos": 700,
+          "kind": "crate",
+          "drop": "chicken"
+        },
+        {
+          "x_pos": 1500,
+          "kind": "forklift_pallet",
+          "drop": "tires_bonus"
+        },
+        {
+          "x_pos": 2300,
+          "kind": "oil_drum",
+          "drop": "katana"
+        }
       ],
       "stage_boss": "belger_final_boss",
       "next_stage": null,
@@ -94,15 +310,29 @@
       "camera_advance_after_screen_clear": false,
       "is_bonus_stage": true,
       "time_limit_seconds": 30,
-      "objective": { "kind": "destroy_car", "car_hp": 400, "bonus_points_on_destroy": 50000 },
+      "objective": {
+        "kind": "destroy_car",
+        "car_hp": 400,
+        "bonus_points_on_destroy": 50000
+      },
       "wave_gates": [],
       "breakable_props": [
-        { "x_pos": 200, "kind": "car", "drop": null, "hp": 400 }
+        {
+          "x_pos": 200,
+          "kind": "car",
+          "drop": null,
+          "hp": 400
+        }
       ],
       "next_stage": "stage_2_subway",
       "triggers_after": "stage_1_slum"
     }
   },
   "starting_stage": "stage_1_slum",
-  "stage_order": ["stage_1_slum", "stage_bonus_break_the_car", "stage_2_subway", "stage_3_warehouse"]
+  "stage_order": [
+    "stage_1_slum",
+    "stage_bonus_break_the_car",
+    "stage_2_subway",
+    "stage_3_warehouse"
+  ]
 }

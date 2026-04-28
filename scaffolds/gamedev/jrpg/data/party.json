@@ -8,7 +8,13 @@
       "battler_sprite_ref": "sprites/battlers/cecil",
       "overworld_sprite_ref": "sprites/overworld/cecil",
       "starting_level": 1,
-      "stats": { "str": 12, "def": 10, "mag": 4,  "mdf": 6,  "spd": 7 },
+      "stats": {
+        "str": 12,
+        "def": 10,
+        "mag": 4,
+        "mdf": 6,
+        "spd": 7
+      },
       "components": [
         "Health(40)",
         "Resource('mana',8)",
@@ -16,9 +22,22 @@
         "Resource('level',1)",
         "Inventory"
       ],
-      "equipment_slots": { "weapon": "short_sword", "armor": "leather_tunic", "accessory_1": null, "accessory_2": null },
+      "equipment_slots": {
+        "weapon": "short_sword",
+        "armor": "leather_tunic",
+        "accessory_1": null,
+        "accessory_2": null
+      },
       "learned_spells": [],
-      "tags": ["party_member", "warrior", "front_row", "humanoid"]
+      "tags": [
+        "party_member",
+        "warrior",
+        "front_row",
+        "humanoid"
+      ],
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "rydia": {
       "source_essence": "1991_final_fantasy_iv",
@@ -28,7 +47,13 @@
       "battler_sprite_ref": "sprites/battlers/rydia",
       "overworld_sprite_ref": "sprites/overworld/rydia",
       "starting_level": 1,
-      "stats": { "str": 4,  "def": 4,  "mag": 14, "mdf": 11, "spd": 9 },
+      "stats": {
+        "str": 4,
+        "def": 4,
+        "mag": 14,
+        "mdf": 11,
+        "spd": 9
+      },
       "components": [
         "Health(22)",
         "Resource('mana',22)",
@@ -36,9 +61,24 @@
         "Resource('level',1)",
         "Inventory"
       ],
-      "equipment_slots": { "weapon": "oak_rod", "armor": "cloth_robe", "accessory_1": null, "accessory_2": null },
-      "learned_spells": ["fire"],
-      "tags": ["party_member", "mage", "back_row", "humanoid"]
+      "equipment_slots": {
+        "weapon": "oak_rod",
+        "armor": "cloth_robe",
+        "accessory_1": null,
+        "accessory_2": null
+      },
+      "learned_spells": [
+        "fire"
+      ],
+      "tags": [
+        "party_member",
+        "mage",
+        "back_row",
+        "humanoid"
+      ],
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "rosa": {
       "source_essence": "1991_final_fantasy_iv",
@@ -48,7 +88,13 @@
       "battler_sprite_ref": "sprites/battlers/rosa",
       "overworld_sprite_ref": "sprites/overworld/rosa",
       "starting_level": 1,
-      "stats": { "str": 5,  "def": 5,  "mag": 12, "mdf": 13, "spd": 8 },
+      "stats": {
+        "str": 5,
+        "def": 5,
+        "mag": 12,
+        "mdf": 13,
+        "spd": 8
+      },
       "components": [
         "Health(24)",
         "Resource('mana',20)",
@@ -56,9 +102,24 @@
         "Resource('level',1)",
         "Inventory"
       ],
-      "equipment_slots": { "weapon": "oak_bow", "armor": "cloth_robe", "accessory_1": null, "accessory_2": null },
-      "learned_spells": ["cure"],
-      "tags": ["party_member", "healer", "back_row", "humanoid"]
+      "equipment_slots": {
+        "weapon": "oak_bow",
+        "armor": "cloth_robe",
+        "accessory_1": null,
+        "accessory_2": null
+      },
+      "learned_spells": [
+        "cure"
+      ],
+      "tags": [
+        "party_member",
+        "healer",
+        "back_row",
+        "humanoid"
+      ],
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     },
     "edge": {
       "source_essence": "1991_final_fantasy_iv",
@@ -68,7 +129,13 @@
       "battler_sprite_ref": "sprites/battlers/edge",
       "overworld_sprite_ref": "sprites/overworld/edge",
       "starting_level": 1,
-      "stats": { "str": 10, "def": 7,  "mag": 6,  "mdf": 7,  "spd": 13 },
+      "stats": {
+        "str": 10,
+        "def": 7,
+        "mag": 6,
+        "mdf": 7,
+        "spd": 13
+      },
       "components": [
         "Health(30)",
         "Resource('mana',10)",
@@ -76,13 +143,43 @@
         "Resource('level',1)",
         "Inventory"
       ],
-      "equipment_slots": { "weapon": "dagger", "armor": "leather_tunic", "accessory_1": null, "accessory_2": null },
+      "equipment_slots": {
+        "weapon": "dagger",
+        "armor": "leather_tunic",
+        "accessory_1": null,
+        "accessory_2": null
+      },
       "learned_spells": [],
-      "tags": ["party_member", "thief", "front_row", "humanoid"]
+      "tags": [
+        "party_member",
+        "thief",
+        "front_row",
+        "humanoid"
+      ],
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3
     }
   },
   "formations": {
-    "standard": { "front": ["cecil", "edge"], "back": ["rydia", "rosa"] },
-    "all_front": { "front": ["cecil", "edge", "rydia", "rosa"], "back": [] }
+    "standard": {
+      "front": [
+        "cecil",
+        "edge"
+      ],
+      "back": [
+        "rydia",
+        "rosa"
+      ]
+    },
+    "all_front": {
+      "front": [
+        "cecil",
+        "edge",
+        "rydia",
+        "rosa"
+      ],
+      "back": []
+    }
   }
 }

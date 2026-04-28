@@ -12,7 +12,12 @@
       "Checkpoint",
       "Resource('alarm_level',0)"
     ],
-    "tags": ["player", "controllable", "damageable", "stealth_capable"],
+    "tags": [
+      "player",
+      "controllable",
+      "damageable",
+      "stealth_capable"
+    ],
     "sprite_ref": "sprites/player_snake",
     "movement": {
       "walk_speed": 2.2,
@@ -25,7 +30,17 @@
       "run_noise_radius": 8.0
     },
     "stance": "standing",
-    "stances": ["standing", "crouch", "prone"],
-    "starting_inventory": ["silenced_pistol", "body_drag_action"]
+    "stances": [
+      "standing",
+      "crouch",
+      "prone"
+    ],
+    "starting_inventory": [
+      "silenced_pistol",
+      "body_drag_action"
+    ],
+    "anim_flag": "animating",
+    "loop_frames": 4,
+    "z": 3
   }
 }

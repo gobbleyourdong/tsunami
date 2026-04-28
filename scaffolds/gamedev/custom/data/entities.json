@@ -1,15 +1,33 @@
 [
   {
-    "_comment": "Universal entity example — replace with your roster.",
+    "_comment": "Universal entity example \u2014 replace with your roster.",
     "_usage": "Genre scaffolds rename this to characters.json / enemies.json / npcs.json and populate with per-genre content.",
+    "_anim_flag_doc": "anim_flag is the canonical cache field. 'static' = baked once at init. 'animating' = single buffer re-baked from SDF on every 12fps animation tick. 'translate'/'rotate' are informational tags equivalent to 'static' for cache purposes (motion is composite-time; rotation snaps on tick).",
     "id": "example_player",
     "name": "Example Player",
     "components": {
-      "Health": { "current": 100, "max": 100 },
-      "Position": { "x": 400, "y": 360 },
-      "Velocity": { "vx": 0, "vy": 0, "max_speed": 180 },
-      "Tags": ["player"],
-      "Controller": { "channel": "player1" }
-    }
+      "Health": {
+        "current": 100,
+        "max": 100
+      },
+      "Position": {
+        "x": 400,
+        "y": 360
+      },
+      "Velocity": {
+        "vx": 0,
+        "vy": 0,
+        "max_speed": 180
+      },
+      "Tags": [
+        "player"
+      ],
+      "Controller": {
+        "channel": "player1"
+      }
+    },
+    "anim_flag": "animating",
+    "loop_frames": 4,
+    "z": 3
   }
 ]

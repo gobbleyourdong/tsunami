@@ -6,9 +6,14 @@
       "params": {
         "target_tag": "player",
         "lerp": 0.15,
-        "deadzone": [2.0, 1.5]
+        "deadzone": [
+          2.0,
+          1.5
+        ]
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "room_graph_world",
@@ -18,27 +23,43 @@
         "transition_kind": "screen_flip",
         "starting_room": "overworld_start"
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "dungeon1_locks",
       "type": "LockAndKey",
       "params": {
         "locks": [
-          { "lock_tag": "locked", "key_tag": "key", "dungeon": "dungeon_1" }
+          {
+            "lock_tag": "locked",
+            "key_tag": "key",
+            "dungeon": "dungeon_1"
+          }
         ]
       },
-      "requires_tags": ["locked", "key"]
+      "requires_tags": [
+        "locked",
+        "key"
+      ]
     },
     {
       "id": "player_inventory_use",
       "type": "ItemUse",
       "params": {
         "owner_tag": "player",
-        "slots": ["primary", "secondary"],
-        "starting_items": ["sword"]
+        "slots": [
+          "primary",
+          "secondary"
+        ],
+        "starting_items": [
+          "sword"
+        ]
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "heart_pickup_loop",
@@ -49,7 +70,10 @@
         "effect": "heal",
         "amount_field": "heal_amount"
       },
-      "requires_tags": ["health", "player"]
+      "requires_tags": [
+        "health",
+        "player"
+      ]
     },
     {
       "id": "dungeon1_boss_phases",
@@ -57,11 +81,19 @@
       "params": {
         "boss_tag": "boss",
         "phases": [
-          { "health_threshold": 1.0, "behavior": "bt:boss_gohma_phase1" },
-          { "health_threshold": 0.5, "behavior": "bt:boss_gohma_phase2" }
+          {
+            "health_threshold": 1.0,
+            "behavior": "bt:boss_gohma_phase1"
+          },
+          {
+            "health_threshold": 0.5,
+            "behavior": "bt:boss_gohma_phase2"
+          }
         ]
       },
-      "requires_tags": ["boss"]
+      "requires_tags": [
+        "boss"
+      ]
     },
     {
       "id": "overworld_checkpoints",
@@ -71,19 +103,31 @@
         "respawn_on_zero": true,
         "checkpoint_field": "Checkpoint"
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "main_hud",
       "type": "HUD",
       "params": {
         "fields": [
-          { "archetype": "player", "component": "Health", "label": "HP" },
-          { "archetype": "player", "component": "Inventory", "label": "Items" }
+          {
+            "archetype": "player",
+            "component": "Health",
+            "label": "HP"
+          },
+          {
+            "archetype": "player",
+            "component": "Inventory",
+            "label": "Items"
+          }
         ],
         "layout": "top"
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     },
     {
       "id": "lose_when_dead",
@@ -93,7 +137,9 @@
         "field": "Health",
         "emit_condition": "game_over"
       },
-      "requires_tags": ["player"]
+      "requires_tags": [
+        "player"
+      ]
     }
   ]
 }

@@ -9,15 +9,73 @@
       "laps_default": 3,
       "lap_length_meters": 1800,
       "checkpoints": [
-        { "id": "start_finish",     "pos": [0, 0],    "order": 0 },
-        { "id": "cp_turn1",         "pos": [400, 0],  "order": 1 },
-        { "id": "cp_backstraight",  "pos": [400, 300],"order": 2 },
-        { "id": "cp_turn_last",     "pos": [0, 300],  "order": 3 }
+        {
+          "id": "start_finish",
+          "pos": [
+            0,
+            0
+          ],
+          "order": 0
+        },
+        {
+          "id": "cp_turn1",
+          "pos": [
+            400,
+            0
+          ],
+          "order": 1
+        },
+        {
+          "id": "cp_backstraight",
+          "pos": [
+            400,
+            300
+          ],
+          "order": 2
+        },
+        {
+          "id": "cp_turn_last",
+          "pos": [
+            0,
+            300
+          ],
+          "order": 3
+        }
       ],
-      "powerup_spawn_points": [[200, 0], [200, 300], [400, 150], [0, 150]],
+      "powerup_spawn_points": [
+        [
+          200,
+          0
+        ],
+        [
+          200,
+          300
+        ],
+        [
+          400,
+          150
+        ],
+        [
+          0,
+          150
+        ]
+      ],
       "boundary_type": "barriers",
       "surface_modifiers": [
-        { "aabb": [[100, 50], [150, 250]], "kind": "offroad_grass", "speed_multiplier": 0.55 }
+        {
+          "aabb": [
+            [
+              100,
+              50
+            ],
+            [
+              150,
+              250
+            ]
+          ],
+          "kind": "offroad_grass",
+          "speed_multiplier": 0.55
+        }
       ]
     },
     "donut_plains": {
@@ -29,14 +87,68 @@
       "laps_default": 3,
       "lap_length_meters": 2100,
       "checkpoints": [
-        { "id": "start_finish",     "pos": [0, 0],    "order": 0 },
-        { "id": "cp_water_jump",    "pos": [500, 0],  "order": 1 },
-        { "id": "cp_mole_tunnel",   "pos": [600, 400],"order": 2 },
-        { "id": "cp_finish_curve",  "pos": [0, 400],  "order": 3 }
+        {
+          "id": "start_finish",
+          "pos": [
+            0,
+            0
+          ],
+          "order": 0
+        },
+        {
+          "id": "cp_water_jump",
+          "pos": [
+            500,
+            0
+          ],
+          "order": 1
+        },
+        {
+          "id": "cp_mole_tunnel",
+          "pos": [
+            600,
+            400
+          ],
+          "order": 2
+        },
+        {
+          "id": "cp_finish_curve",
+          "pos": [
+            0,
+            400
+          ],
+          "order": 3
+        }
       ],
-      "powerup_spawn_points": [[250, 0], [600, 200], [300, 400], [0, 200]],
+      "powerup_spawn_points": [
+        [
+          250,
+          0
+        ],
+        [
+          600,
+          200
+        ],
+        [
+          300,
+          400
+        ],
+        [
+          0,
+          200
+        ]
+      ],
       "boundary_type": "barriers_plus_dirt",
-      "hazards": [ { "kind": "monty_mole_jumper", "pos": [500, 200], "cycle_frames": 120 } ]
+      "hazards": [
+        {
+          "kind": "monty_mole_jumper",
+          "pos": [
+            500,
+            200
+          ],
+          "cycle_frames": 120
+        }
+      ]
     },
     "koopa_beach": {
       "source_essence": "1992_super_mario_kart",
@@ -47,17 +159,80 @@
       "laps_default": 4,
       "lap_length_meters": 1500,
       "checkpoints": [
-        { "id": "start_finish",  "pos": [0, 0],    "order": 0 },
-        { "id": "cp_shallow",    "pos": [300, 0],  "order": 1 },
-        { "id": "cp_palm_curve", "pos": [300, 200],"order": 2 },
-        { "id": "cp_beach_last", "pos": [0, 200],  "order": 3 }
+        {
+          "id": "start_finish",
+          "pos": [
+            0,
+            0
+          ],
+          "order": 0
+        },
+        {
+          "id": "cp_shallow",
+          "pos": [
+            300,
+            0
+          ],
+          "order": 1
+        },
+        {
+          "id": "cp_palm_curve",
+          "pos": [
+            300,
+            200
+          ],
+          "order": 2
+        },
+        {
+          "id": "cp_beach_last",
+          "pos": [
+            0,
+            200
+          ],
+          "order": 3
+        }
       ],
-      "powerup_spawn_points": [[150, 0], [300, 100], [150, 200]],
+      "powerup_spawn_points": [
+        [
+          150,
+          0
+        ],
+        [
+          300,
+          100
+        ],
+        [
+          150,
+          200
+        ]
+      ],
       "boundary_type": "water_edge",
       "surface_modifiers": [
-        { "aabb": [[50, 20], [250, 180]], "kind": "shallow_water", "speed_multiplier": 0.75 }
+        {
+          "aabb": [
+            [
+              50,
+              20
+            ],
+            [
+              250,
+              180
+            ]
+          ],
+          "kind": "shallow_water",
+          "speed_multiplier": 0.75
+        }
       ],
-      "hazards": [ { "kind": "cheep_cheep_jumper", "pos": [200, 100], "cycle_frames": 90 } ]
+      "hazards": [
+        {
+          "kind": "cheep_cheep_jumper",
+          "pos": [
+            200,
+            100
+          ],
+          "cycle_frames": 90
+        }
+      ]
     },
     "laguna_seca": {
       "source_essence": "1997_gran_turismo",
@@ -68,10 +243,38 @@
       "laps_default": 3,
       "lap_length_meters": 3602,
       "checkpoints": [
-        { "id": "start_finish",     "pos": [0, 0],     "order": 0 },
-        { "id": "cp_andretti_hair", "pos": [800, -400],"order": 1 },
-        { "id": "cp_corkscrew",     "pos": [1400, -200],"order": 2 },
-        { "id": "cp_last_turn",     "pos": [400, 200], "order": 3 }
+        {
+          "id": "start_finish",
+          "pos": [
+            0,
+            0
+          ],
+          "order": 0
+        },
+        {
+          "id": "cp_andretti_hair",
+          "pos": [
+            800,
+            -400
+          ],
+          "order": 1
+        },
+        {
+          "id": "cp_corkscrew",
+          "pos": [
+            1400,
+            -200
+          ],
+          "order": 2
+        },
+        {
+          "id": "cp_last_turn",
+          "pos": [
+            400,
+            200
+          ],
+          "order": 3
+        }
       ],
       "powerup_spawn_points": [],
       "boundary_type": "racing_kerbs",
@@ -87,14 +290,74 @@
       "laps_default": 3,
       "lap_length_meters": 2800,
       "checkpoints": [
-        { "id": "start_finish",   "pos": [0, 0],    "order": 0 },
-        { "id": "cp_first_curve", "pos": [700, 200],"order": 1 },
-        { "id": "cp_apex_loop",   "pos": [1200, -100],"order": 2 },
-        { "id": "cp_home_stretch","pos": [500, -300],"order": 3 }
+        {
+          "id": "start_finish",
+          "pos": [
+            0,
+            0
+          ],
+          "order": 0
+        },
+        {
+          "id": "cp_first_curve",
+          "pos": [
+            700,
+            200
+          ],
+          "order": 1
+        },
+        {
+          "id": "cp_apex_loop",
+          "pos": [
+            1200,
+            -100
+          ],
+          "order": 2
+        },
+        {
+          "id": "cp_home_stretch",
+          "pos": [
+            500,
+            -300
+          ],
+          "order": 3
+        }
       ],
-      "powerup_spawn_points": [[300, 0], [1000, 50], [800, -200], [200, -300]],
+      "powerup_spawn_points": [
+        [
+          300,
+          0
+        ],
+        [
+          1000,
+          50
+        ],
+        [
+          800,
+          -200
+        ],
+        [
+          200,
+          -300
+        ]
+      ],
       "boundary_type": "fall_off_edge",
-      "hazards": [ { "kind": "chain_chomp_roaming", "path_waypoints": [[800, 0], [800, 100]], "cycle_frames": 180 } ]
+      "hazards": [
+        {
+          "kind": "chain_chomp_roaming",
+          "path_waypoints": [
+            [
+              800,
+              0
+            ],
+            [
+              800,
+              100
+            ]
+          ],
+          "cycle_frames": 180
+        }
+      ]
     }
   },
   "starting_track": "mario_circuit_1"

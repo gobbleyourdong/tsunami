@@ -6,8 +6,16 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "chase",
-      "components": ["Health(20)", "Resource('damage',5)"],
-      "tags": ["enemy", "damageable", "hitscan_attacker", "low_tier"],
+      "components": [
+        "Health(20)",
+        "Resource('damage',5)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "hitscan_attacker",
+        "low_tier"
+      ],
       "sprite_ref": "sprites/enemies/zombie_marine",
       "attack_kind": "hitscan",
       "attack_damage": 5,
@@ -15,9 +23,16 @@
       "attack_cooldown_frames": 45,
       "move_speed": 1.8,
       "drop_table": [
-        { "item": "clip", "rate": 0.8 }
+        {
+          "item": "clip",
+          "rate": 0.8
+        }
       ],
-      "xp_reward": 0
+      "xp_reward": 0,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3,
+      "directions": 8
     },
     "imp": {
       "source_essence": "1993_doom",
@@ -25,17 +40,33 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:imp_fireball_close_scratch",
-      "components": ["Health(60)", "Resource('damage',20)"],
-      "tags": ["enemy", "damageable", "projectile_attacker", "mid_tier"],
+      "components": [
+        "Health(60)",
+        "Resource('damage',20)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "projectile_attacker",
+        "mid_tier"
+      ],
       "sprite_ref": "sprites/enemies/imp",
       "attack_kind": "projectile",
-      "projectile": { "kind": "fireball", "speed": 10.0, "damage": 20 },
+      "projectile": {
+        "kind": "fireball",
+        "speed": 10.0,
+        "damage": 20
+      },
       "attack_range": 40.0,
       "attack_cooldown_frames": 60,
       "melee_damage": 15,
       "move_speed": 3.0,
       "drop_table": [],
-      "xp_reward": 0
+      "xp_reward": 0,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3,
+      "directions": 8
     },
     "pinky_demon": {
       "source_essence": "1993_doom",
@@ -43,8 +74,16 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "chase",
-      "components": ["Health(150)", "Resource('damage',25)"],
-      "tags": ["enemy", "damageable", "melee_attacker", "heavy_armored"],
+      "components": [
+        "Health(150)",
+        "Resource('damage',25)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "melee_attacker",
+        "heavy_armored"
+      ],
       "sprite_ref": "sprites/enemies/pinky",
       "attack_kind": "melee",
       "melee_damage": 25,
@@ -52,7 +91,11 @@
       "attack_cooldown_frames": 30,
       "move_speed": 4.0,
       "drop_table": [],
-      "xp_reward": 0
+      "xp_reward": 0,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3,
+      "directions": 8
     },
     "cacodemon": {
       "source_essence": "1993_doom",
@@ -60,17 +103,34 @@
       "mesh": "sphere",
       "controller": "none",
       "ai": "bt:cacodemon_fly_spit",
-      "components": ["Health(400)", "Resource('damage',35)"],
-      "tags": ["enemy", "damageable", "flying", "projectile_attacker", "elite"],
+      "components": [
+        "Health(400)",
+        "Resource('damage',35)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "flying",
+        "projectile_attacker",
+        "elite"
+      ],
       "sprite_ref": "sprites/enemies/cacodemon",
       "attack_kind": "projectile",
-      "projectile": { "kind": "lightning_ball", "speed": 12.0, "damage": 35 },
+      "projectile": {
+        "kind": "lightning_ball",
+        "speed": 12.0,
+        "damage": 35
+      },
       "attack_range": 50.0,
       "attack_cooldown_frames": 75,
       "move_speed": 3.5,
       "is_flying": true,
       "drop_table": [],
-      "xp_reward": 0
+      "xp_reward": 0,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3,
+      "directions": 8
     },
     "headcrab": {
       "source_essence": "1998_half_life",
@@ -78,8 +138,16 @@
       "mesh": "box",
       "controller": "none",
       "ai": "bt:headcrab_leap_attack",
-      "components": ["Health(10)", "Resource('damage',10)"],
-      "tags": ["enemy", "damageable", "leaping", "low_tier"],
+      "components": [
+        "Health(10)",
+        "Resource('damage',10)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "leaping",
+        "low_tier"
+      ],
       "sprite_ref": "sprites/enemies/headcrab",
       "attack_kind": "leap_melee",
       "leap_distance": 4.5,
@@ -87,7 +155,11 @@
       "attack_cooldown_frames": 40,
       "move_speed": 4.2,
       "drop_table": [],
-      "xp_reward": 0
+      "xp_reward": 0,
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 3,
+      "directions": 8
     },
     "cyberdemon": {
       "source_essence": "1993_doom",
@@ -95,20 +167,44 @@
       "mesh": "capsule",
       "controller": "none",
       "ai": "bt:cyberdemon_rocket_salvo",
-      "components": ["Health(4000)", "Resource('damage',80)"],
-      "tags": ["enemy", "damageable", "boss", "projectile_attacker", "giant"],
+      "components": [
+        "Health(4000)",
+        "Resource('damage',80)"
+      ],
+      "tags": [
+        "enemy",
+        "damageable",
+        "boss",
+        "projectile_attacker",
+        "giant"
+      ],
       "sprite_ref": "sprites/enemies/cyberdemon",
       "attack_kind": "projectile",
-      "projectile": { "kind": "rocket", "speed": 20.0, "damage": 80, "splash_radius": 2.5 },
+      "projectile": {
+        "kind": "rocket",
+        "speed": 20.0,
+        "damage": 80,
+        "splash_radius": 2.5
+      },
       "attack_range": 80.0,
       "attack_cooldown_frames": 90,
       "move_speed": 2.5,
       "phases": [
-        { "health_threshold": 1.0, "behavior": "bt:cyberdemon_patrol_salvo" },
-        { "health_threshold": 0.3, "behavior": "bt:cyberdemon_enraged_rapid" }
+        {
+          "health_threshold": 1.0,
+          "behavior": "bt:cyberdemon_patrol_salvo"
+        },
+        {
+          "health_threshold": 0.3,
+          "behavior": "bt:cyberdemon_enraged_rapid"
+        }
       ],
       "drop_table": [],
-      "xp_reward": 0
+      "xp_reward": 0,
+      "anim_flag": "animating",
+      "loop_frames": 6,
+      "z": 3,
+      "directions": 8
     }
   }
 }

@@ -12,8 +12,14 @@
       "spread_deg": 0.0,
       "rate_of_fire_rps": 2.5,
       "reload_frames": 0,
-      "tags": ["melee", "starting"],
-      "sprite_ref": "sprites/weapons/fists"
+      "tags": [
+        "melee",
+        "starting"
+      ],
+      "sprite_ref": "sprites/weapons/fists",
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 5
     },
     "pistol": {
       "source_essence": "1993_doom",
@@ -27,8 +33,14 @@
       "spread_deg": 1.0,
       "rate_of_fire_rps": 4.0,
       "reload_frames": 0,
-      "tags": ["hitscan", "starting"],
-      "sprite_ref": "sprites/weapons/pistol"
+      "tags": [
+        "hitscan",
+        "starting"
+      ],
+      "sprite_ref": "sprites/weapons/pistol",
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 5
     },
     "shotgun": {
       "source_essence": "1993_doom",
@@ -44,8 +56,14 @@
       "spread_deg": 8.5,
       "rate_of_fire_rps": 1.2,
       "reload_frames": 45,
-      "tags": ["hitscan", "spread"],
-      "sprite_ref": "sprites/weapons/shotgun"
+      "tags": [
+        "hitscan",
+        "spread"
+      ],
+      "sprite_ref": "sprites/weapons/shotgun",
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 5
     },
     "super_shotgun": {
       "source_essence": "1994_doom_ii",
@@ -61,8 +79,15 @@
       "spread_deg": 14.0,
       "rate_of_fire_rps": 0.9,
       "reload_frames": 60,
-      "tags": ["hitscan", "spread", "heavy"],
-      "sprite_ref": "sprites/weapons/super_shotgun"
+      "tags": [
+        "hitscan",
+        "spread",
+        "heavy"
+      ],
+      "sprite_ref": "sprites/weapons/super_shotgun",
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 5
     },
     "chaingun": {
       "source_essence": "1993_doom",
@@ -76,8 +101,14 @@
       "spread_deg": 3.0,
       "rate_of_fire_rps": 10.0,
       "reload_frames": 0,
-      "tags": ["hitscan", "rapid_fire"],
-      "sprite_ref": "sprites/weapons/chaingun"
+      "tags": [
+        "hitscan",
+        "rapid_fire"
+      ],
+      "sprite_ref": "sprites/weapons/chaingun",
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 5
     },
     "rocket_launcher": {
       "source_essence": "1993_doom",
@@ -93,8 +124,15 @@
       "spread_deg": 0.0,
       "rate_of_fire_rps": 1.1,
       "reload_frames": 0,
-      "tags": ["projectile", "aoe", "splash"],
-      "sprite_ref": "sprites/weapons/rocket_launcher"
+      "tags": [
+        "projectile",
+        "aoe",
+        "splash"
+      ],
+      "sprite_ref": "sprites/weapons/rocket_launcher",
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 5
     },
     "plasma_rifle": {
       "source_essence": "1993_doom",
@@ -108,8 +146,15 @@
       "spread_deg": 0.5,
       "rate_of_fire_rps": 11.0,
       "reload_frames": 0,
-      "tags": ["projectile", "rapid_fire", "energy"],
-      "sprite_ref": "sprites/weapons/plasma_rifle"
+      "tags": [
+        "projectile",
+        "rapid_fire",
+        "energy"
+      ],
+      "sprite_ref": "sprites/weapons/plasma_rifle",
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 5
     },
     "bfg_9000": {
       "source_essence": "1993_doom",
@@ -125,8 +170,15 @@
       "spread_deg": 0.0,
       "rate_of_fire_rps": 0.4,
       "reload_frames": 0,
-      "tags": ["aoe", "cone_raycast", "ultimate"],
-      "sprite_ref": "sprites/weapons/bfg_9000"
+      "tags": [
+        "aoe",
+        "cone_raycast",
+        "ultimate"
+      ],
+      "sprite_ref": "sprites/weapons/bfg_9000",
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 5
     },
     "crowbar": {
       "source_essence": "1998_half_life",
@@ -140,8 +192,14 @@
       "spread_deg": 0.0,
       "rate_of_fire_rps": 2.0,
       "reload_frames": 0,
-      "tags": ["melee", "environmental_interact"],
-      "sprite_ref": "sprites/weapons/crowbar"
+      "tags": [
+        "melee",
+        "environmental_interact"
+      ],
+      "sprite_ref": "sprites/weapons/crowbar",
+      "anim_flag": "animating",
+      "loop_frames": 4,
+      "z": 5
     }
   }
 }

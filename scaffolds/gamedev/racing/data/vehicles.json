@@ -8,11 +8,20 @@
       "stats": {
         "top_speed": 62,
         "acceleration": 0.82,
-        "handling": 0.80,
-        "weight": 0.40
+        "handling": 0.8,
+        "weight": 0.4
       },
-      "components": ["Health(3)", "Resource('boost_charge',0)"],
-      "tags": ["vehicle", "kart", "light_weight"]
+      "components": [
+        "Health(3)",
+        "Resource('boost_charge',0)"
+      ],
+      "tags": [
+        "vehicle",
+        "kart",
+        "light_weight"
+      ],
+      "anim_flag": "rotate",
+      "z": 3
     },
     "kart_medium": {
       "source_essence": "1992_super_mario_kart",
@@ -25,8 +34,17 @@
         "handling": 0.72,
         "weight": 0.55
       },
-      "components": ["Health(3)", "Resource('boost_charge',0)"],
-      "tags": ["vehicle", "kart", "medium_weight"]
+      "components": [
+        "Health(3)",
+        "Resource('boost_charge',0)"
+      ],
+      "tags": [
+        "vehicle",
+        "kart",
+        "medium_weight"
+      ],
+      "anim_flag": "rotate",
+      "z": 3
     },
     "kart_heavy": {
       "source_essence": "1992_super_mario_kart",
@@ -36,11 +54,20 @@
       "stats": {
         "top_speed": 72,
         "acceleration": 0.65,
-        "handling": 0.60,
+        "handling": 0.6,
         "weight": 0.85
       },
-      "components": ["Health(3)", "Resource('boost_charge',0)"],
-      "tags": ["vehicle", "kart", "heavy_weight"]
+      "components": [
+        "Health(3)",
+        "Resource('boost_charge',0)"
+      ],
+      "tags": [
+        "vehicle",
+        "kart",
+        "heavy_weight"
+      ],
+      "anim_flag": "rotate",
+      "z": 3
     },
     "sim_sedan_basic": {
       "source_essence": "1997_gran_turismo",
@@ -50,14 +77,25 @@
       "stats": {
         "top_speed": 210,
         "acceleration": 0.55,
-        "handling": 0.70,
+        "handling": 0.7,
         "weight": 1.05,
         "grip_dry": 0.88,
         "grip_wet": 0.65,
         "torque_curve_ref": "data/torque_curves/civic_sir.json"
       },
-      "components": ["Health(1)", "Resource('fuel',100)", "Resource('tire_wear',0)"],
-      "tags": ["vehicle", "sim", "entry_class", "fwd"]
+      "components": [
+        "Health(1)",
+        "Resource('fuel',100)",
+        "Resource('tire_wear',0)"
+      ],
+      "tags": [
+        "vehicle",
+        "sim",
+        "entry_class",
+        "fwd"
+      ],
+      "anim_flag": "rotate",
+      "z": 3
     },
     "sim_sports_mid": {
       "source_essence": "1997_gran_turismo",
@@ -73,8 +111,20 @@
         "grip_wet": 0.68,
         "torque_curve_ref": "data/torque_curves/rx7_fd.json"
       },
-      "components": ["Health(1)", "Resource('fuel',100)", "Resource('tire_wear',0)"],
-      "tags": ["vehicle", "sim", "mid_class", "rwd", "rotary"]
+      "components": [
+        "Health(1)",
+        "Resource('fuel',100)",
+        "Resource('tire_wear',0)"
+      ],
+      "tags": [
+        "vehicle",
+        "sim",
+        "mid_class",
+        "rwd",
+        "rotary"
+      ],
+      "anim_flag": "rotate",
+      "z": 3
     },
     "sim_supercar": {
       "source_essence": "1997_gran_turismo",
@@ -90,8 +140,20 @@
         "grip_wet": 0.62,
         "torque_curve_ref": "data/torque_curves/f40_lm.json"
       },
-      "components": ["Health(1)", "Resource('fuel',100)", "Resource('tire_wear',0)"],
-      "tags": ["vehicle", "sim", "top_class", "rwd", "supercar"]
+      "components": [
+        "Health(1)",
+        "Resource('fuel',100)",
+        "Resource('tire_wear',0)"
+      ],
+      "tags": [
+        "vehicle",
+        "sim",
+        "top_class",
+        "rwd",
+        "supercar"
+      ],
+      "anim_flag": "rotate",
+      "z": 3
     }
   }
 }

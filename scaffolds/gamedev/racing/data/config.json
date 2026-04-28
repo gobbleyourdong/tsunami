@@ -2,22 +2,44 @@
   "meta": {
     "title": "Racing Scaffold Seed",
     "shape": "action",
-    "vibe": ["arcade-kart-default", "sim-circuit-secondary", "checkpoint-laps", "rubberband-ai"],
+    "vibe": [
+      "arcade-kart-default",
+      "sim-circuit-secondary",
+      "checkpoint-laps",
+      "rubberband-ai"
+    ],
     "target_session_sec": 600
   },
   "config": {
     "mode": "2d",
     "camera": "orthographic",
-    "playfield": { "kind": "continuous", "arena": { "shape": "rect", "size": 64 } },
+    "playfield": {
+      "kind": "continuous",
+      "arena": {
+        "shape": "rect",
+        "size": 64
+      }
+    },
     "sandbox": false
   },
   "starting_track": "mario_circuit_1",
   "laps_per_race": 3,
   "racer_count": 6,
-  "starting_grid": ["player", "ai_mario", "ai_peach", "ai_yoshi", "ai_luigi", "ai_bowser"],
+  "starting_grid": [
+    "player",
+    "ai_mario",
+    "ai_peach",
+    "ai_yoshi",
+    "ai_luigi",
+    "ai_bowser"
+  ],
   "starting_player_position": 1,
   "difficulty": "50cc",
-  "difficulty_options": ["50cc", "100cc", "150cc"],
+  "difficulty_options": [
+    "50cc",
+    "100cc",
+    "150cc"
+  ],
   "win_condition": {
     "kind": "first_place_after_n_laps",
     "laps": 3
