@@ -1354,6 +1354,24 @@ async function main() {
       wm[childOff + 14] = p20 * t0 + p21 * t1 + p22 * t2 + p23
       wm[childOff + 15] = 1
     }
+    // Head 180° local-Y flip — applied per frame after composer.update so
+    // the face points backward. Used by spider so the round back-of-head
+    // reads as the abdomen rather than a screaming face on top of the
+    // body. Implemented as M_head ← M_head × R(Y, 180°), which in
+    // column-major terms negates cols 0 and 2 (X- and Z-axis) and
+    // leaves col 1 (Y, the bone's up) and col 3 (translation) untouched.
+    const applyHeadFlip180 = () => {
+      if (!composer) return
+      const headIdx = rig.findIndex((j) => j.name === 'Head')
+      if (headIdx < 0) return
+      const wm = composer.worldMatrices
+      const off = headIdx * 16
+      wm[off + 0] = -wm[off + 0]; wm[off + 1] = -wm[off + 1]; wm[off + 2] = -wm[off + 2]
+      wm[off + 8] = -wm[off + 8]; wm[off + 9] = -wm[off + 9]; wm[off + 10] = -wm[off + 10]
+      device.queue.writeBuffer(vatHandle.buffer, headIdx * 64, wm.buffer, wm.byteOffset + off * 4, 64)
+      invalidateRaymarchCache()
+    }
+
     const applyWingFlap = () => {
       if (!composer || !loadedVAT.localMats) return
       if (WING_CHAIN_L.length < 1 && WING_CHAIN_R.length < 1) return
@@ -1968,6 +1986,10 @@ async function main() {
       // forward from Neck, tipped with a snake-head ellipsoid. When on,
       // the Head bone gets scale-collapsed so the human face hides.
       snakeNeck: boolean
+      // Rotate the Head bone 180° around its local Y per frame so the
+      // face points backward. Used by spider so the round back-of-head
+      // reads as the abdomen rather than a screaming face on the body.
+      headFlip180: boolean
       capePattern: CapePattern
       hands: string   // key into HAND_LIBRARY
       feet:  string   // key into FOOT_LIBRARY
@@ -1993,6 +2015,7 @@ async function main() {
       quadrupedHind: false,
       extraLimbs: false,
       snakeNeck: false,
+      headFlip180: false,
       capePattern: 'stripes',
       hands: 'skin',
       feet:  'shoe',
@@ -2499,6 +2522,10 @@ async function main() {
         spikesTop?: boolean; spikesSideL?: boolean; spikesSideR?: boolean; spikesBack?: boolean
         cape?: boolean; tail?: boolean; wings?: boolean; grenades?: boolean
         quadrupedHind?: boolean; extraLimbs?: boolean; snakeNeck?: boolean
+        // Rotate the Head bone 180° around its local Y so the face
+        // points backward. Used by spider so the round back-of-head
+        // reads as the abdomen-front rather than a screaming face.
+        headFlip180?: boolean
         defaultAnim?: string
         // Per-bone scale overrides (applied after applyPreset).
         boneScales?: Record<string, ScaleVec>
@@ -2526,19 +2553,23 @@ async function main() {
           bob: false, ponytail: false, bangsL: false, bangsR: false,
           spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
           cape: false, tail: false, wings: false, grenades: false,
-          // quadrupedHind off — we don't need the Y-only retarget; the
-          // boneScales below collapse all 4 human limbs in ALL THREE
-          // axes so only the 4 procedural extra limbs remain visible.
-          // Cleaner read as a 4-legged bug.
           quadrupedHind: false, extraLimbs: true, snakeNeck: false,
           hands: 'none', feet: 'none',
+          headFlip180: true,
+          // Thin human arms + legs (X/Z compressed to 35%, Y full) read
+          // as 4 spider legs. Combined with the 4 procedural extras at
+          // hip quadrants → 8 thin legs total, true spider count. The
+          // Hand/Foot bones go ALL-AXES tiny so the visibility filter
+          // drops their type-3 attachment ellipsoids (we already kill
+          // shoes/mitts via hands:'none', feet:'none', but the bones
+          // still emit small body-part primitives without this).
           boneScales: {
-            LeftArm:  [0.01, 0.01, 0.01], RightArm:  [0.01, 0.01, 0.01],
-            LeftForeArm: [0.01, 0.01, 0.01], RightForeArm: [0.01, 0.01, 0.01],
-            LeftHand: [0.01, 0.01, 0.01], RightHand: [0.01, 0.01, 0.01],
-            LeftUpLeg: [0.01, 0.01, 0.01], RightUpLeg: [0.01, 0.01, 0.01],
-            LeftLeg:  [0.01, 0.01, 0.01], RightLeg:  [0.01, 0.01, 0.01],
-            LeftFoot: [0.01, 0.01, 0.01], RightFoot: [0.01, 0.01, 0.01],
+            LeftArm:     [0.35, 1, 0.35], RightArm:     [0.35, 1, 0.35],
+            LeftForeArm: [0.35, 1, 0.35], RightForeArm: [0.35, 1, 0.35],
+            LeftUpLeg:   [0.35, 1, 0.35], RightUpLeg:   [0.35, 1, 0.35],
+            LeftLeg:     [0.35, 1, 0.35], RightLeg:     [0.35, 1, 0.35],
+            LeftHand:    [0.01, 0.01, 0.01], RightHand:    [0.01, 0.01, 0.01],
+            LeftFoot:    [0.01, 0.01, 0.01], RightFoot:    [0.01, 0.01, 0.01],
           },
           defaultAnim: 'crawl_backwards',
           compatibleAnims: ['crawl_backwards', 'crawling', 'running_crawl', 'mutant_run'],
@@ -2623,8 +2654,12 @@ async function main() {
       function applyCreaturePreset(name: string) {
         const p = CREATURE_PRESETS[name]
         if (!p) return
-        // Loadout flags
-        const flagKeys = ['bob','ponytail','bangsL','bangsR','spikesTop','spikesSideL','spikesSideR','spikesBack','cape','tail','wings','grenades','quadrupedHind','extraLimbs','snakeNeck'] as const
+        // Loadout flags. headFlip180 reset first because most presets
+        // don't specify it (default = false) and the per-key check below
+        // only writes when the spec sets a boolean — switching spider →
+        // anything else needs to clear the flip.
+        loadout.headFlip180 = false
+        const flagKeys = ['bob','ponytail','bangsL','bangsR','spikesTop','spikesSideL','spikesSideR','spikesBack','cape','tail','wings','grenades','quadrupedHind','extraLimbs','snakeNeck','headFlip180'] as const
         for (const k of flagKeys) {
           if (typeof p[k] === 'boolean') (loadout as Record<string, unknown>)[k] = p[k]
         }
@@ -3112,6 +3147,7 @@ async function main() {
         if (loadout.extraLimbs && composer) applyExtraLimbsCopy(frameIdx)
         if (loadout.wings && loadout.wingFlap && composer) applyWingFlap()
         if (loadout.snakeNeck && composer) applySnakeNeckWeave()
+        if (loadout.headFlip180 && composer) applyHeadFlip180()
       }
 
       // Cape secondary motion — node particles drive cape bone positions
