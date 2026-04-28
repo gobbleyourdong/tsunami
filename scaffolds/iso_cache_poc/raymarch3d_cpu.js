@@ -193,23 +193,48 @@ const DEFAULT_MAX_DIST = 5.0;
 const DEFAULT_HIT_EPS = 0.001;
 
 /**
- * Side-view orthographic raymarch. Pixel (px, py) in a localW × localH
- * buffer maps to world-space via the caller's `metersPerPixel`:
+ * Orthographic raymarch with optional elevation tilt. Pixel (px, py) in a
+ * localW × localH buffer maps to world-space via the caller's
+ * `metersPerPixel`:
  *   worldX =  (px - localW/2) * metersPerPixel
- *   worldY = -(py - localH/2) * metersPerPixel    (flip — screen y is down)
+ *   worldY = -(py - localH/2) * metersPerPixel
  *
- * Returns { hit, p, normal, steps }. p and normal are [x,y,z] in world
- * SDF space; hit=false means the ray exited without crossing the surface.
+ * If `opts.elevation` is non-zero (radians), the camera tilts down by
+ * that angle: ray direction becomes (0, -sin(E), -cos(E)) instead of
+ * straight -Z. The ray origin is built from right=(1,0,0) and the tilted
+ * up=(0, cos(E), -sin(E)) basis — the buffer's up direction now lifts
+ * INTO the scene (showing top surfaces).
  *
- * opts: { startZ, endZ, maxSteps, eps, maxDist }
+ * Returns { hit, p, normal, steps }.
+ *
+ * opts: { startZ, maxSteps, eps, maxDist, elevation }
  */
 export function raymarchPixel(sdfFn, worldX, worldY, opts = {}) {
-  const startZ = opts.startZ != null ? opts.startZ : 1.5;
-  const endZ = opts.endZ != null ? opts.endZ : -1.5;
   const eps = opts.eps != null ? opts.eps : DEFAULT_HIT_EPS;
   const maxSteps = opts.maxSteps != null ? opts.maxSteps : DEFAULT_MAX_STEPS;
   const maxDist = opts.maxDist != null ? opts.maxDist : DEFAULT_MAX_DIST;
-  const p = [worldX, worldY, startZ];
+  const startMag = opts.startZ != null ? opts.startZ : 1.5;
+  const elevation = opts.elevation || 0;
+
+  let dirX, dirY, dirZ;
+  let p0, p1, p2;
+  if (elevation === 0) {
+    dirX = 0; dirY = 0; dirZ = -1;
+    p0 = worldX; p1 = worldY; p2 = startMag;
+  } else {
+    const cE = Math.cos(elevation);
+    const sE = Math.sin(elevation);
+    dirX = 0; dirY = -sE; dirZ = -cE;
+    // Pixel position on the tilted camera plane = right*worldX + up*worldY
+    // where right=(1,0,0), up=(0, cE, -sE). Then push back along -dir
+    // by startMag so the march starts outside the scene.
+    p0 = worldX        - dirX * startMag;
+    p1 = worldY * cE   - dirY * startMag;
+    p2 = -worldY * sE  - dirZ * startMag;
+  }
+
+  const p = [p0, p1, p2];
+  let t = 0;
   for (let step = 0; step < maxSteps; step++) {
     const d = sdfFn(p);
     if (d < eps) {
@@ -220,9 +245,13 @@ export function raymarchPixel(sdfFn, worldX, worldY, opts = {}) {
         steps: step,
       };
     }
-    if (d > maxDist) break;
-    p[2] -= vmax(d, eps * 0.5);
-    if (p[2] < endZ) break;
+    if (d > maxDist - t) break;
+    const advance = vmax(d, eps * 0.5);
+    t += advance;
+    if (t > maxDist) break;
+    p[0] += dirX * advance;
+    p[1] += dirY * advance;
+    p[2] += dirZ * advance;
   }
   return { hit: false, p: null, normal: null, steps: maxSteps };
 }

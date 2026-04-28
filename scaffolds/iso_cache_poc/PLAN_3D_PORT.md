@@ -211,7 +211,7 @@ surface; destruction (craters) works.
 **Commit subject:** `iso_cache_poc: 3D port phase 10 — terrain archetype is 3D`
 
 ### Phase 11 — Add iso camera tilt
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Replace the straight-down ortho camera with an iso
 tilt (~26.57° elevation, dimetric 2:1). Each pixel's ray direction is
@@ -254,7 +254,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 | 8     | COMPLETE — walker = sphere head + capsule body + 2 capsule legs + 2 capsule arms; limbs swing per phase via factory |
 | 9     | COMPLETE — volcano = stretched ellipsoid body + animated plume sphere; bakeMaxSteps=24 + loopFrames=2 to manage 120k px buf |
 | 10    | COMPLETE — terrain = slab heightfield via hillSurfaceMeters wrap; mPP=0.01, bakeMaxSteps=12; init ~3-4s, baked once |
-| 11    | PENDING |
+| 11    | COMPLETE — raymarchPixel accepts opts.elevation; ISO_ELEVATION=0.20 rad (~11.5°) global; per-archetype `bakeElevation` overrides |
 | 12    | PENDING |
 
 When all phases reach COMPLETE or BLOCKED the loop should stop firing.

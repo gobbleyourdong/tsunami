@@ -91,6 +91,12 @@
   // a per-pixel CPU raymarch instead of the 2D SDF eval.
   import * as R3 from './raymarch3d_cpu.js';
 
+  // Phase 11: global iso camera tilt (~11.5°). Subtle enough that gear/fan
+  // (whose primitives sit on the Z axis) still read as "facing camera"
+  // but enough that terrain hill profiles + volcano + heart show their top.
+  // Per-archetype `bakeElevation` opt overrides if needed.
+  const ISO_ELEVATION = 0.20;
+
   // ─────────────────────────────────────────────────────────────────
   // ARCHITECTURE
   //
@@ -150,6 +156,7 @@
       // Per-archetype bake tuning. Big buffers (volcano, terrain) get a
       // lower step count so the per-tick re-bake stays in budget.
       this.bakeMaxSteps = opts.bakeMaxSteps || 48;
+      this.bakeElevation = opts.bakeElevation !== undefined ? opts.bakeElevation : ISO_ELEVATION;
       this.localW = opts.localW;
       this.localH = opts.localH;
       this.worldX = opts.worldX;
@@ -276,7 +283,10 @@
               }
               const wx = (lx - halfW) * mPP;
               const wy = -(ly - halfH) * mPP;
-              const hit = R3.raymarchPixel(sdfNow, wx, wy, { maxSteps: this.bakeMaxSteps });
+              const hit = R3.raymarchPixel(sdfNow, wx, wy, {
+                maxSteps: this.bakeMaxSteps,
+                elevation: this.bakeElevation,
+              });
               evals += 1 + (hit.steps || 0);
               const i = (py * reg.w + px) * 4;
               if (hit.hit) {
