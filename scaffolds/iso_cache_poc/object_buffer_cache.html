@@ -141,6 +141,10 @@
       // metersPerPixel scales the buffer's pixel grid into the SDF's
       // world units (so a 60×44 buffer with mPP=0.01 covers 0.6×0.44m).
       this.sdfFn3d = opts.sdfFn3d || null;
+      // For animated 3D archetypes: provide a factory(animPhase) that
+      // returns a fresh sdfFn3d. The bake calls it once per region so the
+      // raymarcher gets a stable closure per pass (no per-pixel realloc).
+      this.sdfFn3dFactory = opts.sdfFn3dFactory || null;
       this.metersPerPixel = opts.metersPerPixel || 0.01;
       this.lightDir = opts.lightDir || [0.4, 0.7, 0.6];
       this.localW = opts.localW;
@@ -231,7 +235,12 @@
     _bakeInto(colorCtx, normalCtx, depthVisCtx, depthBuf, regions, animPhase) {
       let evals = 0;
       const c = this.color;
-      const use3d = !!this.sdfFn3d;
+      const use3d = !!(this.sdfFn3d || this.sdfFn3dFactory);
+      // Build the active 3D SDF once per bake call (animated archetypes
+      // resolve their factory here so the closure is stable across all pixels).
+      const sdfNow = use3d
+        ? (this.sdfFn3dFactory ? this.sdfFn3dFactory(animPhase) : this.sdfFn3d)
+        : null;
       const mPP = this.metersPerPixel;
       const halfW = this.localW / 2;
       const halfH = this.localH / 2;
@@ -264,7 +273,7 @@
               }
               const wx = (lx - halfW) * mPP;
               const wy = -(ly - halfH) * mPP;
-              const hit = R3.raymarchPixel(this.sdfFn3d, wx, wy);
+              const hit = R3.raymarchPixel(sdfNow, wx, wy);
               evals += 1 + (hit.steps || 0);
               const i = (py * reg.w + px) * 4;
               if (hit.hit) {
@@ -608,6 +617,23 @@
     R3.translate([0.05, 0.04, 0.02], R3.sphere(0.13)),
     0.10,
   );
+
+  // ── 3D heart (Phase 5) ────────────────────────────────────────
+  // Two spheres for the lobes + an elongated ellipsoid for the bottom
+  // taper. (cone() primitive has a bug for this layout — ellipsoid gives
+  // a soft heart silhouette that's clean enough for POC.) Pulse from
+  // animPhase scales the whole shape. Returned as a closure each tick.
+  function makeHeartSdf3D(phase) {
+    const pulse = 1 + 0.18 * Math.sin(phase);
+    const r = 0.14 * pulse;
+    const left  = R3.translate([-0.10 * pulse, 0.06 * pulse, 0], R3.sphere(r));
+    const right = R3.translate([ 0.10 * pulse, 0.06 * pulse, 0], R3.sphere(r));
+    const tip = R3.translate(
+      [0, -0.05 * pulse, 0],
+      R3.ellipsoid([0.15 * pulse, 0.22 * pulse, 0.11 * pulse]),
+    );
+    return R3.smoothUnion(R3.smoothUnion(left, right, 0.05), tip, 0.08);
+  }
   // Walker: 8-frame walk cycle. phase ∈ [0, 2π). Limbs swing, eyes blink each step.
   function sdfWalker(lx, ly, phase) {
     const headD = Math.hypot(lx - 24, ly - 14) - 10;
@@ -749,11 +775,12 @@
     }));
   });
   objects.push(new GameObject({
-    id: 'heart', color: [200, 80, 100], sdfFn: sdfHeart,
+    id: 'heart', color: [200, 80, 100],
+    sdfFn3dFactory: makeHeartSdf3D,    // 3D pulsing heart (per-tick rebuild)
+    metersPerPixel: 0.006,              // 80×80 buf → ~0.48m world extent
     localW: 80, localH: 80, worldX: 1300, worldY: 160,
     animFlag: 'animating',
     loopFrames: 6,
-    sdfHandlesDamage: true,            // heart applies damage in pulse-deformed coords
     z: 2,
   }));
   objects.push(new GameObject({

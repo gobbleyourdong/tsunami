@@ -125,7 +125,7 @@ render normally.
 **Commit subject:** `iso_cache_poc: 3D port phase 4 — rock archetype is 3D`
 
 ### Phase 5 — Convert HEART to 3D
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Heart = smoothUnion of two spheres + cone for the
 bottom point. animPhase scales the whole shape (pulse). Wire the heart
@@ -248,7 +248,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 | 2     | COMPLETE — raymarchPixel + shadeHit; smoke test (sphere hit + shade) passes |
 | 3     | COMPLETE — `sdfFn3d`/`metersPerPixel` on GameObject; `_bakeInto` raymarches when set; existing 2D archetypes untouched |
 | 4     | COMPLETE — rock archetype uses sdfFn3d=smoothUnion(box, sphere) with mPP=0.01; smoke test confirms hits + normals |
-| 5     | PENDING |
+| 5     | COMPLETE — heart uses sdfFn3dFactory (per-tick rebuild) = 2 spheres + stretched ellipsoid; cone fallback noted |
 | 6     | PENDING |
 | 7     | PENDING |
 | 8     | PENDING |
