@@ -2379,6 +2379,9 @@ async function main() {
         }
         animRow.appendChild(animSel)
         host.appendChild(animRow)
+        // Expose the select so applyCreaturePreset can dim incompatible
+        // anim options as a soft UI hint without preventing manual picks.
+        ;(window as unknown as { __animSel?: HTMLSelectElement }).__animSel = animSel
       }
 
       // Creature presets — one-click silhouette transforms. Each preset
@@ -2393,6 +2396,10 @@ async function main() {
         defaultAnim?: string
         // Per-bone scale overrides (applied after applyPreset).
         boneScales?: Record<string, ScaleVec>
+        // Anims that look reasonable for this creature. Used purely for
+        // soft UI hint — incompatible anims are dimmed in the anim
+        // dropdown when this creature is active. User can still pick any.
+        compatibleAnims?: string[]
       }
       const CREATURE_PRESETS: Record<string, CreatureSpec> = {
         human: {
@@ -2408,6 +2415,7 @@ async function main() {
           cape: false, tail: false, wings: false, grenades: false,
           quadrupedHind: true, extraLimbs: true, snakeNeck: false,
           defaultAnim: 'crawl_backwards',
+          compatibleAnims: ['crawl_backwards', 'crawling', 'running_crawl', 'mutant_run'],
         },
         dragon: {
           bob: false, ponytail: false, bangsL: false, bangsR: false,
@@ -2415,6 +2423,7 @@ async function main() {
           cape: false, tail: true, wings: true, grenades: false,
           quadrupedHind: true, extraLimbs: false, snakeNeck: true,
           defaultAnim: 'crawling',
+          compatibleAnims: ['crawling', 'running_crawl', 'crawl_backwards', 'mutant_run'],
         },
         bird: {
           bob: false, ponytail: false, bangsL: false, bangsR: false,
@@ -2427,6 +2436,7 @@ async function main() {
             LeftArm: [1, 0.05, 1], RightArm: [1, 0.05, 1],
             LeftForeArm: [1, 0.05, 1], RightForeArm: [1, 0.05, 1],
           },
+          compatibleAnims: ['idle', 'jumping', 'standing_torch_idle_01', 'great_sword_idle', 'rifle_idle', 'ninja_idle'],
         },
         horse: {
           bob: true, ponytail: false, bangsL: false, bangsR: false,
@@ -2434,6 +2444,7 @@ async function main() {
           cape: false, tail: true, wings: false, grenades: false,
           quadrupedHind: true, extraLimbs: false, snakeNeck: false,
           defaultAnim: 'running_crawl',
+          compatibleAnims: ['running_crawl', 'crawling', 'crawl_backwards', 'mutant_run'],
         },
         snake: {
           bob: false, ponytail: false, bangsL: false, bangsR: false,
@@ -2441,6 +2452,7 @@ async function main() {
           cape: false, tail: true, wings: false, grenades: false,
           quadrupedHind: false, extraLimbs: false, snakeNeck: true,
           defaultAnim: 'crawling',
+          compatibleAnims: ['crawling', 'crawl_backwards'],
           // Snake: no limbs, AND compress the spine + hips ellipsoid
           // cross-section so the humanoid spine reads as a long thin
           // snake body. The crawling anim puts the spine roughly
@@ -2481,6 +2493,20 @@ async function main() {
         if (p.defaultAnim) {
           const idx = animations.findIndex((a) => a.name === p.defaultAnim)
           if (idx >= 0) switchAnimation(idx)
+        }
+        // Soft anim-compat hint: dim incompatible anims in the dropdown
+        // (style.color), but leave them selectable. compatibleAnims is
+        // an allowlist; anims NOT in it get reduced contrast. If unset,
+        // treat all as compatible.
+        const animSel = (window as unknown as { __animSel?: HTMLSelectElement }).__animSel
+        if (animSel) {
+          const compat = p.compatibleAnims
+          for (let i = 0; i < animSel.options.length; i++) {
+            const opt = animSel.options[i]
+            const animName = animations[i]?.name
+            const isCompat = !compat || (animName !== undefined && compat.indexOf(animName) >= 0)
+            opt.style.color = isCompat ? '' : '#557'
+          }
         }
         rebuildPersistentPrims()
         buildLoadoutUI()
