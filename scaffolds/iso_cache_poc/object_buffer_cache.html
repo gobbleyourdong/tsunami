@@ -52,7 +52,7 @@
     </div>
     <div class="panel" style="width: 410px">
       <h2>Per-object prebaked buffers (color · depth · normal)</h2>
-      <div id="obj-list"></div>
+      <div id="obj-list" style="max-height: 460px; overflow-y: auto;"></div>
     </div>
     <div class="panel" style="align-self: stretch">
       <h2>Cache stats</h2>
@@ -67,6 +67,7 @@
     <button id="toggle-deform-local">Toggle gear (animate)</button>
     <button id="invalidate-all">Force cache update on ALL</button>
     <button id="bomb-robot">💥 Bomb at robot</button>
+    <button id="rain-water">🌊 Rain water</button>
     <button id="reset-craters">Reset craters</button>
   </div>
   <div style="font-size: 10px; color: #88c0d0; max-width: 1240px;">Shift-click anywhere to blast a destruction circle. ALL archetypes that overlap (terrain, volcano, rock, balls, the gear, the robot) get only their intersecting sub-region marked dirty and re-baked from the SDF — the SDF is ground truth, the cache is just memo.</div>
@@ -187,6 +188,8 @@
       // Settled-particle deposits painted onto this archetype's colorBuf.
       // Persisted across re-bakes (re-painted within freshly baked regions).
       this.deposits = [];
+      // What this archetype sheds when carved (E_SAND / E_WATER / E_LAVA).
+      this.material = opts.material !== undefined ? opts.material : E_SAND;
 
       // Loop quantization. The anim tick is 12 fps; loops must complete in
       // exactly 1 second; loopFrames must divide 12 so frames hold for an
@@ -217,14 +220,15 @@
             const lx = reg.x + px;
             const ly = reg.y + py;
             let d = this.sdfFn(lx, ly, animPhase, this.localDamage);
-            // Per-archetype local damage subtraction (default — SDFs that
-            // already consume the damage list inside themselves return a d
-            // that's already-carved, in which case localDamage is empty here).
+            // Per-archetype local damage as a HARD MASK. Pixels strictly
+            // inside any carve circle get cleared (forced outside the SDF);
+            // pixels outside keep their original d so the depth-shade factor
+            // matches the unbaked surroundings (no dark rectangle halo).
             if (this.localDamage && !this.sdfHandlesDamage) {
               for (let k = 0; k < this.localDamage.length; k++) {
                 const c = this.localDamage[k];
                 const cd = Math.hypot(lx - c.x, ly - c.y) - c.r;
-                if (-cd > d) d = -cd;
+                if (cd < 0) { d = 2; break; }
               }
             }
             const dx = this.sdfFn(lx + 1, ly,     animPhase) - d;
@@ -434,6 +438,40 @@
   // made implicit by the archetype's worldX/Y and rotation.
   let terrainRef = null;     // set after objects are built; used by hillHeight()
 
+  // ─── Falling-sand elements ───────────────────────────────────────
+  // Each particle has an element type that determines its movement rule:
+  //   SAND  — granular pile (current behavior)
+  //   WATER — liquid: falls + spreads sideways into lower neighbor columns
+  //   LAVA  — heavy slow liquid: like water but smaller flow threshold,
+  //           re-colored hot orange/red on spawn
+  // Each archetype declares a `material` it sheds when carved (default SAND).
+  const E_SAND = 0, E_WATER = 1, E_LAVA = 2, E_STEAM = 3, E_ROCK = 4;
+  const ELEMENT_NAMES = ['sand', 'water', 'lava', 'steam', 'rock'];
+  // Per-column physics surface (analytical hillHeight + stacked deposits).
+  // Particles use topY[x] as their landing target so they pile up instead of
+  // sinking through previously-deposited pixels.
+  let topY = null;
+  function initTopY() {
+    if (!terrainRef) return;
+    topY = new Float32Array(terrainRef.localW);
+    recomputeTopY(0, terrainRef.localW);
+  }
+  function recomputeTopY(xMin, xMax) {
+    if (!topY || !terrainRef) return;
+    const lo = Math.max(0, Math.floor(xMin));
+    const hi = Math.min(terrainRef.localW, Math.ceil(xMax));
+    for (let x = lo; x < hi; x++) {
+      let s = hillHeight(x);             // analytical surface (with craters)
+      // Stack any deposits in this column above the analytical surface
+      const deps = terrainRef.deposits;
+      for (let i = 0; i < deps.length; i++) {
+        const dep = deps[i];
+        if ((dep.x | 0) === x && dep.y < s) s = dep.y;
+      }
+      topY[x] = s;
+    }
+  }
+
   // Hill surface profile — exposed so other archetypes (the walking robot,
   // bouncing balls) can sample it and follow the hill shape.
   function hillHeight(worldX) {
@@ -561,12 +599,14 @@
   });
   objects.push(terrain);
   terrainRef = terrain;                // hillHeight() reads terrain.localDamage
+  initTopY();                           // build per-column physics surface
   objects.push(new GameObject({
     id: 'volcano', color: [160, 80, 60], sdfFn: sdfVolcano,
     localW: 400, localH: 300, worldX: 250, worldY: 20,
     animFlag: 'animating',
     loopFrames: 3,
     z: -1,                             // distant BG: ground draws over its base
+    material: E_LAVA,                  // carving the volcano spawns LAVA particles
     cosmetic: { palette_cycle: { slots: ['lava_glow'], hz: 0.5 } },
   }));
   objects.push(new GameObject({
@@ -631,6 +671,91 @@
     z: 2,
   }));
 
+  // ─── Voronoi chunks (rigid-body shatter for solids) ──────────────
+  // Each blast on a SAND-material archetype seeds N points inside the carve
+  // disc, assigns every removed pixel to its nearest seed (Voronoi cell),
+  // and the resulting cell becomes a tumbling rigid chunk: centroid +
+  // pixel-offsets list + linear velocity + angular velocity. On settle,
+  // every pixel deposits at its rotated final position.
+  const CHUNK_CAP = 250;
+  const chunks = [];
+
+  class Chunk {
+    constructor(x, y, vx, vy, angVel, element) {
+      this.x = x; this.y = y;
+      this.vx = vx; this.vy = vy;
+      this.angle = 0;
+      this.angVel = angVel;
+      this.pixels = [];                  // [{ox, oy, r, g, b}]
+      this.element = element;
+      this.life = 600;
+      this.settled = false;
+    }
+    addPixel(wpx, wpy, r, g, b) {
+      this.pixels.push({ ox: wpx - this.x, oy: wpy - this.y, r, g, b });
+    }
+    step() {
+      if (this.settled) {
+        if (--this.life <= 0) return false;
+        return true;
+      }
+      this.vy += 0.35;
+      this.x += this.vx;
+      this.y += this.vy;
+      this.angle += this.angVel;
+      if (terrainRef && this.y > terrainRef.localH + 6) return false;
+      const colX = this.x | 0;
+      const ground = (topY && colX >= 0 && colX < topY.length)
+        ? topY[colX] : hillHeight(this.x);
+      if (this.y >= ground && this.vy > 0) {
+        // Land — deposit every pixel at its rotated final world position.
+        // Then fade the chunk fast (1s) since its render work is done.
+        this.settled = true;
+        this.life = 60;
+        const cs = Math.cos(this.angle), sn = Math.sin(this.angle);
+        for (let i = 0; i < this.pixels.length; i++) {
+          const px = this.pixels[i];
+          const rx = px.ox * cs - px.oy * sn;
+          const ry = px.ox * sn + px.oy * cs;
+          const dx = (this.x + rx) | 0;
+          const dy = (this.y + ry) | 0;
+          if (!terrainRef) continue;
+          if (dx < 0 || dx >= terrainRef.localW || dy < 0 || dy >= terrainRef.localH) continue;
+          pushDeposit({ x: dx, y: dy, r: px.r, g: px.g, b: px.b, element: this.element });
+          terrainRef.colorCtx.fillStyle = 'rgb(' + (px.r | 0) + ',' + (px.g | 0) + ',' + (px.b | 0) + ')';
+          terrainRef.colorCtx.fillRect(dx, dy, 1, 1);
+          if (topY && dy < topY[dx]) topY[dx] = dy;
+        }
+      }
+      return true;
+    }
+    render() {
+      if (this.settled) return;          // pixels already deposited on terrain
+      const sx = this.x - cameraX;
+      const sy = this.y - cameraY;
+      const cs = Math.cos(this.angle), sn = Math.sin(this.angle);
+      for (let i = 0; i < this.pixels.length; i++) {
+        const px = this.pixels[i];
+        const rx = px.ox * cs - px.oy * sn;
+        const ry = px.ox * sn + px.oy * cs;
+        const dX = (sx + rx) | 0;
+        const dY = (sy + ry) | 0;
+        if (dX < 0 || dX >= W || dY < 0 || dY >= H) continue;
+        ctx.fillStyle = 'rgb(' + (px.r | 0) + ',' + (px.g | 0) + ',' + (px.b | 0) + ')';
+        ctx.fillRect(dX, dY, 1, 1);
+      }
+    }
+  }
+
+  function stepChunks() {
+    for (let i = chunks.length - 1; i >= 0; i--) {
+      if (!chunks[i].step()) chunks.splice(i, 1);
+    }
+  }
+  function renderChunks() {
+    for (let i = 0; i < chunks.length; i++) chunks[i].render();
+  }
+
   // ─── Particles (conserved mass from destruction) ─────────────────
   // Every pixel carved out of an archetype becomes a 1×1 colored particle
   // that flies from the blast center, falls under gravity, bounces on the
@@ -688,34 +813,228 @@
     }
   }
 
+  // Fizzle a settled particle: remove its deposit from the terrain list
+  // and clear the deposited pixel so the bake's re-paint loop shrinks too.
+  function fizzleParticle(p) {
+    if (!terrainRef || !p.depositRef) return;
+    const idx = terrainRef.deposits.indexOf(p.depositRef);
+    if (idx !== -1) terrainRef.deposits.splice(idx, 1);
+    terrainRef.colorCtx.clearRect(p.depositRef.x, p.depositRef.y, 1, 1);
+  }
+
+  // Hard cap on deposits with batch FIFO eviction. shift() is O(n) per call
+  // and was destroying performance under spam — splice the front in chunks.
+  const MAX_DEPOSITS = 9000;
+  function pushDeposit(dep) {
+    if (!terrainRef) return;
+    terrainRef.deposits.push(dep);
+    if (terrainRef.deposits.length > MAX_DEPOSITS) {
+      const evictN = Math.min(64, terrainRef.deposits.length - MAX_DEPOSITS);
+      const evicted = terrainRef.deposits.splice(0, evictN);
+      for (let i = 0; i < evicted.length; i++) {
+        const e = evicted[i];
+        terrainRef.colorCtx.clearRect(e.x, e.y, 1, 1);
+      }
+    }
+  }
+
+  // STEAM: small rising puff, no ground collide, fades fast.
+  function spawnSteam(wx, wy, count) {
+    for (let i = 0; i < count; i++) {
+      if (particles.length >= PARTICLE_CAP) break;
+      particles.push({
+        x: wx + (Math.random() - 0.5) * 3,
+        y: wy + (Math.random() - 0.5) * 2,
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: -0.7 - Math.random() * 0.5,
+        spawnDelay: 0,
+        r: 200 + (Math.random() * 35 | 0),
+        g: 215 + (Math.random() * 30 | 0),
+        b: 230,
+        element: E_STEAM,
+        life: 35 + (Math.random() * 20 | 0),
+        settled: false,
+      });
+    }
+  }
+
+  // LAVA + WATER → ROCK + STEAM. Called when p just settled. Returns true if
+  // the caller should remove p (water vanishes as steam; lava sticks as rock).
+  function reactWithDeposits(p) {
+    if (p.element !== E_LAVA && p.element !== E_WATER) return false;
+    if (!terrainRef) return false;
+    const want = p.element === E_LAVA ? E_WATER : E_LAVA;
+    const deps = terrainRef.deposits;
+    const rockColor = () => ({
+      r: 80 + (Math.random() * 25 | 0),
+      g: 75 + (Math.random() * 20 | 0),
+      b: 75 + (Math.random() * 20 | 0),
+    });
+    for (let k = deps.length - 1; k >= 0; k--) {
+      const d = deps[k];
+      if (d.element !== want) continue;
+      if (Math.abs(d.x - p.x) > 1.6 || Math.abs(d.y - p.y) > 1.6) continue;
+      const rc = rockColor();
+      if (p.element === E_LAVA) {
+        // Settling LAVA + existing WATER deposit → remove water, lava→rock
+        spawnSteam(d.x, d.y, 4);
+        deps.splice(k, 1);
+        terrainRef.colorCtx.clearRect(d.x, d.y, 1, 1);
+        // Lower topY back to whatever's beneath
+        recomputeTopY(d.x, d.x + 1);
+        p.element = E_ROCK;
+        p.r = rc.r; p.g = rc.g; p.b = rc.b;
+        return false;     // p stays as rock (caller will deposit it)
+      } else {
+        // Settling WATER + existing LAVA deposit → lava deposit→rock, water vanishes
+        spawnSteam(p.x, p.y, 4);
+        d.element = E_ROCK;
+        d.r = rc.r; d.g = rc.g; d.b = rc.b;
+        terrainRef.colorCtx.fillStyle = 'rgb(' + d.r + ',' + d.g + ',' + d.b + ')';
+        terrainRef.colorCtx.fillRect(d.x, d.y, 1, 1);
+        return true;       // tell caller to remove p
+      }
+    }
+    return false;
+  }
+
+  // Liquid (WATER/LAVA) settled-flow check: if a neighbor column has lower
+  // surface (higher topY = deeper), the liquid spills sideways to fill it.
+  // Threshold differs per element — water flows easily, lava reluctantly.
+  function tryLiquidFlow(p, idx) {
+    if (p.element !== E_WATER && p.element !== E_LAVA) return false;
+    if (((frame + idx) & 7) !== 0) return false;          // staggered: every 8 frames
+    if (!topY) return false;
+    const colX = p.x | 0;
+    if (colX < 1 || colX >= topY.length - 1) return false;
+    const myY = topY[colX];
+    const leftY = topY[colX - 1];
+    const rightY = topY[colX + 1];
+    const threshold = p.element === E_LAVA ? 1.5 : 0.5;
+    let dir = 0;
+    if (leftY > myY + threshold && rightY > myY + threshold) {
+      dir = (leftY > rightY) ? -1 : 1;
+    } else if (leftY > myY + threshold) {
+      dir = -1;
+    } else if (rightY > myY + threshold) {
+      dir = 1;
+    }
+    if (dir === 0) return false;
+    // Wake + flow: remove this deposit from terrain, recompute the column.
+    const dx = p.x | 0, dy = p.y | 0;
+    if (terrainRef) {
+      terrainRef.deposits = terrainRef.deposits.filter(d => !(d.x === dx && d.y === dy));
+      terrainRef.colorCtx.clearRect(dx, dy, 1, 1);
+      recomputeTopY(colX, colX + 1);
+    }
+    p.settled = false;
+    p.life = 600;
+    p.vx = dir * (0.5 + Math.random() * 0.7);
+    p.vy = 0.3;
+    return true;
+  }
+
   function stepParticles() {
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       if (p.settled) {
+        if (tryLiquidFlow(p, i)) {
+          // Flowing now — fall through to normal physics this frame
+        } else {
+          // Random fizzle so settled debris drains over time. ~0.04% per
+          // frame ≈ 40s expected lifespan with high variance. Cap is the
+          // hard backstop; this is the slow leak.
+          if (Math.random() < 0.0004) {
+            fizzleParticle(p);
+            particles.splice(i, 1);
+            continue;
+          }
+          if (--p.life <= 0) {
+            fizzleParticle(p);
+            particles.splice(i, 1);
+          }
+          continue;
+        }
+      }
+      // Spawn-delay: particles sit on top of the just-carved pixels for a
+      // few frames so the hole reveal is masked. After the delay, the
+      // explosive velocity kicks in and they scatter outward.
+      if (p.spawnDelay && p.spawnDelay > 0) {
+        p.spawnDelay--;
+        if (p.spawnDelay === 0) {
+          p.vx = p.vxTarget || 0;
+          p.vy = p.vyTarget || 0;
+        }
+        continue;
+      }
+      // STEAM: rises freely, no ground collision, fades fast.
+      if (p.element === E_STEAM) {
+        p.vy *= 0.96;            // gentle dampening
+        p.vx *= 0.96;
+        p.x += p.vx;
+        p.y += p.vy;
         if (--p.life <= 0) particles.splice(i, 1);
         continue;
       }
       p.vy += 0.4;
+      const prevY = p.y;
       p.x += p.vx;
       p.y += p.vy;
-      const ground = hillHeight(p.x);
-      if (p.y >= ground) {
+      // Off the bottom of the world — drop the particle (mass technically lost,
+      // but visually clean — they're not visible anyway).
+      if (terrainRef && p.y > terrainRef.localH + 4) {
+        particles.splice(i, 1);
+        continue;
+      }
+      const colX = p.x | 0;
+      const ground = (topY && colX >= 0 && colX < topY.length)
+        ? topY[colX]
+        : hillHeight(p.x);
+      // Two settle cases:
+      //  (a) crossedDown — fell from above, hit surface → bounce or pile on top
+      //  (b) buried     — already below surface (spawned in solid or in a void)
+      //                   and still moving down → settle in place
+      const movingDown = p.vy > 0;
+      const crossedDown = movingDown && prevY < ground && p.y >= ground;
+      const buriedAndFalling = movingDown && prevY >= ground;
+      if (crossedDown) {
         if (Math.abs(p.vy) > 1.5) {
-          p.y = ground;
+          p.y = ground - 0.5;
           p.vy = -p.vy * 0.35;
           p.vx *= 0.6;
         } else {
-          p.y = ground;
+          const dx = p.x | 0;
+          const dy = (ground | 0) - 1;
+          p.x = dx; p.y = dy;
           p.vx = 0; p.vy = 0;
           p.settled = true;
-          p.life = 99999;          // settled deposits last; cleared by blast hit
-          // Deposit into terrain: paint pixel + record so re-bakes preserve it
+          p.life = 99999;
+          const removeAfter = reactWithDeposits(p);
+          if (removeAfter) { particles.splice(i, 1); continue; }
           if (terrainRef) {
-            const dx = Math.floor(p.x), dy = Math.floor(p.y);
-            terrainRef.deposits.push({ x: dx, y: dy, r: p.r, g: p.g, b: p.b });
+            const dep = { x: dx, y: dy, r: p.r, g: p.g, b: p.b, element: p.element };
+            pushDeposit(dep);
+            p.depositRef = dep;
             terrainRef.colorCtx.fillStyle = 'rgb(' + (p.r | 0) + ',' + (p.g | 0) + ',' + (p.b | 0) + ')';
             terrainRef.colorCtx.fillRect(dx, dy, 1, 1);
+            if (dy < topY[dx]) topY[dx] = dy;
           }
+        }
+      } else if (buriedAndFalling) {
+        const dx = p.x | 0;
+        const dy = p.y | 0;
+        p.x = dx; p.y = dy;
+        p.vx = 0; p.vy = 0;
+        p.settled = true;
+        p.life = 99999;
+        const removeAfter = reactWithDeposits(p);
+        if (removeAfter) { particles.splice(i, 1); continue; }
+        if (terrainRef) {
+          const dep = { x: dx, y: dy, r: p.r, g: p.g, b: p.b, element: p.element };
+          pushDeposit(dep);
+          p.depositRef = dep;
+          terrainRef.colorCtx.fillStyle = 'rgb(' + (p.r | 0) + ',' + (p.g | 0) + ',' + (p.b | 0) + ')';
+          terrainRef.colorCtx.fillRect(dx, dy, 1, 1);
         }
       }
       if (--p.life <= 0) particles.splice(i, 1);
@@ -778,10 +1097,44 @@
       // Each particle inherits the exact pixel color it came from.
       const oldImg = o.colorCtx.getImageData(rect.x, rect.y, rect.w, rect.h);
       const data = oldImg.data;
-      const cos = Math.cos(o.rotation);
-      const sn  = Math.sin(o.rotation);
+      const cosFwd = Math.cos(o.rotation);
+      const sinFwd = Math.sin(o.rotation);
       const cxL = o.localW / 2, cyL = o.localH / 2;
-      const sc2 = o.scale || 1;
+      // Occlusion guard: archetypes that live behind the terrain (z < terrain.z)
+      // shouldn't shed particles for pixels the terrain is currently hiding.
+      // Otherwise a blast on the hills above the volcano spawns lava that
+      // appears out of thin air.
+      const occludedByTerrain = terrainRef && o !== terrainRef && o.z < terrainRef.z;
+
+      // SAND material → Voronoi chunks (rigid shatter). Place seeds first;
+      // pixels then assigned to nearest seed.
+      let voronoiSeeds = null;
+      if (o.material === E_SAND) {
+        const carveArea = Math.PI * lr * lr;
+        const N_SEEDS = Math.max(3, Math.min(14, Math.floor(carveArea / 70)));
+        voronoiSeeds = [];
+        for (let s = 0; s < N_SEEDS; s++) {
+          const ang = Math.random() * Math.PI * 2;
+          const dist = Math.sqrt(Math.random()) * lr * 0.75;
+          const sLx = lx + Math.cos(ang) * dist;
+          const sLy = ly + Math.sin(ang) * dist;
+          const sOxL = sLx - cxL, sOyL = sLy - cyL;
+          const sWx = o.worldX + cxL + (sOxL * cosFwd - sOyL * sinFwd) * sc;
+          const sWy = o.worldY + cyL + (sOxL * sinFwd + sOyL * cosFwd) * sc;
+          const ddx = sWx - wx, ddy = sWy - wy;
+          const len = Math.hypot(ddx, ddy) || 1;
+          const speed = 0.6 + Math.random() * 1.0;
+          const angVel = (Math.random() - 0.5) * 0.18;
+          voronoiSeeds.push({
+            wx: sWx, wy: sWy,
+            chunk: new Chunk(sWx, sWy,
+              (ddx / len) * speed,
+              (ddy / len) * speed - 0.6 - Math.random() * 0.6,
+              angVel, o.material),
+          });
+        }
+      }
+
       for (let py = 0; py < rect.h; py++) {
         for (let px = 0; px < rect.w; px++) {
           const i4 = (py * rect.w + px) * 4;
@@ -791,20 +1144,65 @@
           if (Math.hypot(lpx - lx, lpy - ly) > lr) continue; // outside the blast circle
           // Local → world (account for rotation + scale)
           const oxL = lpx - cxL, oyL = lpy - cyL;
-          const wpx = o.worldX + cxL + (oxL * cos - oyL * sn) * sc2;
-          const wpy = o.worldY + cyL + (oxL * sn + oyL * cos) * sc2;
-          if (particles.length >= PARTICLE_CAP) particles.shift();
+          const wpx = o.worldX + cxL + (oxL * cosFwd - oyL * sinFwd) * sc;
+          const wpy = o.worldY + cyL + (oxL * sinFwd + oyL * cosFwd) * sc;
+          // Skip pixels hidden behind the terrain surface
+          if (occludedByTerrain && topY) {
+            const wcx = wpx | 0;
+            if (wcx >= 0 && wcx < topY.length && wpy > topY[wcx]) continue;
+          }
+          // SAND: assign to nearest Voronoi seed → adds to that chunk.
+          if (voronoiSeeds) {
+            let bestSeed = null, bestDist2 = Infinity;
+            for (let s = 0; s < voronoiSeeds.length; s++) {
+              const seed = voronoiSeeds[s];
+              const sd = (wpx - seed.wx) * (wpx - seed.wx) + (wpy - seed.wy) * (wpy - seed.wy);
+              if (sd < bestDist2) { bestDist2 = sd; bestSeed = seed; }
+            }
+            bestSeed.chunk.addPixel(wpx, wpy, data[i4], data[i4 + 1], data[i4 + 2]);
+            continue;
+          }
+          // Liquid materials → per-pixel particles. Checkerboard sample to
+          // halve the spawn rate (volcano blasts otherwise spawn ~2800
+          // particles each, killing the spawn loop on spam).
+          if (((px ^ py) & 1) === 1) continue;
+          // Cap: drop instead of shift (shift is O(n), kills spam).
+          if (particles.length >= PARTICLE_CAP) break;
           const dx2 = wpx - wx, dy2 = wpy - wy;
           const len = Math.hypot(dx2, dy2) || 1;
-          const speed = 5 + Math.random() * 9;
+          const speed = 0.6 + Math.random() * 1.2;
+          const element = o.material;
+          let pr = data[i4], pg = data[i4 + 1], pb = data[i4 + 2];
+          if (element === E_LAVA) {
+            pr = 240 + (Math.random() * 15 | 0);
+            pg = 90 + (Math.random() * 80 | 0);
+            pb = 20 + (Math.random() * 30 | 0);
+          } else if (element === E_WATER) {
+            pr = 60 + (Math.random() * 40 | 0);
+            pg = 130 + (Math.random() * 40 | 0);
+            pb = 230 + (Math.random() * 25 | 0);
+          }
           particles.push({
             x: wpx, y: wpy,
-            vx: (dx2 / len) * speed + (Math.random() - 0.5) * 3,
-            vy: (dy2 / len) * speed - 4 - Math.random() * 4,
-            r: data[i4], g: data[i4 + 1], b: data[i4 + 2],
+            vx: 0, vy: 0,
+            vxTarget: (dx2 / len) * speed + (Math.random() - 0.5) * 0.6,
+            vyTarget: (dy2 / len) * speed - 0.5 - Math.random() * 0.8,
+            spawnDelay: 3,
+            r: pr, g: pg, b: pb,
+            element,
             life: 600,
             settled: false,
           });
+        }
+      }
+      // Push the Voronoi chunks into the global list. If at cap, batch-evict
+      // 16 oldest at a time (cheaper than shift() per push).
+      if (voronoiSeeds) {
+        for (let s = 0; s < voronoiSeeds.length; s++) {
+          const ch = voronoiSeeds[s].chunk;
+          if (ch.pixels.length === 0) continue;
+          if (chunks.length >= CHUNK_CAP) chunks.splice(0, 16);
+          chunks.push(ch);
         }
       }
       // Remove existing deposits within the blast area (they got re-blasted
@@ -829,8 +1227,13 @@
       o.velocity[0] += (dx / dist) * force;
       o.velocity[1] += (dy / dist) * force - 3;
     }
+    // Recompute the per-column surface for the affected x range now that
+    // craters and deposits have changed. Particles' next-frame land here.
+    recomputeTopY(wx - r - 2, wx + r + 2);
+
     // Wake any settled particles whose support just disappeared OR who are
-    // inside the blast radius. Gravity takes over from there.
+    // inside the blast radius. Use topY (deposit-aware), NOT hillHeight, so
+    // piles in unaffected columns aren't all spuriously re-launched.
     const wakeR = r * 2;
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
@@ -838,7 +1241,9 @@
       const pdx = p.x - wx, pdy = p.y - wy;
       const pdist = Math.hypot(pdx, pdy);
       const insideBlast = pdist < wakeR;
-      const newGround = hillHeight(p.x);
+      const colX = p.x | 0;
+      const newGround = (topY && colX >= 0 && colX < topY.length)
+        ? topY[colX] : hillHeight(p.x);
       const lostSupport = newGround > p.y + 0.5;
       if (!insideBlast && !lostSupport) continue;
       // Un-settle
@@ -912,7 +1317,8 @@
     for (const obj of ordered) {
       if (obj.composite(ctx, cameraX, cameraY, viewMode)) drawn++;
     }
-    // Particles render above world objects, below HUD
+    // Chunks + particles render above world objects, below HUD
+    renderChunks();
     renderParticles();
     // Re-iterate for just-baked highlights (above the composite layer)
     for (const obj of ordered) {
@@ -1110,14 +1516,38 @@
               hillHeight(robot.worldX + robot.localW / 2) + 6,
               28 + Math.random() * 14);
   });
+  document.getElementById('rain-water').addEventListener('click', () => {
+    // Drop a column of WATER particles from the top of the visible viewport
+    const cx = cameraX + W / 2;
+    for (let i = 0; i < 200; i++) {
+      if (particles.length >= PARTICLE_CAP) break;
+      const px = cx + (Math.random() - 0.5) * 60;
+      const py = cameraY + 20 + Math.random() * 8;
+      particles.push({
+        x: px, y: py,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: 1 + Math.random() * 1.5,
+        spawnDelay: 0,
+        r: 60 + (Math.random() * 40 | 0),
+        g: 130 + (Math.random() * 40 | 0),
+        b: 230 + (Math.random() * 25 | 0),
+        element: E_WATER,
+        life: 1200,
+        settled: false,
+      });
+    }
+  });
+
   document.getElementById('reset-craters').addEventListener('click', () => {
     particles.length = 0;
+    chunks.length = 0;
     for (const o of objects) {
       o.localDamage.length = 0;
       o.deposits.length = 0;
       o.dirty = true;
       o.dirtyRegions = null;
     }
+    initTopY();                     // back to pristine analytical surface
   });
 
   function bindView(btnId, mode) {
@@ -1145,6 +1575,7 @@
     }
     for (const o of objects) o.step();
     resolveCritterBallKicks();
+    stepChunks();
     stepParticles();
     bakeDirty();          // only fires when an obj.dirty=true was set on the tick
     render();             // pure drawImage; never calls any SDF
@@ -1154,6 +1585,51 @@
   }
   refreshThumbs();
   requestAnimationFrame(tick);
+  </script>
+
+  <!-- ─── 3D-SDF panel (Phase E of overnight plan) ──────────────────
+       Mounts the raymarch3d POC on a separate WebGPU canvas. Requires
+       this page to be served by `npx vite --port 9124` so that .ts
+       imports resolve. With python3 -m http.server, this panel is dark.
+  -->
+  <div class="row" style="margin-top: 16px;">
+    <div class="panel" style="width: 320px;">
+      <h2>3D-SDF (TS + WebGPU) — Phase E</h2>
+      <canvas id="canvas3d" width="300" height="300" style="background: #0d1018; image-rendering: pixelated; display: block;"></canvas>
+      <div id="status3d" style="font-size: 10px; color: #4c566a; margin-top: 4px;">requires `vite` dev server</div>
+      <div id="asset-buttons3d" class="row" style="gap: 4px; margin-top: 6px; flex-wrap: wrap;"></div>
+    </div>
+    <div id="legend" style="max-width: 800px; font-size: 11px; color: #4c566a; line-height: 1.55;">
+      <strong>What this is.</strong> The same project is now a TS+Vite+WebGPU
+      workspace alongside the 2D demo above. The right canvas runs
+      <code>raymarch3d/main.ts</code> through Vite — a per-pixel WGSL
+      raymarcher over a flat primitive-list SDF, with smooth-union blend
+      groups and palette-slot coloring. Asset switcher buttons load the
+      built-in (sword, rock, head, palm) plus a couple of JSON-loaded
+      scenes (anvil, lantern). The 2D destruction demo above is unchanged
+      — this panel is pure additive integration to compare both rendering
+      styles side-by-side.
+    </div>
+  </div>
+
+  <script type="module">
+    // Mount the 3D-SDF POC on the second canvas. This works only when
+    // served by Vite (so .ts imports resolve); under raw http.server it
+    // silently no-ops.
+    try {
+      const mod = await import('./raymarch3d/main.ts');
+      const canvas = document.getElementById('canvas3d');
+      const buttons = document.getElementById('asset-buttons3d');
+      const status = document.getElementById('status3d');
+      if (canvas && mod.mountOn) {
+        const r = await mod.mountOn(canvas, { buttonsContainer: buttons, silent: true });
+        if (status) status.textContent = r ? 'WebGPU ready · 3D SDF live' : 'WebGPU unavailable';
+      }
+    } catch (err) {
+      const status = document.getElementById('status3d');
+      if (status) status.textContent = '3D panel inactive (raw HTTP server can\'t resolve .ts — use `npx vite --port 9124`)';
+      console.warn('[3d-panel]', err);
+    }
   </script>
 </body>
 </html>

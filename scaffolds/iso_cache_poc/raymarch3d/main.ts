@@ -287,35 +287,48 @@ function buildAssetButtons(r: Renderer, container: HTMLElement, defaultName: str
   }
 }
 
-// ─────────── Entry ───────────
+// ─────────── Entry — exported for hosting on any canvas ───────────
 
-async function main(): Promise<void> {
-  const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
-  if (!canvas) { setStatus('No #canvas element on page.', true); return; }
-  setStatus('Requesting WebGPU device…');
+export interface MountOptions {
+  initialAsset?: string;             // key from ASSETS
+  buttonsContainer?: HTMLElement | null;
+  orbitRate?: number;                // rad/s; default 0.3
+  silent?: boolean;                  // suppress status updates if true
+}
+
+export async function mountOn(
+  canvas: HTMLCanvasElement,
+  opts: MountOptions = {},
+): Promise<Renderer | null> {
+  if (!opts.silent) setStatus('Requesting WebGPU device…');
   const r = await bootstrap(canvas);
-  if (!r) return;
+  if (!r) return null;
 
-  // Initial asset
-  const firstAsset = Object.keys(ASSETS)[0];
-  uploadPrimitives(r, ASSETS[firstAsset]());
-  setStatus(`Rendering "${firstAsset}" — ${r.numPrims} primitives.`);
+  const initialAsset = opts.initialAsset ?? Object.keys(ASSETS)[0];
+  uploadPrimitives(r, ASSETS[initialAsset]());
+  if (!opts.silent) setStatus(`Rendering "${initialAsset}" — ${r.numPrims} primitives.`);
 
-  // Asset switcher
-  const buttons = document.getElementById('asset-buttons');
-  if (buttons) buildAssetButtons(r, buttons, firstAsset);
+  if (opts.buttonsContainer) buildAssetButtons(r, opts.buttonsContainer, initialAsset);
 
-  // Render loop with slow Y-axis orbit (Phase C). 0.3 rad/s ≈ 21s/rev.
-  const ORBIT_RATE = 0.3;
+  const orbitRate = opts.orbitRate ?? 0.3;
   const baseCam = defaultCamera();
-  let t0 = performance.now();
+  const t0 = performance.now();
   const tick = (): void => {
     const t = (performance.now() - t0) / 1000;
-    r.cam = orbitCamera(baseCam, t * ORBIT_RATE);
+    r.cam = orbitCamera(baseCam, t * orbitRate);
     renderFrame(r, t);
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
+  return r;
+}
+
+// Default browser entry — for raymarch3d/index.html standalone POC.
+async function main(): Promise<void> {
+  const canvas = document.getElementById('canvas') as HTMLCanvasElement | null;
+  if (!canvas) { setStatus('No #canvas element on page.', true); return; }
+  const buttons = document.getElementById('asset-buttons');
+  await mountOn(canvas, { buttonsContainer: buttons });
 }
 
 main().catch((err: unknown) => {

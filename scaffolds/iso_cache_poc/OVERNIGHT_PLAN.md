@@ -153,7 +153,7 @@ the switcher; commit.
 ---
 
 ### Phase E — Two-canvas integration: 3D SDFs alongside the 2D demo
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** On `object_buffer_cache.html` (the existing 2D demo), add a
 second small WebGPU canvas in the layout that shows the 3D-SDF demo running
@@ -248,7 +248,7 @@ be shift-clicked to destroy normally; commit.
 | B     | COMPLETE — pipeline.ts + main.ts; tsc clean; vite serves /raymarch3d/ 200 |
 | C     | COMPLETE — Y-axis orbit @ 0.3 rad/s, 0.35 rad elevation; switcher landed in B |
 | D     | COMPLETE — loader.ts handles shape:* parts; 2 scene JSONs copied + wired into switcher |
-| E     | PENDING |
+| E     | COMPLETE — main.ts exports mountOn(); object_buffer_cache.html hosts a 3D panel below the 2D demo |
 | F     | PENDING |
 | G     | PENDING (stretch) |
 
