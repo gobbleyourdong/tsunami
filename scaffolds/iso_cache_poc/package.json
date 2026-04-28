@@ -1,0 +1,16 @@
+{
+  "name": "iso_cache_poc",
+  "version": "0.1.0",
+  "description": "POC: 3D SDF raymarcher (TS + WebGPU) layered on the iso pixel-cache demo",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 9123",
+    "build": "tsc && vite build",
+    "preview": "vite preview --port 9123"
+  },
+  "devDependencies": {
+    "@webgpu/types": "^0.1.69",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
+  }
+}

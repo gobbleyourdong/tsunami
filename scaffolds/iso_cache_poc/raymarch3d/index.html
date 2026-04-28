@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>raymarch3d — TS + WebGPU 3D-SDF POC</title>
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; background: #0a0c12; color: #d8dee9; font-family: ui-monospace, "JetBrains Mono", monospace; }
+  body { display: flex; flex-direction: column; align-items: center; padding: 16px; gap: 12px; }
+  h1 { margin: 0; font-size: 13px; font-weight: normal; color: #88c0d0; letter-spacing: 0.05em; }
+  canvas { background: #0d1018; image-rendering: pixelated; box-shadow: 0 4px 24px rgba(0,0,0,0.5); display: block; }
+  #status { font-size: 11px; color: #4c566a; max-width: 800px; line-height: 1.5; }
+  #status.err { color: #bf616a; }
+  #legend { font-size: 11px; color: #4c566a; max-width: 800px; line-height: 1.55; }
+  #legend strong { color: #88c0d0; }
+  code { color: #d08770; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { background: #2e3440; color: #d8dee9; border: 1px solid #4c566a; padding: 6px 10px; font: inherit; font-size: 11px; cursor: pointer; border-radius: 3px; }
+  button:hover { background: #3b4252; border-color: #88c0d0; }
+  button.active { background: #3b4252; border-color: #a3be8c; }
+</style>
+</head>
+<body>
+  <h1>raymarch3d — TS + WebGPU 3D-SDF POC (overnight phase B)</h1>
+  <canvas id="canvas" width="512" height="512"></canvas>
+  <div id="status">initializing…</div>
+  <div class="row" id="asset-buttons"></div>
+  <div id="legend">
+    <strong>What this is.</strong> Per-pixel raymarch into a flat primitive
+    SDF buffer, evaluated on the GPU via a WGSL fragment shader. Camera is
+    a free orbit pinned at fixed elevation, ortho-projected to the canvas.
+    <br>
+    <strong>Architecture parallel.</strong> Same primitive vocabulary as
+    the engine's <code>character3d</code> raymarch renderer (sphere, box,
+    capsule, cylinder, torus, smooth-union via blend groups). This is a
+    standalone POC built fresh in TS+WGPU; no engine code was modified.
+    The intent: future integration with the iso pixel cache so 3D shapes
+    feed into the same destruction/particle pipeline.
+  </div>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
