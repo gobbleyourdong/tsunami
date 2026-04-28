@@ -217,6 +217,7 @@ const CHIBI_SLOTS = {
   cloth:     17,   // mage robe, hood — soft fabric look (cooler/duller)
   leather:   18,   // light armor straps, barbarian pads — warm tan/brown
   fur:       19,   // tail / animal-fur surfaces — warm brown by default
+  feather:   20,   // wings — distinct from cape so winged characters can recolor independently
 }
 
 /** Default chibi material: 6-slot palette, each visible body part bound
@@ -261,7 +262,7 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
     if (/HipPad/.test(name)) return CHIBI_SLOTS.pants
     if (/^Cape/.test(name)) return CHIBI_SLOTS.cape
     if (/^Tail/.test(name)) return CHIBI_SLOTS.fur
-    if (/^Wing/.test(name)) return CHIBI_SLOTS.cape   // wings reuse cape palette (membrane material)
+    if (/^Wing/.test(name)) return CHIBI_SLOTS.feather   // dedicated feather palette
     if (/^Extra(FL|FR|BL|BR)_/.test(name)) return CHIBI_SLOTS.skin   // procedural limbs read as flesh
     if (/^SnakeNeck/.test(name)) return CHIBI_SLOTS.skin   // snake/dragon neck reads as skin/scale
     if (/^Grenade/.test(name)) return CHIBI_SLOTS.weapon
@@ -314,6 +315,7 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
   setC(CHIBI_SLOTS.cloth,     0.30, 0.20, 0.45)    // mage robe — cool indigo
   setC(CHIBI_SLOTS.leather,   0.45, 0.28, 0.16)    // saddle leather — warm tan
   setC(CHIBI_SLOTS.fur,       0.50, 0.32, 0.18)    // tail / fur — warm brown
+  setC(CHIBI_SLOTS.feather,   0.85, 0.80, 0.72)    // wings — soft cream / off-white feather
 
   return { paletteIndices, palette, namedSlots: { ...CHIBI_SLOTS } }
 }
