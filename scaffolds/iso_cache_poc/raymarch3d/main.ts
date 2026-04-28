@@ -40,6 +40,42 @@ function defaultCamera(): Camera {
   };
 }
 
+// Orbit camera around Y axis at the given azimuth (radians) plus a fixed
+// elevation tilt. Looks at origin from `radius` distance; ortho extents
+// are preserved from `base`.
+function orbitCamera(base: Camera, azimuth: number, elevation = 0.35, radius = 1.5): Camera {
+  const ce = Math.cos(elevation), se = Math.sin(elevation);
+  const ca = Math.cos(azimuth), sa = Math.sin(azimuth);
+  // Camera position on a sphere of radius `radius` around origin
+  const pos: [number, number, number] = [
+    radius * ce * sa,
+    radius * se,
+    radius * ce * ca,
+  ];
+  // Look at origin: dir = -normalize(pos)
+  const dir: [number, number, number] = [-pos[0] / radius, -pos[1] / radius, -pos[2] / radius];
+  // World-up biased; right = normalize(cross(world_up, -dir)) = normalize(cross([0,1,0], -dir))
+  const worldUp: [number, number, number] = [0, 1, 0];
+  const negDir: [number, number, number] = [-dir[0], -dir[1], -dir[2]];
+  const right: [number, number, number] = normalize3([
+    worldUp[1] * negDir[2] - worldUp[2] * negDir[1],
+    worldUp[2] * negDir[0] - worldUp[0] * negDir[2],
+    worldUp[0] * negDir[1] - worldUp[1] * negDir[0],
+  ]);
+  // up = cross(-dir, right) — true camera up after tilt
+  const up: [number, number, number] = normalize3([
+    negDir[1] * right[2] - negDir[2] * right[1],
+    negDir[2] * right[0] - negDir[0] * right[2],
+    negDir[0] * right[1] - negDir[1] * right[0],
+  ]);
+  return { pos, dir, right, up, orthoHalfW: base.orthoHalfW, orthoHalfH: base.orthoHalfH };
+}
+
+function normalize3(v: [number, number, number]): [number, number, number] {
+  const l = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / l, v[1] / l, v[2] / l];
+}
+
 // ─────────── Uniform layout (192 bytes; 48 floats) ───────────
 //
 //   slot 0..3   cameraPos.xyz, _pad
@@ -245,10 +281,13 @@ async function main(): Promise<void> {
   const buttons = document.getElementById('asset-buttons');
   if (buttons) buildAssetButtons(r, buttons, firstAsset);
 
-  // Render loop (static camera for Phase B)
+  // Render loop with slow Y-axis orbit (Phase C). 0.3 rad/s ≈ 21s/rev.
+  const ORBIT_RATE = 0.3;
+  const baseCam = defaultCamera();
   let t0 = performance.now();
   const tick = (): void => {
     const t = (performance.now() - t0) / 1000;
+    r.cam = orbitCamera(baseCam, t * ORBIT_RATE);
     renderFrame(r, t);
     requestAnimationFrame(tick);
   };

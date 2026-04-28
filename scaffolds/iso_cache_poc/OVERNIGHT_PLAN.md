@@ -109,7 +109,7 @@ the rendered SDF. Camera fixed at a flattering angle; static (no orbit yet).
 ---
 
 ### Phase C — Asset switcher + camera orbit
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** UI to switch between the 5 asset definitions in `assets.ts`,
 plus a slow auto-orbit camera so the SDFs read as 3D (silhouette alone is
@@ -246,7 +246,7 @@ be shift-clicked to destroy normally; commit.
 |------:|:-------|
 | A     | COMPLETE — TS port of sdf.ts done, files in raymarch3d/ |
 | B     | COMPLETE — pipeline.ts + main.ts; tsc clean; vite serves /raymarch3d/ 200 |
-| C     | PENDING |
+| C     | COMPLETE — Y-axis orbit @ 0.3 rad/s, 0.35 rad elevation; switcher landed in B |
 | D     | PENDING |
 | E     | PENDING |
 | F     | PENDING |
