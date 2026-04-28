@@ -2582,9 +2582,10 @@ async function main() {
           quadrupedHind: false, extraLimbs: true, snakeNeck: false,
           hands: 'none', feet: 'none', armor: 'none', helm: 'none',
           headFlip180: true,
-          // Thin human arms + legs (X/Z compressed to 35%, Y full) read
-          // as 4 spider legs. Combined with the 4 procedural extras at
-          // hip quadrants → 8 thin legs total, true spider count.
+          // Long lanky arms + legs read as 4 spider legs. X/Z compressed
+          // to ~18% (thin twigs), Y stretched to 1.5× (longer reach).
+          // Combined with the 4 procedural extras at hip quadrants →
+          // 8 long-thin legs total, true spider count.
           //
           // Hand/Foot bones MUST stay at full scale: the type-17 limb
           // capsule reads jointA=upper, jointB=mid, jointC=terminal.
@@ -2595,10 +2596,10 @@ async function main() {
           // already killed via hands:'none' / feet:'none', so no
           // visible cosmetic cost to leaving the bones full-size.
           boneScales: {
-            LeftArm:     [0.35, 1, 0.35], RightArm:     [0.35, 1, 0.35],
-            LeftForeArm: [0.35, 1, 0.35], RightForeArm: [0.35, 1, 0.35],
-            LeftUpLeg:   [0.35, 1, 0.35], RightUpLeg:   [0.35, 1, 0.35],
-            LeftLeg:     [0.35, 1, 0.35], RightLeg:     [0.35, 1, 0.35],
+            LeftArm:     [0.18, 1.5, 0.18], RightArm:     [0.18, 1.5, 0.18],
+            LeftForeArm: [0.18, 1.5, 0.18], RightForeArm: [0.18, 1.5, 0.18],
+            LeftUpLeg:   [0.18, 1.5, 0.18], RightUpLeg:   [0.18, 1.5, 0.18],
+            LeftLeg:     [0.18, 1.5, 0.18], RightLeg:     [0.18, 1.5, 0.18],
           },
           defaultAnim: 'crawl_backwards',
           compatibleAnims: ['crawl_backwards', 'crawling', 'running_crawl', 'mutant_run'],
@@ -2718,6 +2719,19 @@ async function main() {
             const idx = rig.findIndex((j) => j.name === boneName)
             if (idx >= 0) characterParams.scales[idx] = scale
           }
+        }
+        // Suppress accessory-socket primitives on non-human creatures.
+        // DEFAULT_ACCESSORIES adds a RightWeapon bone parented to RightHand
+        // that emits a type-2 rounded-box preview cube; collapse its scale
+        // so the visibility filter (max < 0.05) drops the prim. The bone
+        // stays in the rig (other code references it) but no geometry
+        // emits at it. Reset to [1,1,1] for human so the preview cube
+        // returns when switching back.
+        const weaponBoneIdx = rig.findIndex((j) => j.name === 'RightWeapon')
+        if (weaponBoneIdx >= 0) {
+          characterParams.scales[weaponBoneIdx] = name === 'human'
+            ? [1, 1, 1]
+            : [0.01, 0.01, 0.01]
         }
         // Default animation
         if (p.defaultAnim) {
