@@ -570,7 +570,25 @@ async function main() {
         applyGroupScale(g, v)
       }
       if (currentExpression !== 'neutral') applyExpression(currentExpression)
+      applyNoseScale()
       fitCameraToCharacter()
+      invalidateRaymarchCache()
+    }
+
+    /** Sets the NoseBridge bone scale to head-group base × loadout.noseScale.
+     *  Idempotent — reads the head-preset scale fresh each call rather
+     *  than multiplying onto whatever is in characterParams (so dragging
+     *  the slider doesn't compound). Drives every NOSE_LIBRARY prim
+     *  size since they all read NoseBridge's display matrix. */
+    function applyNoseScale() {
+      const idx = rig.findIndex((j) => j.name === 'NoseBridge')
+      if (idx < 0) return
+      const headPreset = BODY_PRESETS[currentProportion].head
+      const base: [number, number, number] = typeof headPreset === 'number'
+        ? [headPreset, headPreset, headPreset]
+        : [headPreset[0], headPreset[1], headPreset[2]]
+      const k = loadout.noseScale
+      characterParams.scales[idx] = [base[0] * k, base[1] * k, base[2] * k]
       invalidateRaymarchCache()
     }
 
@@ -978,6 +996,7 @@ async function main() {
           hands:       loadout.hands,
           feet:        loadout.feet,
           nose:        [...loadout.nose],
+          noseScale:   loadout.noseScale,
           helm:        loadout.helm,
         },
         // Anatomy profile overrides — only emitted when at least one
@@ -1074,6 +1093,10 @@ async function main() {
         }
         if (Array.isArray(lo.nose)) {
           loadout.nose = lo.nose.filter((k: unknown): k is string => typeof k === 'string' && k in NOSE_LIBRARY)
+        }
+        if (typeof lo.noseScale === 'number' && isFinite(lo.noseScale)) {
+          loadout.noseScale = Math.max(0.1, Math.min(5, lo.noseScale))
+          applyNoseScale()
         }
         if (typeof lo.helm === 'string' && (HELM_STYLES as readonly string[]).includes(lo.helm)) {
           loadout.helm = lo.helm as HelmStyle
@@ -1483,6 +1506,12 @@ async function main() {
       // Active NOSE_LIBRARY entries — composed (e.g. ['glasses','moustache']
       // for Mario). Empty array = nothing on the bridge.
       nose:  string[]
+      // Multiplier on the NoseBridge bone scale, applied AFTER the head
+      // group scale. 1.0 = inherit head proportions; 1.5 = honking
+      // schnozz. Affects every prim hanging off the bridge (sphere
+      // nose, glasses, moustache, etc.) since they all read the bone's
+      // display matrix.
+      noseScale: number
       helm:  HelmStyle   // SUP + CHAMFER + mirrorYZ helmet (Tier-1 demo)
       isolate: IsolateCategory   // accessory inspector — filter to one category
     }
@@ -1503,6 +1532,7 @@ async function main() {
       hands: 'skin',
       feet:  'shoe',
       nose:  ['sphere'],
+      noseScale: 1.0,
       helm:  'none',
       isolate: 'none' as IsolateCategory,
     }
@@ -1601,6 +1631,11 @@ async function main() {
           loadout.nose = ((data as { nose: unknown[] }).nose).filter(
             (k: unknown): k is string => typeof k === 'string' && k in NOSE_LIBRARY,
           )
+        }
+        const ns = (data as { noseScale?: unknown }).noseScale
+        if (typeof ns === 'number' && isFinite(ns)) {
+          loadout.noseScale = Math.max(0.1, Math.min(5, ns))
+          applyNoseScale()
         }
         if (typeof data.helm  === 'string' && (HELM_STYLES as readonly string[]).includes(data.helm)) loadout.helm = data.helm as HelmStyle
         if (typeof data.isolate === 'string' && (ISOLATE_CATEGORIES as readonly string[]).includes(data.isolate)) loadout.isolate = data.isolate as IsolateCategory
@@ -1912,6 +1947,36 @@ async function main() {
           row.appendChild(b)
         }
         refreshButtons()
+        host.appendChild(row)
+      }
+      // Nose-scale slider — multiplies the NoseBridge bone scale on
+      // top of the head-group scale, so it grows / shrinks the whole
+      // nose ensemble (sphere nose, glasses, moustache) without
+      // touching the head ellipsoid itself.
+      {
+        const row = document.createElement('label')
+        row.style.cssText = 'display:flex; gap:6px; align-items:center; margin:2px 0; font-family:monospace;'
+        const lbl = document.createElement('span')
+        lbl.textContent = 'nose sz'
+        lbl.style.cssText = 'width:54px; color:#9ab; font-size:11px;'
+        row.appendChild(lbl)
+        const range = document.createElement('input')
+        range.type = 'range'
+        range.min = '0.4'
+        range.max = '2.5'
+        range.step = '0.05'
+        range.value = String(loadout.noseScale)
+        range.style.flex = '1'
+        const val = document.createElement('span')
+        val.className = 'val'
+        val.textContent = loadout.noseScale.toFixed(2)
+        range.oninput = () => {
+          loadout.noseScale = parseFloat(range.value)
+          val.textContent = loadout.noseScale.toFixed(2)
+          applyNoseScale()
+          saveLoadoutToStorage()
+        }
+        row.append(range, val)
         host.appendChild(row)
       }
       // Helm picker — Tier-1 extractions demo (SUP + CHAMFER + mirrorYZ).

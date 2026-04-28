@@ -562,7 +562,10 @@ export const DEFAULT_NOSE_BRIDGE: BodyPart[] = [
   // NoseBridge is in the head scale group via the GROUP_PATTERNS regex,
   // so this bind offset multiplies by the head's chibi/stylized scale —
   // a 1.7× chibi head pushes NoseBridge to z=0.289, on the chibi face.
-  { name: 'NoseBridge', parentName: 'Head', offset: [0, 0.12, 0.17], displaySize: [0, 0, 0] },
+  // Y was 0.12 (front-center of head ellipsoid) — dropped to 0.09 per
+  // user "almost perfect, slightly lower". Sits between the eye line
+  // and the upper lip, where a real nose bridge belongs.
+  { name: 'NoseBridge', parentName: 'Head', offset: [0, 0.09, 0.17], displaySize: [0, 0, 0] },
 ]
 
 /** Grenade belt — two small spheres on the Hips, driven by per-grenade
