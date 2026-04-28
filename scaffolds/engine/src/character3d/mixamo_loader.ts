@@ -557,7 +557,12 @@ export const DEFAULT_SPIKE_BACK: HairPart[] = [
  *  at chin height. Not under any chibi/realistic scale group — the
  *  Head-group scale stretches it to match cranium size. */
 export const DEFAULT_NOSE_BRIDGE: BodyPart[] = [
-  { name: 'NoseBridge', parentName: 'Head', offset: [0, 0.04, 0.085], displaySize: [0, 0, 0] },
+  // Offset matches the head ellipsoid's front-center (CHIBI_CENTERED_OFFSET
+  // Head [0, 0.12, 0] + halfZ 0.17 = front of face in head-local meters).
+  // NoseBridge is in the head scale group via the GROUP_PATTERNS regex,
+  // so this bind offset multiplies by the head's chibi/stylized scale —
+  // a 1.7× chibi head pushes NoseBridge to z=0.289, on the chibi face.
+  { name: 'NoseBridge', parentName: 'Head', offset: [0, 0.12, 0.17], displaySize: [0, 0, 0] },
 ]
 
 /** Grenade belt — two small spheres on the Hips, driven by per-grenade

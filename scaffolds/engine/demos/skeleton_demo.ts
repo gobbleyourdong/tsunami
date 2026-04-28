@@ -319,7 +319,7 @@ async function main() {
           // Neck moved to torso so the head's 1.7× chibi blow-up doesn't
           // also stretch the neck offset; otherwise the head floats far
           // above a small chibi torso ("head/neck appears detached").
-          'Head|HeadTop_End|LeftEye|RightEye|LeftPupil|RightPupil|Mouth|Nose|' +
+          'Head|HeadTop_End|LeftEye|RightEye|LeftPupil|RightPupil|Mouth|Nose|NoseBridge|' +
           // Head-anchored hair: bob ensemble + ponytail + side strands.
           // All three sit on the cranium and follow head rotation +
           // head-proportion scale.
