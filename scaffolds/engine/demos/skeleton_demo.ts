@@ -2557,6 +2557,11 @@ async function main() {
         // whose limbs we collapsed for the silhouette.
         hands?: string
         feet?: string
+        // Armor outfit + helm overrides. Animals get 'none' on both so
+        // no wardrobe pieces (knight plate, robes, gauntlets) and no
+        // helmet emit on bodies that are no longer humanoid-shaped.
+        armor?: ArmorOutfit
+        helm?: HelmStyle
         // Anims that look reasonable for this creature. Used purely for
         // soft UI hint — incompatible anims are dimmed in the anim
         // dropdown when this creature is active. User can still pick any.
@@ -2575,22 +2580,25 @@ async function main() {
           spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
           cape: false, tail: false, wings: false, grenades: false,
           quadrupedHind: false, extraLimbs: true, snakeNeck: false,
-          hands: 'none', feet: 'none',
+          hands: 'none', feet: 'none', armor: 'none', helm: 'none',
           headFlip180: true,
           // Thin human arms + legs (X/Z compressed to 35%, Y full) read
           // as 4 spider legs. Combined with the 4 procedural extras at
-          // hip quadrants → 8 thin legs total, true spider count. The
-          // Hand/Foot bones go ALL-AXES tiny so the visibility filter
-          // drops their type-3 attachment ellipsoids (we already kill
-          // shoes/mitts via hands:'none', feet:'none', but the bones
-          // still emit small body-part primitives without this).
+          // hip quadrants → 8 thin legs total, true spider count.
+          //
+          // Hand/Foot bones MUST stay at full scale: the type-17 limb
+          // capsule reads jointA=upper, jointB=mid, jointC=terminal.
+          // Collapsing Hand/Foot scale collapses their LOCAL translation
+          // (composer scales col3 by own scale), pulling jointC onto
+          // jointB → bezier degenerates → "eliminated all the lower arm
+          // and leg geometry" report. The hand/foot ATTACHMENTS are
+          // already killed via hands:'none' / feet:'none', so no
+          // visible cosmetic cost to leaving the bones full-size.
           boneScales: {
             LeftArm:     [0.35, 1, 0.35], RightArm:     [0.35, 1, 0.35],
             LeftForeArm: [0.35, 1, 0.35], RightForeArm: [0.35, 1, 0.35],
             LeftUpLeg:   [0.35, 1, 0.35], RightUpLeg:   [0.35, 1, 0.35],
             LeftLeg:     [0.35, 1, 0.35], RightLeg:     [0.35, 1, 0.35],
-            LeftHand:    [0.01, 0.01, 0.01], RightHand:    [0.01, 0.01, 0.01],
-            LeftFoot:    [0.01, 0.01, 0.01], RightFoot:    [0.01, 0.01, 0.01],
           },
           defaultAnim: 'crawl_backwards',
           compatibleAnims: ['crawl_backwards', 'crawling', 'running_crawl', 'mutant_run'],
@@ -2603,7 +2611,7 @@ async function main() {
           // legs in the crawl pose. Collapsing scaleY makes the foot
           // float mid-thigh because foot's own local Y offset is full.
           quadrupedHind: false, extraLimbs: false, snakeNeck: true,
-          hands: 'none', feet: 'none',
+          hands: 'none', feet: 'none', armor: 'none', helm: 'none',
           defaultAnim: 'crawling',
           compatibleAnims: ['crawling', 'running_crawl', 'crawl_backwards', 'mutant_run'],
         },
@@ -2612,7 +2620,7 @@ async function main() {
           spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
           cape: false, tail: true, wings: true, grenades: false,
           quadrupedHind: false, extraLimbs: false, snakeNeck: false,
-          hands: 'none', feet: 'none',
+          hands: 'none', feet: 'none', armor: 'none', helm: 'none',
           defaultAnim: 'idle',
           // Bird: arms become wings — collapse arm chains in ALL three
           // axes so the visibility filter (max < 0.05) drops the type-17
@@ -2634,7 +2642,7 @@ async function main() {
           // legs in the running_crawl pose. Collapsing scaleY makes
           // the foot float mid-thigh ("floating limbs" report).
           quadrupedHind: false, extraLimbs: false, snakeNeck: false,
-          hands: 'none', feet: 'none',
+          hands: 'none', feet: 'none', armor: 'none', helm: 'none',
           defaultAnim: 'running_crawl',
           compatibleAnims: ['running_crawl', 'crawling', 'crawl_backwards', 'mutant_run'],
         },
@@ -2695,6 +2703,13 @@ async function main() {
         // so switching back from creature → human restores the defaults.
         loadout.hands = p.hands ?? 'skin'
         loadout.feet  = p.feet  ?? 'shoe'
+        // Armor + helm. Animals get 'none' so wardrobe pieces, gauntlets,
+        // and helmets don't emit on creature bodies. Human defaults to
+        // 'knight'/'none' so switching back restores the wardrobe.
+        if (p.armor) loadout.armor = p.armor
+        else if (name === 'human') loadout.armor = 'knight'
+        if (p.helm) loadout.helm = p.helm
+        else if (name === 'human') loadout.helm = 'none'
         // Reset proportions to current preset (clears stale per-bone scales),
         // then apply creature-specific bone overrides on top.
         applyPreset(currentProportion)
