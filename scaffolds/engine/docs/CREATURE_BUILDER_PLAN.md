@@ -1,6 +1,6 @@
 # Creature Builder — Overnight Runbook
 
-**STATUS (v1 complete)**: All 6 plan tasks delivered across overnight session iters 1-11. See "v1 Completion Summary" at the bottom for what shipped, the commit chain, and the open polish items for v2.
+**STATUS (v1 + v2 complete)**: All 6 plan tasks delivered across overnight session iters 1-11. All 4 v2 polish items delivered iters 13-16. 16 iters, 10 commits on origin/main. See "v1 Completion Summary" at the bottom for what shipped, the commit chain, and what's still notional for v3.
 
 **Goal**: extend the humanoid character system into a full creature builder. One rig + one anim library. Creature variety comes from per-bone scale overrides, procedural limb attachments, and chain-driven cosmetics. Spider, dragon, bird, quadruped, snake-thing — all from the same skeleton.
 
@@ -326,6 +326,11 @@ All 6 plan tasks delivered. Commit chain on `main`:
 | `abd85c2` | Iter 7-8: wing flap (sin-driven Y perturbation, 4Hz/8cm tip), snake-neck idle weave (peristaltic wave, 1Hz/5cm tip). |
 | `d353866` | Iter 9: bone-visibility filter scaleY fix (was hiding nothing for collapsed limbs). |
 | `b44bd9d` | Iter 11: procedural extra-limb phase offset (back legs sample at frame N + numFrames/2, anti-phase gait for spider). |
+| `b24269e` | Iter 12: plan doc v1 completion summary. |
+| `a4907cd` | Iter 13: feather palette slot (slot 20). |
+| `f652857` | Iter 14: rotational wing flap replaces Y-translation hack. Bone-X rotation + chain propagation. |
+| `02df5e2` | Iter 15: per-limb phase tuning (boolean → number). Trot gait by default. |
+| `59af84b` | Iter 16: anim-per-creature soft filter. Compatible anims dimmed in dropdown. |
 
 **What shipped:**
 - Wings: 4-bone ribbon chain per side anchored to LeftShoulder/RightShoulder, type-23 ribbon emit with `tipScale: 0.15` (feathered), per-frame Y perturbation when `wingFlap: on`.
@@ -338,11 +343,11 @@ All 6 plan tasks delivered. Commit chain on `main`:
 - Bone visibility filter: hides primitives whose bone has scaleY < 0.1 (limb chains are Y-aligned). Bird/snake collapsed-limb prims disappear cleanly instead of leaving 1-2cm stubs.
 - 5 new VAT-baked anims tonight, manifest at 25 total. Snake / spider / horse use the crawl variants for proper quadruped/serpentine motion.
 
-**Open v2 polish items (not blocking):**
-- Phase offset uses a half-cycle offset for back legs only. Could parameterize per-limb (1/4, 1/8 cycle) for more variety.
-- Wing flap uses Y-only translation perturbation. A proper rotational flap (rotate WingL0/R0 around shoulder axis, propagate to children via mat4 mul) would read better at high resolutions.
-- No anim selection per-creature (presets set default anim, but the user can still cycle to any of the 25). Some anims look weird on certain creatures (e.g. backflip on snake).
-- Wing palette uses `cape` slot (red by default). Adding a dedicated `feather` slot would let wings recolor independently.
+**v2 polish — ALL COMPLETE (iters 13-16):**
+- ✅ Phase offset generalized from boolean to per-limb fraction (commit `02df5e2`). Default trot gait `[FL=0, FR=0.5, BL=0.5, BR=0]` — diagonal pairs alternate. Wave/uniform/half-cycle gaits available by tuning the cfg.
+- ✅ Rotational wing flap (commit `f652857`): replaced Y-translation hack with bone-X rotation + chain propagation through `propagateChildMat`. Cross-section frame now rotates correctly with the chain bend.
+- ✅ Anim-per-creature soft filter (commit `59af84b`): `CreatureSpec.compatibleAnims` is an optional allowlist. `applyCreaturePreset` dims incompatible anim dropdown options as a soft UX hint while leaving them selectable.
+- ✅ Dedicated feather palette slot (commit `a4907cd`): wings route to `CHIBI_SLOTS.feather` (slot 20, default cream `[0.85, 0.80, 0.72]`) instead of reusing cape slot.
 
 **Known v2 architecture wins:**
 - `simulateRibbonChain` helper now backs 5 chain types (cape, HairLong, side strands, tail, snake-neck). Wings could fold in with a small adapter (chain extends radially, not vertically).
