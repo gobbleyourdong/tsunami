@@ -2285,7 +2285,12 @@ async function main() {
           p.colorFunc = capePatternFunc as RaymarchPrimitive['colorFunc']
         }
       }
-      if (rightHandIdx >= 0) {
+      // Hand flame VFX — only emit for humans. On animal creatures the
+      // flame floats next to a non-existent / non-humanoid hand, reads
+      // as a stray glow rather than a wielded effect. Gated on
+      // currentCreature so spider/dragon/snake/horse/bird don't carry
+      // the demo's character-class fireball.
+      if (rightHandIdx >= 0 && currentCreature === 'human') {
         const baseSlot = material.namedSlots.fire_base ?? 12
         const tipSlot  = material.namedSlots.fire_tip  ?? 14
         next.push({
@@ -2298,11 +2303,30 @@ async function main() {
           unlit: true,
         })
       }
+      // Hand fist sphere suppression — chibiRaymarchPrimitives emits an
+      // unconditional 4.5cm type-0 sphere at LeftHand/RightHand as the
+      // base "fist" (mixamo_loader.ts:1624). HAND_LIBRARY entries are
+      // additive overrides via the attachments path; the fist itself
+      // emits regardless. When loadout.hands is 'none' (animal mode),
+      // post-filter those spheres so the lower-arm capsule terminates
+      // cleanly at the wrist with no protruding ball. Same path could
+      // be used for feet, but mixamo_loader skips foot prim emission
+      // (line 1669), so feet only come from FOOT_LIBRARY which is
+      // already empty for 'none'.
+      let prefiltered = next
+      if (loadout.hands === 'none') {
+        const handBones = new Set<number>()
+        const lhi = rig.findIndex((j) => j.name === 'LeftHand')
+        const rhi = rig.findIndex((j) => j.name === 'RightHand')
+        if (lhi >= 0) handBones.add(lhi)
+        if (rhi >= 0) handBones.add(rhi)
+        prefiltered = next.filter((p) => !(p.type === 0 && handBones.has(p.boneIdx)))
+      }
       // Mirror expansion — any prim with mirrorYZ:true gets a sibling
       // with X-flipped offsetInBone. Doubles the prim count for those
       // entries; lets authoring describe one side and get both. CPU
       // pass before upload, no shader-side cost.
-      const expanded = expandMirrors(next)
+      const expanded = expandMirrors(prefiltered)
       // Isolation filter — when active, drop every prim except those
       // matching the selected category. Camera + raymarch unchanged;
       // the accessory floats alone in the canvas. Animation is forced
@@ -2738,18 +2762,33 @@ async function main() {
           const idx = animations.findIndex((a) => a.name === p.defaultAnim)
           if (idx >= 0) switchAnimation(idx)
         }
-        // Soft anim-compat hint: dim incompatible anims in the dropdown
-        // (style.color), but leave them selectable. compatibleAnims is
-        // an allowlist; anims NOT in it get reduced contrast. If unset,
-        // treat all as compatible.
+        // Anim dropdown — humans get the full animation list; every
+        // other creature locks to its single defaultAnim. Most non-
+        // human anims look broken (humanoid running, jumping, etc.
+        // on a spider rig reads as a skittering glitch), so collapse
+        // the picker rather than rely on the dim-but-selectable hint.
         const animSel = (window as unknown as { __animSel?: HTMLSelectElement }).__animSel
         if (animSel) {
-          const compat = p.compatibleAnims
-          for (let i = 0; i < animSel.options.length; i++) {
-            const opt = animSel.options[i]
-            const animName = animations[i]?.name
-            const isCompat = !compat || (animName !== undefined && compat.indexOf(animName) >= 0)
-            opt.style.color = isCompat ? '' : '#557'
+          if (name === 'human') {
+            // Restore full list, full color, enabled.
+            for (let i = 0; i < animSel.options.length; i++) {
+              animSel.options[i].style.color = ''
+              animSel.options[i].style.display = ''
+            }
+            animSel.disabled = false
+          } else {
+            // Hide every option except the defaultAnim, disable the
+            // select. Hides via display:none rather than removing the
+            // <option> so flipping back to human just shows them again.
+            const lockTo = p.defaultAnim
+            for (let i = 0; i < animSel.options.length; i++) {
+              const opt = animSel.options[i]
+              const animName = animations[i]?.name
+              const keep = animName === lockTo
+              opt.style.display = keep ? '' : 'none'
+              opt.style.color = ''
+            }
+            animSel.disabled = true
           }
         }
         rebuildPersistentPrims()
