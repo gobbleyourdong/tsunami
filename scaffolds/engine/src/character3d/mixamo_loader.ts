@@ -263,6 +263,7 @@ export function chibiMaterial(rig: Joint[]): SpriteMaterial {
     if (/^Tail/.test(name)) return CHIBI_SLOTS.fur
     if (/^Wing/.test(name)) return CHIBI_SLOTS.cape   // wings reuse cape palette (membrane material)
     if (/^Extra(FL|FR|BL|BR)_/.test(name)) return CHIBI_SLOTS.skin   // procedural limbs read as flesh
+    if (/^SnakeNeck/.test(name)) return CHIBI_SLOTS.skin   // snake/dragon neck reads as skin/scale
     if (/^Grenade/.test(name)) return CHIBI_SLOTS.weapon
     // Wardrobe armor pieces — route by outfit prefix so each outfit can
     // pick its own palette family without rewriting paletteIndices at
@@ -651,6 +652,29 @@ export const DEFAULT_EXTRA_LIMBS_BR: BodyPart[] = [
 export const DEFAULT_EXTRA_LIMBS: BodyPart[] = [
   ...DEFAULT_EXTRA_LIMBS_FL, ...DEFAULT_EXTRA_LIMBS_FR,
   ...DEFAULT_EXTRA_LIMBS_BL, ...DEFAULT_EXTRA_LIMBS_BR,
+]
+
+/** Snake-neck rig — 4-segment ribbon chain extending forward from Neck,
+ *  with a head primitive at the tip. Used to replace the humanoid Head
+ *  for snakes/dragons/etc. Combine with `loadout.snakeNeck` (also hides
+ *  the human Head primitive via per-bone scale collapse).
+ *
+ *  Chain orientation: SnakeNeck0 has rotationDeg [90,0,0] so its +Y
+ *  axis points forward (Neck-local +Z). Subsequent bones inherit that
+ *  rotation through the hierarchy with identity local rotation, and
+ *  each offset along its parent's +Y extends the chain forward.
+ *  Cross-section frame: bone col0 (X) and col2 (-Y world after rotation)
+ *  are both perpendicular to chain direction → ribbon SDF reads clean.
+ *
+ *  SnakeNeck0..3 are chain segments; SnakeNeckHead is the tip primitive
+ *  (an ellipsoid for the head shape — could be replaced with a face
+ *  stamp later). */
+export const DEFAULT_SNAKE_NECK: BodyPart[] = [
+  { name: 'SnakeNeck0',     parentName: 'Neck',         offset: [0, 0.00, 0.10], rotationDeg: [90, 0, 0], displaySize: [0.06, 0.10, 0.06] },
+  { name: 'SnakeNeck1',     parentName: 'SnakeNeck0',   offset: [0, 0.10, 0.00], displaySize: [0.05, 0.10, 0.05] },
+  { name: 'SnakeNeck2',     parentName: 'SnakeNeck1',   offset: [0, 0.10, 0.00], displaySize: [0.05, 0.10, 0.05] },
+  { name: 'SnakeNeck3',     parentName: 'SnakeNeck2',   offset: [0, 0.10, 0.00], displaySize: [0.04, 0.10, 0.04] },
+  { name: 'SnakeNeckHead',  parentName: 'SnakeNeck3',   offset: [0, 0.10, 0.00], displaySize: [0.10, 0.07, 0.08] },
 ]
 
 /** Tail — 4-segment chain anchored to the lower back (Hips, slightly
@@ -1479,6 +1503,33 @@ export function chibiRaymarchPrimitives(
         })
       } else if (/^Extra(FL|FR|BL|BR)_/.test(name)) {
         continue   // Low/Tip contribute via the Up's chain primitive
+      } else if (name === 'SnakeNeck0') {
+        // Snake-neck body — type-23 ribbon chain walking SnakeNeck0..3.
+        // The head tip is emitted separately as an ellipsoid (below).
+        const halfW     = bp.displaySize[0]
+        const halfThick = bp.displaySize[2]
+        const snakeIndices: number[] = [j]
+        for (let k = 1; k < 4; k++) {
+          const idx = rig.findIndex((joint) => joint.name === `SnakeNeck${k}`)
+          if (idx >= 0) snakeIndices.push(idx)
+        }
+        if (snakeIndices.length < 2) continue
+        prims.push({
+          type: 23, paletteSlot: slot, boneIdx: j,
+          params: [snakeIndices.length, halfW, halfThick, 0.6],   // mild taper toward head
+          offsetInBone: [0, 0, 0],
+          blendGroup: 21, blendRadius: 0,
+        })
+      } else if (name === 'SnakeNeckHead') {
+        // Snake head — ellipsoid at the tip of the chain. Hard-min into
+        // scene (no blendGroup) so it reads as a discrete head shape.
+        prims.push({
+          type: 3, paletteSlot: slot, boneIdx: j,
+          params: [bp.displaySize[0], bp.displaySize[1], bp.displaySize[2], 0],
+          offsetInBone: [0, 0, 0],
+        })
+      } else if (/^SnakeNeck/.test(name)) {
+        continue   // SnakeNeck1/2/3 contribute via SnakeNeck0's chain primitive
       } else if (/^Grenade/.test(name)) {
         // Grenade — ellipsoid primitive so the same emission path covers
         // round (uniform halfX/Y/Z) AND can-shaped (elongated halfY)

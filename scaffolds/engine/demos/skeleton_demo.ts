@@ -26,6 +26,7 @@ import {
   DEFAULT_TAIL,
   DEFAULT_WINGS,
   DEFAULT_EXTRA_LIMBS,
+  DEFAULT_SNAKE_NECK,
   DEFAULT_BOB_HAIR,
   DEFAULT_LONG_HAIR,
   DEFAULT_HAIR_STRANDS,
@@ -237,6 +238,7 @@ async function main() {
             ...DEFAULT_TAIL,
             ...DEFAULT_WINGS,
             ...DEFAULT_EXTRA_LIMBS,
+            ...DEFAULT_SNAKE_NECK,
             ...DEFAULT_GRENADE_BELT,
             ...allWardrobeParts,
           ]
@@ -564,22 +566,31 @@ async function main() {
       invalidateRaymarchCache()
     }
 
-    /** Quadruped hind: zero shin scaleY so the foot lands where the knee
-     *  was. Translation column unaffected by scale → bone hierarchy
-     *  composes Foot world position to Knee position automatically.
+    /** Per-creature bone-scale overrides. Runs AFTER applyPreset (which
+     *  resets all scales). Each override zeroes specific bones to
+     *  collapse them out of the silhouette without modifying the rig.
      *  Use 0.05 (not 0) to avoid degenerate columns in worldToLocal.
+     *
+     *  - quadrupedHind: zero shin scaleY → foot lands at knee.
+     *  - snakeNeck: zero Head + Neck scaleY → human head hides; the
+     *    snake-neck chain (parented to Neck) extends forward as the
+     *    new head/face.
      *
      *  NOTE: applyPreset's init-time call runs before `loadout` is
      *  declared (TDZ). Guard via try/catch — first call no-ops, later
-     *  calls (after loadout init) apply the override. */
+     *  calls (after loadout init) apply the overrides. */
     function applyHindRetarget() {
-      let isOn = false
-      try { isOn = loadout.quadrupedHind } catch { return }
+      let l: typeof loadout
+      try { l = loadout } catch { return }
       const lLegIdx = rig.findIndex((j) => j.name === 'LeftLeg')
       const rLegIdx = rig.findIndex((j) => j.name === 'RightLeg')
-      if (isOn) {
+      if (l.quadrupedHind) {
         if (lLegIdx >= 0) characterParams.scales[lLegIdx] = [1, 0.05, 1]
         if (rLegIdx >= 0) characterParams.scales[rLegIdx] = [1, 0.05, 1]
+      }
+      if (l.snakeNeck) {
+        const headIdx2 = rig.findIndex((j) => j.name === 'Head')
+        if (headIdx2 >= 0) characterParams.scales[headIdx2] = [0.05, 0.05, 0.05]
       }
       // When toggled OFF, applyPreset restores the original scale via
       // its full re-init pass, so no explicit "restore" needed here.
@@ -982,6 +993,7 @@ async function main() {
           ...(loadout.tail     ? DEFAULT_TAIL         : []),
           ...(loadout.wings    ? DEFAULT_WINGS        : []),
           ...(loadout.extraLimbs ? DEFAULT_EXTRA_LIMBS : []),
+          ...(loadout.snakeNeck  ? DEFAULT_SNAKE_NECK  : []),
           ...(loadout.grenades ? DEFAULT_GRENADE_BELT : []),
           ...activeArmor,
         ],
@@ -1004,6 +1016,7 @@ async function main() {
           wings:       loadout.wings,
           quadrupedHind: loadout.quadrupedHind,
           extraLimbs:    loadout.extraLimbs,
+          snakeNeck:     loadout.snakeNeck,
           capePattern: loadout.capePattern,
           grenades:    loadout.grenades,
           expression:  currentExpression,
@@ -1091,6 +1104,7 @@ async function main() {
         if (typeof lo.wings === 'boolean')     loadout.wings = lo.wings
         if (typeof lo.quadrupedHind === 'boolean') loadout.quadrupedHind = lo.quadrupedHind
         if (typeof lo.extraLimbs === 'boolean')    loadout.extraLimbs = lo.extraLimbs
+        if (typeof lo.snakeNeck === 'boolean')     loadout.snakeNeck = lo.snakeNeck
         if (typeof lo.grenades === 'boolean')  loadout.grenades = lo.grenades
         if (typeof lo.capePattern === 'string' && lo.capePattern in CAPE_PATTERNS) {
           loadout.capePattern = lo.capePattern as typeof loadout.capePattern
@@ -1416,6 +1430,7 @@ async function main() {
       ...DEFAULT_TAIL,
       ...DEFAULT_WINGS,
       ...DEFAULT_EXTRA_LIMBS,
+      ...DEFAULT_SNAKE_NECK,
       ...DEFAULT_GRENADE_BELT,
       ...outfitToBodyParts(WARDROBE.knight),
     ]
@@ -1619,6 +1634,10 @@ async function main() {
       // insect silhouettes. Per-frame transform copy from the human
       // limbs makes them animate in sync.
       extraLimbs: boolean
+      // Snake-neck rig: replaces the human Head with a chain extending
+      // forward from Neck, tipped with a snake-head ellipsoid. When on,
+      // the Head bone gets scale-collapsed so the human face hides.
+      snakeNeck: boolean
       capePattern: CapePattern
       hands: string   // key into HAND_LIBRARY
       feet:  string   // key into FOOT_LIBRARY
@@ -1642,6 +1661,7 @@ async function main() {
       grenades: true,
       quadrupedHind: false,
       extraLimbs: false,
+      snakeNeck: false,
       capePattern: 'stripes',
       hands: 'skin',
       feet:  'shoe',
@@ -1737,6 +1757,7 @@ async function main() {
         if (typeof data.wings === 'boolean')    loadout.wings = data.wings
         if (typeof data.quadrupedHind === 'boolean') loadout.quadrupedHind = data.quadrupedHind
         if (typeof data.extraLimbs === 'boolean')    loadout.extraLimbs = data.extraLimbs
+        if (typeof data.snakeNeck === 'boolean')     loadout.snakeNeck = data.snakeNeck
         if (typeof data.grenades === 'boolean') loadout.grenades = data.grenades
         if (typeof data.capePattern === 'string' && data.capePattern in CAPE_PATTERNS) {
           loadout.capePattern = data.capePattern as CapePattern
@@ -1791,6 +1812,7 @@ async function main() {
         ...(loadout.tail     ? DEFAULT_TAIL           : []),
         ...(loadout.wings    ? DEFAULT_WINGS          : []),
         ...(loadout.extraLimbs ? DEFAULT_EXTRA_LIMBS  : []),
+        ...(loadout.snakeNeck  ? DEFAULT_SNAKE_NECK   : []),
         ...(loadout.grenades ? DEFAULT_GRENADE_BELT   : []),
         ...(armorOutfit ? outfitToBodyParts(armorOutfit) : []),
       ]
@@ -1913,8 +1935,21 @@ async function main() {
       const isolated = loadout.isolate === 'none'
         ? expanded
         : expanded.filter((p) => categoryOf(p) === loadout.isolate)
+      // Bone-visibility filter — drop any primitive whose bone has been
+      // collapsed (max scale component < 0.1). Used for creature presets
+      // that zero out limb chains (bird's arms, snake's all limbs):
+      // without this filter the collapsed bones still emit primitives
+      // that render as ~1cm stubs at the bone origin. Skip the filter
+      // for bones with scale [1,1,1] or close (the common case) to
+      // avoid pointless work in the typical render path.
+      const SCALE_HIDE_THRESHOLD = 0.1
+      const visible = isolated.filter((p) => {
+        if (p.boneIdx < 0 || p.boneIdx >= characterParams.scales.length) return true
+        const s = characterParams.scales[p.boneIdx]
+        return Math.max(Math.abs(s[0]), Math.abs(s[1]), Math.abs(s[2])) >= SCALE_HIDE_THRESHOLD
+      })
       persistentPrims.length = 0
-      for (const p of isolated) persistentPrims.push(p)
+      for (const p of visible) persistentPrims.push(p)
       // Persist the new loadout — every panel toggle / shuffle / load
       // funnels through here, so this is the canonical save site.
       saveLoadoutToStorage()
@@ -2025,6 +2060,11 @@ async function main() {
         [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
         () => loadout.extraLimbs ? 'on' : 'off', (v) => { loadout.extraLimbs = v === 'on' },
       )
+      makeRow('snake',
+        [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
+        () => loadout.snakeNeck ? 'on' : 'off',
+        (v) => { loadout.snakeNeck = v === 'on'; applyPreset(currentProportion) },
+      )
       makeRow('grenades',
         [{ value: 'on', text: 'on' }, { value: 'off', text: 'off' }],
         () => loadout.grenades ? 'on' : 'off', (v) => { loadout.grenades = v === 'on' },
@@ -2114,6 +2154,126 @@ async function main() {
         host.appendChild(animRow)
       }
 
+      // Creature presets — one-click silhouette transforms. Each preset
+      // composes loadout flags + bone-scale overrides + default anim.
+      // The whole creature builder reduces to these 7 button picks.
+      type ScaleVec = [number, number, number]
+      type CreatureSpec = {
+        bob?: boolean; ponytail?: boolean; bangsL?: boolean; bangsR?: boolean
+        spikesTop?: boolean; spikesSideL?: boolean; spikesSideR?: boolean; spikesBack?: boolean
+        cape?: boolean; tail?: boolean; wings?: boolean; grenades?: boolean
+        quadrupedHind?: boolean; extraLimbs?: boolean; snakeNeck?: boolean
+        defaultAnim?: string
+        // Per-bone scale overrides (applied after applyPreset).
+        boneScales?: Record<string, ScaleVec>
+      }
+      const CREATURE_PRESETS: Record<string, CreatureSpec> = {
+        human: {
+          bob: true, ponytail: false, bangsL: false, bangsR: false,
+          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
+          cape: true, tail: false, wings: false, grenades: true,
+          quadrupedHind: false, extraLimbs: false, snakeNeck: false,
+          defaultAnim: 'idle',
+        },
+        spider: {
+          bob: false, ponytail: false, bangsL: false, bangsR: false,
+          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
+          cape: false, tail: false, wings: false, grenades: false,
+          quadrupedHind: true, extraLimbs: true, snakeNeck: false,
+          defaultAnim: 'crawl_backwards',
+        },
+        dragon: {
+          bob: false, ponytail: false, bangsL: false, bangsR: false,
+          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: true,
+          cape: false, tail: true, wings: true, grenades: false,
+          quadrupedHind: true, extraLimbs: false, snakeNeck: true,
+          defaultAnim: 'crawling',
+        },
+        bird: {
+          bob: false, ponytail: false, bangsL: false, bangsR: false,
+          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
+          cape: false, tail: true, wings: true, grenades: false,
+          quadrupedHind: false, extraLimbs: false, snakeNeck: false,
+          defaultAnim: 'idle',
+          // Bird: arms become wings — collapse human arm chains.
+          boneScales: {
+            LeftArm: [1, 0.05, 1], RightArm: [1, 0.05, 1],
+            LeftForeArm: [1, 0.05, 1], RightForeArm: [1, 0.05, 1],
+          },
+        },
+        horse: {
+          bob: true, ponytail: false, bangsL: false, bangsR: false,
+          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
+          cape: false, tail: true, wings: false, grenades: false,
+          quadrupedHind: true, extraLimbs: false, snakeNeck: false,
+          defaultAnim: 'running_crawl',
+        },
+        snake: {
+          bob: false, ponytail: false, bangsL: false, bangsR: false,
+          spikesTop: false, spikesSideL: false, spikesSideR: false, spikesBack: false,
+          cape: false, tail: true, wings: false, grenades: false,
+          quadrupedHind: false, extraLimbs: false, snakeNeck: true,
+          defaultAnim: 'crawling',
+          // Snake: no limbs, AND compress the spine + hips ellipsoid
+          // cross-section so the humanoid spine reads as a long thin
+          // snake body. The crawling anim puts the spine roughly
+          // horizontal, so combined with snake-neck (forward) and tail
+          // (back), the total silhouette is one long serpentine body.
+          // X+Z dimensions go to 30-40%; Y (length) stays full.
+          boneScales: {
+            LeftArm: [1, 0.05, 1], RightArm: [1, 0.05, 1],
+            LeftForeArm: [1, 0.05, 1], RightForeArm: [1, 0.05, 1],
+            LeftUpLeg: [1, 0.05, 1], RightUpLeg: [1, 0.05, 1],
+            LeftLeg: [1, 0.05, 1], RightLeg: [1, 0.05, 1],
+            Hips:   [0.40, 1, 0.40],
+            Spine:  [0.35, 1, 0.35],
+            Spine1: [0.35, 1, 0.35],
+            Spine2: [0.35, 1, 0.35],
+            Neck:   [0.40, 1, 0.40],
+          },
+        },
+      }
+      function applyCreaturePreset(name: string) {
+        const p = CREATURE_PRESETS[name]
+        if (!p) return
+        // Loadout flags
+        const flagKeys = ['bob','ponytail','bangsL','bangsR','spikesTop','spikesSideL','spikesSideR','spikesBack','cape','tail','wings','grenades','quadrupedHind','extraLimbs','snakeNeck'] as const
+        for (const k of flagKeys) {
+          if (typeof p[k] === 'boolean') (loadout as Record<string, unknown>)[k] = p[k]
+        }
+        // Reset proportions to current preset (clears stale per-bone scales),
+        // then apply creature-specific bone overrides on top.
+        applyPreset(currentProportion)
+        if (p.boneScales) {
+          for (const [boneName, scale] of Object.entries(p.boneScales)) {
+            const idx = rig.findIndex((j) => j.name === boneName)
+            if (idx >= 0) characterParams.scales[idx] = scale
+          }
+        }
+        // Default animation
+        if (p.defaultAnim) {
+          const idx = animations.findIndex((a) => a.name === p.defaultAnim)
+          if (idx >= 0) switchAnimation(idx)
+        }
+        rebuildPersistentPrims()
+        buildLoadoutUI()
+        invalidateRaymarchCache()
+      }
+      const creatureRow = document.createElement('div')
+      creatureRow.style.cssText = 'display:flex; gap:3px; flex-wrap:wrap; margin-top:4px;'
+      const creatureLbl = document.createElement('span')
+      creatureLbl.textContent = 'creature'
+      creatureLbl.style.cssText = 'width:54px; color:#9ab; font-size:11px;'
+      creatureRow.appendChild(creatureLbl)
+      for (const name of Object.keys(CREATURE_PRESETS)) {
+        const btn = document.createElement('button')
+        btn.textContent = name
+        btn.style.cssText = 'font-size:10px; padding:2px 5px; background:#1a2b4a; color:#cde; border:1px solid #345; border-radius:3px; cursor:pointer;'
+        btn.onclick = () => applyCreaturePreset(name)
+        creatureRow.appendChild(btn)
+      }
+      host.appendChild(creatureRow)
+
       // Shuffle + reset buttons — drive the panel state from the data
       // registries directly so the random values are always valid (no
       // out-of-enum picks). Reset matches the initial Loadout literal.
@@ -2143,6 +2303,7 @@ async function main() {
         loadout.wings       = Math.random() < 0.15
         loadout.quadrupedHind = Math.random() < 0.15
         loadout.extraLimbs  = Math.random() < 0.10
+        loadout.snakeNeck   = Math.random() < 0.10
         loadout.grenades    = Math.random() < 0.5
         applyPreset(pick(proportionKeys))
         if (expressionKeys.length > 0) applyExpression(pick(expressionKeys))
@@ -2168,6 +2329,7 @@ async function main() {
         loadout.wings       = false
         loadout.quadrupedHind = false
         loadout.extraLimbs  = false
+        loadout.snakeNeck   = false
         loadout.grenades    = true
         applyPreset(currentProportion)   // restores per-bone scales after retarget reset
         rebuildPersistentPrims()
