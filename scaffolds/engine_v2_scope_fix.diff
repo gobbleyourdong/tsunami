@@ -1,0 +1,27 @@
+--- a/scaffolds/engine/README.md
++++ b/scaffolds/engine/README.md
+@@ -185,20 +185,20 @@
+ 
+ ### v2+ — genre scope
+ 
+-Per `project_init._OOS_REDIRECT_MESSAGES`, 7 genres are explicitly out of scope and the agent redirects:
++Per `project_init._OOS_REDIRECT_MESSAGES`, 5 genres are explicitly out of scope and the agent redirects:
+ 
+ | Genre | Blocker |
+ |---|---|
+ | Interactive fiction / Zork | Parser-driven; non-spatial |
+ | RTS / StarCraft | Multi-unit command, no single protagonist |
+ | TBS / Fire Emblem | PhaseScheduler + grid + roster persistence |
+-| JRPG battle system | Needs BattleSystem sub-schema (overworld-only IS supported) |
+-| Racing sim | VehicleController + TrackSpline (arcade kart IS supported) |
+ | Persistent sim / SimCity | Needs save system + multi-day timeline |
+ | Deckbuilder | Card-draw / deck / rule-synthesis primitives |
+ | MMO / CRPG | Networking, persistence, content scale |
+ 
+-Ship gate #15's sweep confirmed these by design — 7/40 prompts classified `impossible`. Adding any of them is a v2 scaffold, not a v1.x extension.
++_Note: JRPG battle (atb_combat + turn_based_combat mechanics) and Racing sim (gamedev/racing scaffold) were promoted to shipping during v1.x; see those scaffolds for the working implementations._
++
++Ship gate #15's sweep confirmed these by design — 5/40 prompts classified `impossible`. Adding any of them is a v2 scaffold, not a v1.x extension.
+ 
+ ### Known rough edges
+ 

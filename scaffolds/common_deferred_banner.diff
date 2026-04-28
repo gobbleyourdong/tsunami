@@ -1,0 +1,34 @@
+--- a/scaffolds/engine/asset_workflows/_common/README.md
++++ b/scaffolds/engine/asset_workflows/_common/README.md
+@@ -1,5 +1,31 @@
+ # _common/
+ 
++> ⚠️ **STATUS: PIPELINE DEFERRED (since 2026-04-26 cleanup).**
++>
++> The post-2026-04-22 corpus-driven modules below (`nudge_library.py`,
++> `base_plus_chain.py`, `batch_run.py`, `strip_assembler.py`) depend
++> on three things that are currently OFFLINE:
++>
++> 1. **ERNIE-Image-Turbo @ `:8092`** — local LLM serving was nuked in
++>    the 2026-04-26 cleanup; `:8092` returns connection-refused.
++> 2. **Qwen-Image-Edit @ `:8094`** — also offline.
++> 3. **Corpus path drift** — `batch_run.py:35` hardcodes
++>    `scaffolds/.claude/nudges/<essence>/<anim>.json` but the actual
++>    nudges directory is at `scaffolds/nudges/` (moved 2026-04-15).
++>
++> **Working alternatives** (image-gen-DEFERRED still leaves three live
++> asset paths): curated SVG library at `engine/assets/sprites/`, VAT
++> bakes at `engine/scripts/bake_*.mjs`, GLTF runtime loader at
++> `engine/src/scene/gltf.ts`. See `scaffolds/ASSET_PIPELINE_SURVEY.md`
++> §"Four distinct asset pipelines" for details.
++>
++> **Legacy modules** (`sprite_sheet_asm.py`, `character_blockout.py`,
++> `blockout_loader.py`) are healthier — they target the still-extant
++> `scaffolds/.claude/blockouts/` corpus and the consuming character
++> workflows.
++>
++> Re-enable the pipeline when an image-gen backend is back online.
++
+ Shared helpers for asset workflows. Two eras of modules live here:
+ 
+ **Legacy (pre-2026-04-22)** — per-workflow primitives Shoal built for

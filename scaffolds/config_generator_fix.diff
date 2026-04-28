@@ -1,0 +1,33 @@
+--- a/scaffolds/cli/config-generator/src/config_generator/params.py
++++ b/scaffolds/cli/config-generator/src/config_generator/params.py
+@@ -42,11 +42,18 @@
+ 
+ 
+ def load_env_prefix(prefix: str) -> Params:
++    """Load env vars with given prefix into a nested dict.
++    Use `__` as the nesting delimiter: CFG_APP__NAME -> {app: {name: ...}}.
++    """
+     out: Params = {}
+     for k, v in os.environ.items():
+         if k.startswith(prefix):
+             key = k[len(prefix):].lower()
+-            out[key] = v
++            parts = key.split('__')
++            d = out
++            for p in parts[:-1]:
++                d = d.setdefault(p, {})
++            d[parts[-1]] = v
+     return out
+ 
+ 
+--- a/scaffolds/cli/config-generator/README.md
++++ b/scaffolds/cli/config-generator/README.md
+@@ -21,7 +21,7 @@
+   --format yaml -o app.yaml
+ 
+ # Pull values from env vars (stripping CFG_ prefix)
+-CFG_APP_NAME=orbit CFG_DATABASE_URL=postgres://… \
++CFG_APP__NAME=orbit CFG_APP__ENV=production CFG_DATABASE__URL=postgres://… CFG_SERVER__PORT=9090 \
+   config-generator dotenv.env.j2 --env-prefix CFG_ --format env
+ ```
+ 

@@ -1,0 +1,19 @@
+--- a/scaffolds/engine/README.md
++++ b/scaffolds/engine/README.md
+@@ -14,11 +14,11 @@
+ | | |
+ |---|---|
+-| Engine TS | 20,586 LOC across 16 subsystems (incl. UI framework scaffold) |
+-| Python tooling | 3,585 LOC (sprite pipeline + compiler wrapper) |
+-| Tests | 326 passing in 22 files (4,296 LOC) |
+-| Mechanics | 35 implemented (+5 v2 placeholders = 40 catalog entries) |
++| Engine TS | 36,133 LOC across 192 files / 21 subsystems (incl. UI framework scaffold) |
++| Python tooling | 3,996 LOC (sprite pipeline + compiler wrapper) |
++| Tests | 1,016 passing in 82 files (13,907 LOC) |
++| Mechanics | 45 implemented (+ 1 helper `world_flags` = 46 mechanic files in src/design/mechanics/) |
+ | ActionRefs | 20 kinds (game + audio) |
+ | Validator errors | 23 kinds (design + audio + sprites) |
+ | Sprite pipeline | 8 categories / 17 post-process ops / 9 scorers / 26 metrics |
+-| Image backend | ERNIE-Image-Turbo @ `:8092` (sole shipping backend) |
++| Image backend | DEFERRED — `:8092` is offline since 2026-04-26; drones use curated `assets/sprites/*.svg` library, VAT bakes (`scripts/bake_*.mjs`), or GLTF. Re-enable an image-gen backend to restore AI-authored sprite generation. |
+ | Ship gates | #12 🟢 #13 🟢 #14 🟢 (20/20) #15 🟢 (33/33) |

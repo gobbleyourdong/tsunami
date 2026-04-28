@@ -1,0 +1,22 @@
+--- a/scaffolds/engine/package.json
++++ b/scaffolds/engine/package.json
+@@ -15,7 +15,7 @@
+   },
+   "keywords": [],
+   "author": "",
+-  "license": "ISC",
++  "license": "Unlicense",
+   "devDependencies": {
+     "@types/node": "^25.6.0",
+     "@vitest/browser": "^4.1.2",
+--- a/scaffolds/training/finetune-recipe/config.example.yaml
++++ b/scaffolds/training/finetune-recipe/config.example.yaml
+@@ -6,7 +6,7 @@
+ # the dataset's noise alongside its signal.
+ 
+ model:
+-  name: "Qwen/Qwen2.5-0.5B-Instruct"
++  name: "meta-llama/Llama-3.2-1B-Instruct"
+   trust_remote_code: true
+   dtype: "bfloat16"
+   quantize_4bit: false

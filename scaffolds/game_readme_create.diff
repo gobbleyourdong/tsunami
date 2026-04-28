@@ -1,0 +1,84 @@
+--- /dev/null
++++ b/scaffolds/game/README.md
+@@ -0,0 +1,81 @@
++# Tsunami Game Scaffold
++
++Engine-only WebGPU game scaffold. Bootstraps a real game from a
++declarative `game_definition.json` produced by Tsunami's
++`emit_design()` tool.
++
++> **No React.** This scaffold is engine-direct. Web-app scaffolds
++> (`react-app`, `landing`, etc.) keep React; this one doesn't.
++
++## Layout requirement
++
++The scaffold's `vite.config.ts` and `tsconfig.json` resolve `@engine/*`
++via `../engine/src/`. **You must clone or place this scaffold next to
++the `engine` scaffold** so that the alias resolves:
++
++```
++scaffolds/
++├── engine/      ← required sibling
++└── game/        ← this scaffold
++```
++
++The `findEngine()` walker in `vite.config.ts` walks up from this
++scaffold root looking for `engine/src/index.ts`; the `tsconfig.json`
++`paths` entries hardcode `../engine/src/*`.
++
++## Entry-point flow
++
++`src/main.ts` boots the game in three steps:
++
++1. **Init WebGPU** on `<canvas id="game">` (see `index.html`)
++2. **Fetch `/game_definition.json`** (produced by
++   `tsunami/tools/emit_design.py` — drone-emit-driven authoring)
++3. **`Game.fromDefinition(def) → activateScene(flow[0].scene) → start()`**
++
++Failures (no WebGPU, missing `/game_definition.json`, invalid design)
++render an actionable overlay instead of a blank canvas.
++
++The mechanic registry self-populates via the side-effect import of
++`@engine/design/mechanics` — without that import, `Game` can't build
++runtimes for any mechanic type.
++
++## Build / dev / test
++
++```bash
++npm install                 # 164 pkgs (incl. @webgpu/types)
++npm run dev                 # vite dev server
++npm run build               # tsc --noEmit && vite build
++npm test                    # vitest run --reporter=verbose
++```
++
++The vitest suite ships **51 tests across 4 files** (frame_loop,
++keyboard_input, ecs_scene, score_system). All pass on a clean install
++when run from the engine-sibling layout.
++
++## Producing a `game_definition.json`
++
++Use the Tsunami harness's `emit_design()` from a Python session:
++
++```python
++from tsunami.tools.emit_design import emit_design
++import json
++
++design = json.load(open('your_design.json'))
++result = emit_design(design, project_name='my_game', deliverables_dir='/tmp/out')
++print(result['ok'], result.get('stage'), len(result.get('errors', [])))
++```
++
++The validated `GameDefinition` lands at
++`/tmp/out/my_game/game_definition.json`. Copy or symlink that into
++this scaffold's `public/` directory before running `npm run dev`.
++
++## What this scaffold is NOT
++
++- **Not a React app.** Use `landing` / `react-app` / `dashboard` / etc.
++  for those.
++- **Not a 2D-only scaffold.** This is the WebGPU 3D game runtime.
++- **Not where mechanics live.** Mechanic implementations are in
++  `engine/src/design/mechanics/`. This scaffold consumes them via the
++  `@engine/mechanics` barrel.
++- **Not a demo.** For demos, see `engine/demos/` (atlas_runtime,
++  sprite_bake, text_demo, vat_demo, etc.).

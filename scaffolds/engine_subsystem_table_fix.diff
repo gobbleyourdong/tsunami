@@ -1,0 +1,14 @@
+--- a/scaffolds/engine/README.md
++++ b/scaffolds/engine/README.md
+@@ -47,6 +47,11 @@
+ | `sprites` | 1 | 80 | Runtime sprite-manifest loader (fetches the Python build's output) |
+ | `ui` | 14 | 3,942 | Declarative UI framework: Sample Newton text (shipped) + theme / layout / primitives / ComponentDef / immediate-mode + WebGPU & DOM compilers + 8 widget components. Scaffolded v1; flex engine / input wiring / icon atlas pending real-impl pass. |
+ | **`design`** | 43 | 6,818 | **The AI authoring layer — see §2** |
++| `combat` | 10 | 1,639 | Attack canon, attack entities, hit/hurtboxes, collision resolver, damage effects + resolver, equipment, weapon classes — the real-time combat plumbing |
++| `components` | 1 | 245 | Component shape barrel — re-exports plain interfaces consumers attach to `EntityDef.properties` |
++| `mechanics` | 1 | 28 | Layer-2 barrel re-exporting `mechanicRegistry` + `MechanicRuntime` from `design/mechanics/_registry` (not a separate impl — the actual mechanics live in `design/mechanics/*.ts`) |
++| `assets` | 1 | 91 | Curated SVG sprite-library helpers (queryByTag, getAsset) over the manifest in `assets/manifest.json` |
++| `character3d` | 26 | 10,005 | Bespoke chibi-character SDF raymarcher — operator's active WIP. See `docs/character_pipeline_status.md`. |
+ 
+ All subsystems have vitest coverage; the full suite runs in <1s headless.
+ 

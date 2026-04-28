@@ -1,0 +1,61 @@
+--- a/scaffolds/gamedev/action_adventure/src/main.ts
++++ b/scaffolds/gamedev/action_adventure/src/main.ts
+@@ -27,7 +27,7 @@
+   dungeon: new Dungeon(),
+   gameover: new GameOver(),
+ }
+-let active: SceneKey = (config.starting_scene as SceneKey) ?? 'overworld'
++let active: SceneKey = (config.starting_room as SceneKey) ?? 'overworld'
+ 
+ const canvas = document.getElementById('game-canvas') as HTMLCanvasElement | null
+ if (!canvas) throw new Error('#game-canvas not found')
+@@ -52,7 +52,7 @@
+     ctx.fillStyle = '#9c7'
+     ctx.font = '14px system-ui, sans-serif'
+     ctx.fillText(
+-      `tsunami action-adventure — ${config.title ?? 'Zelda-like'}`,
++      `tsunami action-adventure — ${config.meta.title ?? 'Zelda-like'}`,
+       20, 30,
+     )
+     ctx.fillStyle = '#aaa'
+--- a/scaffolds/gamedev/action_adventure/src/scenes/Overworld.ts
++++ b/scaffolds/gamedev/action_adventure/src/scenes/Overworld.ts
+@@ -56,13 +56,13 @@
+     return {
+       sceneManager: {
+         activeScene: () => ({
+-          entities: (entitiesData as { entities: unknown[] }).entities,
++          entities: Object.values((entitiesData as { archetypes: Record<string, unknown> }).archetypes),
+         }),
+       },
+       config: {
+-        mode: config.mode,
+-        width: config.width,
+-        height: config.height,
++        mode: config.config.mode,
++        width: config.config.playfield.arena.size,
++        height: config.config.playfield.arena.size,
+       },
+     }
+   }
+--- a/scaffolds/gamedev/action_adventure/src/scenes/Dungeon.ts
++++ b/scaffolds/gamedev/action_adventure/src/scenes/Dungeon.ts
+@@ -46,7 +46,7 @@
+     return {
+       sceneManager: {
+         activeScene: () => ({
+-          entities: (entitiesData as { entities: unknown[] }).entities,
++          entities: Object.values((entitiesData as { archetypes: Record<string, unknown> }).archetypes),
+         }),
+       },
+     }
+--- a/scaffolds/gamedev/action_adventure/src/scenes/GameOver.ts
++++ b/scaffolds/gamedev/action_adventure/src/scenes/GameOver.ts
+@@ -18,6 +18,6 @@
+ 
+   /** Which title/subtitle to show. */
+   getTitle(): string {
+-    return config.title_gameover ?? 'You died. Continue?'
++    return 'Game Over'
+   }
+ }

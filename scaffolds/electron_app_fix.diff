@@ -1,0 +1,49 @@
+--- a/scaffolds/electron-app/src/App.tsx
++++ b/scaffolds/electron-app/src/App.tsx
+@@ -1,33 +1,38 @@
+ import { useState } from 'react';
+ import { useIPC } from './hooks/useIPC';
+ 
++type OpenDialogResult = { canceled: boolean; filePaths: string[] };
++type SaveDialogResult = { canceled: boolean; filePath: string };
++
+ export default function App() {
+   const { invoke, appPath } = useIPC();
+   const [content, setContent] = useState('');
+   const [filePath, setFilePath] = useState('');
+ 
+   const handleOpen = async () => {
+-    const result = await invoke('show-open-dialog', {
++    const result = (await invoke('show-open-dialog', {
+       properties: ['openFile'],
+       filters: [{ name: 'Text', extensions: ['txt', 'md', 'json'] }],
+-    });
++    })) as OpenDialogResult;
+     if (!result.canceled && result.filePaths[0]) {
+       const path = result.filePaths[0];
+-      const text = await invoke('read-file', path);
++      const text = (await invoke('read-file', path)) as string;
+       setFilePath(path);
+       setContent(text);
+     }
+   };
+ 
+   const handleSave = async () => {
+-    if (!filePath) {
+-      const result = await invoke('show-save-dialog', {
++    let target = filePath;
++    if (!target) {
++      const result = (await invoke('show-save-dialog', {
+         filters: [{ name: 'Text', extensions: ['txt', 'md'] }],
+-      });
++      })) as SaveDialogResult;
+       if (result.canceled) return;
+-      setFilePath(result.filePath);
++      target = result.filePath;
++      setFilePath(target);
+     }
+-    await invoke('write-file', filePath, content);
++    await invoke('write-file', target, content);
+   };
+ 
+   return (

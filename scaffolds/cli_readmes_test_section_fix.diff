@@ -1,0 +1,45 @@
+--- a/scaffolds/cli/data-processor/README.md
++++ b/scaffolds/cli/data-processor/README.md
+@@ -41,12 +41,6 @@
+ - **Streaming discipline:** keep operators lazy (generators, not lists).
+   The scaffold assumes pipe inputs may be unbounded.
+ 
+-## Test
+-
+-The canary lives in the repo-root at `tests/scaffolds/data-processor/canary.test.py`.
+-Run it with `pytest tests/scaffolds/data-processor/` — it installs the scaffold
+-in a temp venv, pipes the sample fixture through, and asserts shape.
+-
+ ## Anchors
+ 
+ `jq`, `mlr`, `csvkit`, `xsv`, `json-lines`, `ripgrep` (as output consumer).
+--- a/scaffolds/cli/file-converter/README.md
++++ b/scaffolds/cli/file-converter/README.md
+@@ -35,12 +35,6 @@
+   (unavoidable given both formats need the outer array). csv/tsv/jsonl can
+   stream; if you need that, split writer into chunked vs whole.
+ 
+-## Test
+-
+-`pytest tests/scaffolds/file-converter/` — invokes the scaffold via
+-`python -m file_converter`, pipes fixtures through, asserts each
+-format round-trips structurally.
+-
+ ## Anchors
+ 
+ `csvkit`, `yq`, `dasel`, `jq`, `miller`.
+--- a/scaffolds/cli/config-generator/README.md
++++ b/scaffolds/cli/config-generator/README.md
+@@ -49,12 +49,6 @@
+ than silently shipping broken config. Supported: `yaml`, `json`, `toml`,
+ `ini`, `env`, `text` (no validation).
+ 
+-## Test
+-
+-`pytest tests/scaffolds/config-generator/` — exercises template loading,
+-param merging (file + env + --set), render with StrictUndefined,
+-post-render validation.
+-
+ ## Anchors
+ 
+ `consul-template`, `envsubst`, `gomplate`, `jsonnet`, `ytt`, `Jinja2 CLI`.
