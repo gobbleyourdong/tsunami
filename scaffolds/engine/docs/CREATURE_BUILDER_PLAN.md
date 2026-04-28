@@ -1,5 +1,7 @@
 # Creature Builder — Overnight Runbook
 
+**STATUS (v1 complete)**: All 6 plan tasks delivered across overnight session iters 1-11. See "v1 Completion Summary" at the bottom for what shipped, the commit chain, and the open polish items for v2.
+
 **Goal**: extend the humanoid character system into a full creature builder. One rig + one anim library. Creature variety comes from per-bone scale overrides, procedural limb attachments, and chain-driven cosmetics. Spider, dragon, bird, quadruped, snake-thing — all from the same skeleton.
 
 **Vision** (per user direction earlier in session):
@@ -310,3 +312,39 @@ Stop the overnight run if:
 ## Session-end deliverable
 
 A working creature builder demo where 6 preset buttons (human / spider / dragon / bird / horse / snake) instantly transform the character. Each composes from the existing humanoid rig + anim library + the new attachments + per-bone scale overrides. Foundation for the "1 million cosmetics" vision.
+
+---
+
+## v1 Completion Summary
+
+All 6 plan tasks delivered. Commit chain on `main`:
+
+| Commit | What |
+|---|---|
+| `64c6d65` | Iter 1-3: wings, hind retarget, extra-limb bones + per-frame world rotation copy. 5 mixamo VATs (mutant_run, crawling, crawl_backwards, running_crawl, standing_block). Plan doc. |
+| `6d4d7a2` | Iter 3-6: snake-neck rig, 6 creature presets, bone-visibility filter, snake spine compression. |
+| `abd85c2` | Iter 7-8: wing flap (sin-driven Y perturbation, 4Hz/8cm tip), snake-neck idle weave (peristaltic wave, 1Hz/5cm tip). |
+| `d353866` | Iter 9: bone-visibility filter scaleY fix (was hiding nothing for collapsed limbs). |
+| `b44bd9d` | Iter 11: procedural extra-limb phase offset (back legs sample at frame N + numFrames/2, anti-phase gait for spider). |
+
+**What shipped:**
+- Wings: 4-bone ribbon chain per side anchored to LeftShoulder/RightShoulder, type-23 ribbon emit with `tipScale: 0.15` (feathered), per-frame Y perturbation when `wingFlap: on`.
+- Hind retarget: `loadout.quadrupedHind` collapses LeftLeg/RightLeg scaleY → foot lands at knee. Combine with `crawling` / `running_crawl` anim for dog/cat silhouette.
+- Extra limbs (spider): 4 phantom limbs (FL/FR/BL/BR) on Hips. Front pair copies LeftArm/RightArm rotation at current frame; back pair copies LeftUpLeg/RightUpLeg rotation at frame `N + numFrames/2` (anti-phase). World matrix at offset frame computed via CPU-only hierarchy walk.
+- Snake-neck: 5-bone chain forward from Neck (4 ribbon + 1 head ellipsoid). When `snakeNeck: on`, human Head bone scale collapses to 0.05 (face hides). Idle weave perturbs world X by phase-shifted sin → peristaltic motion.
+- 6 creature presets: `human` / `spider` / `dragon` / `bird` / `horse` / `snake` — one-click loadout flag + per-bone scale overrides + default anim. UI button row.
+- Cosmetic layers (independent toggles): bob (4-prim ensemble), ponytail, bangs L/R, spikes top/sideL/sideR/back. Length sliders for cape/hair/tail/strand. Spike-scale slider.
+- Tail (Hips-anchored 4-bone ribbon, fur palette slot 19, blendGroup 15). Loadout toggle.
+- Bone visibility filter: hides primitives whose bone has scaleY < 0.1 (limb chains are Y-aligned). Bird/snake collapsed-limb prims disappear cleanly instead of leaving 1-2cm stubs.
+- 5 new VAT-baked anims tonight, manifest at 25 total. Snake / spider / horse use the crawl variants for proper quadruped/serpentine motion.
+
+**Open v2 polish items (not blocking):**
+- Phase offset uses a half-cycle offset for back legs only. Could parameterize per-limb (1/4, 1/8 cycle) for more variety.
+- Wing flap uses Y-only translation perturbation. A proper rotational flap (rotate WingL0/R0 around shoulder axis, propagate to children via mat4 mul) would read better at high resolutions.
+- No anim selection per-creature (presets set default anim, but the user can still cycle to any of the 25). Some anims look weird on certain creatures (e.g. backflip on snake).
+- Wing palette uses `cape` slot (red by default). Adding a dedicated `feather` slot would let wings recolor independently.
+
+**Known v2 architecture wins:**
+- `simulateRibbonChain` helper now backs 5 chain types (cape, HairLong, side strands, tail, snake-neck). Wings could fold in with a small adapter (chain extends radially, not vertically).
+- Per-bone visibility filter is general — same mechanism would hide Spine bones for "tube" creatures, Hips for "floating" creatures, etc.
+- Creature spec format (`CreatureSpec` with bone scales + loadout flags + default anim) is JSON-serializable. Save/load already round-trips loadout flags; extending to creature presets is a small addition.
