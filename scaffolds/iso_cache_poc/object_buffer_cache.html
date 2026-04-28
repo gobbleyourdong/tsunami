@@ -706,6 +706,29 @@
     return d;
   }
 
+  // ── 3D gear (Phase 6 of PLAN_3D_PORT.md) ─────────────────────
+  // Disk along Z (axis pointing at camera) + 12 teeth boxes at the rim
+  // + a small hub bump that sticks out toward the camera. Built as a
+  // hard `union` (min) — teeth read as distinct sub-shapes, not
+  // smoothly blended into the disk. Bake runs ONCE because the gear
+  // is animFlag='rotate' (composite-time rotation, no re-bake).
+  const sdfGear3D = (() => {
+    const teethCount = 12;
+    const parts = [];
+    parts.push(R3.rotateX(Math.PI / 2, R3.cylinder(0.42, 0.07)));     // main disk
+    for (let i = 0; i < teethCount; i++) {
+      const ang = (i * 2 * Math.PI) / teethCount;
+      const cx = Math.cos(ang) * 0.46;
+      const cy = Math.sin(ang) * 0.46;
+      parts.push(R3.translate(
+        [cx, cy, 0],
+        R3.rotateZ(ang, R3.box([0.06, 0.045, 0.05])),
+      ));
+    }
+    parts.push(R3.translate([0, 0, 0.04], R3.rotateX(Math.PI / 2, R3.cylinder(0.18, 0.10))));
+    return R3.union(...parts);
+  })();
+
   // ─── Build objects ───────────────────────────────────────────────
   const TERRAIN_W = 2000, TERRAIN_H = 500;
   const objects = [];
@@ -784,12 +807,14 @@
     z: 2,
   }));
   objects.push(new GameObject({
-    id: 'gear', color: [140, 180, 130], sdfFn: sdfGear,
+    id: 'gear', color: [140, 180, 130],
+    sdfFn3d: sdfGear3D,                          // 3D path: disk + 12 teeth + hub
+    metersPerPixel: 0.009,                       // 120×120 buf → ~1.08m extent
     localW: 120, localH: 120, worldX: 1600, worldY: 140,
     animFlag: 'rotate',                          // rigid body — composite rotates the cached buffer
-    angularVelocity: Math.PI / 12,               // spins ~15°/tick
+    angularVelocity: Math.PI / 12,
     quantizeRotation: true,
-    rotationStep: (2 * Math.PI) / 12,            // snap to one-tooth (30°) increments
+    rotationStep: (2 * Math.PI) / 12,
     z: 2,
   }));
 

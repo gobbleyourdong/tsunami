@@ -139,7 +139,7 @@ fires (heart is `animating` with `loopFrames: 6`).
 **Commit subject:** `iso_cache_poc: 3D port phase 5 — heart archetype is 3D`
 
 ### Phase 6 — Convert GEAR to 3D
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Gear = cylinder hub + 12 small cylinders arrayed
 around for teeth (or a torus with notches). It's `rotate` flag, baked
@@ -249,7 +249,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 | 3     | COMPLETE — `sdfFn3d`/`metersPerPixel` on GameObject; `_bakeInto` raymarches when set; existing 2D archetypes untouched |
 | 4     | COMPLETE — rock archetype uses sdfFn3d=smoothUnion(box, sphere) with mPP=0.01; smoke test confirms hits + normals |
 | 5     | COMPLETE — heart uses sdfFn3dFactory (per-tick rebuild) = 2 spheres + stretched ellipsoid; cone fallback noted |
-| 6     | PENDING |
+| 6     | COMPLETE — gear = disk + 12 teeth boxes + hub bump (union, not smoothUnion); ~22ms/1000 raymarches |
 | 7     | PENDING |
 | 8     | PENDING |
 | 9     | PENDING |
