@@ -1253,14 +1253,23 @@ async function main() {
     // automatically — instead we shift every bone with its own (chain-
     // position, time)-keyed phase so adjacent bones land on the sine
     // curve at slightly offset phases. Net visual: a continuous wave.
-    const SNAKE_BODY_CHAIN: number[] = []   // Hips → Spine* → Neck → SnakeNeck* → Head
-    const SNAKE_TAIL_CHAIN: number[] = []   // Tail0..Tail4 (extends from Hips backward)
+    // Three separate chains so we can fire the snake-neck wiggle on every
+    // snakeNeck creature (dragon too) but only fire the full-body slither
+    // on snake — dragon should NOT have its torso undulating, only its
+    // serpentine head extension.
+    const SNAKE_NECK_CHAIN: number[] = []   // SnakeNeck0..3 + SnakeNeckHead (head-extension only)
+    const SNAKE_TORSO_CHAIN: number[] = []  // Hips → Spine* → Neck (snake-only body wave)
+    const SNAKE_TAIL_CHAIN: number[] = []   // Tail0..Tail4 (snake-only tail wave)
     {
-      const bodyNames = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck',
-                         'SnakeNeck0', 'SnakeNeck1', 'SnakeNeck2', 'SnakeNeck3', 'SnakeNeckHead']
-      for (const n of bodyNames) {
+      const neckNames = ['SnakeNeck0', 'SnakeNeck1', 'SnakeNeck2', 'SnakeNeck3', 'SnakeNeckHead']
+      for (const n of neckNames) {
         const idx = rig.findIndex((j) => j.name === n)
-        if (idx >= 0) SNAKE_BODY_CHAIN.push(idx)
+        if (idx >= 0) SNAKE_NECK_CHAIN.push(idx)
+      }
+      const torsoNames = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck']
+      for (const n of torsoNames) {
+        const idx = rig.findIndex((j) => j.name === n)
+        if (idx >= 0) SNAKE_TORSO_CHAIN.push(idx)
       }
       const tailNames = ['Tail0', 'Tail1', 'Tail2', 'Tail3', 'Tail4']
       for (const n of tailNames) {
@@ -1268,39 +1277,47 @@ async function main() {
         if (idx >= 0) SNAKE_TAIL_CHAIN.push(idx)
       }
     }
-    const applySnakeNeckWeave = () => {
-      if (!composer) return
-      if (SNAKE_BODY_CHAIN.length === 0 && SNAKE_TAIL_CHAIN.length === 0) return
-      const wm = composer.worldMatrices
-      // Side slither: ~0.4 Hz, 6 cm peak amplitude, phase shift 1.0 rad
-      // per chain segment → wave traverses the body in ~6 segments.
-      // Up slither: ~0.3 Hz, 3 cm peak, phase shift 0.7 rad per segment
-      // → slower, smaller secondary undulation in vertical.
+    // Slither parameters — shared between neck-only and full-body modes.
+    // Side: ~0.4 Hz, 6cm peak. Up: ~0.3 Hz, 3cm peak. Phase shifts of
+    // 1.0/0.7 rad per segment yield a wave that traverses the body in
+    // ~6 segments and gives the two channels different periods.
+    const SLITHER_SIDE_AMP = 0.06
+    const SLITHER_UP_AMP   = 0.03
+    const SLITHER_SIDE_PHASE = 1.0
+    const SLITHER_UP_PHASE   = 0.7
+    const slitherChain = (chain: number[], phaseStart: number, ampScale: (i: number) => number, wm: Float32Array) => {
       const tSide = elapsed * 2.5
       const tUp   = elapsed * 1.8
-      const sideAmp = 0.06
-      const upAmp   = 0.03
-      const sidePhasePerSeg = 1.0
-      const upPhasePerSeg   = 0.7
-      const slither = (chain: number[], phaseStart: number, ampScale: (i: number) => number) => {
-        for (let i = 0; i < chain.length; i++) {
-          const idx = chain[i]
-          const a = ampScale(i)
-          const dx = Math.sin(tSide - (phaseStart + i * sidePhasePerSeg)) * sideAmp * a
-          const dy = Math.sin(tUp   - (phaseStart + i * upPhasePerSeg))   * upAmp   * a
-          wm[idx * 16 + 12] += dx
-          wm[idx * 16 + 13] += dy
-          device.queue.writeBuffer(vatHandle.buffer, idx * 64, wm.buffer, wm.byteOffset + idx * 16 * 4, 64)
-        }
+      for (let i = 0; i < chain.length; i++) {
+        const idx = chain[i]
+        const a = ampScale(i)
+        const dx = Math.sin(tSide - (phaseStart + i * SLITHER_SIDE_PHASE)) * SLITHER_SIDE_AMP * a
+        const dy = Math.sin(tUp   - (phaseStart + i * SLITHER_UP_PHASE))   * SLITHER_UP_AMP   * a
+        wm[idx * 16 + 12] += dx
+        wm[idx * 16 + 13] += dy
+        device.queue.writeBuffer(vatHandle.buffer, idx * 64, wm.buffer, wm.byteOffset + idx * 16 * 4, 64)
       }
-      // Body: amplitude ramps up smoothly from root (small) to head (full)
-      // so the head whips while the hips stay near-anchored — anchored
-      // hips read as a snake with body weight on the ground.
-      slither(SNAKE_BODY_CHAIN, 0, (i) => Math.min(1, (i + 1) / 4))
-      // Tail: phase continues backward from hips, amplitude ramps from
-      // small (near hips) to full (tail tip). Independent chain so the
-      // wave reads as continuing through the body.
-      slither(SNAKE_TAIL_CHAIN, SNAKE_BODY_CHAIN.length * 0.6, (i) => Math.min(1, (i + 1) / 3))
+    }
+    // Snake-neck head wiggle — fires on every snakeNeck creature. Just
+    // perturbs the 5 head-extension bones; the dragon's body, wings,
+    // and legs are untouched.
+    const applySnakeNeckWeave = () => {
+      if (!composer || SNAKE_NECK_CHAIN.length === 0) return
+      slitherChain(SNAKE_NECK_CHAIN, 0, (i) => Math.min(1, (i + 1) / 3), composer.worldMatrices)
+      invalidateRaymarchCache()
+    }
+    // Full-body slither — torso (Hips → Neck) + tail. Snake-only; gated
+    // on currentCreature so dragon doesn't undulate its body. Amplitude
+    // ramps from root (small) to tip (full) so hips stay anchored while
+    // head/tail whip — anchored hips read as a snake with body weight
+    // on the ground.
+    const applySnakeBodySlither = () => {
+      if (!composer) return
+      const wm = composer.worldMatrices
+      slitherChain(SNAKE_TORSO_CHAIN, 0, (i) => Math.min(1, (i + 1) / 4), wm)
+      // Tail phase offset continues from the torso so the wave reads
+      // as one continuous traveling pulse from head through tail tip.
+      slitherChain(SNAKE_TAIL_CHAIN, SNAKE_TORSO_CHAIN.length * 0.6, (i) => Math.min(1, (i + 1) / 3), wm)
       invalidateRaymarchCache()
     }
 
@@ -2035,6 +2052,10 @@ async function main() {
       torso:   Record<string, TorsoTriple>
     } = { limbs: {}, anatomy: {}, torso: {} }
     let currentBuild: string = 'standard'
+    // Active creature name — gates per-frame procedural hooks (e.g. the
+    // full-body slither only fires on snake; dragon gets only the
+    // head-extension weave). Updated by applyCreaturePreset.
+    let currentCreature: string = 'human'
     function applyBuildPreset(name: string) {
       const preset = BUILD_PRESETS[name]
       if (!preset) return
@@ -2654,6 +2675,12 @@ async function main() {
       function applyCreaturePreset(name: string) {
         const p = CREATURE_PRESETS[name]
         if (!p) return
+        // Track the active creature so the per-frame slither hook knows
+        // whether to fire the full-body wave (snake) vs just the
+        // snake-neck head wiggle (dragon) vs nothing (humans, horse,
+        // bird, spider). Without this, my prior pass made dragon
+        // undulate its torso along with its serpentine head — wrong.
+        currentCreature = name
         // Loadout flags. headFlip180 reset first because most presets
         // don't specify it (default = false) and the per-key check below
         // only writes when the spec sets a boolean — switching spider →
@@ -3147,6 +3174,9 @@ async function main() {
         if (loadout.extraLimbs && composer) applyExtraLimbsCopy(frameIdx)
         if (loadout.wings && loadout.wingFlap && composer) applyWingFlap()
         if (loadout.snakeNeck && composer) applySnakeNeckWeave()
+        // Full-body slither: snake creature only. Dragon shares snakeNeck
+        // but its torso shouldn't undulate — only the head extension wiggles.
+        if (currentCreature === 'snake' && composer) applySnakeBodySlither()
         if (loadout.headFlip180 && composer) applyHeadFlip180()
       }
 
