@@ -1014,6 +1014,7 @@ async function main() {
           cape:        loadout.cape,
           tail:        loadout.tail,
           wings:       loadout.wings,
+          wingFlap:    loadout.wingFlap,
           quadrupedHind: loadout.quadrupedHind,
           extraLimbs:    loadout.extraLimbs,
           snakeNeck:     loadout.snakeNeck,
@@ -1102,6 +1103,7 @@ async function main() {
         if (typeof lo.cape === 'boolean')      loadout.cape = lo.cape
         if (typeof lo.tail === 'boolean')      loadout.tail = lo.tail
         if (typeof lo.wings === 'boolean')     loadout.wings = lo.wings
+        if (typeof lo.wingFlap === 'boolean')  loadout.wingFlap = lo.wingFlap
         if (typeof lo.quadrupedHind === 'boolean') loadout.quadrupedHind = lo.quadrupedHind
         if (typeof lo.extraLimbs === 'boolean')    loadout.extraLimbs = lo.extraLimbs
         if (typeof lo.snakeNeck === 'boolean')     loadout.snakeNeck = lo.snakeNeck
@@ -1228,6 +1230,55 @@ async function main() {
         srcUpIdx, srcLowIdx, dstUpIdx, dstLowIdx, dstTipIdx,
         lowOffY: -0.18, tipOffY: -0.16,
       })
+    }
+    // Snake-neck idle weave — perturb each chain bone's world X position
+    // with a sin wave + per-bone phase offset, producing a peristaltic
+    // wave along the snake body. Tip weaves more than root.
+    const SNAKE_WEAVE_BONES: { idx: number; t: number; phase: number }[] = []
+    {
+      const names = ['SnakeNeck0', 'SnakeNeck1', 'SnakeNeck2', 'SnakeNeck3', 'SnakeNeckHead']
+      for (let i = 0; i < names.length; i++) {
+        const idx = rig.findIndex((j) => j.name === names[i])
+        if (idx >= 0) SNAKE_WEAVE_BONES.push({ idx, t: i / (names.length - 1), phase: i * 0.6 })
+      }
+    }
+    const applySnakeNeckWeave = () => {
+      if (!composer || SNAKE_WEAVE_BONES.length === 0) return
+      const wm = composer.worldMatrices
+      // ~1.2Hz weave, ~5cm peak amplitude at the tip. Phase shift along
+      // chain creates a wave that travels from root to tip.
+      const baseT = elapsed * 2.0
+      for (const b of SNAKE_WEAVE_BONES) {
+        const offset = Math.sin(baseT + b.phase) * 0.05 * b.t
+        wm[b.idx * 16 + 12] += offset    // perturb world X (side-to-side)
+        device.queue.writeBuffer(vatHandle.buffer, b.idx * 64, wm.buffer, wm.byteOffset + b.idx * 16 * 4, 64)
+      }
+      invalidateRaymarchCache()
+    }
+
+    // Wing-flap bone indices — cached once. WingL1/L2/L3 + WingR1/R2/R3
+    // (skip the L0/R0 ROOT bones; root stays anchored to the shoulder
+    // bind-pose). The perturbation amplitude scales linearly with chain
+    // position, so the tip flaps farther than the mid bone.
+    const WING_FLAP_BONES: { idx: number; t: number }[] = []
+    for (const side of ['L', 'R'] as const) {
+      for (let i = 1; i <= 3; i++) {
+        const idx = rig.findIndex((j) => j.name === `Wing${side}${i}`)
+        if (idx >= 0) WING_FLAP_BONES.push({ idx, t: i / 3 })
+      }
+    }
+    const applyWingFlap = () => {
+      if (!composer || WING_FLAP_BONES.length === 0) return
+      const wm = composer.worldMatrices
+      // ~4Hz flap frequency, ~8cm tip amplitude. Perturbs world Y only —
+      // cheap chain bend without recomputing the whole rig. Cross-section
+      // frame stays correct since only col3 (translation) changes.
+      const flapPhase = Math.sin(elapsed * 4) * 0.08
+      for (const b of WING_FLAP_BONES) {
+        wm[b.idx * 16 + 13] += flapPhase * b.t
+        device.queue.writeBuffer(vatHandle.buffer, b.idx * 64, wm.buffer, wm.byteOffset + b.idx * 16 * 4, 64)
+      }
+      invalidateRaymarchCache()
     }
     const applyExtraLimbsCopy = () => {
       if (!composer) return
@@ -1625,6 +1676,7 @@ async function main() {
       cape: boolean
       tail: boolean
       wings: boolean
+      wingFlap: boolean   // sin-driven up/down flap on wing chain bones
       grenades: boolean
       // Per-bone scale override: zero out shin scaleY so the foot lands
       // where the knee was → quadruped silhouette using humanoid rig.
@@ -1658,6 +1710,7 @@ async function main() {
       cape: true,
       tail: false,
       wings: false,
+      wingFlap: true,    // default on so when wings turn on they animate
       grenades: true,
       quadrupedHind: false,
       extraLimbs: false,
@@ -1755,6 +1808,7 @@ async function main() {
         if (typeof data.cape === 'boolean')     loadout.cape = data.cape
         if (typeof data.tail === 'boolean')     loadout.tail = data.tail
         if (typeof data.wings === 'boolean')    loadout.wings = data.wings
+        if (typeof data.wingFlap === 'boolean') loadout.wingFlap = data.wingFlap
         if (typeof data.quadrupedHind === 'boolean') loadout.quadrupedHind = data.quadrupedHind
         if (typeof data.extraLimbs === 'boolean')    loadout.extraLimbs = data.extraLimbs
         if (typeof data.snakeNeck === 'boolean')     loadout.snakeNeck = data.snakeNeck
@@ -2700,6 +2754,8 @@ async function main() {
         // axis so the chain composes correctly. Result: 4 phantom legs
         // bend in sync with the human limbs.
         if (loadout.extraLimbs && composer) applyExtraLimbsCopy()
+        if (loadout.wings && loadout.wingFlap && composer) applyWingFlap()
+        if (loadout.snakeNeck && composer) applySnakeNeckWeave()
       }
 
       // Cape secondary motion — node particles drive cape bone positions
