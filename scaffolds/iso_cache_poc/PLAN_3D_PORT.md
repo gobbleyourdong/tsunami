@@ -227,7 +227,7 @@ all archetypes still render and destruction still works.
 **Commit subject:** `iso_cache_poc: 3D port phase 11 — iso camera tilt`
 
 ### Phase 12 — Documentation
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Update `iso_cache_poc/README.md` to explain the 3D
 port, link to PLAN_3D_PORT.md, and note that the previous TS+WebGPU
@@ -255,7 +255,9 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 | 9     | COMPLETE — volcano = stretched ellipsoid body + animated plume sphere; bakeMaxSteps=24 + loopFrames=2 to manage 120k px buf |
 | 10    | COMPLETE — terrain = slab heightfield via hillSurfaceMeters wrap; mPP=0.01, bakeMaxSteps=12; init ~3-4s, baked once |
 | 11    | COMPLETE — raymarchPixel accepts opts.elevation; ISO_ELEVATION=0.20 rad (~11.5°) global; per-archetype `bakeElevation` overrides |
-| 12    | PENDING |
+| 12    | COMPLETE — README.md reframed: object_buffer_cache.html canonical, raymarch3d/ aux reference; archetype table + perf notes |
+
+All 12 phases COMPLETE. Loop should stop firing. |
 
 When all phases reach COMPLETE or BLOCKED the loop should stop firing.
 
