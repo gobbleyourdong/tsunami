@@ -154,7 +154,7 @@ snaps every tick; destruction works.
 **Commit subject:** `iso_cache_poc: 3D port phase 6 — gear archetype is 3D`
 
 ### Phase 7 — Convert FAN to 3D
-**Status:** PENDING
+**Status:** COMPLETE
 
 **Deliverable:** Fan = cylinder hub + 4 boxes for blades, rotated 90°
 each. Like the gear it's `rotate` so it bakes once.
@@ -250,7 +250,7 @@ demo). Brief note on perf characteristics (per-archetype CPU bake cost).
 | 4     | COMPLETE — rock archetype uses sdfFn3d=smoothUnion(box, sphere) with mPP=0.01; smoke test confirms hits + normals |
 | 5     | COMPLETE — heart uses sdfFn3dFactory (per-tick rebuild) = 2 spheres + stretched ellipsoid; cone fallback noted |
 | 6     | COMPLETE — gear = disk + 12 teeth boxes + hub bump (union, not smoothUnion); ~22ms/1000 raymarches |
-| 7     | PENDING |
+| 7     | COMPLETE — fan = Z-axis hub cylinder + 4 box blades at 0/90/180/270°; smoke test 6/8 expected |
 | 8     | PENDING |
 | 9     | PENDING |
 | 10    | PENDING |

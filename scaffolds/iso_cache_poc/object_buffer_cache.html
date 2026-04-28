@@ -668,6 +668,28 @@
     }
     return Math.min(bladeD, r - 8);
   }
+
+  // ── 3D fan (Phase 7 of PLAN_3D_PORT.md) ──────────────────────
+  // Cylinder hub + 4 box blades at 90° intervals. Like the gear, the
+  // fan is rigid-body rotate (composite-time spin) so the bake runs
+  // once. Hub axis along Z (faces camera); blades extend radially.
+  const sdfFan3D = (() => {
+    const parts = [];
+    // Hub: cylinder along Z (after rotateX(π/2) the Y-up cylinder
+    // becomes Z-axis), small but slightly forward.
+    parts.push(R3.translate([0, 0, 0.02], R3.rotateX(Math.PI / 2, R3.cylinder(0.10, 0.10))));
+    // 4 blades at 0°, 90°, 180°, 270°
+    for (let i = 0; i < 4; i++) {
+      const ang = i * Math.PI / 2;
+      const cx = Math.cos(ang) * 0.20;
+      const cy = Math.sin(ang) * 0.20;
+      parts.push(R3.translate(
+        [cx, cy, 0],
+        R3.rotateZ(ang, R3.box([0.20, 0.04, 0.04])),
+      ));
+    }
+    return R3.union(...parts);
+  })();
   function sdfHeart(lx, ly, phase, damage) {
     const cx = 40, cy = 42;
     const pulse = 1 + 0.18 * Math.sin(phase);
@@ -773,12 +795,14 @@
   critter.indestructible = true;        // robot ignores world-space destruction
   objects.push(critter);
   objects.push(new GameObject({
-    id: 'fan', color: [180, 160, 100], sdfFn: sdfFan,
+    id: 'fan', color: [180, 160, 100],
+    sdfFn3d: sdfFan3D,                    // 3D path: hub + 4 blades
+    metersPerPixel: 0.009,                // 100×100 buf → 0.9m extent
     localW: 100, localH: 100, worldX: 950, worldY: 130,
     animFlag: 'rotate',
-    angularVelocity: Math.PI / 8,        // 22.5°/tick — continuous physics
+    angularVelocity: Math.PI / 8,
     quantizeRotation: true,
-    rotationStep: Math.PI / 4,            // displayed in 45° (8-direction) steps
+    rotationStep: Math.PI / 4,
     z: 2,
   }));
   // Bouncing balls — physics in real time, gravity-affected, bounce on hills.
