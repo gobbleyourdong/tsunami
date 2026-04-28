@@ -314,7 +314,10 @@ async function main() {
     const GROUP_PATTERNS: Record<string, RegExp> = {
       head: new RegExp(
         '^(' +
-          'Head|HeadTop_End|Neck|LeftEye|RightEye|LeftPupil|RightPupil|Mouth|Nose|' +
+          // Neck moved to torso so the head's 1.7× chibi blow-up doesn't
+          // also stretch the neck offset; otherwise the head floats far
+          // above a small chibi torso ("head/neck appears detached").
+          'Head|HeadTop_End|LeftEye|RightEye|LeftPupil|RightPupil|Mouth|Nose|' +
           // Head-anchored hair: bob ensemble + ponytail + side strands.
           // All three sit on the cranium and follow head rotation +
           // head-proportion scale.
@@ -325,7 +328,7 @@ async function main() {
       ),
       torso: new RegExp(
         '^(' +
-          'Spine|Spine1|Spine2|Hips|LeftShoulder|RightShoulder|' +
+          'Spine|Spine1|Spine2|Hips|Neck|LeftShoulder|RightShoulder|' +
           'Cape[0-9]+|Tail[0-9]+|Grenade[LR]|' +           // body extras parented to spine/hips
           'WP_(ChestPlate|BackPlate|Belt|Pauldron[LR])|' + // legacy knight torso/shoulder armor
           'WP_[A-Za-z]+_(ChestPlate|BackPlate|Belt|Pauldron[LR]|RobeChest|RobeSkirt|Sash[LR]|LoinFront|LoinBack)' +
@@ -536,22 +539,19 @@ async function main() {
         bust: 0.0, hips: 0.0,
       },
       chibi: {
-        // Target proportions per user spec: head ≈ 50% of total height,
-        // body width ≈ 60% of head width. Bind-pose head ≈ 0.25m tall
-        // and 0.18m wide, body Y ≈ 1.45m, shoulder full-width ≈ 0.40m.
-        // Solving:
-        //   0.25 × s_h = 0.5 × (0.25 × s_h + body_h)  → body_h = 0.25 × s_h
-        //   body_w = 0.6 × head_w  → 0.40 × s_torso_x = 0.6 × 0.18 × s_h
-        // Picking s_h = 1.7: head 0.425m. Body Y must total 0.425m,
-        // distributed across torso Y + legs Y + a bit of arms for
-        // silhouette balance. Torso 0.45 × 0.55m + legs 0.30 × 0.80m =
-        // 0.25 + 0.24 ≈ 0.49m — close enough; the head Y offset and
-        // hip-socket residuals trim to the 50/50 ratio. Body X: torso
-        // and limbs all 0.46× so shoulder width = 0.184m = 60% of head.
+        // Target proportions: head ≈ 50% of total height, torso wide
+        // enough to merge cleanly with the shoulders (no gap between
+        // torso ellipsoid and shoulder spheres), tiny legs.
+        // Iterated against user feedback "go smaller with the legs;
+        // torso doesn't fill to the shoulders, should be thicker and
+        // cover more". Torso X bumped 0.46 → 0.70 so the spine
+        // ellipsoid + scaled shoulder offsets stay within ~3cm of each
+        // other instead of leaving a 4cm air gap. Legs Y dropped 0.30
+        // → 0.20 for stubbier chibi proportions.
         head:  [1.70, 1.70, 1.70],
-        torso: [0.46, 0.45, 0.46],
-        arms:  [0.46, 0.45, 0.46],
-        legs:  [0.46, 0.30, 0.46],
+        torso: [0.70, 0.45, 0.65],
+        arms:  [0.55, 0.45, 0.55],
+        legs:  [0.55, 0.20, 0.55],
         bust: 0.0, hips: 0.0,
       },
     }
